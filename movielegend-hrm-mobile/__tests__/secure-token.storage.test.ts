@@ -6,14 +6,14 @@ describe('secure token storage', () => {
     await setAccessToken('access-token');
     await setRefreshToken('refresh-token');
 
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('movielegend.accessToken', 'access-token');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('movielegend.refreshToken', 'refresh-token');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('access_token', 'access-token');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('refresh_token', 'refresh-token');
   });
 
   it('clears both tokens', async () => {
     await clearTokens();
 
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('movielegend.accessToken');
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('movielegend.refreshToken');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('access_token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('refresh_token');
   });
 });

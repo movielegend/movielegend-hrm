@@ -54,7 +54,7 @@ export type AssetArea = 'employee' | 'leader' | 'warehouse' | 'admin';
 const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
 function assetBase(area: AssetArea): string {
-  return `/${area}/assets`;
+  return area === 'warehouse' ? '/warehouse-manager/assets' : `/${area}/assets`;
 }
 
 export function MyAssetsScreen() {

@@ -6,17 +6,31 @@ import { createHrmSocket } from '../api/socket';
 import { queryKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
+import {
+  invalidateForAssetAssigned,
+  invalidateForAssetReturnUpdated,
+  invalidateForIncidentUpdated,
+  invalidateForInventoryUpdated,
+  invalidateForIssueUpdated,
+  invalidateForStockUpdated,
+  type AssetSocketPayload,
+  type IncidentSocketPayload,
+  type MaterialIssueSocketPayload,
+  type WarehouseSocketPayload,
+} from '../features/warehouses/warehouse-events';
 
 interface SocketContextValue {
   isConnected: boolean;
+  joinWarehouseRoom: (warehouseId: string) => void;
 }
 
-const SocketContext = createContext<SocketContextValue>({ isConnected: false });
+const SocketContext = createContext<SocketContextValue>({ isConnected: false, joinWarehouseRoom: () => undefined });
 
 export function SocketProvider({ children }: PropsWithChildren) {
   const { isAuthenticated, user } = useAuth();
   const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
+  const joinedWarehouseIds = useRef<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -47,6 +61,12 @@ export function SocketProvider({ children }: PropsWithChildren) {
         void queryClient.invalidateQueries({ queryKey: ['cross-department-requests'] });
         if (payload.requestId) void queryClient.invalidateQueries({ queryKey: queryKeys.crossDepartmentRequest(payload.requestId) });
       });
+      socket.on('warehouse:stock-updated', (payload: WarehouseSocketPayload) => invalidateForStockUpdated(queryClient, payload));
+      socket.on('material:issue-updated', (payload: MaterialIssueSocketPayload) => invalidateForIssueUpdated(queryClient, payload));
+      socket.on('inventory:updated', (payload: WarehouseSocketPayload) => invalidateForInventoryUpdated(queryClient, payload));
+      socket.on('asset:assigned', (payload: AssetSocketPayload) => invalidateForAssetAssigned(queryClient, payload));
+      socket.on('asset:return-updated', (payload: AssetSocketPayload) => invalidateForAssetReturnUpdated(queryClient, payload));
+      socket.on('asset:incident-updated', (payload: IncidentSocketPayload) => invalidateForIncidentUpdated(queryClient, payload));
       socket.connect();
     }
 
@@ -57,6 +77,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket?.removeAllListeners();
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
+      joinedWarehouseIds.current.clear();
     };
   }, [isAuthenticated, queryClient, user]);
 
@@ -70,7 +91,17 @@ export function SocketProvider({ children }: PropsWithChildren) {
     return () => subscription.remove();
   }, [isAuthenticated, queryClient]);
 
-  const value = useMemo(() => ({ isConnected }), [isConnected]);
+  const value = useMemo(
+    () => ({
+      isConnected,
+      joinWarehouseRoom: (warehouseId: string) => {
+        if (!warehouseId || joinedWarehouseIds.current.has(warehouseId)) return;
+        joinedWarehouseIds.current.add(warehouseId);
+        socketRef.current?.emit('warehouse:join', { warehouseId });
+      },
+    }),
+    [isConnected],
+  );
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 

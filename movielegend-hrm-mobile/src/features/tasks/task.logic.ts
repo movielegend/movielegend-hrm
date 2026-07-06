@@ -77,9 +77,13 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const notification = target.notification;
   const taskId = notification.taskId ?? stringMeta(notification.metadata, 'taskId');
   const requestId = stringMeta(notification.metadata, 'requestId');
+  const assetId = stringMeta(notification.metadata, 'assetId');
+  const issueId = stringMeta(notification.metadata, 'issueId');
   const base = roleBase(user);
   if (notification.type.startsWith('TASK_') && taskId) return `${base}/tasks/${taskId}`;
   if (notification.type.startsWith('CROSS_DEPARTMENT_') && requestId) return `${base}/cross-department/${requestId}`;
+  if (notification.type.startsWith('ASSET_') && assetId) return `${base}/assets/${assetId}`;
+  if (notification.type.startsWith('MATERIAL_ISSUE_') && issueId) return `${base}/material-issues/${issueId}`;
   return null;
 }
 
@@ -88,8 +92,9 @@ function stringMeta(metadata: Record<string, unknown> | null | undefined, key: s
   return typeof value === 'string' ? value : null;
 }
 
-function roleBase(user: AuthUser | null): '/admin' | '/leader' | '/employee' {
-  if (user?.roles.includes('ADMIN') || user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT') || user?.roles.includes('WAREHOUSE_MANAGER')) return '/admin';
+function roleBase(user: AuthUser | null): '/admin' | '/leader' | '/employee' | '/warehouse-manager' {
+  if (user?.roles.includes('ADMIN') || user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT')) return '/admin';
+  if (user?.roles.includes('WAREHOUSE_MANAGER')) return '/warehouse-manager';
   if (user?.roles.includes('LEADER')) return '/leader';
   return '/employee';
 }

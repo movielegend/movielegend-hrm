@@ -1,0 +1,302 @@
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { CreateLeaveRequestDto, CreateLeaveTypeDto, CreateOvertimeRequestDto, LeaveRequestQueryDto, OvertimeRequestQueryDto, RejectRequestDto } from './dto/leave.dto';
+import { LeaveService } from './leave.service';
+export declare class LeaveController {
+    private readonly leaveService;
+    constructor(leaveService: LeaveService);
+    createLeaveType(dto: CreateLeaveTypeDto): import("@prisma/client").Prisma.Prisma__LeaveTypeClient<{
+        id: string;
+        code: string;
+        name: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        annualQuotaDays: import("@prisma/client/runtime/library").Decimal | null;
+        isPaid: boolean;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    findLeaveTypes(): import("@prisma/client").Prisma.PrismaPromise<{
+        id: string;
+        code: string;
+        name: string;
+        isActive: boolean;
+        annualQuotaDays: import("@prisma/client/runtime/library").Decimal | null;
+        isPaid: boolean;
+    }[]>;
+    createLeaveRequest(dto: CreateLeaveRequestDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
+        startDate: Date;
+        endDate: Date;
+        reason: string;
+        rejectionReason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        leaveTypeId: string;
+        totalDays: import("@prisma/client/runtime/library").Decimal;
+    }>;
+    findLeaveRequests(actor: AuthenticatedUser, query: LeaveRequestQueryDto): import("@prisma/client").Prisma.PrismaPromise<({
+        user: {
+            id: string;
+            email: string | null;
+            phone: string;
+            userCode: string;
+            profile: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                fullName: string;
+                dateOfBirth: Date | null;
+                gender: import("@prisma/client").$Enums.Gender | null;
+                idCardNumber: string;
+                idCardIssueDate: Date | null;
+                idCardIssuePlace: string | null;
+                permanentAddress: string | null;
+                temporaryAddress: string | null;
+                avatarUrl: string | null;
+                joinDate: Date | null;
+                officialDate: Date | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                emergencyContactName: string | null;
+                emergencyContactPhone: string | null;
+                positionId: string | null;
+                userId: string;
+            } | null;
+        };
+        leaveType: {
+            id: string;
+            code: string;
+            name: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            annualQuotaDays: import("@prisma/client/runtime/library").Decimal | null;
+            isPaid: boolean;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
+        startDate: Date;
+        endDate: Date;
+        reason: string;
+        rejectionReason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        leaveTypeId: string;
+        totalDays: import("@prisma/client/runtime/library").Decimal;
+    })[]>;
+    approveLeave(id: string, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
+        startDate: Date;
+        endDate: Date;
+        reason: string;
+        rejectionReason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        leaveTypeId: string;
+        totalDays: import("@prisma/client/runtime/library").Decimal;
+    }>;
+    rejectLeave(id: string, dto: RejectRequestDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        status: import("@prisma/client").$Enums.LeaveRequestStatus;
+        startDate: Date;
+        endDate: Date;
+        reason: string;
+        rejectionReason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        leaveTypeId: string;
+        totalDays: import("@prisma/client/runtime/library").Decimal;
+    }>;
+    createOvertime(dto: CreateOvertimeRequestDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        workDate: Date;
+        status: import("@prisma/client").$Enums.OvertimeRequestStatus;
+        reason: string;
+        rejectionReason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        startAt: Date;
+        endAt: Date;
+    }>;
+    approveOvertime(id: string, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        workDate: Date;
+        status: import("@prisma/client").$Enums.OvertimeRequestStatus;
+        reason: string;
+        rejectionReason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        startAt: Date;
+        endAt: Date;
+    }>;
+    myOvertime(actor: AuthenticatedUser, query: OvertimeRequestQueryDto): Promise<{
+        items: ({
+            user: {
+                id: string;
+                email: string | null;
+                phone: string;
+                userCode: string;
+                profile: {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    fullName: string;
+                    dateOfBirth: Date | null;
+                    gender: import("@prisma/client").$Enums.Gender | null;
+                    idCardNumber: string;
+                    idCardIssueDate: Date | null;
+                    idCardIssuePlace: string | null;
+                    permanentAddress: string | null;
+                    temporaryAddress: string | null;
+                    avatarUrl: string | null;
+                    joinDate: Date | null;
+                    officialDate: Date | null;
+                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                    emergencyContactName: string | null;
+                    emergencyContactPhone: string | null;
+                    positionId: string | null;
+                    userId: string;
+                } | null;
+            };
+            department: {
+                id: string;
+                code: string;
+                name: string;
+                description: string | null;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                companyId: string;
+                branchId: string | null;
+                parentId: string | null;
+                leaderUserId: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: string;
+            userId: string;
+            workDate: Date;
+            status: import("@prisma/client").$Enums.OvertimeRequestStatus;
+            reason: string;
+            rejectionReason: string | null;
+            decidedByUserId: string | null;
+            decidedAt: Date | null;
+            startAt: Date;
+            endAt: Date;
+        })[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+    }>;
+    pendingOvertime(actor: AuthenticatedUser, query: OvertimeRequestQueryDto): Promise<{
+        items: ({
+            user: {
+                id: string;
+                email: string | null;
+                phone: string;
+                userCode: string;
+                profile: {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    fullName: string;
+                    dateOfBirth: Date | null;
+                    gender: import("@prisma/client").$Enums.Gender | null;
+                    idCardNumber: string;
+                    idCardIssueDate: Date | null;
+                    idCardIssuePlace: string | null;
+                    permanentAddress: string | null;
+                    temporaryAddress: string | null;
+                    avatarUrl: string | null;
+                    joinDate: Date | null;
+                    officialDate: Date | null;
+                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                    emergencyContactName: string | null;
+                    emergencyContactPhone: string | null;
+                    positionId: string | null;
+                    userId: string;
+                } | null;
+            };
+            department: {
+                id: string;
+                code: string;
+                name: string;
+                description: string | null;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                companyId: string;
+                branchId: string | null;
+                parentId: string | null;
+                leaderUserId: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: string;
+            userId: string;
+            workDate: Date;
+            status: import("@prisma/client").$Enums.OvertimeRequestStatus;
+            reason: string;
+            rejectionReason: string | null;
+            decidedByUserId: string | null;
+            decidedAt: Date | null;
+            startAt: Date;
+            endAt: Date;
+        })[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+    }>;
+    rejectOvertime(id: string, dto: RejectRequestDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        workDate: Date;
+        status: import("@prisma/client").$Enums.OvertimeRequestStatus;
+        reason: string;
+        rejectionReason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        startAt: Date;
+        endAt: Date;
+    }>;
+}

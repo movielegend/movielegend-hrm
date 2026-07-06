@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
-const ACCESS_TOKEN_KEY = 'movielegend.accessToken';
-const REFRESH_TOKEN_KEY = 'movielegend.refreshToken';
+const ACCESS_TOKEN_KEY = 'access_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
 
 export async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);

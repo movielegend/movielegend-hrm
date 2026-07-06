@@ -1,12 +1,12 @@
 import type { AuthUser, UserRole } from '../types/user.types';
 
-export type AppRoute = '/admin' | '/leader' | '/employee' | '/login';
+export type AppRoute = '/admin' | '/leader' | '/employee' | '/warehouse-manager' | '/login';
 
 export const roleRoutePriority: Array<{ role: UserRole; route: AppRoute }> = [
   { role: 'ADMIN', route: '/admin' },
   { role: 'HR', route: '/admin' },
   { role: 'ACCOUNTANT', route: '/admin' },
-  { role: 'WAREHOUSE_MANAGER', route: '/admin' },
+  { role: 'WAREHOUSE_MANAGER', route: '/warehouse-manager' },
   { role: 'LEADER', route: '/leader' },
   { role: 'EMPLOYEE', route: '/employee' },
 ];

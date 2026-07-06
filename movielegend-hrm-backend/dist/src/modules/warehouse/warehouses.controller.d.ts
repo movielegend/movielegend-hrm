@@ -1,0 +1,117 @@
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { CreateWarehouseDto, UpdateWarehouseDto } from './dto/warehouse.dto';
+import { WarehousesService } from './warehouses.service';
+export declare class WarehousesController {
+    private readonly warehouses;
+    constructor(warehouses: WarehousesService);
+    create(dto: CreateWarehouseDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        companyId: string;
+        branchId: string | null;
+        departmentId: string | null;
+        address: string | null;
+        managerUserId: string | null;
+    }>;
+    findAll(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<{
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        companyId: string;
+        branchId: string | null;
+        departmentId: string | null;
+        address: string | null;
+        managerUserId: string | null;
+    }[]>;
+    findOne(id: string, actor: AuthenticatedUser): Promise<{
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        companyId: string;
+        branchId: string | null;
+        departmentId: string | null;
+        address: string | null;
+        managerUserId: string | null;
+    }>;
+    update(id: string, dto: UpdateWarehouseDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        companyId: string;
+        branchId: string | null;
+        departmentId: string | null;
+        address: string | null;
+        managerUserId: string | null;
+    }>;
+    close(id: string, actor: AuthenticatedUser): Promise<{
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        companyId: string;
+        branchId: string | null;
+        departmentId: string | null;
+        address: string | null;
+        managerUserId: string | null;
+    }>;
+    stocks(id: string, actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
+        material: {
+            category: {
+                id: string;
+                code: string;
+                name: string;
+                description: string | null;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+            };
+        } & {
+            id: string;
+            name: string;
+            description: string | null;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            categoryId: string;
+            unit: string;
+            materialCode: string;
+            minimumStock: import("@prisma/client/runtime/library").Decimal;
+            maximumStock: import("@prisma/client/runtime/library").Decimal | null;
+        };
+    } & {
+        id: string;
+        updatedAt: Date;
+        warehouseId: string;
+        version: number;
+        materialId: string;
+        quantityOnHand: import("@prisma/client/runtime/library").Decimal;
+        quantityReserved: import("@prisma/client/runtime/library").Decimal;
+    })[]>;
+}

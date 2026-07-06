@@ -1,0 +1,5 @@
+import { AssetListScreen } from '../../../src/features/assets/AssetScreens';
+
+export default function LeaderAssetsRoute() {
+  return <AssetListScreen area="leader" />;
+}

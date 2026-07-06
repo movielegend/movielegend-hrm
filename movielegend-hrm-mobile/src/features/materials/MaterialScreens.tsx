@@ -48,7 +48,7 @@ export function MaterialListScreen({ area }: { area: 'warehouse' | 'admin' }) {
     });
   }, [materials.data, search, categoryFilter, activeFilter]);
 
-  const base = area === 'admin' ? '/admin/materials' : '/warehouse/materials';
+  const base = area === 'admin' ? '/admin/materials' : '/warehouse-manager/materials';
 
   return (
     <Screen>

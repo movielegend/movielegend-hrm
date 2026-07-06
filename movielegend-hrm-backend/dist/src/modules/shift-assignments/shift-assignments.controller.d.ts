@@ -1,0 +1,150 @@
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { AssignShiftDto } from './dto/shift-assignment.dto';
+import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
+import { ShiftAssignmentsService } from './shift-assignments.service';
+export declare class ShiftAssignmentsController {
+    private readonly shiftAssignmentsService;
+    constructor(shiftAssignmentsService: ShiftAssignmentsService);
+    assign(dto: AssignShiftDto, actor: AuthenticatedUser): Promise<{
+        user: {
+            id: string;
+            email: string | null;
+            phone: string;
+            userCode: string;
+            profile: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                fullName: string;
+                dateOfBirth: Date | null;
+                gender: import("@prisma/client").$Enums.Gender | null;
+                idCardNumber: string;
+                idCardIssueDate: Date | null;
+                idCardIssuePlace: string | null;
+                permanentAddress: string | null;
+                temporaryAddress: string | null;
+                avatarUrl: string | null;
+                joinDate: Date | null;
+                officialDate: Date | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                emergencyContactName: string | null;
+                emergencyContactPhone: string | null;
+                positionId: string | null;
+                userId: string;
+            } | null;
+        };
+        department: {
+            id: string;
+            code: string;
+            name: string;
+            description: string | null;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            companyId: string;
+            branchId: string | null;
+            parentId: string | null;
+            leaderUserId: string | null;
+        };
+        shift: {
+            id: string;
+            code: string;
+            name: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            startTime: string;
+            endTime: string;
+            breakMinutes: number;
+            checkInEarlyMinutes: number;
+            checkInLateMinutes: number;
+            checkOutEarlyMinutes: number;
+            checkOutLateMinutes: number;
+            isNightShift: boolean;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        shiftId: string;
+        workDate: Date;
+        status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+        assignedByUserId: string | null;
+    }>;
+    mySchedule(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
+        department: {
+            id: string;
+            code: string;
+            name: string;
+            description: string | null;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            companyId: string;
+            branchId: string | null;
+            parentId: string | null;
+            leaderUserId: string | null;
+        };
+        shift: {
+            id: string;
+            code: string;
+            name: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            startTime: string;
+            endTime: string;
+            breakMinutes: number;
+            checkInEarlyMinutes: number;
+            checkInLateMinutes: number;
+            checkOutEarlyMinutes: number;
+            checkOutLateMinutes: number;
+            isNightShift: boolean;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        shiftId: string;
+        workDate: Date;
+        status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+        assignedByUserId: string | null;
+    })[]>;
+    register(dto: ShiftRegistrationDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        userId: string;
+        shiftId: string;
+        workDate: Date;
+        status: import("@prisma/client").$Enums.ShiftRegistrationStatus;
+        reason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+    }>;
+    swap(dto: ShiftSwapDto, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        departmentId: string;
+        status: import("@prisma/client").$Enums.ShiftSwapStatus;
+        fromDate: Date;
+        toDate: Date;
+        reason: string | null;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        targetUserId: string;
+        fromShiftId: string;
+        toShiftId: string;
+        requesterUserId: string;
+    }>;
+}

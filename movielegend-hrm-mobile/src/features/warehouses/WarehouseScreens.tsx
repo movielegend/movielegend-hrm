@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -16,6 +16,7 @@ import { useCreateWarehouse, useUpdateWarehouse, useWarehouse, useWarehouses, us
 import { useMaterialIssues, useStockTransfers } from '../../hooks/useStockOperations';
 import { useInventoryChecks } from '../../hooks/useInventoryChecks';
 import { useAuth } from '../../providers/AuthProvider';
+import { useSocketStatus } from '../../providers/SocketProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { hasPermission } from '../../utils/permissions';
@@ -28,8 +29,13 @@ export type WarehouseArea = 'warehouse' | 'admin';
 export function WarehouseListScreen({ area }: { area: WarehouseArea }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { joinWarehouseRoom } = useSocketStatus();
   const warehouses = useWarehouses();
-  const base = area === 'admin' ? '/admin/warehouses' : '/warehouse/stocks';
+  const base = area === 'admin' ? '/admin/warehouses' : '/warehouse-manager/warehouses';
+
+  useEffect(() => {
+    warehouses.data?.items.forEach((warehouse) => joinWarehouseRoom(warehouse.id));
+  }, [joinWarehouseRoom, warehouses.data]);
 
   return (
     <Screen>
@@ -58,11 +64,16 @@ export function WarehouseDetailScreen({ area }: { area: WarehouseArea }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { joinWarehouseRoom } = useSocketStatus();
   const warehouse = useWarehouse(id);
   const stocks = useWarehouseStocks(hasPermission(user, 'stock.read') ? id : undefined);
   const issues = useMaterialIssues(hasPermission(user, 'material_issue.read'));
   const transfers = useStockTransfers(hasPermission(user, 'stock.read'));
   const checks = useInventoryChecks(hasPermission(user, 'inventory_check.read'));
+
+  useEffect(() => {
+    if (warehouse.data?.id) joinWarehouseRoom(warehouse.data.id);
+  }, [joinWarehouseRoom, warehouse.data?.id]);
 
   if (warehouse.isLoading) return <LoadingState />;
   if (warehouse.isError) return <ErrorState error={warehouse.error} onRetry={() => void warehouse.refetch()} />;
@@ -77,7 +88,7 @@ export function WarehouseDetailScreen({ area }: { area: WarehouseArea }) {
   const inTransit = relatedTransfers.filter((transfer) => transfer.status === 'IN_TRANSIT');
   const pendingChecks = (checks.data?.items ?? []).filter((check) => check.warehouseId === id && check.status !== 'APPROVED' && check.status !== 'CANCELLED');
 
-  const stocksBase = area === 'admin' ? `/admin/warehouses/${id}/stocks` : `/warehouse/stocks/${id}`;
+  const stocksBase = area === 'admin' ? `/admin/warehouses/${id}/stocks` : `/warehouse-manager/warehouses/${id}/stocks`;
 
   return (
     <Screen>

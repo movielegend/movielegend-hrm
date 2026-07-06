@@ -204,6 +204,70 @@ export function DashboardShell({
                   </SecondaryButton>
                 ) : null}
 
+                {hasAnyWarehousePermission(user) ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/warehouses')}
+                  >
+                    Warehouse
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'material.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/materials')}
+                  >
+                    Materials
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'asset.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/assets')}
+                  >
+                    Assets
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'stock.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/stock-receipts')}
+                  >
+                    Stock receipts
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'material_issue.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/material-issues')}
+                  >
+                    Material issues
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'stock.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/stock-transfers')}
+                  >
+                    Stock transfers
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'inventory_check.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/inventory-checks')}
+                  >
+                    Inventory checks
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'asset.incident.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/admin/asset-incidents')}
+                  >
+                    Asset incidents
+                  </SecondaryButton>
+                ) : null}
+
                 {hasPermission(user, 'notification.read') ? (
                   <SecondaryButton
                     onPress={() => router.push('/admin/notifications')}
@@ -306,6 +370,30 @@ export function DashboardShell({
                   </SecondaryButton>
                 ) : null}
 
+                {hasPermission(user, 'asset.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/leader/assets')}
+                  >
+                    Department assets
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'material_issue.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/leader/material-issues')}
+                  >
+                    Material issues
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'asset.incident.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/leader/asset-incidents')}
+                  >
+                    Asset incidents
+                  </SecondaryButton>
+                ) : null}
+
                 {hasPermission(user, 'notification.read') ? (
                   <SecondaryButton
                     onPress={() =>
@@ -390,6 +478,14 @@ export function DashboardShell({
                     }
                   >
                     Liên phòng ban
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'asset.read') ? (
+                  <SecondaryButton
+                    onPress={() => router.push('/employee/assets')}
+                  >
+                    My assets
                   </SecondaryButton>
                 ) : null}
 
@@ -622,6 +718,14 @@ function formatUnknownLabel(
   return (
     label.charAt(0).toUpperCase() +
     label.slice(1)
+  );
+}
+
+function hasAnyWarehousePermission(user: ReturnType<typeof useAuth>['user']): boolean {
+  return (
+    hasPermission(user, 'warehouse.read') ||
+    hasPermission(user, 'warehouse.manage') ||
+    hasPermission(user, 'stock.read')
   );
 }
 

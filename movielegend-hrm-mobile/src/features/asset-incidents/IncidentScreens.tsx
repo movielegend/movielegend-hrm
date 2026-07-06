@@ -35,7 +35,7 @@ const resolveAssetStatuses: AssetStatus[] = ['IN_STOCK', 'MAINTENANCE', 'LOST', 
 function incidentDetailRoute(area: IncidentArea, id: string): string {
   if (area === 'employee') return `/employee/assets/incidents/${id}`;
   if (area === 'leader') return `/leader/incidents/${id}`;
-  if (area === 'warehouse') return `/warehouse/incidents/${id}`;
+  if (area === 'warehouse') return `/warehouse-manager/asset-incidents/${id}`;
   return `/admin/asset-incidents/${id}`;
 }
 
