@@ -1,0 +1,20 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "types": [
+      "jest",
+      "react"
+    ]
+  },
+  "include": [
+    "app",
+    "src",
+    "__tests__",
+    "test",
+    "*.ts",
+    "*.tsx"
+  ]
+}

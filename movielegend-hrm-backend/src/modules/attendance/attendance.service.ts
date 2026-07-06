@@ -1,0 +1,587 @@
+import { Injectable } from '@nestjs/common';
+import {
+  AttendanceAdjustmentStatus,
+  AttendanceStatus,
+  AttendanceVerificationType,
+  Prisma,
+  UploadedFileStatus,
+  UploadPurpose,
+} from '@prisma/client';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
+import { PrismaService } from '../../database/prisma.service';
+import { FaceVerificationService } from '../face/services/face-verification.service';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { BusinessTimeService } from '../time/business-time.service';
+import {
+  AttendanceQueryDto,
+  CheckInDto,
+  CheckOutDto,
+  CreateAttendanceAdjustmentDto,
+  CreateAttendanceLocationDto,
+  CreateWifiConfigDto,
+  TrackLocationDto,
+} from './dto/attendance.dto';
+
+@Injectable()
+export class AttendanceService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: DepartmentScopeService,
+    private readonly faceVerification: FaceVerificationService,
+    private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
+  ) {}
+
+  async checkIn(dto: CheckInDto, actor: AuthenticatedUser) {
+    const workDate = this.businessTime.startOfBusinessDate(dto.workDate);
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { userId_workDate: { userId: actor.userId, workDate } },
+      include: { shift: true },
+    });
+    if (!assignment) throw notFound('SHIFT_ASSIGNMENT_NOT_FOUND', 'Khong tim thay ca lam trong ngay');
+    if (!assignment.shift.isActive || assignment.shift.deletedAt) {
+      throw badRequest('SHIFT_INACTIVE', 'Ca lam da bi vo hieu hoa');
+    }
+
+    const existing = await this.prisma.attendanceRecord.findUnique({
+      where: { userId_workDate: { userId: actor.userId, workDate } },
+    });
+    if (existing) throw conflict('ALREADY_CHECKED_IN', 'Bang cong da co check-in cho ngay nay');
+
+    const photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
+    const faceImage = photo?.fileUrl ?? dto.faceImage;
+    if (!faceImage) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong');
+
+    const location = await this.findAllowedLocation(assignment.departmentId, dto.latitude, dto.longitude);
+    if (!location) throw badRequest('OUTSIDE_ATTENDANCE_RADIUS', 'Check-in ngoai pham vi GPS cho phep');
+    await this.assertWifiAllowed(assignment.departmentId, dto.wifiSsid, dto.wifiBssid);
+
+    const now = new Date();
+    const windowOk = this.isWithinCheckInWindow(workDate, assignment.shift.startTime, assignment.shift.checkInEarlyMinutes, assignment.shift.checkInLateMinutes);
+    if (!windowOk) throw badRequest('TOO_EARLY_TO_CHECK_IN', 'Check-in ngoai khung gio cho phep cua ca');
+    const face = await this.faceVerification.verifyAttendanceFace({
+      userId: actor.userId,
+      image: faceImage,
+    });
+    if (!face.matched) {
+      throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xac minh khuon mat khong thanh cong');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (photo) {
+        const attached = await tx.uploadedFile.updateMany({
+          where: {
+            id: photo.id,
+            status: UploadedFileStatus.TEMPORARY,
+            uploadedById: actor.userId,
+            deletedAt: null,
+          },
+          data: { status: UploadedFileStatus.ATTACHED },
+        });
+        if (attached.count !== 1) {
+          throw badRequest('ATTENDANCE_PHOTO_INVALID', 'Anh cham cong khong con kha dung');
+        }
+      }
+
+      const record = await tx.attendanceRecord.create({
+        data: {
+          userId: actor.userId,
+          departmentId: assignment.departmentId,
+          shiftAssignmentId: assignment.id,
+          photoFileId: photo?.id,
+          workDate,
+          checkInAt: now,
+          checkInLatitude: dto.latitude,
+          checkInLongitude: dto.longitude,
+          verifications: {
+            create: [
+              {
+                type: AttendanceVerificationType.GPS,
+                success: true,
+                metadata: {
+                  attendanceLocationId: location.id,
+                  accuracy: dto.accuracy,
+                },
+              },
+              {
+                type: AttendanceVerificationType.FACE,
+                success: face.matched,
+                score: face.confidence,
+                provider: face.provider,
+                metadata: {
+                  reason: face.reason,
+                  photoFileId: photo?.id,
+                  legacyFaceImage: photo ? undefined : Boolean(dto.faceImage),
+                },
+              },
+            ],
+          },
+        },
+        include: this.attendanceInclude(),
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'attendance.checkin',
+          entityType: 'AttendanceRecord',
+          entityId: record.id,
+          metadata: { workDate: dto.workDate, departmentId: assignment.departmentId, photoFileId: photo?.id },
+        },
+      });
+      return record;
+    });
+  }
+
+  async checkOut(dto: CheckOutDto, actor: AuthenticatedUser) {
+    const record = await this.prisma.attendanceRecord.findFirst({
+      where: { userId: actor.userId },
+      include: { shiftAssignment: { include: { shift: true } } },
+      orderBy: { checkInAt: 'desc' },
+    });
+    if (!record) throw badRequest('NOT_CHECKED_IN', 'Chua co ban ghi check-in dang mo');
+    if (record.checkOutAt) throw conflict('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
+
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.attendanceRecord.updateMany({
+        where: { id: record.id, checkOutAt: null },
+        data: {
+          checkOutAt: now,
+          checkOutLatitude: dto.latitude,
+          checkOutLongitude: dto.longitude,
+          status: AttendanceStatus.CHECKED_OUT,
+        },
+      });
+      if (updated.count === 0) throw conflict('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'attendance.checkout',
+          entityType: 'AttendanceRecord',
+          entityId: record.id,
+          metadata: {
+            checkInAt: record.checkInAt,
+            checkOutAt: now,
+            workedMinutes: this.minutesBetween(record.checkInAt, now),
+          },
+        },
+      });
+      return tx.attendanceRecord.findUnique({
+        where: { id: record.id },
+        include: this.attendanceInclude(),
+      });
+    });
+  }
+
+  async current(actor: AuthenticatedUser) {
+    const today = this.businessTime.startOfBusinessDate(this.businessTime.businessDateString());
+    const yesterday = this.businessTime.addDays(today, -1);
+    const record = await this.prisma.attendanceRecord.findFirst({
+      where: {
+        userId: actor.userId,
+        workDate: { gte: yesterday, lte: today },
+      },
+      include: this.attendanceInclude(),
+      orderBy: [{ workDate: 'desc' }, { checkInAt: 'desc' }],
+    });
+    if (!record) return { state: 'NONE', attendance: null };
+    return {
+      state: this.stateFor(record),
+      attendance: this.toAttendanceSummary(record),
+    };
+  }
+
+  async myHistory(actor: AuthenticatedUser, query: AttendanceQueryDto) {
+    const where: Prisma.AttendanceRecordWhereInput = {
+      userId: actor.userId,
+      ...(query.status ? { status: query.status } : {}),
+      ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
+        ? { workDate: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where,
+        include: this.attendanceInclude(),
+        orderBy: [{ workDate: 'desc' }, { checkInAt: 'desc' }],
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+      this.prisma.attendanceRecord.count({ where }),
+    ]);
+    return this.paginate(items.map((item) => this.toAttendanceSummary(item)), total, query.page, query.limit);
+  }
+
+  async detail(id: string, actor: AuthenticatedUser) {
+    const record = await this.prisma.attendanceRecord.findUnique({
+      where: { id },
+      include: this.attendanceInclude(),
+    });
+    if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Khong tim thay bang cong');
+    this.assertAttendanceAccess(actor, record.userId, record.departmentId);
+    const location = await this.locationFromRecord(record);
+    return this.toAttendanceDetail(record, location);
+  }
+
+  async activeLocations(actor: AuthenticatedUser) {
+    const visibleDepartmentIds = await this.relevantDepartmentIds(actor);
+    const locations = await this.prisma.attendanceLocation.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        ...(visibleDepartmentIds === null
+          ? {}
+          : { OR: [{ departmentId: null }, { departmentId: { in: visibleDepartmentIds } }] }),
+      },
+      select: {
+        id: true,
+        name: true,
+        latitude: true,
+        longitude: true,
+        radiusMeters: true,
+        departmentId: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+    return locations.map((location) => ({
+      ...location,
+      latitude: Number(location.latitude),
+      longitude: Number(location.longitude),
+    }));
+  }
+
+  async createAdjustment(dto: CreateAttendanceAdjustmentDto, actor: AuthenticatedUser) {
+    const departmentId = await this.scope.getPrimaryDepartmentId(actor.userId);
+    if (dto.attendanceRecordId) {
+      const record = await this.prisma.attendanceRecord.findUnique({
+        where: { id: dto.attendanceRecordId },
+      });
+      if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Khong tim thay bang cong');
+      if (record.userId !== actor.userId) {
+        throw badRequest('ATTENDANCE_ADJUSTMENT_OWNER_ONLY', 'Chi duoc tao yeu cau sua cong cua chinh minh');
+      }
+    }
+    return this.prisma.attendanceAdjustment.create({
+      data: {
+        userId: actor.userId,
+        departmentId,
+        attendanceRecordId: dto.attendanceRecordId,
+        requestedCheckInAt: dto.requestedCheckInAt ? new Date(dto.requestedCheckInAt) : undefined,
+        requestedCheckOutAt: dto.requestedCheckOutAt ? new Date(dto.requestedCheckOutAt) : undefined,
+        reason: dto.reason,
+      },
+    });
+  }
+
+  approveAdjustment(id: string, actor: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const adjustment = await tx.attendanceAdjustment.findUnique({
+        where: { id },
+        include: { attendanceRecord: true },
+      });
+      if (!adjustment) throw notFound('ATTENDANCE_ADJUSTMENT_NOT_FOUND', 'Khong tim thay yeu cau sua cong');
+      this.scope.assertDepartmentAccess(actor, adjustment.departmentId);
+      if (adjustment.status !== AttendanceAdjustmentStatus.PENDING) {
+        throw badRequest('ATTENDANCE_ADJUSTMENT_ALREADY_PROCESSED', 'Yeu cau sua cong da duoc xu ly');
+      }
+      const oldValue = adjustment.attendanceRecord
+        ? {
+            checkInAt: adjustment.attendanceRecord.checkInAt,
+            checkOutAt: adjustment.attendanceRecord.checkOutAt,
+          }
+        : null;
+      if (adjustment.attendanceRecordId) {
+        await tx.attendanceRecord.update({
+          where: { id: adjustment.attendanceRecordId },
+          data: {
+            checkInAt: adjustment.requestedCheckInAt ?? undefined,
+            checkOutAt: adjustment.requestedCheckOutAt ?? undefined,
+            status: AttendanceStatus.ADJUSTED,
+          },
+        });
+      }
+      const approved = await tx.attendanceAdjustment.update({
+        where: { id },
+        data: {
+          status: AttendanceAdjustmentStatus.APPROVED,
+          decidedByUserId: actor.userId,
+          decidedAt: new Date(),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'attendance.adjustment.approve',
+          entityType: 'AttendanceAdjustment',
+          entityId: id,
+          metadata: {
+            oldValue,
+            newValue: {
+              checkInAt: adjustment.requestedCheckInAt,
+              checkOutAt: adjustment.requestedCheckOutAt,
+            },
+          },
+        },
+      });
+      return approved;
+    });
+  }
+
+  async findAll(actor: AuthenticatedUser, departmentId?: string) {
+    const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
+    const departmentFilter = this.departmentFilter(departmentId, visibleDepartmentIds);
+    return this.prisma.attendanceRecord.findMany({
+      where: departmentFilter ? { departmentId: departmentFilter } : {},
+      include: {
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            phone: true,
+            email: true,
+            profile: true,
+          },
+        },
+        shiftAssignment: { include: { shift: true } },
+      },
+      orderBy: { checkInAt: 'desc' },
+    });
+  }
+
+  createLocation(dto: CreateAttendanceLocationDto) {
+    return this.prisma.attendanceLocation.create({ data: dto });
+  }
+
+  createWifi(dto: CreateWifiConfigDto) {
+    return this.prisma.wifiConfig.create({ data: dto });
+  }
+
+  trackLocation(dto: TrackLocationDto, userId: string) {
+    return this.prisma.locationTracking.create({
+      data: {
+        userId,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        accuracyMeters: dto.accuracyMeters,
+      },
+    });
+  }
+
+  private attendanceInclude() {
+    return {
+      verifications: true,
+      photoFile: {
+        select: { id: true, fileUrl: true, mimeType: true, size: true },
+      },
+      adjustments: {
+        select: {
+          id: true,
+          status: true,
+          requestedCheckInAt: true,
+          requestedCheckOutAt: true,
+          reason: true,
+          decidedAt: true,
+        },
+        orderBy: { createdAt: 'desc' as const },
+      },
+      shiftAssignment: { include: { shift: true, department: true } },
+    };
+  }
+
+  private async validateAttendancePhoto(photoFileId: string, userId: string) {
+    const file = await this.prisma.uploadedFile.findUnique({ where: { id: photoFileId } });
+    if (!file || file.deletedAt) throw notFound('ATTENDANCE_PHOTO_INVALID', 'Anh cham cong khong hop le');
+    if (file.uploadedById !== userId) {
+      throw forbidden('ATTENDANCE_PHOTO_FORBIDDEN', 'Khong duoc dung file cua user khac');
+    }
+    if (file.purpose !== UploadPurpose.ATTENDANCE) {
+      throw badRequest('ATTENDANCE_PHOTO_INVALID', 'File khong dung muc dich ATTENDANCE');
+    }
+    if (file.status !== UploadedFileStatus.TEMPORARY) {
+      throw badRequest('ATTENDANCE_PHOTO_INVALID', 'File cham cong khong con o trang thai tam');
+    }
+    return file;
+  }
+
+  private async findAllowedLocation(departmentId: string, latitude: number, longitude: number) {
+    const locations = await this.prisma.attendanceLocation.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        OR: [{ departmentId }, { departmentId: null }],
+      },
+    });
+    return locations.find((location) => {
+      const distance = this.distanceMeters(
+        latitude,
+        longitude,
+        Number(location.latitude),
+        Number(location.longitude),
+      );
+      return distance <= location.radiusMeters;
+    });
+  }
+
+  private async assertWifiAllowed(departmentId: string, ssid?: string, bssid?: string): Promise<void> {
+    const configs = await this.prisma.wifiConfig.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        OR: [{ departmentId }, { departmentId: null }],
+      },
+    });
+    if (!configs.length) return;
+    if (!ssid) throw badRequest('INVALID_WIFI', 'Thieu thong tin WiFi');
+    const matched = configs.some((config) => {
+      if (config.ssid !== ssid) return false;
+      return config.bssid ? config.bssid === bssid : true;
+    });
+    if (!matched) throw badRequest('INVALID_WIFI', 'WiFi khong hop le');
+  }
+
+  private isWithinCheckInWindow(workDate: Date, startTime: string, earlyMinutes: number, lateMinutes: number): boolean {
+    const shiftStart = this.shiftDateTime(workDate, startTime);
+    const now = new Date();
+    return now >= new Date(shiftStart.getTime() - earlyMinutes * 60_000) &&
+      now <= new Date(shiftStart.getTime() + lateMinutes * 60_000);
+  }
+
+  private shiftDateTime(workDate: Date, time: string): Date {
+    const [hour = 0, minute = 0] = time.split(':').map(Number);
+    const date = new Date(workDate);
+    date.setUTCHours(hour, minute, 0, 0);
+    return date;
+  }
+
+  private shiftEndDateTime(workDate: Date, startTime: string, endTime: string): Date {
+    const start = this.shiftDateTime(workDate, startTime);
+    const end = this.shiftDateTime(workDate, endTime);
+    return end <= start ? this.businessTime.addDays(end, 1) : end;
+  }
+
+  private distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const earthRadius = 6_371_000;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private departmentFilter(
+    requestedDepartmentId: string | undefined,
+    visibleDepartmentIds: string[] | null,
+  ): string | Prisma.StringFilter<'AttendanceRecord'> | undefined {
+    if (visibleDepartmentIds === null) return requestedDepartmentId;
+    if (requestedDepartmentId) {
+      return visibleDepartmentIds.includes(requestedDepartmentId)
+        ? requestedDepartmentId
+        : { in: ['00000000-0000-0000-0000-000000000000'] };
+    }
+    return { in: visibleDepartmentIds.length ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'] };
+  }
+
+  private async relevantDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
+    const visible = this.scope.visibleDepartmentIds(actor);
+    if (visible === null) return null;
+    if (visible.length) return visible;
+    return [await this.scope.getPrimaryDepartmentId(actor.userId)];
+  }
+
+  private assertAttendanceAccess(actor: AuthenticatedUser, userId: string, departmentId: string): void {
+    if (userId === actor.userId) return;
+    if (actor.permissions.includes('attendance.read') && this.scope.canAccessDepartment(actor, departmentId)) return;
+    throw forbidden('ATTENDANCE_FORBIDDEN', 'Khong co quyen xem bang cong nay');
+  }
+
+  private stateFor(record: { checkOutAt: Date | null; status: AttendanceStatus }) {
+    if (record.checkOutAt || record.status === AttendanceStatus.CHECKED_OUT) return 'CHECKED_OUT';
+    return 'CHECKED_IN';
+  }
+
+  private toAttendanceSummary(record: Prisma.AttendanceRecordGetPayload<{ include: ReturnType<AttendanceService['attendanceInclude']> }>) {
+    return {
+      id: record.id,
+      userId: record.userId,
+      departmentId: record.departmentId,
+      shiftAssignmentId: record.shiftAssignmentId,
+      workDate: record.workDate,
+      checkInAt: record.checkInAt,
+      checkOutAt: record.checkOutAt,
+      status: record.status,
+      shiftAssignment: record.shiftAssignment,
+      photo: record.photoFile ? { fileId: record.photoFile.id, fileUrl: record.photoFile.fileUrl } : null,
+    };
+  }
+
+  private async locationFromRecord(record: Prisma.AttendanceRecordGetPayload<{ include: ReturnType<AttendanceService['attendanceInclude']> }>) {
+    const gps = record.verifications.find((verification) => verification.type === AttendanceVerificationType.GPS);
+    const metadata = gps?.metadata && typeof gps.metadata === 'object' && !Array.isArray(gps.metadata)
+      ? gps.metadata as { attendanceLocationId?: string }
+      : null;
+    if (!metadata?.attendanceLocationId) return null;
+    const location = await this.prisma.attendanceLocation.findUnique({
+      where: { id: metadata.attendanceLocationId },
+      select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true, departmentId: true },
+    });
+    return location
+      ? {
+          ...location,
+          latitude: Number(location.latitude),
+          longitude: Number(location.longitude),
+        }
+      : null;
+  }
+
+  private toAttendanceDetail(
+    record: Prisma.AttendanceRecordGetPayload<{ include: ReturnType<AttendanceService['attendanceInclude']> }>,
+    attendanceLocation: Awaited<ReturnType<AttendanceService['locationFromRecord']>>,
+  ) {
+    const shift = record.shiftAssignment.shift;
+    const scheduledStart = this.shiftDateTime(record.workDate, shift.startTime);
+    const scheduledEnd = this.shiftEndDateTime(record.workDate, shift.startTime, shift.endTime);
+    const workedMinutes = record.checkOutAt ? this.minutesBetween(record.checkInAt, record.checkOutAt) : 0;
+    return {
+      ...this.toAttendanceSummary(record),
+      scheduledStartAt: scheduledStart,
+      scheduledEndAt: scheduledEnd,
+      workedMinutes,
+      lateMinutes: Math.max(0, this.minutesBetween(scheduledStart, record.checkInAt)),
+      earlyLeaveMinutes: record.checkOutAt ? Math.max(0, this.minutesBetween(record.checkOutAt, scheduledEnd)) : 0,
+      overtimeMinutes: record.checkOutAt ? Math.max(0, this.minutesBetween(scheduledEnd, record.checkOutAt)) : 0,
+      gps: {
+        checkInLatitude: record.checkInLatitude,
+        checkInLongitude: record.checkInLongitude,
+        checkOutLatitude: record.checkOutLatitude,
+        checkOutLongitude: record.checkOutLongitude,
+        attendanceLocation,
+      },
+      adjustmentSummary: record.adjustments.map((adjustment) => ({
+        id: adjustment.id,
+        status: adjustment.status,
+        requestedCheckInAt: adjustment.requestedCheckInAt,
+        requestedCheckOutAt: adjustment.requestedCheckOutAt,
+        reason: adjustment.reason,
+        decidedAt: adjustment.decidedAt,
+      })),
+    };
+  }
+
+  private minutesBetween(start: Date, end: Date): number {
+    return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60_000));
+  }
+
+  private paginate<T>(items: T[], total: number, page: number, limit: number) {
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+}

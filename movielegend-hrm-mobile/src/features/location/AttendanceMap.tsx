@@ -1,0 +1,1 @@
+export { AttendanceMap } from './AttendanceMap.web';
