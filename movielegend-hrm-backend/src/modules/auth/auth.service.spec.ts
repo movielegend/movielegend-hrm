@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AccountStatus, ApprovalStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
+import { UploadsService } from '../uploads/uploads.service';
 import { AuthService } from './auth.service';
 
 describe('AuthService login', () => {
@@ -32,7 +33,10 @@ describe('AuthService login', () => {
       }),
       getOrThrow: jest.fn((key: string) => `${key}-secret`),
     } as unknown as ConfigService;
-    return { service: new AuthService(prisma, jwt, config) };
+    const uploads = {
+      attachTemporaryFiles: jest.fn().mockResolvedValue(undefined),
+    } as unknown as UploadsService;
+    return { service: new AuthService(prisma, jwt, config, uploads) };
   };
 
   it('denies pending users', async () => {

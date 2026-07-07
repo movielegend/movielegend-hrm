@@ -22,12 +22,12 @@ export declare class InventoryChecksController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
-        warehouseId: string;
-        createdById: string;
-        approvedById: string | null;
         note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
+        approvedById: string | null;
         checkCode: string;
     }>;
     findAll(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
@@ -48,12 +48,12 @@ export declare class InventoryChecksController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
-        warehouseId: string;
-        createdById: string;
-        approvedById: string | null;
         note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
+        approvedById: string | null;
         checkCode: string;
     })[]>;
     findOne(id: string, actor: AuthenticatedUser): Promise<{
@@ -74,12 +74,12 @@ export declare class InventoryChecksController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
-        warehouseId: string;
-        createdById: string;
-        approvedById: string | null;
         note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
+        approvedById: string | null;
         checkCode: string;
     }>;
     updateItems(id: string, dto: UpdateInventoryCheckItemsDto, actor: AuthenticatedUser): Promise<({
@@ -100,12 +100,12 @@ export declare class InventoryChecksController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
-        warehouseId: string;
-        createdById: string;
-        approvedById: string | null;
         note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
+        approvedById: string | null;
         checkCode: string;
     }) | null>;
     submit(id: string, actor: AuthenticatedUser): Promise<{
@@ -113,12 +113,12 @@ export declare class InventoryChecksController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
-        warehouseId: string;
-        createdById: string;
-        approvedById: string | null;
         note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
+        approvedById: string | null;
         checkCode: string;
     }>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
@@ -139,12 +139,12 @@ export declare class InventoryChecksController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
-        warehouseId: string;
-        createdById: string;
-        approvedById: string | null;
         note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
+        approvedById: string | null;
         checkCode: string;
     }>;
 }

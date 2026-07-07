@@ -6,37 +6,41 @@ export declare class SalaryService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     createProfile(dto: CreateSalaryProfileDto, actor: AuthenticatedUser): Promise<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        salaryType: import("@prisma/client").$Enums.SalaryType;
+        createdById: string;
         baseSalary: Prisma.Decimal;
         standardWorkingDays: Prisma.Decimal | null;
+        salaryType: import("@prisma/client").$Enums.SalaryType;
         standardWorkingHours: Prisma.Decimal | null;
         hourlyRate: Prisma.Decimal | null;
         dailyRate: Prisma.Decimal | null;
         currency: string;
         effectiveFrom: Date;
         effectiveTo: Date | null;
-        createdById: string;
     }>;
     findProfiles(): Prisma.PrismaPromise<({
         user: {
-            id: string;
-            email: string | null;
             phone: string;
+            email: string | null;
+            id: string;
             userCode: string;
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -45,65 +49,63 @@ export declare class SalaryService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        salaryType: import("@prisma/client").$Enums.SalaryType;
+        createdById: string;
         baseSalary: Prisma.Decimal;
         standardWorkingDays: Prisma.Decimal | null;
+        salaryType: import("@prisma/client").$Enums.SalaryType;
         standardWorkingHours: Prisma.Decimal | null;
         hourlyRate: Prisma.Decimal | null;
         dailyRate: Prisma.Decimal | null;
         currency: string;
         effectiveFrom: Date;
         effectiveTo: Date | null;
-        createdById: string;
     })[]>;
     findProfilesByUser(userId: string): Prisma.PrismaPromise<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        salaryType: import("@prisma/client").$Enums.SalaryType;
+        createdById: string;
         baseSalary: Prisma.Decimal;
         standardWorkingDays: Prisma.Decimal | null;
+        salaryType: import("@prisma/client").$Enums.SalaryType;
         standardWorkingHours: Prisma.Decimal | null;
         hourlyRate: Prisma.Decimal | null;
         dailyRate: Prisma.Decimal | null;
         currency: string;
         effectiveFrom: Date;
         effectiveTo: Date | null;
-        createdById: string;
     }[]>;
     endProfile(id: string, effectiveTo: string, actor: AuthenticatedUser): Promise<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        salaryType: import("@prisma/client").$Enums.SalaryType;
+        createdById: string;
         baseSalary: Prisma.Decimal;
         standardWorkingDays: Prisma.Decimal | null;
+        salaryType: import("@prisma/client").$Enums.SalaryType;
         standardWorkingHours: Prisma.Decimal | null;
         hourlyRate: Prisma.Decimal | null;
         dailyRate: Prisma.Decimal | null;
         currency: string;
         effectiveFrom: Date;
         effectiveTo: Date | null;
-        createdById: string;
     }>;
     createComponent(dto: CreateSalaryComponentDto): Prisma.Prisma__SalaryComponentClient<{
-        id: string;
-        code: string;
-        name: string;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        code: string;
         componentType: import("@prisma/client").$Enums.SalaryComponentType;
         calculationType: import("@prisma/client").$Enums.SalaryCalculationType;
         defaultAmount: Prisma.Decimal | null;
@@ -112,12 +114,12 @@ export declare class SalaryService {
         insuranceApplicable: boolean;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
     findComponents(): Prisma.PrismaPromise<{
-        id: string;
-        code: string;
-        name: string;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        code: string;
         componentType: import("@prisma/client").$Enums.SalaryComponentType;
         calculationType: import("@prisma/client").$Enums.SalaryCalculationType;
         defaultAmount: Prisma.Decimal | null;
@@ -126,12 +128,12 @@ export declare class SalaryService {
         insuranceApplicable: boolean;
     }[]>;
     updateComponent(id: string, dto: Partial<CreateSalaryComponentDto>): Prisma.Prisma__SalaryComponentClient<{
-        id: string;
-        code: string;
-        name: string;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        code: string;
         componentType: import("@prisma/client").$Enums.SalaryComponentType;
         calculationType: import("@prisma/client").$Enums.SalaryCalculationType;
         defaultAmount: Prisma.Decimal | null;
@@ -141,12 +143,12 @@ export declare class SalaryService {
     }, never, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
     createEmployeeComponent(dto: CreateEmployeeSalaryComponentDto, actor: AuthenticatedUser): Promise<{
         component: {
-            id: string;
-            code: string;
-            name: string;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             componentType: import("@prisma/client").$Enums.SalaryComponentType;
             calculationType: import("@prisma/client").$Enums.SalaryCalculationType;
             defaultAmount: Prisma.Decimal | null;
@@ -155,14 +157,14 @@ export declare class SalaryService {
             insuranceApplicable: boolean;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        effectiveFrom: Date;
-        effectiveTo: Date | null;
         createdById: string;
         amount: Prisma.Decimal;
+        effectiveFrom: Date;
+        effectiveTo: Date | null;
         componentId: string;
         percentage: Prisma.Decimal | null;
     }>;

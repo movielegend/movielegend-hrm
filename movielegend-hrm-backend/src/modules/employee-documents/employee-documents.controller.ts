@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -6,6 +6,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { CreateDocumentTypeDto, CreateEmployeeDocumentDto, UpdateDocumentTypeDto, VerifyEmployeeDocumentDto } from './dto/employee-document.dto';
 import { EmployeeDocumentsService } from './employee-documents.service';
+import { AcknowledgeDocumentDto } from './dto/acknowledge-document.dto';
 
 @ApiTags('Document Types')
 @ApiBearerAuth()
@@ -60,6 +61,17 @@ export class EmployeeDocumentsController {
   @AnyPermissions('employee_document.read_department', 'employee_document.read_all')
   expiring(@Query('days') days?: string) {
     return this.documents.expiring(days ? Number(days) : 30);
+  }
+
+  @Post(':id/acknowledge')
+  @Permissions('employee_document.read_own')
+  acknowledge(
+    @Param('id') id: string,
+    @Body() dto: AcknowledgeDocumentDto,
+    @Ip() ipAddress: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.documents.acknowledge(id, dto, ipAddress, actor);
   }
 
   @Get(':id')

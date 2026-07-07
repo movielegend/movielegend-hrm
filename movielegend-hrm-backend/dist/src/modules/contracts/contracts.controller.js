@@ -20,6 +20,7 @@ const current_user_decorator_1 = require("../../common/decorators/current-user.d
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const contracts_service_1 = require("./contracts.service");
 const contract_dto_1 = require("./dto/contract.dto");
+const acknowledge_contract_dto_1 = require("./dto/acknowledge-contract.dto");
 let ContractTemplatesController = class ContractTemplatesController {
     contracts;
     constructor(contracts) {
@@ -96,6 +97,9 @@ let EmployeeContractsController = class EmployeeContractsController {
     expiry(days) {
         return this.contracts.expiry(days ? Number(days) : 30);
     }
+    acknowledge(id, dto, ipAddress, actor) {
+        return this.contracts.acknowledgeContract(id, dto, ipAddress, actor);
+    }
     findOne(id, actor) {
         return this.contracts.findOne(id, actor);
     }
@@ -162,6 +166,17 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], EmployeeContractsController.prototype, "expiry", null);
+__decorate([
+    (0, common_1.Post)(':id/acknowledge'),
+    (0, permissions_decorator_1.Permissions)('contract.read_own'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Ip)()),
+    __param(3, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, acknowledge_contract_dto_1.AcknowledgeContractDto, String, Object]),
+    __metadata("design:returntype", void 0)
+], EmployeeContractsController.prototype, "acknowledge", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, any_permissions_decorator_1.AnyPermissions)('contract.read_own', 'contract.read_department', 'contract.read_all'),

@@ -17,15 +17,21 @@ const prisma_service_1 = require("../../database/prisma.service");
 const face_verification_service_1 = require("../face/services/face-verification.service");
 const department_scope_service_1 = require("../phase2-policy/department-scope.service");
 const business_time_service_1 = require("../time/business-time.service");
+const storage_service_1 = require("../storage/storage.service");
+const image_processing_service_1 = require("../uploads/image-processing.service");
 let AttendanceService = class AttendanceService {
     prisma;
     scope;
     faceVerification;
+    imageProcessing;
+    storage;
     businessTime;
-    constructor(prisma, scope, faceVerification, businessTime = new business_time_service_1.BusinessTimeService()) {
+    constructor(prisma, scope, faceVerification, imageProcessing, storage, businessTime = new business_time_service_1.BusinessTimeService()) {
         this.prisma = prisma;
         this.scope = scope;
         this.faceVerification = faceVerification;
+        this.imageProcessing = imageProcessing;
+        this.storage = storage;
         this.businessTime = businessTime;
     }
     async checkIn(dto, actor) {
@@ -65,6 +71,25 @@ let AttendanceService = class AttendanceService {
         }
         return this.prisma.$transaction(async (tx) => {
             if (photo) {
+                try {
+                    const user = await tx.user.findUnique({ where: { id: actor.userId } });
+                    const userProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+                    const imageBuffer = await this.storage.read(photo.storageKey);
+                    const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
+                        employeeName: userProfile?.fullName ?? 'Unknown',
+                        userCode: user?.userCode ?? actor.userId,
+                        latitude: dto.latitude,
+                        longitude: dto.longitude,
+                    });
+                    await this.storage.upload({
+                        buffer: watermarkedBuffer,
+                        fileName: photo.fileName,
+                        mimeType: 'image/jpeg',
+                        storageKey: photo.storageKey,
+                    });
+                }
+                catch (error) {
+                }
                 const attached = await tx.uploadedFile.updateMany({
                     where: {
                         id: photo.id,
@@ -564,6 +589,8 @@ exports.AttendanceService = AttendanceService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         department_scope_service_1.DepartmentScopeService,
         face_verification_service_1.FaceVerificationService,
+        image_processing_service_1.ImageProcessingService,
+        storage_service_1.StorageService,
         business_time_service_1.BusinessTimeService])
 ], AttendanceService);
 //# sourceMappingURL=attendance.service.js.map

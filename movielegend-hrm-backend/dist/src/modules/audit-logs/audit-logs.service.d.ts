@@ -6,8 +6,8 @@ export declare class AuditLogsService {
     findAll(query: AuditLogQueryDto): Promise<{
         items: ({
             actor: {
-                id: string;
                 phone: string;
+                id: string;
                 userCode: string;
             } | null;
         } & {

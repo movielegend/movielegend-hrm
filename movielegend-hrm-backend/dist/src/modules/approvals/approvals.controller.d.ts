@@ -8,25 +8,29 @@ export declare class ApprovalsController {
     findAll(user: AuthenticatedUser, query: ApprovalQueryDto): Promise<{
         items: ({
             user: {
-                id: string;
+                phone: string;
+                email: string | null;
+                accountStatus: import("@prisma/client").$Enums.AccountStatus;
                 isActive: boolean;
+                approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                email: string | null;
-                phone: string;
                 userCode: string;
-                accountStatus: import("@prisma/client").$Enums.AccountStatus;
-                approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
                 profile: {
+                    userId: string;
+                    fullName: string;
+                    positionId: string | null;
                     id: string;
                     createdAt: Date;
                     updatedAt: Date;
-                    fullName: string;
                     dateOfBirth: Date | null;
                     gender: import("@prisma/client").$Enums.Gender | null;
                     idCardNumber: string;
                     idCardIssueDate: Date | null;
                     idCardIssuePlace: string | null;
+                    idCardFrontUrl: string | null;
+                    idCardBackUrl: string | null;
                     permanentAddress: string | null;
                     temporaryAddress: string | null;
                     avatarUrl: string | null;
@@ -35,22 +39,20 @@ export declare class ApprovalsController {
                     employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                     emergencyContactName: string | null;
                     emergencyContactPhone: string | null;
-                    positionId: string | null;
-                    userId: string;
                 } | null;
             };
             requestedDepartment: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
                 isActive: boolean;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
                 deletedAt: Date | null;
                 companyId: string;
                 branchId: string | null;
                 parentId: string | null;
+                code: string;
                 leaderUserId: string | null;
             };
             histories: {
@@ -62,10 +64,10 @@ export declare class ApprovalsController {
                 note: string | null;
             }[];
         } & {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             status: import("@prisma/client").$Enums.ApprovalStatus;
             requestedDepartmentId: string;
             rejectionReason: string | null;

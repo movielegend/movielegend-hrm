@@ -58,6 +58,16 @@ export class RegisterDto {
   @IsDateString()
   dateOfBirth?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  idCardFrontFileId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  idCardBackFileId?: string;
+
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
   @IsEnum(Gender)

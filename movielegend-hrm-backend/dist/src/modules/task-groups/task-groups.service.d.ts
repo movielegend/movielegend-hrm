@@ -9,28 +9,28 @@ export declare class TaskGroupsService {
     constructor(prisma: PrismaService, scope: DepartmentScopeService);
     create(dto: CreateTaskGroupDto, actor: AuthenticatedUser): Prisma.Prisma__TaskGroupClient<{
         members: {
+            userId: string;
             id: string;
             createdAt: Date;
-            userId: string;
             groupId: string;
         }[];
     } & {
-        id: string;
-        name: string;
         description: string | null;
+        departmentId: string;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        departmentId: string;
         createdByUserId: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
     findAll(actor: AuthenticatedUser, query: TaskGroupQueryDto): Promise<{
         items: ({
             department: {
                 id: string;
-                code: string;
                 name: string;
+                code: string;
             };
             members: ({
                 user: {
@@ -46,9 +46,9 @@ export declare class TaskGroupsService {
                     } | null;
                 };
             } & {
+                userId: string;
                 id: string;
                 createdAt: Date;
-                userId: string;
                 groupId: string;
             })[];
             createdBy: {
@@ -60,14 +60,14 @@ export declare class TaskGroupsService {
                 } | null;
             };
         } & {
-            id: string;
-            name: string;
             description: string | null;
+            departmentId: string;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
-            departmentId: string;
             createdByUserId: string;
         })[];
         pagination: {
@@ -80,8 +80,8 @@ export declare class TaskGroupsService {
     findOne(id: string, actor: AuthenticatedUser): Promise<{
         department: {
             id: string;
-            code: string;
             name: string;
+            code: string;
         };
         members: ({
             user: {
@@ -97,9 +97,9 @@ export declare class TaskGroupsService {
                 } | null;
             };
         } & {
+            userId: string;
             id: string;
             createdAt: Date;
-            userId: string;
             groupId: string;
         })[];
         createdBy: {
@@ -111,21 +111,21 @@ export declare class TaskGroupsService {
             } | null;
         };
     } & {
-        id: string;
-        name: string;
         description: string | null;
+        departmentId: string;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        departmentId: string;
         createdByUserId: string;
     }>;
     private groupWhere;
     addMember(groupId: string, dto: AddTaskGroupMemberDto, actor: AuthenticatedUser): Promise<{
+        userId: string;
         id: string;
         createdAt: Date;
-        userId: string;
         groupId: string;
     }>;
     removeMember(groupId: string, userId: string, actor: AuthenticatedUser): Promise<Prisma.BatchPayload>;

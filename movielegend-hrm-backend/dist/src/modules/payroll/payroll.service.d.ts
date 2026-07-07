@@ -17,30 +17,30 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     }>;
     findPeriods(): Prisma.PrismaPromise<({
         company: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
+            code: string;
         };
     } & {
         id: string;
@@ -48,32 +48,33 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     })[]>;
     findPeriod(id: string): Promise<{
         payrolls: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             status: import("@prisma/client").$Enums.PayrollStatus;
-            baseSalary: Prisma.Decimal;
-            standardWorkingDays: Prisma.Decimal;
+            employeeAcknowledgedAt: Date | null;
             calculatedAt: Date;
             payrollPeriodId: string;
             salaryProfileId: string;
+            baseSalary: Prisma.Decimal;
+            standardWorkingDays: Prisma.Decimal;
             actualWorkingDays: Prisma.Decimal;
             paidLeaveDays: Prisma.Decimal;
             unpaidLeaveDays: Prisma.Decimal;
@@ -88,7 +89,6 @@ export declare class PayrollService {
             grossSalary: Prisma.Decimal;
             netSalary: Prisma.Decimal;
             calculationVersion: number;
-            employeeAcknowledgedAt: Date | null;
         }[];
     } & {
         id: string;
@@ -96,18 +96,18 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     }>;
     calculatePeriod(id: string, actor: AuthenticatedUser, recalculate?: boolean): Promise<{
@@ -116,18 +116,18 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     }>;
     recalculatePeriod(id: string, actor: AuthenticatedUser): Promise<{
@@ -136,18 +136,18 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     }>;
     submitReview(id: string, actor: AuthenticatedUser): Promise<{
@@ -156,18 +156,18 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     }>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
@@ -176,18 +176,18 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     }>;
     lock(id: string, actor: AuthenticatedUser): Promise<{
@@ -196,36 +196,40 @@ export declare class PayrollService {
         updatedAt: Date;
         companyId: string;
         status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-        createdById: string;
-        periodCode: string;
-        month: number;
         year: number;
+        month: number;
+        createdById: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         startDate: Date;
         endDate: Date;
+        periodCode: string;
         calculatedAt: Date | null;
         reviewedAt: Date | null;
-        approvedAt: Date | null;
         lockedAt: Date | null;
         reviewedById: string | null;
-        approvedById: string | null;
         lockedById: string | null;
     }>;
     findPeriodPayrolls(periodId: string): Prisma.PrismaPromise<({
         user: {
-            id: string;
-            email: string | null;
             phone: string;
+            email: string | null;
+            id: string;
             userCode: string;
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -234,8 +238,6 @@ export declare class PayrollService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         };
         items: {
@@ -254,16 +256,17 @@ export declare class PayrollService {
             sourceId: string | null;
         }[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PayrollStatus;
-        baseSalary: Prisma.Decimal;
-        standardWorkingDays: Prisma.Decimal;
+        employeeAcknowledgedAt: Date | null;
         calculatedAt: Date;
         payrollPeriodId: string;
         salaryProfileId: string;
+        baseSalary: Prisma.Decimal;
+        standardWorkingDays: Prisma.Decimal;
         actualWorkingDays: Prisma.Decimal;
         paidLeaveDays: Prisma.Decimal;
         unpaidLeaveDays: Prisma.Decimal;
@@ -278,29 +281,8 @@ export declare class PayrollService {
         grossSalary: Prisma.Decimal;
         netSalary: Prisma.Decimal;
         calculationVersion: number;
-        employeeAcknowledgedAt: Date | null;
     })[]>;
     findPayroll(id: string): Promise<{
-        period: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            companyId: string;
-            status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-            createdById: string;
-            periodCode: string;
-            month: number;
-            year: number;
-            startDate: Date;
-            endDate: Date;
-            calculatedAt: Date | null;
-            reviewedAt: Date | null;
-            approvedAt: Date | null;
-            lockedAt: Date | null;
-            reviewedById: string | null;
-            approvedById: string | null;
-            lockedById: string | null;
-        };
         items: {
             id: string;
             createdAt: Date;
@@ -316,6 +298,26 @@ export declare class PayrollService {
             sourceType: string | null;
             sourceId: string | null;
         }[];
+        period: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            status: import("@prisma/client").$Enums.PayrollPeriodStatus;
+            year: number;
+            month: number;
+            createdById: string;
+            approvedAt: Date | null;
+            approvedById: string | null;
+            startDate: Date;
+            endDate: Date;
+            periodCode: string;
+            calculatedAt: Date | null;
+            reviewedAt: Date | null;
+            lockedAt: Date | null;
+            reviewedById: string | null;
+            lockedById: string | null;
+        };
         snapshot: {
             id: string;
             createdAt: Date;
@@ -329,16 +331,17 @@ export declare class PayrollService {
             deductionSnapshot: Prisma.JsonValue;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PayrollStatus;
-        baseSalary: Prisma.Decimal;
-        standardWorkingDays: Prisma.Decimal;
+        employeeAcknowledgedAt: Date | null;
         calculatedAt: Date;
         payrollPeriodId: string;
         salaryProfileId: string;
+        baseSalary: Prisma.Decimal;
+        standardWorkingDays: Prisma.Decimal;
         actualWorkingDays: Prisma.Decimal;
         paidLeaveDays: Prisma.Decimal;
         unpaidLeaveDays: Prisma.Decimal;
@@ -353,29 +356,8 @@ export declare class PayrollService {
         grossSalary: Prisma.Decimal;
         netSalary: Prisma.Decimal;
         calculationVersion: number;
-        employeeAcknowledgedAt: Date | null;
     }>;
     myPayrolls(actor: AuthenticatedUser): Prisma.PrismaPromise<({
-        period: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            companyId: string;
-            status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-            createdById: string;
-            periodCode: string;
-            month: number;
-            year: number;
-            startDate: Date;
-            endDate: Date;
-            calculatedAt: Date | null;
-            reviewedAt: Date | null;
-            approvedAt: Date | null;
-            lockedAt: Date | null;
-            reviewedById: string | null;
-            approvedById: string | null;
-            lockedById: string | null;
-        };
         items: {
             id: string;
             createdAt: Date;
@@ -391,17 +373,38 @@ export declare class PayrollService {
             sourceType: string | null;
             sourceId: string | null;
         }[];
+        period: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            status: import("@prisma/client").$Enums.PayrollPeriodStatus;
+            year: number;
+            month: number;
+            createdById: string;
+            approvedAt: Date | null;
+            approvedById: string | null;
+            startDate: Date;
+            endDate: Date;
+            periodCode: string;
+            calculatedAt: Date | null;
+            reviewedAt: Date | null;
+            lockedAt: Date | null;
+            reviewedById: string | null;
+            lockedById: string | null;
+        };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PayrollStatus;
-        baseSalary: Prisma.Decimal;
-        standardWorkingDays: Prisma.Decimal;
+        employeeAcknowledgedAt: Date | null;
         calculatedAt: Date;
         payrollPeriodId: string;
         salaryProfileId: string;
+        baseSalary: Prisma.Decimal;
+        standardWorkingDays: Prisma.Decimal;
         actualWorkingDays: Prisma.Decimal;
         paidLeaveDays: Prisma.Decimal;
         unpaidLeaveDays: Prisma.Decimal;
@@ -416,29 +419,8 @@ export declare class PayrollService {
         grossSalary: Prisma.Decimal;
         netSalary: Prisma.Decimal;
         calculationVersion: number;
-        employeeAcknowledgedAt: Date | null;
     })[]>;
     myPayroll(id: string, actor: AuthenticatedUser): Promise<{
-        period: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            companyId: string;
-            status: import("@prisma/client").$Enums.PayrollPeriodStatus;
-            createdById: string;
-            periodCode: string;
-            month: number;
-            year: number;
-            startDate: Date;
-            endDate: Date;
-            calculatedAt: Date | null;
-            reviewedAt: Date | null;
-            approvedAt: Date | null;
-            lockedAt: Date | null;
-            reviewedById: string | null;
-            approvedById: string | null;
-            lockedById: string | null;
-        };
         items: {
             id: string;
             createdAt: Date;
@@ -454,6 +436,26 @@ export declare class PayrollService {
             sourceType: string | null;
             sourceId: string | null;
         }[];
+        period: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            status: import("@prisma/client").$Enums.PayrollPeriodStatus;
+            year: number;
+            month: number;
+            createdById: string;
+            approvedAt: Date | null;
+            approvedById: string | null;
+            startDate: Date;
+            endDate: Date;
+            periodCode: string;
+            calculatedAt: Date | null;
+            reviewedAt: Date | null;
+            lockedAt: Date | null;
+            reviewedById: string | null;
+            lockedById: string | null;
+        };
         snapshot: {
             id: string;
             createdAt: Date;
@@ -467,16 +469,17 @@ export declare class PayrollService {
             deductionSnapshot: Prisma.JsonValue;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PayrollStatus;
-        baseSalary: Prisma.Decimal;
-        standardWorkingDays: Prisma.Decimal;
+        employeeAcknowledgedAt: Date | null;
         calculatedAt: Date;
         payrollPeriodId: string;
         salaryProfileId: string;
+        baseSalary: Prisma.Decimal;
+        standardWorkingDays: Prisma.Decimal;
         actualWorkingDays: Prisma.Decimal;
         paidLeaveDays: Prisma.Decimal;
         unpaidLeaveDays: Prisma.Decimal;
@@ -491,7 +494,6 @@ export declare class PayrollService {
         grossSalary: Prisma.Decimal;
         netSalary: Prisma.Decimal;
         calculationVersion: number;
-        employeeAcknowledgedAt: Date | null;
     }>;
     private calculateEmployeePayroll;
     private attendanceSummary;

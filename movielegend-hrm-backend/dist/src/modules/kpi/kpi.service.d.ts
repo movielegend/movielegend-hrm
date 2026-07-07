@@ -15,12 +15,12 @@ export declare class KpiService {
     constructor(prisma: PrismaService, scope: DepartmentScopeService, notifications: NotificationsService, realtime: RealtimeEventsService, scoring: KpiScoringService);
     createTemplate(dto: CreateKpiTemplateDto, actor: AuthenticatedUser): Promise<{
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: Prisma.Decimal;
             targetValue: string | null;
@@ -30,28 +30,28 @@ export declare class KpiService {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }>;
     findTemplates(): Prisma.PrismaPromise<({
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: Prisma.Decimal;
             targetValue: string | null;
@@ -61,28 +61,28 @@ export declare class KpiService {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     })[]>;
     findTemplate(id: string): Promise<{
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: Prisma.Decimal;
             targetValue: string | null;
@@ -92,28 +92,28 @@ export declare class KpiService {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }>;
     updateTemplate(id: string, dto: UpdateKpiTemplateDto): Prisma.Prisma__KpiTemplateClient<{
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: Prisma.Decimal;
             targetValue: string | null;
@@ -123,27 +123,27 @@ export declare class KpiService {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
     addCriteria(templateId: string, dto: CreateKpiCriteriaDto): Promise<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        code: string;
         kpiTemplateId: string;
         weight: Prisma.Decimal;
         targetValue: string | null;
@@ -155,15 +155,19 @@ export declare class KpiService {
     assign(dto: CreateKpiAssignmentDto, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -172,31 +176,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -206,28 +208,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -240,9 +242,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -250,21 +252,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;
@@ -272,15 +274,19 @@ export declare class KpiService {
     findMine(actor: AuthenticatedUser): Prisma.PrismaPromise<({
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -289,31 +295,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -323,28 +327,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -357,9 +361,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -367,21 +371,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;
@@ -389,15 +393,19 @@ export declare class KpiService {
     findDepartment(departmentId: string, actor: AuthenticatedUser): Promise<({
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -406,31 +414,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -440,28 +446,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -474,9 +480,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -484,21 +490,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;
@@ -506,15 +512,19 @@ export declare class KpiService {
     findOne(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -523,31 +533,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -557,28 +565,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -591,9 +599,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -601,21 +609,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;
@@ -623,15 +631,19 @@ export declare class KpiService {
     updateResults(id: string, dto: UpdateKpiResultsDto, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -640,31 +652,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -674,28 +684,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -708,9 +718,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -718,21 +728,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;
@@ -740,15 +750,19 @@ export declare class KpiService {
     submitSelf(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -757,31 +771,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -791,28 +803,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -825,9 +837,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -835,21 +847,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;
@@ -857,15 +869,19 @@ export declare class KpiService {
     leaderReview(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -874,31 +890,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -908,28 +922,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -942,9 +956,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -952,21 +966,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;
@@ -974,15 +988,19 @@ export declare class KpiService {
     finalize(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -991,31 +1009,29 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -1025,28 +1041,28 @@ export declare class KpiService {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: Prisma.Decimal;
                 targetValue: string | null;
@@ -1059,9 +1075,9 @@ export declare class KpiService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: Prisma.Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: Prisma.Decimal | null;
@@ -1069,21 +1085,21 @@ export declare class KpiService {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: Prisma.Decimal | null;

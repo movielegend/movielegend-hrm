@@ -44,6 +44,12 @@ export class LeaveController {
     return this.leaveService.findLeaveRequests(actor, query);
   }
 
+  @AnyPermissions('leave.request', 'leave.balance.read')
+  @Get('leave-requests/my')
+  findMyLeaveRequests(@CurrentUser() actor: AuthenticatedUser, @Query() query: LeaveRequestQueryDto) {
+    return this.leaveService.findMyLeaveRequests(actor, query);
+  }
+
   @Permissions('leave.approve')
   @Post('leave-requests/:id/approve')
   approveLeave(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {

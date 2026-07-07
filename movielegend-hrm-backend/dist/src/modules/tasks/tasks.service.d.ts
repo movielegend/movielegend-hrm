@@ -12,52 +12,6 @@ export declare class TasksService {
     private readonly notifications;
     constructor(prisma: PrismaService, scope: DepartmentScopeService, policy: TaskPolicyService, notifications: NotificationsService);
     create(dto: CreateTaskDto, actor: AuthenticatedUser): Promise<{
-        assignments: ({
-            user: {
-                id: string;
-                userCode: string;
-                profile: {
-                    position: {
-                        id: string;
-                        name: string;
-                    } | null;
-                    fullName: string;
-                    avatarUrl: string | null;
-                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-                } | null;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
-            assignedByUserId: string;
-            reviewedAt: Date | null;
-            submittedAt: Date | null;
-            taskId: string;
-            startedAt: Date | null;
-            completedAt: Date | null;
-            reviewedByUserId: string | null;
-            progressPercent: number;
-            assignmentDueAt: Date | null;
-            acceptedAt: Date | null;
-            reviewNote: string | null;
-            completionNote: string | null;
-        })[];
-        createdBy: {
-            id: string;
-            userCode: string;
-            profile: {
-                position: {
-                    id: string;
-                    name: string;
-                } | null;
-                fullName: string;
-                avatarUrl: string | null;
-                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-            } | null;
-        };
         histories: ({
             actor: {
                 id: string;
@@ -84,6 +38,39 @@ export declare class TasksService {
             fromStatus: string | null;
             toStatus: string | null;
         })[];
+        assignments: ({
+            user: {
+                id: string;
+                userCode: string;
+                profile: {
+                    position: {
+                        id: string;
+                        name: string;
+                    } | null;
+                    fullName: string;
+                    avatarUrl: string | null;
+                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                } | null;
+            };
+        } & {
+            userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
+            assignedByUserId: string;
+            taskId: string;
+            startedAt: Date | null;
+            completedAt: Date | null;
+            reviewedAt: Date | null;
+            submittedAt: Date | null;
+            reviewedByUserId: string | null;
+            progressPercent: number;
+            assignmentDueAt: Date | null;
+            acceptedAt: Date | null;
+            reviewNote: string | null;
+            completionNote: string | null;
+        })[];
         targets: {
             id: string;
             createdAt: Date;
@@ -91,10 +78,23 @@ export declare class TasksService {
             targetType: import("@prisma/client").$Enums.TaskTargetType;
             targetId: string;
         }[];
+        createdBy: {
+            id: string;
+            userCode: string;
+            profile: {
+                position: {
+                    id: string;
+                    name: string;
+                } | null;
+                fullName: string;
+                avatarUrl: string | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+            } | null;
+        };
         departmentContext: {
             id: string;
-            code: string;
             name: string;
+            code: string;
         } | null;
         comments: ({
             user: {
@@ -111,19 +111,19 @@ export declare class TasksService {
                 } | null;
             };
         } & {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            userId: string;
             content: string;
             taskId: string;
         })[];
         attachments: {
+            type: import("@prisma/client").$Enums.TaskAttachmentType;
             id: string;
             createdAt: Date;
             storageKey: string | null;
-            type: import("@prisma/client").$Enums.TaskAttachmentType;
             fileUrl: string;
             fileName: string;
             mimeType: string | null;
@@ -147,14 +147,14 @@ export declare class TasksService {
             currentDueAt: Date | null;
         }[];
     } & {
-        id: string;
+        type: import("@prisma/client").$Enums.TaskType;
         description: string | null;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         status: import("@prisma/client").$Enums.TaskStatus;
-        title: string;
-        type: import("@prisma/client").$Enums.TaskType;
         completedAt: Date | null;
         createdByUserId: string;
         taskCode: string;
@@ -182,17 +182,17 @@ export declare class TasksService {
                     } | null;
                 };
             } & {
+                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
                 status: import("@prisma/client").$Enums.TaskAssignmentStatus;
                 assignedByUserId: string;
-                reviewedAt: Date | null;
-                submittedAt: Date | null;
                 taskId: string;
                 startedAt: Date | null;
                 completedAt: Date | null;
+                reviewedAt: Date | null;
+                submittedAt: Date | null;
                 reviewedByUserId: string | null;
                 progressPercent: number;
                 assignmentDueAt: Date | null;
@@ -200,6 +200,13 @@ export declare class TasksService {
                 reviewNote: string | null;
                 completionNote: string | null;
             })[];
+            targets: {
+                id: string;
+                createdAt: Date;
+                taskId: string;
+                targetType: import("@prisma/client").$Enums.TaskTargetType;
+                targetId: string;
+            }[];
             createdBy: {
                 id: string;
                 userCode: string;
@@ -213,27 +220,20 @@ export declare class TasksService {
                     employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 } | null;
             };
-            targets: {
-                id: string;
-                createdAt: Date;
-                taskId: string;
-                targetType: import("@prisma/client").$Enums.TaskTargetType;
-                targetId: string;
-            }[];
             departmentContext: {
                 id: string;
-                code: string;
                 name: string;
+                code: string;
             } | null;
         } & {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -268,17 +268,17 @@ export declare class TasksService {
                     } | null;
                 };
             } & {
+                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
                 status: import("@prisma/client").$Enums.TaskAssignmentStatus;
                 assignedByUserId: string;
-                reviewedAt: Date | null;
-                submittedAt: Date | null;
                 taskId: string;
                 startedAt: Date | null;
                 completedAt: Date | null;
+                reviewedAt: Date | null;
+                submittedAt: Date | null;
                 reviewedByUserId: string | null;
                 progressPercent: number;
                 assignmentDueAt: Date | null;
@@ -286,6 +286,13 @@ export declare class TasksService {
                 reviewNote: string | null;
                 completionNote: string | null;
             })[];
+            targets: {
+                id: string;
+                createdAt: Date;
+                taskId: string;
+                targetType: import("@prisma/client").$Enums.TaskTargetType;
+                targetId: string;
+            }[];
             createdBy: {
                 id: string;
                 userCode: string;
@@ -299,27 +306,20 @@ export declare class TasksService {
                     employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 } | null;
             };
-            targets: {
-                id: string;
-                createdAt: Date;
-                taskId: string;
-                targetType: import("@prisma/client").$Enums.TaskTargetType;
-                targetId: string;
-            }[];
             departmentContext: {
                 id: string;
-                code: string;
                 name: string;
+                code: string;
             } | null;
         } & {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -338,52 +338,6 @@ export declare class TasksService {
         };
     }>;
     findOne(id: string, actor: AuthenticatedUser): Promise<{
-        assignments: ({
-            user: {
-                id: string;
-                userCode: string;
-                profile: {
-                    position: {
-                        id: string;
-                        name: string;
-                    } | null;
-                    fullName: string;
-                    avatarUrl: string | null;
-                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-                } | null;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
-            assignedByUserId: string;
-            reviewedAt: Date | null;
-            submittedAt: Date | null;
-            taskId: string;
-            startedAt: Date | null;
-            completedAt: Date | null;
-            reviewedByUserId: string | null;
-            progressPercent: number;
-            assignmentDueAt: Date | null;
-            acceptedAt: Date | null;
-            reviewNote: string | null;
-            completionNote: string | null;
-        })[];
-        createdBy: {
-            id: string;
-            userCode: string;
-            profile: {
-                position: {
-                    id: string;
-                    name: string;
-                } | null;
-                fullName: string;
-                avatarUrl: string | null;
-                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-            } | null;
-        };
         histories: ({
             actor: {
                 id: string;
@@ -410,6 +364,39 @@ export declare class TasksService {
             fromStatus: string | null;
             toStatus: string | null;
         })[];
+        assignments: ({
+            user: {
+                id: string;
+                userCode: string;
+                profile: {
+                    position: {
+                        id: string;
+                        name: string;
+                    } | null;
+                    fullName: string;
+                    avatarUrl: string | null;
+                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                } | null;
+            };
+        } & {
+            userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
+            assignedByUserId: string;
+            taskId: string;
+            startedAt: Date | null;
+            completedAt: Date | null;
+            reviewedAt: Date | null;
+            submittedAt: Date | null;
+            reviewedByUserId: string | null;
+            progressPercent: number;
+            assignmentDueAt: Date | null;
+            acceptedAt: Date | null;
+            reviewNote: string | null;
+            completionNote: string | null;
+        })[];
         targets: {
             id: string;
             createdAt: Date;
@@ -417,10 +404,23 @@ export declare class TasksService {
             targetType: import("@prisma/client").$Enums.TaskTargetType;
             targetId: string;
         }[];
+        createdBy: {
+            id: string;
+            userCode: string;
+            profile: {
+                position: {
+                    id: string;
+                    name: string;
+                } | null;
+                fullName: string;
+                avatarUrl: string | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+            } | null;
+        };
         departmentContext: {
             id: string;
-            code: string;
             name: string;
+            code: string;
         } | null;
         comments: ({
             user: {
@@ -437,19 +437,19 @@ export declare class TasksService {
                 } | null;
             };
         } & {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            userId: string;
             content: string;
             taskId: string;
         })[];
         attachments: {
+            type: import("@prisma/client").$Enums.TaskAttachmentType;
             id: string;
             createdAt: Date;
             storageKey: string | null;
-            type: import("@prisma/client").$Enums.TaskAttachmentType;
             fileUrl: string;
             fileName: string;
             mimeType: string | null;
@@ -473,14 +473,14 @@ export declare class TasksService {
             currentDueAt: Date | null;
         }[];
     } & {
-        id: string;
+        type: import("@prisma/client").$Enums.TaskType;
         description: string | null;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         status: import("@prisma/client").$Enums.TaskStatus;
-        title: string;
-        type: import("@prisma/client").$Enums.TaskType;
         completedAt: Date | null;
         createdByUserId: string;
         taskCode: string;
@@ -595,52 +595,6 @@ export declare class TasksService {
         };
     }>;
     update(id: string, dto: UpdateTaskDto, actor: AuthenticatedUser): Promise<{
-        assignments: ({
-            user: {
-                id: string;
-                userCode: string;
-                profile: {
-                    position: {
-                        id: string;
-                        name: string;
-                    } | null;
-                    fullName: string;
-                    avatarUrl: string | null;
-                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-                } | null;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
-            assignedByUserId: string;
-            reviewedAt: Date | null;
-            submittedAt: Date | null;
-            taskId: string;
-            startedAt: Date | null;
-            completedAt: Date | null;
-            reviewedByUserId: string | null;
-            progressPercent: number;
-            assignmentDueAt: Date | null;
-            acceptedAt: Date | null;
-            reviewNote: string | null;
-            completionNote: string | null;
-        })[];
-        createdBy: {
-            id: string;
-            userCode: string;
-            profile: {
-                position: {
-                    id: string;
-                    name: string;
-                } | null;
-                fullName: string;
-                avatarUrl: string | null;
-                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-            } | null;
-        };
         histories: ({
             actor: {
                 id: string;
@@ -667,6 +621,39 @@ export declare class TasksService {
             fromStatus: string | null;
             toStatus: string | null;
         })[];
+        assignments: ({
+            user: {
+                id: string;
+                userCode: string;
+                profile: {
+                    position: {
+                        id: string;
+                        name: string;
+                    } | null;
+                    fullName: string;
+                    avatarUrl: string | null;
+                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                } | null;
+            };
+        } & {
+            userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
+            assignedByUserId: string;
+            taskId: string;
+            startedAt: Date | null;
+            completedAt: Date | null;
+            reviewedAt: Date | null;
+            submittedAt: Date | null;
+            reviewedByUserId: string | null;
+            progressPercent: number;
+            assignmentDueAt: Date | null;
+            acceptedAt: Date | null;
+            reviewNote: string | null;
+            completionNote: string | null;
+        })[];
         targets: {
             id: string;
             createdAt: Date;
@@ -674,10 +661,23 @@ export declare class TasksService {
             targetType: import("@prisma/client").$Enums.TaskTargetType;
             targetId: string;
         }[];
+        createdBy: {
+            id: string;
+            userCode: string;
+            profile: {
+                position: {
+                    id: string;
+                    name: string;
+                } | null;
+                fullName: string;
+                avatarUrl: string | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+            } | null;
+        };
         departmentContext: {
             id: string;
-            code: string;
             name: string;
+            code: string;
         } | null;
         comments: ({
             user: {
@@ -694,19 +694,19 @@ export declare class TasksService {
                 } | null;
             };
         } & {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            userId: string;
             content: string;
             taskId: string;
         })[];
         attachments: {
+            type: import("@prisma/client").$Enums.TaskAttachmentType;
             id: string;
             createdAt: Date;
             storageKey: string | null;
-            type: import("@prisma/client").$Enums.TaskAttachmentType;
             fileUrl: string;
             fileName: string;
             mimeType: string | null;
@@ -730,14 +730,14 @@ export declare class TasksService {
             currentDueAt: Date | null;
         }[];
     } & {
-        id: string;
+        type: import("@prisma/client").$Enums.TaskType;
         description: string | null;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         status: import("@prisma/client").$Enums.TaskStatus;
-        title: string;
-        type: import("@prisma/client").$Enums.TaskType;
         completedAt: Date | null;
         createdByUserId: string;
         taskCode: string;
@@ -749,52 +749,6 @@ export declare class TasksService {
         cancelledAt: Date | null;
     }>;
     cancel(id: string, actor: AuthenticatedUser): Promise<{
-        assignments: ({
-            user: {
-                id: string;
-                userCode: string;
-                profile: {
-                    position: {
-                        id: string;
-                        name: string;
-                    } | null;
-                    fullName: string;
-                    avatarUrl: string | null;
-                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-                } | null;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
-            assignedByUserId: string;
-            reviewedAt: Date | null;
-            submittedAt: Date | null;
-            taskId: string;
-            startedAt: Date | null;
-            completedAt: Date | null;
-            reviewedByUserId: string | null;
-            progressPercent: number;
-            assignmentDueAt: Date | null;
-            acceptedAt: Date | null;
-            reviewNote: string | null;
-            completionNote: string | null;
-        })[];
-        createdBy: {
-            id: string;
-            userCode: string;
-            profile: {
-                position: {
-                    id: string;
-                    name: string;
-                } | null;
-                fullName: string;
-                avatarUrl: string | null;
-                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-            } | null;
-        };
         histories: ({
             actor: {
                 id: string;
@@ -821,6 +775,39 @@ export declare class TasksService {
             fromStatus: string | null;
             toStatus: string | null;
         })[];
+        assignments: ({
+            user: {
+                id: string;
+                userCode: string;
+                profile: {
+                    position: {
+                        id: string;
+                        name: string;
+                    } | null;
+                    fullName: string;
+                    avatarUrl: string | null;
+                    employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                } | null;
+            };
+        } & {
+            userId: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.TaskAssignmentStatus;
+            assignedByUserId: string;
+            taskId: string;
+            startedAt: Date | null;
+            completedAt: Date | null;
+            reviewedAt: Date | null;
+            submittedAt: Date | null;
+            reviewedByUserId: string | null;
+            progressPercent: number;
+            assignmentDueAt: Date | null;
+            acceptedAt: Date | null;
+            reviewNote: string | null;
+            completionNote: string | null;
+        })[];
         targets: {
             id: string;
             createdAt: Date;
@@ -828,10 +815,23 @@ export declare class TasksService {
             targetType: import("@prisma/client").$Enums.TaskTargetType;
             targetId: string;
         }[];
+        createdBy: {
+            id: string;
+            userCode: string;
+            profile: {
+                position: {
+                    id: string;
+                    name: string;
+                } | null;
+                fullName: string;
+                avatarUrl: string | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+            } | null;
+        };
         departmentContext: {
             id: string;
-            code: string;
             name: string;
+            code: string;
         } | null;
         comments: ({
             user: {
@@ -848,19 +848,19 @@ export declare class TasksService {
                 } | null;
             };
         } & {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            userId: string;
             content: string;
             taskId: string;
         })[];
         attachments: {
+            type: import("@prisma/client").$Enums.TaskAttachmentType;
             id: string;
             createdAt: Date;
             storageKey: string | null;
-            type: import("@prisma/client").$Enums.TaskAttachmentType;
             fileUrl: string;
             fileName: string;
             mimeType: string | null;
@@ -884,14 +884,14 @@ export declare class TasksService {
             currentDueAt: Date | null;
         }[];
     } & {
-        id: string;
+        type: import("@prisma/client").$Enums.TaskType;
         description: string | null;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         status: import("@prisma/client").$Enums.TaskStatus;
-        title: string;
-        type: import("@prisma/client").$Enums.TaskType;
         completedAt: Date | null;
         createdByUserId: string;
         taskCode: string;
@@ -904,14 +904,14 @@ export declare class TasksService {
     }>;
     acceptAssignment(assignmentId: string, actor: AuthenticatedUser): Promise<{
         task: {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -923,17 +923,17 @@ export declare class TasksService {
             cancelledAt: Date | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.TaskAssignmentStatus;
         assignedByUserId: string;
-        reviewedAt: Date | null;
-        submittedAt: Date | null;
         taskId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        reviewedAt: Date | null;
+        submittedAt: Date | null;
         reviewedByUserId: string | null;
         progressPercent: number;
         assignmentDueAt: Date | null;
@@ -943,14 +943,14 @@ export declare class TasksService {
     }>;
     startAssignment(assignmentId: string, actor: AuthenticatedUser): Promise<{
         task: {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -962,17 +962,17 @@ export declare class TasksService {
             cancelledAt: Date | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.TaskAssignmentStatus;
         assignedByUserId: string;
-        reviewedAt: Date | null;
-        submittedAt: Date | null;
         taskId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        reviewedAt: Date | null;
+        submittedAt: Date | null;
         reviewedByUserId: string | null;
         progressPercent: number;
         assignmentDueAt: Date | null;
@@ -982,14 +982,14 @@ export declare class TasksService {
     }>;
     updateProgress(assignmentId: string, dto: UpdateProgressDto, actor: AuthenticatedUser): Promise<{
         task: {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -1001,17 +1001,17 @@ export declare class TasksService {
             cancelledAt: Date | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.TaskAssignmentStatus;
         assignedByUserId: string;
-        reviewedAt: Date | null;
-        submittedAt: Date | null;
         taskId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        reviewedAt: Date | null;
+        submittedAt: Date | null;
         reviewedByUserId: string | null;
         progressPercent: number;
         assignmentDueAt: Date | null;
@@ -1021,14 +1021,14 @@ export declare class TasksService {
     }>;
     submitAssignment(assignmentId: string, dto: SubmitTaskDto, actor: AuthenticatedUser): Promise<{
         task: {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -1040,17 +1040,17 @@ export declare class TasksService {
             cancelledAt: Date | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.TaskAssignmentStatus;
         assignedByUserId: string;
-        reviewedAt: Date | null;
-        submittedAt: Date | null;
         taskId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        reviewedAt: Date | null;
+        submittedAt: Date | null;
         reviewedByUserId: string | null;
         progressPercent: number;
         assignmentDueAt: Date | null;
@@ -1060,14 +1060,14 @@ export declare class TasksService {
     }>;
     approveAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser): Promise<{
         task: {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -1079,17 +1079,17 @@ export declare class TasksService {
             cancelledAt: Date | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.TaskAssignmentStatus;
         assignedByUserId: string;
-        reviewedAt: Date | null;
-        submittedAt: Date | null;
         taskId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        reviewedAt: Date | null;
+        submittedAt: Date | null;
         reviewedByUserId: string | null;
         progressPercent: number;
         assignmentDueAt: Date | null;
@@ -1099,14 +1099,14 @@ export declare class TasksService {
     }>;
     rejectAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser): Promise<{
         task: {
-            id: string;
+            type: import("@prisma/client").$Enums.TaskType;
             description: string | null;
+            title: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
-            type: import("@prisma/client").$Enums.TaskType;
             completedAt: Date | null;
             createdByUserId: string;
             taskCode: string;
@@ -1118,17 +1118,17 @@ export declare class TasksService {
             cancelledAt: Date | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.TaskAssignmentStatus;
         assignedByUserId: string;
-        reviewedAt: Date | null;
-        submittedAt: Date | null;
         taskId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        reviewedAt: Date | null;
+        submittedAt: Date | null;
         reviewedByUserId: string | null;
         progressPercent: number;
         assignmentDueAt: Date | null;
@@ -1137,19 +1137,19 @@ export declare class TasksService {
         completionNote: string | null;
     }>;
     comment(taskId: string, dto: CreateTaskCommentDto, actor: AuthenticatedUser): Promise<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        userId: string;
         content: string;
         taskId: string;
     }>;
     attach(taskId: string, dto: CreateTaskAttachmentDto, actor: AuthenticatedUser): Promise<{
+        type: import("@prisma/client").$Enums.TaskAttachmentType;
         id: string;
         createdAt: Date;
         storageKey: string | null;
-        type: import("@prisma/client").$Enums.TaskAttachmentType;
         fileUrl: string;
         fileName: string;
         mimeType: string | null;

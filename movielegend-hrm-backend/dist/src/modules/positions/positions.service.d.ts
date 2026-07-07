@@ -9,29 +9,29 @@ export declare class PositionsService {
     findAll(actor: AuthenticatedUser, query: PositionQueryDto): Promise<{
         items: ({
             department: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
                 isActive: boolean;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
                 deletedAt: Date | null;
                 companyId: string;
                 branchId: string | null;
                 parentId: string | null;
+                code: string;
                 leaderUserId: string | null;
             } | null;
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            departmentId: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
-            departmentId: string | null;
+            code: string;
         })[];
         pagination: {
             page: number;
@@ -42,62 +42,62 @@ export declare class PositionsService {
     }>;
     findOne(actor: AuthenticatedUser, id: string): Promise<{
         department: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
             companyId: string;
             branchId: string | null;
             parentId: string | null;
+            code: string;
             leaderUserId: string | null;
         } | null;
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
+        departmentId: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        departmentId: string | null;
+        code: string;
     }>;
     create(actor: AuthenticatedUser, dto: CreatePositionDto): Promise<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
+        departmentId: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        departmentId: string | null;
+        code: string;
     }>;
     update(actor: AuthenticatedUser, id: string, dto: UpdatePositionDto): Promise<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
+        departmentId: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        departmentId: string | null;
+        code: string;
     }>;
     remove(actor: AuthenticatedUser, id: string): Promise<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
+        departmentId: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        departmentId: string | null;
+        code: string;
     }>;
     private visibleWhere;
     private assertCanRead;

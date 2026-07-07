@@ -10,6 +10,7 @@ exports.AttendanceModule = void 0;
 const common_1 = require("@nestjs/common");
 const face_module_1 = require("../face/face.module");
 const phase2_policy_module_1 = require("../phase2-policy/phase2-policy.module");
+const storage_module_1 = require("../storage/storage.module");
 const time_module_1 = require("../time/time.module");
 const uploads_module_1 = require("../uploads/uploads.module");
 const attendance_controller_1 = require("./attendance.controller");
@@ -19,7 +20,7 @@ let AttendanceModule = class AttendanceModule {
 exports.AttendanceModule = AttendanceModule;
 exports.AttendanceModule = AttendanceModule = __decorate([
     (0, common_1.Module)({
-        imports: [phase2_policy_module_1.Phase2PolicyModule, face_module_1.FaceModule, uploads_module_1.UploadsModule, time_module_1.TimeModule],
+        imports: [phase2_policy_module_1.Phase2PolicyModule, face_module_1.FaceModule, uploads_module_1.UploadsModule, time_module_1.TimeModule, storage_module_1.StorageModule],
         controllers: [attendance_controller_1.AttendanceController],
         providers: [attendance_service_1.AttendanceService],
         exports: [attendance_service_1.AttendanceService],
