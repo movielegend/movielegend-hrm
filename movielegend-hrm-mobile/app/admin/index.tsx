@@ -1,5 +1,5 @@
-import { DashboardShell } from '../../src/features/dashboard/DashboardShell';
+import { ModernHome } from '../../src/features/home/ModernHome';
 
 export default function AdminDashboardRoute() {
-  return <DashboardShell role="ADMIN" title="Admin Dashboard" />;
+  return <ModernHome />;
 }

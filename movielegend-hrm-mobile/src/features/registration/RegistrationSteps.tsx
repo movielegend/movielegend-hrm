@@ -4,7 +4,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { registerEmployee } from '../../api/registration.api';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -35,17 +36,44 @@ export function RegistrationIntroScreen() {
   const router = useRouter();
   return (
     <Screen>
-      <ScreenContainer>
-        <PageHeader title="Dang ky tai khoan" subtitle="Tai khoan moi se duoc gui toi leader hoac admin de phe duyet." />
-        <SectionCard title="Quy trinh">
-          {['Thong tin tai khoan', 'Ho so ca nhan', 'Chon phong ban', 'Chup khuon mat', 'Kiem tra va gui'].map((item) => (
-            <Text key={item} style={styles.rowText}>{item}</Text>
-          ))}
-        </SectionCard>
-        <PrimaryButton onPress={() => router.push('/register/profile')} accessibilityLabel="Bat dau dang ky">
-          Bat dau
-        </PrimaryButton>
-      </ScreenContainer>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <View style={{ padding: 24, paddingTop: 40, alignItems: 'center' }}>
+          <View style={{ width: 64, height: 64, backgroundColor: 'rgba(30,136,229,0.1)', borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Ionicons name="person-add" size={32} color="#1E88E5" />
+          </View>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: '#0B3B61', marginBottom: 8 }}>Đăng ký tài khoản</Text>
+          <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 22 }}>Tài khoản mới sẽ được gửi tới leader hoặc admin để phê duyệt. Vui lòng hoàn thành các bước dưới đây.</Text>
+        </View>
+
+        <View style={{ paddingHorizontal: 32, flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61', marginBottom: 20 }}>Quy trình 4 bước</Text>
+          
+          <View style={{ gap: 24 }}>
+            {[
+              { title: 'Thông tin tài khoản', icon: 'call', desc: 'Số điện thoại & mật khẩu' },
+              { title: 'Hồ sơ cá nhân', icon: 'id-card', desc: 'Họ tên, CCCD, Ngày sinh' },
+              { title: 'Chọn phòng ban', icon: 'business', desc: 'Nơi bạn đang công tác' },
+              { title: 'Nhận diện khuôn mặt', icon: 'scan', desc: 'Dùng để chấm công' }
+            ].map((item, idx) => (
+              <View key={item.title} style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                 <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#F0F4F8', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name={item.icon as any} size={20} color="#1E88E5" />
+                 </View>
+                 <View style={{ flex: 1 }}>
+                   <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E293B', marginBottom: 2 }}>Bước {idx + 1}: {item.title}</Text>
+                   <Text style={{ fontSize: 13, color: '#64748B' }}>{item.desc}</Text>
+                 </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={{ padding: 24, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#F0F4F8' }}>
+          <Pressable onPress={() => router.push('/register/profile')} style={{ backgroundColor: '#1E88E5', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#1E88E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Bắt đầu ngay</Text>
+          </Pressable>
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -59,19 +87,88 @@ export function RegistrationProfileScreen() {
   });
   const submit = handleSubmit((data) => {
     update(data);
-    router.push('/register/profile');
+    router.push('/register/personal');
   });
   return (
     <Screen>
-      <ScreenContainer>
-        <PageHeader title="Thong tin tai khoan" subtitle="Dung so dien thoai de dang nhap sau khi tai khoan duoc duyet." />
-        <Controller control={control} name="fullName" render={({ field }) => <FormField label="Ho ten" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
-        <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" label="So dien thoai" value={field.value} onChangeText={field.onChange} error={errors.phone?.message} />} />
-        <Controller control={control} name="email" render={({ field }) => <FormField autoCapitalize="none" keyboardType="email-address" label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} />} />
-        <Controller control={control} name="password" render={({ field }) => <FormField secureTextEntry label="Mat khau" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
-        <Controller control={control} name="confirmPassword" render={({ field }) => <FormField secureTextEntry label="Nhap lai mat khau" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
-        <PrimaryButton onPress={submit}>Tiep tuc</PrimaryButton>
-      </ScreenContainer>
+      <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 56, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E6EEF3' }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+            <Ionicons name="chevron-back" size={24} color="#0B3B61" />
+          </Pressable>
+          <View>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61' }}>Thông tin tài khoản</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>Bước 1/4</Text>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, gap: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 }}>
+            
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Họ và tên</Text>
+              <Controller control={control} name="fullName" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.fullName ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="person-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} placeholder="Nhập họ và tên" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.fullName ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.fullName.message}</Text> : null}
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Số điện thoại</Text>
+              <Controller control={control} name="phone" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.phone ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="call-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} keyboardType="phone-pad" placeholder="Dùng để đăng nhập" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.phone ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.phone.message}</Text> : null}
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Email</Text>
+              <Controller control={control} name="email" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.email ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="mail-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} autoCapitalize="none" keyboardType="email-address" placeholder="Nhập email" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.email ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.email.message}</Text> : null}
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Mật khẩu</Text>
+              <Controller control={control} name="password" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.password ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} secureTextEntry placeholder="Tối thiểu 6 ký tự" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.password ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.password.message}</Text> : null}
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Nhập lại mật khẩu</Text>
+              <Controller control={control} name="confirmPassword" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.confirmPassword ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} secureTextEntry placeholder="Xác nhận mật khẩu" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.confirmPassword ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.confirmPassword.message}</Text> : null}
+            </View>
+
+          </View>
+        </ScrollView>
+        <View style={{ padding: 24, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}>
+          <Pressable onPress={submit} style={{ backgroundColor: '#1E88E5', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục (2/4)</Text>
+          </Pressable>
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -89,13 +186,62 @@ export function RegistrationPersonalScreen() {
   });
   return (
     <Screen>
-      <ScreenContainer>
-        <PageHeader title="Ho so ca nhan" subtitle="Thong tin nay phuc vu doi chieu khi duyet tai khoan." />
-        <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="CCCD" value={field.value} onChangeText={field.onChange} error={errors.idCardNumber?.message} />} />
-        <Controller control={control} name="dateOfBirth" render={({ field }) => <FormField label="Ngay sinh" placeholder="YYYY-MM-DD" value={field.value} onChangeText={field.onChange} error={errors.dateOfBirth?.message} />} />
-        <Controller control={control} name="gender" render={({ field }) => <FormField label="Gioi tinh" placeholder="MALE / FEMALE / OTHER" value={field.value} onChangeText={field.onChange} error={errors.gender?.message} />} />
-        <PrimaryButton onPress={submit}>Tiep tuc</PrimaryButton>
-      </ScreenContainer>
+      <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 56, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E6EEF3' }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+            <Ionicons name="chevron-back" size={24} color="#0B3B61" />
+          </Pressable>
+          <View>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61' }}>Hồ sơ cá nhân</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>Bước 2/4</Text>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, gap: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 }}>
+            
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Số CCCD / CMND</Text>
+              <Controller control={control} name="idCardNumber" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.idCardNumber ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="id-card-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} keyboardType="number-pad" placeholder="Nhập dãy số CCCD" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.idCardNumber ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.idCardNumber.message}</Text> : null}
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Ngày sinh</Text>
+              <Controller control={control} name="dateOfBirth" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.dateOfBirth ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="calendar-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} placeholder="YYYY-MM-DD" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.dateOfBirth.message}</Text> : null}
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Giới tính</Text>
+              <Controller control={control} name="gender" render={({ field }) => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors.gender ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 48, backgroundColor: '#F8FAFC' }}>
+                  <Ionicons name="male-female-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                  <TextInput style={{ flex: 1, fontSize: 14, color: '#1E293B' }} placeholder="MALE / FEMALE" autoCapitalize="characters" value={field.value} onChangeText={field.onChange} />
+                </View>
+              )} />
+              {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{errors.gender.message}</Text> : null}
+            </View>
+
+          </View>
+        </ScrollView>
+        <View style={{ padding: 24, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}>
+          <Pressable onPress={submit} style={{ backgroundColor: '#1E88E5', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục (3/4)</Text>
+          </Pressable>
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -114,21 +260,59 @@ export function RegistrationDepartmentScreen() {
     update(data);
     router.push('/register/face');
   });
-  const activeDepartments = departments.data?.items.filter((department) => department.isActive) ?? [];
+  const activeDepartments = departments.data?.items.filter((department: any) => department.isActive) ?? [];
   return (
     <Screen>
-      <ScreenContainer>
-        <PageHeader title="Chon phong ban" subtitle="Danh sach lay truc tiep tu backend." />
-        <SearchInput value={search} onChangeText={setSearch} placeholder="Tim phong ban" />
-        {departments.isLoading ? <LoadingState /> : null}
-        {departments.isError ? <ErrorState error={departments.error} onRetry={() => void departments.refetch()} /> : null}
-        {!departments.isLoading && !activeDepartments.length ? <EmptyState title="Khong co phong ban active" /> : null}
-        {activeDepartments.map((department) => (
-          <DepartmentOption key={department.id} department={department} selected={selectedId === department.id} onPress={() => setValue('requestedDepartmentId', department.id, { shouldValidate: true })} />
-        ))}
-        {errors.requestedDepartmentId ? <Text style={styles.error}>{errors.requestedDepartmentId.message}</Text> : null}
-        <PrimaryButton onPress={submit}>Tiep tuc</PrimaryButton>
-      </ScreenContainer>
+      <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 56, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E6EEF3' }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+            <Ionicons name="chevron-back" size={24} color="#0B3B61" />
+          </Pressable>
+          <View>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61' }}>Chọn phòng ban</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>Bước 3/4</Text>
+          </View>
+        </View>
+
+        <View style={{ padding: 16 }}>
+           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 12, height: 48, borderWidth: 1, borderColor: '#E2E8F0' }}>
+              <Ionicons name="search" size={20} color="#94A3B8" />
+              <TextInput style={{ flex: 1, marginLeft: 8, fontSize: 14 }} placeholder="Tìm kiếm phòng ban..." value={search} onChangeText={setSearch} />
+           </View>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+          {departments.isLoading ? <ActivityIndicator style={{ marginTop: 40 }} color="#1E88E5" /> : null}
+          {!departments.isLoading && !activeDepartments.length ? <Text style={{ textAlign: 'center', marginTop: 40, color: '#64748B' }}>Không tìm thấy phòng ban</Text> : null}
+          
+          <View style={{ gap: 12 }}>
+            {activeDepartments.map((department: any) => (
+              <Pressable key={department.id} onPress={() => setValue('requestedDepartmentId', department.id, { shouldValidate: true })} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: selectedId === department.id ? '#EFF6FF' : '#FFFFFF', borderWidth: 1, borderColor: selectedId === department.id ? '#3B82F6' : '#E2E8F0', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                   <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: selectedId === department.id ? '#3B82F6' : '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="business" size={20} color={selectedId === department.id ? '#FFFFFF' : '#64748B'} />
+                   </View>
+                   <View>
+                     <Text style={{ fontSize: 15, fontWeight: '700', color: selectedId === department.id ? '#1E3A8A' : '#1E293B' }}>{department.name}</Text>
+                     <Text style={{ fontSize: 13, color: '#64748B' }}>{department.code}</Text>
+                   </View>
+                </View>
+                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: selectedId === department.id ? '#3B82F6' : '#CBD5E1', alignItems: 'center', justifyContent: 'center' }}>
+                   {selectedId === department.id && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#3B82F6' }} />}
+                </View>
+              </Pressable>
+            ))}
+          </View>
+          {errors.requestedDepartmentId ? <Text style={{ color: '#EF4444', textAlign: 'center', marginTop: 16 }}>{errors.requestedDepartmentId.message}</Text> : null}
+        </ScrollView>
+
+        <View style={{ padding: 24, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}>
+          <Pressable onPress={submit} style={{ backgroundColor: '#1E88E5', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục (4/4)</Text>
+          </Pressable>
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -143,7 +327,7 @@ export function RegistrationFaceScreen() {
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const poses: FacePose[] = ['FRONT', 'LEFT', 'RIGHT'];
-  const currentImage = values.faceImages.find((image) => image.pose === activePose);
+  const currentImage = values.faceImages.find((image: any) => image.pose === activePose);
   const complete = faceSchema.safeParse({ faceImages: values.faceImages }).success;
 
   async function capture() {
@@ -154,7 +338,7 @@ export function RegistrationFaceScreen() {
       if (!picture) throw new Error('CAMERA_UNAVAILABLE');
       await uploadPose(activePose, picture.uri);
     } catch {
-      setCaptureError('Khong the chup hoac upload anh, vui long thu lai');
+      setCaptureError('Không thể chụp hoặc tải lên, vui lòng thử lại');
     } finally {
       setCapturing(false);
     }
@@ -166,7 +350,7 @@ export function RegistrationFaceScreen() {
     try {
       await uploadPose(image.pose, image.localUri);
     } catch {
-      setCaptureError('Upload failed, please retry this pose');
+      setCaptureError('Tải lên thất bại, vui lòng thử lại góc này');
     } finally {
       setCapturing(false);
     }
@@ -183,7 +367,7 @@ export function RegistrationFaceScreen() {
         mimeType: 'image/jpeg',
         purpose: 'FACE_REGISTRATION',
         signal: controller.signal,
-        onProgress: (progress) => {
+        onProgress: (progress: any) => {
           setFaceImage({ pose, localUri: uri, previewUri: uri, imageUrl: '', uploadStatus: 'UPLOADING', uploadProgress: progress.percent });
         },
       });
@@ -198,56 +382,103 @@ export function RegistrationFaceScreen() {
       });
     } catch (error) {
       const cancelled = controller.signal.aborted;
-      setFaceImage({
-        pose,
-        localUri: uri,
-        previewUri: uri,
-        imageUrl: '',
-        uploadStatus: cancelled ? 'CANCELLED' : 'FAILED',
-        uploadError: cancelled ? 'Upload cancelled' : uploadErrorMessage(error),
-      });
-      throw error;
-    } finally {
-      if (uploadAbortRef.current === controller) uploadAbortRef.current = null;
+      setFaceImage({ pose, localUri: uri, previewUri: uri, imageUrl: '', uploadStatus: cancelled ? 'IDLE' : 'FAILED', uploadProgress: 0 });
+      if (!cancelled) throw error;
     }
   }
 
-  if (!permission) return <LoadingState label="Dang kiem tra camera" />;
+  if (!permission) return <Screen><ActivityIndicator style={{ marginTop: 40 }} color="#1E88E5" /></Screen>;
   if (!permission.granted) {
     return (
       <Screen>
-        <ScreenContainer>
-          <PageHeader title="Quyen camera" subtitle="Can quyen camera de chup du FRONT, LEFT, RIGHT." />
-          <PrimaryButton onPress={() => void requestPermission()}>Cap quyen camera</PrimaryButton>
-        </ScreenContainer>
+        <View style={{ flex: 1, backgroundColor: '#F0F4F8', justifyContent: 'center', padding: 24, alignItems: 'center' }}>
+          <Ionicons name="camera-outline" size={64} color="#1E88E5" style={{ marginBottom: 16 }} />
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#0B3B61', marginBottom: 8 }}>Cấp quyền Camera</Text>
+          <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 24 }}>Movie Legend cần truy cập camera để chụp ảnh khuôn mặt dùng cho tính năng chấm công AI.</Text>
+          <Pressable onPress={requestPermission} style={{ backgroundColor: '#1E88E5', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Cấp quyền ngay</Text>
+          </Pressable>
+        </View>
       </Screen>
     );
   }
 
   return (
     <Screen>
-      <View style={styles.cameraPage}>
-        <CameraView ref={cameraRef} active facing="front" mirror style={StyleSheet.absoluteFill} onMountError={() => setCaptureError('Camera khong kha dung tren thiet bi nay')} />
-        <View pointerEvents="box-none" style={styles.cameraOverlay}>
-          <PageHeader title={facePoseLabels[activePose]} subtitle="Can khuon mat ro, du sang, khong che mat." />
-          <View style={styles.poseRow}>
-            {poses.map((pose) => {
-              const image = values.faceImages.find((item) => item.pose === pose);
-              return <StatusBadge key={pose} label={pose} tone={image?.uploadStatus === 'SUCCESS' ? 'success' : pose === activePose ? 'info' : image?.uploadStatus === 'FAILED' ? 'danger' : 'neutral'} />;
-            })}
-          </View>
-          {currentImage?.previewUri ? <Image source={{ uri: currentImage.previewUri }} style={styles.preview} /> : null}
-          {currentImage?.uploadStatus === 'UPLOADING' ? <Text style={styles.rowText}>Upload: {currentImage.uploadProgress ?? 0}%</Text> : null}
-          {currentImage?.uploadError ? <Text style={styles.cameraError}>{currentImage.uploadError}</Text> : null}
-          {captureError ? <Text style={styles.cameraError}>{captureError}</Text> : null}
-          <View style={styles.cameraActions}>
-            <SecondaryButton onPress={capture} loading={capturing}>Chup lai</SecondaryButton>
-            {currentImage?.uploadStatus === 'UPLOADING' ? <SecondaryButton onPress={() => uploadAbortRef.current?.abort()}>Cancel upload</SecondaryButton> : null}
-            {currentImage?.localUri && currentImage.uploadStatus !== 'SUCCESS' && currentImage.uploadStatus !== 'UPLOADING' ? <SecondaryButton onPress={() => void retryUpload(currentImage)} loading={capturing}>Retry pose</SecondaryButton> : null}
-            <PrimaryButton onPress={() => setActivePose(nextPose(activePose))} disabled={activePose === 'RIGHT' && !complete}>Pose tiep</PrimaryButton>
-          </View>
-          <PrimaryButton onPress={() => router.push('/register/review')} disabled={!complete}>Kiem tra thong tin</PrimaryButton>
+      <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 56, backgroundColor: '#0F172A' }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>Lấy dữ liệu khuôn mặt</Text>
         </View>
+
+        <View style={{ padding: 24, paddingBottom: 12, alignItems: 'center' }}>
+           <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 }}>
+             {activePose === 'FRONT' ? 'Nhìn thẳng vào Camera' : activePose === 'LEFT' ? 'Quay mặt sang trái' : 'Quay mặt sang phải'}
+           </Text>
+           <Text style={{ fontSize: 14, color: '#94A3B8' }}>Đảm bảo khuôn mặt nằm trọn trong khung hình</Text>
+        </View>
+
+        <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: 280, height: 380, borderRadius: 140, overflow: 'hidden', borderWidth: 4, borderColor: currentImage?.uploadStatus === 'SUCCESS' ? '#10B981' : '#3B82F6' }}>
+            {currentImage?.localUri ? (
+               <Image source={{ uri: currentImage.localUri }} style={{ width: '100%', height: '100%' }} />
+            ) : (
+               <CameraView ref={cameraRef} facing="front" style={{ width: '100%', height: '100%' }} />
+            )}
+            
+            {/* Overlay Grid/Guide */}
+            {!currentImage && (
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 140, height: 180, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderStyle: 'dashed', borderRadius: 70 }} />
+              </View>
+            )}
+
+            {currentImage?.uploadStatus === 'UPLOADING' && (
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.6)', alignItems: 'center', justifyContent: 'center' }}>
+                 <ActivityIndicator size="large" color="#3B82F6" />
+                 <Text style={{ color: '#FFFFFF', marginTop: 12, fontWeight: '600' }}>{currentImage.uploadProgress}%</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {captureError && <Text style={{ color: '#EF4444', textAlign: 'center', marginTop: 16 }}>{captureError}</Text>}
+
+        {/* Pose Selectors */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 24, marginBottom: 40 }}>
+           {poses.map(pose => {
+             const img = values.faceImages.find((i: any) => i.pose === pose);
+             return (
+               <Pressable key={pose} onPress={() => setActivePose(pose)} style={{ alignItems: 'center' }}>
+                 <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: activePose === pose ? '#3B82F6' : '#334155', backgroundColor: '#1E293B', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 8 }}>
+                    {img?.localUri ? <Image source={{ uri: img.localUri }} style={{ width: '100%', height: '100%' }} /> : <Ionicons name="person" size={24} color="#64748B" />}
+                    {img?.uploadStatus === 'SUCCESS' && <View style={{ position: 'absolute', bottom: 4, right: 4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="checkmark" size={10} color="#FFFFFF" /></View>}
+                 </View>
+                 <Text style={{ fontSize: 12, color: activePose === pose ? '#FFFFFF' : '#94A3B8', fontWeight: activePose === pose ? '700' : '500' }}>{facePoseLabels[pose]}</Text>
+               </Pressable>
+             );
+           })}
+        </View>
+
+        <View style={{ padding: 24, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#1E293B' }}>
+          {!currentImage ? (
+            <Pressable onPress={capture} disabled={capturing} style={{ backgroundColor: '#3B82F6', height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>CHỤP ẢNH</Text>
+            </Pressable>
+          ) : currentImage.uploadStatus === 'FAILED' ? (
+            <Pressable onPress={() => retryUpload(currentImage)} disabled={capturing} style={{ backgroundColor: '#EF4444', height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>THỬ LẠI</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => { if (complete) router.push('/register/review'); else { const next = poses.find(p => !values.faceImages.find((i: any) => i.pose === p)); if (next) setActivePose(next); } }} style={{ backgroundColor: complete ? '#10B981' : '#3B82F6', height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>{complete ? 'HOÀN THÀNH' : 'BƯỚC TIẾP THEO'}</Text>
+            </Pressable>
+          )}
+        </View>
+
       </View>
     </Screen>
   );

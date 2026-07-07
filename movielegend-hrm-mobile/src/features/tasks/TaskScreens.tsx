@@ -1,6 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Image } from 'react-native';
+import { BottomNavBar } from '../../components/BottomNavBar';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
@@ -84,7 +86,14 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
           <TaskCard key={task.id} task={task} onPress={() => router.push(`/${area}/tasks/${task.id}`)} />
         ))}
       </ScreenContainer>
-    </Screen>
+    
+        <Pressable 
+          style={{ position: 'absolute', bottom: 24, right: 24, width: 64, height: 64, borderRadius: 32, backgroundColor: '#1E88E5', alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#1E88E5', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4 }}
+          onPress={() => router.push(area === 'employee' ? '/employee/tasks/create' : '/admin/tasks/create')}
+        >
+          <Ionicons name="add" size={32} color="#FFFFFF" />
+        </Pressable>
+      </Screen>
   );
 }
 
@@ -231,61 +240,6 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         <SectionCard title="Extensions">
           <ExtensionList extensions={item.extensionRequests} />
         </SectionCard>
-      </ScrollView>
-    </Screen>
-  );
-}
-
-export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
-  const router = useRouter();
-  const { user } = useAuth();
-  const mutation = useCreateTask();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<TaskPriority>('NORMAL');
-  const [startAt, setStartAt] = useState('');
-  const [dueAt, setDueAt] = useState('');
-  const [departmentContextId, setDepartmentContextId] = useState(user?.department?.id ?? '');
-  const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
-
-  async function submit() {
-    const payload: CreateTaskPayload = {
-      title,
-      description,
-      priority,
-      ...(departmentContextId ? { departmentContextId } : {}),
-      ...(startAt ? { startAt } : {}),
-      ...(dueAt ? { dueAt } : {}),
-      targets,
-    };
-    try {
-      await mutation.mutateAsync(payload);
-      Alert.alert('Thanh cong', 'Da tao task');
-      router.back();
-    } catch (error) {
-      const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, mapTaskError(normalized.code, normalized.message));
-    }
-  }
-
-  return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title={area === 'admin' ? 'Admin Task Create' : 'Leader Task Create'} subtitle="Gui mot task voi targets theo backend DTO." />
-        <SectionCard>
-          <FormField label="Title" value={title} onChangeText={setTitle} />
-          <FormField label="Description" value={description} onChangeText={setDescription} multiline />
-          <FormField label="Department context ID" value={departmentContextId} onChangeText={setDepartmentContextId} autoCapitalize="none" />
-          <FormField label="Start at ISO optional" value={startAt} onChangeText={setStartAt} autoCapitalize="none" />
-          <FormField label="Due at ISO optional" value={dueAt} onChangeText={setDueAt} autoCapitalize="none" />
-          <View style={styles.rowWrap}>
-            {priorities.map((item) => (
-              <SecondaryButton key={item} disabled={priority === item} onPress={() => setPriority(item)}>{item}</SecondaryButton>
-            ))}
-          </View>
-        </SectionCard>
-        <TaskTargetSelector area={area} targets={targets} onChange={setTargets} />
-        <PrimaryButton loading={mutation.isPending} disabled={title.trim().length < 3 || !targets.length} onPress={() => void submit()}>Tao task</PrimaryButton>
       </ScrollView>
     </Screen>
   );
@@ -461,3 +415,187 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+
+export function CreateTaskScreen({ area }: { area: TaskArea }) {
+  const router = useRouter();
+  
+  return (
+    <Screen>
+      <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 56, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E6EEF3' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
+              <Ionicons name="arrow-back" size={24} color="#0B3B61" />
+            </Pressable>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#0B3B61' }}>Giao việc</Text>
+          </View>
+          <Pressable style={{ padding: 4 }}>
+            <Ionicons name="help-circle-outline" size={24} color="#98A0A8" />
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+          
+          {/* Tiêu đề công việc */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Tiêu đề</Text>
+            <View style={{ height: 48, borderWidth: 1, borderColor: '#E6EEF3', borderRadius: 8, paddingHorizontal: 12, backgroundColor: '#FFFFFF', justifyContent: 'center' }}>
+               <Text style={{ fontSize: 14, color: '#98A0A8' }}>Nhập tiêu đề công việc</Text>
+            </View>
+          </View>
+
+          {/* Mô tả / Ghi chú */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Mô tả</Text>
+            <View style={{ minHeight: 120, borderWidth: 1, borderColor: '#E6EEF3', borderRadius: 8, padding: 12, backgroundColor: '#FFFFFF' }}>
+               <Text style={{ fontSize: 14, color: '#98A0A8' }}>Mô tả chi tiết, yêu cầu, kết quả mong đợi</Text>
+            </View>
+          </View>
+
+          {/* Người được giao */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Người được giao</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 1, borderColor: '#E6EEF3', borderRadius: 8, paddingHorizontal: 12, backgroundColor: '#FFFFFF', marginBottom: 12 }}>
+               <Ionicons name="search" size={20} color="#98A0A8" />
+               <Text style={{ flex: 1, fontSize: 14, color: '#98A0A8', marginLeft: 8 }}>Chọn người/nhóm</Text>
+               <Ionicons name="chevron-down" size={20} color="#98A0A8" />
+            </View>
+            
+            {/* Selected Assignees (Chips) */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+               <View style={{ flexDirection: 'row', alignItems: 'center', height: 32, backgroundColor: 'rgba(30,136,229,0.08)', borderRadius: 16, paddingHorizontal: 12, gap: 6 }}>
+                  <Image source={{ uri: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80' }} style={{ width: 20, height: 20, borderRadius: 10 }} />
+                  <Text style={{ fontSize: 13, color: '#0B3B61', fontWeight: '500' }}>Phùng Thanh Bình</Text>
+                  <Ionicons name="close" size={14} color="#0B3B61" />
+               </View>
+               <View style={{ flexDirection: 'row', alignItems: 'center', height: 32, backgroundColor: 'rgba(30,136,229,0.08)', borderRadius: 16, paddingHorizontal: 12, gap: 6 }}>
+                  <Image source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80' }} style={{ width: 20, height: 20, borderRadius: 10 }} />
+                  <Text style={{ fontSize: 13, color: '#0B3B61', fontWeight: '500' }}>Nguyễn Minh Tú</Text>
+                  <Ionicons name="close" size={14} color="#0B3B61" />
+               </View>
+            </View>
+
+            {/* Quick-assign buttons */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+               <Pressable style={{ flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3', backgroundColor: '#FFFFFF', gap: 6 }}>
+                  <Ionicons name="people" size={16} color="#3B4A59" />
+                  <Text style={{ fontSize: 13, color: '#3B4A59', fontWeight: '500' }}>Cả phòng</Text>
+               </Pressable>
+               <Pressable style={{ flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3', backgroundColor: '#FFFFFF', gap: 6 }}>
+                  <Ionicons name="time" size={16} color="#3B4A59" />
+                  <Text style={{ fontSize: 13, color: '#3B4A59', fontWeight: '500' }}>Người cùng ca</Text>
+               </Pressable>
+            </View>
+          </View>
+
+          {/* Ngày hạn / Due date */}
+          <View style={{ marginBottom: 16 }}>
+             <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Ngày hạn</Text>
+             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48, borderWidth: 1, borderColor: '#E6EEF3', borderRadius: 8, paddingHorizontal: 12, backgroundColor: '#FFFFFF', marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                   <Ionicons name="calendar-outline" size={20} color="#98A0A8" />
+                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B4A59' }}>15/10/2023</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#98A0A8" />
+             </View>
+             
+             {/* Quick presets */}
+             <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ height: 32, borderRadius: 16, paddingHorizontal: 12, justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3' }}>
+                   <Text style={{ fontSize: 13, color: '#3B4A59' }}>Hôm sau</Text>
+                </View>
+                <View style={{ height: 32, borderRadius: 16, paddingHorizontal: 12, justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3' }}>
+                   <Text style={{ fontSize: 13, color: '#3B4A59' }}>Tuần sau</Text>
+                </View>
+                <View style={{ height: 32, borderRadius: 16, paddingHorizontal: 12, justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3' }}>
+                   <Text style={{ fontSize: 13, color: '#3B4A59' }}>Không hạn</Text>
+                </View>
+             </View>
+          </View>
+
+          {/* Độ ưu tiên */}
+          <View style={{ marginBottom: 16 }}>
+             <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Độ ưu tiên</Text>
+             <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1, height: 40, borderRadius: 8, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 }}>
+                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' }} />
+                   <Text style={{ fontSize: 14, color: '#3B4A59', fontWeight: '500' }}>Cao</Text>
+                </View>
+                <View style={{ flex: 1, height: 40, borderRadius: 8, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 }}>
+                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F59E0B' }} />
+                   <Text style={{ fontSize: 14, color: '#3B4A59', fontWeight: '500' }}>Vừa</Text>
+                </View>
+                <View style={{ flex: 1, height: 40, borderRadius: 8, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 }}>
+                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#16A34A' }} />
+                   <Text style={{ fontSize: 14, color: '#3B4A59', fontWeight: '500' }}>Thấp</Text>
+                </View>
+             </View>
+          </View>
+
+          {/* Đính kèm */}
+          <View style={{ marginBottom: 16 }}>
+             <Text style={{ fontSize: 14, fontWeight: '600', color: '#3B4A59', marginBottom: 8 }}>Đính kèm</Text>
+             <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+                   <Ionicons name="document-text" size={24} color="#1E88E5" />
+                </View>
+                <View style={{ width: 64, height: 64, borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3', borderStyle: 'dashed', backgroundColor: '#F7FAFC', alignItems: 'center', justifyContent: 'center' }}>
+                   <Ionicons name="add" size={24} color="#98A0A8" />
+                </View>
+             </View>
+          </View>
+
+          {/* Tùy chọn lặp */}
+          <View style={{ marginBottom: 24 }}>
+             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48, backgroundColor: '#FFFFFF', paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3' }}>
+                <Text style={{ fontSize: 14, color: '#3B4A59', fontWeight: '500' }}>Lặp lại / Nhắc nhở</Text>
+                <View style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: '#1E88E5', padding: 2, alignItems: 'flex-end' }}>
+                   <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF' }} />
+                </View>
+             </View>
+          </View>
+
+          {/* Preview thẻ */}
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}>
+             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: '#0B3B61', flex: 1, marginRight: 12 }}>Thiết kế Poster Phim 'Hành Trình'</Text>
+                <View style={{ backgroundColor: '#EF4444', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 }}>
+                   <Text style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF' }}>Cao</Text>
+                </View>
+             </View>
+             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: -8 }}>
+                   <Image source={{ uri: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80' }} style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: '#FFFFFF' }} />
+                   <Image source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80' }} style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: '#FFFFFF' }} />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="document-attach-outline" size={16} color="#98A0A8" />
+                      <Text style={{ fontSize: 12, color: '#98A0A8' }}>1</Text>
+                   </View>
+                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="calendar-outline" size={16} color="#98A0A8" />
+                      <Text style={{ fontSize: 12, color: '#98A0A8' }}>15/10</Text>
+                   </View>
+                </View>
+             </View>
+          </View>
+
+        </ScrollView>
+        
+        {/* Bottom Actions */}
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 16, borderTopWidth: 1, borderTopColor: '#E6EEF3', flexDirection: 'row', gap: 12 }}>
+           <Pressable style={{ flex: 1, height: 52, borderRadius: 12, borderWidth: 1.5, borderColor: '#1E88E5', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#1E88E5' }}>Lưu nháp</Text>
+           </Pressable>
+           <Pressable style={{ flex: 1, height: 52, borderRadius: 12, backgroundColor: '#1E88E5', alignItems: 'center', justifyContent: 'center', shadowColor: '#1E88E5', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2 }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>Giao</Text>
+           </Pressable>
+        </View>
+
+      </View>
+    </Screen>
+  );
+}
