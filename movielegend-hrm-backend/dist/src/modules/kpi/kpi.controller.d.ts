@@ -6,12 +6,12 @@ export declare class KpiTemplatesController {
     constructor(kpi: KpiService);
     create(dto: CreateKpiTemplateDto, actor: AuthenticatedUser): Promise<{
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: import("@prisma/client/runtime/library").Decimal;
             targetValue: string | null;
@@ -21,28 +21,28 @@ export declare class KpiTemplatesController {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<({
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: import("@prisma/client/runtime/library").Decimal;
             targetValue: string | null;
@@ -52,28 +52,28 @@ export declare class KpiTemplatesController {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     })[]>;
     findOne(id: string): Promise<{
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: import("@prisma/client/runtime/library").Decimal;
             targetValue: string | null;
@@ -83,28 +83,28 @@ export declare class KpiTemplatesController {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }>;
     update(id: string, dto: UpdateKpiTemplateDto): import("@prisma/client").Prisma.Prisma__KpiTemplateClient<{
         criteria: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            code: string;
             kpiTemplateId: string;
             weight: import("@prisma/client/runtime/library").Decimal;
             targetValue: string | null;
@@ -114,27 +114,27 @@ export declare class KpiTemplatesController {
             isRequired: boolean;
         }[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        companyId: string;
         departmentId: string | null;
         positionId: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        deletedAt: Date | null;
+        companyId: string;
+        code: string;
         createdById: string;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     addCriteria(id: string, dto: CreateKpiCriteriaDto): Promise<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        code: string;
         kpiTemplateId: string;
         weight: import("@prisma/client/runtime/library").Decimal;
         targetValue: string | null;
@@ -150,15 +150,19 @@ export declare class KpiAssignmentsController {
     assign(dto: CreateKpiAssignmentDto, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -167,31 +171,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -201,28 +203,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -235,9 +237,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -245,21 +247,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -267,15 +269,19 @@ export declare class KpiAssignmentsController {
     findMine(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -284,31 +290,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -318,28 +322,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -352,9 +356,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -362,21 +366,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -384,15 +388,19 @@ export declare class KpiAssignmentsController {
     findDepartment(departmentId: string, actor: AuthenticatedUser): Promise<({
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -401,31 +409,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -435,28 +441,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -469,9 +475,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -479,21 +485,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -501,15 +507,19 @@ export declare class KpiAssignmentsController {
     findOne(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -518,31 +528,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -552,28 +560,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -586,9 +594,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -596,21 +604,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -618,15 +626,19 @@ export declare class KpiAssignmentsController {
     updateResults(id: string, dto: UpdateKpiResultsDto, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -635,31 +647,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -669,28 +679,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -703,9 +713,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -713,21 +723,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -735,15 +745,19 @@ export declare class KpiAssignmentsController {
     selfSubmit(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -752,31 +766,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -786,28 +798,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -820,9 +832,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -830,21 +842,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -852,15 +864,19 @@ export declare class KpiAssignmentsController {
     leaderReview(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -869,31 +885,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -903,28 +917,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -937,9 +951,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -947,21 +961,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -969,15 +983,19 @@ export declare class KpiAssignmentsController {
     finalize(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -986,31 +1004,29 @@ export declare class KpiAssignmentsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         kpiTemplate: {
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -1020,28 +1036,28 @@ export declare class KpiAssignmentsController {
                 isRequired: boolean;
             }[];
         } & {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            companyId: string;
             departmentId: string | null;
             positionId: string | null;
+            isActive: boolean;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            deletedAt: Date | null;
+            companyId: string;
+            code: string;
             createdById: string;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
             criteria: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 kpiTemplateId: string;
                 weight: import("@prisma/client/runtime/library").Decimal;
                 targetValue: string | null;
@@ -1054,9 +1070,9 @@ export declare class KpiAssignmentsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            targetValue: string | null;
+            evidenceUrl: string | null;
             finalScore: import("@prisma/client/runtime/library").Decimal | null;
-            employeeKpiAssignmentId: string;
+            targetValue: string | null;
             criteriaId: string;
             actualValue: string | null;
             employeeScore: import("@prisma/client/runtime/library").Decimal | null;
@@ -1064,21 +1080,21 @@ export declare class KpiAssignmentsController {
             employeeComment: string | null;
             leaderComment: string | null;
             finalComment: string | null;
-            evidenceUrl: string | null;
+            employeeKpiAssignmentId: string;
         })[];
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+        assignedById: string;
+        assignedAt: Date;
         reviewedAt: Date | null;
         snapshot: import("@prisma/client/runtime/library").JsonValue | null;
         kpiTemplateId: string;
         periodStart: Date;
         periodEnd: Date;
-        assignedById: string;
-        assignedAt: Date;
         submittedAt: Date | null;
         finalizedAt: Date | null;
         finalScore: import("@prisma/client/runtime/library").Decimal | null;

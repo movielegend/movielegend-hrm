@@ -30,28 +30,28 @@ export declare class EmployeesController {
     }>;
     findOne(id: string): Promise<{
         user: {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         position: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            departmentId: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
-            departmentId: string | null;
+            code: string;
         } | null;
         bankAccounts: {
             id: string;
@@ -64,17 +64,17 @@ export declare class EmployeesController {
             accountName: string;
         }[];
         documents: {
-            id: string;
+            userId: string | null;
+            type: string;
             description: string | null;
+            title: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            userId: string | null;
             status: import("@prisma/client").$Enums.DocumentStatus;
-            storageKey: string | null;
-            title: string | null;
-            type: string;
             rejectionReason: string | null;
+            storageKey: string | null;
             fileUrl: string;
             fileName: string;
             mimeType: string | null;
@@ -85,19 +85,27 @@ export declare class EmployeesController {
             issuedBy: string | null;
             fileSize: number | null;
             verifiedAt: Date | null;
+            acknowledgementStatus: import("@prisma/client").$Enums.AcknowledgementStatus;
+            acknowledgedAt: Date | null;
+            acknowledgementNote: string | null;
+            acknowledgedByIp: string | null;
             employeeId: string;
             verifiedById: string | null;
         }[];
     } & {
+        userId: string;
+        fullName: string;
+        positionId: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        fullName: string;
         dateOfBirth: Date | null;
         gender: import("@prisma/client").$Enums.Gender | null;
         idCardNumber: string;
         idCardIssueDate: Date | null;
         idCardIssuePlace: string | null;
+        idCardFrontUrl: string | null;
+        idCardBackUrl: string | null;
         permanentAddress: string | null;
         temporaryAddress: string | null;
         avatarUrl: string | null;
@@ -106,7 +114,5 @@ export declare class EmployeesController {
         employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
         emergencyContactName: string | null;
         emergencyContactPhone: string | null;
-        positionId: string | null;
-        userId: string;
     }>;
 }

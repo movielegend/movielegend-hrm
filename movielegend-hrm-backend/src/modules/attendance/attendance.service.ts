@@ -13,6 +13,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { FaceVerificationService } from '../face/services/face-verification.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { BusinessTimeService } from '../time/business-time.service';
+import { StorageService } from '../storage/storage.service';
+import { ImageProcessingService } from '../uploads/image-processing.service';
 import {
   AttendanceQueryDto,
   CheckInDto,
@@ -29,6 +31,8 @@ export class AttendanceService {
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,
     private readonly faceVerification: FaceVerificationService,
+    private readonly imageProcessing: ImageProcessingService,
+    private readonly storage: StorageService,
     private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
   ) {}
 
@@ -69,6 +73,28 @@ export class AttendanceService {
 
     return this.prisma.$transaction(async (tx) => {
       if (photo) {
+        // Áp dụng watermark lên ảnh chấm công
+        try {
+          const user = await tx.user.findUnique({ where: { id: actor.userId } });
+          const userProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+          const imageBuffer = await this.storage.read(photo.storageKey);
+          const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
+            employeeName: userProfile?.fullName ?? 'Unknown',
+            userCode: user?.userCode ?? actor.userId,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+          });
+          
+          await this.storage.upload({
+            buffer: watermarkedBuffer,
+            fileName: photo.fileName,
+            mimeType: 'image/jpeg',
+            storageKey: photo.storageKey,
+          });
+        } catch (error) {
+          // Continue if watermarking fails, do not block attendance
+        }
+
         const attached = await tx.uploadedFile.updateMany({
           where: {
             id: photo.id,

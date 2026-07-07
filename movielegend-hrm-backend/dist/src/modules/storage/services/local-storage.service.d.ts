@@ -7,5 +7,6 @@ export declare class LocalStorageService extends StorageService {
     delete(key: string): Promise<void>;
     exists(key: string): Promise<boolean>;
     getPublicUrl(key: string): string;
+    read(key: string): Promise<Buffer>;
     private resolveKey;
 }

@@ -5,14 +5,14 @@ export declare class ViolationsController {
     private readonly violations;
     constructor(violations: ViolationsService);
     create(dto: CreateViolationDto, actor: AuthenticatedUser): import("@prisma/client").Prisma.Prisma__ViolationClient<{
-        id: string;
+        userId: string;
         description: string;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.ViolationStatus;
         createdById: string;
-        title: string;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         violationType: string;
@@ -22,27 +22,27 @@ export declare class ViolationsController {
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<({
         actions: {
-            id: string;
             description: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             status: import("@prisma/client").$Enums.DisciplinaryActionStatus;
-            approvedAt: Date | null;
-            approvedById: string | null;
             amount: import("@prisma/client/runtime/library").Decimal | null;
             effectiveDate: Date;
+            approvedAt: Date | null;
+            approvedById: string | null;
             actionType: import("@prisma/client").$Enums.DisciplinaryActionType;
             violationId: string;
         }[];
     } & {
-        id: string;
+        userId: string;
         description: string;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.ViolationStatus;
         createdById: string;
-        title: string;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         violationType: string;
@@ -52,27 +52,27 @@ export declare class ViolationsController {
     })[]>;
     findOne(id: string): Promise<{
         actions: {
-            id: string;
             description: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             status: import("@prisma/client").$Enums.DisciplinaryActionStatus;
-            approvedAt: Date | null;
-            approvedById: string | null;
             amount: import("@prisma/client/runtime/library").Decimal | null;
             effectiveDate: Date;
+            approvedAt: Date | null;
+            approvedById: string | null;
             actionType: import("@prisma/client").$Enums.DisciplinaryActionType;
             violationId: string;
         }[];
     } & {
-        id: string;
+        userId: string;
         description: string;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.ViolationStatus;
         createdById: string;
-        title: string;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         violationType: string;
@@ -81,14 +81,14 @@ export declare class ViolationsController {
         confirmedById: string | null;
     }>;
     confirm(id: string, actor: AuthenticatedUser): Promise<{
-        id: string;
+        userId: string;
         description: string;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.ViolationStatus;
         createdById: string;
-        title: string;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         violationType: string;
@@ -97,14 +97,14 @@ export declare class ViolationsController {
         confirmedById: string | null;
     }>;
     reject(id: string): import("@prisma/client").Prisma.Prisma__ViolationClient<{
-        id: string;
+        userId: string;
         description: string;
+        title: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.ViolationStatus;
         createdById: string;
-        title: string;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         violationType: string;
@@ -113,28 +113,28 @@ export declare class ViolationsController {
         confirmedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     createAction(id: string, dto: CreateDisciplinaryActionDto): Promise<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.DisciplinaryActionStatus;
-        approvedAt: Date | null;
-        approvedById: string | null;
         amount: import("@prisma/client/runtime/library").Decimal | null;
         effectiveDate: Date;
+        approvedAt: Date | null;
+        approvedById: string | null;
         actionType: import("@prisma/client").$Enums.DisciplinaryActionType;
         violationId: string;
     }>;
     approveAction(id: string, actor: AuthenticatedUser): Promise<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.DisciplinaryActionStatus;
-        approvedAt: Date | null;
-        approvedById: string | null;
         amount: import("@prisma/client/runtime/library").Decimal | null;
         effectiveDate: Date;
+        approvedAt: Date | null;
+        approvedById: string | null;
         actionType: import("@prisma/client").$Enums.DisciplinaryActionType;
         violationId: string;
     }>;

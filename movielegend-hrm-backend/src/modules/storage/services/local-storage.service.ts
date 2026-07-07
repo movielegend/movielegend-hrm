@@ -44,6 +44,11 @@ export class LocalStorageService extends StorageService {
     return `/uploads/${encodeURIComponent(sanitizeStorageKey(key))}`;
   }
 
+  async read(key: string): Promise<Buffer> {
+    const target = this.resolveKey(key);
+    return fs.readFile(target);
+  }
+
   private resolveKey(key: string): string {
     const clean = sanitizeStorageKey(key);
     const target = path.resolve(this.root, clean);

@@ -204,6 +204,43 @@ let ContractsService = class ContractsService {
             orderBy: { endDate: 'asc' },
         });
     }
+    async acknowledgeContract(id, dto, ipAddress, actor) {
+        const contract = await this.prisma.employeeContract.findUnique({
+            where: { id },
+        });
+        if (!contract)
+            throw (0, error_util_1.notFound)('EMPLOYEE_CONTRACT_NOT_FOUND', 'Khong tim thay hop dong');
+        if (contract.userId !== actor.userId) {
+            throw (0, error_util_1.forbidden)('CONTRACT_ACKNOWLEDGE_FORBIDDEN', 'Ban chi duoc xac nhan hop dong cua chinh minh');
+        }
+        if (contract.employeeAcknowledgementStatus !== 'PENDING') {
+            throw (0, error_util_1.badRequest)('CONTRACT_ALREADY_ACKNOWLEDGED', 'Hop dong nay da duoc xac nhan');
+        }
+        const payload = await this.prisma.$transaction(async (tx) => {
+            const updated = await tx.employeeContract.update({
+                where: { id },
+                data: {
+                    employeeAcknowledgementStatus: dto.isAgreed ? 'AGREED' : 'DISAGREED',
+                    employeeAcknowledgedAt: new Date(),
+                    employeeAcknowledgementNote: dto.note,
+                    employeeAcknowledgedByIp: ipAddress,
+                },
+                include: this.include(),
+            });
+            await tx.auditLog.create({
+                data: {
+                    actorUserId: actor.userId,
+                    action: dto.isAgreed ? 'CONTRACT_AGREED' : 'CONTRACT_DISAGREED',
+                    entityType: 'EmployeeContract',
+                    entityId: id,
+                    metadata: { ipAddress, note: dto.note },
+                },
+            });
+            return { updated };
+        });
+        this.realtime.emitToUser(contract.userId, 'contract:acknowledged', { id, status: payload.updated.employeeAcknowledgementStatus });
+        return payload.updated;
+    }
     async transition(id, actor, from, to, auditAction, notificationType, extra = {}) {
         this.policy.assertTransition(from, to);
         const current = await this.prisma.employeeContract.findUnique({ where: { id } });

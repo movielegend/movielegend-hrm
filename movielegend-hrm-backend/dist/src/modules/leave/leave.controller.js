@@ -37,6 +37,9 @@ let LeaveController = class LeaveController {
     findLeaveRequests(actor, query) {
         return this.leaveService.findLeaveRequests(actor, query);
     }
+    findMyLeaveRequests(actor, query) {
+        return this.leaveService.findMyLeaveRequests(actor, query);
+    }
     approveLeave(id, actor) {
         return this.leaveService.approveLeave(id, actor);
     }
@@ -93,6 +96,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, leave_dto_1.LeaveRequestQueryDto]),
     __metadata("design:returntype", void 0)
 ], LeaveController.prototype, "findLeaveRequests", null);
+__decorate([
+    (0, any_permissions_decorator_1.AnyPermissions)('leave.request', 'leave.balance.read'),
+    (0, common_1.Get)('leave-requests/my'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, leave_dto_1.LeaveRequestQueryDto]),
+    __metadata("design:returntype", void 0)
+], LeaveController.prototype, "findMyLeaveRequests", null);
 __decorate([
     (0, permissions_decorator_1.Permissions)('leave.approve'),
     (0, common_1.Post)('leave-requests/:id/approve'),

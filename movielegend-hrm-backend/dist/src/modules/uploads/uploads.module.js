@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UploadsModule = void 0;
 const common_1 = require("@nestjs/common");
 const storage_module_1 = require("../storage/storage.module");
+const image_processing_service_1 = require("./image-processing.service");
 const uploads_controller_1 = require("./uploads.controller");
 const uploads_service_1 = require("./uploads.service");
 let UploadsModule = class UploadsModule {
@@ -18,8 +19,8 @@ exports.UploadsModule = UploadsModule = __decorate([
     (0, common_1.Module)({
         imports: [storage_module_1.StorageModule],
         controllers: [uploads_controller_1.UploadsController],
-        providers: [uploads_service_1.UploadsService],
-        exports: [uploads_service_1.UploadsService],
+        providers: [uploads_service_1.UploadsService, image_processing_service_1.ImageProcessingService],
+        exports: [uploads_service_1.UploadsService, image_processing_service_1.ImageProcessingService],
     })
 ], UploadsModule);
 //# sourceMappingURL=uploads.module.js.map

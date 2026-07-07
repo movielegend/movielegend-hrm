@@ -11,6 +11,8 @@ export declare class RegisterDto {
     password: string;
     idCardNumber: string;
     dateOfBirth?: string;
+    idCardFrontFileId?: string;
+    idCardBackFileId?: string;
     gender?: Gender;
     requestedDepartmentId: string;
     avatarUrl?: string;

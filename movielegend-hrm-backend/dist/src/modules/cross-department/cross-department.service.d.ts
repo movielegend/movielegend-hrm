@@ -9,11 +9,11 @@ export declare class CrossDepartmentService {
     private readonly notifications;
     constructor(prisma: PrismaService, scope: DepartmentScopeService, notifications: NotificationsService);
     create(dto: CreateCrossDepartmentRequestDto, actor: AuthenticatedUser): Promise<{
+        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
-        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -25,11 +25,11 @@ export declare class CrossDepartmentService {
         createdByUserId: string;
     }>;
     findAll(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<{
+        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
-        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -50,9 +50,9 @@ export declare class CrossDepartmentService {
             } | null;
         };
         linkedTask: {
+            title: string;
             id: string;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
             taskCode: string;
             priority: import("@prisma/client").$Enums.TaskPriority;
             dueAt: Date | null;
@@ -85,9 +85,9 @@ export declare class CrossDepartmentService {
             reason: string | null;
         })[];
         task: {
+            title: string;
             id: string;
             status: import("@prisma/client").$Enums.TaskStatus;
-            title: string;
             taskCode: string;
             priority: import("@prisma/client").$Enums.TaskPriority;
             dueAt: Date | null;
@@ -110,19 +110,19 @@ export declare class CrossDepartmentService {
         } | null;
         sourceDepartment: {
             id: string;
-            code: string;
             name: string;
+            code: string;
         };
         targetDepartment: {
             id: string;
-            code: string;
             name: string;
+            code: string;
         };
+        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
-        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -134,11 +134,11 @@ export declare class CrossDepartmentService {
         createdByUserId: string;
     }>;
     approveSource(id: string, actor: AuthenticatedUser): Promise<{
+        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
-        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -150,11 +150,11 @@ export declare class CrossDepartmentService {
         createdByUserId: string;
     }>;
     rejectSource(id: string, dto: RejectCrossDepartmentRequestDto, actor: AuthenticatedUser): Promise<{
+        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
-        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -166,11 +166,11 @@ export declare class CrossDepartmentService {
         createdByUserId: string;
     }>;
     acceptTarget(id: string, actor: AuthenticatedUser): Promise<{
+        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
-        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -182,11 +182,11 @@ export declare class CrossDepartmentService {
         createdByUserId: string;
     }>;
     rejectTarget(id: string, dto: RejectCrossDepartmentRequestDto, actor: AuthenticatedUser): Promise<{
+        title: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
-        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;

@@ -1,5 +1,6 @@
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { AuthService } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { LogoutDto, RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -24,29 +25,29 @@ export declare class AuthController {
             roles: string[];
             permissions: string[];
             department: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
                 isActive: boolean;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
                 deletedAt: Date | null;
                 companyId: string;
                 branchId: string | null;
                 parentId: string | null;
+                code: string;
                 leaderUserId: string | null;
             };
             position: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                departmentId: string | null;
                 isActive: boolean;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
                 deletedAt: Date | null;
-                departmentId: string | null;
+                code: string;
             } | null;
             hasFaceData: boolean;
             accountStatus: import("@prisma/client").$Enums.AccountStatus;
@@ -73,33 +74,36 @@ export declare class AuthController {
         roles: string[];
         permissions: string[];
         department: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
             companyId: string;
             branchId: string | null;
             parentId: string | null;
+            code: string;
             leaderUserId: string | null;
         };
         position: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            departmentId: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
-            departmentId: string | null;
+            code: string;
         } | null;
         hasFaceData: boolean;
         accountStatus: import("@prisma/client").$Enums.AccountStatus;
         approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
         isActive: boolean;
+    }>;
+    changePassword(dto: ChangePasswordDto, user: AuthenticatedUser): Promise<{
+        success: boolean;
     }>;
 }

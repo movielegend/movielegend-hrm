@@ -16,10 +16,10 @@ export declare class NotificationsService {
         metadata?: Prisma.InputJsonValue;
     }): Promise<{
         notification: {
+            type: import("@prisma/client").$Enums.NotificationType;
+            title: string;
             id: string;
             createdAt: Date;
-            title: string;
-            type: import("@prisma/client").$Enums.NotificationType;
             metadata: Prisma.JsonValue | null;
             body: string;
             dedupKey: string | null;
@@ -30,47 +30,47 @@ export declare class NotificationsService {
     emitCreated(payload: Awaited<ReturnType<NotificationsService['createForUsers']>>): void;
     findMine(actor: AuthenticatedUser): Prisma.PrismaPromise<({
         notification: {
+            type: import("@prisma/client").$Enums.NotificationType;
+            title: string;
             id: string;
             createdAt: Date;
-            title: string;
-            type: import("@prisma/client").$Enums.NotificationType;
             metadata: Prisma.JsonValue | null;
             body: string;
             dedupKey: string | null;
             taskId: string | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
-        userId: string;
         readAt: Date | null;
         notificationId: string;
     })[]>;
     unreadCount(actor: AuthenticatedUser): Prisma.PrismaPromise<number>;
     markRead(id: string, actor: AuthenticatedUser): Promise<{
         notification: {
+            type: import("@prisma/client").$Enums.NotificationType;
+            title: string;
             id: string;
             createdAt: Date;
-            title: string;
-            type: import("@prisma/client").$Enums.NotificationType;
             metadata: Prisma.JsonValue | null;
             body: string;
             dedupKey: string | null;
             taskId: string | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
-        userId: string;
         readAt: Date | null;
         notificationId: string;
     }>;
     markAllRead(actor: AuthenticatedUser): Prisma.PrismaPromise<Prisma.BatchPayload>;
     registerDevice(dto: RegisterDeviceTokenDto, actor: AuthenticatedUser): Prisma.Prisma__DeviceTokenClient<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         deviceId: string | null;
         tokenHash: string;
         revokedAt: Date | null;

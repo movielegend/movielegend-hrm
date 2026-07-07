@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -14,6 +14,7 @@ import {
   UpdateContractTemplateDto,
   UpdateEmployeeContractDto,
 } from './dto/contract.dto';
+import { AcknowledgeContractDto } from './dto/acknowledge-contract.dto';
 
 @ApiTags('Contract Templates')
 @ApiBearerAuth()
@@ -74,6 +75,17 @@ export class EmployeeContractsController {
   @AnyPermissions('contract.read_department', 'contract.read_all')
   expiry(@Query('days') days?: string) {
     return this.contracts.expiry(days ? Number(days) : 30);
+  }
+
+  @Post(':id/acknowledge')
+  @Permissions('contract.read_own')
+  acknowledge(
+    @Param('id') id: string,
+    @Body() dto: AcknowledgeContractDto,
+    @Ip() ipAddress: string,
+    @CurrentUser() actor: AuthenticatedUser
+  ) {
+    return this.contracts.acknowledgeContract(id, dto, ipAddress, actor);
   }
 
   @Get(':id')

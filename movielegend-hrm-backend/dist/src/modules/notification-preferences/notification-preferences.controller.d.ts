@@ -5,20 +5,20 @@ export declare class NotificationPreferencesController {
     private readonly preferences;
     constructor(preferences: NotificationPreferencesService);
     findMine(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         notificationType: import("@prisma/client").$Enums.NotificationType;
         inAppEnabled: boolean;
         pushEnabled: boolean;
         emailEnabled: boolean;
     }[]>;
     updateMine(dto: UpdateNotificationPreferenceDto, actor: AuthenticatedUser): import("@prisma/client").Prisma.Prisma__UserNotificationPreferenceClient<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         notificationType: import("@prisma/client").$Enums.NotificationType;
         inAppEnabled: boolean;
         pushEnabled: boolean;

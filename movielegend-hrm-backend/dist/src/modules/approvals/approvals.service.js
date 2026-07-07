@@ -113,6 +113,16 @@ let ApprovalsService = class ApprovalsService {
                 },
                 update: { leftAt: null, isPrimary: true },
             });
+            const employeeRole = await tx.role.findUnique({ where: { code: 'EMPLOYEE' } });
+            if (employeeRole) {
+                await tx.userRole.create({
+                    data: {
+                        userId: request.userId,
+                        roleId: employeeRole.id,
+                        scopeType: client_1.RoleScopeType.GLOBAL,
+                    },
+                });
+            }
             await tx.approvalHistory.create({
                 data: {
                     approvalRequestId: id,
