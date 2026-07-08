@@ -105,14 +105,14 @@ export function ModernHome() {
               </Pressable>
             </Link>
 
-            <Pressable style={styles.gridItem}>
-              <View style={[styles.iconBox, { backgroundColor: 'rgba(22,163,74,0.15)', borderRadius: 20 }]}>
-                <Ionicons name="document-text-outline" size={24} color={colors.success} />
-              </View>
-              <Text style={styles.gridLabel}>Phiếu lương</Text>
-            </Pressable>
-
-
+            <Link href="/admin/payslip" asChild>
+              <Pressable style={styles.gridItem}>
+                <View style={[styles.iconBox, { backgroundColor: 'rgba(22,163,74,0.15)', borderRadius: 20 }]}>
+                  <Ionicons name="document-text-outline" size={24} color={colors.success} />
+                </View>
+                <Text style={styles.gridLabel}>Phiếu lương</Text>
+              </Pressable>
+            </Link>
             
           </View>
         </View>

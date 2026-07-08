@@ -1,184 +1,145 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../providers/AuthProvider';
 import { useRouter } from 'expo-router';
 
+type ColorTheme = 'green' | 'orange' | 'purple' | 'gray' | 'teal' | 'cyan' | 'pink' | 'red';
+
+interface MenuItemProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle?: string;
+  colorTheme: ColorTheme;
+  onPress: () => void;
+  isLast?: boolean;
+}
+
+const themeColors: Record<ColorTheme, { bg: string; icon: string }> = {
+  green: { bg: '#EAF7F0', icon: '#10B981' },
+  orange: { bg: '#FFF3E0', icon: '#F59E0B' },
+  purple: { bg: '#EEF2FF', icon: '#6366F1' },
+  gray: { bg: '#F3F4F6', icon: '#6B7280' },
+  teal: { bg: '#E6FFFA', icon: '#14B8A6' },
+  cyan: { bg: '#E0F2FE', icon: '#0EA5E9' },
+  pink: { bg: '#FCE7F3', icon: '#EC4899' },
+  red: { bg: '#FEE2E2', icon: '#EF4444' },
+};
+
+function MenuItem({ icon, title, subtitle, colorTheme, onPress, isLast }: MenuItemProps) {
+  const colors = themeColors[colorTheme];
+
+  return (
+    <>
+      <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]} onPress={onPress}>
+        <View style={[styles.iconWrapper, { backgroundColor: colors.bg }]}>
+          <Ionicons name={icon} size={20} color={colors.icon} />
+        </View>
+        <View style={styles.menuItemTextContainer}>
+          <Text style={styles.menuItemTitle}>{title}</Text>
+          {subtitle && <Text style={styles.menuItemSubtitle}>{subtitle}</Text>}
+        </View>
+        <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+      </Pressable>
+      {!isLast && <View style={styles.divider} />}
+    </>
+  );
+}
+
 export function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.replace('/auth/login');
+      router.replace('/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
+  const navigateTo = (path: any) => {
+    router.push(path);
+  };
+
+  const handleNotImplemented = () => {
+    Alert.alert('Thông báo', 'Tính năng đang được phát triển.');
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Tài khoản</Text>
-        <Pressable style={styles.headerIcon}>
-          <Ionicons name="settings-outline" size={24} color="#64748B" />
-        </Pressable>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* User Info */}
-        <View style={styles.userInfoSection}>
-          <View style={styles.avatarContainer}>
-            <Image 
-              source={{ uri: user?.avatarUrl || 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=200&q=80' }} 
-              style={styles.avatar} 
-            />
-            <View style={styles.statusDot} />
-          </View>
-          
-          <Text style={styles.userName}>{user?.fullName || 'Phùng Thanh Bình'}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'binh.pt@workflow.vn'}</Text>
-          
-          <View style={styles.badgesRow}>
-            <View style={styles.primaryBadge}>
-              <Text style={styles.primaryBadgeText}>Trưởng nhóm</Text>
-            </View>
-            <View style={styles.secondaryBadge}>
-              <Ionicons name="business-outline" size={12} color="#1E293B" style={{ marginRight: 4 }} />
-              <Text style={styles.secondaryBadgeText}>{user?.department?.name || 'Phòng Công nghệ'}</Text>
-            </View>
-          </View>
+        
+        {/* NGHIỆP VỤ */}
+        <Text style={styles.sectionTitle}>NGHIỆP VỤ</Text>
+        <View style={styles.card}>
+          <MenuItem 
+            icon="time-outline" title="Lịch sử chấm công" colorTheme="green" 
+            onPress={handleNotImplemented} 
+          />
+          <MenuItem 
+            icon="calendar-outline" title="Lịch ca làm việc" colorTheme="orange" 
+            onPress={handleNotImplemented} 
+          />
+          <MenuItem 
+            icon="wallet-outline" title="Phiếu lương" colorTheme="green" 
+            onPress={() => navigateTo('/admin/payslip')} isLast 
+          />
         </View>
 
-        {/* Tiện ích nhanh */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>TIỆN ÍCH NHANH</Text>
-          <View style={styles.grid}>
-            {/* Phieu luong */}
-            <Pressable style={styles.gridItem}>
-              <View style={[styles.iconBox, { backgroundColor: '#F0FDF4' }]}>
-                <Ionicons name="card-outline" size={24} color="#16A34A" />
-              </View>
-              <View style={styles.gridItemContent}>
-                 <Text style={styles.gridItemTitle}>Phiếu lương</Text>
-                 <Text style={styles.gridItemDesc}>Tháng 10/2023</Text>
-              </View>
-            </Pressable>
-
-            {/* Tai lieu */}
-            <Pressable style={styles.gridItem}>
-              <View style={[styles.iconBox, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="document-text-outline" size={24} color="#3B82F6" />
-              </View>
-              <View style={styles.gridItemContent}>
-                 <Text style={styles.gridItemTitle}>Tài liệu</Text>
-                 <Text style={styles.gridItemDesc}>Hợp đồng, Quyết định</Text>
-              </View>
-            </Pressable>
-
-            {/* Thong bao */}
-            <Pressable style={styles.gridItem}>
-              <View style={[styles.iconBox, { backgroundColor: '#FFF7ED' }]}>
-                <Ionicons name="notifications-outline" size={24} color="#EA580C" />
-              </View>
-              <View style={styles.gridItemContent}>
-                 <Text style={styles.gridItemTitle}>Thông báo</Text>
-                 <Text style={styles.gridItemDesc}>2 tin mới</Text>
-              </View>
-            </Pressable>
-
-            {/* Ho tro */}
-            <Pressable style={styles.gridItem}>
-              <View style={[styles.iconBox, { backgroundColor: '#F7FEE7' }]}>
-                <Ionicons name="help-circle-outline" size={24} color="#65A30D" />
-              </View>
-              <View style={styles.gridItemContent}>
-                 <Text style={styles.gridItemTitle}>Hỗ trợ</Text>
-                 <Text style={styles.gridItemDesc}>Gửi yêu cầu trợ giúp</Text>
-              </View>
-            </Pressable>
-          </View>
+        {/* TÀI KHOẢN & BẢO MẬT */}
+        <Text style={styles.sectionTitle}>TÀI KHOẢN & BẢO MẬT</Text>
+        <View style={styles.card}>
+          <MenuItem 
+            icon="scan-outline" title="Đăng ký khuôn mặt" subtitle="Chụp 3 góc để tăng độ chính xác chấm công" colorTheme="purple" 
+            onPress={handleNotImplemented} 
+          />
+          <MenuItem 
+            icon="lock-closed-outline" title="Đổi mật khẩu" colorTheme="gray" 
+            onPress={() => navigateTo('/admin/change-password')} 
+          />
+          <MenuItem 
+            icon="notifications-outline" title="Thông báo" colorTheme="orange" 
+            onPress={() => navigateTo('/admin/notifications')} isLast 
+          />
         </View>
 
-        {/* Cài đặt hệ thống */}
-        <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>CÀI ĐẶT HỆ THỐNG</Text>
-          <View style={styles.listContainer}>
-            
-            <Pressable style={styles.listItem}>
-              <View style={[styles.listIconBox, { backgroundColor: '#F1F5F9' }]}>
-                <Ionicons name="notifications-outline" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={styles.listItemTitle}>Thông báo</Text>
-                <Text style={styles.listItemDesc}>Âm thanh, Rung, Ưu tiên</Text>
-              </View>
-              <View style={styles.redBadge}>
-                <Text style={styles.redBadgeText}>2</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            <Pressable style={styles.listItem}>
-              <View style={[styles.listIconBox, { backgroundColor: '#F1F5F9' }]}>
-                <Ionicons name="shield-checkmark-outline" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={styles.listItemTitle}>Bảo mật & Quyền</Text>
-                <Text style={styles.listItemDesc}>Mật khẩu, FaceID, Quyền hạn</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            <Pressable style={styles.listItem}>
-              <View style={[styles.listIconBox, { backgroundColor: '#F1F5F9' }]}>
-                <Ionicons name="globe-outline" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={styles.listItemTitle}>Ngôn ngữ</Text>
-                <Text style={styles.listItemDesc}>Tiếng Việt (Mặc định)</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-            </Pressable>
-
-          </View>
+        {/* QUẢN TRỊ HỆ THỐNG */}
+        <Text style={styles.sectionTitle}>QUẢN TRỊ HỆ THỐNG</Text>
+        <View style={styles.card}>
+          <MenuItem icon="people-outline" title="Nhân viên" colorTheme="purple" onPress={() => navigateTo('/admin/employees')} />
+          <MenuItem icon="business-outline" title="Phòng ban" colorTheme="teal" onPress={() => navigateTo('/admin/departments')} />
+          <MenuItem icon="calendar-outline" title="Ca làm / Xếp ca" colorTheme="cyan" onPress={handleNotImplemented} />
+          <MenuItem icon="time-outline" title="Quản lý chấm công" colorTheme="green" onPress={handleNotImplemented} />
+          <MenuItem icon="checkmark-circle-outline" title="Duyệt chấm công" colorTheme="teal" onPress={handleNotImplemented} />
+          <MenuItem icon="wallet-outline" title="Payroll" colorTheme="green" onPress={() => navigateTo('/admin/payslip')} />
+          <MenuItem icon="cube-outline" title="Kho CCHT" colorTheme="pink" onPress={handleNotImplemented} />
+          <MenuItem icon="warning-outline" title="Báo cáo thiết bị" colorTheme="orange" onPress={handleNotImplemented} />
+          <MenuItem icon="person-add-outline" title="Duyệt đăng ký" colorTheme="cyan" onPress={handleNotImplemented} />
+          <MenuItem icon="notifications-outline" title="Thông báo hệ thống" colorTheme="red" onPress={handleNotImplemented} isLast />
         </View>
 
-        {/* Other settings */}
-        <View style={styles.listSection}>
-          <View style={styles.listContainer}>
-            <Pressable style={styles.listItem}>
-              <View style={[styles.listIconBox, { backgroundColor: '#F1F5F9' }]}>
-                <Ionicons name="help-circle-outline" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.listItemContent}>
-                <Text style={styles.listItemTitle}>Hướng dẫn sử dụng</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            <View style={styles.listItem}>
-              <View style={styles.listItemContent}>
-                <Text style={styles.listItemDesc}>Phiên bản ứng dụng</Text>
-              </View>
-              <Text style={styles.listItemDesc}>v2.4.0 (Build 108)</Text>
-            </View>
-          </View>
+        {/* ĐIỀU HÀNH */}
+        <Text style={styles.sectionTitle}>ĐIỀU HÀNH</Text>
+        <View style={styles.card}>
+          <MenuItem icon="disc-outline" title="Mục tiêu chấm công" colorTheme="orange" onPress={handleNotImplemented} />
+          <MenuItem icon="location-outline" title="Bản đồ giám sát" colorTheme="teal" onPress={() => navigateTo('/admin/attendance-locations')} />
+          <MenuItem icon="briefcase-outline" title="Tạo công việc" colorTheme="teal" onPress={() => navigateTo('/admin/tasks/create')} />
+          <MenuItem icon="grid-outline" title="Dashboard công việc" colorTheme="purple" onPress={handleNotImplemented} />
+          <MenuItem icon="document-text-outline" title="Templates" colorTheme="purple" onPress={handleNotImplemented} />
+          <MenuItem icon="bar-chart-outline" title="Báo cáo KPI" colorTheme="purple" onPress={handleNotImplemented} />
+          <MenuItem icon="swap-horizontal-outline" title="Yêu cầu liên phòng" colorTheme="orange" onPress={handleNotImplemented} isLast />
         </View>
 
-        {/* Logout Button */}
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+        {/* ĐĂNG XUẤT */}
+        <Pressable style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]} onPress={handleLogout}>
+          <View style={[styles.iconWrapper, { backgroundColor: '#FEE2E2', borderRadius: 8 }]}>
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+          </View>
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </Pressable>
+
       </ScrollView>
     </View>
   );
@@ -187,213 +148,119 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1E293B',
-  },
-  headerIcon: {
-    padding: 4,
+    backgroundColor: '#F3F4F6',
   },
   scrollContent: {
-    paddingBottom: 100,
-  },
-  userInfoSection: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    backgroundColor: '#F0F4F8',
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-  },
-  statusDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#22C55E',
-    borderWidth: 4,
-    borderColor: '#F0F4F8',
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 16,
-  },
-  badgesRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  primaryBadge: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  primaryBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  secondaryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  secondaryBadgeText: {
-    color: '#1E293B',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  section: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    padding: 16,
+    paddingBottom: 120, // Tăng khoảng trống ở dưới cùng
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#94A3B8',
-    marginBottom: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+    marginTop: 16,
+    marginLeft: 4,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  gridItem: {
-    width: '48%',
+  card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+    }),
   },
-  iconBox: {
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  menuItemPressed: {
+    backgroundColor: '#F9FAFB',
+  },
+  iconWrapper: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  gridItemContent: {
-    gap: 4,
-  },
-  gridItemTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E293B',
-  },
-  gridItemDesc: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
-  listSection: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-  },
-  listContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  listIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  listItemContent: {
+  menuItemTextContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
-  listItemTitle: {
+  menuItemTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
+    color: '#111827',
   },
-  listItemDesc: {
+  menuItemSubtitle: {
     fontSize: 13,
-    color: '#94A3B8',
-  },
-  redBadge: {
-    backgroundColor: '#EF4444',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  redBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
+    color: '#6B7280',
+    marginTop: 2,
+    lineHeight: 18,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     marginLeft: 72,
   },
   logoutButton: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FECACA',
+    padding: 16,
+    marginTop: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+    }),
+  },
+  logoutButtonPressed: {
+    backgroundColor: '#F9FAFB',
   },
   logoutText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#EF4444',
+  },
+  versionText: {
+    textAlign: 'center',
+    fontSize: 10,
+    color: '#CBD5E1',
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginTop: 8,
+    marginBottom: 24,
   },
 });

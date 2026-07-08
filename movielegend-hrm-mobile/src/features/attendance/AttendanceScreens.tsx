@@ -9,6 +9,7 @@ import { Alert, ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback } f
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { DateRangeModal } from '../../components/DateRangeModal';
+import { TaskFilterModal } from '../../components/TaskFilterModal';
 import { FormField } from '../../components/FormField';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -482,6 +483,8 @@ export function AttendanceAdjustmentScreen() {
 export function AdminAttendanceScreen() {
   const router = useRouter();
   const [dateFilterVisible, setDateFilterVisible] = useState(false);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<any>({});
   const [startDate, setStartDate] = useState<Date | null>(new Date(2023, 9, 1));
     const [endDate, setEndDate] = useState<Date | null>(new Date(2023, 9, 31));
 
@@ -497,6 +500,10 @@ export function AdminAttendanceScreen() {
             </Pressable>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#0B3B61' }}>Quản lý chấm công</Text>
           </View>
+          <Pressable onPress={() => setFilterVisible(true)} style={{ padding: 4 }}>
+            <Ionicons name="funnel-outline" size={24} color={Object.keys(activeFilters).some(k => activeFilters[k]) ? '#1E88E5' : '#98A0A8'} />
+            {Object.keys(activeFilters).some(k => activeFilters[k]) && <View style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' }} />}
+          </Pressable>
         </View>
 
         {/* Date Selector */}
@@ -648,6 +655,7 @@ export function AdminAttendanceScreen() {
           }}
         />
   
+      <TaskFilterModal visible={filterVisible} onClose={() => setFilterVisible(false)} onApply={setActiveFilters} currentFilters={activeFilters} />
     </View>
   );
 }

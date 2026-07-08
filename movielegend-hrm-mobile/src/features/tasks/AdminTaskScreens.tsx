@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, Image, Modal, TouchableWithoutFeedback } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { DateRangeModal } from '../../components/DateRangeModal';
+import { TaskFilterModal } from '../../components/TaskFilterModal';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
@@ -11,6 +12,7 @@ export function AdminTaskListScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('PENDING');
   const [filterVisible, setFilterVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<any>({});
   const [dateFilterVisible, setDateFilterVisible] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(new Date(2023, 9, 1));
     const [endDate, setEndDate] = useState<Date | null>(new Date(2023, 9, 31));
@@ -59,9 +61,10 @@ export function AdminTaskListScreen() {
               <Text style={listStyles.filterText}>Lọc theo ngày</Text>
               <Ionicons name="chevron-down" size={14} color={colors.muted} />
             </Pressable>
-            <Pressable style={[listStyles.filterBtn, listStyles.filterBtnActive]} onPress={() => setFilterVisible(true)}>
+            <Pressable style={[listStyles.filterBtn, Object.keys(activeFilters).some(k => activeFilters[k]) ? listStyles.filterBtnActive : undefined]} onPress={() => setFilterVisible(true)}>
               <Ionicons name="options-outline" size={16} color={colors.primary} />
-              <Text style={listStyles.filterTextActive}>Bộ lọc</Text>
+              <Text style={[listStyles.filterText, Object.keys(activeFilters).some(k => activeFilters[k]) ? listStyles.filterTextActive : undefined]}>Bộ lọc</Text>
+              {Object.keys(activeFilters).some(k => activeFilters[k]) && <View style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.danger }} />}
             </Pressable>
           </View>
         </View>
@@ -116,79 +119,7 @@ export function AdminTaskListScreen() {
         </ScrollView>
         
         {/* Filter Modal */}
-        <Modal visible={filterVisible} animationType="slide" transparent={true}>
-          <View style={listStyles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => setFilterVisible(false)}>
-              <View style={listStyles.modalBackdrop} />
-            </TouchableWithoutFeedback>
-            <View style={listStyles.modalContent}>
-              <View style={listStyles.modalHeader}>
-                <Text style={listStyles.modalTitle}>Bộ lọc nâng cao</Text>
-                <Pressable onPress={() => setFilterVisible(false)} style={listStyles.modalCloseBtn}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </Pressable>
-              </View>
-              
-              <ScrollView style={listStyles.modalScroll}>
-                {/* Lọc nhân viên */}
-                <View style={listStyles.filterSection}>
-                  <Text style={listStyles.filterSectionTitle}>Nhân viên</Text>
-                  <View style={listStyles.filterInputBox}>
-                    <Text style={listStyles.filterInputText}>Chọn nhân viên</Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.muted} />
-                  </View>
-                </View>
-
-                {/* Lọc Loại yêu cầu */}
-                <View style={listStyles.filterSection}>
-                  <Text style={listStyles.filterSectionTitle}>Loại yêu cầu</Text>
-                  <View style={listStyles.filterInputBox}>
-                    <Text style={listStyles.filterInputText}>Tất cả loại yêu cầu</Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.muted} />
-                  </View>
-                </View>
-
-                {/* Lọc Phòng ban */}
-                <View style={listStyles.filterSection}>
-                  <Text style={listStyles.filterSectionTitle}>Phòng ban</Text>
-                  <View style={listStyles.filterInputBox}>
-                    <Text style={listStyles.filterInputText}>Tất cả phòng ban</Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.muted} />
-                  </View>
-                </View>
-
-                {/* Lọc Chi nhánh */}
-                <View style={listStyles.filterSection}>
-                  <Text style={listStyles.filterSectionTitle}>Chi nhánh</Text>
-                  <View style={listStyles.filterInputBox}>
-                    <Text style={listStyles.filterInputText}>Tất cả chi nhánh</Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.muted} />
-                  </View>
-                </View>
-
-                {/* Lọc Người duyệt */}
-                <View style={listStyles.filterSection}>
-                  <Text style={listStyles.filterSectionTitle}>Người duyệt</Text>
-                  <View style={listStyles.filterInputBox}>
-                    <Text style={listStyles.filterInputText}>Chọn người duyệt</Text>
-                    <Ionicons name="chevron-down" size={20} color={colors.muted} />
-                  </View>
-                </View>
-                
-                <View style={{ height: 20 }} />
-              </ScrollView>
-              
-              <View style={listStyles.modalFooter}>
-                <Pressable style={listStyles.modalBtnReset}>
-                  <Text style={listStyles.modalBtnResetText}>Thiết lập lại</Text>
-                </Pressable>
-                <Pressable style={listStyles.modalBtnApply} onPress={() => setFilterVisible(false)}>
-                  <Text style={listStyles.modalBtnApplyText}>Áp dụng</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        <TaskFilterModal visible={filterVisible} onClose={() => setFilterVisible(false)} onApply={setActiveFilters} currentFilters={activeFilters} />
 
         {/* Date Filter Modal */}
                 

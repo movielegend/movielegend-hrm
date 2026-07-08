@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -78,8 +79,8 @@ export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefi
         <View key={item.id} style={styles.timelineItem}>
           <Text style={styles.titleSmall}>{item.type}</Text>
           <Text style={styles.meta}>{formatDateTime(item.createdAt)}</Text>
-          {item.data.note ? <Text style={styles.meta}>{item.data.note}</Text> : null}
-          {item.data.oldStatus || item.data.newStatus ? <Text style={styles.meta}>{`${item.data.oldStatus ?? '-'} -> ${item.data.newStatus ?? '-'}`}</Text> : null}
+          {item.data?.note ? <Text style={styles.meta}>{item.data.note}</Text> : null}
+          {item.data?.oldStatus || item.data?.newStatus ? <Text style={styles.meta}>{`${item.data?.oldStatus ?? '-'} -> ${item.data?.newStatus ?? '-'}`}</Text> : null}
         </View>
       ))}
     </View>
@@ -260,11 +261,28 @@ export function ExtensionList({ extensions }: { extensions?: TaskExtensionReques
 }
 
 export function TargetPreview({ task }: { task: TaskDto }) {
+  const isDepartment = task.type === 'DEPARTMENT';
   return (
-    <SectionCard title="Targets">
-      <Text style={styles.meta}>{targetSummary(task)}</Text>
-      <Text style={styles.meta}>{assignmentSummary(task)}</Text>
-    </SectionCard>
+    <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F4F8' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+        <Ionicons name="people-outline" size={20} color="#1E88E5" />
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E88E5', marginLeft: 8 }}>ĐỐI TƯỢNG ĐƯỢC GIAO</Text>
+      </View>
+      
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDepartment ? '#F0FDF4' : '#F8FAFC', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: isDepartment ? '#BBF7D0' : '#E2E8F0' }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isDepartment ? '#22C55E' : '#3B82F6', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={isDepartment ? "business" : "person"} size={20} color="#FFFFFF" />
+        </View>
+        <View style={{ marginLeft: 12, flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>
+            {isDepartment ? 'Phòng ban' : 'Cá nhân'}
+          </Text>
+          <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+            Chịu trách nhiệm: {isDepartment ? 'Leader (Trưởng phòng)' : 'Thành viên được giao'}
+          </Text>
+        </View>
+      </View>
+    </View>
   );
 }
 

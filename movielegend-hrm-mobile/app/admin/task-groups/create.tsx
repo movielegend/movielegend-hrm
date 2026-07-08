@@ -1,5 +1,5 @@
-import { CreateTaskGroupScreen } from '../../../src/features/task-groups/TaskGroupScreens';
+import { CreateGroupScreen } from '../../../src/features/task-groups/CreateGroupScreen';
 
 export default function AdminTaskGroupCreateRoute() {
-  return <CreateTaskGroupScreen />;
+  return <CreateGroupScreen />;
 }

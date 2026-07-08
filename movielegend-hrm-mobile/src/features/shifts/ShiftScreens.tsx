@@ -101,9 +101,29 @@ export function AdminShiftsScreen() {
           {/* Calendar Strip */}
           <View style={{ padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1E293B' }}>Tháng 11, 2023</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <Pressable onPress={() => {
+                  const newDate = new Date(currentDate);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setCurrentDate(newDate);
+                }} style={{ padding: 4 }}>
+                  <Ionicons name="chevron-back" size={20} color="#3B82F6" />
+                </Pressable>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#1E293B' }}>
+                    Tháng {currentMonth + 1}, {currentYear}
+                  </Text>
+                </View>
+
+                <Pressable onPress={() => {
+                  const newDate = new Date(currentDate);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setCurrentDate(newDate);
+                }} style={{ padding: 4 }}>
+                  <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
+                </Pressable>
               </View>
               <Text style={{ fontSize: 13, color: '#3B82F6', fontWeight: '500' }}>Xem lịch tháng</Text>
             </View>
