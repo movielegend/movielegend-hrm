@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
+import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
@@ -71,17 +73,28 @@ export function DeadlineLabel({ dueAt }: { dueAt?: string | null | undefined }) 
 }
 
 export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefined }) {
-  if (!items?.length) return <Text style={styles.meta}>Timeline chua duoc backend include trong task detail.</Text>;
+  if (!items?.length) return <EmptyState small icon="timeline-clock-outline" title="Chưa có lịch sử" message="Không có sự kiện nào được ghi nhận." />;
   return (
     <View style={styles.stack}>
-      {items.map((item) => (
-        <View key={item.id} style={styles.timelineItem}>
-          <Text style={styles.titleSmall}>{item.type}</Text>
-          <Text style={styles.meta}>{formatDateTime(item.createdAt)}</Text>
-          {item.data.note ? <Text style={styles.meta}>{item.data.note}</Text> : null}
-          {item.data.oldStatus || item.data.newStatus ? <Text style={styles.meta}>{`${item.data.oldStatus ?? '-'} -> ${item.data.newStatus ?? '-'}`}</Text> : null}
-        </View>
-      ))}
+      {items.map((item) => {
+        let icon: keyof typeof MaterialCommunityIcons.glyphMap = 'circle-outline';
+        let color = colors.muted;
+        if (item.type === 'TASK_CREATED') { icon = 'plus-circle'; color = colors.primary; }
+        else if (item.type === 'STATUS_CHANGED') { icon = 'swap-horizontal-circle'; color = colors.warning; }
+        else if (item.type === 'ASSIGNMENT_CREATED') { icon = 'account-plus'; color = colors.info; }
+        
+        return (
+          <View key={item.id} style={styles.timelineItem}>
+            <View style={styles.timelineIconWrapper}>
+              <MaterialCommunityIcons name={icon} size={20} color={color} />
+            </View>
+            <Text style={styles.titleSmall}>{item.type}</Text>
+            <Text style={styles.metaSmall}>{formatDateTime(item.createdAt)}</Text>
+            {item.data.note ? <Text style={styles.body}>{item.data.note}</Text> : null}
+            {item.data.oldStatus || item.data.newStatus ? <Text style={styles.meta}>{`${item.data.oldStatus ?? '-'} -> ${item.data.newStatus ?? '-'}`}</Text> : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -106,12 +119,20 @@ export function CommentComposer({ onSubmit, pending }: { onSubmit: (content: str
 }
 
 export function CommentList({ comments }: { comments?: TaskCommentDto[] | undefined }) {
-  if (!comments?.length) return <Text style={styles.meta}>Chua co binh luan</Text>;
+  if (!comments?.length) return <EmptyState small icon="comment-text-outline" title="Chưa có bình luận" message="Hãy là người đầu tiên bình luận." />;
   return (
     <View style={styles.stack}>
       {comments.map((comment) => (
-        <View key={comment.id} style={styles.inlinePanel}>
-          <Text style={styles.meta}>{formatDateTime(comment.createdAt)}</Text>
+        <View key={comment.id} style={styles.commentBubble}>
+          <View style={styles.row}>
+            <View style={styles.avatarMini}>
+              <MaterialCommunityIcons name="account" size={16} color={colors.surface} />
+            </View>
+            <View style={styles.flex}>
+              <Text style={styles.titleSmall}>{comment.user?.profile?.fullName ?? comment.user?.userCode ?? comment.userId}</Text>
+              <Text style={styles.metaSmall}>{formatDateTime(comment.createdAt)}</Text>
+            </View>
+          </View>
           <Text style={styles.body}>{comment.content}</Text>
         </View>
       ))}
@@ -182,13 +203,16 @@ export function AttachmentPicker({
 }
 
 export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDto[] | undefined }) {
-  if (!attachments?.length) return <Text style={styles.meta}>Chua co attachment</Text>;
+  if (!attachments?.length) return <EmptyState small icon="paperclip" title="Chưa có tệp đính kèm" message="Thêm tài liệu liên quan đến công việc này." />;
   return (
     <View style={styles.stack}>
       {attachments.map((attachment) => (
-        <View key={attachment.id} style={styles.inlinePanel}>
-          <Text style={styles.titleSmall}>{attachment.fileName}</Text>
-          <Text style={styles.meta}>{attachment.mimeType ?? attachment.type}</Text>
+        <View key={attachment.id} style={[styles.row, styles.attachmentTile]}>
+          <MaterialCommunityIcons name="file-document-outline" size={28} color={colors.primary} />
+          <View style={styles.flex}>
+            <Text style={styles.titleSmall} numberOfLines={1}>{attachment.fileName}</Text>
+            <Text style={styles.metaSmall}>{attachment.mimeType ?? attachment.type}</Text>
+          </View>
         </View>
       ))}
     </View>
@@ -245,14 +269,16 @@ export function ExtensionRequestModal({
 }
 
 export function ExtensionList({ extensions }: { extensions?: TaskExtensionRequestDto[] | undefined }) {
-  if (!extensions?.length) return <Text style={styles.meta}>Backend hien chua include extensionRequests trong task detail.</Text>;
+  if (!extensions?.length) return <EmptyState small icon="calendar-clock" title="Chưa có yêu cầu gia hạn" message="Không có yêu cầu gia hạn nào được ghi nhận." />;
   return (
     <View style={styles.stack}>
       {extensions.map((extension) => (
         <View key={extension.id} style={styles.inlinePanel}>
-          <TaskStatusBadge status={extension.status} />
-          <Text style={styles.meta}>Requested: {formatDateTime(extension.requestedDueAt)}</Text>
-          <Text style={styles.body}>{extension.reason}</Text>
+          <View style={styles.row}>
+            <TaskStatusBadge status={extension.status} />
+            <Text style={[styles.meta, { marginLeft: 'auto' }]}>{formatDateTime(extension.requestedDueAt)}</Text>
+          </View>
+          <Text style={[styles.body, { marginTop: spacing.xs }]}>{extension.reason}</Text>
         </View>
       ))}
     </View>
@@ -260,10 +286,40 @@ export function ExtensionList({ extensions }: { extensions?: TaskExtensionReques
 }
 
 export function TargetPreview({ task }: { task: TaskDto }) {
+  const targets = task.targets ?? [];
+  const assignments = task.assignments ?? [];
+  const completed = assignments.filter((a) => a.status === 'COMPLETED').length;
+
+  if (!targets.length) {
+    return (
+      <SectionCard title="Người thực hiện">
+        <EmptyState small icon="account-group" title="Chưa có người nhận việc" message="Hãy giao việc cho ai đó." />
+      </SectionCard>
+    );
+  }
+
   return (
-    <SectionCard title="Targets">
-      <Text style={styles.meta}>{targetSummary(task)}</Text>
-      <Text style={styles.meta}>{assignmentSummary(task)}</Text>
+    <SectionCard title="Người thực hiện">
+      <View style={styles.rowWrap}>
+        {targets.map((t) => {
+          const type = t.targetType ?? t.type;
+          let icon: keyof typeof MaterialCommunityIcons.glyphMap = 'account';
+          if (type === 'DEPARTMENT') icon = 'domain';
+          if (type === 'GROUP') icon = 'account-group';
+          return (
+            <View key={t.id} style={styles.targetChip}>
+              <MaterialCommunityIcons name={icon} size={16} color={colors.primary} />
+              <Text style={styles.targetChipText}>{type}</Text>
+            </View>
+          );
+        })}
+      </View>
+      {assignments.length > 0 && (
+        <View style={[styles.row, { marginTop: spacing.xs }]}>
+          <MaterialCommunityIcons name="check-all" size={18} color={colors.success} />
+          <Text style={styles.meta}>{completed} / {assignments.length} người đã hoàn thành</Text>
+        </View>
+      )}
     </SectionCard>
   );
 }
@@ -364,10 +420,19 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   timelineItem: {
-    borderLeftColor: colors.primary,
-    borderLeftWidth: 3,
+    borderLeftColor: colors.border,
+    borderLeftWidth: 2,
+    marginLeft: spacing.sm,
+    paddingLeft: spacing.lg,
+    paddingBottom: spacing.md,
+    position: 'relative',
     gap: spacing.xs,
-    paddingLeft: spacing.md,
+  },
+  timelineIconWrapper: {
+    backgroundColor: colors.surface,
+    left: -11,
+    position: 'absolute',
+    top: -2,
   },
   title: {
     color: colors.text,
@@ -378,5 +443,46 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: '800',
+  },
+  commentBubble: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  avatarMini: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    height: 24,
+    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  metaSmall: {
+    color: colors.muted,
+    fontSize: 12,
+  },
+  attachmentTile: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: spacing.sm,
+  },
+  targetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  targetChipText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

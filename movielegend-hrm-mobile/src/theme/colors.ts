@@ -10,5 +10,7 @@ export const colors = {
   danger: '#EF4444',
   dangerSoft: '#FEE2E2',
   warning: '#F59E0B',
+  warningSoft: '#FEF3C7', // Amber 100
   success: '#22C55E',
+  info: '#3B82F6', // Blue 500
 };

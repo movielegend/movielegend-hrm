@@ -182,75 +182,95 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title={item.title} subtitle={item.taskCode ?? item.type} />
-        <SectionCard>
-          <View style={styles.rowWrap}>
-            <TaskStatusBadge status={item.status} />
-            <PriorityBadge priority={item.priority} />
+        <View style={styles.heroCard}>
+          <View style={styles.heroHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroTitle}>{item.title}</Text>
+              <Text style={styles.heroCode}>{item.taskCode ?? item.type}</Text>
+            </View>
             {item.chatGroup?.id && (
-              <SecondaryButton 
-                style={{ marginLeft: 'auto' }}
-                onPress={() => router.push(`/employee/chat/${item.chatGroup!.id}?taskId=${item.id}`)}
-              >
-                Chat Nhóm
-              </SecondaryButton>
+              <Pressable style={styles.chatButton} onPress={() => router.push(`/employee/chat/${item.chatGroup!.id}?taskId=${item.id}`)}>
+                <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.primary} />
+                <Text style={styles.chatButtonText}>Chat</Text>
+              </Pressable>
             )}
           </View>
-          <Text style={styles.body}>{item.description ?? 'Khong co mo ta'}</Text>
-          <Text style={styles.meta}>Start: {formatDateTime(item.startAt)}</Text>
-          <Text style={styles.meta}>Due: {formatDateTime(item.dueAt)}</Text>
-          <ProgressBar value={assignment?.progressPercent ?? averageProgress(item)} />
-          {assignment?.reviewNote ? <Text style={styles.warning}>Review note: {assignment.reviewNote}</Text> : null}
-        </SectionCard>
+          <View style={[styles.rowWrap, { marginTop: spacing.md }]}>
+            <TaskStatusBadge status={item.status} />
+            <PriorityBadge priority={item.priority} />
+          </View>
+          {item.description ? <Text style={[styles.body, { marginTop: spacing.md }]}>{item.description}</Text> : null}
+          <View style={styles.heroDates}>
+            <View style={styles.dateItem}>
+              <MaterialCommunityIcons name="calendar-start" size={16} color={colors.muted} />
+              <Text style={styles.metaSmall}>{formatDateTime(item.startAt)}</Text>
+            </View>
+            <View style={styles.dateItem}>
+              <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.muted} />
+              <Text style={styles.metaSmall}>{formatDateTime(item.dueAt)}</Text>
+            </View>
+          </View>
+          <View style={{ marginTop: spacing.md }}>
+            <ProgressBar value={assignment?.progressPercent ?? averageProgress(item)} />
+          </View>
+          {assignment?.reviewNote ? (
+            <View style={[styles.rowWrap, { marginTop: spacing.md, backgroundColor: colors.warningSoft, padding: spacing.sm, borderRadius: 8 }]}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={18} color={colors.warning} />
+              <Text style={styles.warning}>Review note: {assignment.reviewNote}</Text>
+            </View>
+          ) : null}
+        </View>
 
         <TargetPreview task={item} />
 
         {area === 'employee' && assignment ? (
-          <SectionCard title="My Assignment">
+          <SectionCard title="Nhiệm vụ của tôi">
             <TaskStatusBadge status={assignment.status} />
-            {canAcceptAssignment(assignment.status) ? <PrimaryButton loading={accept.isPending} onPress={() => void run(() => accept.mutateAsync(assignment.id), 'Da accept task')}>Accept</PrimaryButton> : null}
-            {canStartAssignment(assignment.status) ? <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Da start task')}>Start</PrimaryButton> : null}
+            {canAcceptAssignment(assignment.status) ? <PrimaryButton loading={accept.isPending} onPress={() => void run(() => accept.mutateAsync(assignment.id), 'Đã nhận việc')}>Nhận việc</PrimaryButton> : null}
+            {canStartAssignment(assignment.status) ? <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã bắt đầu làm')}>Bắt đầu làm</PrimaryButton> : null}
             {canUpdateProgress(assignment.status) ? (
               <>
-                <FormField label="Progress 0-100" value={progress} onChangeText={setProgress} keyboardType="number-pad" />
+                <FormField label="Tiến độ (0-100%)" value={progress} onChangeText={setProgress} keyboardType="number-pad" />
                 <SecondaryButton
                   loading={updateProgress.isPending}
-                  onPress={() => void run(() => updateProgress.mutateAsync({ assignmentId: assignment.id, payload: { progressPercent: Number(progress) } }), 'Da cap nhat tien do')}
+                  onPress={() => void run(() => updateProgress.mutateAsync({ assignmentId: assignment.id, payload: { progressPercent: Number(progress) } }), 'Đã cập nhật tiến độ')}
                 >
-                  Update progress
+                  Cập nhật tiến độ
                 </SecondaryButton>
               </>
             ) : null}
             {canSubmitAssignment(assignment.status) ? (
               <>
-                <FormField label="Completion note" value={completionNote} onChangeText={setCompletionNote} multiline />
+                <FormField label="Ghi chú hoàn thành" value={completionNote} onChangeText={setCompletionNote} multiline />
                 <PrimaryButton
                   loading={submit.isPending}
-                  onPress={() => void run(() => submit.mutateAsync({ assignmentId: assignment.id, payload: { completionNote } }), 'Da submit review')}
+                  onPress={() => void run(() => submit.mutateAsync({ assignmentId: assignment.id, payload: { completionNote } }), 'Đã nộp công việc')}
                 >
-                  Submit task
+                  Nộp công việc
                 </PrimaryButton>
               </>
             ) : null}
             <ExtensionRequestModal
               currentDueAt={assignment.assignmentDueAt ?? item.dueAt}
               pending={extension.isPending}
-              onSubmit={(requestedDueAt, reason) => run(() => extension.mutateAsync({ assignmentId: assignment.id, requestedDueAt, reason }), 'Da gui yeu cau gia han')}
+              onSubmit={(requestedDueAt, reason) => run(() => extension.mutateAsync({ assignmentId: assignment.id, requestedDueAt, reason }), 'Đã gửi yêu cầu gia hạn')}
             />
           </SectionCard>
         ) : null}
 
         {canReview ? (
-          <SectionCard title="Review Assignments">
-            {!reviewAssignments.length ? <Text style={styles.meta}>Khong co assignment WAITING_REVIEW trong detail hien tai.</Text> : null}
+          <SectionCard title="Xét duyệt công việc">
+            {!reviewAssignments.length ? (
+              <EmptyState small icon="check-all" title="Không có yêu cầu" message="Không có công việc nào đang chờ duyệt." />
+            ) : null}
             {reviewAssignments.map((entry) => (
               <View key={entry.id} style={styles.inlinePanel}>
                 <Text style={styles.titleText}>{entry.user?.profile?.fullName ?? entry.user?.userCode ?? entry.userId}</Text>
                 <ProgressBar value={entry.progressPercent} />
                 <ReviewActionSheet
                   pending={review.isPending}
-                  onApprove={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'approve', payload: note ? { note } : {} }), 'Da duyet task')}
-                  onReject={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'reject', payload: { note } }), 'Da tu choi task')}
+                  onApprove={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'approve', payload: note ? { note } : {} }), 'Đã duyệt')}
+                  onReject={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'reject', payload: { note } }), 'Đã từ chối')}
                 />
               </View>
             ))}
@@ -258,39 +278,41 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         ) : null}
 
         {canReviewExtension ? (
-          <SectionCard title="Extension Review">
-            {!pendingExtensions.length ? <Text style={styles.meta}>Backend hien chua co endpoint list extension pending rieng hoac chua include trong task detail.</Text> : null}
+          <SectionCard title="Xét duyệt gia hạn">
+            {!pendingExtensions.length ? (
+              <EmptyState small icon="calendar-check-outline" title="Không có yêu cầu" message="Không có yêu cầu gia hạn nào đang chờ duyệt." />
+            ) : null}
             {pendingExtensions.map((entry) => (
               <View key={entry.id} style={styles.inlinePanel}>
                 <Text style={styles.titleText}>{formatDateTime(entry.requestedDueAt)}</Text>
                 <Text style={styles.body}>{entry.reason}</Text>
                 <ReviewActionSheet
                   pending={extensionReview.isPending}
-                  onApprove={() => run(() => extensionReview.mutateAsync({ id: entry.id, action: 'approve' }), 'Da duyet gia han')}
-                  onReject={(note) => run(() => extensionReview.mutateAsync({ id: entry.id, action: 'reject', payload: { note } }), 'Da tu choi gia han')}
+                  onApprove={() => run(() => extensionReview.mutateAsync({ id: entry.id, action: 'approve' }), 'Đã duyệt gia hạn')}
+                  onReject={(note) => run(() => extensionReview.mutateAsync({ id: entry.id, action: 'reject', payload: { note } }), 'Đã từ chối gia hạn')}
                 />
               </View>
             ))}
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Comments">
+        <SectionCard title="Bình luận">
           <CommentList comments={item.comments} />
           <CommentComposer pending={comment.isPending} onSubmit={(content) => comment.mutateAsync({ content }).then(() => undefined)} />
         </SectionCard>
 
-        <SectionCard title="Attachments">
+        <SectionCard title="Tệp đính kèm">
           <AttachmentList attachments={item.attachments} />
           <AttachmentPicker pending={attachment.isPending} onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)} />
         </SectionCard>
 
-        <SectionCard title="Timeline">
-          {timeline.isLoading ? <LoadingState label="Dang tai timeline" /> : null}
+        <SectionCard title="Lịch sử hoạt động">
+          {timeline.isLoading ? <LoadingState label="Đang tải lịch sử" /> : null}
           {timeline.isError ? <ErrorState error={timeline.error} onRetry={() => void timeline.refetch()} /> : null}
           <TaskTimeline items={timeline.data?.items ?? item.histories} />
         </SectionCard>
 
-        <SectionCard title="Extensions">
+        <SectionCard title="Danh sách yêu cầu gia hạn">
           <ExtensionList extensions={item.extensionRequests} />
         </SectionCard>
       </ScrollView>
@@ -899,4 +921,65 @@ const styles = StyleSheet.create({
   tabPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabText: { fontSize: 14, fontWeight: '600', color: colors.muted },
   tabTextActive: { color: '#fff' },
+  
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: spacing.lg,
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  heroTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: spacing.xs,
+  },
+  heroCode: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  heroDates: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginTop: spacing.md,
+    backgroundColor: colors.background,
+    padding: spacing.sm,
+    borderRadius: 8,
+  },
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  metaSmall: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+  },
+  chatButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  }
 });
