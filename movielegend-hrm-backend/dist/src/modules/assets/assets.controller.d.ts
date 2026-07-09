@@ -5,33 +5,33 @@ export declare class AssetsController {
     private readonly assets;
     constructor(assets: AssetsService);
     createCategory(dto: CreateAssetCategoryDto): import("@prisma/client").Prisma.Prisma__AssetCategoryClient<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
+        code: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     create(dto: CreateAssetDto, actor: AuthenticatedUser): Promise<{
-        id: string;
-        name: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        assetCode: string;
-        serialNumber: string | null;
-        categoryId: string;
         warehouseId: string | null;
+        categoryId: string;
+        assetCode: string;
         brand: string | null;
         model: string | null;
+        serialNumber: string | null;
+        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
+        assetStatus: import("@prisma/client").$Enums.AssetStatus;
         purchaseDate: Date | null;
         purchasePrice: import("@prisma/client/runtime/library").Decimal | null;
         warrantyEndDate: Date | null;
-        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
-        assetStatus: import("@prisma/client").$Enums.AssetStatus;
     }>;
     findAll(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
         assignments: {
@@ -39,8 +39,6 @@ export declare class AssetsController {
             createdAt: Date;
             updatedAt: Date;
             status: import("@prisma/client").$Enums.AssetAssignmentStatus;
-            assignedById: string;
-            assignedAt: Date;
             note: string | null;
             assignedToUserId: string | null;
             assignedToDepartmentId: string | null;
@@ -48,27 +46,29 @@ export declare class AssetsController {
             conditionWhenAssigned: import("@prisma/client").$Enums.AssetConditionStatus;
             conditionWhenReturned: import("@prisma/client").$Enums.AssetConditionStatus | null;
             assetId: string;
+            assignedById: string;
+            assignedAt: Date;
             returnedAt: Date | null;
             receiverConfirmedAt: Date | null;
         }[];
     } & {
-        id: string;
-        name: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        assetCode: string;
-        serialNumber: string | null;
-        categoryId: string;
         warehouseId: string | null;
+        categoryId: string;
+        assetCode: string;
         brand: string | null;
         model: string | null;
+        serialNumber: string | null;
+        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
+        assetStatus: import("@prisma/client").$Enums.AssetStatus;
         purchaseDate: Date | null;
         purchasePrice: import("@prisma/client/runtime/library").Decimal | null;
         warrantyEndDate: Date | null;
-        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
-        assetStatus: import("@prisma/client").$Enums.AssetStatus;
     })[]>;
     myAssets(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
         asset: {
@@ -78,13 +78,13 @@ export declare class AssetsController {
             conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
             assetStatus: import("@prisma/client").$Enums.AssetStatus;
             incidents: {
-                id: string;
                 description: string;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 status: import("@prisma/client").$Enums.AssetIncidentStatus;
-                evidenceUrl: string | null;
                 incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+                evidenceUrl: string | null;
                 resolutionNote: string | null;
                 assetId: string;
                 resolvedAt: Date | null;
@@ -97,8 +97,6 @@ export declare class AssetsController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetAssignmentStatus;
-        assignedById: string;
-        assignedAt: Date;
         note: string | null;
         assignedToUserId: string | null;
         assignedToDepartmentId: string | null;
@@ -106,6 +104,8 @@ export declare class AssetsController {
         conditionWhenAssigned: import("@prisma/client").$Enums.AssetConditionStatus;
         conditionWhenReturned: import("@prisma/client").$Enums.AssetConditionStatus | null;
         assetId: string;
+        assignedById: string;
+        assignedAt: Date;
         returnedAt: Date | null;
         receiverConfirmedAt: Date | null;
     })[]>;
@@ -115,8 +115,6 @@ export declare class AssetsController {
             createdAt: Date;
             updatedAt: Date;
             status: import("@prisma/client").$Enums.AssetAssignmentStatus;
-            assignedById: string;
-            assignedAt: Date;
             note: string | null;
             assignedToUserId: string | null;
             assignedToDepartmentId: string | null;
@@ -124,17 +122,19 @@ export declare class AssetsController {
             conditionWhenAssigned: import("@prisma/client").$Enums.AssetConditionStatus;
             conditionWhenReturned: import("@prisma/client").$Enums.AssetConditionStatus | null;
             assetId: string;
+            assignedById: string;
+            assignedAt: Date;
             returnedAt: Date | null;
             receiverConfirmedAt: Date | null;
         }[];
         incidents: {
-            id: string;
             description: string;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
             status: import("@prisma/client").$Enums.AssetIncidentStatus;
-            evidenceUrl: string | null;
             incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+            evidenceUrl: string | null;
             resolutionNote: string | null;
             assetId: string;
             resolvedAt: Date | null;
@@ -142,50 +142,48 @@ export declare class AssetsController {
             resolvedById: string | null;
         }[];
     } & {
-        id: string;
-        name: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        assetCode: string;
-        serialNumber: string | null;
-        categoryId: string;
         warehouseId: string | null;
+        categoryId: string;
+        assetCode: string;
         brand: string | null;
         model: string | null;
+        serialNumber: string | null;
+        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
+        assetStatus: import("@prisma/client").$Enums.AssetStatus;
         purchaseDate: Date | null;
         purchasePrice: import("@prisma/client/runtime/library").Decimal | null;
         warrantyEndDate: Date | null;
-        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
-        assetStatus: import("@prisma/client").$Enums.AssetStatus;
     }>;
     update(id: string, dto: UpdateAssetDto, actor: AuthenticatedUser): Promise<{
-        id: string;
-        name: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
-        assetCode: string;
-        serialNumber: string | null;
-        categoryId: string;
         warehouseId: string | null;
+        categoryId: string;
+        assetCode: string;
         brand: string | null;
         model: string | null;
+        serialNumber: string | null;
+        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
+        assetStatus: import("@prisma/client").$Enums.AssetStatus;
         purchaseDate: Date | null;
         purchasePrice: import("@prisma/client/runtime/library").Decimal | null;
         warrantyEndDate: Date | null;
-        conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
-        assetStatus: import("@prisma/client").$Enums.AssetStatus;
     }>;
     assign(id: string, dto: AssignAssetDto, actor: AuthenticatedUser): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetAssignmentStatus;
-        assignedById: string;
-        assignedAt: Date;
         note: string | null;
         assignedToUserId: string | null;
         assignedToDepartmentId: string | null;
@@ -193,17 +191,19 @@ export declare class AssetsController {
         conditionWhenAssigned: import("@prisma/client").$Enums.AssetConditionStatus;
         conditionWhenReturned: import("@prisma/client").$Enums.AssetConditionStatus | null;
         assetId: string;
+        assignedById: string;
+        assignedAt: Date;
         returnedAt: Date | null;
         receiverConfirmedAt: Date | null;
     }>;
     reportIncident(id: string, dto: ReportIncidentDto, actor: AuthenticatedUser): Promise<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetIncidentStatus;
-        evidenceUrl: string | null;
         incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+        evidenceUrl: string | null;
         resolutionNote: string | null;
         assetId: string;
         resolvedAt: Date | null;
@@ -211,18 +211,18 @@ export declare class AssetsController {
         resolvedById: string | null;
     }>;
     startMaintenance(id: string, dto: MaintenanceDto, actor: AuthenticatedUser): Promise<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetMaintenanceStatus;
-        createdById: string;
         maintenanceType: string;
         vendorName: string | null;
         assetId: string;
         cost: import("@prisma/client/runtime/library").Decimal | null;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
     }>;
 }
 export declare class AssetAssignmentsController {
@@ -233,8 +233,6 @@ export declare class AssetAssignmentsController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetAssignmentStatus;
-        assignedById: string;
-        assignedAt: Date;
         note: string | null;
         assignedToUserId: string | null;
         assignedToDepartmentId: string | null;
@@ -242,6 +240,8 @@ export declare class AssetAssignmentsController {
         conditionWhenAssigned: import("@prisma/client").$Enums.AssetConditionStatus;
         conditionWhenReturned: import("@prisma/client").$Enums.AssetConditionStatus | null;
         assetId: string;
+        assignedById: string;
+        assignedAt: Date;
         returnedAt: Date | null;
         receiverConfirmedAt: Date | null;
     }>;
@@ -250,8 +250,6 @@ export declare class AssetAssignmentsController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetAssignmentStatus;
-        assignedById: string;
-        assignedAt: Date;
         note: string | null;
         assignedToUserId: string | null;
         assignedToDepartmentId: string | null;
@@ -259,6 +257,8 @@ export declare class AssetAssignmentsController {
         conditionWhenAssigned: import("@prisma/client").$Enums.AssetConditionStatus;
         conditionWhenReturned: import("@prisma/client").$Enums.AssetConditionStatus | null;
         assetId: string;
+        assignedById: string;
+        assignedAt: Date;
         returnedAt: Date | null;
         receiverConfirmedAt: Date | null;
     }>;
@@ -267,8 +267,6 @@ export declare class AssetAssignmentsController {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetAssignmentStatus;
-        assignedById: string;
-        assignedAt: Date;
         note: string | null;
         assignedToUserId: string | null;
         assignedToDepartmentId: string | null;
@@ -276,6 +274,8 @@ export declare class AssetAssignmentsController {
         conditionWhenAssigned: import("@prisma/client").$Enums.AssetConditionStatus;
         conditionWhenReturned: import("@prisma/client").$Enums.AssetConditionStatus | null;
         assetId: string;
+        assignedById: string;
+        assignedAt: Date;
         returnedAt: Date | null;
         receiverConfirmedAt: Date | null;
     }>;
@@ -285,32 +285,32 @@ export declare class AssetIncidentsController {
     constructor(assets: AssetsService);
     findAll(): import("@prisma/client").Prisma.PrismaPromise<({
         asset: {
-            id: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
-            assetCode: string;
-            serialNumber: string | null;
-            categoryId: string;
             warehouseId: string | null;
+            categoryId: string;
+            assetCode: string;
             brand: string | null;
             model: string | null;
+            serialNumber: string | null;
+            conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
+            assetStatus: import("@prisma/client").$Enums.AssetStatus;
             purchaseDate: Date | null;
             purchasePrice: import("@prisma/client/runtime/library").Decimal | null;
             warrantyEndDate: Date | null;
-            conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
-            assetStatus: import("@prisma/client").$Enums.AssetStatus;
         };
     } & {
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetIncidentStatus;
-        evidenceUrl: string | null;
         incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+        evidenceUrl: string | null;
         resolutionNote: string | null;
         assetId: string;
         resolvedAt: Date | null;
@@ -319,32 +319,32 @@ export declare class AssetIncidentsController {
     })[]>;
     findOne(id: string): Promise<{
         asset: {
-            id: string;
-            name: string;
             description: string | null;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
-            assetCode: string;
-            serialNumber: string | null;
-            categoryId: string;
             warehouseId: string | null;
+            categoryId: string;
+            assetCode: string;
             brand: string | null;
             model: string | null;
+            serialNumber: string | null;
+            conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
+            assetStatus: import("@prisma/client").$Enums.AssetStatus;
             purchaseDate: Date | null;
             purchasePrice: import("@prisma/client/runtime/library").Decimal | null;
             warrantyEndDate: Date | null;
-            conditionStatus: import("@prisma/client").$Enums.AssetConditionStatus;
-            assetStatus: import("@prisma/client").$Enums.AssetStatus;
         };
     } & {
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetIncidentStatus;
-        evidenceUrl: string | null;
         incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+        evidenceUrl: string | null;
         resolutionNote: string | null;
         assetId: string;
         resolvedAt: Date | null;
@@ -352,13 +352,13 @@ export declare class AssetIncidentsController {
         resolvedById: string | null;
     }>;
     investigate(id: string): import("@prisma/client").Prisma.Prisma__AssetIncidentReportClient<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetIncidentStatus;
-        evidenceUrl: string | null;
         incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+        evidenceUrl: string | null;
         resolutionNote: string | null;
         assetId: string;
         resolvedAt: Date | null;
@@ -366,13 +366,13 @@ export declare class AssetIncidentsController {
         resolvedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     resolve(id: string, dto: ResolveIncidentDto, actor: AuthenticatedUser): Promise<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetIncidentStatus;
-        evidenceUrl: string | null;
         incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+        evidenceUrl: string | null;
         resolutionNote: string | null;
         assetId: string;
         resolvedAt: Date | null;
@@ -380,13 +380,13 @@ export declare class AssetIncidentsController {
         resolvedById: string | null;
     }>;
     reject(id: string, dto: ResolveIncidentDto, actor: AuthenticatedUser): import("@prisma/client").Prisma.Prisma__AssetIncidentReportClient<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetIncidentStatus;
-        evidenceUrl: string | null;
         incidentType: import("@prisma/client").$Enums.AssetIncidentType;
+        evidenceUrl: string | null;
         resolutionNote: string | null;
         assetId: string;
         resolvedAt: Date | null;
@@ -398,17 +398,17 @@ export declare class AssetMaintenanceController {
     private readonly assets;
     constructor(assets: AssetsService);
     complete(id: string, dto: ReceiveReturnDto, actor: AuthenticatedUser): Promise<{
-        id: string;
         description: string;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AssetMaintenanceStatus;
-        createdById: string;
         maintenanceType: string;
         vendorName: string | null;
         assetId: string;
         cost: import("@prisma/client/runtime/library").Decimal | null;
         startedAt: Date;
         completedAt: Date | null;
+        createdById: string;
     }>;
 }

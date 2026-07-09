@@ -5,6 +5,8 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { AdminService } from './admin.service';
+import { AssignRoleDto } from './dto/role-assignment.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
@@ -15,6 +17,18 @@ import { UserQueryDto } from './dto/user-query.dto';
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @Permissions('role.assign')
+  @Post('roles/assign')
+  assignRole(@Body() dto: AssignRoleDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.assignRole(dto, actor);
+  }
+
+  @Permissions('role.assign')
+  @Delete('roles/assignments/:id')
+  revokeRole(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.revokeRole(id, actor);
+  }
 
   @Permissions('role.assign')
   @Post('leader-assignments')
@@ -38,6 +52,12 @@ export class AdminController {
   @Get('users/:id')
   findUser(@Param('id') id: string) {
     return this.adminService.findUser(id);
+  }
+
+  @Permissions('user.manage')
+  @Post('users')
+  createUser(@Body() dto: CreateUserDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.createUser(dto, actor);
   }
 
   @Permissions('user.update')

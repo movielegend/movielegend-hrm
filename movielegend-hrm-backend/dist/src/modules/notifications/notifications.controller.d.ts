@@ -6,47 +6,47 @@ export declare class NotificationsController {
     constructor(notifications: NotificationsService);
     findMine(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
         notification: {
+            type: import("@prisma/client").$Enums.NotificationType;
+            title: string;
             id: string;
             createdAt: Date;
-            title: string;
-            type: import("@prisma/client").$Enums.NotificationType;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
             body: string;
             dedupKey: string | null;
             taskId: string | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
-        userId: string;
         readAt: Date | null;
         notificationId: string;
     })[]>;
     unreadCount(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<number>;
     markRead(id: string, actor: AuthenticatedUser): Promise<{
         notification: {
+            type: import("@prisma/client").$Enums.NotificationType;
+            title: string;
             id: string;
             createdAt: Date;
-            title: string;
-            type: import("@prisma/client").$Enums.NotificationType;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
             body: string;
             dedupKey: string | null;
             taskId: string | null;
         };
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
-        userId: string;
         readAt: Date | null;
         notificationId: string;
     }>;
     markAllRead(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<import("@prisma/client").Prisma.BatchPayload>;
     registerDevice(dto: RegisterDeviceTokenDto, actor: AuthenticatedUser): import("@prisma/client").Prisma.Prisma__DeviceTokenClient<{
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         deviceId: string | null;
         tokenHash: string;
         revokedAt: Date | null;

@@ -1,35 +1,72 @@
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { AdminService } from './admin.service';
+import { AssignRoleDto } from './dto/role-assignment.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 export declare class AdminController {
     private readonly adminService;
     constructor(adminService: AdminService);
-    assignLeader(dto: LeaderAssignmentDto, actor: AuthenticatedUser): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
+    assignRole(dto: AssignRoleDto, actor: AuthenticatedUser): Promise<{
         userId: string;
         roleId: string;
         scopeType: import("@prisma/client").$Enums.RoleScopeType;
         scopeId: string | null;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    revokeRole(id: string, actor: AuthenticatedUser): Promise<{
+        revoked: boolean;
+    }>;
+    assignLeader(dto: LeaderAssignmentDto, actor: AuthenticatedUser): Promise<{
+        userId: string;
+        roleId: string;
+        scopeType: import("@prisma/client").$Enums.RoleScopeType;
+        scopeId: string | null;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     revokeLeader(id: string, actor: AuthenticatedUser): Promise<{
         revoked: boolean;
     }>;
     findUsers(query: UserQueryDto): Promise<{
         items: {
-            profile: {
+            roles: ({
+                role: {
+                    description: string | null;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    isSystem: boolean;
+                };
+            } & {
+                userId: string;
+                roleId: string;
+                scopeType: import("@prisma/client").$Enums.RoleScopeType;
+                scopeId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
+            })[];
+            profile: {
+                userId: string;
                 fullName: string;
+                positionId: string | null;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -38,76 +75,55 @@ export declare class AdminController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
-            roles: ({
-                role: {
-                    id: string;
-                    code: string;
-                    name: string;
-                    description: string | null;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    isSystem: boolean;
-                };
-            } & {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                userId: string;
-                roleId: string;
-                scopeType: import("@prisma/client").$Enums.RoleScopeType;
-                scopeId: string | null;
-            })[];
             departmentLinks: ({
                 department: {
-                    id: string;
-                    code: string;
-                    name: string;
                     description: string | null;
                     isActive: boolean;
+                    id: string;
                     createdAt: Date;
                     updatedAt: Date;
+                    name: string;
                     deletedAt: Date | null;
                     companyId: string;
                     branchId: string | null;
                     parentId: string | null;
+                    code: string;
                     leaderUserId: string | null;
                 };
                 position: {
-                    id: string;
-                    code: string;
-                    name: string;
                     description: string | null;
+                    departmentId: string | null;
                     isActive: boolean;
+                    id: string;
                     createdAt: Date;
                     updatedAt: Date;
+                    name: string;
                     deletedAt: Date | null;
-                    departmentId: string | null;
+                    code: string;
                 } | null;
             } & {
+                userId: string;
+                departmentId: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                departmentId: string;
-                positionId: string | null;
-                userId: string;
+                leftAt: Date | null;
                 isPrimary: boolean;
                 joinedAt: Date;
-                leftAt: Date | null;
             })[];
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         }[];
         pagination: {
             page: number;
@@ -117,106 +133,39 @@ export declare class AdminController {
         };
     }>;
     findUser(id: string): Promise<{
-        profile: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            fullName: string;
-            dateOfBirth: Date | null;
-            gender: import("@prisma/client").$Enums.Gender | null;
-            idCardNumber: string;
-            idCardIssueDate: Date | null;
-            idCardIssuePlace: string | null;
-            permanentAddress: string | null;
-            temporaryAddress: string | null;
-            avatarUrl: string | null;
-            joinDate: Date | null;
-            officialDate: Date | null;
-            employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
-            emergencyContactName: string | null;
-            emergencyContactPhone: string | null;
-            positionId: string | null;
-            userId: string;
-        } | null;
         roles: ({
             role: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
                 isSystem: boolean;
             };
         } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
             userId: string;
             roleId: string;
             scopeType: import("@prisma/client").$Enums.RoleScopeType;
             scopeId: string | null;
-        })[];
-        departmentLinks: ({
-            department: {
-                id: string;
-                code: string;
-                name: string;
-                description: string | null;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                deletedAt: Date | null;
-                companyId: string;
-                branchId: string | null;
-                parentId: string | null;
-                leaderUserId: string | null;
-            };
-            position: {
-                id: string;
-                code: string;
-                name: string;
-                description: string | null;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                deletedAt: Date | null;
-                departmentId: string | null;
-            } | null;
-        } & {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            departmentId: string;
-            positionId: string | null;
-            userId: string;
-            isPrimary: boolean;
-            joinedAt: Date;
-            leftAt: Date | null;
         })[];
-        id: string;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        email: string | null;
-        phone: string;
-        userCode: string;
-        accountStatus: import("@prisma/client").$Enums.AccountStatus;
-        approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
-        lastLoginAt: Date | null;
-    }>;
-    updateUser(id: string, dto: UpdateUserDto): Promise<{
         profile: {
+            userId: string;
+            fullName: string;
+            positionId: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            fullName: string;
             dateOfBirth: Date | null;
             gender: import("@prisma/client").$Enums.Gender | null;
             idCardNumber: string;
             idCardIssueDate: Date | null;
             idCardIssuePlace: string | null;
+            idCardFrontUrl: string | null;
+            idCardBackUrl: string | null;
             permanentAddress: string | null;
             temporaryAddress: string | null;
             avatarUrl: string | null;
@@ -225,19 +174,103 @@ export declare class AdminController {
             employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
             emergencyContactName: string | null;
             emergencyContactPhone: string | null;
-            positionId: string | null;
-            userId: string;
         } | null;
-        id: string;
+        departmentLinks: ({
+            department: {
+                description: string | null;
+                isActive: boolean;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                deletedAt: Date | null;
+                companyId: string;
+                branchId: string | null;
+                parentId: string | null;
+                code: string;
+                leaderUserId: string | null;
+            };
+            position: {
+                description: string | null;
+                departmentId: string | null;
+                isActive: boolean;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                deletedAt: Date | null;
+                code: string;
+            } | null;
+        } & {
+            userId: string;
+            departmentId: string;
+            positionId: string | null;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            leftAt: Date | null;
+            isPrimary: boolean;
+            joinedAt: Date;
+        })[];
+        phone: string;
+        email: string | null;
+        accountStatus: import("@prisma/client").$Enums.AccountStatus;
         isActive: boolean;
+        approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
-        deletedAt: Date | null;
-        email: string | null;
-        phone: string;
         userCode: string;
-        accountStatus: import("@prisma/client").$Enums.AccountStatus;
-        approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
         lastLoginAt: Date | null;
+        deletedAt: Date | null;
+    }>;
+    createUser(dto: CreateUserDto, actor: AuthenticatedUser): Promise<{
+        phone: string;
+        email: string | null;
+        accountStatus: import("@prisma/client").$Enums.AccountStatus;
+        isActive: boolean;
+        approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userCode: string;
+        lastLoginAt: Date | null;
+        deletedAt: Date | null;
+    }>;
+    updateUser(id: string, dto: UpdateUserDto): Promise<{
+        profile: {
+            userId: string;
+            fullName: string;
+            positionId: string | null;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            dateOfBirth: Date | null;
+            gender: import("@prisma/client").$Enums.Gender | null;
+            idCardNumber: string;
+            idCardIssueDate: Date | null;
+            idCardIssuePlace: string | null;
+            idCardFrontUrl: string | null;
+            idCardBackUrl: string | null;
+            permanentAddress: string | null;
+            temporaryAddress: string | null;
+            avatarUrl: string | null;
+            joinDate: Date | null;
+            officialDate: Date | null;
+            employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+            emergencyContactName: string | null;
+            emergencyContactPhone: string | null;
+        } | null;
+        phone: string;
+        email: string | null;
+        accountStatus: import("@prisma/client").$Enums.AccountStatus;
+        isActive: boolean;
+        approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userCode: string;
+        lastLoginAt: Date | null;
+        deletedAt: Date | null;
     }>;
 }

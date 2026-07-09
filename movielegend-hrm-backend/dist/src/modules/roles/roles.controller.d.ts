@@ -5,26 +5,26 @@ export declare class RolesController {
     findAll(): import("@prisma/client").Prisma.PrismaPromise<({
         permissions: ({
             permission: {
-                id: string;
-                code: string;
-                name: string;
                 description: string | null;
+                id: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                code: string;
             };
         } & {
+            roleId: string;
             id: string;
             createdAt: Date;
-            roleId: string;
             permissionId: string;
         })[];
     } & {
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        code: string;
         isSystem: boolean;
     })[]>;
 }

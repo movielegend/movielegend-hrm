@@ -20,6 +20,7 @@ const current_user_decorator_1 = require("../../common/decorators/current-user.d
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const employee_document_dto_1 = require("./dto/employee-document.dto");
 const employee_documents_service_1 = require("./employee-documents.service");
+const acknowledge_document_dto_1 = require("./dto/acknowledge-document.dto");
 let DocumentTypesController = class DocumentTypesController {
     documents;
     constructor(documents) {
@@ -84,6 +85,9 @@ let EmployeeDocumentsController = class EmployeeDocumentsController {
     expiring(days) {
         return this.documents.expiring(days ? Number(days) : 30);
     }
+    acknowledge(id, dto, ipAddress, actor) {
+        return this.documents.acknowledge(id, dto, ipAddress, actor);
+    }
     findOne(id, actor) {
         return this.documents.findOne(id, actor);
     }
@@ -126,6 +130,17 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], EmployeeDocumentsController.prototype, "expiring", null);
+__decorate([
+    (0, common_1.Post)(':id/acknowledge'),
+    (0, permissions_decorator_1.Permissions)('employee_document.read_own'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Ip)()),
+    __param(3, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, acknowledge_document_dto_1.AcknowledgeDocumentDto, String, Object]),
+    __metadata("design:returntype", void 0)
+], EmployeeDocumentsController.prototype, "acknowledge", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, any_permissions_decorator_1.AnyPermissions)('employee_document.read_own', 'employee_document.read_department', 'employee_document.read_all'),

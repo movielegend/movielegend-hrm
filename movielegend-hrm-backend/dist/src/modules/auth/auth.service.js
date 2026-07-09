@@ -68,6 +68,7 @@ let AuthService = class AuthService {
         if (faceFileIds.length > 0 && faceFileIds.length !== 3) {
             throw (0, error_util_1.badRequest)('UPLOAD_FILE_REQUIRED', 'FACE_REGISTRATION requires uploaded references for all three poses');
         }
+        const idCardFileIds = [dto.idCardFrontFileId, dto.idCardBackFileId].filter((id) => Boolean(id));
         return this.prisma.$transaction(async (tx) => {
             const [existingPhone, existingCard, department] = await Promise.all([
                 tx.user.findUnique({ where: { phone: dto.phone } }),
@@ -82,6 +83,18 @@ let AuthService = class AuthService {
                 throw (0, error_util_1.conflict)('DUPLICATE_ID_CARD', 'CCCD đã tồn tại');
             if (!department)
                 throw (0, error_util_1.badRequest)('DEPARTMENT_NOT_FOUND', 'Phòng ban không tồn tại hoặc đã ngừng hoạt động');
+            let idCardFrontUrl;
+            let idCardBackUrl;
+            if (dto.idCardFrontFileId) {
+                const frontFile = await tx.uploadedFile.findUnique({ where: { id: dto.idCardFrontFileId } });
+                if (frontFile)
+                    idCardFrontUrl = frontFile.fileUrl;
+            }
+            if (dto.idCardBackFileId) {
+                const backFile = await tx.uploadedFile.findUnique({ where: { id: dto.idCardBackFileId } });
+                if (backFile)
+                    idCardBackUrl = backFile.fileUrl;
+            }
             const passwordHash = await bcrypt.hash(dto.password, 12);
             const userCode = await this.prisma.nextUserCode(tx);
             const employeeRole = await tx.role.findUnique({ where: { code: 'EMPLOYEE' } });
@@ -100,6 +113,8 @@ let AuthService = class AuthService {
                             dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
                             gender: dto.gender,
                             idCardNumber: dto.idCardNumber,
+                            idCardFrontUrl,
+                            idCardBackUrl,
                             avatarUrl: dto.avatarUrl,
                         },
                     },
@@ -148,6 +163,7 @@ let AuthService = class AuthService {
                 },
             });
             await this.uploads.attachTemporaryFiles(faceFileIds, user.id, client_1.UploadPurpose.FACE_REGISTRATION, tx);
+            await this.uploads.attachTemporaryFiles(idCardFileIds, user.id, client_1.UploadPurpose.EMPLOYEE_DOCUMENT, tx);
             return {
                 id: user.id,
                 userCode: user.userCode,
@@ -222,6 +238,29 @@ let AuthService = class AuthService {
             include: this.userInclude(),
         });
         return this.toAuthUser(user);
+    }
+    async changePassword(userId, dto, actor) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw (0, error_util_1.unauthorized)('USER_NOT_FOUND', 'Người dùng không tồn tại');
+        const match = await bcrypt.compare(dto.oldPassword, user.passwordHash);
+        if (!match) {
+            throw (0, error_util_1.badRequest)('INVALID_PASSWORD', 'Mật khẩu cũ không chính xác');
+        }
+        const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash },
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                actorUserId: actor.userId,
+                action: 'auth.password.change',
+                entityType: 'User',
+                entityId: userId,
+            },
+        });
+        return { success: true };
     }
     async buildPayload(userId) {
         const user = await this.prisma.user.findUniqueOrThrow({

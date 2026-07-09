@@ -4,6 +4,7 @@ import {
   ApprovalAction,
   ApprovalStatus,
   Prisma,
+  RoleScopeType,
 } from '@prisma/client';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, forbidden, notFound } from '../../common/utils/error.util';
@@ -111,6 +112,18 @@ export class ApprovalsService {
         },
         update: { leftAt: null, isPrimary: true },
       });
+
+      const employeeRole = await tx.role.findUnique({ where: { code: 'EMPLOYEE' } });
+      if (employeeRole) {
+        await tx.userRole.create({
+          data: {
+            userId: request.userId,
+            roleId: employeeRole.id,
+            scopeType: RoleScopeType.GLOBAL,
+          },
+        });
+      }
+
       await tx.approvalHistory.create({
         data: {
           approvalRequestId: id,

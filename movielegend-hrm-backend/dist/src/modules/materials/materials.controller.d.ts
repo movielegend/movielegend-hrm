@@ -4,43 +4,43 @@ export declare class MaterialsController {
     private readonly materials;
     constructor(materials: MaterialsService);
     createCategory(dto: CreateMaterialCategoryDto): import("@prisma/client").Prisma.Prisma__MaterialCategoryClient<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
+        code: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findCategories(): import("@prisma/client").Prisma.PrismaPromise<{
-        id: string;
-        code: string;
-        name: string;
         description: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
+        code: string;
     }[]>;
     create(dto: CreateMaterialDto): Promise<{
         category: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
+            code: string;
         };
     } & {
-        id: string;
-        name: string;
         description: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
         categoryId: string;
         unit: string;
@@ -50,22 +50,22 @@ export declare class MaterialsController {
     }>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<({
         category: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
+            code: string;
         };
     } & {
-        id: string;
-        name: string;
         description: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
         categoryId: string;
         unit: string;
@@ -75,22 +75,22 @@ export declare class MaterialsController {
     })[]>;
     findOne(id: string): Promise<{
         category: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
+            code: string;
         };
     } & {
-        id: string;
-        name: string;
         description: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
         categoryId: string;
         unit: string;
@@ -100,22 +100,22 @@ export declare class MaterialsController {
     }>;
     update(id: string, dto: UpdateMaterialDto): Promise<{
         category: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
+            code: string;
         };
     } & {
-        id: string;
-        name: string;
         description: string | null;
         isActive: boolean;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         deletedAt: Date | null;
         categoryId: string;
         unit: string;

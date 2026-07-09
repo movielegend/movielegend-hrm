@@ -106,13 +106,13 @@ export declare class DashboardController {
         today: {
             shiftToday: ({
                 shift: {
-                    id: string;
-                    code: string;
-                    name: string;
                     isActive: boolean;
+                    id: string;
                     createdAt: Date;
                     updatedAt: Date;
+                    name: string;
                     deletedAt: Date | null;
+                    code: string;
                     startTime: string;
                     endTime: string;
                     breakMinutes: number;
@@ -123,14 +123,14 @@ export declare class DashboardController {
                     isNightShift: boolean;
                 };
             } & {
+                userId: string;
+                departmentId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                departmentId: string;
-                userId: string;
-                shiftId: string;
-                workDate: Date;
                 status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+                workDate: Date;
+                shiftId: string;
                 assignedByUserId: string | null;
             }) | null;
             checkInStatus: boolean;
@@ -145,10 +145,10 @@ export declare class DashboardController {
         };
         leave: {
             leaveBalances: {
+                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
                 year: number;
                 leaveTypeId: string;
                 balanceDays: import("@prisma/client/runtime/library").Decimal;
@@ -161,49 +161,53 @@ export declare class DashboardController {
         };
         contract: {
             activeContract: {
+                userId: string;
+                title: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
                 status: import("@prisma/client").$Enums.ContractStatus;
                 createdById: string;
-                startDate: Date;
-                endDate: Date | null;
                 approvedAt: Date | null;
                 approvedById: string | null;
                 contractType: import("@prisma/client").$Enums.ContractType;
                 contractTemplateId: string;
-                contractCode: string;
                 contractTemplateVersionId: string;
-                title: string;
+                startDate: Date;
+                endDate: Date | null;
+                draftFileUrl: string | null;
+                signedFileUrl: string | null;
+                contractCode: string;
                 baseSalarySnapshot: import("@prisma/client/runtime/library").JsonValue | null;
                 positionSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
                 departmentSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
-                draftFileUrl: string | null;
-                signedFileUrl: string | null;
                 employeeSignedAt: Date | null;
                 companySignedAt: Date | null;
                 effectiveAt: Date | null;
                 terminatedAt: Date | null;
                 terminationReason: string | null;
+                employeeAcknowledgementStatus: import("@prisma/client").$Enums.AcknowledgementStatus;
+                employeeAcknowledgedAt: Date | null;
+                employeeAcknowledgementNote: string | null;
+                employeeAcknowledgedByIp: string | null;
             } | null;
             signatureRequired: number;
             expiringContract: number;
         };
         kpi: {
             activeAssignment: {
+                userId: string;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                userId: string;
                 status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
+                assignedById: string;
+                assignedAt: Date;
                 reviewedAt: Date | null;
                 snapshot: import("@prisma/client/runtime/library").JsonValue | null;
                 kpiTemplateId: string;
                 periodStart: Date;
                 periodEnd: Date;
-                assignedById: string;
-                assignedAt: Date;
                 submittedAt: Date | null;
                 finalizedAt: Date | null;
                 finalScore: import("@prisma/client/runtime/library").Decimal | null;

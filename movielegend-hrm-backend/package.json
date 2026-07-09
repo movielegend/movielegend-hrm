@@ -22,6 +22,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:seed:demo": "ts-node prisma/seed-demo.ts",
+    "seed:mock": "ts-node prisma/seed-mock-data.ts",
     "test:db:prepare": "ts-node scripts/prepare-test-db.ts"
   },
   "dependencies": {
@@ -44,11 +45,13 @@
     "prisma": "^6.19.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.3",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
+    "@faker-js/faker": "^10.5.0",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
@@ -57,6 +60,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
     "@types/passport-jwt": "^4.0.1",
+    "@types/sharp": "^0.31.1",
     "@types/supertest": "^7.2.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",

@@ -181,6 +181,50 @@ export class EmployeeDocumentsService {
     return this.serialize(payload.updated, actor);
   }
 
+  async acknowledge(id: string, dto: { isAgreed: boolean; note?: string }, ipAddress: string, actor: AuthenticatedUser) {
+    const document = await this.prisma.employeeDocument.findUnique({
+      where: { id, deletedAt: null },
+      include: { employee: true },
+    });
+    if (!document) throw notFound('DOCUMENT_NOT_FOUND', 'Khong tim thay giay to');
+
+    const targetUserId = document.userId ?? document.employee.userId;
+    if (targetUserId !== actor.userId) {
+      throw forbidden('DOCUMENT_ACKNOWLEDGE_FORBIDDEN', 'Ban chi duoc xac nhan giay to cua chinh minh');
+    }
+
+    if (document.acknowledgementStatus !== 'PENDING') {
+      throw badRequest('DOCUMENT_ALREADY_ACKNOWLEDGED', 'Giay to nay da duoc xac nhan');
+    }
+
+    const payload = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeDocument.update({
+        where: { id },
+        data: {
+          acknowledgementStatus: dto.isAgreed ? 'AGREED' : 'DISAGREED',
+          acknowledgedAt: new Date(),
+          acknowledgementNote: dto.note,
+          acknowledgedByIp: ipAddress,
+        },
+        include: this.include(),
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: dto.isAgreed ? 'DOCUMENT_AGREED' : 'DOCUMENT_DISAGREED',
+          entityType: 'EmployeeDocument',
+          entityId: id,
+          metadata: { ipAddress, note: dto.note },
+        },
+      });
+      return { updated };
+    });
+    
+    this.realtime.emitToUser(targetUserId, 'document:acknowledged', { id, status: payload.updated.acknowledgementStatus });
+    return this.serialize(payload.updated, actor);
+  }
+
+
   expiring(days = 30) {
     const now = new Date();
     const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);

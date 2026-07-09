@@ -207,6 +207,47 @@ export class ContractsService {
     });
   }
 
+  async acknowledgeContract(id: string, dto: { isAgreed: boolean; note?: string }, ipAddress: string, actor: AuthenticatedUser) {
+    const contract = await this.prisma.employeeContract.findUnique({
+      where: { id },
+    });
+    if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Khong tim thay hop dong');
+
+    if (contract.userId !== actor.userId) {
+      throw forbidden('CONTRACT_ACKNOWLEDGE_FORBIDDEN', 'Ban chi duoc xac nhan hop dong cua chinh minh');
+    }
+
+    if (contract.employeeAcknowledgementStatus !== 'PENDING') {
+      throw badRequest('CONTRACT_ALREADY_ACKNOWLEDGED', 'Hop dong nay da duoc xac nhan');
+    }
+
+    const payload = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeContract.update({
+        where: { id },
+        data: {
+          employeeAcknowledgementStatus: dto.isAgreed ? 'AGREED' : 'DISAGREED',
+          employeeAcknowledgedAt: new Date(),
+          employeeAcknowledgementNote: dto.note,
+          employeeAcknowledgedByIp: ipAddress,
+        },
+        include: this.include(),
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: dto.isAgreed ? 'CONTRACT_AGREED' : 'CONTRACT_DISAGREED',
+          entityType: 'EmployeeContract',
+          entityId: id,
+          metadata: { ipAddress, note: dto.note },
+        },
+      });
+      return { updated };
+    });
+    
+    this.realtime.emitToUser(contract.userId, 'contract:acknowledged', { id, status: payload.updated.employeeAcknowledgementStatus });
+    return payload.updated;
+  }
+
   private async transition(id: string, actor: AuthenticatedUser, from: ContractStatus, to: ContractStatus, auditAction: string, notificationType: NotificationType, extra: Record<string, unknown> = {}) {
     this.policy.assertTransition(from, to);
     const current = await this.prisma.employeeContract.findUnique({ where: { id } });

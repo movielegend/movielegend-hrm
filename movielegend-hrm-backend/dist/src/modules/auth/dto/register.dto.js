@@ -43,6 +43,8 @@ class RegisterDto {
     password;
     idCardNumber;
     dateOfBirth;
+    idCardFrontFileId;
+    idCardBackFileId;
     gender;
     requestedDepartmentId;
     avatarUrl;
@@ -82,6 +84,18 @@ __decorate([
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "dateOfBirth", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], RegisterDto.prototype, "idCardFrontFileId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], RegisterDto.prototype, "idCardBackFileId", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.Gender }),
     (0, class_validator_1.IsOptional)(),

@@ -6,8 +6,8 @@ export declare class SystemSettingsController {
     constructor(settings: SystemSettingsService);
     findAll(actor: AuthenticatedUser, companyId?: string): Promise<{
         valueJson: import("@prisma/client/runtime/library").JsonValue;
-        id: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
@@ -17,8 +17,8 @@ export declare class SystemSettingsController {
         updatedById: string;
     }[]>;
     upsert(dto: UpsertSystemSettingDto, actor: AuthenticatedUser): import("@prisma/client").Prisma.Prisma__SystemSettingClient<{
-        id: string;
         description: string | null;
+        id: string;
         createdAt: Date;
         updatedAt: Date;
         companyId: string;

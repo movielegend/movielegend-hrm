@@ -115,6 +115,19 @@ export class LeaveService {
     });
   }
 
+  findMyLeaveRequests(actor: AuthenticatedUser, query: LeaveRequestQueryDto) {
+    return this.prisma.leaveRequest.findMany({
+      where: {
+        userId: actor.userId,
+        ...(query.status ? { status: query.status } : {}),
+      },
+      include: {
+        leaveType: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   approveLeave(id: string, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
       const request = await tx.leaveRequest.findUnique({ where: { id } });

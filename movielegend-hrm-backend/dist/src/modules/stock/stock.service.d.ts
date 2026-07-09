@@ -27,11 +27,11 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockReceiptStatus;
+        note: string | null;
         warehouseId: string;
         createdById: string;
         approvedAt: Date | null;
         approvedById: string | null;
-        note: string | null;
         supplierName: string | null;
         referenceNumber: string | null;
         receiptDate: Date;
@@ -39,17 +39,17 @@ export declare class StockService {
     }>;
     findReceipts(actor: AuthenticatedUser): Prisma.PrismaPromise<({
         warehouse: {
-            id: string;
-            code: string;
-            name: string;
             description: string | null;
+            departmentId: string | null;
             isActive: boolean;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             deletedAt: Date | null;
             companyId: string;
             branchId: string | null;
-            departmentId: string | null;
+            code: string;
             address: string | null;
             managerUserId: string | null;
         };
@@ -66,11 +66,11 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockReceiptStatus;
+        note: string | null;
         warehouseId: string;
         createdById: string;
         approvedAt: Date | null;
         approvedById: string | null;
-        note: string | null;
         supplierName: string | null;
         referenceNumber: string | null;
         receiptDate: Date;
@@ -90,11 +90,11 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockReceiptStatus;
+        note: string | null;
         warehouseId: string;
         createdById: string;
         approvedAt: Date | null;
         approvedById: string | null;
-        note: string | null;
         supplierName: string | null;
         referenceNumber: string | null;
         receiptDate: Date;
@@ -114,11 +114,11 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockReceiptStatus;
+        note: string | null;
         warehouseId: string;
         createdById: string;
         approvedAt: Date | null;
         approvedById: string | null;
-        note: string | null;
         supplierName: string | null;
         referenceNumber: string | null;
         receiptDate: Date;
@@ -129,11 +129,11 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockReceiptStatus;
+        note: string | null;
         warehouseId: string;
         createdById: string;
         approvedAt: Date | null;
         approvedById: string | null;
-        note: string | null;
         supplierName: string | null;
         referenceNumber: string | null;
         receiptDate: Date;
@@ -154,9 +154,9 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.MaterialIssueStatus;
+        note: string | null;
         warehouseId: string;
         approvedById: string | null;
-        note: string | null;
         issueDate: Date | null;
         issueTargetType: import("@prisma/client").$Enums.MaterialIssueTargetType;
         issuedToUserId: string | null;
@@ -180,9 +180,9 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.MaterialIssueStatus;
+        note: string | null;
         warehouseId: string;
         approvedById: string | null;
-        note: string | null;
         issueDate: Date | null;
         issueTargetType: import("@prisma/client").$Enums.MaterialIssueTargetType;
         issuedToUserId: string | null;
@@ -206,9 +206,9 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.MaterialIssueStatus;
+        note: string | null;
         warehouseId: string;
         approvedById: string | null;
-        note: string | null;
         issueDate: Date | null;
         issueTargetType: import("@prisma/client").$Enums.MaterialIssueTargetType;
         issuedToUserId: string | null;
@@ -232,9 +232,9 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.MaterialIssueStatus;
+        note: string | null;
         warehouseId: string;
         approvedById: string | null;
-        note: string | null;
         issueDate: Date | null;
         issueTargetType: import("@prisma/client").$Enums.MaterialIssueTargetType;
         issuedToUserId: string | null;
@@ -248,9 +248,9 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.MaterialIssueStatus;
+        note: string | null;
         warehouseId: string;
         approvedById: string | null;
-        note: string | null;
         issueDate: Date | null;
         issueTargetType: import("@prisma/client").$Enums.MaterialIssueTargetType;
         issuedToUserId: string | null;
@@ -274,9 +274,9 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.MaterialIssueStatus;
+        note: string | null;
         warehouseId: string;
         approvedById: string | null;
-        note: string | null;
         issueDate: Date | null;
         issueTargetType: import("@prisma/client").$Enums.MaterialIssueTargetType;
         issuedToUserId: string | null;
@@ -290,9 +290,9 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.MaterialIssueStatus;
+        note: string | null;
         warehouseId: string;
         approvedById: string | null;
-        note: string | null;
         issueDate: Date | null;
         issueTargetType: import("@prisma/client").$Enums.MaterialIssueTargetType;
         issuedToUserId: string | null;
@@ -313,8 +313,8 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockTransferStatus;
-        approvedById: string | null;
         note: string | null;
+        approvedById: string | null;
         sourceWarehouseId: string;
         targetWarehouseId: string;
         requestedById: string;
@@ -336,8 +336,8 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockTransferStatus;
-        approvedById: string | null;
         note: string | null;
+        approvedById: string | null;
         sourceWarehouseId: string;
         targetWarehouseId: string;
         requestedById: string;
@@ -359,8 +359,8 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockTransferStatus;
-        approvedById: string | null;
         note: string | null;
+        approvedById: string | null;
         sourceWarehouseId: string;
         targetWarehouseId: string;
         requestedById: string;
@@ -382,8 +382,8 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockTransferStatus;
-        approvedById: string | null;
         note: string | null;
+        approvedById: string | null;
         sourceWarehouseId: string;
         targetWarehouseId: string;
         requestedById: string;
@@ -405,8 +405,8 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockTransferStatus;
-        approvedById: string | null;
         note: string | null;
+        approvedById: string | null;
         sourceWarehouseId: string;
         targetWarehouseId: string;
         requestedById: string;
@@ -421,8 +421,8 @@ export declare class StockService {
         createdAt: Date;
         updatedAt: Date;
         status: import("@prisma/client").$Enums.StockTransferStatus;
-        approvedById: string | null;
         note: string | null;
+        approvedById: string | null;
         sourceWarehouseId: string;
         targetWarehouseId: string;
         requestedById: string;
@@ -445,8 +445,8 @@ export declare class StockService {
     }): Promise<{
         id: string;
         createdAt: Date;
-        warehouseId: string;
         note: string | null;
+        warehouseId: string;
         materialId: string;
         performedById: string;
         referenceId: string | null;

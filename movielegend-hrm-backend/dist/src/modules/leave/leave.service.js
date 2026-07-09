@@ -110,6 +110,18 @@ let LeaveService = class LeaveService {
             orderBy: { createdAt: 'desc' },
         });
     }
+    findMyLeaveRequests(actor, query) {
+        return this.prisma.leaveRequest.findMany({
+            where: {
+                userId: actor.userId,
+                ...(query.status ? { status: query.status } : {}),
+            },
+            include: {
+                leaveType: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
     approveLeave(id, actor) {
         return this.prisma.$transaction(async (tx) => {
             const request = await tx.leaveRequest.findUnique({ where: { id } });

@@ -82,6 +82,10 @@ let LocalStorageService = class LocalStorageService extends storage_service_1.St
     getPublicUrl(key) {
         return `/uploads/${encodeURIComponent(sanitizeStorageKey(key))}`;
     }
+    async read(key) {
+        const target = this.resolveKey(key);
+        return fs_1.promises.readFile(target);
+    }
     resolveKey(key) {
         const clean = sanitizeStorageKey(key);
         const target = path.resolve(this.root, clean);

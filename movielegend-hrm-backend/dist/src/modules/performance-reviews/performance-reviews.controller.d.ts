@@ -6,11 +6,11 @@ export declare class ReviewCyclesController {
     constructor(reviews: PerformanceReviewsService);
     create(dto: CreateReviewCycleDto, actor: AuthenticatedUser): Promise<{
         id: string;
-        code: string;
-        name: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         companyId: string;
+        code: string;
         status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
         periodStart: Date;
@@ -24,10 +24,10 @@ export declare class ReviewCyclesController {
     }>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<({
         reviews: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             status: import("@prisma/client").$Enums.PerformanceReviewStatus;
             reviewedAt: Date | null;
             submittedAt: Date | null;
@@ -51,11 +51,11 @@ export declare class ReviewCyclesController {
         }[];
     } & {
         id: string;
-        code: string;
-        name: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         companyId: string;
+        code: string;
         status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
         periodStart: Date;
@@ -69,10 +69,10 @@ export declare class ReviewCyclesController {
     })[]>;
     findOne(id: string): Promise<{
         reviews: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             status: import("@prisma/client").$Enums.PerformanceReviewStatus;
             reviewedAt: Date | null;
             submittedAt: Date | null;
@@ -96,11 +96,11 @@ export declare class ReviewCyclesController {
         }[];
     } & {
         id: string;
-        code: string;
-        name: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         companyId: string;
+        code: string;
         status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
         periodStart: Date;
@@ -114,10 +114,10 @@ export declare class ReviewCyclesController {
     }>;
     open(id: string, actor: AuthenticatedUser): Promise<{
         reviews: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             status: import("@prisma/client").$Enums.PerformanceReviewStatus;
             reviewedAt: Date | null;
             submittedAt: Date | null;
@@ -133,11 +133,11 @@ export declare class ReviewCyclesController {
         }[];
     } & {
         id: string;
-        code: string;
-        name: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         companyId: string;
+        code: string;
         status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
         periodStart: Date;
@@ -151,10 +151,10 @@ export declare class ReviewCyclesController {
     }>;
     advance(id: string, actor: AuthenticatedUser): Promise<{
         reviews: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             status: import("@prisma/client").$Enums.PerformanceReviewStatus;
             reviewedAt: Date | null;
             submittedAt: Date | null;
@@ -170,11 +170,11 @@ export declare class ReviewCyclesController {
         }[];
     } & {
         id: string;
-        code: string;
-        name: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         companyId: string;
+        code: string;
         status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
         periodStart: Date;
@@ -188,10 +188,10 @@ export declare class ReviewCyclesController {
     }>;
     close(id: string, actor: AuthenticatedUser): Promise<{
         reviews: {
+            userId: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             status: import("@prisma/client").$Enums.PerformanceReviewStatus;
             reviewedAt: Date | null;
             submittedAt: Date | null;
@@ -207,11 +207,11 @@ export declare class ReviewCyclesController {
         }[];
     } & {
         id: string;
-        code: string;
-        name: string;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         companyId: string;
+        code: string;
         status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
         periodStart: Date;
@@ -238,15 +238,19 @@ export declare class PerformanceReviewsController {
     findMine(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<({
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -255,30 +259,28 @@ export declare class PerformanceReviewsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         cycle: {
             id: string;
-            code: string;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             companyId: string;
+            code: string;
             status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
             periodStart: Date;
@@ -291,24 +293,24 @@ export declare class PerformanceReviewsController {
             finalReviewEnd: Date;
         };
         reviewer: {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PerformanceReviewStatus;
         reviewedAt: Date | null;
         submittedAt: Date | null;
@@ -325,15 +327,19 @@ export declare class PerformanceReviewsController {
     findDepartment(departmentId: string, actor: AuthenticatedUser): Promise<({
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -342,30 +348,28 @@ export declare class PerformanceReviewsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         cycle: {
             id: string;
-            code: string;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             companyId: string;
+            code: string;
             status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
             periodStart: Date;
@@ -378,24 +382,24 @@ export declare class PerformanceReviewsController {
             finalReviewEnd: Date;
         };
         reviewer: {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PerformanceReviewStatus;
         reviewedAt: Date | null;
         submittedAt: Date | null;
@@ -412,15 +416,19 @@ export declare class PerformanceReviewsController {
     findOne(id: string, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -429,30 +437,28 @@ export declare class PerformanceReviewsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         cycle: {
             id: string;
-            code: string;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             companyId: string;
+            code: string;
             status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
             periodStart: Date;
@@ -465,24 +471,24 @@ export declare class PerformanceReviewsController {
             finalReviewEnd: Date;
         };
         reviewer: {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PerformanceReviewStatus;
         reviewedAt: Date | null;
         submittedAt: Date | null;
@@ -499,15 +505,19 @@ export declare class PerformanceReviewsController {
     selfSubmit(id: string, dto: SubmitReviewDto, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -516,30 +526,28 @@ export declare class PerformanceReviewsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         cycle: {
             id: string;
-            code: string;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             companyId: string;
+            code: string;
             status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
             periodStart: Date;
@@ -552,24 +560,24 @@ export declare class PerformanceReviewsController {
             finalReviewEnd: Date;
         };
         reviewer: {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PerformanceReviewStatus;
         reviewedAt: Date | null;
         submittedAt: Date | null;
@@ -586,15 +594,19 @@ export declare class PerformanceReviewsController {
     leaderSubmit(id: string, dto: SubmitReviewDto, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -603,30 +615,28 @@ export declare class PerformanceReviewsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         cycle: {
             id: string;
-            code: string;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             companyId: string;
+            code: string;
             status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
             periodStart: Date;
@@ -639,24 +649,24 @@ export declare class PerformanceReviewsController {
             finalReviewEnd: Date;
         };
         reviewer: {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PerformanceReviewStatus;
         reviewedAt: Date | null;
         submittedAt: Date | null;
@@ -673,15 +683,19 @@ export declare class PerformanceReviewsController {
     finalize(id: string, dto: SubmitReviewDto, actor: AuthenticatedUser): Promise<{
         user: {
             profile: {
+                userId: string;
+                fullName: string;
+                positionId: string | null;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                fullName: string;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
                 idCardIssueDate: Date | null;
                 idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
                 permanentAddress: string | null;
                 temporaryAddress: string | null;
                 avatarUrl: string | null;
@@ -690,30 +704,28 @@ export declare class PerformanceReviewsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
-                positionId: string | null;
-                userId: string;
             } | null;
         } & {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         };
         cycle: {
             id: string;
-            code: string;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
             companyId: string;
+            code: string;
             status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
             periodStart: Date;
@@ -726,24 +738,24 @@ export declare class PerformanceReviewsController {
             finalReviewEnd: Date;
         };
         reviewer: {
-            id: string;
+            phone: string;
+            email: string | null;
+            accountStatus: import("@prisma/client").$Enums.AccountStatus;
             isActive: boolean;
+            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
+            id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
-            email: string | null;
-            phone: string;
             userCode: string;
             passwordHash: string;
-            accountStatus: import("@prisma/client").$Enums.AccountStatus;
-            approvalStatus: import("@prisma/client").$Enums.ApprovalStatus;
             lastLoginAt: Date | null;
+            deletedAt: Date | null;
         } | null;
     } & {
+        userId: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         status: import("@prisma/client").$Enums.PerformanceReviewStatus;
         reviewedAt: Date | null;
         submittedAt: Date | null;

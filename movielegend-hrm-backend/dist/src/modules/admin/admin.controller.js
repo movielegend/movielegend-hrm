@@ -19,6 +19,8 @@ const current_user_decorator_1 = require("../../common/decorators/current-user.d
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const admin_service_1 = require("./admin.service");
+const role_assignment_dto_1 = require("./dto/role-assignment.dto");
+const create_user_dto_1 = require("./dto/create-user.dto");
 const leader_assignment_dto_1 = require("./dto/leader-assignment.dto");
 const update_user_dto_1 = require("./dto/update-user.dto");
 const user_query_dto_1 = require("./dto/user-query.dto");
@@ -26,6 +28,12 @@ let AdminController = class AdminController {
     adminService;
     constructor(adminService) {
         this.adminService = adminService;
+    }
+    assignRole(dto, actor) {
+        return this.adminService.assignRole(dto, actor);
+    }
+    revokeRole(id, actor) {
+        return this.adminService.revokeRole(id, actor);
     }
     assignLeader(dto, actor) {
         return this.adminService.assignLeader(dto, actor);
@@ -39,11 +47,32 @@ let AdminController = class AdminController {
     findUser(id) {
         return this.adminService.findUser(id);
     }
+    createUser(dto, actor) {
+        return this.adminService.createUser(dto, actor);
+    }
     updateUser(id, dto) {
         return this.adminService.updateUser(id, dto);
     }
 };
 exports.AdminController = AdminController;
+__decorate([
+    (0, permissions_decorator_1.Permissions)('role.assign'),
+    (0, common_1.Post)('roles/assign'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [role_assignment_dto_1.AssignRoleDto, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "assignRole", null);
+__decorate([
+    (0, permissions_decorator_1.Permissions)('role.assign'),
+    (0, common_1.Delete)('roles/assignments/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "revokeRole", null);
 __decorate([
     (0, permissions_decorator_1.Permissions)('role.assign'),
     (0, common_1.Post)('leader-assignments'),
@@ -78,6 +107,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "findUser", null);
+__decorate([
+    (0, permissions_decorator_1.Permissions)('user.manage'),
+    (0, common_1.Post)('users'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "createUser", null);
 __decorate([
     (0, permissions_decorator_1.Permissions)('user.update'),
     (0, common_1.Patch)('users/:id'),
