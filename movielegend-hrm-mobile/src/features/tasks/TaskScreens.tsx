@@ -733,9 +733,9 @@ function AssigneeSelectorModal({
           </View>
 
           <View style={styles.assigneeTabs}>
-            {(['USER', 'DEPARTMENT', 'GROUP'] as const).map(tab => {
+            {(['USER', 'DEPARTMENT'] as const).map(tab => {
               const isActive = activeTab === tab;
-              const labels = { USER: 'Cá nhân', DEPARTMENT: 'Phòng ban', GROUP: 'Nhóm' };
+              const labels = { USER: 'Cá nhân', DEPARTMENT: 'Phòng ban' };
               return (
                 <Pressable 
                   key={tab} 
@@ -779,19 +779,7 @@ function AssigneeSelectorModal({
               </Pressable>
             ))}
 
-            {activeTab === 'GROUP' && groups.data?.items.map(g => (
-              <Pressable key={g.id} style={styles.assigneeRow} onPress={() => toggleTarget('GROUP', g.id)}>
-                <View style={styles.assigneeInfo}>
-                  <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="account-group" size={20} color={colors.muted} /></View>
-                  <Text style={styles.assigneeName}>{g.name}</Text>
-                </View>
-                <MaterialCommunityIcons 
-                  name={isSelected('GROUP', g.id) ? 'check-circle' : 'circle-outline'} 
-                  size={24} 
-                  color={isSelected('GROUP', g.id) ? colors.primary : colors.border} 
-                />
-              </Pressable>
-            ))}
+
           </ScrollView>
           
           <View style={styles.assigneeFooter}>

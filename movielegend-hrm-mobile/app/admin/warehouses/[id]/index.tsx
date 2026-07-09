@@ -1,5 +1,5 @@
-import { AssetDepartmentScreen } from '../../../../src/features/materials/MaterialManagementScreens';
+import { WarehouseDetailScreen } from '../../../../src/features/warehouses/WarehouseScreens';
 
 export default function AdminWarehouseDetailRoute() {
-  return <AssetDepartmentScreen />;
+  return <WarehouseDetailScreen area="admin" />;
 }

@@ -16,7 +16,6 @@ export type AssetConditionStatus = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
 
 export type AssetMaintenanceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
-}
 
 export interface AssetDto {
   id: string;
@@ -25,6 +24,9 @@ export interface AssetDto {
   name: string;
   brand?: string | null;
   model?: string | null;
+  serialNumber?: string | null;
+  purchasePrice?: number | null;
+  warrantyEndDate?: string | null;
   conditionStatus: AssetConditionStatus;
   conditionNote?: string | null;
   assetStatus: AssetStatus;
@@ -76,3 +78,4 @@ export interface StartMaintenancePayload {
   description: string;
   vendorName?: string;
 }
+

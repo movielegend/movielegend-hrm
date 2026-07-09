@@ -24,9 +24,6 @@ let AssetsController = class AssetsController {
     constructor(assets) {
         this.assets = assets;
     }
-    createCategory(dto) {
-        return this.assets.createCategory(dto);
-    }
     create(dto, actor) {
         return this.assets.create(dto, actor);
     }
@@ -42,6 +39,9 @@ let AssetsController = class AssetsController {
     update(id, dto, actor) {
         return this.assets.update(id, dto, actor);
     }
+    transfer(id, dto, actor) {
+        return this.assets.transfer(id, dto, actor);
+    }
     assign(id, dto, actor) {
         return this.assets.assign(id, dto, actor);
     }
@@ -53,14 +53,6 @@ let AssetsController = class AssetsController {
     }
 };
 exports.AssetsController = AssetsController;
-__decorate([
-    (0, common_1.Post)('asset-categories'),
-    (0, permissions_decorator_1.Permissions)('asset.create'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [asset_dto_1.CreateAssetCategoryDto]),
-    __metadata("design:returntype", void 0)
-], AssetsController.prototype, "createCategory", null);
 __decorate([
     (0, common_1.Post)('assets'),
     (0, permissions_decorator_1.Permissions)('asset.create'),
@@ -105,6 +97,16 @@ __decorate([
     __metadata("design:paramtypes", [String, asset_dto_1.UpdateAssetDto, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Post)('assets/:id/transfer'),
+    (0, permissions_decorator_1.Permissions)('asset.create'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, asset_dto_1.TransferAssetDto, Object]),
+    __metadata("design:returntype", void 0)
+], AssetsController.prototype, "transfer", null);
 __decorate([
     (0, common_1.Post)('assets/:id/assign'),
     (0, permissions_decorator_1.Permissions)('asset.assign'),
