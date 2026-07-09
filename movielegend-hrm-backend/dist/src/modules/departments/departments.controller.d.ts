@@ -18,7 +18,13 @@ export declare class DepartmentsController {
         deletedAt: Date | null;
     }>;
     findPublic(search?: string): Promise<{
-        items: {
+        items: ({
+            leader: {
+                profile: {
+                    fullName: string;
+                } | null;
+            } | null;
+        } & {
             id: string;
             companyId: string;
             branchId: string | null;
@@ -31,10 +37,16 @@ export declare class DepartmentsController {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-        }[];
+        })[];
     }>;
     findAll(search?: string): Promise<{
-        items: {
+        items: ({
+            leader: {
+                profile: {
+                    fullName: string;
+                } | null;
+            } | null;
+        } & {
             id: string;
             companyId: string;
             branchId: string | null;
@@ -47,7 +59,7 @@ export declare class DepartmentsController {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-        }[];
+        })[];
     }>;
     findOne(id: string): Promise<{
         id: string;

@@ -256,7 +256,10 @@ export class AdminService {
         include: {
           profile: true,
           roles: { include: { role: true } },
-          departmentLinks: { include: { department: true, position: true } },
+          departmentLinks: { 
+            where: { leftAt: null },
+            include: { department: true, position: true } 
+          },
         },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -281,7 +284,10 @@ export class AdminService {
       include: {
         profile: true,
         roles: { include: { role: true } },
-        departmentLinks: { include: { department: true, position: true } },
+        departmentLinks: { 
+          where: { leftAt: null },
+          include: { department: true, position: true } 
+        },
       },
     });
     if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy user');
@@ -310,10 +316,39 @@ export class AdminService {
         include: { profile: true },
       });
       if (dto.departmentId) {
+        // Clear previous active memberships from other departments
+        const oldMemberships = await tx.departmentMember.findMany({
+          where: { userId: id, leftAt: null, departmentId: { not: dto.departmentId } }
+        });
+
+        if (oldMemberships.length > 0) {
+          const oldDepartmentIds = oldMemberships.map(m => m.departmentId);
+
+          // Mark old memberships as left
+          await tx.departmentMember.updateMany({
+            where: { userId: id, leftAt: null, departmentId: { not: dto.departmentId } },
+            data: { leftAt: new Date(), isPrimary: false },
+          });
+
+          // Revoke leader status in old departments if applicable
+          const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+          if (leaderRole) {
+            await tx.userRole.deleteMany({
+              where: { userId: id, roleId: leaderRole.id, scopeId: { in: oldDepartmentIds } },
+            });
+          }
+
+          // Nullify leaderUserId in the Department records
+          await tx.department.updateMany({
+            where: { id: { in: oldDepartmentIds }, leaderUserId: id },
+            data: { leaderUserId: null },
+          });
+        }
+
         await tx.departmentMember.upsert({
           where: { departmentId_userId: { departmentId: dto.departmentId, userId: id } },
-          create: { departmentId: dto.departmentId, userId: id, positionId: dto.positionId },
-          update: { leftAt: null, positionId: dto.positionId },
+          create: { departmentId: dto.departmentId, userId: id, positionId: dto.positionId, isPrimary: true },
+          update: { leftAt: null, positionId: dto.positionId, isPrimary: true },
         });
       }
 

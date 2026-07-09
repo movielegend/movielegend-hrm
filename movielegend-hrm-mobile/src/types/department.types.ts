@@ -7,6 +7,7 @@ export interface Department {
   name: string;
   description?: string | null;
   leaderUserId?: string | null;
+  leader?: { profile?: { fullName: string } | null } | null;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
