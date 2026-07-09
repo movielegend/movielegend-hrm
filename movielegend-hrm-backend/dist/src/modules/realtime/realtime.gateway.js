@@ -68,9 +68,13 @@ let RealtimeGateway = class RealtimeGateway {
         return { ok: true };
     }
     handleChatJoin(client, payload) {
+        if (payload?.groupId) {
+            client.join(`group:${payload.groupId}`);
+            return { ok: true };
+        }
         const departmentId = payload?.departmentId;
         if (!departmentId)
-            return { ok: false, code: 'DEPARTMENT_ID_REQUIRED' };
+            return { ok: false, code: 'DEPARTMENT_ID_OR_GROUP_ID_REQUIRED' };
         client.join(`department:${departmentId}`);
         return { ok: true };
     }

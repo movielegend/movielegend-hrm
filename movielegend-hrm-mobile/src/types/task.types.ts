@@ -185,6 +185,7 @@ export interface TaskDto {
   attachments?: TaskAttachmentDto[];
   histories?: TaskTimelineItemDto[];
   extensionRequests?: TaskExtensionRequestDto[];
+  chatGroup?: { id: string } | null;
 }
 
 export interface TaskListFilters {
@@ -225,7 +226,10 @@ export interface CreateTaskPayload {
   parentTaskId?: string;
   startAt?: string;
   dueAt?: string;
-  targets: CreateTaskTargetPayload[];
+  targets?: CreateTaskTargetPayload[];
+  isAdhocGroup?: boolean;
+  memberIds?: string[];
+  leaderId?: string;
 }
 
 export interface UpdateTaskPayload {

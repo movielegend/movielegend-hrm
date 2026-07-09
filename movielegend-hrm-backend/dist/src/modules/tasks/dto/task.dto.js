@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a, _b, _c, _d, _e, _f, _g, _h, _j;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateTaskExtensionRequestDto = exports.CreateTaskAttachmentDto = exports.CreateTaskCommentDto = exports.SubmitTaskDto = exports.ReviewTaskDto = exports.UpdateProgressDto = exports.UpdateTaskDto = exports.CreateTaskDto = exports.TaskTargetDto = exports.TaskExtensionPendingQueryDto = exports.TaskTimelineQueryDto = exports.TaskReviewQueueQueryDto = exports.TaskQueryDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
@@ -38,13 +39,13 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: [...Object.values(client_1.TaskStatus), ...Object.values(client_1.TaskAssignmentStatus)] }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)({ ...client_1.TaskStatus, ...client_1.TaskAssignmentStatus }),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], TaskQueryDto.prototype, "status", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.TaskPriority }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.TaskPriority),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_c = typeof client_1.TaskPriority !== "undefined" && client_1.TaskPriority) === "function" ? _c : Object)
 ], TaskQueryDto.prototype, "priority", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -117,7 +118,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.TaskPriority }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.TaskPriority),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_d = typeof client_1.TaskPriority !== "undefined" && client_1.TaskPriority) === "function" ? _d : Object)
 ], TaskReviewQueueQueryDto.prototype, "priority", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -201,7 +202,7 @@ exports.TaskTargetDto = TaskTargetDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ enum: client_1.TaskTargetType }),
     (0, class_validator_1.IsEnum)(client_1.TaskTargetType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_e = typeof client_1.TaskTargetType !== "undefined" && client_1.TaskTargetType) === "function" ? _e : Object)
 ], TaskTargetDto.prototype, "targetType", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
@@ -218,6 +219,9 @@ class CreateTaskDto {
     startAt;
     dueAt;
     targets;
+    isAdhocGroup;
+    memberIds;
+    leaderId;
 }
 exports.CreateTaskDto = CreateTaskDto;
 __decorate([
@@ -236,13 +240,13 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.TaskType }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.TaskType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_f = typeof client_1.TaskType !== "undefined" && client_1.TaskType) === "function" ? _f : Object)
 ], CreateTaskDto.prototype, "type", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.TaskPriority }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.TaskPriority),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_g = typeof client_1.TaskPriority !== "undefined" && client_1.TaskPriority) === "function" ? _g : Object)
 ], CreateTaskDto.prototype, "priority", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -269,13 +273,32 @@ __decorate([
     __metadata("design:type", String)
 ], CreateTaskDto.prototype, "dueAt", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: [TaskTargetDto] }),
+    (0, swagger_1.ApiPropertyOptional)({ type: [TaskTargetDto] }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.ArrayNotEmpty)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
     (0, class_transformer_1.Type)(() => TaskTargetDto),
     __metadata("design:type", Array)
 ], CreateTaskDto.prototype, "targets", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateTaskDto.prototype, "isAdhocGroup", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: [String] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsUUID)(undefined, { each: true }),
+    __metadata("design:type", Array)
+], CreateTaskDto.prototype, "memberIds", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateTaskDto.prototype, "leaderId", void 0);
 class UpdateTaskDto {
     title;
     description;
@@ -299,7 +322,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.TaskPriority }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.TaskPriority),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_h = typeof client_1.TaskPriority !== "undefined" && client_1.TaskPriority) === "function" ? _h : Object)
 ], UpdateTaskDto.prototype, "priority", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -379,7 +402,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.TaskAttachmentType }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.TaskAttachmentType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_j = typeof client_1.TaskAttachmentType !== "undefined" && client_1.TaskAttachmentType) === "function" ? _j : Object)
 ], CreateTaskAttachmentDto.prototype, "type", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),

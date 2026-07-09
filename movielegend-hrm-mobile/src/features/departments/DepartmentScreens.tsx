@@ -116,8 +116,8 @@ export function DepartmentListScreen() {
               </View>
 
               <View style={styles.cardMeta}>
-                <MaterialCommunityIcons name="account-tie-outline" size={16} color={colors.muted} />
-                <Text style={styles.metaText}>Quản lý: {department.leaderUserId ?? 'Chưa bổ nhiệm'}</Text>
+                <MaterialCommunityIcons name="account-tie-outline" size={16} color="#64748B" />
+                <Text style={styles.metaText}>Quản lý: {department.leader?.profile?.fullName ?? department.leaderUserId ?? 'Chưa bổ nhiệm'}</Text>
               </View>
 
               <View style={styles.actions}>
@@ -229,7 +229,7 @@ export function DepartmentDetailScreen() {
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 14, color: '#98A0A8' }}>ID Công ty</Text>
-              <Text style={{ fontSize: 13, color: '#0B3B61', fontWeight: '500', maxWidth: 200, textAlign: 'right' }} numberOfLines={1} ellipsizeMode="middle">{department.data.companyId}</Text>
+              <Text style={{ fontSize: 13, color: '#0B3B61', fontWeight: '500', maxWidth: 200, textAlign: 'right' }} numberOfLines={1} ellipsizeMode="middle">{department.data.companyId ?? undefined}</Text>
             </View>
           </SectionCard>
 
@@ -265,7 +265,7 @@ export function DepartmentDetailScreen() {
 
           {editing ? (
             <SectionCard title="Cập nhật thông tin">
-              <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId} />
+              <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId ?? undefined} />
               {update.error ? <Text style={styles.error}>{normalizeApiError(update.error).message}</Text> : null}
               <PrimaryButton onPress={() => void submit()} loading={update.isPending} style={{ marginTop: 16 }}>
                 Lưu thay đổi
@@ -277,7 +277,7 @@ export function DepartmentDetailScreen() {
   );
 }
 
-function DepartmentForm({ control, errors, fixedBranchId }: { control: Control<DepartmentFormValues>; errors: FieldErrors<DepartmentFormValues>; fixedBranchId?: string }) {
+function DepartmentForm({ control, errors, fixedBranchId }: { control: Control<DepartmentFormValues>; errors: FieldErrors<DepartmentFormValues>; fixedBranchId?: string | null }) {
   const branches = useBranches();
   const displayBranches = fixedBranchId ? branches.data?.filter(b => b.id === fixedBranchId) : branches.data;
   
@@ -358,8 +358,8 @@ export function EditDepartmentScreen() {
   useEffect(() => {
     if (department.data) {
       reset({
-        companyId: department.data.companyId,
-        branchId: department.data.branchId,
+        companyId: department.data.companyId ?? undefined,
+        branchId: department.data.branchId ?? undefined,
         code: department.data.code,
         name: department.data.name,
         description: department.data.description ?? '',
@@ -388,7 +388,7 @@ export function EditDepartmentScreen() {
       <ScreenContainer>
         <PageHeader title="Cập nhật Phòng ban" subtitle={`Đang sửa: ${department.data.name}`} />
         <SectionCard>
-          <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId} />
+          <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId ?? undefined} />
           <View style={{ marginTop: 16 }}>
             <PrimaryButton onPress={() => void submit()} loading={update.isPending}>
               Lưu Thay Đổi

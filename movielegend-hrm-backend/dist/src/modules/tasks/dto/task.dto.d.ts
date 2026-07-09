@@ -42,7 +42,10 @@ export declare class CreateTaskDto {
     parentTaskId?: string;
     startAt?: string;
     dueAt?: string;
-    targets: TaskTargetDto[];
+    targets?: TaskTargetDto[];
+    isAdhocGroup?: boolean;
+    memberIds?: string[];
+    leaderId?: string;
 }
 export declare class UpdateTaskDto {
     title?: string;

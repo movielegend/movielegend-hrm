@@ -40,6 +40,8 @@ export default function ChatRoomScreen() {
       s.on('connect', () => {
         if (departmentId) {
           s.emit('chat:join', { departmentId });
+        } else {
+          s.emit('chat:join', { groupId });
         }
       });
       s.on('chat:message', (msg: ChatMessage) => {

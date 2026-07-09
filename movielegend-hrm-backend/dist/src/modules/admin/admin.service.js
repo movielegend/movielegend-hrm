@@ -283,7 +283,10 @@ let AdminService = class AdminService {
                 include: {
                     profile: true,
                     roles: { include: { role: true } },
-                    departmentLinks: { include: { department: true, position: true } },
+                    departmentLinks: {
+                        where: { leftAt: null },
+                        include: { department: true, position: true }
+                    },
                 },
                 skip: (query.page - 1) * query.limit,
                 take: query.limit,
@@ -307,7 +310,10 @@ let AdminService = class AdminService {
             include: {
                 profile: true,
                 roles: { include: { role: true } },
-                departmentLinks: { include: { department: true, position: true } },
+                departmentLinks: {
+                    where: { leftAt: null },
+                    include: { department: true, position: true }
+                },
             },
         });
         if (!user)
@@ -336,11 +342,39 @@ let AdminService = class AdminService {
                 include: { profile: true },
             });
             if (dto.departmentId) {
+                const oldMemberships = await tx.departmentMember.findMany({
+                    where: { userId: id, leftAt: null, departmentId: { not: dto.departmentId } }
+                });
+                if (oldMemberships.length > 0) {
+                    const oldDepartmentIds = oldMemberships.map(m => m.departmentId);
+                    await tx.departmentMember.updateMany({
+                        where: { userId: id, leftAt: null, departmentId: { not: dto.departmentId } },
+                        data: { leftAt: new Date(), isPrimary: false },
+                    });
+                    const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+                    if (leaderRole) {
+                        await tx.userRole.deleteMany({
+                            where: { userId: id, roleId: leaderRole.id, scopeId: { in: oldDepartmentIds } },
+                        });
+                    }
+                    await tx.department.updateMany({
+                        where: { id: { in: oldDepartmentIds }, leaderUserId: id },
+                        data: { leaderUserId: null },
+                    });
+                }
                 await tx.departmentMember.upsert({
                     where: { departmentId_userId: { departmentId: dto.departmentId, userId: id } },
-                    create: { departmentId: dto.departmentId, userId: id, positionId: dto.positionId },
-                    update: { leftAt: null, positionId: dto.positionId },
+                    create: { departmentId: dto.departmentId, userId: id, positionId: dto.positionId, isPrimary: true },
+                    update: { leftAt: null, positionId: dto.positionId, isPrimary: true },
                 });
+            }
+            if (dto.accountStatus === 'SUSPENDED' || dto.isActive === false) {
+                const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+                if (leaderRole) {
+                    await tx.userRole.deleteMany({
+                        where: { userId: id, roleId: leaderRole.id },
+                    });
+                }
             }
             const { passwordHash: _passwordHash, ...safeUser } = user;
             return safeUser;
@@ -375,6 +409,12 @@ let AdminService = class AdminService {
                 where: { userId: id, leftAt: null },
                 data: { leftAt: new Date() },
             });
+            const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+            if (leaderRole) {
+                await tx.userRole.deleteMany({
+                    where: { userId: id, roleId: leaderRole.id },
+                });
+            }
             await tx.auditLog.create({
                 data: {
                     actorUserId: actor.userId,

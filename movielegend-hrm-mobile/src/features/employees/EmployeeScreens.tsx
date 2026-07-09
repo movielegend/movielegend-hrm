@@ -52,7 +52,7 @@ interface EmployeeListFilters {
   limit: number;
   search?: string;
   departmentId?: string;
-  accountStatus?: string;
+  accountStatus?: import('../../types/employee.types').AccountStatus;
 }
 
 export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
@@ -79,7 +79,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         <ScreenContainer refreshControl={<RefreshControl refreshing={adminUsers.isRefetching} onRefresh={() => void adminUsers.refetch()} />}>
           <View style={{ marginBottom: 16 }}>
             <PageHeader 
-              title="Nhân sự" 
+              title="Nhân viên" 
               subtitle="Danh sách toàn bộ nhân sự công ty"
               right={
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -92,12 +92,12 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             />
           </View>
           <View style={{ marginBottom: 12 }}>
-            <SearchInput value={filters.search} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tìm nhân sự" />
+            <SearchInput value={filters.search ?? ''} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tìm nhân sự" />
           </View>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-            <FilterChip label="Đang hoạt động" active={filters.accountStatus === 'ACTIVE'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'ACTIVE', page: 1 }))} />
-            <FilterChip label="Tạm khóa" active={filters.accountStatus === 'SUSPENDED'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'SUSPENDED', page: 1 }))} />
-            <FilterChip label="Tất cả" active={!filters.accountStatus} onPress={() => setFilters((f) => ({ ...f, accountStatus: undefined, page: 1 }))} />
+            <FilterChip label="Đang hoạt động" selected={filters.accountStatus === 'ACTIVE'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'ACTIVE', page: 1 }))} />
+            <FilterChip label="Tạm khóa" selected={filters.accountStatus === 'SUSPENDED'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'SUSPENDED', page: 1 }))} />
+            <FilterChip label="Tất cả" selected={!filters.accountStatus} onPress={() => setFilters((f) => ({ ...f, accountStatus: undefined, page: 1 }))} />
           </View>
           
           <View style={styles.list}>
@@ -225,7 +225,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={leaderReport.isRefetching} onRefresh={() => void leaderReport.refetch()} />}>
         <PageHeader title="Nhan su phong" subtitle="Leader dung bao cao da scope theo phong ban tu backend." />
-        <SearchInput value={search} onChangeText={setSearch} placeholder="Tim nhan su" />
+        <SearchInput value={filters.search ?? ''} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tim nhan su" />
         {leaderReport.isLoading ? <LoadingState /> : null}
         {leaderReport.isError ? <ErrorState error={leaderReport.error} onRetry={() => void leaderReport.refetch()} /> : null}
         {!leaderReport.isLoading && !leaderReport.data?.items.length ? <EmptyState title="Chua co nhan vien phu hop bo loc" /> : null}

@@ -58,9 +58,11 @@ export class ChatService {
       }
     });
 
-    // Phát tín hiệu qua WebSocket cho tất cả user trong room department
+    // Phát tín hiệu qua WebSocket cho tất cả user
     if (group.departmentId) {
       this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
+    } else {
+      this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
     }
 
     return message;
@@ -69,13 +71,27 @@ export class ChatService {
   async getMyGroups(userId: string) {
     // Get departments where user is a member
     const memberships = await this.prisma.departmentMember.findMany({
-      where: { userId },
+      where: { userId, leftAt: null },
       select: { departmentId: true, department: { select: { name: true } } }
     });
 
     const groups = [];
     for (const m of memberships) {
       const group = await this.getGroupForDepartment(m.departmentId);
+      groups.push(group);
+    }
+
+    // Get ad-hoc chat groups (e.g., tasks) where user is a member
+    const customMemberships = await this.prisma.chatGroupMember.findMany({
+      where: { userId },
+      select: { group: true }
+    });
+    for (const m of customMemberships) {
+      groups.push(m.group);
+    }
+
+    const resultGroups = [];
+    for (const group of groups) {
       // Fetch latest message
       const latestMessage = await this.prisma.chatMessage.findFirst({
         where: { groupId: group.id },
@@ -83,13 +99,26 @@ export class ChatService {
         include: { sender: { select: { profile: { select: { fullName: true } } } } }
       });
 
-      groups.push({
+      resultGroups.push({
         ...group,
         latestMessage
       });
     }
 
-    return groups;
+    return resultGroups;
+  }
+
+  async createTaskGroup(taskId: string, name: string, memberIds: string[]) {
+    return this.prisma.chatGroup.create({
+      data: {
+        taskId,
+        name,
+        type: 'TASK',
+        members: {
+          create: memberIds.map(userId => ({ userId }))
+        }
+      }
+    });
   }
 }
 

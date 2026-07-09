@@ -33,7 +33,7 @@ let TasksService = class TasksService {
         if (dto.departmentContextId)
             this.scope.assertDepartmentAccess(actor, dto.departmentContextId);
         const assigneeIds = await this.resolveAssignees(dto, actor);
-        if (!assigneeIds.length)
+        if (!dto.isAdhocGroup && !assigneeIds.length)
             throw (0, error_util_1.badRequest)('TASK_TARGET_EMPTY', 'Task must have at least one assignee');
         const payload = await this.prisma.$transaction(async (tx) => {
             const taskCode = await this.prisma.nextTaskCode(tx);
@@ -49,12 +49,13 @@ let TasksService = class TasksService {
                     startAt: dto.startAt ? new Date(dto.startAt) : undefined,
                     dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
                     createdByUserId: actor.userId,
-                    targets: {
+                    groupLeaderId: dto.isAdhocGroup ? dto.leaderId : undefined,
+                    targets: dto.targets?.length ? {
                         create: dto.targets.map((target) => ({
                             targetType: target.targetType,
                             targetId: target.targetId,
                         })),
-                    },
+                    } : undefined,
                     assignments: {
                         create: assigneeIds.map((userId) => ({
                             userId,
@@ -73,6 +74,21 @@ let TasksService = class TasksService {
                 },
                 include: this.taskDetailInclude(),
             });
+            if (dto.isAdhocGroup && dto.memberIds?.length) {
+                const chatMemberSet = new Set([...dto.memberIds, actor.userId]);
+                if (dto.leaderId)
+                    chatMemberSet.add(dto.leaderId);
+                await tx.chatGroup.create({
+                    data: {
+                        taskId: task.id,
+                        name: `Nhóm: ${task.title}`,
+                        type: 'TASK',
+                        members: {
+                            create: Array.from(chatMemberSet).map(userId => ({ userId }))
+                        }
+                    }
+                });
+            }
             const notification = await this.notifications.createForUsers(tx, assigneeIds, {
                 type: client_1.NotificationType.TASK_ASSIGNED,
                 title: 'New task assigned',
@@ -485,13 +501,16 @@ let TasksService = class TasksService {
             return;
         if (!this.has(actor, 'task.assign_department'))
             throw (0, error_util_1.forbidden)('TASK_FORBIDDEN', 'Cannot create task');
-        const departmentTargets = dto.targets.filter((target) => target.targetType === client_1.TaskTargetType.DEPARTMENT);
+        const departmentTargets = dto.targets?.filter((target) => target.targetType === client_1.TaskTargetType.DEPARTMENT) ?? [];
         for (const target of departmentTargets)
             this.scope.assertDepartmentAccess(actor, target.targetId);
     }
     async resolveAssignees(dto, actor) {
+        if (dto.isAdhocGroup && dto.leaderId) {
+            return [dto.leaderId];
+        }
         const userIds = new Set();
-        for (const target of dto.targets) {
+        for (const target of dto.targets ?? []) {
             if (target.targetType === client_1.TaskTargetType.USER)
                 userIds.add(target.targetId);
             if (target.targetType === client_1.TaskTargetType.DEPARTMENT) {
@@ -534,9 +553,11 @@ let TasksService = class TasksService {
         });
     }
     inferTaskType(dto) {
-        if (dto.targets.some((target) => target.targetType === client_1.TaskTargetType.GROUP))
+        if (dto.isAdhocGroup)
             return client_1.TaskType.GROUP;
-        if (dto.targets.some((target) => target.targetType === client_1.TaskTargetType.DEPARTMENT))
+        if (dto.targets?.some((target) => target.targetType === client_1.TaskTargetType.GROUP))
+            return client_1.TaskType.GROUP;
+        if (dto.targets?.some((target) => target.targetType === client_1.TaskTargetType.DEPARTMENT))
             return client_1.TaskType.DEPARTMENT;
         return client_1.TaskType.INDIVIDUAL;
     }
@@ -663,6 +684,7 @@ let TasksService = class TasksService {
             attachments: { orderBy: { createdAt: 'asc' } },
             extensionRequests: { orderBy: { createdAt: 'desc' }, take: 5 },
             histories: { include: { actor: { select: this.safeUserSelect() } }, orderBy: { createdAt: 'asc' }, take: 50 },
+            chatGroup: { select: { id: true } },
         };
     }
     safeUserSelect() {

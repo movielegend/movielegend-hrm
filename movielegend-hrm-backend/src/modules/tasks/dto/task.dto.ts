@@ -199,12 +199,28 @@ export class CreateTaskDto {
   @IsDateString()
   dueAt?: string;
 
-  @ApiProperty({ type: [TaskTargetDto] })
+  @ApiPropertyOptional({ type: [TaskTargetDto] })
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => TaskTargetDto)
-  targets!: TaskTargetDto[];
+  targets?: TaskTargetDto[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isAdhocGroup?: boolean;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  memberIds?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  leaderId?: string;
 }
 
 export class UpdateTaskDto {

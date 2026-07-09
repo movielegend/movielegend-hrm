@@ -54,6 +54,17 @@ let DepartmentsService = class DepartmentsService {
                     }
                     : {}),
             },
+            include: {
+                leader: {
+                    select: {
+                        profile: {
+                            select: {
+                                fullName: true,
+                            },
+                        },
+                    },
+                },
+            },
             orderBy: { createdAt: 'desc' },
         });
         return { items };
