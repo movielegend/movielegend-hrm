@@ -51,10 +51,7 @@ export function AdminProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quản trị Nhân sự</Text>
           <View style={styles.grid}>
-            <GridCard title="Nhân viên" icon="account-group" iconBg="#E0F2FE" iconColor="#3B82F6" onPress={() => router.push('/admin/employees')} />
-            <GridCard title="Phòng ban" icon="office-building" iconBg="#FFEDD5" iconColor="#F97316" onPress={() => router.push('/admin/departments')} />
-            <GridCard title="Cấp Quản lý" icon="account-tie" iconBg="#FEF3C7" iconColor="#F59E0B" onPress={() => router.push('/admin/leaders')} />
-            <GridCard title="Chi nhánh" icon="domain" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/admin/branches')} />
+            <GridCard title="Cơ cấu Tổ chức" icon="domain" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/admin/branches')} />
           </View>
         </View>
 
@@ -75,7 +72,7 @@ export function AdminProfileScreen() {
           <View style={styles.grid}>
             <GridCard title="Công việc" icon="briefcase-check-outline" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/admin/tasks')} />
             <GridCard title="Nhóm Task" icon="format-list-group" iconBg="#FFEDD5" iconColor="#F97316" onPress={() => router.push('/admin/task-groups')} />
-            <GridCard title="Tài sản" icon="desktop-mac" iconBg="#FCE7F3" iconColor="#EC4899" onPress={() => router.push('/admin/assets')} />
+            <GridCard title="Tài sản" icon="monitor" iconBg="#FCE7F3" iconColor="#EC4899" onPress={() => router.push('/admin/assets')} />
             <GridCard title="Sự cố" icon="alert-octagon-outline" iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/admin/asset-incidents')} />
           </View>
         </View>

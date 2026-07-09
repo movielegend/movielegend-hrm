@@ -4,7 +4,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from '../../../src/lib/Maps';
+
 import { Screen } from '../../../src/components/Screen';
 import { checkIn } from '../../../src/api/attendance.api';
 import { colors } from '../../../src/theme/colors';

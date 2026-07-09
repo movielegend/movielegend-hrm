@@ -316,6 +316,16 @@ export class AdminService {
           update: { leftAt: null, positionId: dto.positionId },
         });
       }
+
+      if (dto.accountStatus === 'SUSPENDED' || dto.isActive === false) {
+        const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+        if (leaderRole) {
+          await tx.userRole.deleteMany({
+            where: { userId: id, roleId: leaderRole.id },
+          });
+        }
+      }
+
       const { passwordHash: _passwordHash, ...safeUser } = user;
       return safeUser;
     });
@@ -353,6 +363,13 @@ export class AdminService {
         where: { userId: id, leftAt: null },
         data: { leftAt: new Date() },
       });
+
+      const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+      if (leaderRole) {
+        await tx.userRole.deleteMany({
+          where: { userId: id, roleId: leaderRole.id },
+        });
+      }
 
       await tx.auditLog.create({
         data: {

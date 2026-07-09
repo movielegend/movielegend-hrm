@@ -9,11 +9,12 @@ interface ConfirmModalProps {
   message: string;
   confirmLabel?: string;
   loading?: boolean;
+  hideCancel?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-export function ConfirmModal({ visible, title, message, confirmLabel = 'Xác nhận', loading, onCancel, onConfirm }: ConfirmModalProps) {
+export function ConfirmModal({ visible, title, message, confirmLabel = 'Xác nhận', loading, hideCancel, onCancel, onConfirm }: ConfirmModalProps) {
   return (
     <Modal animationType="fade" transparent visible={visible}>
       <View style={styles.backdrop}>
@@ -21,7 +22,7 @@ export function ConfirmModal({ visible, title, message, confirmLabel = 'Xác nh�
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
           <View style={styles.actions}>
-            <SecondaryButton onPress={onCancel} disabled={loading}>Hủy</SecondaryButton>
+            {!hideCancel && <SecondaryButton onPress={onCancel} disabled={loading}>Hủy</SecondaryButton>}
             <PrimaryButton onPress={onConfirm} loading={loading}>{confirmLabel}</PrimaryButton>
           </View>
         </View>

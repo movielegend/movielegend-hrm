@@ -40,10 +40,15 @@ type DepartmentFormValues = z.infer<typeof createSchema>;
 
 export function DepartmentListScreen() {
   const router = useRouter();
+  const { branchId } = useLocalSearchParams<{ branchId?: string }>();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const departments = useDepartments({ search });
   const deleteDept = useDeleteDepartment();
+
+  const filteredItems = departments.data?.items.filter(dept => 
+    !branchId || dept.branchId === branchId
+  );
   
   const canCreate = hasPermission(user, 'department.create');
   const canUpdate = hasPermission(user, 'department.update');
@@ -80,7 +85,7 @@ export function DepartmentListScreen() {
           subtitle="Sơ đồ tổ chức công ty"
           right={
             canCreate ? (
-              <Pressable style={styles.addBtn} onPress={() => router.push('./departments/create')}>
+              <Pressable style={styles.addBtn} onPress={() => router.push(branchId ? `/admin/branches/${branchId}/departments/create` : '/admin/departments/create')}>
                 <MaterialCommunityIcons name="plus" size={20} color="#fff" />
                 <Text style={styles.addBtnText}>Thêm mới</Text>
               </Pressable>
@@ -94,8 +99,8 @@ export function DepartmentListScreen() {
         {!departments.isLoading && !departments.data?.items.length ? <EmptyState title="Chưa có phòng ban" /> : null}
         
         <View style={styles.list}>
-          {departments.data?.items.map((department) => (
-            <View key={department.id} style={styles.card}>
+          {filteredItems?.map((department) => (
+            <Pressable key={department.id} style={styles.card} onPress={() => router.push(`/admin/branches/${department.branchId || branchId}/departments/${department.id}/employees`)}>
               <View style={styles.cardHeader}>
                 <View style={styles.iconBox}>
                   <MaterialCommunityIcons name="office-building-outline" size={24} color={colors.primary} />
@@ -118,7 +123,7 @@ export function DepartmentListScreen() {
               <View style={styles.actions}>
                 <Pressable
                   style={[styles.actionBtn, { backgroundColor: '#F0F9FF' }]}
-                  onPress={() => router.push(`./departments/${department.id}`)}
+                  onPress={() => router.push(branchId ? `/admin/branches/${branchId}/departments/${department.id}` : `/admin/departments/${department.id}`)}
                 >
                   <MaterialCommunityIcons name="eye-outline" size={18} color="#0369A1" />
                   <Text style={[styles.actionText, { color: '#0369A1' }]}>Chi tiết</Text>
@@ -127,7 +132,7 @@ export function DepartmentListScreen() {
                 {canUpdate ? (
                   <Pressable
                     style={[styles.actionBtn, { backgroundColor: '#FFF7ED' }]}
-                    onPress={() => router.push(`./departments/edit/${department.id}`)}
+                    onPress={() => router.push(branchId ? `/admin/branches/${branchId}/departments/${department.id}/edit` : `/admin/departments/edit/${department.id}`)}
                   >
                     <MaterialCommunityIcons name="pencil" size={18} color="#EA580C" />
                     <Text style={[styles.actionText, { color: '#EA580C' }]}>Sửa</Text>
@@ -144,7 +149,7 @@ export function DepartmentListScreen() {
                   </Pressable>
                 ) : null}
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
       </ScreenContainer>
@@ -154,10 +159,11 @@ export function DepartmentListScreen() {
 
 export function CreateDepartmentScreen() {
   const router = useRouter();
+  const { branchId } = useLocalSearchParams<{ branchId?: string }>();
   const create = useCreateDepartment();
   const { control, handleSubmit, formState: { errors } } = useForm<DepartmentFormValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { companyId: '', code: '', name: '', description: '', parentId: '' },
+    defaultValues: { companyId: '', branchId: branchId ?? '', code: '', name: '', description: '', parentId: '' },
   });
   const submit = handleSubmit(async (payload) => {
     await create.mutateAsync(buildCreateDepartmentPayload(payload));
@@ -167,7 +173,7 @@ export function CreateDepartmentScreen() {
     <Screen>
       <ScreenContainer>
         <PageHeader title="Tạo phòng ban" subtitle="Thêm mới một phòng ban vào hệ thống." />
-        <DepartmentForm control={control} errors={errors} />
+        <DepartmentForm control={control} errors={errors} fixedBranchId={branchId} />
         {create.error ? <Text style={styles.error}>{normalizeApiError(create.error).message}</Text> : null}
         <PrimaryButton onPress={() => void submit()} loading={create.isPending}>Tạo phòng ban</PrimaryButton>
       </ScreenContainer>
@@ -176,12 +182,13 @@ export function CreateDepartmentScreen() {
 }
 
 export function DepartmentDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, departmentId } = useLocalSearchParams<{ id?: string, departmentId?: string }>();
+  const actualId = (id || departmentId) as string;
   const { user } = useAuth();
-  const department = useDepartment(id);
-  const positions = usePositions(id);
-  const employees = useEmployees({ departmentId: id, page: 1, limit: 100 });
-  const update = useUpdateDepartment(id);
+  const department = useDepartment(actualId);
+  const positions = usePositions(actualId);
+  const employees = useEmployees({ departmentId: actualId, page: 1, limit: 100 });
+  const update = useUpdateDepartment(actualId);
   const [editing, setEditing] = useState(false);
   const canEdit = hasPermission(user, 'department.update');
   const { control, handleSubmit, formState: { errors } } = useForm<DepartmentFormValues>({
@@ -258,7 +265,7 @@ export function DepartmentDetailScreen() {
 
           {editing ? (
             <SectionCard title="Cập nhật thông tin">
-              <DepartmentForm control={control} errors={errors} />
+              <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId} />
               {update.error ? <Text style={styles.error}>{normalizeApiError(update.error).message}</Text> : null}
               <PrimaryButton onPress={() => void submit()} loading={update.isPending} style={{ marginTop: 16 }}>
                 Lưu thay đổi
@@ -270,22 +277,23 @@ export function DepartmentDetailScreen() {
   );
 }
 
-function DepartmentForm({ control, errors }: { control: Control<DepartmentFormValues>; errors: FieldErrors<DepartmentFormValues> }) {
+function DepartmentForm({ control, errors, fixedBranchId }: { control: Control<DepartmentFormValues>; errors: FieldErrors<DepartmentFormValues>; fixedBranchId?: string }) {
   const branches = useBranches();
+  const displayBranches = fixedBranchId ? branches.data?.filter(b => b.id === fixedBranchId) : branches.data;
   
   return (
     <>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8, marginTop: 16 }}>Chọn chi nhánh *</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8, marginTop: 16 }}>{fixedBranchId ? 'Chi nhánh trực thuộc' : 'Chọn chi nhánh *'}</Text>
       {branches.isLoading ? <LoadingState /> : null}
       <Controller
         control={control}
         name="branchId"
         render={({ field }) => (
           <View style={{ gap: 8, marginBottom: 16 }}>
-            {branches.data?.map(branch => (
+            {displayBranches?.map(branch => (
               <Pressable 
                 key={branch.id} 
-                onPress={() => field.onChange(branch.id)}
+                onPress={() => !fixedBranchId && field.onChange(branch.id)}
                 style={{
                   padding: 12,
                   borderRadius: 8,
@@ -337,19 +345,21 @@ function buildUpdateDepartmentPayload(payload: DepartmentFormValues): UpdateDepa
 
 export function EditDepartmentScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const department = useDepartment(id);
-  const update = useUpdateDepartment(id);
+  const { id, departmentId } = useLocalSearchParams<{ id?: string, departmentId?: string }>();
+  const actualId = (id || departmentId) as string;
+  const department = useDepartment(actualId);
+  const update = useUpdateDepartment(actualId);
   
   const { control, handleSubmit, formState: { errors }, reset } = useForm<DepartmentFormValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { companyId: '', code: '', name: '', description: '', parentId: '' },
+    defaultValues: { companyId: '', branchId: '', code: '', name: '', description: '', parentId: '' },
   });
 
   useEffect(() => {
     if (department.data) {
       reset({
         companyId: department.data.companyId,
+        branchId: department.data.branchId,
         code: department.data.code,
         name: department.data.name,
         description: department.data.description ?? '',
@@ -378,7 +388,7 @@ export function EditDepartmentScreen() {
       <ScreenContainer>
         <PageHeader title="Cập nhật Phòng ban" subtitle={`Đang sửa: ${department.data.name}`} />
         <SectionCard>
-          <DepartmentForm control={control} errors={errors} />
+          <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId} />
           <View style={{ marginTop: 16 }}>
             <PrimaryButton onPress={() => void submit()} loading={update.isPending}>
               Lưu Thay Đổi

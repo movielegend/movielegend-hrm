@@ -1,11 +1,13 @@
 import { Tabs, Redirect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingState } from '../../../src/components/LoadingState';
 import { useAuth } from '../../../src/providers/AuthProvider';
 import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role-routing';
 import { colors } from '../../../src/theme/colors';
 
 export default function AdminTabsLayout() {
+  const insets = useSafeAreaInsets();
   const { isLoading, user } = useAuth();
   if (isLoading) return <LoadingState />;
   if (!canAccessRoleRoute(user, '/admin')) return <Redirect href={getHomeRouteForUser(user)} />;
@@ -19,8 +21,8 @@ export default function AdminTabsLayout() {
         tabBarStyle: {
           borderTopWidth: 0,
           backgroundColor: '#fff',
-          height: 65,
-          paddingBottom: 10,
+          height: 65 + insets.bottom,
+          paddingBottom: 10 + insets.bottom,
           paddingTop: 10,
           elevation: 10,
           shadowColor: '#000',

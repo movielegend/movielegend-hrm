@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, RefreshControl, StyleSheet, Text, View, Alert, ScrollView } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, Text, View, Alert, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
 import { Avatar } from '../../components/Avatar';
@@ -10,17 +10,20 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
 import { LoadingState } from '../../components/LoadingState';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
+import { FilterChip } from '../../components/FilterChip';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
-import { useEmployee, useEmployeeReport, useEmployees, useUpdateEmployee, useDeleteEmployee, useCreateEmployee } from '../../hooks/useEmployees';
+import { useEmployees, useEmployeeReport, useEmployee, useUpdateEmployee, useDeleteEmployee, useCreateEmployee } from '../../hooks/useEmployees';
 import { usePositions } from '../../hooks/usePositions';
 import { useDepartments } from '../../hooks/useDepartments';
+import { useAssignLeader, useRevokeLeader } from '../../hooks/useLeaderAssignment';
 import { queryKeys } from '../../constants/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
@@ -34,7 +37,7 @@ const editSchema = z.object({
   phone: z.string().min(8, 'So dien thoai chua hop le'),
   email: z.string().email('Email chua hop le').optional().or(z.literal('')),
   departmentId: z.string().uuid('departmentId chua hop le').optional().or(z.literal('')),
-  positionId: z.string().uuid('positionId chua hop le').optional().or(z.literal('')),
+  accountStatus: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']).optional(),
 });
 
 const createSchema = editSchema.extend({
@@ -44,36 +47,31 @@ const createSchema = editSchema.extend({
 type EmployeeEditValues = z.infer<typeof editSchema>;
 type EmployeeCreateValues = z.infer<typeof createSchema>;
 
+interface EmployeeListFilters {
+  page: number;
+  limit: number;
+  search?: string;
+  departmentId?: string;
+  accountStatus?: string;
+}
+
 export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const router = useRouter();
-  const [search, setSearch] = useState('');
-  const filters = { search, page: 1, limit: 20 };
+  const { departmentId, branchId } = useLocalSearchParams<{ departmentId?: string; branchId?: string }>();
+  const [filters, setFilters] = useState<EmployeeListFilters>({
+    page: 1,
+    limit: 10,
+    departmentId: departmentId,
+    accountStatus: 'ACTIVE',
+  });
+  
   const adminUsers = useEmployees(filters);
   const leaderReport = useEmployeeReport(filters);
 
   const deleteEmployee = useDeleteEmployee();
-
-  const confirmDelete = (id: string, name: string) => {
-    Alert.alert(
-      'Xác nhận xóa nhân viên',
-      `Bạn có chắc chắn muốn xóa nhân viên ${name}? Mọi dữ liệu liên quan sẽ bị vô hiệu hóa.`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        { 
-          text: 'Xóa ngay', 
-          style: 'destructive', 
-          onPress: async () => {
-            try {
-              await deleteEmployee.mutateAsync(id);
-              Alert.alert('Thành công', 'Đã xóa nhân viên');
-            } catch (error) {
-              Alert.alert('Lỗi', 'Không thể xóa nhân viên này');
-            }
-          }
-        }
-      ]
-    );
-  };
+  const assignLeader = useAssignLeader();
+  const revokeLeader = useRevokeLeader();
+  const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'appoint' | 'revoke' | 'error_inactive', employeeId?: string, employeeName?: string, leaderRoleId?: string } | null>(null);
 
   if (scope === 'admin') {
     return (
@@ -84,14 +82,23 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               title="Nhân sự" 
               subtitle="Danh sách toàn bộ nhân sự công ty"
               right={
-                <Pressable style={styles.addBtn} onPress={() => router.push('/admin/employees/create')}>
-                  <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-                  <Text style={styles.addBtnText}>Thêm mới</Text>
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable style={styles.addBtn} onPress={() => router.push('/admin/employees/create')}>
+                    <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                    <Text style={styles.addBtnText}>Thêm mới</Text>
+                  </Pressable>
+                </View>
               }
             />
           </View>
-          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm nhân sự" />
+          <View style={{ marginBottom: 12 }}>
+            <SearchInput value={filters.search} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tìm nhân sự" />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+            <FilterChip label="Đang hoạt động" active={filters.accountStatus === 'ACTIVE'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'ACTIVE', page: 1 }))} />
+            <FilterChip label="Tạm khóa" active={filters.accountStatus === 'SUSPENDED'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'SUSPENDED', page: 1 }))} />
+            <FilterChip label="Tất cả" active={!filters.accountStatus} onPress={() => setFilters((f) => ({ ...f, accountStatus: undefined, page: 1 }))} />
+          </View>
           
           <View style={styles.list}>
             {adminUsers.isLoading ? <LoadingState /> : null}
@@ -108,7 +115,9 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                       Vị trí: {employee.roles?.some((r) => r.role.code === 'LEADER') ? 'Quản lý (Leader)' : (employee.profile?.position?.name ?? 'Chưa có')}
                     </Text>
                   </View>
-                  <StatusBadge label={employee.accountStatus} tone={toneForStatus(employee.accountStatus)} />
+                  <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                    <StatusBadge label={employee.accountStatus} tone={toneForStatus(employee.accountStatus)} />
+                  </View>
                 </View>
                 
                 <View style={styles.cardMeta}>
@@ -117,7 +126,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                 </View>
 
                 <View style={styles.actions}>
-                  <Pressable style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]} onPress={() => router.push(`./employees/${employee.id}`)}>
+                  <Pressable style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]} onPress={() => router.push(`/admin/employees/${employee.id}`)}>
                     <MaterialCommunityIcons name="eye" size={18} color={colors.text} />
                     <Text style={[styles.actionText, { color: colors.text }]}>Chi tiết</Text>
                   </Pressable>
@@ -127,16 +136,86 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                         <MaterialCommunityIcons name="pencil" size={18} color="#EA580C" />
                         <Text style={[styles.actionText, { color: '#EA580C' }]}>Sửa</Text>
                       </Pressable>
-                      <Pressable style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]} onPress={() => confirmDelete(employee.id, employee.profile?.fullName || 'N/A')}>
-                        <MaterialCommunityIcons name="delete" size={18} color="#DC2626" />
-                        <Text style={[styles.actionText, { color: '#DC2626' }]}>Xóa</Text>
-                      </Pressable>
+                      {departmentId ? (
+                        (() => {
+                          const leaderRole = employee.roles?.find((r) => r.role.code === 'LEADER' && r.scopeId === departmentId);
+                          if (leaderRole) {
+                            return (
+                              <Pressable 
+                                style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
+                                onPress={() => setConfirmAction({ type: 'revoke', employeeId: employee.id, employeeName: employee.profile?.fullName || 'N/A', leaderRoleId: leaderRole.id })}
+                              >
+                                <MaterialCommunityIcons name="account-remove" size={18} color="#DC2626" />
+                                <Text style={[styles.actionText, { color: '#DC2626' }]}>Thu hồi</Text>
+                              </Pressable>
+                            );
+                          } else {
+                            return (
+                              <Pressable 
+                                style={[styles.actionBtn, { backgroundColor: '#ECFDF5' }]}
+                                onPress={() => {
+                                  if (employee.accountStatus !== 'ACTIVE') {
+                                    setConfirmAction({ type: 'error_inactive' });
+                                    return;
+                                  }
+                                  setConfirmAction({ type: 'appoint', employeeId: employee.id, employeeName: employee.profile?.fullName || 'N/A' });
+                                }}
+                              >
+                                <MaterialCommunityIcons name="account-star" size={18} color="#059669" />
+                                <Text style={[styles.actionText, { color: '#059669' }]}>Bổ nhiệm</Text>
+                              </Pressable>
+                            );
+                          }
+                        })()
+                      ) : null}
                     </>
                   ) : null}
                 </View>
               </View>
             ))}
           </View>
+          <ConfirmModal 
+            visible={!!confirmAction}
+            title={
+              confirmAction?.type === 'delete' ? 'Xác nhận xóa nhân viên' :
+              confirmAction?.type === 'appoint' ? 'Xác nhận bổ nhiệm' : 
+              confirmAction?.type === 'error_inactive' ? 'Không thể bổ nhiệm' : 'Xác nhận thu hồi'
+            }
+            message={
+              confirmAction?.type === 'delete' ? `Bạn có chắc chắn muốn xóa nhân viên ${confirmAction?.employeeName}? Mọi dữ liệu liên quan sẽ bị vô hiệu hóa.` :
+              confirmAction?.type === 'appoint' ? `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?` : 
+              confirmAction?.type === 'error_inactive' ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.' :
+              `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
+            }
+            confirmLabel={
+              confirmAction?.type === 'delete' ? 'Xóa ngay' :
+              confirmAction?.type === 'appoint' ? 'Bổ nhiệm' : 
+              confirmAction?.type === 'error_inactive' ? 'Đã hiểu' : 'Thu hồi'
+            }
+            hideCancel={confirmAction?.type === 'error_inactive'}
+            loading={deleteEmployee.isPending || assignLeader.isPending || revokeLeader.isPending}
+            onCancel={() => setConfirmAction(null)}
+            onConfirm={async () => {
+              if (!confirmAction) return;
+              if (confirmAction.type === 'error_inactive') {
+                setConfirmAction(null);
+                return;
+              }
+              try {
+                if (confirmAction.type === 'delete' && confirmAction.employeeId) {
+                  await deleteEmployee.mutateAsync(confirmAction.employeeId);
+                } else if (confirmAction.type === 'appoint' && confirmAction.employeeId) {
+                  await assignLeader.mutateAsync({ userId: confirmAction.employeeId, departmentId: departmentId! });
+                } else if (confirmAction.type === 'revoke' && confirmAction.leaderRoleId) {
+                  await revokeLeader.mutateAsync(confirmAction.leaderRoleId);
+                }
+                setConfirmAction(null);
+              } catch (e) {
+                // Ignore API error because react-query handles it
+                setConfirmAction(null);
+              }
+            }}
+          />
         </ScreenContainer>
       </Screen>
     );
@@ -179,16 +258,12 @@ export function EmployeeDetailScreen() {
       phone: employee.data?.phone ?? '',
       email: employee.data?.email ?? '',
       departmentId: employee.data?.departmentLinks?.find((link) => link.isPrimary)?.departmentId ?? '',
-      positionId: employee.data?.departmentLinks?.find((link) => link.isPrimary)?.positionId ?? employee.data?.profile?.position?.id ?? '',
+      accountStatus: employee.data?.accountStatus ?? 'ACTIVE',
     },
   });
   const selectedDepartmentId = watch('departmentId');
-  const selectedPositionId = watch('positionId');
   const departments = useDepartments();
-  const positions = usePositions(selectedDepartmentId || undefined);
-  useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.positions(selectedDepartmentId || undefined) });
-  }, [queryClient, selectedDepartmentId]);
+
   if (employee.isLoading) return <LoadingState />;
   if (employee.isError) return <ErrorState error={employee.error} onRetry={() => void employee.refetch()} />;
   if (!employee.data) return <EmptyState title="Khong tim thay nhan su" />;
@@ -197,9 +272,9 @@ export function EmployeeDetailScreen() {
     await updateEmployee.mutateAsync({
       fullName: payload.fullName,
       phone: payload.phone,
+      accountStatus: payload.accountStatus,
       ...(payload.email ? { email: payload.email } : {}),
       ...(payload.departmentId ? { departmentId: payload.departmentId } : {}),
-      ...(payload.positionId ? { positionId: payload.positionId } : {}),
     });
     setEditing(false);
     reset(payload);
@@ -283,7 +358,7 @@ export function EmployeeDetailScreen() {
                 <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
                 {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
                 {departments.data?.items.map((dept) => (
-                  <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); setValue('positionId', '', { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
+                  <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
                     <Text style={styles.titleText}>{dept.name}</Text>
                     <Text style={styles.meta}>{dept.code}</Text>
                   </Pressable>
@@ -291,20 +366,29 @@ export function EmployeeDetailScreen() {
                 {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
               </View>
               
-              <Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 8 }]}>Chọn chức vụ/vị trí</Text>
-              {positions.isLoading ? <LoadingState label="Đang tải danh sách chức vụ..." /> : null}
-              {positions.isError ? <ErrorState error={positions.error} onRetry={() => void positions.refetch()} /> : null}
-              
-              <View style={{ gap: 8 }}>
-                {positions.data?.items.map((position) => (
-                  <Pressable key={position.id} accessibilityRole="button" onPress={() => setValue('positionId', position.id, { shouldValidate: true })} style={[styles.positionOption, selectedPositionId === position.id && styles.positionOptionSelected]}>
-                    <Text style={[styles.titleText, { color: selectedPositionId === position.id ? colors.primary : '#0B3B61' }]}>{position.name}</Text>
-                    <Text style={[styles.meta, { color: selectedPositionId === position.id ? colors.primary : '#98A0A8' }]}>{position.code}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              {errors.positionId ? <Text style={styles.error}>{errors.positionId.message}</Text> : null}
-              
+              <Controller
+                control={control}
+                name="accountStatus"
+                render={({ field }) => (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Trạng thái tài khoản</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Pressable 
+                        onPress={() => field.onChange('ACTIVE')}
+                        style={[styles.positionOption, field.value === 'ACTIVE' && styles.positionOptionSelected, { flex: 1, alignItems: 'center' }]}
+                      >
+                        <Text style={{ color: field.value === 'ACTIVE' ? colors.primary : colors.text, fontWeight: '600' }}>HOẠT ĐỘNG</Text>
+                      </Pressable>
+                      <Pressable 
+                        onPress={() => field.onChange('SUSPENDED')}
+                        style={[styles.positionOption, field.value === 'SUSPENDED' && { borderColor: colors.danger, borderWidth: 2 }, { flex: 1, alignItems: 'center' }]}
+                      >
+                        <Text style={{ color: field.value === 'SUSPENDED' ? colors.danger : colors.text, fontWeight: '600' }}>TẠM KHÓA</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+              />
               <PrimaryButton onPress={() => void submit()} loading={updateEmployee.isPending} style={{ marginTop: 24 }}>
                 Lưu thay đổi
               </PrimaryButton>
@@ -322,17 +406,11 @@ export function CreateEmployeeScreen() {
   
   const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<EmployeeCreateValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { fullName: '', phone: '', email: '', password: '', departmentId: '', positionId: '' },
+    defaultValues: { fullName: '', phone: '', email: '', password: '', departmentId: '' },
   });
 
   const selectedDepartmentId = watch('departmentId');
-  const selectedPositionId = watch('positionId');
   const departments = useDepartments();
-  const positions = usePositions(selectedDepartmentId || undefined);
-
-  useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.positions(selectedDepartmentId || undefined) });
-  }, [queryClient, selectedDepartmentId]);
 
   const submit = handleSubmit(async (payload) => {
     try {
@@ -342,7 +420,6 @@ export function CreateEmployeeScreen() {
         password: payload.password,
         ...(payload.email ? { email: payload.email } : {}),
         ...(payload.departmentId ? { departmentId: payload.departmentId } : {}),
-        ...(payload.positionId ? { positionId: payload.positionId } : {}),
       };
       await createEmployee.mutateAsync(cleanPayload);
       Alert.alert('Thành công', 'Đã thêm nhân viên mới');
@@ -367,27 +444,13 @@ export function CreateEmployeeScreen() {
             <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
             {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
             {departments.data?.items.map((dept) => (
-              <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); setValue('positionId', '', { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
+              <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
                 <Text style={styles.titleText}>{dept.name}</Text>
                 <Text style={styles.meta}>{dept.code}</Text>
               </Pressable>
             ))}
             {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
           </View>
-          
-          {selectedDepartmentId && (
-            <View style={{ marginTop: 16 }}>
-              <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Chức vụ</Text>
-          {positions.isLoading ? <LoadingState label="Đang tải chức vụ" /> : null}
-          {positions.data?.items.map((position) => (
-            <Pressable key={position.id} accessibilityRole="button" onPress={() => setValue('positionId', position.id, { shouldValidate: true })} style={[styles.positionOption, selectedPositionId === position.id && styles.positionOptionSelected]}>
-              <Text style={styles.titleText}>{position.name}</Text>
-              <Text style={styles.meta}>{position.code}</Text>
-            </Pressable>
-          ))}
-          {errors.positionId ? <Text style={styles.error}>{errors.positionId.message}</Text> : null}
-            </View>
-          )}
 
           <View style={{ marginTop: 24 }}>
             <PrimaryButton onPress={() => void submit()} loading={createEmployee.isPending}>Tạo Nhân Viên</PrimaryButton>

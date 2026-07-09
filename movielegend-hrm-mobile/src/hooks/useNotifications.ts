@@ -1,9 +1,14 @@
 import { Platform } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+
 let Notifications: any = null;
-try {
-  Notifications = require('expo-notifications');
-} catch (error) {
-  console.warn('expo-notifications is not available in Expo Go:', error);
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+if (!isExpoGo) {
+  try {
+    Notifications = require('expo-notifications');
+  } catch (error) {
+    console.warn('expo-notifications requires a dev build', error);
+  }
 }
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { registerDeviceToken, revokeDeviceToken } from '../api/device-tokens.api';

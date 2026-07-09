@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { z } from 'zod';
 import { LogoMark } from '../../components/LogoMark';
 import { Screen } from '../../components/Screen';
@@ -47,7 +48,12 @@ export function LoginScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: undefined })} style={{ flex: 1 }}>
+        <KeyboardAwareScrollView 
+          contentContainerStyle={{ flexGrow: 1 }} 
+          enableOnAndroid={true}
+          extraScrollHeight={20}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
 
             {/* Header Branding */}
@@ -146,7 +152,7 @@ export function LoginScreen() {
               </Pressable>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </View>
     </Screen>
   );

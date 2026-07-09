@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet, Text, View, Pressable, Alert } from 'react-native';
 import { z } from 'zod';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
 import { PageHeader } from '../../components/PageHeader';
@@ -27,10 +27,11 @@ export function LeaderAssignmentScreen() {
   const { user } = useAuth();
   const assign = useAssignLeader();
   const allowed = hasPermission(user, 'role.assign');
+  const { departmentId: defaultDeptId } = useLocalSearchParams<{ departmentId?: string }>();
   
   const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<{ userId: string; departmentId: string }>({
     resolver: zodResolver(schema),
-    defaultValues: { userId: '', departmentId: '' },
+    defaultValues: { userId: '', departmentId: defaultDeptId || '' },
   });
 
   const selectedDepartmentId = watch('departmentId');

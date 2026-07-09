@@ -4,7 +4,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Image, Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { registerEmployee } from '../../api/registration.api';
 import { uploadFile } from '../../api/uploads.api';
@@ -87,7 +88,7 @@ export function RegistrationProfileScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
               <Ionicons name="arrow-back" size={24} color="#0B3B61" />
@@ -109,7 +110,7 @@ export function RegistrationProfileScreen() {
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </View>
     </Screen>
   );
@@ -135,7 +136,7 @@ export function RegistrationPersonalScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
               <Ionicons name="arrow-back" size={24} color="#0B3B61" />
@@ -218,7 +219,7 @@ export function RegistrationPersonalScreen() {
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </View>
     </Screen>
   );
@@ -242,7 +243,7 @@ export function RegistrationDepartmentScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
               <Ionicons name="arrow-back" size={24} color="#0B3B61" />
@@ -267,7 +268,7 @@ export function RegistrationDepartmentScreen() {
           </View>
           
           {errors.requestedDepartmentId ? <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 12 }}>{errors.requestedDepartmentId.message}</Text> : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
            <Pressable onPress={submit} style={{ backgroundColor: '#1E88E5', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#1E88E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}>
@@ -510,7 +511,7 @@ export function RegistrationReviewScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
               <Ionicons name="arrow-back" size={24} color="#0B3B61" />
@@ -547,7 +548,7 @@ export function RegistrationReviewScreen() {
                 <Text style={{ color: '#EF4444', fontSize: 13, flex: 1 }}>{registrationErrorMessage(mutation.error)}</Text>
               </View>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
            <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#93C5FD' : '#1E88E5', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#1E88E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}>

@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Modal, Dimensions, Alert, Pressable, Text, TextInput, Keyboard, ActivityIndicator } from 'react-native';
-import MapView, { Marker } from '../lib/Maps';
-import type { Region } from '../lib/Maps';
-
+import { View, StyleSheet, Modal, Pressable, Text, TextInput, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { PrimaryButton, SecondaryButton } from './Buttons';
-
-export interface LocationData {
-  latitude: number;
-  longitude: number;
-  address?: string;
-}
+import { LocationData } from './LocationPickerMap';
 
 interface LocationPickerMapProps {
   visible: boolean;
@@ -22,17 +14,11 @@ interface LocationPickerMapProps {
 }
 
 export function LocationPickerMap({ visible, onClose, onSelect, initialLocation }: LocationPickerMapProps) {
-  const [region, setRegion] = useState<Region>({
-    latitude: initialLocation?.latitude || 21.028511, // Default Hanoi
-    longitude: initialLocation?.longitude || 105.804817,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
-  const [selectedCoordinate, setSelectedCoordinate] = useState<{latitude: number, longitude: number} | null>(initialLocation || null);
   const [address, setAddress] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{latitude: number, longitude: number} | null>(initialLocation || null);
 
   useEffect(() => {
     if (visible && !initialLocation) {
@@ -45,7 +31,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
       setLoading(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Lỗi', 'Cần cấp quyền vị trí để lấy tọa độ hiện tại');
+        alert('Cần cấp quyền vị trí để lấy tọa độ hiện tại');
         return;
       }
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
@@ -53,14 +39,9 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       };
-      setRegion({
-        ...coord,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      });
       handleSelectCoordinate(coord);
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể lấy tọa độ hiện tại');
+      alert('Không thể lấy tọa độ hiện tại');
     } finally {
       setLoading(false);
     }
@@ -68,26 +49,19 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-    Keyboard.dismiss();
     setSearching(true);
     try {
       const results = await Location.geocodeAsync(searchQuery);
       const place = results[0];
       if (results.length > 0 && place) {
         const { latitude, longitude } = place;
-        setRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        });
         handleSelectCoordinate({ latitude, longitude });
       } else {
-        Alert.alert('Không tìm thấy', 'Không tìm thấy địa điểm này. Vui lòng thử từ khóa cụ thể hơn.');
+        alert('Không tìm thấy địa điểm này. Vui lòng thử từ khóa cụ thể hơn.');
       }
     } catch (e) {
       console.warn(e);
-      Alert.alert('Lỗi', 'Không thể tìm kiếm địa điểm');
+      alert('Không thể tìm kiếm địa điểm');
     } finally {
       setSearching(false);
     }
@@ -99,7 +73,6 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
       const geocode = await Location.reverseGeocodeAsync(coordinate);
       const place = geocode[0];
       if (geocode.length > 0 && place) {
-        // Format address: name, street, subregion, region
         const parts = [];
         if (place.name && place.name !== place.street) parts.push(place.name);
         if (place.street) parts.push(place.street);
@@ -153,21 +126,16 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
           )}
         </View>
 
-        <MapView
-          style={styles.map}
-          region={region}
-          onRegionChangeComplete={setRegion}
-          onPress={(e) => handleSelectCoordinate(e.nativeEvent.coordinate)}
-          showsUserLocation
-        >
-          {selectedCoordinate && (
-            <Marker coordinate={selectedCoordinate} />
-          )}
-        </MapView>
+        <View style={styles.mapPlaceholder}>
+          <Text style={{ color: '#666', textAlign: 'center', padding: 20 }}>
+            Bản đồ không được hỗ trợ trên nền tảng web.{'\n'}
+            Vui lòng tìm kiếm địa chỉ hoặc sử dụng vị trí hiện tại của bạn.
+          </Text>
+        </View>
 
         <View style={styles.bottomSheet}>
           <Text style={styles.addressTitle}>Địa chỉ đã chọn:</Text>
-          <Text style={styles.addressText}>{address || 'Vui lòng chạm trên bản đồ để chọn điểm'}</Text>
+          <Text style={styles.addressText}>{address || 'Vui lòng tìm kiếm hoặc dùng vị trí của tôi'}</Text>
           
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
             <View style={{ flex: 1 }}>
@@ -230,9 +198,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
   },
-  map: {
+  mapPlaceholder: {
     flex: 1,
-    width: Dimensions.get('window').width,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    margin: 16,
+    borderRadius: 12,
   },
   bottomSheet: {
     backgroundColor: '#fff',

@@ -19,3 +19,8 @@ export async function assignLeader(payload: LeaderAssignmentPayload): Promise<Le
   const response = await apiClient.post<ApiResponse<LeaderAssignment>>('/admin/leader-assignments', payload);
   return unwrapData(response);
 }
+
+export async function revokeLeader(assignmentId: string): Promise<boolean> {
+  const response = await apiClient.delete<ApiResponse<boolean>>(`/admin/leader-assignments/${assignmentId}`);
+  return unwrapData(response);
+}

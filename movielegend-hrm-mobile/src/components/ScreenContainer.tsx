@@ -1,5 +1,6 @@
 import { PropsWithChildren, useState, useCallback } from 'react';
-import { ScrollView, ScrollViewProps, StyleSheet, ViewStyle, RefreshControl } from 'react-native';
+import { ScrollViewProps, StyleSheet, ViewStyle, RefreshControl } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -23,12 +24,15 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
   const defaultRefreshControl = <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />;
 
   return (
-    <ScrollView 
+    <KeyboardAwareScrollView 
       contentContainerStyle={[styles.content, style]} 
       refreshControl={disableGlobalRefresh ? undefined : (refreshControl || defaultRefreshControl)}
+      enableOnAndroid={true}
+      extraScrollHeight={20}
+      keyboardShouldPersistTaps="handled"
     >
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 

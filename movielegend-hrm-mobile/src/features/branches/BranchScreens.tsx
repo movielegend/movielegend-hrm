@@ -75,7 +75,7 @@ export function BranchListScreen() {
         
         <View style={styles.list}>
           {filteredItems?.map((branch) => (
-            <View key={branch.id} style={styles.card}>
+            <Pressable key={branch.id} style={styles.card} onPress={() => router.push(`/admin/branches/${branch.id}/departments`)}>
               <View style={styles.cardHeader}>
                 <View style={styles.iconBox}>
                   <MaterialCommunityIcons name="domain" size={24} color={colors.primary} />
@@ -105,7 +105,7 @@ export function BranchListScreen() {
                   </Pressable>
                 </View>
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
       </ScreenContainer>
