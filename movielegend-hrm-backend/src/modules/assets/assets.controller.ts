@@ -7,12 +7,12 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { AssetsService } from './assets.service';
 import {
   AssignAssetDto,
-  CreateAssetCategoryDto,
   CreateAssetDto,
   MaintenanceDto,
   ReceiveReturnDto,
   ReportIncidentDto,
   ResolveIncidentDto,
+  TransferAssetDto,
   UpdateAssetDto,
 } from './dto/asset.dto';
 
@@ -21,12 +21,6 @@ import {
 @Controller()
 export class AssetsController {
   constructor(private readonly assets: AssetsService) {}
-
-  @Post('asset-categories')
-  @Permissions('asset.create')
-  createCategory(@Body() dto: CreateAssetCategoryDto) {
-    return this.assets.createCategory(dto);
-  }
 
   @Post('assets')
   @Permissions('asset.create')
@@ -56,6 +50,12 @@ export class AssetsController {
   @Permissions('asset.create')
   update(@Param('id') id: string, @Body() dto: UpdateAssetDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.assets.update(id, dto, actor);
+  }
+
+  @Post('assets/:id/transfer')
+  @Permissions('asset.create')
+  transfer(@Param('id') id: string, @Body() dto: TransferAssetDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assets.transfer(id, dto, actor);
   }
 
   @Post('assets/:id/assign')

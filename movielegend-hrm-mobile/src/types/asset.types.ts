@@ -16,29 +16,20 @@ export type AssetConditionStatus = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
 
 export type AssetMaintenanceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
-export interface AssetCategoryDto {
-  id: string;
-  code: string;
-  name: string;
-  description?: string | null;
-  isActive: boolean;
 }
 
 export interface AssetDto {
   id: string;
   assetCode: string;
-  categoryId: string;
-  warehouseId?: string | null;
+  departmentId?: string | null;
   name: string;
   brand?: string | null;
   model?: string | null;
-  serialNumber?: string | null;
-  purchaseDate?: string | null;
-  purchasePrice?: DecimalString | null;
-  warrantyEndDate?: string | null;
   conditionStatus: AssetConditionStatus;
+  conditionNote?: string | null;
   assetStatus: AssetStatus;
   description?: string | null;
+  imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   assignments?: AssetAssignmentDto[];
@@ -47,26 +38,23 @@ export interface AssetDto {
 
 /** Actual CreateAssetDto — backend chỉ nhận đúng các field này (forbidNonWhitelisted). */
 export interface CreateAssetPayload {
-  categoryId: string;
-  warehouseId?: string;
+  departmentId?: string;
   assetCode?: string;
   name: string;
   brand?: string;
   model?: string;
-  serialNumber?: string;
+  conditionNote?: string;
+  imageUrl?: string;
 }
 
 export interface UpdateAssetPayload {
   name?: string;
   conditionStatus?: AssetConditionStatus;
   assetStatus?: AssetStatus;
+  imageUrl?: string;
 }
 
-export interface CreateAssetCategoryPayload {
-  code: string;
-  name: string;
-  description?: string;
-}
+
 
 export interface AssetMaintenanceDto {
   id: string;

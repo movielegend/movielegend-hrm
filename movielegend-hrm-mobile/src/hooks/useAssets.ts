@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createAsset, createAssetCategory, getAsset, getAssets, getMyAssets, updateAsset } from '../api/assets.api';
+import { createAsset, getAsset, getAssets, getMyAssets, updateAsset } from '../api/assets.api';
 import { assignAsset, confirmAssetAssignment, receiveAssetReturn, requestAssetReturn } from '../api/asset-assignments.api';
+import { transferAsset } from '../api/assets.api';
 import { completeAssetMaintenance, startAssetMaintenance } from '../api/asset-maintenance.api';
 import { assetKeys, maintenanceKeys, queryKeys } from '../constants/queryKeys';
-import type { CreateAssetCategoryPayload, CreateAssetPayload, StartMaintenancePayload, UpdateAssetPayload, AssetMaintenanceDto } from '../types/asset.types';
+import type { CreateAssetPayload, StartMaintenancePayload, UpdateAssetPayload, AssetMaintenanceDto } from '../types/asset.types';
 import type { AssignAssetPayload, ReceiveReturnPayload } from '../types/asset-assignment.types';
 
 export function useAssets(enabled = true) {
@@ -43,11 +44,7 @@ export function useUpdateAsset() {
   });
 }
 
-export function useCreateAssetCategory() {
-  return useMutation({
-    mutationFn: (payload: CreateAssetCategoryPayload) => createAssetCategory(payload),
-  });
-}
+
 
 /** Assign: invalidate asset list/detail + my assets (bên nhận) + notifications. */
 export function useAssignAsset() {
@@ -59,6 +56,16 @@ export function useAssignAsset() {
       void queryClient.invalidateQueries({ queryKey: assetKeys.detail(assignment.assetId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
+    },
+  });
+}
+
+export function useTransferAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ assetId, payload }: { assetId: string; payload: { targetDepartmentId: string; note?: string } }) => transferAsset(assetId, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: assetKeys.all });
     },
   });
 }

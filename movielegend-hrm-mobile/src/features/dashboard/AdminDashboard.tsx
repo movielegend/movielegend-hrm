@@ -152,6 +152,13 @@ export function AdminDashboard() {
             iconColor="#EAB308"
             onPress={() => router.push('/admin/employees')}
           />
+          <GridCard 
+            title="Vật tư" 
+            icon="box-variant" 
+            iconBg="#FCE7F3" // Pink
+            iconColor="#DB2777"
+            onPress={() => router.push('/admin/warehouses')}
+          />
         </View>
       </ScrollView>
     </Screen>

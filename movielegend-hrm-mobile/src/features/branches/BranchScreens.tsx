@@ -91,12 +91,7 @@ export function BranchListScreen() {
                   ) : null}
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable
-                    style={styles.actionBtn}
-                    onPress={() => router.push(`./branches/${branch.id}/edit`)}
-                  >
-                    <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.primary} />
-                  </Pressable>
+
                   <Pressable
                     style={styles.actionBtn}
                     onPress={() => handleDelete(branch.id, branch.name)}

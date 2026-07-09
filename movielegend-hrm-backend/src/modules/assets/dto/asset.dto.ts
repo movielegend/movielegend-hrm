@@ -2,30 +2,16 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AssetConditionStatus, AssetIncidentType, AssetStatus } from '@prisma/client';
 import { IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 
-export class CreateAssetCategoryDto {
-  @ApiProperty()
-  @IsString()
-  code!: string;
-
-  @ApiProperty()
-  @IsString()
-  name!: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  description?: string;
-}
-
 export class CreateAssetDto {
-  @ApiProperty()
-  @IsUUID()
-  categoryId!: string;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
-  warehouseId?: string;
+  departmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  conditionNote?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -46,10 +32,10 @@ export class CreateAssetDto {
   @IsString()
   model?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiPropertyOptional({ example: 'https://example.com/image.png' })
   @IsString()
-  serialNumber?: string;
+  @IsOptional()
+  imageUrl?: string;
 }
 
 export class UpdateAssetDto {
@@ -67,6 +53,32 @@ export class UpdateAssetDto {
   @IsOptional()
   @IsEnum(AssetStatus)
   assetStatus?: AssetStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  conditionNote?: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/image.png' })
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
+}
+
+export class TransferAssetDto {
+  @ApiProperty()
+  @IsUUID()
+  targetDepartmentId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class AssignAssetDto {

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
@@ -310,23 +310,29 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
 export function AssetCreateScreen() {
   const router = useRouter();
   const create = useCreateAsset();
-  const warehouses = useWarehouses();
-  const [categoryId, setCategoryId] = useState('');
-  const [warehouseId, setWarehouseId] = useState('');
   const [name, setName] = useState('');
-  const [brand, setBrand] = useState('');
-  const [model, setModel] = useState('');
-  const [serialNumber, setSerialNumber] = useState('');
+  const [brand, setBrand] = useState('Dell');
+  const [customBrand, setCustomBrand] = useState('');
+  const [model, setModel] = useState('XPS');
+  const [customModel, setCustomModel] = useState('');
+  const [conditionNote, setConditionNote] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+
+  const brandOptions = ['Dell', 'HP', 'Apple', 'Lenovo', 'Asus', 'Acer', 'Khác'];
+  const modelOptions = ['XPS', 'ThinkPad', 'MacBook Pro', 'MacBook Air', 'EliteBook', 'Khác'];
+
+  // Lấy departmentId từ route query params
+  const { departmentId = '' } = useLocalSearchParams<{ departmentId?: string }>();
 
   async function submit() {
     try {
       const asset = await create.mutateAsync({
-        categoryId: categoryId.trim(),
-        ...(warehouseId ? { warehouseId } : {}),
         name: name.trim(),
-        ...(brand.trim() ? { brand: brand.trim() } : {}),
-        ...(model.trim() ? { model: model.trim() } : {}),
-        ...(serialNumber.trim() ? { serialNumber: serialNumber.trim() } : {}),
+        ...(brand === 'Khác' ? (customBrand.trim() ? { brand: customBrand.trim() } : {}) : { brand }),
+        ...(model === 'Khác' ? (customModel.trim() ? { model: customModel.trim() } : {}) : { model }),
+        ...(departmentId ? { departmentId } : {}),
+        ...(conditionNote.trim() ? { conditionNote: conditionNote.trim() } : {}),
+        ...(imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
       });
       Alert.alert('Thành công', `Đã tạo tài sản ${asset.assetCode}`);
       router.back();
@@ -340,26 +346,49 @@ export function AssetCreateScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader
-          title="Tạo tài sản"
-          subtitle="Backend CreateAssetDto chỉ nhận: categoryId, warehouseId, assetCode, name, brand, model, serialNumber. Backend chưa có GET /asset-categories (blocker B1) — nhập categoryId trực tiếp."
+          title="Thêm thiết bị"
+          subtitle="Tạo mới vật tư/thiết bị cho phòng ban."
         />
         <SectionCard>
-          <FormField label="Category ID (UUID — blocker B1)" value={categoryId} onChangeText={setCategoryId} autoCapitalize="none" />
-          <Text style={styles.sectionLabel}>Kho (tùy chọn)</Text>
-          {warehouses.data?.items.map((warehouse) => (
-            <FilterChip
-              key={warehouse.id}
-              label={`${warehouse.code} ${warehouse.name}`}
-              selected={warehouseId === warehouse.id}
-              onPress={() => setWarehouseId(warehouseId === warehouse.id ? '' : warehouse.id)}
-            />
-          ))}
-          <FormField label="Tên tài sản" value={name} onChangeText={setName} />
-          <FormField label="Hãng (tùy chọn)" value={brand} onChangeText={setBrand} />
-          <FormField label="Model (tùy chọn)" value={model} onChangeText={setModel} />
-          <FormField label="Serial (tùy chọn)" value={serialNumber} onChangeText={setSerialNumber} autoCapitalize="none" />
-          <PrimaryButton loading={create.isPending} disabled={!categoryId.trim() || !name.trim()} onPress={() => void submit()}>
-            Tạo tài sản
+          <FormField label="Tên thiết bị" value={name} onChangeText={setName} />
+          
+          <Text style={styles.sectionLabel}>Hãng / Thương hiệu</Text>
+          <View style={styles.chipRow}>
+            {brandOptions.map(opt => (
+              <FilterChip key={opt} label={opt} selected={brand === opt} onPress={() => setBrand(opt)} />
+            ))}
+          </View>
+          {brand === 'Khác' && (
+            <FormField label="Nhập tên hãng" value={customBrand} onChangeText={setCustomBrand} />
+          )}
+
+          <Text style={styles.sectionLabel}>Dòng máy / Loại</Text>
+          <View style={styles.chipRow}>
+            {modelOptions.map(opt => (
+              <FilterChip key={opt} label={opt} selected={model === opt} onPress={() => setModel(opt)} />
+            ))}
+          </View>
+          {model === 'Khác' && (
+            <FormField label="Nhập dòng máy" value={customModel} onChangeText={setCustomModel} />
+          )}
+
+          <FormField label="Ghi chú thủ công (Tình trạng)" value={conditionNote} onChangeText={setConditionNote} multiline />
+          
+          <Text style={styles.sectionLabel}>Ảnh thiết bị</Text>
+          <FormField label="URL ảnh (VD: https://picsum.photos/200)" value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" />
+          
+          {imageUrl ? (
+            <View style={{ marginBottom: 16 }}>
+              <Image 
+                source={{ uri: imageUrl }} 
+                style={{ width: '100%', height: 150, borderRadius: 8, backgroundColor: '#f3f4f6' }} 
+                resizeMode="cover"
+              />
+            </View>
+          ) : null}
+
+          <PrimaryButton loading={create.isPending} disabled={!name.trim()} onPress={() => void submit()}>
+            Lưu
           </PrimaryButton>
         </SectionCard>
       </ScrollView>

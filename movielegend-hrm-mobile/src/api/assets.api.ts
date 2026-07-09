@@ -2,9 +2,7 @@ import { apiClient, unwrapData } from './client';
 import type { ApiResponse } from '../types/api.types';
 import { normalizePagination, type PaginatedResult } from '../types/pagination.types';
 import type {
-  AssetCategoryDto,
   AssetDto,
-  CreateAssetCategoryPayload,
   CreateAssetPayload,
   UpdateAssetPayload,
 } from '../types/asset.types';
@@ -35,8 +33,7 @@ export async function updateAsset(id: string, payload: UpdateAssetPayload): Prom
   return unwrapData(response);
 }
 
-// Backend chỉ có POST /asset-categories, KHÔNG có GET (blocker B1).
-export async function createAssetCategory(payload: CreateAssetCategoryPayload): Promise<AssetCategoryDto> {
-  const response = await apiClient.post<ApiResponse<AssetCategoryDto>>('/asset-categories', payload);
+export async function transferAsset(id: string, payload: { targetDepartmentId: string; note?: string }): Promise<AssetDto> {
+  const response = await apiClient.post<ApiResponse<AssetDto>>(`/assets/${id}/transfer`, payload);
   return unwrapData(response);
 }
