@@ -180,6 +180,8 @@ export interface TaskDto {
   departmentContext?: Department | null;
   createdBy?: TaskUserSummary;
   targets?: TaskTargetDto[];
+  childTasks?: any[];
+  groupLeaderId?: string | null;
   assignments?: TaskAssignmentDto[];
   comments?: TaskCommentDto[];
   attachments?: TaskAttachmentDto[];

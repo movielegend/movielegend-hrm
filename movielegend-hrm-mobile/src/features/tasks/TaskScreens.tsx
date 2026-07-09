@@ -260,9 +260,9 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
-        {item.childTasks?.length > 0 ? (
+        {(item.childTasks ?? []).length > 0 ? (
           <SectionCard title="Công việc con (Subtasks)">
-            {item.childTasks.map((child: any) => (
+            {(item.childTasks ?? []).map((child: any) => (
               <Pressable key={child.id} style={[styles.inlinePanel, { flexDirection: 'column', alignItems: 'flex-start' }]} onPress={() => router.push(`/${area}/tasks/${child.id}`)}>
                 <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
                   <Text style={[styles.titleText, { flex: 1 }]}>{child.title}</Text>

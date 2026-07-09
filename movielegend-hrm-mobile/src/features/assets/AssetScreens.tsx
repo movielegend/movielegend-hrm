@@ -328,7 +328,7 @@ export function AssetCreateScreen() {
     const prefix = assetName
       .split(' ')
       .filter(Boolean)
-      .map(w => w[0].toUpperCase())
+      .map(w => w[0]?.toUpperCase() || '')
       .join('')
       .substring(0, 3);
     
