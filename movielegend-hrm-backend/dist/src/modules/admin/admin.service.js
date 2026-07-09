@@ -208,6 +208,16 @@ let AdminService = class AdminService {
                 update: {},
             });
             if (dto.primary ?? true) {
+                if (department.leaderUserId && department.leaderUserId !== dto.userId) {
+                    await tx.userRole.deleteMany({
+                        where: {
+                            userId: department.leaderUserId,
+                            roleId: leaderRole.id,
+                            scopeType: client_1.RoleScopeType.DEPARTMENT,
+                            scopeId: dto.departmentId,
+                        }
+                    });
+                }
                 await tx.department.update({
                     where: { id: dto.departmentId },
                     data: { leaderUserId: dto.userId },

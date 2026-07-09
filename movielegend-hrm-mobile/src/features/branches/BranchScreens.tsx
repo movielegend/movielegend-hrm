@@ -13,8 +13,11 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
 import { useBranches, useCreateBranch, useDeleteBranch } from '../../api/branches.api';
+import { getDepartments } from '../../api/departments.api';
+import { useQuery } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
 import { normalizeApiError } from '../../utils/api-error';
+import { MultiSelectModal } from '../../components/MultiSelectModal';
 
 export function BranchListScreen() {
   const router = useRouter();
@@ -80,6 +83,11 @@ export function BranchListScreen() {
                   <Text style={styles.cardTitle}>{branch.name}</Text>
                   <Text style={styles.cardSubtitle}>Mã: {branch.code}</Text>
                   {branch.address ? <Text style={styles.cardDesc}>{branch.address}</Text> : null}
+                  {branch.departments && branch.departments.length > 0 ? (
+                    <Text style={{ fontSize: 12, color: colors.primary, marginTop: 4 }}>
+                      {branch.departments.length} phòng ban
+                    </Text>
+                  ) : null}
                 </View>
                 <Pressable
                   style={styles.deleteBtn}
@@ -107,7 +115,14 @@ export function BranchCreateScreen() {
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [mapVisible, setMapVisible] = useState(false);
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+
+  const departments = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => getDepartments({ limit: 1000 })
+  });
 
   const submit = async () => {
     try {
@@ -115,6 +130,7 @@ export function BranchCreateScreen() {
       if (address) payload.address = address;
       if (latitude !== undefined) payload.latitude = latitude;
       if (longitude !== undefined) payload.longitude = longitude;
+      if (departmentIds.length > 0) payload.departmentIds = departmentIds;
 
       await mutation.mutateAsync(payload);
       Alert.alert('Thành công', 'Đã tạo chi nhánh mới', [
@@ -179,6 +195,30 @@ export function BranchCreateScreen() {
             </View>
           </View>
 
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Phòng ban thuộc chi nhánh</Text>
+            <Pressable
+              onPress={() => setDeptModalVisible(true)}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                padding: 12,
+                backgroundColor: colors.surface,
+              }}
+            >
+              <Text style={{ color: departmentIds.length ? colors.text : colors.muted, fontSize: 15 }}>
+                {departmentIds.length > 0
+                  ? `Đã chọn ${departmentIds.length} phòng ban`
+                  : 'Chọn phòng ban'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
+            </Pressable>
+          </View>
+
           <PrimaryButton 
             loading={mutation.isPending} 
             disabled={!code || !name} 
@@ -194,6 +234,16 @@ export function BranchCreateScreen() {
         onClose={() => setMapVisible(false)}
         onSelect={handleLocationSelect}
         initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
+      />
+
+      <MultiSelectModal
+        visible={deptModalVisible}
+        title="Chọn phòng ban"
+        options={(departments.data?.items ?? []).map((d: any) => ({ id: d.id, label: d.name, subtitle: d.code }))}
+        selectedValues={departmentIds}
+        onSelect={setDepartmentIds}
+        onClose={() => setDeptModalVisible(false)}
+        isLoading={departments.isLoading}
       />
     </Screen>
   );

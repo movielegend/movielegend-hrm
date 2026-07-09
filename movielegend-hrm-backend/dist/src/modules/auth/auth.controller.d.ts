@@ -26,27 +26,27 @@ export declare class AuthController {
             permissions: string[];
             department: {
                 id: string;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                deletedAt: Date | null;
-                name: string;
-                code: string;
-                description: string | null;
                 companyId: string;
                 branchId: string | null;
                 parentId: string | null;
+                code: string;
+                name: string;
+                description: string | null;
                 leaderUserId: string | null;
-            };
-            position: {
-                id: string;
                 isActive: boolean;
                 createdAt: Date;
                 updatedAt: Date;
                 deletedAt: Date | null;
-                name: string;
+            };
+            position: {
+                id: string;
                 code: string;
+                name: string;
                 description: string | null;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
                 departmentId: string | null;
             } | null;
             hasFaceData: boolean;
@@ -75,27 +75,27 @@ export declare class AuthController {
         permissions: string[];
         department: {
             id: string;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            name: string;
-            code: string;
-            description: string | null;
             companyId: string;
             branchId: string | null;
             parentId: string | null;
+            code: string;
+            name: string;
+            description: string | null;
             leaderUserId: string | null;
-        };
-        position: {
-            id: string;
             isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            name: string;
+        };
+        position: {
+            id: string;
             code: string;
+            name: string;
             description: string | null;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
             departmentId: string | null;
         } | null;
         hasFaceData: boolean;

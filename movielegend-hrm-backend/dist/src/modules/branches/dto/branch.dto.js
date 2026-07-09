@@ -21,6 +21,7 @@ class CreateBranchDto {
     longitude;
     allowedRadius;
     isActive;
+    departmentIds;
 }
 exports.CreateBranchDto = CreateBranchDto;
 __decorate([
@@ -71,6 +72,13 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateBranchDto.prototype, "isActive", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CreateBranchDto.prototype, "departmentIds", void 0);
 class UpdateBranchDto extends CreateBranchDto {
 }
 exports.UpdateBranchDto = UpdateBranchDto;

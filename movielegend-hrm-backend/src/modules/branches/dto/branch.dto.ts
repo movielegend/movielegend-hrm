@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, Max, Min, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateBranchDto {
@@ -43,6 +43,12 @@ export class CreateBranchDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  departmentIds?: string[];
 }
 
 export class UpdateBranchDto extends CreateBranchDto {}

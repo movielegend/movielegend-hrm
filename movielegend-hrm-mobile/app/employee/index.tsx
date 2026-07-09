@@ -1,5 +1,5 @@
-import { DashboardShell } from '../../src/features/dashboard/DashboardShell';
+import { Redirect } from 'expo-router';
 
 export default function EmployeeDashboardRoute() {
-  return <DashboardShell role="EMPLOYEE" title="Employee Dashboard" />;
+  return <Redirect href="/employee/(tabs)" />;
 }

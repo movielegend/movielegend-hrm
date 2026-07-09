@@ -54,7 +54,7 @@ export function AdminProfileScreen() {
             <GridCard title="Nhân viên" icon="account-group" iconBg="#E0F2FE" iconColor="#3B82F6" onPress={() => router.push('/admin/employees')} />
             <GridCard title="Phòng ban" icon="office-building" iconBg="#FFEDD5" iconColor="#F97316" onPress={() => router.push('/admin/departments')} />
             <GridCard title="Cấp Quản lý" icon="account-tie" iconBg="#FEF3C7" iconColor="#F59E0B" onPress={() => router.push('/admin/leaders')} />
-            <GridCard title="Vị trí Chấm công" icon="map-marker-radius" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/admin/attendance-locations')} />
+            <GridCard title="Chi nhánh" icon="domain" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/admin/branches')} />
           </View>
         </View>
 

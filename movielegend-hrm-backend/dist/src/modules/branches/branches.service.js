@@ -29,12 +29,14 @@ let BranchesService = class BranchesService {
         return this.prisma.branch.findMany({
             where: { companyId, deletedAt: null },
             orderBy: { createdAt: 'desc' },
+            include: { departments: { select: { id: true, name: true, code: true } } },
         });
     }
     async findOne(id) {
         const companyId = await this.getCompanyId();
         const branch = await this.prisma.branch.findFirst({
             where: { id, companyId, deletedAt: null },
+            include: { departments: { select: { id: true, name: true, code: true } } },
         });
         if (!branch)
             throw new common_2.NotFoundException('Branch not found');
@@ -47,11 +49,16 @@ let BranchesService = class BranchesService {
         });
         if (existing)
             throw new common_2.ConflictException('Branch code already exists');
+        const { departmentIds, ...rest } = dto;
         return this.prisma.branch.create({
             data: {
-                ...dto,
+                ...rest,
                 companyId,
+                departments: departmentIds ? {
+                    connect: departmentIds.map(id => ({ id }))
+                } : undefined
             },
+            include: { departments: { select: { id: true, name: true, code: true } } },
         });
     }
     async update(id, dto) {
@@ -64,9 +71,16 @@ let BranchesService = class BranchesService {
             if (existing)
                 throw new common_2.ConflictException('Branch code already exists');
         }
+        const { departmentIds, ...rest } = dto;
         return this.prisma.branch.update({
             where: { id },
-            data: dto,
+            data: {
+                ...rest,
+                departments: departmentIds ? {
+                    set: departmentIds.map(id => ({ id }))
+                } : undefined
+            },
+            include: { departments: { select: { id: true, name: true, code: true } } },
         });
     }
     async remove(id) {

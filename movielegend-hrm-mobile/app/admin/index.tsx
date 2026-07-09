@@ -1,5 +1,5 @@
-import { DashboardShell } from '../../src/features/dashboard/DashboardShell';
+import { Redirect } from 'expo-router';
 
 export default function AdminDashboardRoute() {
-  return <DashboardShell role="ADMIN" title="Admin Dashboard" />;
+  return <Redirect href="/admin/(tabs)" />;
 }

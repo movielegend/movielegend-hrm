@@ -13,6 +13,7 @@ export interface Branch {
   allowedRadius?: number;
   isActive: boolean;
   createdAt: string;
+  departments?: { id: string; name: string; code: string }[];
 }
 
 export interface CreateBranchDto {
@@ -23,6 +24,7 @@ export interface CreateBranchDto {
   longitude?: number;
   allowedRadius?: number;
   isActive?: boolean;
+  departmentIds?: string[];
 }
 
 export function useBranches() {

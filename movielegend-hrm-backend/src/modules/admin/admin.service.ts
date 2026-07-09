@@ -177,6 +177,18 @@ export class AdminService {
         update: {},
       });
       if (dto.primary ?? true) {
+        // If there was an old leader and it's different from the new one, revoke their leader role for this department
+        if (department.leaderUserId && department.leaderUserId !== dto.userId) {
+          await tx.userRole.deleteMany({
+            where: {
+              userId: department.leaderUserId,
+              roleId: leaderRole.id,
+              scopeType: RoleScopeType.DEPARTMENT,
+              scopeId: dto.departmentId,
+            }
+          });
+        }
+
         await tx.department.update({
           where: { id: dto.departmentId },
           data: { leaderUserId: dto.userId },

@@ -4,6 +4,12 @@ export declare class BranchesController {
     private readonly branchesService;
     constructor(branchesService: BranchesService);
     create(createBranchDto: CreateBranchDto): Promise<{
+        departments: {
+            id: string;
+            code: string;
+            name: string;
+        }[];
+    } & {
         id: string;
         companyId: string;
         code: string;
@@ -17,7 +23,13 @@ export declare class BranchesController {
         address: string | null;
         allowedRadius: number | null;
     }>;
-    findAll(): Promise<{
+    findAll(): Promise<({
+        departments: {
+            id: string;
+            code: string;
+            name: string;
+        }[];
+    } & {
         id: string;
         companyId: string;
         code: string;
@@ -30,8 +42,14 @@ export declare class BranchesController {
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         address: string | null;
         allowedRadius: number | null;
-    }[]>;
+    })[]>;
     findOne(id: string): Promise<{
+        departments: {
+            id: string;
+            code: string;
+            name: string;
+        }[];
+    } & {
         id: string;
         companyId: string;
         code: string;
@@ -46,6 +64,12 @@ export declare class BranchesController {
         allowedRadius: number | null;
     }>;
     update(id: string, updateBranchDto: UpdateBranchDto): Promise<{
+        departments: {
+            id: string;
+            code: string;
+            name: string;
+        }[];
+    } & {
         id: string;
         companyId: string;
         code: string;

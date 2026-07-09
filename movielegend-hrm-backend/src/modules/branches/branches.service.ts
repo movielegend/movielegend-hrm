@@ -18,6 +18,7 @@ export class BranchesService {
     return this.prisma.branch.findMany({
       where: { companyId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
+      include: { departments: { select: { id: true, name: true, code: true } } },
     });
   }
 
@@ -25,6 +26,7 @@ export class BranchesService {
     const companyId = await this.getCompanyId();
     const branch = await this.prisma.branch.findFirst({
       where: { id, companyId, deletedAt: null },
+      include: { departments: { select: { id: true, name: true, code: true } } },
     });
     if (!branch) throw new NotFoundException('Branch not found');
     return branch;
@@ -37,11 +39,16 @@ export class BranchesService {
     });
     if (existing) throw new ConflictException('Branch code already exists');
 
+    const { departmentIds, ...rest } = dto;
     return this.prisma.branch.create({
       data: {
-        ...dto,
+        ...rest,
         companyId,
+        departments: departmentIds ? {
+          connect: departmentIds.map(id => ({ id }))
+        } : undefined
       },
+      include: { departments: { select: { id: true, name: true, code: true } } },
     });
   }
 
@@ -56,9 +63,16 @@ export class BranchesService {
       if (existing) throw new ConflictException('Branch code already exists');
     }
 
+    const { departmentIds, ...rest } = dto;
     return this.prisma.branch.update({
       where: { id },
-      data: dto,
+      data: {
+        ...rest,
+        departments: departmentIds ? {
+          set: departmentIds.map(id => ({ id }))
+        } : undefined
+      },
+      include: { departments: { select: { id: true, name: true, code: true } } },
     });
   }
 

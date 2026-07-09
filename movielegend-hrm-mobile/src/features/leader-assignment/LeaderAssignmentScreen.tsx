@@ -81,12 +81,19 @@ export function LeaderAssignmentScreen() {
                 {!employees.isLoading && !employees.data?.items.length ? (
                   <Text style={styles.meta}>Phòng ban này chưa có nhân viên nào.</Text>
                 ) : null}
-                {employees.data?.items.map((emp) => (
+                {employees.data?.items.map((emp) => {
+                  const isCurrentLeader = departments.data?.items.find(d => d.id === selectedDepartmentId)?.leaderUserId === emp.id;
+                  
+                  return (
                   <Pressable key={emp.id} accessibilityRole="button" onPress={() => setValue('userId', emp.id, { shouldValidate: true })} style={[styles.option, selectedUserId === emp.id && styles.optionSelected]}>
-                    <Text style={styles.titleText}>{emp.profile?.fullName || emp.phone}</Text>
-                    <Text style={styles.meta}>{emp.userCode} - {emp.profile?.position?.name || 'Chưa có chức vụ'}</Text>
+                    <Text style={styles.titleText}>
+                      {emp.profile?.fullName || emp.phone} {isCurrentLeader ? '(Quản lý hiện tại)' : ''}
+                    </Text>
+                    <Text style={[styles.meta, isCurrentLeader && { color: colors.primary, fontWeight: '600' }]}>
+                      {emp.userCode} - {isCurrentLeader ? 'Quản lý (Leader)' : (emp.profile?.position?.name || 'Chưa có chức vụ')}
+                    </Text>
                   </Pressable>
-                ))}
+                )})}
                 {errors.userId ? <Text style={styles.error}>{errors.userId.message}</Text> : null}
               </View>
             )}

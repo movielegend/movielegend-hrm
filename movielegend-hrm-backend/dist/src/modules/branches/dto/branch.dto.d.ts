@@ -6,6 +6,7 @@ export declare class CreateBranchDto {
     longitude?: number;
     allowedRadius?: number;
     isActive?: boolean;
+    departmentIds?: string[];
 }
 export declare class UpdateBranchDto extends CreateBranchDto {
 }

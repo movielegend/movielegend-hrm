@@ -508,21 +508,22 @@ let AttendanceService = class AttendanceService {
         return file;
     }
     async findAllowedLocation(departmentId, latitude, longitude) {
-        const locations = await this.prisma.attendanceLocation.findMany({
-            where: {
-                isActive: true,
-                deletedAt: null,
-                OR: [
-                    { departments: { none: {} }, branchId: null },
-                    { departments: { some: { id: departmentId } } },
-                    { departments: { none: {} }, branch: { departments: { some: { id: departmentId } } } },
-                ],
-            },
+        const department = await this.prisma.department.findUnique({
+            where: { id: departmentId },
+            include: { branch: true },
         });
-        return locations.find((location) => {
-            const distance = this.distanceMeters(latitude, longitude, Number(location.latitude), Number(location.longitude));
-            return distance <= location.radiusMeters;
-        });
+        if (!department || !department.branch)
+            return null;
+        const branch = department.branch;
+        if (!branch.isActive || branch.deletedAt)
+            return null;
+        if (!branch.latitude || !branch.longitude)
+            return null;
+        const distance = this.distanceMeters(latitude, longitude, Number(branch.latitude), Number(branch.longitude));
+        if (distance <= (branch.allowedRadius ?? 100)) {
+            return branch;
+        }
+        return null;
     }
     async assertWifiAllowed(departmentId, ssid, bssid) {
         const configs = await this.prisma.wifiConfig.findMany({
