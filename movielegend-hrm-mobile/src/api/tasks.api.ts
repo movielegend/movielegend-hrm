@@ -90,6 +90,6 @@ export async function createTaskExtensionRequest(taskId: string, payload: Create
 }
 
 export async function completeTask(id: string): Promise<TaskDto> {
-  const response = await apiClient.post<ApiResponse<TaskDto>>(/tasks/ + id + /complete);
+  const response = await apiClient.post<ApiResponse<TaskDto>>('/tasks/' + id + '/complete');
   return unwrapData(response);
 }
