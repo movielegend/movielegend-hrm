@@ -676,6 +676,7 @@ model User {
   overtimeRequests                OvertimeRequest[]
   employeeRequests                EmployeeRequest[]
   createdTasks                    Task[]                       @relation("TaskCreator")
+  groupLeaderTasks                Task[]                       @relation("TaskGroupLeader")
   taskAssignments                 TaskAssignment[]             @relation("TaskAssignee")
   assignedTasks                   TaskAssignment[]             @relation("TaskAssigner")
   reviewedTasks                   TaskAssignment[]             @relation("TaskReviewer")
@@ -756,6 +757,7 @@ model User {
   postComments                    PostComment[]
   postLikes                       PostLike[]
   chatMessages                    ChatMessage[]
+  chatGroupMembers                ChatGroupMember[]
 
   @@map("users")
 }
@@ -1463,6 +1465,7 @@ model Task {
   status              TaskStatus               @default(NEW)
   departmentContextId String?                  @db.Uuid
   createdByUserId     String                   @db.Uuid
+  groupLeaderId       String?                  @db.Uuid
   parentTaskId        String?                  @db.Uuid
   startAt             DateTime?
   dueAt               DateTime?
@@ -1473,6 +1476,7 @@ model Task {
   deletedAt           DateTime?
   departmentContext   Department?              @relation(fields: [departmentContextId], references: [id])
   createdBy           User                     @relation("TaskCreator", fields: [createdByUserId], references: [id])
+  groupLeader         User?                    @relation("TaskGroupLeader", fields: [groupLeaderId], references: [id])
   parentTask          Task?                    @relation("TaskTree", fields: [parentTaskId], references: [id])
   childTasks          Task[]                   @relation("TaskTree")
   targets             TaskTarget[]
@@ -1483,6 +1487,7 @@ model Task {
   extensionRequests   TaskExtensionRequest[]
   crossRequests       CrossDepartmentRequest[]
   notifications       Notification[]
+  chatGroup           ChatGroup?
 
   @@index([departmentContextId, status])
   @@index([createdByUserId, createdAt])
@@ -2824,17 +2829,39 @@ model PostLike {
   @@map("post_likes")
 }
 
-model ChatGroup {
-  id           String   @id @default(uuid()) @db.Uuid
-  departmentId String?  @unique @db.Uuid
-  name         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum ChatGroupType {
+  DEPARTMENT
+  TASK
+}
 
-  department Department?   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+model ChatGroup {
+  id           String        @id @default(uuid()) @db.Uuid
+  departmentId String?       @unique @db.Uuid
+  taskId       String?       @unique @db.Uuid
+  name         String?
+  type         ChatGroupType @default(DEPARTMENT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  department Department?       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  task       Task?             @relation(fields: [taskId], references: [id], onDelete: Cascade)
   messages   ChatMessage[]
+  members    ChatGroupMember[]
 
   @@map("chat_groups")
+}
+
+model ChatGroupMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  groupId  String   @db.Uuid
+  userId   String   @db.Uuid
+  joinedAt DateTime @default(now())
+
+  group ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("chat_group_members")
 }
 
 model ChatMessage {

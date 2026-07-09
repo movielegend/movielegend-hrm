@@ -127,9 +127,9 @@ export declare class ShiftAssignmentsController {
         userId: string;
         departmentId: string;
         status: import("@prisma/client").$Enums.ShiftRegistrationStatus;
-        reason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
+        reason: string | null;
         workDate: Date;
         shiftId: string;
     }>;
@@ -138,15 +138,15 @@ export declare class ShiftAssignmentsController {
         createdAt: Date;
         updatedAt: Date;
         departmentId: string;
-        fromDate: Date;
-        toDate: Date;
         status: import("@prisma/client").$Enums.ShiftSwapStatus;
-        reason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
+        reason: string | null;
+        fromDate: Date;
+        toDate: Date;
+        requesterUserId: string;
         targetUserId: string;
         fromShiftId: string;
         toShiftId: string;
-        requesterUserId: string;
     }>;
 }

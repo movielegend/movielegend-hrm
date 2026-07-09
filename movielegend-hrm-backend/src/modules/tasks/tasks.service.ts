@@ -43,7 +43,7 @@ export class TasksService {
     this.assertCanCreate(dto, actor);
     if (dto.departmentContextId) this.scope.assertDepartmentAccess(actor, dto.departmentContextId);
     const assigneeIds = await this.resolveAssignees(dto, actor);
-    if (!assigneeIds.length) throw badRequest('TASK_TARGET_EMPTY', 'Task must have at least one assignee');
+    if (!dto.isAdhocGroup && !assigneeIds.length) throw badRequest('TASK_TARGET_EMPTY', 'Task must have at least one assignee');
     const payload = await this.prisma.$transaction(async (tx) => {
       const taskCode = await this.prisma.nextTaskCode(tx);
       const task = await tx.task.create({
@@ -58,12 +58,13 @@ export class TasksService {
           startAt: dto.startAt ? new Date(dto.startAt) : undefined,
           dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
           createdByUserId: actor.userId,
-          targets: {
+          groupLeaderId: dto.isAdhocGroup ? dto.leaderId : undefined,
+          targets: dto.targets?.length ? {
             create: dto.targets.map((target) => ({
               targetType: target.targetType,
               targetId: target.targetId,
             })),
-          },
+          } : undefined,
           assignments: {
             create: assigneeIds.map((userId) => ({
               userId,
@@ -82,6 +83,22 @@ export class TasksService {
         },
         include: this.taskDetailInclude(),
       });
+
+      if (dto.isAdhocGroup && dto.memberIds?.length) {
+        // Create chat group for ad-hoc members
+        const chatMemberSet = new Set([...dto.memberIds, actor.userId]);
+        if (dto.leaderId) chatMemberSet.add(dto.leaderId);
+        await tx.chatGroup.create({
+          data: {
+            taskId: task.id,
+            name: `Nhóm: ${task.title}`,
+            type: 'TASK',
+            members: {
+              create: Array.from(chatMemberSet).map(userId => ({ userId }))
+            }
+          }
+        });
+      }
       const notification = await this.notifications.createForUsers(tx, assigneeIds, {
         type: NotificationType.TASK_ASSIGNED,
         title: 'New task assigned',
@@ -532,13 +549,16 @@ export class TasksService {
   private assertCanCreate(dto: CreateTaskDto, actor: AuthenticatedUser): void {
     if (this.has(actor, 'task.assign_any')) return;
     if (!this.has(actor, 'task.assign_department')) throw forbidden('TASK_FORBIDDEN', 'Cannot create task');
-    const departmentTargets = dto.targets.filter((target) => target.targetType === TaskTargetType.DEPARTMENT);
+    const departmentTargets = dto.targets?.filter((target) => target.targetType === TaskTargetType.DEPARTMENT) ?? [];
     for (const target of departmentTargets) this.scope.assertDepartmentAccess(actor, target.targetId);
   }
 
   private async resolveAssignees(dto: CreateTaskDto, actor: AuthenticatedUser): Promise<string[]> {
+    if (dto.isAdhocGroup && dto.leaderId) {
+      return [dto.leaderId];
+    }
     const userIds = new Set<string>();
-    for (const target of dto.targets) {
+    for (const target of dto.targets ?? []) {
       if (target.targetType === TaskTargetType.USER) userIds.add(target.targetId);
       if (target.targetType === TaskTargetType.DEPARTMENT) {
         const members = await this.prisma.departmentMember.findMany({
@@ -577,8 +597,9 @@ export class TasksService {
   }
 
   private inferTaskType(dto: CreateTaskDto): TaskType {
-    if (dto.targets.some((target) => target.targetType === TaskTargetType.GROUP)) return TaskType.GROUP;
-    if (dto.targets.some((target) => target.targetType === TaskTargetType.DEPARTMENT)) return TaskType.DEPARTMENT;
+    if (dto.isAdhocGroup) return TaskType.GROUP;
+    if (dto.targets?.some((target) => target.targetType === TaskTargetType.GROUP)) return TaskType.GROUP;
+    if (dto.targets?.some((target) => target.targetType === TaskTargetType.DEPARTMENT)) return TaskType.DEPARTMENT;
     return TaskType.INDIVIDUAL;
   }
 
@@ -709,6 +730,7 @@ export class TasksService {
       attachments: { orderBy: { createdAt: 'asc' as const } },
       extensionRequests: { orderBy: { createdAt: 'desc' as const }, take: 5 },
       histories: { include: { actor: { select: this.safeUserSelect() } }, orderBy: { createdAt: 'asc' as const }, take: 50 },
+      chatGroup: { select: { id: true } },
     };
   }
 

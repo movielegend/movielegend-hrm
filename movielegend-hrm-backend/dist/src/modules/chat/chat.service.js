@@ -65,27 +65,53 @@ let ChatService = class ChatService {
         if (group.departmentId) {
             this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
         }
+        else {
+            this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
+        }
         return message;
     }
     async getMyGroups(userId) {
         const memberships = await this.prisma.departmentMember.findMany({
-            where: { userId },
+            where: { userId, leftAt: null },
             select: { departmentId: true, department: { select: { name: true } } }
         });
         const groups = [];
         for (const m of memberships) {
             const group = await this.getGroupForDepartment(m.departmentId);
+            groups.push(group);
+        }
+        const customMemberships = await this.prisma.chatGroupMember.findMany({
+            where: { userId },
+            select: { group: true }
+        });
+        for (const m of customMemberships) {
+            groups.push(m.group);
+        }
+        const resultGroups = [];
+        for (const group of groups) {
             const latestMessage = await this.prisma.chatMessage.findFirst({
                 where: { groupId: group.id },
                 orderBy: { createdAt: 'desc' },
                 include: { sender: { select: { profile: { select: { fullName: true } } } } }
             });
-            groups.push({
+            resultGroups.push({
                 ...group,
                 latestMessage
             });
         }
-        return groups;
+        return resultGroups;
+    }
+    async createTaskGroup(taskId, name, memberIds) {
+        return this.prisma.chatGroup.create({
+            data: {
+                taskId,
+                name,
+                type: 'TASK',
+                members: {
+                    create: memberIds.map(userId => ({ userId }))
+                }
+            }
+        });
     }
 };
 exports.ChatService = ChatService;

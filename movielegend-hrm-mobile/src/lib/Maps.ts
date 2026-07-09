@@ -1,7 +1,7 @@
+import React from 'react';
 import { View } from 'react-native';
 
-// Trả về một View rỗng cho Web để tránh lỗi
-export default View;
-export const Marker = View;
+export default function MapView(props: any) { return React.createElement(View, props); }
+export function Marker(props: any) { return React.createElement(View, props); }
 export const PROVIDER_GOOGLE = null;
 export type Region = any;

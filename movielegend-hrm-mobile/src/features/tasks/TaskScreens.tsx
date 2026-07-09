@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
@@ -11,6 +11,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
+import { MultiSelectModal } from '../../components/MultiSelectModal';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
 import { useDepartments } from '../../hooks/useDepartments';
@@ -141,6 +142,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
 }
 
 export function TaskDetailScreen({ area }: { area: TaskArea }) {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const task = useTask(id);
@@ -185,6 +187,14 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           <View style={styles.rowWrap}>
             <TaskStatusBadge status={item.status} />
             <PriorityBadge priority={item.priority} />
+            {item.chatGroup?.id && (
+              <SecondaryButton 
+                style={{ marginLeft: 'auto' }}
+                onPress={() => router.push(`/employee/chat/${item.chatGroup!.id}?taskId=${item.id}`)}
+              >
+                Chat Nhóm
+              </SecondaryButton>
+            )}
           </View>
           <Text style={styles.body}>{item.description ?? 'Khong co mo ta'}</Text>
           <Text style={styles.meta}>Start: {formatDateTime(item.startAt)}</Text>
@@ -390,6 +400,25 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [departmentContextId, setDepartmentContextId] = useState(user?.department?.id ?? '');
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
   const [targetModalVisible, setTargetModalVisible] = useState(false);
+  
+  const [isAdhocGroup, setIsAdhocGroup] = useState(false);
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [leaderId, setLeaderId] = useState<string>('');
+  const [memberModalVisible, setMemberModalVisible] = useState(false);
+  
+  const departmentId = departmentContextId || user?.department?.id;
+  const usersQuery = useScopedEmployees(
+    { page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) },
+    hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department'])
+  );
+  
+  const employeeOptions = useMemo(() => {
+    return (usersQuery.data?.items ?? []).map(u => ({
+      id: u.id,
+      label: u.fullName ?? u.userCode,
+      subtitle: u.department?.name,
+    }));
+  }, [usersQuery.data?.items]);
 
   async function submit() {
     const payload: CreateTaskPayload = {
@@ -399,7 +428,8 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       ...(departmentContextId ? { departmentContextId } : {}),
       ...(startAt ? { startAt: startAt.toISOString() } : {}),
       ...(dueAt ? { dueAt: dueAt.toISOString() } : {}),
-      targets,
+      isAdhocGroup,
+      ...(isAdhocGroup ? { memberIds, leaderId } : { targets }),
     };
     try {
       await mutation.mutateAsync(payload);
@@ -421,6 +451,10 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     if (p === 'NORMAL') return colors.primary;
     return colors.success;
   };
+
+  const selectedMembers = useMemo(() => {
+    return employeeOptions.filter(o => memberIds.includes(o.id));
+  }, [employeeOptions, memberIds]);
 
   return (
     <Screen>
@@ -494,30 +528,80 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         </SectionCard>
 
         <SectionCard title="Người nhận việc (Assignees)">
-          <View style={styles.targetTagsWrap}>
-            {targets.map((target) => (
-              <View key={target.targetId} style={styles.targetTag}>
-                <MaterialCommunityIcons 
-                  name={target.targetType === 'USER' ? 'account' : target.targetType === 'DEPARTMENT' ? 'domain' : 'account-group'} 
-                  size={16} color={colors.primaryDark} 
-                />
-                <Text style={styles.targetTagText}>{target.targetType}: {target.targetId.substring(0,6)}...</Text>
-                <Pressable onPress={() => removeTarget(target)}>
-                  <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+            <Text style={[styles.fieldLabel, { flex: 1, marginBottom: 0 }]}>Tạo nhóm tùy chỉnh (Ad-hoc Group)</Text>
+            <Switch value={isAdhocGroup} onValueChange={setIsAdhocGroup} trackColor={{ true: colors.primary }} />
+          </View>
+
+          {isAdhocGroup ? (
+            <View>
+              <Text style={styles.fieldLabel}>Thành viên nhóm</Text>
+              <View style={styles.targetTagsWrap}>
+                {selectedMembers.map(m => (
+                  <View key={m.id} style={styles.targetTag}>
+                    <MaterialCommunityIcons name="account" size={16} color={colors.primaryDark} />
+                    <Text style={styles.targetTagText}>{m.label}</Text>
+                    <Pressable onPress={() => {
+                      setMemberIds(prev => prev.filter(id => id !== m.id));
+                      if (leaderId === m.id) setLeaderId('');
+                    }}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable style={styles.addTargetBtn} onPress={() => setMemberModalVisible(true)}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+                  <Text style={styles.addTargetBtnText}>Thêm thành viên</Text>
                 </Pressable>
               </View>
-            ))}
-            <Pressable style={styles.addTargetBtn} onPress={() => setTargetModalVisible(true)}>
-              <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
-              <Text style={styles.addTargetBtnText}>Thêm người nhận</Text>
-            </Pressable>
-          </View>
-          {!targets.length && <Text style={styles.meta}>Chưa có ai được giao việc.</Text>}
+
+              {memberIds.length > 0 && (
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={styles.fieldLabel}>Chọn nhóm trưởng (Leader)</Text>
+                  <View style={styles.targetTagsWrap}>
+                    {selectedMembers.map(m => (
+                      <Pressable 
+                        key={m.id} 
+                        style={[styles.targetTag, leaderId === m.id && { backgroundColor: colors.primary }]}
+                        onPress={() => setLeaderId(m.id)}
+                      >
+                        <Text style={[styles.targetTagText, leaderId === m.id && { color: '#fff' }]}>
+                          {m.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View>
+              <View style={styles.targetTagsWrap}>
+                {targets.map((target) => (
+                  <View key={target.targetId} style={styles.targetTag}>
+                    <MaterialCommunityIcons 
+                      name={target.targetType === 'USER' ? 'account' : target.targetType === 'DEPARTMENT' ? 'domain' : 'account-group'} 
+                      size={16} color={colors.primaryDark} 
+                    />
+                    <Text style={styles.targetTagText}>{target.targetType}: {target.targetId.substring(0,6)}...</Text>
+                    <Pressable onPress={() => removeTarget(target)}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable style={styles.addTargetBtn} onPress={() => setTargetModalVisible(true)}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+                  <Text style={styles.addTargetBtnText}>Thêm người nhận</Text>
+                </Pressable>
+              </View>
+              {!targets.length && <Text style={styles.meta}>Chưa có ai được giao việc.</Text>}
+            </View>
+          )}
         </SectionCard>
 
         <PrimaryButton 
           loading={mutation.isPending} 
-          disabled={title.trim().length < 3 || !targets.length} 
+          disabled={title.trim().length < 3 || (isAdhocGroup ? (memberIds.length === 0 || !leaderId) : targets.length === 0)} 
           onPress={() => void submit()}
         >
           Giao việc ngay
@@ -530,6 +614,16 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         onClose={() => setTargetModalVisible(false)}
         targets={targets}
         onChange={setTargets}
+      />
+
+      <MultiSelectModal
+        visible={memberModalVisible}
+        title="Chọn thành viên nhóm"
+        options={employeeOptions}
+        selectedValues={memberIds}
+        onSelect={setMemberIds}
+        onClose={() => setMemberModalVisible(false)}
+        isLoading={usersQuery.isLoading}
       />
     </Screen>
   );

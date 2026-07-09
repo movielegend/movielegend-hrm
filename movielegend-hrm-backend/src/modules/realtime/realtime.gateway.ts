@@ -64,9 +64,14 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @SubscribeMessage('chat:join')
-  handleChatJoin(@ConnectedSocket() client: Socket, @MessageBody() payload: { departmentId?: string }) {
+  handleChatJoin(@ConnectedSocket() client: Socket, @MessageBody() payload: { departmentId?: string; groupId?: string }) {
+    if (payload?.groupId) {
+      // TODO: Verify if user belongs to this group before joining
+      client.join(`group:${payload.groupId}`);
+      return { ok: true };
+    }
     const departmentId = payload?.departmentId;
-    if (!departmentId) return { ok: false, code: 'DEPARTMENT_ID_REQUIRED' };
+    if (!departmentId) return { ok: false, code: 'DEPARTMENT_ID_OR_GROUP_ID_REQUIRED' };
     // TODO: Verify if user belongs to this department before joining
     client.join(`department:${departmentId}`);
     return { ok: true };

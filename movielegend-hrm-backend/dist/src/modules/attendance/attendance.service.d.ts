@@ -70,16 +70,16 @@ export declare class AttendanceService {
             createdAt: Date;
             type: import("@prisma/client").$Enums.AttendanceVerificationType;
             metadata: Prisma.JsonValue | null;
-            provider: string | null;
             attendanceRecordId: string;
             success: boolean;
             score: Prisma.Decimal | null;
+            provider: string | null;
         }[];
         adjustments: {
             id: string;
             status: import("@prisma/client").$Enums.AttendanceAdjustmentStatus;
-            reason: string;
             decidedAt: Date | null;
+            reason: string;
             requestedCheckInAt: Date | null;
             requestedCheckOutAt: Date | null;
         }[];
@@ -155,16 +155,16 @@ export declare class AttendanceService {
             createdAt: Date;
             type: import("@prisma/client").$Enums.AttendanceVerificationType;
             metadata: Prisma.JsonValue | null;
-            provider: string | null;
             attendanceRecordId: string;
             success: boolean;
             score: Prisma.Decimal | null;
+            provider: string | null;
         }[];
         adjustments: {
             id: string;
             status: import("@prisma/client").$Enums.AttendanceAdjustmentStatus;
-            reason: string;
             decidedAt: Date | null;
+            reason: string;
             requestedCheckInAt: Date | null;
             requestedCheckOutAt: Date | null;
         }[];
@@ -417,9 +417,9 @@ export declare class AttendanceService {
         userId: string;
         departmentId: string;
         status: import("@prisma/client").$Enums.AttendanceAdjustmentStatus;
-        reason: string;
         decidedByUserId: string | null;
         decidedAt: Date | null;
+        reason: string;
         attendanceRecordId: string | null;
         requestedCheckInAt: Date | null;
         requestedCheckOutAt: Date | null;
@@ -431,9 +431,9 @@ export declare class AttendanceService {
         userId: string;
         departmentId: string;
         status: import("@prisma/client").$Enums.AttendanceAdjustmentStatus;
-        reason: string;
         decidedByUserId: string | null;
         decidedAt: Date | null;
+        reason: string;
         attendanceRecordId: string | null;
         requestedCheckInAt: Date | null;
         requestedCheckOutAt: Date | null;

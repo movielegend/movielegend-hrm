@@ -22,12 +22,13 @@ export declare class RealtimeGateway implements OnGatewayInit, OnGatewayConnecti
     };
     handleChatJoin(client: Socket, payload: {
         departmentId?: string;
+        groupId?: string;
     }): {
         ok: boolean;
-        code: string;
+        code?: undefined;
     } | {
         ok: boolean;
-        code?: undefined;
+        code: string;
     };
     private extractToken;
 }

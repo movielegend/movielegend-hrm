@@ -157,7 +157,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
           style={styles.map}
           region={region}
           onRegionChangeComplete={setRegion}
-          onPress={(e) => handleSelectCoordinate(e.nativeEvent.coordinate)}
+          onPress={(e: any) => handleSelectCoordinate(e.nativeEvent.coordinate)}
           showsUserLocation
         >
           {selectedCoordinate && (
