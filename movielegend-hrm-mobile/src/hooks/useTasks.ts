@@ -203,3 +203,11 @@ function invalidateTaskCollections(queryClient: ReturnType<typeof useQueryClient
   void queryClient.invalidateQueries({ queryKey: ['tasks'] });
   void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 }
+
+export function useCompleteTask(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => require('../api/tasks.api').completeTask(id),
+    onSuccess: () => invalidateTask(queryClient, id),
+  });
+}

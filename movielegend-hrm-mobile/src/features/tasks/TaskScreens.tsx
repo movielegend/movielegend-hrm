@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCompleteTask } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -159,6 +160,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const extension = useCreateTaskExtension(id ?? '');
   const review = useReviewTaskAssignment(id);
   const extensionReview = useReviewTaskExtension(id);
+  const completeTask = useCompleteTask(id ?? '');
   const canReview = hasAnyPermission(user, ['task.review_all', 'task.review_department']);
   const canReviewExtension = hasAnyPermission(user, ['task.extension_review_all', 'task.extension_review_department']);
 
@@ -255,6 +257,36 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               pending={extension.isPending}
               onSubmit={(requestedDueAt, reason) => run(() => extension.mutateAsync({ assignmentId: assignment.id, requestedDueAt, reason }), 'Đã gửi yêu cầu gia hạn')}
             />
+          </SectionCard>
+        ) : null}
+
+        {item.childTasks?.length > 0 ? (
+          <SectionCard title="Công việc con (Subtasks)">
+            {item.childTasks.map((child: any) => (
+              <Pressable key={child.id} style={[styles.inlinePanel, { flexDirection: 'column', alignItems: 'flex-start' }]} onPress={() => router.push(`/${area}/tasks/${child.id}`)}>
+                <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
+                  <Text style={[styles.titleText, { flex: 1 }]}>{child.title}</Text>
+                  <TaskStatusBadge status={child.status} />
+                </View>
+                <Text style={styles.metaSmall}>{child.taskCode}</Text>
+              </Pressable>
+            ))}
+          </SectionCard>
+        ) : null}
+
+        {item.groupLeaderId === user?.id && item.status !== 'COMPLETED' ? (
+          <SectionCard title="Quản lý Nhóm (Leader)">
+            <SecondaryButton onPress={() => router.push(`/${area}/tasks/create?parentTaskId=${item.id}`)}>
+              + Thêm công việc con
+            </SecondaryButton>
+            <View style={{ marginTop: spacing.md }}>
+              <PrimaryButton 
+                loading={completeTask.isPending}
+                onPress={() => void run(() => completeTask.mutateAsync(), 'Đã hoàn thành công việc nhóm')}
+              >
+                Hoàn thành Task Nhóm
+              </PrimaryButton>
+            </View>
           </SectionCard>
         ) : null}
 
@@ -406,6 +438,7 @@ function ActionDatePicker({
 
 export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
   const router = useRouter();
+  const { parentTaskId } = useLocalSearchParams<{ parentTaskId?: string }>();
   const { user } = useAuth();
   const mutation = useCreateTask();
   
@@ -450,6 +483,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       ...(departmentContextId ? { departmentContextId } : {}),
       ...(startAt ? { startAt: startAt.toISOString() } : {}),
       ...(dueAt ? { dueAt: dueAt.toISOString() } : {}),
+      ...(parentTaskId ? { parentTaskId } : {}),
       isAdhocGroup,
       ...(isAdhocGroup ? { memberIds, leaderId } : { targets }),
     };
