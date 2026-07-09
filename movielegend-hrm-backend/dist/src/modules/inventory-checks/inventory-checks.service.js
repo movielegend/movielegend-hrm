@@ -33,7 +33,6 @@ let InventoryChecksService = class InventoryChecksService {
         return this.prisma.$transaction(async (tx) => {
             const checkCode = await this.prisma.nextSequenceCode(tx, 'inventory_check_code_seq', 'INV');
             const stocks = await tx.warehouseStock.findMany({ where: { warehouseId: dto.warehouseId } });
-            const assets = await tx.asset.findMany({ where: { warehouseId: dto.warehouseId, deletedAt: null } });
             return tx.inventoryCheck.create({
                 data: {
                     warehouseId: dto.warehouseId,
@@ -47,11 +46,6 @@ let InventoryChecksService = class InventoryChecksService {
                                 systemQuantity: stock.quantityOnHand,
                                 actualQuantity: stock.quantityOnHand,
                                 differenceQuantity: 0,
-                            })),
-                            ...assets.map((asset) => ({
-                                assetId: asset.id,
-                                expectedAssetStatus: asset.assetStatus,
-                                actualAssetStatus: asset.assetStatus,
                             })),
                         ],
                     },
@@ -89,7 +83,7 @@ let InventoryChecksService = class InventoryChecksService {
                     : undefined;
                 await tx.inventoryCheckItem.update({
                     where: { id: item.id },
-                    data: { actualQuantity: item.actualQuantity, actualAssetStatus: item.actualAssetStatus, differenceQuantity: difference, note: item.note },
+                    data: { actualQuantity: item.actualQuantity, differenceQuantity: difference, note: item.note },
                 });
             }
             return tx.inventoryCheck.findUnique({ where: { id }, include: { items: true } });
@@ -121,9 +115,6 @@ let InventoryChecksService = class InventoryChecksService {
                         referenceType: 'InventoryCheck',
                         referenceId: id,
                     });
-                }
-                if (item.assetId && item.actualAssetStatus && item.actualAssetStatus !== item.expectedAssetStatus) {
-                    await tx.asset.update({ where: { id: item.assetId }, data: { assetStatus: item.actualAssetStatus } });
                 }
             }
             const updated = await tx.inventoryCheck.update({

@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AssetStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsArray, IsEnum, IsNumber, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
 
@@ -24,11 +23,6 @@ export class InventoryCheckItemUpdateDto {
   @Type(() => Number)
   @IsNumber()
   actualQuantity?: number;
-
-  @ApiPropertyOptional({ enum: AssetStatus })
-  @IsOptional()
-  @IsEnum(AssetStatus)
-  actualAssetStatus?: AssetStatus;
 
   @ApiPropertyOptional()
   @IsOptional()

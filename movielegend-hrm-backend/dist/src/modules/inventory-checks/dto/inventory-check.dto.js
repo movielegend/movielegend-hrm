@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateInventoryCheckItemsDto = exports.InventoryCheckItemUpdateDto = exports.CreateInventoryCheckDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
-const client_1 = require("@prisma/client");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 class CreateInventoryCheckDto {
@@ -33,7 +32,6 @@ __decorate([
 class InventoryCheckItemUpdateDto {
     id;
     actualQuantity;
-    actualAssetStatus;
     note;
 }
 exports.InventoryCheckItemUpdateDto = InventoryCheckItemUpdateDto;
@@ -49,12 +47,6 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], InventoryCheckItemUpdateDto.prototype, "actualQuantity", void 0);
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: client_1.AssetStatus }),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(client_1.AssetStatus),
-    __metadata("design:type", String)
-], InventoryCheckItemUpdateDto.prototype, "actualAssetStatus", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),

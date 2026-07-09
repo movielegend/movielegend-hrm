@@ -104,11 +104,11 @@ export declare class DeductionsController {
         createdById: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        deductionType: string;
         approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         approvedById: string | null;
+        deductionType: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
@@ -121,11 +121,11 @@ export declare class DeductionsController {
         createdById: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        deductionType: string;
         approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         approvedById: string | null;
+        deductionType: string;
     }[]>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -138,11 +138,11 @@ export declare class DeductionsController {
         createdById: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        deductionType: string;
         approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         approvedById: string | null;
+        deductionType: string;
     }>;
     reject(id: string, dto: RejectCompensationDto): import("@prisma/client").Prisma.Prisma__EmployeeDeductionClient<{
         id: string;
@@ -155,11 +155,11 @@ export declare class DeductionsController {
         createdById: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        deductionType: string;
         approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         approvedById: string | null;
+        deductionType: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     cancel(id: string): import("@prisma/client").Prisma.Prisma__EmployeeDeductionClient<{
         id: string;
@@ -172,10 +172,10 @@ export declare class DeductionsController {
         createdById: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        deductionType: string;
         approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
         approvedById: string | null;
+        deductionType: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
 }

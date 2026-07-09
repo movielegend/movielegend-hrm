@@ -123,11 +123,10 @@ async function main() {
         update: {},
         create: { companyId: company.id, code: 'DEMO_KHO', name: 'Demo Kho', managerUserId: employee.id },
     });
-    const category = await prisma.assetCategory.upsert({ where: { code: 'DEMO_DEVICE' }, update: {}, create: { code: 'DEMO_DEVICE', name: 'Demo Device' } });
     await prisma.asset.upsert({
         where: { assetCode: 'DEMO_ASSET_001' },
         update: {},
-        create: { assetCode: 'DEMO_ASSET_001', categoryId: category.id, warehouseId: warehouse.id, name: 'Demo Camera', conditionStatus: client_1.AssetConditionStatus.GOOD, assetStatus: client_1.AssetStatus.IN_STOCK },
+        create: { assetCode: 'DEMO_ASSET_001', warehouseId: warehouse.id, name: 'Demo Camera', conditionStatus: client_1.AssetConditionStatus.GOOD, assetStatus: client_1.AssetStatus.IN_STOCK },
     });
     const salaryProfile = await prisma.salaryProfile.findFirst({ where: { userId: employee.id } }) ?? await prisma.salaryProfile.create({
         data: { userId: employee.id, salaryType: client_1.SalaryType.MONTHLY, baseSalary: 10000000, standardWorkingDays: 26, effectiveFrom: workDate, createdById: employee.id },

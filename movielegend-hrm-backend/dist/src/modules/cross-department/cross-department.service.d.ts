@@ -19,10 +19,10 @@ export declare class CrossDepartmentService {
         decidedAt: Date | null;
         content: string;
         taskId: string | null;
-        sourceDepartmentId: string;
         targetDepartmentId: string;
         requestCode: string;
         createdByUserId: string;
+        sourceDepartmentId: string;
     }>;
     findAll(actor: AuthenticatedUser): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
@@ -35,10 +35,10 @@ export declare class CrossDepartmentService {
         decidedAt: Date | null;
         content: string;
         taskId: string | null;
-        sourceDepartmentId: string;
         targetDepartmentId: string;
         requestCode: string;
         createdByUserId: string;
+        sourceDepartmentId: string;
     }[]>;
     findOne(id: string, actor: AuthenticatedUser): Promise<{
         requester: {
@@ -128,10 +128,10 @@ export declare class CrossDepartmentService {
         decidedAt: Date | null;
         content: string;
         taskId: string | null;
-        sourceDepartmentId: string;
         targetDepartmentId: string;
         requestCode: string;
         createdByUserId: string;
+        sourceDepartmentId: string;
     }>;
     approveSource(id: string, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -144,10 +144,10 @@ export declare class CrossDepartmentService {
         decidedAt: Date | null;
         content: string;
         taskId: string | null;
-        sourceDepartmentId: string;
         targetDepartmentId: string;
         requestCode: string;
         createdByUserId: string;
+        sourceDepartmentId: string;
     }>;
     rejectSource(id: string, dto: RejectCrossDepartmentRequestDto, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -160,10 +160,10 @@ export declare class CrossDepartmentService {
         decidedAt: Date | null;
         content: string;
         taskId: string | null;
-        sourceDepartmentId: string;
         targetDepartmentId: string;
         requestCode: string;
         createdByUserId: string;
+        sourceDepartmentId: string;
     }>;
     acceptTarget(id: string, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -176,10 +176,10 @@ export declare class CrossDepartmentService {
         decidedAt: Date | null;
         content: string;
         taskId: string | null;
-        sourceDepartmentId: string;
         targetDepartmentId: string;
         requestCode: string;
         createdByUserId: string;
+        sourceDepartmentId: string;
     }>;
     rejectTarget(id: string, dto: RejectCrossDepartmentRequestDto, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -192,10 +192,10 @@ export declare class CrossDepartmentService {
         decidedAt: Date | null;
         content: string;
         taskId: string | null;
-        sourceDepartmentId: string;
         targetDepartmentId: string;
         requestCode: string;
         createdByUserId: string;
+        sourceDepartmentId: string;
     }>;
     private decide;
     private canView;

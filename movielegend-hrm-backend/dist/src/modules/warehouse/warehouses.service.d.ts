@@ -101,8 +101,8 @@ export declare class WarehousesService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            categoryId: string;
             unit: string;
+            categoryId: string;
             materialCode: string;
             minimumStock: import("@prisma/client/runtime/library").Decimal;
             maximumStock: import("@prisma/client/runtime/library").Decimal | null;

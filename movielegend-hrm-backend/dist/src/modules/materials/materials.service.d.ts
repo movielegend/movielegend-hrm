@@ -42,8 +42,8 @@ export declare class MaterialsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        categoryId: string;
         unit: string;
+        categoryId: string;
         materialCode: string;
         minimumStock: import("@prisma/client/runtime/library").Decimal;
         maximumStock: import("@prisma/client/runtime/library").Decimal | null;
@@ -67,8 +67,8 @@ export declare class MaterialsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        categoryId: string;
         unit: string;
+        categoryId: string;
         materialCode: string;
         minimumStock: import("@prisma/client/runtime/library").Decimal;
         maximumStock: import("@prisma/client/runtime/library").Decimal | null;
@@ -92,8 +92,8 @@ export declare class MaterialsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        categoryId: string;
         unit: string;
+        categoryId: string;
         materialCode: string;
         minimumStock: import("@prisma/client/runtime/library").Decimal;
         maximumStock: import("@prisma/client/runtime/library").Decimal | null;
@@ -117,8 +117,8 @@ export declare class MaterialsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        categoryId: string;
         unit: string;
+        categoryId: string;
         materialCode: string;
         minimumStock: import("@prisma/client/runtime/library").Decimal;
         maximumStock: import("@prisma/client/runtime/library").Decimal | null;

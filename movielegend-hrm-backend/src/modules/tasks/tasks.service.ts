@@ -348,6 +348,34 @@ export class TasksService {
     });
   }
 
+  async completeTask(id: string, actor: AuthenticatedUser) {
+    const task = await this.prisma.task.findUnique({ where: { id }, include: { assignments: true } });
+    if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
+    if (task.groupLeaderId !== actor.userId && !actor.roles.includes('ADMIN')) {
+      throw forbidden('NOT_GROUP_LEADER', 'Only the group leader can complete this task');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.taskAssignment.updateMany({
+        where: { taskId: id, status: { notIn: [TaskAssignmentStatus.CANCELLED, TaskAssignmentStatus.COMPLETED] } },
+        data: { status: TaskAssignmentStatus.COMPLETED, progressPercent: 100 },
+      });
+      const updated = await tx.task.update({
+        where: { id },
+        data: { status: TaskStatus.COMPLETED, completedAt: new Date() },
+        include: this.taskDetailInclude(),
+      });
+      await tx.taskStatusHistory.create({
+        data: {
+          taskId: id,
+          actorUserId: actor.userId,
+          action: TaskHistoryAction.APPROVED,
+          toStatus: TaskStatus.COMPLETED,
+        },
+      });
+      return updated;
+    });
+  }
+
   async approveAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser) {
     return this.reviewAssignment(assignmentId, dto, actor, TaskAssignmentStatus.COMPLETED, TaskHistoryAction.APPROVED);
   }
@@ -718,6 +746,18 @@ export class TasksService {
 
   private taskDetailInclude() {
     return {
+      childTasks: {
+        select: {
+          id: true,
+          taskCode: true,
+          title: true,
+          status: true,
+          priority: true,
+          assignments: {
+            include: { user: { select: this.safeUserSelect() } },
+          },
+        },
+      },
       targets: true,
       departmentContext: { select: { id: true, code: true, name: true } },
       createdBy: { select: this.safeUserSelect() },

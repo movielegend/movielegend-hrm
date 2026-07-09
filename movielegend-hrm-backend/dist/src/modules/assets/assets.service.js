@@ -67,7 +67,6 @@ let AssetsService = class AssetsService {
                     select: {
                         assetCode: true,
                         name: true,
-                        serialNumber: true,
                         conditionStatus: true,
                         assetStatus: true,
                         incidents: { where: { status: { in: [client_1.AssetIncidentStatus.OPEN, client_1.AssetIncidentStatus.INVESTIGATING] } } },
@@ -106,7 +105,7 @@ let AssetsService = class AssetsService {
                 data: { departmentId: dto.targetDepartmentId, conditionNote: dto.note || asset.conditionNote },
             });
             await tx.auditLog.create({
-                data: { actorUserId: actor.userId, action: 'ASSET_TRANSFERRED', entityType: 'Asset', entityId: id, details: { targetDepartmentId: dto.targetDepartmentId } },
+                data: { actorUserId: actor.userId, action: 'ASSET_TRANSFERRED', entityType: 'Asset', entityId: id, metadata: { targetDepartmentId: dto.targetDepartmentId } },
             });
             return updatedAsset;
         });
