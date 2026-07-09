@@ -324,9 +324,29 @@ export function AssetCreateScreen() {
   // Lấy departmentId từ route query params
   const { departmentId = '' } = useLocalSearchParams<{ departmentId?: string }>();
 
+  function generateAssetCode(assetName: string) {
+    const prefix = assetName
+      .split(' ')
+      .filter(Boolean)
+      .map(w => w[0].toUpperCase())
+      .join('')
+      .substring(0, 3);
+    
+    const now = new Date();
+    const d = now.getDate().toString().padStart(2, '0');
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const y = now.getFullYear().toString().slice(-2);
+    const h = now.getHours().toString().padStart(2, '0');
+    const min = now.getMinutes().toString().padStart(2, '0');
+    
+    return `${prefix || 'AST'}-${d}${m}${y}${h}${min}`;
+  }
+
   async function submit() {
     try {
+      const generatedCode = generateAssetCode(name.trim());
       const asset = await create.mutateAsync({
+        assetCode: generatedCode,
         name: name.trim(),
         ...(brand === 'Khác' ? (customBrand.trim() ? { brand: customBrand.trim() } : {}) : { brand }),
         ...(model === 'Khác' ? (customModel.trim() ? { model: customModel.trim() } : {}) : { model }),
