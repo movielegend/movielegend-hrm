@@ -72,7 +72,6 @@ export function AdminProfileScreen() {
           <View style={styles.grid}>
             <GridCard title="Công việc" icon="briefcase-check-outline" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/admin/tasks')} />
             <GridCard title="Nhóm Task" icon="format-list-group" iconBg="#FFEDD5" iconColor="#F97316" onPress={() => router.push('/admin/task-groups')} />
-            <GridCard title="Tài sản" icon="monitor" iconBg="#FCE7F3" iconColor="#EC4899" onPress={() => router.push('/admin/assets')} />
             <GridCard title="Sự cố" icon="alert-octagon-outline" iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/admin/asset-incidents')} />
           </View>
         </View>
@@ -82,8 +81,6 @@ export function AdminProfileScreen() {
           <Text style={styles.sectionTitle}>Quản lý Kho bãi</Text>
           <View style={styles.grid}>
             <GridCard title="Kho bãi" icon="warehouse" iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/admin/warehouses')} />
-            <GridCard title="Vật tư" icon="package-variant" iconBg="#FEF3C7" iconColor="#F59E0B" onPress={() => router.push('/admin/materials')} />
-            <GridCard title="Danh mục" icon="shape-outline" iconBg="#E0F2FE" iconColor="#3B82F6" onPress={() => router.push('/admin/material-categories')} />
             <GridCard title="Nhập kho" icon="tray-arrow-down" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/admin/stock-receipts')} />
             <GridCard title="Xuất kho" icon="tray-arrow-up" iconBg="#FFE4E6" iconColor="#F43F5E" onPress={() => router.push('/admin/material-issues')} />
             <GridCard title="Điều chuyển" icon="truck-fast-outline" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/admin/stock-transfers')} />
