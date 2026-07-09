@@ -23,6 +23,7 @@ import {
   CreateAttendanceLocationDto,
   CreateWifiConfigDto,
   TrackLocationDto,
+  UpdateAttendanceLocationDto,
 } from './dto/attendance.dto';
 
 @Injectable()
@@ -257,7 +258,13 @@ export class AttendanceService {
         deletedAt: null,
         ...(visibleDepartmentIds === null
           ? {}
-          : { OR: [{ departmentId: null }, { departmentId: { in: visibleDepartmentIds } }] }),
+          : {
+              OR: [
+                { departments: { none: {} }, branchId: null },
+                { departments: { some: { id: { in: visibleDepartmentIds } } } },
+                { departments: { none: {} }, branch: { departments: { some: { id: { in: visibleDepartmentIds } } } } },
+              ],
+            }),
       },
       select: {
         id: true,
@@ -265,7 +272,8 @@ export class AttendanceService {
         latitude: true,
         longitude: true,
         radiusMeters: true,
-        departmentId: true,
+        branchId: true,
+        departments: { select: { id: true } },
       },
       orderBy: { name: 'asc' },
     });
@@ -273,6 +281,7 @@ export class AttendanceService {
       ...location,
       latitude: Number(location.latitude),
       longitude: Number(location.longitude),
+      departmentIds: location.departments.map(d => d.id),
     }));
   }
 
@@ -353,29 +362,121 @@ export class AttendanceService {
     });
   }
 
-  async findAll(actor: AuthenticatedUser, departmentId?: string) {
+  async findAll(actor: AuthenticatedUser, query: AttendanceQueryDto) {
     const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
-    const departmentFilter = this.departmentFilter(departmentId, visibleDepartmentIds);
-    return this.prisma.attendanceRecord.findMany({
-      where: departmentFilter ? { departmentId: departmentFilter } : {},
-      include: {
-        user: {
-          select: {
-            id: true,
-            userCode: true,
-            phone: true,
-            email: true,
-            profile: true,
+    const departmentFilter = this.departmentFilter(query.departmentId, visibleDepartmentIds);
+    const where: Prisma.AttendanceRecordWhereInput = {
+      ...(departmentFilter ? { departmentId: departmentFilter } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
+        ? { workDate: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
+        : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              phone: true,
+              email: true,
+              profile: true,
+            },
           },
+          shiftAssignment: { include: { shift: true } },
         },
-        shiftAssignment: { include: { shift: true } },
+        orderBy: [{ workDate: 'desc' }, { checkInAt: 'desc' }],
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+      this.prisma.attendanceRecord.count({ where }),
+    ]);
+
+    return this.paginate(items, total, query.page, query.limit);
+  }
+
+  async getDashboardStats(actor: AuthenticatedUser, query: AttendanceQueryDto) {
+    const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
+    const departmentFilter = this.departmentFilter(query.departmentId, visibleDepartmentIds);
+    const dateRange = this.businessTime.inclusiveDateRange(query.fromDate, query.toDate);
+    const workDateFilter = dateRange || { equals: this.businessTime.startOfBusinessDate(this.businessTime.businessDateString()) };
+
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        ...(departmentFilter ? { departmentId: departmentFilter } : {}),
+        workDate: workDateFilter,
       },
-      orderBy: { checkInAt: 'desc' },
+      include: { shiftAssignment: { include: { shift: true } } },
     });
+
+    const totalUsersCount = await this.prisma.user.count({
+      where: {
+        accountStatus: 'ACTIVE',
+        ...(departmentFilter ? { departmentLinks: { some: { departmentId: departmentFilter as any } } } : {}),
+      },
+    });
+
+    const totalPresent = records.length;
+    let onTime = 0;
+    let late = 0;
+
+    for (const r of records) {
+      if (!r.checkInAt || !r.shiftAssignment?.shift) continue;
+      const shiftStart = this.shiftDateTime(r.workDate, r.shiftAssignment.shift.startTime);
+      const limitTime = new Date(shiftStart.getTime() + r.shiftAssignment.shift.checkInLateMinutes * 60_000);
+      if (r.checkInAt <= limitTime) {
+        onTime++;
+      } else {
+        late++;
+      }
+    }
+
+    const absent = Math.max(0, totalUsersCount - totalPresent);
+
+    return {
+      totalUsers: totalUsersCount,
+      present: totalPresent,
+      onTime,
+      late,
+      absent,
+    };
   }
 
   createLocation(dto: CreateAttendanceLocationDto) {
-    return this.prisma.attendanceLocation.create({ data: dto });
+    const { departmentIds, ...rest } = dto;
+    return this.prisma.attendanceLocation.create({
+      data: {
+        ...rest,
+        departments: departmentIds?.length ? { connect: departmentIds.map((id) => ({ id })) } : undefined,
+      },
+    });
+  }
+
+  updateLocation(id: string, dto: UpdateAttendanceLocationDto) {
+    const { departmentIds, ...rest } = dto;
+    return this.prisma.attendanceLocation.update({
+      where: { id },
+      data: {
+        ...rest,
+        departments: departmentIds !== undefined ? { set: departmentIds.map((deptId) => ({ id: deptId })) } : undefined,
+      },
+    });
+  }
+
+  async removeLocation(id: string) {
+    // Soft delete location
+    const location = await this.prisma.attendanceLocation.findUnique({ where: { id } });
+    if (!location) throw notFound('LOCATION_NOT_FOUND', 'Khong tim thay diem cham cong');
+    return this.prisma.attendanceLocation.update({
+      where: { id },
+      data: {
+        isActive: false,
+        deletedAt: new Date(),
+      },
+    });
   }
 
   createWifi(dto: CreateWifiConfigDto) {
@@ -434,7 +535,11 @@ export class AttendanceService {
       where: {
         isActive: true,
         deletedAt: null,
-        OR: [{ departmentId }, { departmentId: null }],
+        OR: [
+          { departments: { none: {} }, branchId: null },
+          { departments: { some: { id: departmentId } } },
+          { departments: { none: {} }, branch: { departments: { some: { id: departmentId } } } },
+        ],
       },
     });
     return locations.find((location) => {
@@ -550,7 +655,7 @@ export class AttendanceService {
     if (!metadata?.attendanceLocationId) return null;
     const location = await this.prisma.attendanceLocation.findUnique({
       where: { id: metadata.attendanceLocationId },
-      select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true, departmentId: true },
+      select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true, branchId: true },
     });
     return location
       ? {

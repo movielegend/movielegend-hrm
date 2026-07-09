@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState, useEffect } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
@@ -60,6 +62,23 @@ type TaskArea = 'employee' | 'leader' | 'admin';
 
 const priorities: TaskPriority[] = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
 
+const PRIORITY_LABELS: Record<TaskPriority, string> = {
+  URGENT: 'Khẩn cấp',
+  HIGH: 'Cao',
+  NORMAL: 'Bình thường',
+  LOW: 'Thấp',
+};
+
+const TASK_STATUS_TABS = [
+  { label: 'Tất cả', value: '' },
+  { label: 'Mới tạo', value: 'NEW' },
+  { label: 'Đang làm', value: 'IN_PROGRESS' },
+  { label: 'Chờ duyệt', value: 'WAITING_REVIEW' },
+  { label: 'Hoàn thành', value: 'COMPLETED' },
+  { label: 'Từ chối', value: 'REJECTED' },
+  { label: 'Đã hủy', value: 'CANCELLED' },
+];
+
 export function TaskListScreen({ area }: { area: TaskArea }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -69,17 +88,50 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
 
+  const title = area === 'employee' ? 'Công việc của tôi' : area === 'leader' ? 'Công việc phòng ban' : 'Tất cả Công việc';
+
   return (
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
-        <PageHeader title={area === 'employee' ? 'My Tasks' : area === 'leader' ? 'Department Tasks' : 'All Tasks'} subtitle="Danh sach task goi endpoint that, khong filter local." />
-        <SearchInput value={search} onChangeText={setSearch} placeholder="Search task" />
-        <FormField label="Status filter" value={status} onChangeText={setStatus} autoCapitalize="characters" />
-        {createRoute ? <PrimaryButton onPress={() => router.push(createRoute)}>Tao task</PrimaryButton> : null}
-        {reviewRoute ? <SecondaryButton onPress={() => router.push(reviewRoute)}>Review queue</SecondaryButton> : null}
+        <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" />
+        
+        <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />
+        
+        <View style={styles.actionRow}>
+          {createRoute ? (
+            <Pressable style={styles.actionBtnPrimary} onPress={() => router.push(createRoute)}>
+              <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+              <Text style={styles.actionBtnTextPrimary}>Thêm công việc</Text>
+            </Pressable>
+          ) : null}
+          {reviewRoute ? (
+            <Pressable style={styles.actionBtnSecondary} onPress={() => router.push(reviewRoute)}>
+              <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.primary} />
+              <Text style={styles.actionBtnTextSecondary}>Hàng đợi duyệt</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.tabsContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
+            {TASK_STATUS_TABS.map(tab => {
+              const isActive = status === tab.value;
+              return (
+                <Pressable
+                  key={tab.value}
+                  style={[styles.tabPill, isActive && styles.tabPillActive]}
+                  onPress={() => setStatus(tab.value)}
+                >
+                  <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {tasks.isLoading ? <LoadingState /> : null}
         {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
-        {!tasks.isLoading && !tasks.data?.items.length ? <EmptyState title="Chua co task" /> : null}
+        {!tasks.isLoading && !tasks.data?.items.length ? <EmptyState title="Chưa có công việc nào" /> : null}
         {tasks.data?.items.map((task) => (
           <TaskCard key={task.id} task={task} onPress={() => router.push(`/${area}/tasks/${task.id}`)} />
         ))}
@@ -236,17 +288,108 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   );
 }
 
+function ActionDatePicker({ 
+  visible, 
+  value, 
+  onChange, 
+  onClose,
+  title
+}: { 
+  visible: boolean; 
+  value: Date | null; 
+  onChange: (d: Date) => void; 
+  onClose: () => void;
+  title: string;
+}) {
+  const [tempDate, setTempDate] = useState(value || new Date());
+  const [androidMode, setAndroidMode] = useState<'date' | 'time'>('date');
+
+  useEffect(() => {
+    if (visible) {
+      setTempDate(value || new Date());
+      setAndroidMode('date');
+    }
+  }, [visible, value]);
+
+  if (!visible) return null;
+
+  if (Platform.OS === 'android') {
+    return (
+      <DateTimePicker
+        value={tempDate}
+        mode={androidMode}
+        display="default"
+        locale="vi-VN"
+        onChange={(e, d) => {
+          if (e.type === 'dismissed') {
+            onClose();
+            return;
+          }
+          if (e.type === 'set' && d) {
+            if (androidMode === 'date') {
+              setTempDate(d);
+              setAndroidMode('time');
+            } else {
+              const newDate = new Date(tempDate);
+              newDate.setHours(d.getHours());
+              newDate.setMinutes(d.getMinutes());
+              onChange(newDate);
+              onClose();
+            }
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.pickerModalOverlay}>
+        <Pressable style={{flex: 1}} onPress={onClose} />
+        <View style={styles.pickerModalContent}>
+          <View style={styles.pickerModalHeader}>
+            <Text style={styles.pickerModalTitle}>{title}</Text>
+            <Pressable onPress={() => {
+              onChange(tempDate);
+              onClose();
+            }}>
+              <Text style={styles.pickerModalDone}>Xong</Text>
+            </Pressable>
+          </View>
+          <DateTimePicker
+            value={tempDate}
+            mode="datetime"
+            display="spinner"
+            locale="vi-VN"
+            onChange={(e, d) => {
+              if (d) setTempDate(d);
+            }}
+            style={{ height: 216 }}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
   const router = useRouter();
   const { user } = useAuth();
   const mutation = useCreateTask();
+  
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('NORMAL');
-  const [startAt, setStartAt] = useState('');
-  const [dueAt, setDueAt] = useState('');
+  
+  const [startAt, setStartAt] = useState<Date | null>(null);
+  const [dueAt, setDueAt] = useState<Date | null>(null);
+  
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+  
   const [departmentContextId, setDepartmentContextId] = useState(user?.department?.id ?? '');
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
+  const [targetModalVisible, setTargetModalVisible] = useState(false);
 
   async function submit() {
     const payload: CreateTaskPayload = {
@@ -254,13 +397,13 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       description,
       priority,
       ...(departmentContextId ? { departmentContextId } : {}),
-      ...(startAt ? { startAt } : {}),
-      ...(dueAt ? { dueAt } : {}),
+      ...(startAt ? { startAt: startAt.toISOString() } : {}),
+      ...(dueAt ? { dueAt: dueAt.toISOString() } : {}),
       targets,
     };
     try {
       await mutation.mutateAsync(payload);
-      Alert.alert('Thanh cong', 'Da tao task');
+      Alert.alert('Thành công', 'Đã giao việc thành công!');
       router.back();
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -268,25 +411,126 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     }
   }
 
+  const removeTarget = (target: CreateTaskTargetPayload) => {
+    setTargets(targets.filter(t => t.targetId !== target.targetId || t.targetType !== target.targetType));
+  };
+
+  const getPriorityColor = (p: TaskPriority) => {
+    if (p === 'URGENT') return colors.danger;
+    if (p === 'HIGH') return colors.warning;
+    if (p === 'NORMAL') return colors.primary;
+    return colors.success;
+  };
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title={area === 'admin' ? 'Admin Task Create' : 'Leader Task Create'} subtitle="Gui mot task voi targets theo backend DTO." />
-        <SectionCard>
-          <FormField label="Title" value={title} onChangeText={setTitle} />
-          <FormField label="Description" value={description} onChangeText={setDescription} multiline />
-          <FormField label="Department context ID" value={departmentContextId} onChangeText={setDepartmentContextId} autoCapitalize="none" />
-          <FormField label="Start at ISO optional" value={startAt} onChangeText={setStartAt} autoCapitalize="none" />
-          <FormField label="Due at ISO optional" value={dueAt} onChangeText={setDueAt} autoCapitalize="none" />
-          <View style={styles.rowWrap}>
-            {priorities.map((item) => (
-              <SecondaryButton key={item} disabled={priority === item} onPress={() => setPriority(item)}>{item}</SecondaryButton>
-            ))}
-          </View>
+        <PageHeader title={area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc (Leader)'} subtitle="Tạo và phân công công việc mới" />
+        
+        <SectionCard title="Thông tin công việc">
+          <FormField label="Tên công việc" value={title} onChangeText={setTitle} placeholder="Nhập tên công việc..." />
+          <FormField label="Mô tả chi tiết" value={description} onChangeText={setDescription} multiline placeholder="Mô tả các yêu cầu cần làm..." />
         </SectionCard>
-        <TaskTargetSelector area={area} targets={targets} onChange={setTargets} />
-        <PrimaryButton loading={mutation.isPending} disabled={title.trim().length < 3 || !targets.length} onPress={() => void submit()}>Tao task</PrimaryButton>
+
+        <SectionCard title="Phân loại & Thời hạn">
+          <Text style={styles.fieldLabel}>Mức độ ưu tiên</Text>
+          <View style={styles.priorityWrap}>
+            {priorities.map((item) => {
+              const isActive = priority === item;
+              return (
+                <Pressable
+                  key={item}
+                  style={[styles.priorityPill, isActive && { backgroundColor: getPriorityColor(item), borderColor: getPriorityColor(item) }]}
+                  onPress={() => setPriority(item)}
+                >
+                  <Text style={[styles.priorityText, isActive && { color: '#fff' }]} >{PRIORITY_LABELS[item]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.dateRow}>
+            <View style={styles.dateCol}>
+              <Text style={styles.fieldLabel}>Thời gian bắt đầu</Text>
+              <Pressable style={styles.datePickerBtn} onPress={() => {
+                setShowDueDatePicker(false);
+                setShowStartDatePicker(true);
+              }}>
+                <MaterialCommunityIcons name="calendar-start" size={20} color={colors.muted} />
+                <Text style={startAt ? styles.dateText : styles.datePlaceholder}>
+                  {startAt ? `${startAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} ${startAt.toLocaleDateString('vi-VN')}` : 'Chọn thời gian'}
+                </Text>
+              </Pressable>
+            </View>
+            
+            <View style={styles.dateCol}>
+              <Text style={styles.fieldLabel}>Thời gian hết hạn</Text>
+              <Pressable style={styles.datePickerBtn} onPress={() => {
+                setShowStartDatePicker(false);
+                setShowDueDatePicker(true);
+              }}>
+                <MaterialCommunityIcons name="calendar-check" size={20} color={colors.muted} />
+                <Text style={dueAt ? styles.dateText : styles.datePlaceholder}>
+                  {dueAt ? `${dueAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} ${dueAt.toLocaleDateString('vi-VN')}` : 'Chọn thời gian'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+          
+          <ActionDatePicker
+            visible={showStartDatePicker}
+            value={startAt}
+            title="Chọn thời gian bắt đầu"
+            onChange={(d) => setStartAt(d)}
+            onClose={() => setShowStartDatePicker(false)}
+          />
+          <ActionDatePicker
+            visible={showDueDatePicker}
+            value={dueAt}
+            title="Chọn thời gian kết thúc"
+            onChange={(d) => setDueAt(d)}
+            onClose={() => setShowDueDatePicker(false)}
+          />
+        </SectionCard>
+
+        <SectionCard title="Người nhận việc (Assignees)">
+          <View style={styles.targetTagsWrap}>
+            {targets.map((target) => (
+              <View key={target.targetId} style={styles.targetTag}>
+                <MaterialCommunityIcons 
+                  name={target.targetType === 'USER' ? 'account' : target.targetType === 'DEPARTMENT' ? 'domain' : 'account-group'} 
+                  size={16} color={colors.primaryDark} 
+                />
+                <Text style={styles.targetTagText}>{target.targetType}: {target.targetId.substring(0,6)}...</Text>
+                <Pressable onPress={() => removeTarget(target)}>
+                  <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+                </Pressable>
+              </View>
+            ))}
+            <Pressable style={styles.addTargetBtn} onPress={() => setTargetModalVisible(true)}>
+              <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+              <Text style={styles.addTargetBtnText}>Thêm người nhận</Text>
+            </Pressable>
+          </View>
+          {!targets.length && <Text style={styles.meta}>Chưa có ai được giao việc.</Text>}
+        </SectionCard>
+
+        <PrimaryButton 
+          loading={mutation.isPending} 
+          disabled={title.trim().length < 3 || !targets.length} 
+          onPress={() => void submit()}
+        >
+          Giao việc ngay
+        </PrimaryButton>
       </ScrollView>
+      
+      <AssigneeSelectorModal
+        area={area}
+        visible={targetModalVisible}
+        onClose={() => setTargetModalVisible(false)}
+        targets={targets}
+        onChange={setTargets}
+      />
     </Screen>
   );
 }
@@ -350,56 +594,118 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
   );
 }
 
-function TaskTargetSelector({
+function AssigneeSelectorModal({
   area,
+  visible,
+  onClose,
   targets,
   onChange,
 }: {
   area: Exclude<TaskArea, 'employee'>;
+  visible: boolean;
+  onClose: () => void;
   targets: CreateTaskTargetPayload[];
   onChange: (targets: CreateTaskTargetPayload[]) => void;
 }) {
   const { user } = useAuth();
-  const departments = useDepartments({ page: 1, limit: 50 });
-  const groups = useTaskGroups({ page: 1, limit: 50 });
+  const [activeTab, setActiveTab] = useState<'USER' | 'DEPARTMENT' | 'GROUP'>('USER');
+  
+  const departments = useDepartments({ page: 1, limit: 100 });
+  const groups = useTaskGroups({ page: 1, limit: 100 });
   const departmentId = departmentIdFromUser(user);
-  const users = useScopedEmployees({ page: 1, limit: 30, ...(departmentId ? { departmentId } : {}) }, hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department']));
+  const users = useScopedEmployees({ page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) }, hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department']));
 
-  function add(targetType: TaskTargetType, targetId: string) {
-    if (targets.some((item) => item.targetType === targetType && item.targetId === targetId)) return;
-    onChange([...targets, { targetType, targetId }]);
-  }
+  const isSelected = (type: TaskTargetType, id: string) => {
+    return targets.some(t => t.targetType === type && t.targetId === id);
+  };
 
-  function remove(target: CreateTaskTargetPayload) {
-    onChange(targets.filter((item) => item.targetType !== target.targetType || item.targetId !== target.targetId));
-  }
+  const toggleTarget = (type: TaskTargetType, id: string) => {
+    if (isSelected(type, id)) {
+      onChange(targets.filter(t => t.targetType !== type || t.targetId !== id));
+    } else {
+      onChange([...targets, { targetType: type, targetId: id }]);
+    }
+  };
 
   return (
-    <SectionCard title="Task Targets">
-      <Text style={styles.meta}>Selected targets preview</Text>
-      {targets.map((target) => (
-        <View key={`${target.targetType}-${target.targetId}`} style={styles.targetRow}>
-          <Text style={styles.body}>{target.targetType}: {target.targetId}</Text>
-          <SecondaryButton onPress={() => remove(target)}>Remove</SecondaryButton>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.assigneeModalContent}>
+          <View style={styles.assigneeModalHeader}>
+            <Text style={styles.assigneeModalTitle}>Chọn người nhận việc</Text>
+            <Pressable onPress={onClose}>
+              <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.assigneeTabs}>
+            {(['USER', 'DEPARTMENT', 'GROUP'] as const).map(tab => {
+              const isActive = activeTab === tab;
+              const labels = { USER: 'Cá nhân', DEPARTMENT: 'Phòng ban', GROUP: 'Nhóm' };
+              return (
+                <Pressable 
+                  key={tab} 
+                  style={[styles.assigneeTab, isActive && styles.assigneeTabActive]}
+                  onPress={() => setActiveTab(tab)}
+                >
+                  <Text style={[styles.assigneeTabText, isActive && styles.assigneeTabTextActive]}>
+                    {labels[tab]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <ScrollView style={styles.assigneeList}>
+            {activeTab === 'USER' && users.data?.items.map(u => (
+              <Pressable key={u.id} style={styles.assigneeRow} onPress={() => toggleTarget('USER', u.id)}>
+                <View style={styles.assigneeInfo}>
+                  <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="account" size={20} color={colors.muted} /></View>
+                  <Text style={styles.assigneeName}>{u.fullName ?? u.userCode}</Text>
+                </View>
+                <MaterialCommunityIcons 
+                  name={isSelected('USER', u.id) ? 'check-circle' : 'circle-outline'} 
+                  size={24} 
+                  color={isSelected('USER', u.id) ? colors.primary : colors.border} 
+                />
+              </Pressable>
+            ))}
+
+            {activeTab === 'DEPARTMENT' && departments.data?.items.map(d => (
+              <Pressable key={d.id} style={styles.assigneeRow} onPress={() => toggleTarget('DEPARTMENT', d.id)}>
+                <View style={styles.assigneeInfo}>
+                  <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="domain" size={20} color={colors.muted} /></View>
+                  <Text style={styles.assigneeName}>{d.name}</Text>
+                </View>
+                <MaterialCommunityIcons 
+                  name={isSelected('DEPARTMENT', d.id) ? 'check-circle' : 'circle-outline'} 
+                  size={24} 
+                  color={isSelected('DEPARTMENT', d.id) ? colors.primary : colors.border} 
+                />
+              </Pressable>
+            ))}
+
+            {activeTab === 'GROUP' && groups.data?.items.map(g => (
+              <Pressable key={g.id} style={styles.assigneeRow} onPress={() => toggleTarget('GROUP', g.id)}>
+                <View style={styles.assigneeInfo}>
+                  <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="account-group" size={20} color={colors.muted} /></View>
+                  <Text style={styles.assigneeName}>{g.name}</Text>
+                </View>
+                <MaterialCommunityIcons 
+                  name={isSelected('GROUP', g.id) ? 'check-circle' : 'circle-outline'} 
+                  size={24} 
+                  color={isSelected('GROUP', g.id) ? colors.primary : colors.border} 
+                />
+              </Pressable>
+            ))}
+          </ScrollView>
+          
+          <View style={styles.assigneeFooter}>
+            <PrimaryButton onPress={onClose}>Hoàn tất ({targets.length})</PrimaryButton>
+          </View>
         </View>
-      ))}
-      {!targets.length ? <Text style={styles.meta}>Chua chon target</Text> : null}
-
-      <Text style={styles.titleText}>Departments</Text>
-      {departments.data?.items.map((department) => (
-        <SecondaryButton key={department.id} onPress={() => add('DEPARTMENT', department.id)}>{department.name}</SecondaryButton>
-      ))}
-
-      <Text style={styles.titleText}>Groups</Text>
-      {groups.data?.items.map((group) => (
-        <SecondaryButton key={group.id} onPress={() => add('GROUP', group.id)}>{group.name}</SecondaryButton>
-      ))}
-
-      <Text style={styles.titleText}>Users</Text>
-      {users.data?.items.map((employee) => (
-        <SecondaryButton key={employee.id} onPress={() => add('USER', employee.id)}>{employee.fullName ?? employee.userCode}</SecondaryButton>
-      ))}
-    </SectionCard>
+      </View>
+    </Modal>
   );
 }
 
@@ -460,4 +766,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  fieldLabel: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs, marginTop: spacing.sm },
+  priorityWrap: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.md },
+  priorityPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background },
+  priorityText: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  dateRow: { flexDirection: 'row', gap: spacing.md },
+  dateCol: { flex: 1 },
+  datePickerBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.background },
+  dateText: { fontSize: 14, color: colors.text },
+  datePlaceholder: { fontSize: 14, color: colors.muted },
+  
+  targetTagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  targetTag: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primarySoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  targetTagText: { fontSize: 13, fontWeight: '600', color: colors.primaryDark },
+  addTargetBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed' },
+  addTargetBtnText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  assigneeModalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '80%', padding: spacing.lg },
+  assigneeModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  assigneeModalTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
+  assigneeTabs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  assigneeTab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
+  assigneeTabActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  assigneeTabText: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  assigneeTabTextActive: { color: colors.primaryDark },
+  assigneeList: { flex: 1 },
+  assigneeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  assigneeInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  assigneeAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  assigneeName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  assigneeFooter: { paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+  
+  // Date Picker Modal
+  pickerModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  pickerModalContent: { backgroundColor: colors.background, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 24 },
+  pickerModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  pickerModalTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
+  pickerModalDone: { fontSize: 16, fontWeight: '600', color: colors.primary },
+  
+  // List UI
+  actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md, marginTop: spacing.sm },
+  actionBtnPrimary: { flex: 1, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 8 },
+  actionBtnTextPrimary: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  actionBtnSecondary: { flex: 1, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 8, borderWidth: 1, borderColor: colors.primary },
+  actionBtnTextSecondary: { color: colors.primaryDark, fontSize: 15, fontWeight: '700' },
+  tabsContainer: { marginHorizontal: -spacing.lg, marginBottom: spacing.lg },
+  tabsScroll: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  tabPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
+  tabPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tabText: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  tabTextActive: { color: '#fff' },
 });

@@ -357,10 +357,10 @@ export function DashboardShell({
                   user,
                   'cross_department.source_approve',
                 ) ||
-                hasPermission(
-                  user,
-                  'cross_department.target_receive',
-                ) ? (
+                  hasPermission(
+                    user,
+                    'cross_department.target_receive',
+                  ) ? (
                   <SecondaryButton
                     onPress={() =>
                       router.push('/leader/cross-department')
@@ -734,6 +734,7 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     padding: spacing.lg,
     paddingBottom: spacing.xl,
+    backgroundColor: '#F4F6F8', // Modern light background
   },
 
   header: {
@@ -741,6 +742,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
 
   headerInfo: {
@@ -749,69 +751,86 @@ const styles = StyleSheet.create({
   },
 
   kicker: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   title: {
-    color: colors.text,
-    fontSize: 24,
+    color: '#111827',
+    fontSize: 26,
     fontWeight: '800',
+    letterSpacing: -0.5,
   },
 
   logoutButton: {
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   logoutText: {
     color: colors.primary,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 
   identity: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.border,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: spacing.xs,
-    padding: spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    gap: spacing.sm,
+    padding: spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
+    marginBottom: spacing.sm,
   },
 
   identityTitle: {
-    color: colors.primaryDark,
-    fontSize: 15,
+    color: colors.primary,
+    fontSize: 16,
     fontWeight: '800',
     marginBottom: spacing.xs,
   },
 
   identityText: {
-    color: colors.text,
-    fontSize: 14,
+    color: '#4B5563',
+    fontSize: 15,
+    fontWeight: '500',
   },
 
   navigationSection: {
     gap: spacing.md,
+    marginTop: spacing.sm,
   },
 
   navigationTitle: {
-    color: colors.text,
-    fontSize: 18,
+    color: '#111827',
+    fontSize: 20,
     fontWeight: '800',
+    marginBottom: spacing.xs,
   },
 
   navGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
 
   dashboardSections: {
     gap: spacing.xl,
+    marginTop: spacing.md,
   },
 
   section: {
@@ -819,8 +838,8 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
+    color: '#111827',
+    fontSize: 20,
     fontWeight: '800',
   },
 
@@ -831,26 +850,29 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexBasis: 160,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    flexBasis: '46%',
     flexGrow: 1,
-    gap: spacing.sm,
+    gap: spacing.md,
     minWidth: 150,
-    padding: spacing.lg,
+    padding: spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 6,
   },
 
   cardLabel: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   cardValue: {
-    color: colors.primaryDark,
-    fontSize: 28,
+    color: colors.primary,
+    fontSize: 32,
     fontWeight: '800',
   },
 });

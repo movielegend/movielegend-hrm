@@ -79,7 +79,9 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const requestId = stringMeta(notification.metadata, 'requestId');
   const assetId = stringMeta(notification.metadata, 'assetId');
   const issueId = stringMeta(notification.metadata, 'issueId');
+  const approvalRequestId = stringMeta(notification.metadata, 'approvalRequestId');
   const base = roleBase(user);
+  if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
   if (notification.type.startsWith('TASK_') && taskId) return `${base}/tasks/${taskId}`;
   if (notification.type.startsWith('CROSS_DEPARTMENT_') && requestId) return `${base}/cross-department/${requestId}`;
   if (notification.type.startsWith('ASSET_') && assetId) return `${base}/assets/${assetId}`;

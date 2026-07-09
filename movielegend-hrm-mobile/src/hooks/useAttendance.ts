@@ -10,6 +10,9 @@ import {
   getAttendanceReport,
   getCurrentAttendance,
   trackLocation,
+  updateAttendanceLocation,
+  deleteAttendanceLocation,
+  getAttendanceDashboardStats,
 } from '../api/attendance.api';
 import { queryKeys } from '../constants/queryKeys';
 import type {
@@ -32,6 +35,13 @@ export function useAttendanceReport(filters: AttendanceHistoryFilters = {}) {
   return useQuery({
     queryKey: queryKeys.attendanceHistory({ ...filters, report: true }),
     queryFn: () => getAttendanceReport(filters),
+  });
+}
+
+export function useAttendanceDashboardStats(filters: AttendanceHistoryFilters = {}) {
+  return useQuery({
+    queryKey: ['attendance', 'dashboard', filters],
+    queryFn: () => getAttendanceDashboardStats(filters),
   });
 }
 
@@ -87,6 +97,22 @@ export function useCreateAttendanceLocation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: AttendanceLocationPayload) => createAttendanceLocation(payload),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+  });
+}
+
+export function useUpdateAttendanceLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<AttendanceLocationPayload> & { isActive?: boolean } }) => updateAttendanceLocation(id, payload),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+  });
+}
+
+export function useDeleteAttendanceLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteAttendanceLocation(id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['attendance'] }),
   });
 }

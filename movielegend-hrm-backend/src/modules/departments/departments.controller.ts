@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/public.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CreateDepartmentDto, UpdateDepartmentDto } from './dto/department.dto';
 import { DepartmentsService } from './departments.service';
@@ -14,6 +15,12 @@ export class DepartmentsController {
   @Post()
   create(@Body() dto: CreateDepartmentDto) {
     return this.departmentsService.create(dto);
+  }
+
+  @Public()
+  @Get('public')
+  findPublic(@Query('search') search?: string) {
+    return this.departmentsService.findAll(search);
   }
 
   @Permissions('department.read')

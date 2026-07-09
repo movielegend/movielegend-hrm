@@ -1,4 +1,3 @@
-import MapView, { Circle, Marker } from 'react-native-maps';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Coordinates } from '../../types/attendance.types';
 import { colors } from '../../theme/colors';
@@ -12,32 +11,20 @@ interface AttendanceMapProps {
 }
 
 export function AttendanceMap({ currentLocation, targetLocation, radius, loading, error }: AttendanceMapProps) {
-  if (loading) return <MapFallback label="Dang tai ban do GPS" />;
-  if (error) return <MapFallback label="Khong the hien thi ban do GPS" />;
-  if (!currentLocation) return <MapFallback label="Chua co vi tri hien tai" />;
+  if (loading) return <MapFallback label="Đang tải bản đồ GPS..." />;
+  if (error) return <MapFallback label="Không thể hiển thị bản đồ GPS" />;
+  if (!currentLocation) return <MapFallback label="Chưa có vị trí hiện tại" />;
 
   return (
-    <MapView
-      style={styles.map}
-      initialRegion={{
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }}
-    >
-      <Marker coordinate={currentLocation} title="Vi tri hien tai" />
-      {targetLocation ? <Marker coordinate={targetLocation} pinColor={colors.primary} title="Diem cham cong" /> : null}
-      {targetLocation && radius ? (
-        <Circle
-          center={targetLocation}
-          fillColor="rgba(37, 99, 235, 0.12)"
-          radius={radius}
-          strokeColor={colors.primary}
-          strokeWidth={2}
-        />
-      ) : null}
-    </MapView>
+    <View style={styles.mockMapContainer}>
+      <Text style={styles.mockMapText}>🗺 Bản đồ thu nhỏ</Text>
+      <Text style={styles.mockMapSubtext}>
+        (Chức năng react-native-maps cần build Dev Client, hiện tại đang ẩn trên Expo Go)
+      </Text>
+      <Text style={[styles.mockMapSubtext, { marginTop: 8 }]}>
+        Lat: {currentLocation.latitude.toFixed(4)} | Lng: {currentLocation.longitude.toFixed(4)}
+      </Text>
+    </View>
   );
 }
 
@@ -64,9 +51,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  map: {
-    borderRadius: 8,
+  mockMapContainer: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
     height: 220,
-    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  mockMapText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  mockMapSubtext: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
   },
 });

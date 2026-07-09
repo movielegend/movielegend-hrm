@@ -1,16 +1,21 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { getAbsoluteImageUrl } from '../utils/image';
 import { colors } from '../theme/colors';
 
 interface AvatarProps {
   name?: string | null | undefined;
   uri?: string | null | undefined;
+  size?: number;
 }
 
-export function Avatar({ name, uri }: AvatarProps) {
-  if (uri) return <Image source={{ uri }} style={styles.avatar} />;
+export function Avatar({ name, uri, size = 48 }: AvatarProps) {
+  const absoluteUri = getAbsoluteImageUrl(uri);
+  const dynamicStyle = { height: size, width: size, borderRadius: size / 2 };
+  
+  if (absoluteUri) return <Image source={{ uri: absoluteUri }} style={[styles.avatar, dynamicStyle]} />;
   return (
-    <View style={styles.fallback}>
-      <Text style={styles.initials}>{initials(name)}</Text>
+    <View style={[styles.fallback, dynamicStyle]}>
+      <Text style={[styles.initials, { fontSize: size * 0.35 }]}>{initials(name)}</Text>
     </View>
   );
 }

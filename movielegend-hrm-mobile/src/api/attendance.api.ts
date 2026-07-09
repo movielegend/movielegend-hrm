@@ -37,10 +37,17 @@ export async function getAttendanceHistory(filters: AttendanceHistoryFilters = {
 }
 
 export async function getAttendanceReport(filters: AttendanceHistoryFilters = {}): Promise<PaginatedResult<AttendanceRecord>> {
-  const response = await apiClient.get<ApiResponse<AttendanceRecord[]>>('/attendance', {
+  const response = await apiClient.get<ApiResponse<PaginatedResult<AttendanceRecord>>>('/attendance', {
     params: cleanReportAttendanceParams(filters),
   });
-  return normalizePagination(unwrapData(response), cleanPaginationFallback(filters));
+  return unwrapData(response);
+}
+
+export async function getAttendanceDashboardStats(filters: AttendanceHistoryFilters = {}): Promise<{ totalUsers: number; present: number; onTime: number; late: number; absent: number }> {
+  const response = await apiClient.get<ApiResponse<{ totalUsers: number; present: number; onTime: number; late: number; absent: number }>>('/attendance/dashboard', {
+    params: cleanReportAttendanceParams(filters),
+  });
+  return unwrapData(response);
 }
 
 export async function getCurrentAttendance(): Promise<CurrentAttendanceResponse> {
@@ -73,6 +80,16 @@ export async function createAttendanceLocation(payload: AttendanceLocationPayloa
   return unwrapData(response);
 }
 
+export async function updateAttendanceLocation(id: string, payload: Partial<AttendanceLocationPayload> & { isActive?: boolean }): Promise<AttendanceLocation> {
+  const response = await apiClient.patch<ApiResponse<AttendanceLocation>>(`/attendance/locations/${id}`, payload);
+  return unwrapData(response);
+}
+
+export async function deleteAttendanceLocation(id: string): Promise<AttendanceLocation> {
+  const response = await apiClient.delete<ApiResponse<AttendanceLocation>>(`/attendance/locations/${id}`);
+  return unwrapData(response);
+}
+
 export async function trackLocation(payload: Coordinates): Promise<unknown> {
   const response = await apiClient.post<ApiResponse<unknown>>('/attendance/location-tracking', {
     latitude: payload.latitude,
@@ -82,9 +99,14 @@ export async function trackLocation(payload: Coordinates): Promise<unknown> {
   return unwrapData(response);
 }
 
-function cleanReportAttendanceParams(filters: AttendanceHistoryFilters): Pick<AttendanceHistoryFilters, 'departmentId'> {
+function cleanReportAttendanceParams(filters: AttendanceHistoryFilters): Partial<AttendanceHistoryFilters> {
   return {
     ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
+    ...(filters.fromDate ? { fromDate: filters.fromDate } : {}),
+    ...(filters.toDate ? { toDate: filters.toDate } : {}),
+    ...(filters.page ? { page: filters.page } : {}),
+    ...(filters.limit ? { limit: filters.limit } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
   };
 }
 

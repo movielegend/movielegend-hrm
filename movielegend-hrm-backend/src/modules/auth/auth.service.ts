@@ -14,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, conflict, unauthorized } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -34,6 +35,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly uploads: UploadsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto, meta: RequestMeta) {
@@ -46,8 +48,9 @@ export class AuthService {
     const idCardFileIds = [dto.idCardFrontFileId, dto.idCardBackFileId].filter((id): id is string => Boolean(id));
 
     return this.prisma.$transaction(async (tx) => {
-      const [existingPhone, existingCard, department] = await Promise.all([
+      const [existingPhone, existingEmail, existingCard, department] = await Promise.all([
         tx.user.findUnique({ where: { phone: dto.phone } }),
+        tx.user.findUnique({ where: { email: dto.email } }),
         tx.employeeProfile.findUnique({ where: { idCardNumber: dto.idCardNumber } }),
         tx.department.findFirst({
           where: { id: dto.requestedDepartmentId, isActive: true, deletedAt: null },
@@ -55,6 +58,7 @@ export class AuthService {
       ]);
 
       if (existingPhone) throw conflict('DUPLICATE_PHONE', 'Số điện thoại đã tồn tại');
+      if (existingEmail) throw conflict('DUPLICATE_EMAIL', 'Email đã tồn tại');
       if (existingCard) throw conflict('DUPLICATE_ID_CARD', 'CCCD đã tồn tại');
       if (!department) throw badRequest('DEPARTMENT_NOT_FOUND', 'Phòng ban không tồn tại hoặc đã ngừng hoạt động');
 
@@ -143,6 +147,17 @@ export class AuthService {
 
       await this.uploads.attachTemporaryFiles(faceFileIds, user.id, UploadPurpose.FACE_REGISTRATION, tx);
       await this.uploads.attachTemporaryFiles(idCardFileIds, user.id, UploadPurpose.EMPLOYEE_DOCUMENT, tx);
+
+      // Fetch all admins to notify
+      const admins = await tx.user.findMany({ where: { roles: { some: { role: { name: 'ADMIN' } } } }, select: { id: true } });
+      if (admins.length > 0) {
+        await this.notifications.createForUsers(tx, admins.map(a => a.id), {
+          type: 'ACCOUNT_APPROVAL_REQUESTED' as any,
+          title: 'Tài khoản đăng ký mới',
+          body: `Có một tài khoản nhân viên mới đăng ký (${user.userCode}) đang chờ duyệt.`,
+          metadata: { approvalRequestId: request.id },
+        });
+      }
 
       return {
         id: user.id,

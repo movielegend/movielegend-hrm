@@ -4,7 +4,8 @@ export type CrossDepartmentRequestStatus =
   | 'SOURCE_REJECTED'
   | 'TARGET_ACCEPTED'
   | 'TARGET_REJECTED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'COMPLETED';
 
 export interface CrossDepartmentRequestDto {
   id: string;
@@ -12,15 +13,18 @@ export interface CrossDepartmentRequestDto {
   taskId?: string | null;
   createdByUserId: string;
   sourceDepartmentId: string;
+  sourceDepartment?: { id: string; code: string; name: string } | null;
   targetDepartmentId: string;
+  targetDepartment?: { id: string; code: string; name: string } | null;
   title: string;
   content: string;
   status: CrossDepartmentRequestStatus;
   decidedByUserId?: string | null;
-  decidedAt?: string | null;
+  decidedBy?: { id: string; userCode: string; profile?: { fullName?: string | null } | null } | null;
   rejectionReason?: string | null;
   createdAt: string;
   updatedAt?: string;
+  createdBy?: { id: string; userCode: string; profile?: { fullName?: string | null } | null } | null;
 }
 
 export interface CreateCrossDepartmentRequestPayload {

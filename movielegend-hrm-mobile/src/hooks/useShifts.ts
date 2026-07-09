@@ -4,6 +4,7 @@ import {
   createShift,
   createShiftRegistration,
   createShiftSwap,
+  deleteShift,
   getMySchedule,
   getShifts,
   updateShift,
@@ -43,6 +44,14 @@ export function useUpdateShift(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: UpdateShiftPayload) => updateShift(id, payload),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['shifts'] }),
+  });
+}
+
+export function useDeleteShift() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteShift(id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['shifts'] }),
   });
 }

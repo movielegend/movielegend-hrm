@@ -46,11 +46,12 @@ async function bootstrap() {
 
   const location = await prisma.attendanceLocation.create({
     data: {
-      departmentId: department.id,
-      name: 'Test Location',
-      latitude: 10.0,
-      longitude: 20.0,
-      radiusMeters: 1000000, // Very large radius for testing
+
+      name: 'Văn phòng chính',
+      latitude: 21.028511,
+      longitude: 105.804817,
+      radiusMeters: 5000,
+      departments: { connect: { id: department.id } },
     },
   });
 

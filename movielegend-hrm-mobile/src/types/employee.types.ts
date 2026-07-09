@@ -37,6 +37,18 @@ export interface EmployeeProfile {
   position?: Position | null;
 }
 
+export interface FaceRegistrationImage {
+  id: string;
+  pose: string;
+  imageUrl: string;
+}
+
+export interface FaceProfile {
+  id: string;
+  status: string;
+  images: FaceRegistrationImage[];
+}
+
 export interface EmployeeUser {
   id: string;
   userCode: string;
@@ -50,6 +62,7 @@ export interface EmployeeUser {
   profile?: EmployeeProfile | null;
   roles?: UserRoleLink[];
   departmentLinks?: DepartmentMemberLink[];
+  faceProfile?: FaceProfile | null;
 }
 
 export interface EmployeeListFilters {

@@ -36,7 +36,10 @@ describe('AuthService login', () => {
     const uploads = {
       attachTemporaryFiles: jest.fn().mockResolvedValue(undefined),
     } as unknown as UploadsService;
-    return { service: new AuthService(prisma, jwt, config, uploads) };
+    const notifications = {
+      createForUsers: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    return { service: new AuthService(prisma, jwt, config, uploads, notifications) };
   };
 
   it('denies pending users', async () => {

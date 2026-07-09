@@ -26,17 +26,18 @@ export class ApprovalsService {
     const where: Prisma.UserApprovalRequestWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(requestedDepartmentFilter ? { requestedDepartmentId: requestedDepartmentFilter } : {}),
-      ...(query.search
-        ? {
-            user: {
+      user: {
+        deletedAt: null,
+        ...(query.search
+          ? {
               OR: [
                 { phone: { contains: query.search, mode: 'insensitive' } },
                 { userCode: { contains: query.search, mode: 'insensitive' } },
                 { profile: { fullName: { contains: query.search, mode: 'insensitive' } } },
               ],
-            },
-          }
-        : {}),
+            }
+          : {}),
+      },
     };
     const [items, total] = await Promise.all([
       this.prisma.userApprovalRequest.findMany({
@@ -55,6 +56,9 @@ export class ApprovalsService {
               createdAt: true,
               updatedAt: true,
               profile: true,
+              faceProfile: {
+                include: { images: true },
+              },
             },
           },
           histories: { orderBy: { createdAt: 'asc' } },
@@ -115,13 +119,23 @@ export class ApprovalsService {
 
       const employeeRole = await tx.role.findUnique({ where: { code: 'EMPLOYEE' } });
       if (employeeRole) {
-        await tx.userRole.create({
-          data: {
+        const existingUserRole = await tx.userRole.findFirst({
+          where: {
             userId: request.userId,
             roleId: employeeRole.id,
             scopeType: RoleScopeType.GLOBAL,
           },
         });
+        
+        if (!existingUserRole) {
+          await tx.userRole.create({
+            data: {
+              userId: request.userId,
+              roleId: employeeRole.id,
+              scopeType: RoleScopeType.GLOBAL,
+            },
+          });
+        }
       }
 
       await tx.approvalHistory.create({

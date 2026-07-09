@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { CreateShiftDto, UpdateShiftDto } from './dto/create-shift.dto';
@@ -26,5 +26,11 @@ export class ShiftsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateShiftDto) {
     return this.shiftsService.update(id, dto);
+  }
+
+  @Permissions('shift.delete')
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.shiftsService.remove(id);
   }
 }

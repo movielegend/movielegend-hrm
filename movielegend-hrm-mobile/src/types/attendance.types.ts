@@ -75,16 +75,17 @@ export interface AttendanceAdjustment {
 }
 
 export interface AttendanceLocationPayload {
-  departmentId?: string;
+  branchId?: string;
+  departmentIds?: string[];
   name: string;
   latitude: number;
   longitude: number;
   radiusMeters?: number;
 }
 
-export interface AttendanceLocation extends Required<Omit<AttendanceLocationPayload, 'departmentId'>> {
+export interface AttendanceLocation extends Omit<AttendanceLocationPayload, 'branchId' | 'departmentIds'> {
   id: string;
-  departmentId?: string | null;
+  branchId?: string | null;
   isActive?: boolean;
 }
 

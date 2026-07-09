@@ -29,6 +29,7 @@ const permissionCodes = [
   'shift.create',
   'shift.read',
   'shift.update',
+  'shift.delete',
   'shift.assign',
   'shift.register',
   'shift.swap',

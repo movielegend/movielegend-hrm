@@ -43,6 +43,7 @@ export type NotificationType =
   | 'PERFORMANCE_REVIEW_OPENED'
   | 'PERFORMANCE_REVIEW_STAGE_CHANGED'
   | 'PERFORMANCE_REVIEW_FINALIZED'
+  | 'ACCOUNT_APPROVAL_REQUESTED'
   | 'SYSTEM';
 
 export type DevicePlatform = 'IOS' | 'ANDROID' | 'WEB';

@@ -26,6 +26,11 @@ export async function updateShift(id: string, payload: UpdateShiftPayload): Prom
   return unwrapData(response);
 }
 
+export async function deleteShift(id: string): Promise<unknown> {
+  const response = await apiClient.delete<ApiResponse<unknown>>(`/shifts/${id}`);
+  return unwrapData(response);
+}
+
 export async function assignShift(payload: AssignShiftPayload): Promise<ShiftAssignment> {
   const response = await apiClient.post<ApiResponse<ShiftAssignment>>('/shift-assignments', payload);
   return unwrapData(response);

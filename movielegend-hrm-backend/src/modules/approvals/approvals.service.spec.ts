@@ -20,6 +20,11 @@ describe('ApprovalsService approve', () => {
       departmentMember: { upsert: jest.fn().mockResolvedValue({}) },
       approvalHistory: { create: jest.fn().mockResolvedValue({}) },
       auditLog: { create: jest.fn().mockResolvedValue({}) },
+      role: { findUnique: jest.fn().mockResolvedValue({ id: 'employee-role-id' }) },
+      userRole: { 
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}) 
+      },
     };
     const prisma = {
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),

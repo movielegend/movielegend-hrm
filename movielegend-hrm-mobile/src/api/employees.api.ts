@@ -25,6 +25,16 @@ export async function updateEmployee(id: string, payload: UpdateEmployeePayload)
   return unwrapData(response);
 }
 
+export async function createEmployee(payload: Record<string, any>): Promise<EmployeeUser> {
+  const response = await apiClient.post<ApiResponse<EmployeeUser>>(`/admin/users`, payload);
+  return unwrapData(response);
+}
+
+export async function deleteAdminUser(id: string): Promise<unknown> {
+  const response = await apiClient.delete<ApiResponse<unknown>>(`/admin/users/${id}`);
+  return unwrapData(response);
+}
+
 export interface EmployeeReportRow {
   userCode?: string;
   fullName?: string;

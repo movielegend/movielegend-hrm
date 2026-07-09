@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createDepartment, getDepartment, getDepartments, updateDepartment, type DepartmentFilters } from '../api/departments.api';
+import { createDepartment, deleteDepartment, getDepartment, getDepartments, getPublicDepartments, updateDepartment, type DepartmentFilters } from '../api/departments.api';
 import { queryKeys } from '../constants/queryKeys';
 import type { CreateDepartmentPayload, UpdateDepartmentPayload } from '../types/department.types';
 
@@ -7,6 +7,13 @@ export function useDepartments(filters: DepartmentFilters = {}) {
   return useQuery({
     queryKey: queryKeys.departments(filters),
     queryFn: () => getDepartments(filters),
+  });
+}
+
+export function usePublicDepartments(filters: DepartmentFilters = {}) {
+  return useQuery({
+    queryKey: ['public-departments', filters],
+    queryFn: () => getPublicDepartments(filters),
   });
 }
 
@@ -35,6 +42,16 @@ export function useUpdateDepartment(id: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['departments'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.department(id) });
+    },
+  });
+}
+
+export function useDeleteDepartment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteDepartment(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['departments'] });
     },
   });
 }

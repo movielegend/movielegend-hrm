@@ -1,1 +1,1 @@
-export { LeaderShiftManagementScreen as default } from '../../../src/features/shifts/ShiftScreens';
+export { AssignShiftScreen as default } from '../../../src/features/shifts/AssignShiftScreen';

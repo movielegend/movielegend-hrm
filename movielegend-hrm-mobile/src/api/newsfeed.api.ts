@@ -1,0 +1,60 @@
+import { apiClient, unwrapData } from './client';
+import type { ApiResponse } from '../types/api.types';
+
+export interface NewsfeedPost {
+  id: string;
+  departmentId: string | null;
+  authorId: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    comments: number;
+    likes: number;
+  };
+  author?: {
+    id: string;
+    userCode: string;
+    profile?: {
+      fullName: string;
+    };
+  };
+  likes?: { userId: string }[];
+}
+
+export interface NewsfeedComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: string;
+    profile?: {
+      fullName: string;
+    };
+  };
+}
+
+export async function fetchNewsfeed(params?: { departmentId?: string; page?: number; limit?: number }) {
+  const response = await apiClient.get<ApiResponse<{ items: NewsfeedPost[]; pagination: any }>>('/newsfeed', {
+    params,
+  });
+  return unwrapData(response);
+}
+
+export async function createPost(data: { title: string; content: string; departmentId?: string }) {
+  const response = await apiClient.post<ApiResponse<NewsfeedPost>>('/newsfeed', data);
+  return unwrapData(response);
+}
+
+export async function likePost(postId: string) {
+  const response = await apiClient.post<ApiResponse<any>>(`/newsfeed/${postId}/like`);
+  return unwrapData(response);
+}
+
+export async function commentPost(postId: string, content: string) {
+  const response = await apiClient.post<ApiResponse<NewsfeedComment>>(`/newsfeed/${postId}/comments`, { content });
+  return unwrapData(response);
+}

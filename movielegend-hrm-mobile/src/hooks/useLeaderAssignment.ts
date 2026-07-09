@@ -7,6 +7,7 @@ export function useAssignLeader() {
     mutationFn: (payload: LeaderAssignmentPayload) => assignLeader(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['employees'] });
+      void queryClient.invalidateQueries({ queryKey: ['employee'] });
       void queryClient.invalidateQueries({ queryKey: ['departments'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },

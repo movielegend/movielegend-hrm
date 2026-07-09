@@ -16,6 +16,13 @@ export async function getDepartments(filters: DepartmentFilters = {}): Promise<P
   return normalizePagination(unwrapData(response), cleanPaginationFallback(filters));
 }
 
+export async function getPublicDepartments(filters: DepartmentFilters = {}): Promise<PaginatedResult<Department>> {
+  const response = await apiClient.get<ApiResponse<{ items: Department[] } | Department[]>>('/departments/public', {
+    params: { search: filters.search },
+  });
+  return normalizePagination(unwrapData(response), cleanPaginationFallback(filters));
+}
+
 function cleanPaginationFallback(filters: DepartmentFilters): { page?: number; limit?: number } {
   return {
     ...(typeof filters.page === 'number' ? { page: filters.page } : {}),
@@ -35,5 +42,10 @@ export async function createDepartment(payload: CreateDepartmentPayload): Promis
 
 export async function updateDepartment(id: string, payload: UpdateDepartmentPayload): Promise<Department> {
   const response = await apiClient.patch<ApiResponse<Department>>(`/departments/${id}`, payload);
+  return unwrapData(response);
+}
+
+export async function deleteDepartment(id: string): Promise<unknown> {
+  const response = await apiClient.delete<ApiResponse<unknown>>(`/departments/${id}`);
   return unwrapData(response);
 }

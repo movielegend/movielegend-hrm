@@ -1,5 +1,10 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+let Notifications: any = null;
+try {
+  Notifications = require('expo-notifications');
+} catch (error) {
+  console.warn('expo-notifications is not available in Expo Go:', error);
+}
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { registerDeviceToken, revokeDeviceToken } from '../api/device-tokens.api';
 import { getMyNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from '../api/notifications.api';
@@ -57,6 +62,7 @@ export function useRevokeDeviceToken() {
 }
 
 async function getExpoPushTokenIfAvailable(): Promise<string | null> {
+  if (!Notifications) return null;
   const existing = await Notifications.getPermissionsAsync();
   const finalStatus = existing.granted ? existing.status : (await Notifications.requestPermissionsAsync()).status;
   if (finalStatus !== 'granted') return null;

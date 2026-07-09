@@ -20,4 +20,16 @@ export class ShiftsService {
   update(id: string, dto: UpdateShiftDto) {
     return this.prisma.shift.update({ where: { id }, data: dto });
   }
+
+  async remove(id: string) {
+    const shift = await this.prisma.shift.findUnique({ where: { id } });
+    if (!shift) return;
+    return this.prisma.shift.update({
+      where: { id },
+      data: { 
+        deletedAt: new Date(),
+        code: `${shift.code}_del_${Date.now()}`
+      },
+    });
+  }
 }

@@ -65,4 +65,10 @@ export class AdminController {
   updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.adminService.updateUser(id, dto);
   }
+
+  @Permissions('user.manage')
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.deleteUser(id, actor);
+  }
 }

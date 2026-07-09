@@ -308,4 +308,50 @@ export class AdminService {
       return safeUser;
     });
   }
+
+  async deleteUser(id: string, actor: AuthenticatedUser) {
+    const user = await this.prisma.user.findUnique({ where: { id }, include: { profile: true } });
+    if (!user) throw notFound('USER_NOT_FOUND', 'Người dùng không tồn tại');
+
+    return this.prisma.$transaction(async (tx) => {
+      const deletedSuffix = `_del_${Date.now()}`;
+
+      const deletedUser = await tx.user.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          isActive: false,
+          accountStatus: AccountStatus.SUSPENDED,
+          phone: `${user.phone}${deletedSuffix}`,
+          userCode: `${user.userCode}${deletedSuffix}`,
+          ...(user.email ? { email: `${user.email}${deletedSuffix}` } : {}),
+        },
+      });
+
+      if (user.profile) {
+        await tx.employeeProfile.update({
+          where: { userId: id },
+          data: {
+            idCardNumber: `${user.profile.idCardNumber}${deletedSuffix}`,
+          },
+        });
+      }
+
+      await tx.departmentMember.updateMany({
+        where: { userId: id, leftAt: null },
+        data: { leftAt: new Date() },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'admin.user.delete',
+          entityType: 'User',
+          entityId: id,
+        },
+      });
+
+      return { deleted: true, id };
+    });
+  }
 }

@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -15,6 +16,7 @@ import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { BranchesModule } from './modules/branches/branches.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { CrossDepartmentModule } from './modules/cross-department/cross-department.module';
 import { CompensationModule } from './modules/compensation/compensation.module';
@@ -52,6 +54,8 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 import { ViolationsModule } from './modules/violations/violations.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
+import { NewsfeedModule } from './modules/newsfeed/newsfeed.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -59,6 +63,18 @@ import { WarehouseModule } from './modules/warehouse/warehouse.module';
       isGlobal: true,
       load: [appConfig, databaseConfig, jwtConfig, storageConfig, notificationConfig],
       validate: validateEnv,
+    }),
+    ServeStaticModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const rootPath = config.get<string>('storage.localRoot') ?? 'storage';
+        return [
+          {
+            rootPath: require('path').resolve(rootPath),
+            serveRoot: '/uploads',
+          },
+        ];
+      },
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     DatabaseModule,
@@ -75,6 +91,7 @@ import { WarehouseModule } from './modules/warehouse/warehouse.module';
     FaceModule,
     AdminModule,
     Phase2PolicyModule,
+    BranchesModule,
     ShiftsModule,
     ShiftAssignmentsModule,
     AttendanceModule,
@@ -105,6 +122,8 @@ import { WarehouseModule } from './modules/warehouse/warehouse.module';
     NotificationPreferencesModule,
     JobsModule,
     AuditLogsModule,
+    NewsfeedModule,
+    ChatModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -101,17 +101,16 @@ async function main() {
 
   const todayStr = today.toISOString().split('T')[0];
   
-  let loc = await prisma.attendanceLocation.findFirst({ where: { departmentId: dept.id } });
+  let loc = await prisma.attendanceLocation.findFirst({ where: { departments: { some: { id: dept.id } } } });
   if (!loc) {
     loc = await prisma.attendanceLocation.create({
       data: {
-        name: 'Văn phòng chính',
-        departmentId: dept.id,
-        latitude: 10.0,
-        longitude: 20.0,
-        radiusMeters: 100,
-        isActive: true
-      }
+        name: 'Chi nhánh Test',
+        latitude: 21.0285,
+        longitude: 105.8048,
+        radiusMeters: 5000,
+        departments: { connect: { id: dept.id } },
+      },
     });
   }
   const lat = Number(loc.latitude);

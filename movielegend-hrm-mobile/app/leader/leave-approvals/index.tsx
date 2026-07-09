@@ -1,1 +1,1 @@
-export { LeaderLeaveApprovalsScreen as default } from '../../../src/features/leave/LeaveScreens';
+export { AdminLeaveApprovalScreen as default } from '../../../src/features/leave/LeaveScreens';

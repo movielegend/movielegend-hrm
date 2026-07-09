@@ -1,6 +1,7 @@
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState, useEffect } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
 import { PageHeader } from '../../components/PageHeader';
@@ -15,7 +16,7 @@ import { businessDateToday, formatDate, formatShiftRange } from '../../utils/dat
 import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
 import { findTodayShift } from '../attendance/attendance.logic';
-import { useAssignShift, useCreateShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts } from '../../hooks/useShifts';
+import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts } from '../../hooks/useShifts';
 
 export function EmployeeScheduleScreen() {
   const router = useRouter();
@@ -60,30 +61,110 @@ export function AdminShiftsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const shifts = useShifts();
+  const deleteShift = useDeleteShift();
+
+  const handleDelete = (id: string, name: string) => {
+    Alert.alert(
+      'Xóa ca làm việc',
+      `Bạn có chắc chắn muốn xóa ca "${name}"?\nDữ liệu đã xếp ca cho nhân viên sẽ không bị ảnh hưởng (Xóa mềm).`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteShift.mutateAsync(id);
+              Alert.alert('Thành công', 'Đã xóa ca làm việc');
+            } catch (error) {
+              const normalized = normalizeApiError(error);
+              Alert.alert('Lỗi', normalized.message);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader
-          title="Quan ly ca"
-          subtitle="Danh sach ca tu backend /shifts"
-          right={hasPermission(user, 'shift.create') ? <SecondaryButton onPress={() => router.push('/admin/shifts/create')}>Tao ca</SecondaryButton> : null}
+          title="Quản lý Ca làm việc"
+          subtitle="Tất cả ca làm việc trong hệ thống"
+          right={
+            hasPermission(user, 'shift.create') ? (
+              <Pressable
+                style={styles.addBtn}
+                onPress={() => router.push('/admin/shifts/create')}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                <Text style={styles.addBtnText}>Thêm mới</Text>
+              </Pressable>
+            ) : null
+          }
         />
-        {hasPermission(user, 'shift.assign') ? <SecondaryButton onPress={() => router.push('/admin/shifts/assign')}>Phan ca</SecondaryButton> : null}
-        {(shifts.data ?? []).map((shift) => (
-          <SectionCard key={shift.id} title={shift.name}>
-            <Text style={styles.text}>Code: {shift.code}</Text>
-            <Text style={styles.text}>{formatShiftRange(shift.startTime, shift.endTime)}</Text>
-            <StatusBadge label={shift.isActive ? 'ACTIVE' : 'INACTIVE'} tone={shift.isActive ? 'success' : 'neutral'} />
-          </SectionCard>
-        ))}
-        {!shifts.data?.length ? <EmptyState /> : null}
+        
+        {hasPermission(user, 'shift.assign') ? (
+          <SecondaryButton onPress={() => router.push('/admin/shifts/assign')}>
+            Phân ca nhân viên
+          </SecondaryButton>
+        ) : null}
+
+        <View style={styles.shiftList}>
+          {(shifts.data ?? []).map((shift) => (
+            <View key={shift.id} style={styles.shiftCard}>
+              <View style={styles.shiftHeader}>
+                <View style={styles.shiftIconBox}>
+                  <MaterialCommunityIcons name="clock-outline" size={24} color={colors.primary} />
+                </View>
+                <View style={styles.shiftInfo}>
+                  <Text style={styles.shiftName}>{shift.name}</Text>
+                  <Text style={styles.shiftCode}>Mã: {shift.code}</Text>
+                </View>
+                <StatusBadge
+                  label={shift.isActive ? 'Đang hoạt động' : 'Đã ẩn'}
+                  tone={shift.isActive ? 'success' : 'neutral'}
+                />
+              </View>
+              
+              <View style={styles.shiftTimeBox}>
+                <MaterialCommunityIcons name="timer-outline" size={16} color={colors.muted} />
+                <Text style={styles.shiftTimeText}>
+                  {formatShiftRange(shift.startTime, shift.endTime)}
+                </Text>
+              </View>
+
+              <View style={styles.shiftActions}>
+                <Pressable
+                  style={[styles.actionBtn, { backgroundColor: '#FFF7ED' }]}
+                  onPress={() => router.push(`/admin/shifts/edit/${shift.id}`)}
+                >
+                  <MaterialCommunityIcons name="pencil" size={18} color="#EA580C" />
+                  <Text style={[styles.actionText, { color: '#EA580C' }]}>Sửa</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
+                  onPress={() => handleDelete(shift.id, shift.name)}
+                >
+                  <MaterialCommunityIcons name="delete-outline" size={18} color="#DC2626" />
+                  <Text style={[styles.actionText, { color: '#DC2626' }]}>Xóa</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+          {!shifts.data?.length && !shifts.isLoading && (
+            <EmptyState title="Chưa có ca làm việc" message="Nhấn Thêm mới để tạo ca làm việc đầu tiên" />
+          )}
+        </View>
       </ScrollView>
     </Screen>
   );
 }
 
 export function CreateShiftScreen() {
+  const router = useRouter();
   const createShift = useCreateShift();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -93,23 +174,89 @@ export function CreateShiftScreen() {
   async function submit() {
     try {
       await createShift.mutateAsync({ code, name, startTime, endTime });
-      Alert.alert('Thanh cong', 'Da tao ca');
+      Alert.alert('Thành công', 'Đã tạo ca làm việc mới');
+      router.back();
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      Alert.alert('Lỗi', normalized.message);
     }
   }
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Tao ca" subtitle="Dung dung DTO CreateShift cua backend." />
+        <PageHeader title="Tạo Ca làm việc" subtitle="Nhập thông tin ca làm mới" />
         <SectionCard>
-          <FormField label="Code" value={code} onChangeText={setCode} autoCapitalize="characters" />
-          <FormField label="Ten ca" value={name} onChangeText={setName} />
-          <FormField label="Bat dau HH:mm" value={startTime} onChangeText={setStartTime} />
-          <FormField label="Ket thuc HH:mm" value={endTime} onChangeText={setEndTime} />
-          <PrimaryButton loading={createShift.isPending} disabled={!code || !name} onPress={() => void submit()}>Tao ca</PrimaryButton>
+          <FormField label="Mã ca (VD: CA1)" value={code} onChangeText={setCode} autoCapitalize="characters" />
+          <FormField label="Tên ca (VD: Ca Sáng)" value={name} onChangeText={setName} />
+          <FormField label="Giờ bắt đầu (HH:mm)" value={startTime} onChangeText={setStartTime} />
+          <FormField label="Giờ kết thúc (HH:mm)" value={endTime} onChangeText={setEndTime} />
+          <View style={{ marginTop: spacing.md }}>
+            <PrimaryButton loading={createShift.isPending} disabled={!code || !name} onPress={() => void submit()}>
+              Tạo Ca Mới
+            </PrimaryButton>
+          </View>
+        </SectionCard>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+export function EditShiftScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const shifts = useShifts();
+  const updateShift = useUpdateShift(id as string);
+  
+  const shift = useMemo(() => (shifts.data ?? []).find(s => s.id === id), [shifts.data, id]);
+
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+
+  useEffect(() => {
+    if (shift) {
+      setCode(shift.code);
+      setName(shift.name);
+      setStartTime(shift.startTime);
+      setEndTime(shift.endTime);
+    }
+  }, [shift]);
+
+  async function submit() {
+    try {
+      await updateShift.mutateAsync({ code, name, startTime, endTime });
+      Alert.alert('Thành công', 'Đã cập nhật ca làm việc');
+      router.back();
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      Alert.alert('Lỗi', normalized.message);
+    }
+  }
+
+  if (!shift) {
+    return (
+      <Screen>
+        <EmptyState title="Không tìm thấy ca làm việc" message="Ca làm việc không tồn tại hoặc đã bị xóa." />
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content}>
+        <PageHeader title="Cập nhật Ca làm việc" subtitle={`Đang sửa: ${shift.name}`} />
+        <SectionCard>
+          <FormField label="Mã ca" value={code} onChangeText={setCode} autoCapitalize="characters" />
+          <FormField label="Tên ca" value={name} onChangeText={setName} />
+          <FormField label="Giờ bắt đầu (HH:mm)" value={startTime} onChangeText={setStartTime} />
+          <FormField label="Giờ kết thúc (HH:mm)" value={endTime} onChangeText={setEndTime} />
+          <View style={{ marginTop: spacing.md }}>
+            <PrimaryButton loading={updateShift.isPending} disabled={!code || !name} onPress={() => void submit()}>
+              Lưu Thay Đổi
+            </PrimaryButton>
+          </View>
         </SectionCard>
       </ScrollView>
     </Screen>
@@ -220,6 +367,7 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.lg,
     padding: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   grow: {
     flex: 1,
@@ -245,5 +393,91 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: '800',
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 4,
+  },
+  addBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  shiftList: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  shiftCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  shiftHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  shiftIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  shiftInfo: {
+    flex: 1,
+  },
+  shiftName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  shiftCode: {
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  shiftTimeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: spacing.sm,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+    gap: 6,
+  },
+  shiftTimeText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  shiftActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  actionText: {
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

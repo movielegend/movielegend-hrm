@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -13,6 +13,7 @@ import {
   CreateAttendanceLocationDto,
   CreateWifiConfigDto,
   TrackLocationDto,
+  UpdateAttendanceLocationDto,
 } from './dto/attendance.dto';
 
 @ApiTags('Attendance')
@@ -47,8 +48,14 @@ export class AttendanceController {
 
   @Permissions('attendance.read')
   @Get()
-  findAll(@CurrentUser() actor: AuthenticatedUser, @Query('departmentId') departmentId?: string) {
-    return this.attendanceService.findAll(actor, departmentId);
+  findAll(@CurrentUser() actor: AuthenticatedUser, @Query() query: AttendanceQueryDto) {
+    return this.attendanceService.findAll(actor, query);
+  }
+
+  @Permissions('attendance.read')
+  @Get('dashboard')
+  getDashboardStats(@CurrentUser() actor: AuthenticatedUser, @Query() query: AttendanceQueryDto) {
+    return this.attendanceService.getDashboardStats(actor, query);
   }
 
   @AnyPermissions('attendance.checkin', 'attendance.read')
@@ -79,6 +86,18 @@ export class AttendanceController {
   @Post('locations')
   createLocation(@Body() dto: CreateAttendanceLocationDto) {
     return this.attendanceService.createLocation(dto);
+  }
+
+  @Permissions('attendance.location.manage')
+  @Patch('locations/:id')
+  updateLocation(@Param('id') id: string, @Body() dto: UpdateAttendanceLocationDto) {
+    return this.attendanceService.updateLocation(id, dto);
+  }
+
+  @Permissions('attendance.location.manage')
+  @Delete('locations/:id')
+  removeLocation(@Param('id') id: string) {
+    return this.attendanceService.removeLocation(id);
   }
 
   @Permissions('attendance.location.manage')

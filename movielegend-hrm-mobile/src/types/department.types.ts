@@ -13,7 +13,7 @@ export interface Department {
 }
 
 export interface CreateDepartmentPayload {
-  companyId: string;
+  companyId?: string;
   branchId?: string;
   parentId?: string;
   code: string;

@@ -1,6 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Max, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Max, Min, MinLength } from 'class-validator';
 import { AttendanceStatus } from '@prisma/client';
 
 export class AttendanceQueryDto {
@@ -18,6 +18,11 @@ export class AttendanceQueryDto {
   @IsOptional()
   @IsEnum(AttendanceStatus)
   status?: AttendanceStatus;
+
+  @ApiPropertyOptional({ type: String, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -126,7 +131,12 @@ export class CreateAttendanceLocationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
-  departmentId?: string;
+  branchId?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsUUID(undefined, { each: true })
+  departmentIds?: string[];
 
   @ApiProperty()
   @IsString()
@@ -152,6 +162,13 @@ export class CreateAttendanceLocationDto {
   @IsNumber()
   @Min(10)
   radiusMeters?: number;
+}
+
+export class UpdateAttendanceLocationDto extends PartialType(CreateAttendanceLocationDto) {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class CreateWifiConfigDto {

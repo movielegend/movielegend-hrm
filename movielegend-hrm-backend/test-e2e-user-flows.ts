@@ -45,15 +45,15 @@ async function bootstrap() {
     }
 
     // Tìm hoặc tạo AttendanceLocation (để nhân viên có thể check-in)
-    let location = await prisma.attendanceLocation.findFirst({ where: { departmentId: department.id } });
+    let location = await prisma.attendanceLocation.findFirst({ where: { departments: { some: { id: department.id } } } });
     if (!location) {
       location = await prisma.attendanceLocation.create({
         data: {
-          departmentId: department.id,
-          name: 'E2E Test Location',
-          latitude: 10.0,
-          longitude: 20.0,
-          radiusMeters: 1000000, // Rất to để test
+          name: 'Điểm danh Test',
+          latitude: 21.0285,
+          longitude: 105.8048,
+          radiusMeters: 5000,
+          departments: { connect: { id: department.id } },
         },
       });
       console.log('  -> Đã tạo AttendanceLocation');
