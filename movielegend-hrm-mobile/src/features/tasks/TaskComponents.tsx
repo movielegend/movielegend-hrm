@@ -90,8 +90,8 @@ export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefi
             </View>
             <Text style={styles.titleSmall}>{item.type}</Text>
             <Text style={styles.metaSmall}>{formatDateTime(item.createdAt)}</Text>
-            {item.data.note ? <Text style={styles.body}>{item.data.note}</Text> : null}
-            {item.data.oldStatus || item.data.newStatus ? <Text style={styles.meta}>{`${item.data.oldStatus ?? '-'} -> ${item.data.newStatus ?? '-'}`}</Text> : null}
+            {item.data?.note ? <Text style={styles.body}>{item.data.note}</Text> : null}
+            {item.data?.oldStatus || item.data?.newStatus ? <Text style={styles.meta}>{`${item.data?.oldStatus ?? '-'} -> ${item.data?.newStatus ?? '-'}`}</Text> : null}
           </View>
         );
       })}
