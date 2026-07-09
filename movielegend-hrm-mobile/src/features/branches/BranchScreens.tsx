@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
 import { RefreshControl, StyleSheet, Text, View, Pressable, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
@@ -12,12 +12,13 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
-import { useBranches, useCreateBranch, useDeleteBranch } from '../../api/branches.api';
+import { useBranches, useCreateBranch, useDeleteBranch, useUpdateBranch, useBranch } from '../../api/branches.api';
 import { getDepartments } from '../../api/departments.api';
 import { useQuery } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
 import { normalizeApiError } from '../../utils/api-error';
 import { MultiSelectModal } from '../../components/MultiSelectModal';
+import { LocationPickerMap, LocationData } from '../../components/LocationPickerMap';
 
 export function BranchListScreen() {
   const router = useRouter();
@@ -89,12 +90,20 @@ export function BranchListScreen() {
                     </Text>
                   ) : null}
                 </View>
-                <Pressable
-                  style={styles.deleteBtn}
-                  onPress={() => handleDelete(branch.id, branch.name)}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    style={styles.actionBtn}
+                    onPress={() => router.push(`./branches/${branch.id}/edit`)}
+                  >
+                    <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.primary} />
+                  </Pressable>
+                  <Pressable
+                    style={styles.actionBtn}
+                    onPress={() => handleDelete(branch.id, branch.name)}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                  </Pressable>
+                </View>
               </View>
             </View>
           ))}
@@ -103,8 +112,6 @@ export function BranchListScreen() {
     </Screen>
   );
 }
-
-import { LocationPickerMap, LocationData } from '../../components/LocationPickerMap';
 
 export function BranchCreateScreen() {
   const router = useRouter();
@@ -249,6 +256,173 @@ export function BranchCreateScreen() {
   );
 }
 
+export function BranchEditScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const branchQuery = useBranch(id!);
+  const mutation = useUpdateBranch();
+  
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState<number | undefined>();
+  const [longitude, setLongitude] = useState<number | undefined>();
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+  const [mapVisible, setMapVisible] = useState(false);
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+
+  const departments = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => getDepartments({ limit: 1000 })
+  });
+
+  // Populate form with existing data when fetched
+  useEffect(() => {
+    if (branchQuery.data) {
+      setCode(branchQuery.data.code);
+      setName(branchQuery.data.name);
+      setAddress(branchQuery.data.address || '');
+      setLatitude(branchQuery.data.latitude);
+      setLongitude(branchQuery.data.longitude);
+      if (branchQuery.data.departments) {
+        setDepartmentIds(branchQuery.data.departments.map(d => d.id));
+      }
+    }
+  }, [branchQuery.data]);
+
+  const submit = async () => {
+    try {
+      const payload: any = { id, code, name };
+      if (address) payload.address = address;
+      if (latitude !== undefined) payload.latitude = latitude;
+      if (longitude !== undefined) payload.longitude = longitude;
+      if (departmentIds.length > 0) payload.departmentIds = departmentIds;
+
+      await mutation.mutateAsync(payload);
+      Alert.alert('Thành công', 'Đã lưu thay đổi chi nhánh', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      Alert.alert('Lỗi', normalized.message);
+    }
+  };
+
+  const handleLocationSelect = (loc: LocationData) => {
+    setLatitude(loc.latitude);
+    setLongitude(loc.longitude);
+    if (loc.address) setAddress(loc.address);
+    setMapVisible(false);
+  };
+
+  if (branchQuery.isLoading) {
+    return <Screen><ScreenContainer><LoadingState /></ScreenContainer></Screen>;
+  }
+
+  if (branchQuery.isError) {
+    return <Screen><ScreenContainer><ErrorState error={branchQuery.error} onRetry={() => void branchQuery.refetch()} /></ScreenContainer></Screen>;
+  }
+
+  return (
+    <Screen>
+      <ScreenContainer>
+        <PageHeader title="Sửa Chi nhánh" subtitle="Cập nhật thông tin chi nhánh" />
+        <SectionCard>
+          <FormField
+            label="Mã chi nhánh *"
+            value={code}
+            onChangeText={setCode}
+            placeholder="Ví dụ: HN01"
+            autoCapitalize="characters"
+          />
+          <FormField
+            label="Tên chi nhánh *"
+            value={name}
+            onChangeText={setName}
+            placeholder="Ví dụ: Chi nhánh Hà Nội"
+          />
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: address ? '#333' : '#98A0A8', fontSize: 15 }} numberOfLines={2}>
+                  {address || 'Chưa chọn vị trí'}
+                </Text>
+                {latitude && longitude && (
+                  <Text style={{ fontSize: 12, color: '#1E88E5', marginTop: 4 }}>
+                    {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                  </Text>
+                )}
+              </View>
+              <Pressable 
+                onPress={() => setMapVisible(true)}
+                style={{
+                  backgroundColor: '#E0F2FE',
+                  padding: 12,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <MaterialCommunityIcons name="map-marker-radius" size={24} color="#0284C7" />
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Phòng ban thuộc chi nhánh</Text>
+            <Pressable
+              onPress={() => setDeptModalVisible(true)}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                padding: 12,
+                backgroundColor: colors.surface,
+              }}
+            >
+              <Text style={{ color: departmentIds.length ? colors.text : colors.muted, fontSize: 15 }}>
+                {departmentIds.length > 0
+                  ? `Đã chọn ${departmentIds.length} phòng ban`
+                  : 'Chọn phòng ban'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
+            </Pressable>
+          </View>
+
+          <PrimaryButton 
+            loading={mutation.isPending} 
+            disabled={!code || !name} 
+            onPress={() => void submit()}
+          >
+            Lưu Thay đổi
+          </PrimaryButton>
+        </SectionCard>
+      </ScreenContainer>
+
+      <LocationPickerMap
+        visible={mapVisible}
+        onClose={() => setMapVisible(false)}
+        onSelect={handleLocationSelect}
+        initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
+      />
+
+      <MultiSelectModal
+        visible={deptModalVisible}
+        title="Chọn phòng ban"
+        options={(departments.data?.items ?? []).map((d: any) => ({ id: d.id, label: d.name, subtitle: d.code }))}
+        selectedValues={departmentIds}
+        onSelect={setDepartmentIds}
+        onClose={() => setDeptModalVisible(false)}
+        isLoading={departments.isLoading}
+      />
+    </Screen>
+  );
+}
+
 const styles = StyleSheet.create({
   list: { gap: 16 },
   card: {
@@ -288,8 +462,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#98A0A8',
   },
-  deleteBtn: {
+  actionBtn: {
     padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
   },
   addBtn: {
     flexDirection: 'row',
