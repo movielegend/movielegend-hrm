@@ -9,53 +9,32 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MaintenanceDto = exports.ResolveIncidentDto = exports.ReportIncidentDto = exports.ReceiveReturnDto = exports.AssignAssetDto = exports.UpdateAssetDto = exports.CreateAssetDto = exports.CreateAssetCategoryDto = void 0;
+exports.MaintenanceDto = exports.ResolveIncidentDto = exports.ReportIncidentDto = exports.ReceiveReturnDto = exports.AssignAssetDto = exports.TransferAssetDto = exports.UpdateAssetDto = exports.CreateAssetDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const client_1 = require("@prisma/client");
 const class_validator_1 = require("class-validator");
-class CreateAssetCategoryDto {
-    code;
-    name;
-    description;
-}
-exports.CreateAssetCategoryDto = CreateAssetCategoryDto;
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateAssetCategoryDto.prototype, "code", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateAssetCategoryDto.prototype, "name", void 0);
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)(),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateAssetCategoryDto.prototype, "description", void 0);
 class CreateAssetDto {
-    categoryId;
-    warehouseId;
+    departmentId;
+    conditionNote;
     assetCode;
     name;
     brand;
     model;
-    serialNumber;
+    imageUrl;
 }
 exports.CreateAssetDto = CreateAssetDto;
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    (0, class_validator_1.IsUUID)(),
-    __metadata("design:type", String)
-], CreateAssetDto.prototype, "categoryId", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
-], CreateAssetDto.prototype, "warehouseId", void 0);
+], CreateAssetDto.prototype, "departmentId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateAssetDto.prototype, "conditionNote", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
@@ -80,15 +59,18 @@ __decorate([
     __metadata("design:type", String)
 ], CreateAssetDto.prototype, "model", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)(),
-    (0, class_validator_1.IsOptional)(),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'https://example.com/image.png' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateAssetDto.prototype, "serialNumber", void 0);
+], CreateAssetDto.prototype, "imageUrl", void 0);
 class UpdateAssetDto {
     name;
     conditionStatus;
     assetStatus;
+    departmentId;
+    conditionNote;
+    imageUrl;
 }
 exports.UpdateAssetDto = UpdateAssetDto;
 __decorate([
@@ -109,6 +91,40 @@ __decorate([
     (0, class_validator_1.IsEnum)(client_1.AssetStatus),
     __metadata("design:type", String)
 ], UpdateAssetDto.prototype, "assetStatus", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], UpdateAssetDto.prototype, "departmentId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateAssetDto.prototype, "conditionNote", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'https://example.com/image.png' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateAssetDto.prototype, "imageUrl", void 0);
+class TransferAssetDto {
+    targetDepartmentId;
+    note;
+}
+exports.TransferAssetDto = TransferAssetDto;
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], TransferAssetDto.prototype, "targetDepartmentId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], TransferAssetDto.prototype, "note", void 0);
 class AssignAssetDto {
     assignedToUserId;
     assignedToDepartmentId;

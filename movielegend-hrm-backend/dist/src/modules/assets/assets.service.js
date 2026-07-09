@@ -31,12 +31,9 @@ let AssetsService = class AssetsService {
         this.notifications = notifications;
         this.realtime = realtime;
     }
-    createCategory(dto) {
-        return this.prisma.assetCategory.create({ data: dto });
-    }
     create(dto, actor) {
-        if (dto.warehouseId)
-            this.warehouses.assertWarehouseAccess(actor, dto.warehouseId);
+        if (dto.departmentId && !actor.roles.includes('ADMIN'))
+            this.departments.assertDepartmentAccess(actor, dto.departmentId);
         return this.prisma.$transaction(async (tx) => {
             const assetCode = dto.assetCode ?? (await this.prisma.nextSequenceCode(tx, 'asset_code_seq', 'AST'));
             const asset = await tx.asset.create({ data: { ...dto, assetCode } });
@@ -48,17 +45,18 @@ let AssetsService = class AssetsService {
     }
     findAll(actor) {
         if (actor.roles.includes('ADMIN'))
-            return this.prisma.asset.findMany({ where: { deletedAt: null }, include: { assignments: true } });
+            return this.prisma.asset.findMany({ where: { deletedAt: null }, include: { assignments: true, department: true } });
         const departments = this.departments.visibleDepartmentIds(actor) ?? [];
         return this.prisma.asset.findMany({
             where: {
                 deletedAt: null,
                 OR: [
+                    { departmentId: { in: departments } },
                     { assignments: { some: { assignedToUserId: actor.userId, status: { in: [client_1.AssetAssignmentStatus.ACTIVE, client_1.AssetAssignmentStatus.PENDING_CONFIRMATION, client_1.AssetAssignmentStatus.RETURN_REQUESTED] } } } },
                     { assignments: { some: { assignedToDepartmentId: { in: departments } } } },
                 ],
             },
-            include: { assignments: true },
+            include: { assignments: true, department: true },
         });
     }
     myAssets(actor) {
@@ -90,7 +88,28 @@ let AssetsService = class AssetsService {
         const asset = await this.findOne(id, actor);
         if (asset.warehouseId)
             this.warehouses.assertWarehouseAccess(actor, asset.warehouseId);
+        if (dto.departmentId && !actor.roles.includes('ADMIN'))
+            this.departments.assertDepartmentAccess(actor, dto.departmentId);
         return this.prisma.asset.update({ where: { id }, data: dto });
+    }
+    async transfer(id, dto, actor) {
+        return this.prisma.$transaction(async (tx) => {
+            const asset = await tx.asset.findUnique({ where: { id } });
+            if (!asset || asset.deletedAt)
+                throw (0, error_util_1.notFound)('ASSET_NOT_FOUND', 'Asset not found');
+            if (asset.assetStatus !== client_1.AssetStatus.IN_STOCK)
+                throw (0, error_util_1.badRequest)('ASSET_NOT_TRANSFERABLE', 'Asset must be in stock to transfer');
+            if (asset.departmentId && !actor.roles.includes('ADMIN'))
+                this.departments.assertDepartmentAccess(actor, asset.departmentId);
+            const updatedAsset = await tx.asset.update({
+                where: { id },
+                data: { departmentId: dto.targetDepartmentId, conditionNote: dto.note || asset.conditionNote },
+            });
+            await tx.auditLog.create({
+                data: { actorUserId: actor.userId, action: 'ASSET_TRANSFERRED', entityType: 'Asset', entityId: id, details: { targetDepartmentId: dto.targetDepartmentId } },
+            });
+            return updatedAsset;
+        });
     }
     async assign(id, dto, actor) {
         if (!dto.assignedToUserId && !dto.assignedToDepartmentId)
