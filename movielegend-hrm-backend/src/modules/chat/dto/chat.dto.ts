@@ -1,8 +1,30 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
 export class CreateChatMessageDto {
-  @ApiProperty({ description: 'Nội dung tin nhắn' })
+  @ApiPropertyOptional({ description: 'Nội dung tin nhắn' })
   @IsString()
-  content!: string;
+  @IsOptional()
+  content?: string;
+
+  @ApiPropertyOptional({ description: 'Đường dẫn file đính kèm' })
+  @IsString()
+  @IsOptional()
+  fileUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Loại file đính kèm (IMAGE/DOCUMENT)' })
+  @IsString()
+  @IsOptional()
+  fileType?: string;
+
+  @ApiPropertyOptional({ description: 'Tên file' })
+  @IsString()
+  @IsOptional()
+  fileName?: string;
+
+  @ApiPropertyOptional({ description: 'Danh sách ID user được nhắc tên', type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  mentions?: string[];
 }

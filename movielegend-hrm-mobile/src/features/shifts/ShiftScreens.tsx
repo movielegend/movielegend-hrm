@@ -135,31 +135,36 @@ export function AdminShiftsScreen() {
                 </Text>
               </View>
 
-              {shift.assignments && shift.assignments.length > 0 && (
-                <View style={styles.assignmentSection}>
-                  <View style={styles.assignmentHeader}>
-                    <MaterialCommunityIcons name="account-group-outline" size={16} color={colors.primary} />
-                    <Text style={styles.assignmentLabel}>Leaders đã phân ca</Text>
-                    <View style={styles.assignmentCount}>
-                      <Text style={styles.assignmentCountText}>{shift.assignments.length}</Text>
+              {shift.assignments && shift.assignments.length > 0 && (() => {
+                const uniqueAssignments = shift.assignments.filter(
+                  (a, index, self) => index === self.findIndex((t) => t.userId === a.userId)
+                );
+                return (
+                  <View style={styles.assignmentSection}>
+                    <View style={styles.assignmentHeader}>
+                      <MaterialCommunityIcons name="account-group-outline" size={16} color={colors.primary} />
+                      <Text style={styles.assignmentLabel}>Leaders đã phân ca</Text>
+                      <View style={styles.assignmentCount}>
+                        <Text style={styles.assignmentCountText}>{uniqueAssignments.length}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.assignmentList}>
+                      {uniqueAssignments.map(a => {
+                        const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
+                        const initials = name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
+                        return (
+                          <View key={a.id} style={styles.assignmentChip}>
+                            <View style={styles.assignmentAvatar}>
+                              <Text style={styles.assignmentAvatarText}>{initials}</Text>
+                            </View>
+                            <Text style={styles.assignmentName}>{name}</Text>
+                          </View>
+                        );
+                      })}
                     </View>
                   </View>
-                  <View style={styles.assignmentList}>
-                    {shift.assignments.map(a => {
-                      const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
-                      const initials = name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
-                      return (
-                        <View key={a.id} style={styles.assignmentChip}>
-                          <View style={styles.assignmentAvatar}>
-                            <Text style={styles.assignmentAvatarText}>{initials}</Text>
-                          </View>
-                          <Text style={styles.assignmentName}>{name}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
+                );
+              })()}
 
               <View style={styles.shiftActions}>
                 <Pressable

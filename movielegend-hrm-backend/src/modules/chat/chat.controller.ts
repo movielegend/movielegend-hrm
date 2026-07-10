@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 @ApiTags('chat')
@@ -37,6 +38,32 @@ export class ChatController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.chatService.sendMessage(user.userId, groupId, dto);
+  }
+
+  @ApiOperation({ summary: 'Lấy tất cả nhóm chat (Admin)' })
+  @Roles('ADMIN')
+  @Get('admin/groups')
+  getAllGroups(@Query('search') search?: string) {
+    return this.chatService.getAllGroups(search);
+  }
+
+  @ApiOperation({ summary: 'Tạo chat 1-1' })
+  @Post('direct')
+  createDirectChat(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('targetUserId') targetUserId: string
+  ) {
+    return this.chatService.createDirectChat(user.userId, targetUserId);
+  }
+
+  @ApiOperation({ summary: 'Tạo nhóm chat tuỳ chỉnh' })
+  @Post('custom')
+  createCustomGroup(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('name') name: string,
+    @Body('memberIds') memberIds: string[]
+  ) {
+    return this.chatService.createCustomGroup(user.userId, name, memberIds);
   }
 }
 

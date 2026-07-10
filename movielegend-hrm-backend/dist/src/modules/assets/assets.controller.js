@@ -45,6 +45,9 @@ let AssetsController = class AssetsController {
     assign(id, dto, actor) {
         return this.assets.assign(id, dto, actor);
     }
+    revoke(id, dto, actor) {
+        return this.assets.revoke(id, dto, actor);
+    }
     reportIncident(id, dto, actor) {
         return this.assets.reportIncident(id, dto, actor);
     }
@@ -117,6 +120,16 @@ __decorate([
     __metadata("design:paramtypes", [String, asset_dto_1.AssignAssetDto, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "assign", null);
+__decorate([
+    (0, common_1.Post)('assets/:id/revoke'),
+    (0, permissions_decorator_1.Permissions)('asset.assign'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, asset_dto_1.RevokeAssetDto, Object]),
+    __metadata("design:returntype", void 0)
+], AssetsController.prototype, "revoke", null);
 __decorate([
     (0, common_1.Post)('assets/:id/incidents'),
     (0, permissions_decorator_1.Permissions)('asset.incident.create'),

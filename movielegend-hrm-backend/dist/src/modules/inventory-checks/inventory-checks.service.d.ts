@@ -15,128 +15,128 @@ export declare class InventoryChecksService {
         items: {
             id: string;
             note: string | null;
-            systemQuantity: Prisma.Decimal | null;
-            actualQuantity: Prisma.Decimal | null;
-            differenceQuantity: Prisma.Decimal | null;
             materialId: string | null;
+            actualQuantity: Prisma.Decimal | null;
+            systemQuantity: Prisma.Decimal | null;
+            differenceQuantity: Prisma.Decimal | null;
             inventoryCheckId: string;
         }[];
     } & {
         id: string;
-        warehouseId: string;
-        checkCode: string;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
+        note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
         createdById: string;
         approvedById: string | null;
-        note: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        checkCode: string;
     }>;
     findAll(actor: AuthenticatedUser): Prisma.PrismaPromise<({
         items: {
             id: string;
             note: string | null;
-            systemQuantity: Prisma.Decimal | null;
-            actualQuantity: Prisma.Decimal | null;
-            differenceQuantity: Prisma.Decimal | null;
             materialId: string | null;
+            actualQuantity: Prisma.Decimal | null;
+            systemQuantity: Prisma.Decimal | null;
+            differenceQuantity: Prisma.Decimal | null;
             inventoryCheckId: string;
         }[];
     } & {
         id: string;
-        warehouseId: string;
-        checkCode: string;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
+        note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
         createdById: string;
         approvedById: string | null;
-        note: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        checkCode: string;
     })[]>;
     findOne(id: string, actor: AuthenticatedUser): Promise<{
         items: {
             id: string;
             note: string | null;
-            systemQuantity: Prisma.Decimal | null;
-            actualQuantity: Prisma.Decimal | null;
-            differenceQuantity: Prisma.Decimal | null;
             materialId: string | null;
+            actualQuantity: Prisma.Decimal | null;
+            systemQuantity: Prisma.Decimal | null;
+            differenceQuantity: Prisma.Decimal | null;
             inventoryCheckId: string;
         }[];
     } & {
         id: string;
-        warehouseId: string;
-        checkCode: string;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
+        note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
         createdById: string;
         approvedById: string | null;
-        note: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        checkCode: string;
     }>;
     updateItems(id: string, dto: UpdateInventoryCheckItemsDto, actor: AuthenticatedUser): Promise<({
         items: {
             id: string;
             note: string | null;
-            systemQuantity: Prisma.Decimal | null;
-            actualQuantity: Prisma.Decimal | null;
-            differenceQuantity: Prisma.Decimal | null;
             materialId: string | null;
+            actualQuantity: Prisma.Decimal | null;
+            systemQuantity: Prisma.Decimal | null;
+            differenceQuantity: Prisma.Decimal | null;
             inventoryCheckId: string;
         }[];
     } & {
         id: string;
-        warehouseId: string;
-        checkCode: string;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
+        note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
         createdById: string;
         approvedById: string | null;
-        note: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        checkCode: string;
     }) | null>;
     submit(id: string, actor: AuthenticatedUser): Promise<{
         id: string;
-        warehouseId: string;
-        checkCode: string;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
+        note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
         createdById: string;
         approvedById: string | null;
-        note: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        checkCode: string;
     }>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
         items: {
             id: string;
             note: string | null;
-            systemQuantity: Prisma.Decimal | null;
-            actualQuantity: Prisma.Decimal | null;
-            differenceQuantity: Prisma.Decimal | null;
             materialId: string | null;
+            actualQuantity: Prisma.Decimal | null;
+            systemQuantity: Prisma.Decimal | null;
+            differenceQuantity: Prisma.Decimal | null;
             inventoryCheckId: string;
         }[];
     } & {
         id: string;
-        warehouseId: string;
-        checkCode: string;
+        createdAt: Date;
+        updatedAt: Date;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
+        note: string | null;
+        warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
         createdById: string;
         approvedById: string | null;
-        note: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        checkCode: string;
     }>;
 }

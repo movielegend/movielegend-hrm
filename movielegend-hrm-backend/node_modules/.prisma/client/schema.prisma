@@ -2811,6 +2811,8 @@ model PostLike {
 enum ChatGroupType {
   DEPARTMENT
   TASK
+  DIRECT
+  CUSTOM
 }
 
 model ChatGroup {
@@ -2818,7 +2820,8 @@ model ChatGroup {
   departmentId String?       @unique @db.Uuid
   taskId       String?       @unique @db.Uuid
   name         String?
-  type         ChatGroupType @default(DEPARTMENT)
+  type         ChatGroupType @default(CUSTOM)
+  isArchived   Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -2847,7 +2850,11 @@ model ChatMessage {
   id        String   @id @default(uuid()) @db.Uuid
   groupId   String   @db.Uuid
   senderId  String   @db.Uuid
-  content   String
+  content   String?
+  fileUrl   String?
+  fileType  String?
+  fileName  String?
+  mentions  String[] @db.Uuid
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

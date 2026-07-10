@@ -78,9 +78,20 @@ export declare class NewsfeedService {
                 avatarUrl: string | null;
             } | null;
         };
-        likes: {
+        likes: ({
+            user: {
+                id: string;
+                profile: {
+                    fullName: string;
+                    avatarUrl: string | null;
+                } | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
             userId: string;
-        }[];
+            postId: string;
+        })[];
     } & {
         id: string;
         createdAt: Date;
@@ -110,5 +121,16 @@ export declare class NewsfeedService {
         content: string;
         authorId: string;
         postId: string;
+    }>;
+    deletePost(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string | null;
+        departmentId: string | null;
+        images: string[];
+        content: string;
+        attachments: string[];
+        authorId: string;
     }>;
 }

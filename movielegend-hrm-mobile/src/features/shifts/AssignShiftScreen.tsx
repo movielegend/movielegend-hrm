@@ -32,10 +32,26 @@ export function AssignShiftScreen() {
   const [selectedShift, setSelectedShift] = useState<SelectOption | null>(null);
   const [workDate, setWorkDate] = useState<Date>(new Date());
   
-  // Modal visibility states
   const [employeeModalVisible, setEmployeeModalVisible] = useState(false);
   const [shiftModalVisible, setShiftModalVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([0, 1, 2, 3, 4, 5]); // Default T2 -> T7
+
+  const WEEKDAYS = [
+    { label: 'T2', index: 0 },
+    { label: 'T3', index: 1 },
+    { label: 'T4', index: 2 },
+    { label: 'T5', index: 3 },
+    { label: 'T6', index: 4 },
+    { label: 'T7', index: 5 },
+    { label: 'CN', index: 6 },
+  ];
+
+  const toggleWeekday = (index: number) => {
+    setSelectedWeekdays(prev => 
+      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort()
+    );
+  };
 
   // Mappers
   const employeeOptions: SelectOption[] = useMemo(() => {
@@ -58,6 +74,21 @@ export function AssignShiftScreen() {
     }));
   }, [shiftsQuery.data]);
 
+  const getWeekDates = (date: Date) => {
+    const currentDay = date.getDay();
+    const diffToMonday = currentDay === 0 ? 6 : currentDay - 1;
+    const startOfWeek = new Date(date);
+    startOfWeek.setDate(date.getDate() - diffToMonday);
+    
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startOfWeek);
+      d.setDate(startOfWeek.getDate() + i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    return dates;
+  };
+
   const handleSubmit = async () => {
     if (!selectedEmployee || !selectedShift) return;
 
@@ -66,19 +97,30 @@ export function AssignShiftScreen() {
     const departmentId = empRaw?.department?.id;
 
     if (!departmentId) {
-      Alert.alert('Lỗi', 'Nhân viên này chưa thuộc phòng ban nào, không thể phân ca.');
+      Alert.alert('Lỗi', 'Nhân viên/Leader này chưa thuộc phòng ban nào, không thể phân ca.');
       return;
     }
 
     try {
-      await assignMutation.mutateAsync({
-        userId: selectedEmployee.id,
-        departmentId: departmentId as string,
-        shiftId: selectedShift.id,
-        workDate: workDate.toISOString().split('T')[0] as string, // YYYY-MM-DD
-      });
+      const allWeekDates = getWeekDates(workDate);
+      const datesToAssign = selectedWeekdays.map(index => allWeekDates[index]);
+
+      if (datesToAssign.length === 0) {
+        Alert.alert('Lỗi', 'Vui lòng chọn ít nhất một ngày trong tuần.');
+        return;
+      }
       
-      Alert.alert('Thành công', 'Đã phân ca thành công!', [
+      for (const dateStr of datesToAssign) {
+        if (!dateStr) continue;
+        await assignMutation.mutateAsync({
+          userId: selectedEmployee.id,
+          departmentId: departmentId as string,
+          shiftId: selectedShift.id,
+          workDate: dateStr,
+        });
+      }
+      
+      Alert.alert('Thành công', `Đã phân ca tuần thành công cho quản lý/leader:\n${selectedEmployee.label}`, [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
@@ -99,6 +141,18 @@ export function AssignShiftScreen() {
     const m = (date.getMonth() + 1).toString().padStart(2, '0');
     const y = date.getFullYear();
     return `${d}/${m}/${y}`;
+  };
+
+  const formatWeekRange = (date: Date) => {
+    const currentDay = date.getDay();
+    const diffToMonday = currentDay === 0 ? 6 : currentDay - 1;
+    const startOfWeek = new Date(date);
+    startOfWeek.setDate(date.getDate() - diffToMonday);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    
+    return `Từ ${formatDate(startOfWeek)} đến ${formatDate(endOfWeek)}`;
   };
 
   return (
@@ -153,7 +207,7 @@ export function AssignShiftScreen() {
           </Pressable>
 
           {/* Date Selector */}
-          <Text style={styles.label}>Ngày làm việc</Text>
+          <Text style={styles.label}>Chọn tuần làm việc</Text>
           <Pressable 
             style={styles.selector} 
             onPress={() => setShowDatePicker(true)}
@@ -161,7 +215,7 @@ export function AssignShiftScreen() {
             <View style={styles.selectorContent}>
               <MaterialCommunityIcons name="calendar-month-outline" size={24} color={colors.primary} />
               <View style={styles.selectorTextWrap}>
-                <Text style={styles.selectorTextVal}>{formatDate(workDate)}</Text>
+                <Text style={styles.selectorTextVal}>{formatWeekRange(workDate)}</Text>
               </View>
             </View>
             <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.muted} />
@@ -175,11 +229,30 @@ export function AssignShiftScreen() {
             />
           )}
 
+          {/* Weekday Selector */}
+          <Text style={styles.label}>Áp dụng cho các ngày</Text>
+          <View style={styles.weekdayRow}>
+            {WEEKDAYS.map(day => {
+              const isSelected = selectedWeekdays.includes(day.index);
+              return (
+                <Pressable
+                  key={day.index}
+                  style={[styles.weekdayBtn, isSelected && styles.weekdayBtnActive]}
+                  onPress={() => toggleWeekday(day.index)}
+                >
+                  <Text style={[styles.weekdayText, isSelected && styles.weekdayTextActive]}>
+                    {day.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
         </View>
 
         <PrimaryButton 
           loading={assignMutation.isPending}
-          disabled={!selectedEmployee || !selectedShift}
+          disabled={!selectedEmployee || !selectedShift || selectedWeekdays.length === 0}
           onPress={handleSubmit}
         >
           Xác nhận Phân ca
@@ -270,5 +343,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
     marginTop: 2,
+  },
+  weekdayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+  weekdayBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  weekdayBtnActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  weekdayText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  weekdayTextActive: {
+    color: colors.primaryDark,
   },
 });

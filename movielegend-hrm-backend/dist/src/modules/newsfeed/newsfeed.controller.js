@@ -40,11 +40,13 @@ let NewsfeedController = class NewsfeedController {
     addComment(id, dto, user) {
         return this.newsfeedService.addComment(user.userId, id, dto);
     }
+    deletePost(id) {
+        return this.newsfeedService.deletePost(id);
+    }
 };
 exports.NewsfeedController = NewsfeedController;
 __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Tạo bài đăng mới' }),
-    (0, permissions_decorator_1.Permissions)('newsfeed.create'),
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)()),
@@ -87,6 +89,15 @@ __decorate([
     __metadata("design:paramtypes", [String, newsfeed_dto_1.CreateCommentDto, Object]),
     __metadata("design:returntype", void 0)
 ], NewsfeedController.prototype, "addComment", null);
+__decorate([
+    (0, swagger_1.ApiOperation)({ summary: 'Xóa bài đăng (Admin kiểm duyệt)' }),
+    (0, permissions_decorator_1.Permissions)('user.manage'),
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], NewsfeedController.prototype, "deletePost", null);
 exports.NewsfeedController = NewsfeedController = __decorate([
     (0, swagger_1.ApiTags)('newsfeed'),
     (0, swagger_1.ApiBearerAuth)(),

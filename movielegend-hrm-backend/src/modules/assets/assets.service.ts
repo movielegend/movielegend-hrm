@@ -180,8 +180,8 @@ export class AssetsService {
         where: { id: activeAssignment.id },
         data: {
           status: 'RETURNED',
-          actualReturnDate: new Date(),
-          returnConditionNote: dto.note || 'Thu hồi bởi quản lý',
+          returnedAt: new Date(),
+          note: dto.note || 'Thu hồi bởi quản lý',
         },
       });
 
@@ -193,7 +193,7 @@ export class AssetsService {
       });
 
       await tx.auditLog.create({
-        data: { actorUserId: actor.userId, action: 'ASSET_REVOKED', entityType: 'Asset', entityId: id, details: { assignmentId: activeAssignment.id, note: dto.note } },
+        data: { actorUserId: actor.userId, action: 'ASSET_REVOKED', entityType: 'Asset', entityId: id, metadata: { assignmentId: activeAssignment.id, note: dto.note } },
       });
 
       return updatedAsset;

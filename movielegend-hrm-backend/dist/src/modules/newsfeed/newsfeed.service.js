@@ -63,7 +63,11 @@ let NewsfeedService = class NewsfeedService {
                     },
                     orderBy: { createdAt: 'desc' }
                 },
-                likes: { select: { userId: true } },
+                likes: {
+                    include: {
+                        user: { select: { id: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+                    }
+                },
                 _count: { select: { comments: true, likes: true } }
             }
         });
@@ -93,6 +97,12 @@ let NewsfeedService = class NewsfeedService {
                 author: { select: { id: true, profile: { select: { fullName: true, avatarUrl: true } } } }
             }
         });
+    }
+    async deletePost(id) {
+        const post = await this.prisma.newsfeedPost.findUnique({ where: { id } });
+        if (!post)
+            throw new common_1.NotFoundException('Post not found');
+        return this.prisma.newsfeedPost.delete({ where: { id } });
     }
 };
 exports.NewsfeedService = NewsfeedService;

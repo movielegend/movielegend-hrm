@@ -14,11 +14,41 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class CreateChatMessageDto {
     content;
+    fileUrl;
+    fileType;
+    fileName;
+    mentions;
 }
 exports.CreateChatMessageDto = CreateChatMessageDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Nội dung tin nhắn' }),
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Nội dung tin nhắn' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateChatMessageDto.prototype, "content", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Đường dẫn file đính kèm' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateChatMessageDto.prototype, "fileUrl", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Loại file đính kèm (IMAGE/DOCUMENT)' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateChatMessageDto.prototype, "fileType", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Tên file' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateChatMessageDto.prototype, "fileName", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Danh sách ID user được nhắc tên', type: [String] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateChatMessageDto.prototype, "mentions", void 0);
 //# sourceMappingURL=chat.dto.js.map
