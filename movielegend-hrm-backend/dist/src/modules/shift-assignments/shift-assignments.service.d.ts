@@ -22,23 +22,6 @@ export declare class ShiftAssignmentsService {
             updatedAt: Date;
             deletedAt: Date | null;
         };
-        shift: {
-            id: string;
-            code: string;
-            name: string;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            startTime: string;
-            endTime: string;
-            breakMinutes: number;
-            checkInEarlyMinutes: number;
-            checkInLateMinutes: number;
-            checkOutEarlyMinutes: number;
-            checkOutLateMinutes: number;
-            isNightShift: boolean;
-        };
         user: {
             id: string;
             userCode: string;
@@ -67,6 +50,23 @@ export declare class ShiftAssignmentsService {
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
             } | null;
+        };
+        shift: {
+            id: string;
+            code: string;
+            name: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            startTime: string;
+            endTime: string;
+            breakMinutes: number;
+            checkInEarlyMinutes: number;
+            checkInLateMinutes: number;
+            checkOutEarlyMinutes: number;
+            checkOutLateMinutes: number;
+            isNightShift: boolean;
         };
     } & {
         id: string;

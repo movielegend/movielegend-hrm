@@ -32,16 +32,33 @@ export function LeaderDashboard() {
     hour12: false,
   });
 
-  // Generate week dates mock
-  const weekDates = [
-    { day: 'T2', date: '06', active: false },
-    { day: 'T3', date: '07', active: false },
-    { day: 'T4', date: '08', active: true },
-    { day: 'T5', date: '09', active: false },
-    { day: 'T6', date: '10', active: false },
-    { day: 'T7', date: '11', active: false },
-    { day: 'CN', date: '12', active: false },
-  ];
+  const getInitials = (name?: string) => {
+    if (!name) return 'AD';
+    const words = name.trim().split(' ').filter(Boolean);
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Generate week dates dynamically
+  const today = new Date();
+  const currentDayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ...
+  
+  // Find Monday of the current week
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - (currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1));
+
+  const weekDates = Array.from({ length: 7 }).map((_, index) => {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + index);
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    return {
+      day: dayNames[d.getDay()],
+      date: d.getDate().toString().padStart(2, '0'),
+      active: d.toDateString() === today.toDateString()
+    };
+  });
 
   return (
     <Screen>
@@ -53,13 +70,18 @@ export function LeaderDashboard() {
         <View style={styles.header}>
           <View style={styles.userInfo}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>AD</Text>
+              <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
             </View>
             <Text style={styles.userName}>{user?.fullName || 'Quản trị viên'}</Text>
           </View>
-          <Pressable style={styles.bellBtn} onPress={() => router.push('/leader/notifications')}>
-            <MaterialCommunityIcons name="bell-outline" size={24} color={colors.primaryDark} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.chatBtn} onPress={() => router.push('/(chat)')}>
+              <MaterialCommunityIcons name="chat-outline" size={24} color={colors.primaryDark} />
+            </Pressable>
+            <Pressable style={styles.bellBtn} onPress={() => router.push('/leader/notifications')}>
+              <MaterialCommunityIcons name="bell-outline" size={24} color={colors.primaryDark} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Lịch làm việc */}
@@ -81,7 +103,7 @@ export function LeaderDashboard() {
         {/* Nút Vào ca */}
         <Pressable 
           style={styles.heroButton}
-          onPress={() => router.push('/leader/attendance')}
+          onPress={() => router.push('/leader/attendance/check-in')}
         >
           <View>
             <Text style={styles.heroTitle}>Vào ca</Text>
@@ -92,36 +114,37 @@ export function LeaderDashboard() {
           </View>
         </Pressable>
 
+        <View style={styles.teamStatsContainer}>
+          <Text style={styles.sectionTitleFolder}>Thống kê nhóm hôm nay</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>12</Text>
+              <Text style={styles.statLabel}>Tổng NV</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statNumber, { color: '#10B981' }]}>10</Text>
+              <Text style={styles.statLabel}>Đã check-in</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statNumber, { color: '#F59E0B' }]}>1</Text>
+              <Text style={styles.statLabel}>Đi trễ</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statNumber, { color: '#EF4444' }]}>1</Text>
+              <Text style={styles.statLabel}>Vắng mặt</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Thư mục */}
         <Text style={styles.sectionTitleFolder}>Thư mục</Text>
         <View style={styles.grid}>
-          <GridCard 
-            title="Duyệt tài khoản" 
-            icon="check-decagram-outline" 
-            iconBg="#FEF3C7" 
-            iconColor="#F59E0B"
-            onPress={() => router.push('/leader/approvals')}
-          />
           <GridCard 
             title="Chấm công" 
             icon="swap-horizontal" 
             iconBg="#E0F2FE" 
             iconColor="#3B82F6"
             onPress={() => router.push('/leader/attendance')}
-          />
-          <GridCard 
-            title="Nghỉ phép" 
-            icon="calendar-remove" 
-            iconBg="#FEE2E2" 
-            iconColor="#EF4444"
-            onPress={() => router.push('/leader/leave-approvals')}
-          />
-          <GridCard 
-            title="Tăng ca" 
-            icon="clock-fast" 
-            iconBg="#FFEDD5" 
-            iconColor="#F97316"
-            onPress={() => router.push('/leader/overtime-approvals')}
           />
           <GridCard 
             title="Phân ca" 
@@ -138,39 +161,11 @@ export function LeaderDashboard() {
             onPress={() => router.push('/leader/employees')}
           />
           <GridCard 
-            title="Công việc" 
-            icon="check-circle-outline" 
-            iconBg="#F3E8FF" 
-            iconColor="#A855F7"
-            onPress={() => router.push('/leader/tasks')}
-          />
-          <GridCard 
-            title="Nhóm việc" 
-            icon="account-group" 
-            iconBg="#E0E7FF" 
-            iconColor="#6366F1"
-            onPress={() => router.push('/leader/task-groups')}
-          />
-          <GridCard 
             title="Sự cố tài sản" 
             icon="alert-circle-outline" 
             iconBg="#FFE4E6" 
             iconColor="#F43F5E"
             onPress={() => router.push('/leader/asset-incidents')}
-          />
-          <GridCard 
-            title="Yêu cầu VTTB" 
-            icon="box-variant" 
-            iconBg="#FCE7F3" 
-            iconColor="#DB2777"
-            onPress={() => router.push('/leader/material-issues')}
-          />
-          <GridCard 
-            title="Liên phòng ban" 
-            icon="transit-connection-variant" 
-            iconBg="#FEF9C3" 
-            iconColor="#EAB308"
-            onPress={() => router.push('/leader/cross-department')}
           />
         </View>
       </ScrollView>
@@ -233,6 +228,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chatBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   bellBtn: {
     width: 44,
@@ -373,5 +382,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+  },
+  teamStatsContainer: {
+    marginBottom: spacing.xl,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: colors.muted,
+    textAlign: 'center',
   }
 });

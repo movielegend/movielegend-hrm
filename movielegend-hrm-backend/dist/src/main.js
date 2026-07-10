@@ -7,11 +7,14 @@ const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const swagger_1 = require("@nestjs/swagger");
 const helmet_1 = __importDefault(require("helmet"));
+const express_1 = require("express");
 const app_module_1 = require("./app.module");
 const all_exceptions_filter_1 = require("./common/filters/all-exceptions.filter");
 const response_interceptor_1 = require("./common/interceptors/response.interceptor");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    app.use((0, express_1.json)({ limit: '50mb' }));
+    app.use((0, express_1.urlencoded)({ extended: true, limit: '50mb' }));
     app.enableShutdownHooks();
     if (process.env.NODE_ENV === 'production') {
         app.use((0, helmet_1.default)());

@@ -10,7 +10,7 @@ import { PrimaryButton } from '../../components/Buttons';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
 
 import { useAuth } from '../../providers/AuthProvider';
-import { useShifts, useAssignShift } from '../../hooks/useShifts';
+import { useShifts, useAssignShift, useMySchedule } from '../../hooks/useShifts';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 
 import { colors } from '../../theme/colors';
@@ -21,8 +21,12 @@ export function AssignShiftScreen() {
   const router = useRouter();
   const { user } = useAuth();
   
+  const isAdmin = user?.roles?.some((r: any) => r.name?.toUpperCase().includes('ADMIN'));
+
   // Queries
-  const shiftsQuery = useShifts();
+  const allShiftsQuery = useShifts();
+  const myScheduleQuery = useMySchedule();
+  
   // Fetch employees scoped to current user (Admin gets all, Leader gets their department)
   const employeesQuery = useScopedEmployees({ page: 1, limit: 100 });
   const assignMutation = useAssignShift();
@@ -56,23 +60,52 @@ export function AssignShiftScreen() {
   // Mappers
   const employeeOptions: SelectOption[] = useMemo(() => {
     if (!employeesQuery.data?.items) return [];
-    return employeesQuery.data.items.map(emp => ({
+    let items = employeesQuery.data.items;
+
+    if (isAdmin) {
+      // Admin chỉ gán cho Leader
+      items = items.filter((emp: any) => emp.roles?.some((r: any) => r.name?.toUpperCase().includes('LEADER') || r.role?.name?.toUpperCase().includes('LEADER')));
+    } else {
+      // Leader gán cho nhân viên (không bao gồm chính họ nếu cần, nhưng tạm thời cứ lấy hết trong scope của họ)
+    }
+
+    return items.map((emp: any) => ({
       id: emp.id,
       label: emp.fullName ?? emp.userCode,
       subtitle: `${emp.position?.name ?? 'Nhân viên'} - ${emp.department?.name ?? 'Chưa phân phòng'}`,
       // We attach the raw object so we can extract departmentId later
       raw: emp,
     }));
-  }, [employeesQuery.data]);
+  }, [employeesQuery.data, isAdmin]);
 
   const shiftOptions: SelectOption[] = useMemo(() => {
-    if (!shiftsQuery.data) return [];
-    return shiftsQuery.data.filter(s => s.isActive).map(s => ({
-      id: s.id,
-      label: s.name,
-      subtitle: `${s.startTime} - ${s.endTime}`,
-    }));
-  }, [shiftsQuery.data]);
+    if (isAdmin) {
+      // Admin lấy từ kho tất cả các ca
+      if (!allShiftsQuery.data) return [];
+      return allShiftsQuery.data.filter((s: any) => s.isActive).map((s: any) => ({
+        id: s.id,
+        label: s.name,
+        subtitle: `${s.startTime} - ${s.endTime}`,
+      }));
+    } else {
+      // Leader lấy từ các ca đã được gán cho mình
+      if (!myScheduleQuery.data) return [];
+      // myScheduleQuery trả về danh sách ShiftAssignment (có thể trùng Shift nếu được gán nhiều ngày)
+      const uniqueShifts = new Map();
+      const scheduleData = Array.isArray(myScheduleQuery.data) ? myScheduleQuery.data : (myScheduleQuery.data as any).items || [];
+      
+      scheduleData.forEach((assignment: any) => {
+        if (assignment.shift && assignment.shift.isActive && !uniqueShifts.has(assignment.shift.id)) {
+          uniqueShifts.set(assignment.shift.id, assignment.shift);
+        }
+      });
+      return Array.from(uniqueShifts.values()).map((s: any) => ({
+        id: s.id,
+        label: s.name,
+        subtitle: `${s.startTime} - ${s.endTime}`,
+      }));
+    }
+  }, [isAdmin, allShiftsQuery.data, myScheduleQuery.data]);
 
   const getWeekDates = (date: Date) => {
     const currentDay = date.getDay();
@@ -274,7 +307,7 @@ export function AssignShiftScreen() {
         visible={shiftModalVisible}
         title="Chọn ca làm việc"
         options={shiftOptions}
-        isLoading={shiftsQuery.isLoading}
+        isLoading={isAdmin ? allShiftsQuery.isLoading : myScheduleQuery.isLoading}
         selectedValue={selectedShift?.id}
         onSelect={setSelectedShift}
         onClose={() => setShiftModalVisible(false)}

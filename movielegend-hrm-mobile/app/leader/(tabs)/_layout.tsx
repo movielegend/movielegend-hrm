@@ -56,11 +56,11 @@ export default function LeaderTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="elearning"
+        name="approvals"
         options={{
-          title: 'E-Learning',
+          title: 'Duyệt đơn',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="book-open-page-variant-outline" size={24} color={color} />
+            <MaterialCommunityIcons name="clipboard-check-outline" size={24} color={color} />
           ),
         }}
       />
@@ -80,6 +80,12 @@ export default function LeaderTabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="bell-outline" size={24} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="elearning"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

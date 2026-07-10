@@ -1,5 +1,5 @@
 import type { AuthUser } from '../../types/user.types';
-import type { NotificationTargetDto } from '../../types/notification.types';
+
 import type { TaskAssignmentDto, TaskAssignmentStatus, TaskDto, TaskPriority, TaskStatus } from '../../types/task.types';
 import { toDate } from '../../utils/date-time';
 
@@ -73,30 +73,3 @@ export function mapTaskError(code: string, fallback: string): string {
   return map[code] ?? fallback;
 }
 
-export function notificationRoute(target: NotificationTargetDto, user: AuthUser | null): string | null {
-  const notification = target.notification;
-  const taskId = notification.taskId ?? stringMeta(notification.metadata, 'taskId');
-  const requestId = stringMeta(notification.metadata, 'requestId');
-  const assetId = stringMeta(notification.metadata, 'assetId');
-  const issueId = stringMeta(notification.metadata, 'issueId');
-  const approvalRequestId = stringMeta(notification.metadata, 'approvalRequestId');
-  const base = roleBase(user);
-  if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
-  if (notification.type.startsWith('TASK_') && taskId) return `${base}/tasks/${taskId}`;
-  if (notification.type.startsWith('CROSS_DEPARTMENT_') && requestId) return `${base}/cross-department/${requestId}`;
-  if (notification.type.startsWith('ASSET_') && assetId) return `${base}/assets/${assetId}`;
-  if (notification.type.startsWith('MATERIAL_ISSUE_') && issueId) return `${base}/material-issues/${issueId}`;
-  return null;
-}
-
-function stringMeta(metadata: Record<string, unknown> | null | undefined, key: string): string | null {
-  const value = metadata?.[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function roleBase(user: AuthUser | null): '/admin' | '/leader' | '/employee' | '/warehouse-manager' {
-  if (user?.roles.includes('ADMIN') || user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT')) return '/admin';
-  if (user?.roles.includes('WAREHOUSE_MANAGER')) return '/warehouse-manager';
-  if (user?.roles.includes('LEADER')) return '/leader';
-  return '/employee';
-}
