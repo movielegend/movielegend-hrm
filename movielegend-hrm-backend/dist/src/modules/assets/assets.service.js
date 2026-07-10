@@ -157,6 +157,42 @@ let AssetsService = class AssetsService {
         this.realtime.emitToUser(payload.assignment.assignedToUserId ?? actor.userId, 'asset:assigned', payload.assignment);
         return payload.assignment;
     }
+    async revoke(id, dto, actor) {
+        const asset = await this.prisma.asset.findUnique({
+            where: { id, deletedAt: null },
+            include: {
+                assignments: {
+                    where: { status: { in: ['ACTIVE', 'PENDING_CONFIRMATION', 'RETURN_REQUESTED'] } },
+                },
+            },
+        });
+        if (!asset)
+            throw (0, error_util_1.notFound)('ASSET_NOT_FOUND', 'Asset not found');
+        if (asset.departmentId && !actor.roles.includes('ADMIN'))
+            this.departments.assertDepartmentAccess(actor, asset.departmentId);
+        const activeAssignment = asset.assignments[0];
+        if (!activeAssignment)
+            throw (0, error_util_1.badRequest)('ASSET_NOT_ASSIGNED', 'Asset is not currently assigned to anyone');
+        return this.prisma.$transaction(async (tx) => {
+            await tx.assetAssignment.update({
+                where: { id: activeAssignment.id },
+                data: {
+                    status: 'RETURNED',
+                    returnedAt: new Date(),
+                    note: dto.note || 'Thu hồi bởi quản lý',
+                },
+            });
+            const updatedAsset = await tx.asset.update({
+                where: { id },
+                data: { assetStatus: 'IN_STOCK' },
+                include: { assignments: true, department: true },
+            });
+            await tx.auditLog.create({
+                data: { actorUserId: actor.userId, action: 'ASSET_REVOKED', entityType: 'Asset', entityId: id, metadata: { assignmentId: activeAssignment.id, note: dto.note } },
+            });
+            return updatedAsset;
+        });
+    }
     async confirmAssignment(id, actor) {
         const payload = await this.prisma.$transaction(async (tx) => {
             const assignment = await tx.assetAssignment.findUnique({ where: { id } });

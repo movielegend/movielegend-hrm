@@ -5,6 +5,9 @@ export interface ChatGroup {
   id: string;
   name: string;
   departmentId: string | null;
+  taskId: string | null;
+  type: 'DEPARTMENT' | 'TASK' | 'DIRECT' | 'CUSTOM';
+  isArchived: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -13,7 +16,11 @@ export interface ChatMessage {
   id: string;
   groupId: string;
   senderId: string;
-  content: string;
+  content?: string;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
+  mentions?: string[];
   createdAt: string;
   sender?: {
     id: string;
@@ -28,6 +35,13 @@ export async function fetchMyChatGroups() {
   return unwrapData(response);
 }
 
+export async function fetchAllChatGroups(search?: string) {
+  const response = await apiClient.get<ApiResponse<ChatGroup[]>>('/chat/admin/groups', {
+    params: { search }
+  });
+  return unwrapData(response);
+}
+
 export async function fetchChatMessages(groupId: string, params?: { page?: number; limit?: number }) {
   const response = await apiClient.get<ApiResponse<{ items: ChatMessage[]; pagination: any }>>(`/chat/groups/${groupId}/messages`, {
     params,
@@ -35,7 +49,25 @@ export async function fetchChatMessages(groupId: string, params?: { page?: numbe
   return unwrapData(response);
 }
 
-export async function sendChatMessage(groupId: string, content: string) {
-  const response = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/groups/${groupId}/messages`, { content });
+export interface SendMessagePayload {
+  content?: string;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
+  mentions?: string[];
+}
+
+export async function sendChatMessage(groupId: string, payload: SendMessagePayload) {
+  const response = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/groups/${groupId}/messages`, payload);
+  return unwrapData(response);
+}
+
+export async function createDirectChat(targetUserId: string) {
+  const response = await apiClient.post<ApiResponse<ChatGroup>>('/chat/direct', { targetUserId });
+  return unwrapData(response);
+}
+
+export async function createCustomChat(name: string, memberIds: string[]) {
+  const response = await apiClient.post<ApiResponse<ChatGroup>>('/chat/custom', { name, memberIds });
   return unwrapData(response);
 }

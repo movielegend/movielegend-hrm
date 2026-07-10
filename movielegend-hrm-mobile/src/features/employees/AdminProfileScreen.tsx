@@ -66,12 +66,22 @@ export function AdminProfileScreen() {
           </View>
         </View>
 
+        {/* Nhóm Nội bộ & Truyền thông */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Nội bộ & Truyền thông</Text>
+          <View style={styles.grid}>
+            <GridCard title="Bảng tin" icon="newspaper-variant" iconBg="#CCFBF1" iconColor="#14B8A6" onPress={() => router.push('/admin/newsfeed')} />
+            <GridCard title="Nhóm Chat" icon="chat" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/admin/chat')} />
+            <GridCard title="Hợp đồng" icon="file-document-edit" iconBg="#FEF3C7" iconColor="#D97706" onPress={() => router.push('/admin/contracts')} />
+          </View>
+        </View>
+
         {/* Nhóm 3: Công việc & Tài sản */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Công việc & Tài sản</Text>
           <View style={styles.grid}>
             <GridCard title="Công việc" icon="briefcase-check-outline" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/admin/tasks')} />
-            <GridCard title="Nhóm Task" icon="format-list-group" iconBg="#FFEDD5" iconColor="#F97316" onPress={() => router.push('/admin/task-groups')} />
+
             <GridCard title="Sự cố" icon="alert-octagon-outline" iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/admin/asset-incidents')} />
 
             <GridCard title="Vật tư" icon="cube-outline" iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/admin/materials')} />

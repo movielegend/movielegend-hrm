@@ -16,12 +16,16 @@ exports.ShiftsController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
+const public_decorator_1 = require("../../common/decorators/public.decorator");
 const create_shift_dto_1 = require("./dto/create-shift.dto");
 const shifts_service_1 = require("./shifts.service");
 let ShiftsController = class ShiftsController {
     shiftsService;
     constructor(shiftsService) {
         this.shiftsService = shiftsService;
+    }
+    deleteAllAssignments() {
+        return this.shiftsService.deleteAllAssignments();
     }
     create(dto) {
         return this.shiftsService.create(dto);
@@ -37,6 +41,13 @@ let ShiftsController = class ShiftsController {
     }
 };
 exports.ShiftsController = ShiftsController;
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)('delete-all-assignments'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], ShiftsController.prototype, "deleteAllAssignments", null);
 __decorate([
     (0, permissions_decorator_1.Permissions)('shift.create'),
     (0, common_1.Post)(),

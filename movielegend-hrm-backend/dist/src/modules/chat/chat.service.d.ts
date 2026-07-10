@@ -13,6 +13,7 @@ export declare class ChatService {
         type: import("@prisma/client").$Enums.ChatGroupType;
         departmentId: string | null;
         taskId: string | null;
+        isArchived: boolean;
     }>;
     getMessages(groupId: string, skip?: number, take?: number): Promise<({
         sender: {
@@ -27,8 +28,12 @@ export declare class ChatService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        content: string;
+        fileUrl: string | null;
+        fileName: string | null;
+        content: string | null;
         groupId: string;
+        fileType: string | null;
+        mentions: string[];
         senderId: string;
     })[]>;
     sendMessage(userId: string, groupId: string, dto: CreateChatMessageDto): Promise<{
@@ -44,11 +49,16 @@ export declare class ChatService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        content: string;
+        fileUrl: string | null;
+        fileName: string | null;
+        content: string | null;
         groupId: string;
+        fileType: string | null;
+        mentions: string[];
         senderId: string;
     }>;
     getMyGroups(userId: string): Promise<{
+        name: string | null;
         latestMessage: ({
             sender: {
                 profile: {
@@ -59,17 +69,21 @@ export declare class ChatService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            content: string;
+            fileUrl: string | null;
+            fileName: string | null;
+            content: string | null;
             groupId: string;
+            fileType: string | null;
+            mentions: string[];
             senderId: string;
         }) | null;
         id: string;
-        name: string | null;
         createdAt: Date;
         updatedAt: Date;
         type: import("@prisma/client").$Enums.ChatGroupType;
         departmentId: string | null;
         taskId: string | null;
+        isArchived: boolean;
     }[]>;
     createTaskGroup(taskId: string, name: string, memberIds: string[]): Promise<{
         id: string;
@@ -79,5 +93,47 @@ export declare class ChatService {
         type: import("@prisma/client").$Enums.ChatGroupType;
         departmentId: string | null;
         taskId: string | null;
+        isArchived: boolean;
     }>;
+    createDirectChat(userId1: string, userId2: string): Promise<{
+        id: string;
+        name: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import("@prisma/client").$Enums.ChatGroupType;
+        departmentId: string | null;
+        taskId: string | null;
+        isArchived: boolean;
+    }>;
+    createCustomGroup(creatorId: string, name: string, memberIds: string[]): Promise<{
+        id: string;
+        name: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import("@prisma/client").$Enums.ChatGroupType;
+        departmentId: string | null;
+        taskId: string | null;
+        isArchived: boolean;
+    }>;
+    getAllGroups(search?: string): Promise<({
+        department: {
+            name: string;
+        } | null;
+        _count: {
+            members: number;
+            messages: number;
+        };
+        task: {
+            title: string;
+        } | null;
+    } & {
+        id: string;
+        name: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import("@prisma/client").$Enums.ChatGroupType;
+        departmentId: string | null;
+        taskId: string | null;
+        isArchived: boolean;
+    })[]>;
 }

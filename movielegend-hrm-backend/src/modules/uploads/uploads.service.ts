@@ -34,9 +34,6 @@ export class UploadsService {
     if (!actor && purpose !== UploadPurpose.FACE_REGISTRATION) {
       throw forbidden('UPLOAD_UNAUTHORIZED', 'Authentication is required for this upload purpose');
     }
-    if (actor && purpose !== UploadPurpose.FACE_REGISTRATION && !actor.permissions.includes('upload.create')) {
-      throw forbidden('UPLOAD_UNAUTHORIZED', 'Upload permission is required');
-    }
 
     const policy = uploadPolicies[purpose];
     validateFile(parsed.file, policy);

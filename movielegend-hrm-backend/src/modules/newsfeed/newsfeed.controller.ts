@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Delete, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NewsfeedService } from './newsfeed.service';
 import { CreateNewsfeedPostDto, CreateCommentDto } from './dto/newsfeed.dto';
@@ -15,7 +15,6 @@ export class NewsfeedController {
   constructor(private readonly newsfeedService: NewsfeedService) {}
 
   @ApiOperation({ summary: 'Tạo bài đăng mới' })
-  @Permissions('newsfeed.create') // You might want to assign this permission to Admin/Leader
   @Post()
   createPost(@Body() dto: CreateNewsfeedPostDto, @CurrentUser() user: AuthenticatedUser) {
     return this.newsfeedService.createPost(user.userId, dto);
@@ -43,6 +42,13 @@ export class NewsfeedController {
   @Post(':id/comments')
   addComment(@Param('id') id: string, @Body() dto: CreateCommentDto, @CurrentUser() user: AuthenticatedUser) {
     return this.newsfeedService.addComment(user.userId, id, dto);
+  }
+
+  @ApiOperation({ summary: 'Xóa bài đăng (Admin kiểm duyệt)' })
+  @Permissions('user.manage') // Use an existing admin permission
+  @Delete(':id')
+  deletePost(@Param('id') id: string) {
+    return this.newsfeedService.deletePost(id);
   }
 }
 

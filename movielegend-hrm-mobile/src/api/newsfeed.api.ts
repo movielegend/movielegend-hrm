@@ -20,7 +20,16 @@ export interface NewsfeedPost {
       fullName: string;
     };
   };
-  likes?: { userId: string }[];
+  likes?: { 
+    userId: string;
+    user?: {
+      id: string;
+      profile?: {
+        fullName: string;
+        avatarUrl: string | null;
+      };
+    };
+  }[];
 }
 
 export interface NewsfeedComment {
@@ -44,7 +53,12 @@ export async function fetchNewsfeed(params?: { departmentId?: string; page?: num
   return unwrapData(response);
 }
 
-export async function createPost(data: { title: string; content: string; departmentId?: string }) {
+export async function fetchNewsfeedPost(postId: string) {
+  const response = await apiClient.get<ApiResponse<NewsfeedPost & { comments: NewsfeedComment[] }>>(`/newsfeed/${postId}`);
+  return unwrapData(response);
+}
+
+export async function createPost(data: { title: string; content: string; departmentId?: string; images?: string[] }) {
   const response = await apiClient.post<ApiResponse<NewsfeedPost>>('/newsfeed', data);
   return unwrapData(response);
 }
@@ -56,5 +70,10 @@ export async function likePost(postId: string) {
 
 export async function commentPost(postId: string, content: string) {
   const response = await apiClient.post<ApiResponse<NewsfeedComment>>(`/newsfeed/${postId}/comments`, { content });
+  return unwrapData(response);
+}
+
+export async function deletePost(postId: string) {
+  const response = await apiClient.delete<ApiResponse<any>>(`/newsfeed/${postId}`);
   return unwrapData(response);
 }

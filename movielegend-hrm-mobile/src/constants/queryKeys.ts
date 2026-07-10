@@ -101,3 +101,29 @@ export const inventoryCheckKeys = {
   list: () => ['inventory-checks', 'list'] as const,
   detail: (id: string) => ['inventory-checks', 'detail', id] as const,
 };
+
+export const newsfeedKeys = {
+  all: ['newsfeed'] as const,
+  list: (departmentId?: string) => ['newsfeed', 'list', departmentId ?? 'all'] as const,
+  detail: (id: string) => ['newsfeed', 'detail', id] as const,
+};
+
+export const chatKeys = {
+  all: ['chat'] as const,
+  groups: () => ['chat', 'groups'] as const,
+  allGroups: () => ['chat', 'all-groups'] as const,
+  messages: (groupId: string) => ['chat', 'messages', groupId] as const,
+};
+
+export const contractTemplateKeys = {
+  all: ['contract-templates'] as const,
+  list: () => ['contract-templates', 'list'] as const,
+  detail: (id: string) => ['contract-templates', 'detail', id] as const,
+};
+
+export const contractKeys = {
+  all: ['contracts'] as const,
+  list: (departmentId?: string) => ['contracts', 'list', departmentId ?? 'all'] as const,
+  expiring: (days?: number) => ['contracts', 'expiring', days ?? 30] as const,
+  detail: (id: string) => ['contracts', 'detail', id] as const,
+};

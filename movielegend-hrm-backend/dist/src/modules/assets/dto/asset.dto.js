@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MaintenanceDto = exports.ResolveIncidentDto = exports.ReportIncidentDto = exports.ReceiveReturnDto = exports.AssignAssetDto = exports.TransferAssetDto = exports.UpdateAssetDto = exports.CreateAssetDto = void 0;
+exports.MaintenanceDto = exports.RevokeAssetDto = exports.ResolveIncidentDto = exports.ReportIncidentDto = exports.ReceiveReturnDto = exports.AssignAssetDto = exports.TransferAssetDto = exports.UpdateAssetDto = exports.CreateAssetDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const client_1 = require("@prisma/client");
 const class_validator_1 = require("class-validator");
@@ -218,6 +218,16 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ResolveIncidentDto.prototype, "resolutionNote", void 0);
+class RevokeAssetDto {
+    note;
+}
+exports.RevokeAssetDto = RevokeAssetDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], RevokeAssetDto.prototype, "note", void 0);
 class MaintenanceDto {
     maintenanceType;
     description;

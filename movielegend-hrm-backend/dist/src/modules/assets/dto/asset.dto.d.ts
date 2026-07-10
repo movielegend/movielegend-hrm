@@ -40,6 +40,9 @@ export declare class ResolveIncidentDto {
     assetStatus?: AssetStatus;
     resolutionNote?: string;
 }
+export declare class RevokeAssetDto {
+    note?: string;
+}
 export declare class MaintenanceDto {
     maintenanceType: string;
     description: string;

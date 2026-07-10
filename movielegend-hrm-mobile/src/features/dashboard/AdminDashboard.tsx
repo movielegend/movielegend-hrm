@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -32,16 +32,30 @@ export function AdminDashboard() {
     hour12: false,
   });
 
-  // Generate week dates mock
-  const weekDates = [
-    { day: 'T2', date: '06', active: false },
-    { day: 'T3', date: '07', active: false },
-    { day: 'T4', date: '08', active: true },
-    { day: 'T5', date: '09', active: false },
-    { day: 'T6', date: '10', active: false },
-    { day: 'T7', date: '11', active: false },
-    { day: 'CN', date: '12', active: false },
-  ];
+  // Generate current week dates
+  const getWeekDates = () => {
+    const curr = new Date();
+    const currentDay = curr.getDay(); // 0 is Sunday, 1 is Monday
+    const diffToMonday = currentDay === 0 ? 6 : currentDay - 1; 
+    
+    const startOfWeek = new Date(curr);
+    startOfWeek.setDate(curr.getDate() - diffToMonday);
+
+    const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    
+    return Array.from({ length: 7 }).map((_, i) => {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      const isToday = date.getDate() === curr.getDate() && date.getMonth() === curr.getMonth() && date.getFullYear() === curr.getFullYear();
+      
+      const dayStr = days[date.getDay()];
+      const dateStr = date.getDate().toString().padStart(2, '0');
+      
+      return { day: dayStr, date: dateStr, active: isToday };
+    });
+  };
+
+  const weekDates = getWeekDates();
 
   return (
     <Screen>
@@ -110,6 +124,7 @@ export function AdminDashboard() {
             iconColor="#3B82F6"
             onPress={() => router.push('/admin/attendance')}
           />
+
           <GridCard 
             title="Xếp ca" 
             icon="view-grid" 
@@ -122,42 +137,14 @@ export function AdminDashboard() {
             icon="file-document" 
             iconBg="#D1FAE5" // Green
             iconColor="#10B981"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Hệ thống đang phát triển', 'Chức năng này đang trong quá trình phát triển, vui lòng thử lại sau.')}
           />
           <GridCard 
             title="Khóa học" 
             icon="book-open-page-variant" 
             iconBg="#FFE4E6" // Rose
             iconColor="#F43F5E"
-            onPress={() => {}}
-          />
-          <GridCard 
-            title="Chi nhánh" 
-            icon="office-building-marker" 
-            iconBg="#E0E7FF" // Indigo
-            iconColor="#6366F1"
-            onPress={() => router.push('/admin/branches')}
-          />
-          <GridCard 
-            title="Phòng ban" 
-            icon="account-group" 
-            iconBg="#F3E8FF" // Purple
-            iconColor="#A855F7"
-            onPress={() => router.push('/admin/departments')}
-          />
-          <GridCard 
-            title="Nhân sự" 
-            icon="account-tie" 
-            iconBg="#FEF9C3" // Yellow
-            iconColor="#EAB308"
-            onPress={() => router.push('/admin/employees')}
-          />
-          <GridCard 
-            title="Vật tư" 
-            icon="box-variant" 
-            iconBg="#FCE7F3" // Pink
-            iconColor="#DB2777"
-            onPress={() => router.push('/admin/warehouses')}
+            onPress={() => Alert.alert('Hệ thống đang phát triển', 'Chức năng này đang trong quá trình phát triển, vui lòng thử lại sau.')}
           />
         </View>
       </ScrollView>
@@ -244,12 +231,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginBottom: spacing.lg,
+    alignItems: 'center',
   },
   dateItem: {
     width: 50,
+    height: 72,
     paddingVertical: spacing.sm,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: 'transparent',

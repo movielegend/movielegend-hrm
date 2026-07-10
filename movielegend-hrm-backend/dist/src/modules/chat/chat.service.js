@@ -56,7 +56,11 @@ let ChatService = class ChatService {
             data: {
                 groupId,
                 senderId: userId,
-                content: dto.content
+                content: dto.content,
+                fileUrl: dto.fileUrl,
+                fileType: dto.fileType,
+                fileName: dto.fileName,
+                mentions: dto.mentions ?? []
             },
             include: {
                 sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
@@ -94,8 +98,19 @@ let ChatService = class ChatService {
                 orderBy: { createdAt: 'desc' },
                 include: { sender: { select: { profile: { select: { fullName: true } } } } }
             });
+            let finalName = group.name;
+            if (group.type === 'DIRECT') {
+                const otherMember = await this.prisma.chatGroupMember.findFirst({
+                    where: { groupId: group.id, userId: { not: userId } },
+                    include: { user: { select: { profile: { select: { fullName: true } } } } }
+                });
+                if (otherMember?.user?.profile?.fullName) {
+                    finalName = otherMember.user.profile.fullName;
+                }
+            }
             resultGroups.push({
                 ...group,
+                name: finalName,
                 latestMessage
             });
         }
@@ -111,6 +126,60 @@ let ChatService = class ChatService {
                     create: memberIds.map(userId => ({ userId }))
                 }
             }
+        });
+    }
+    async createDirectChat(userId1, userId2) {
+        const existingGroups = await this.prisma.chatGroup.findMany({
+            where: {
+                type: 'DIRECT',
+                members: {
+                    every: {
+                        userId: { in: [userId1, userId2] }
+                    }
+                }
+            },
+            include: {
+                members: true
+            }
+        });
+        const group = existingGroups.find(g => g.members.length === 2);
+        if (group)
+            return group;
+        return this.prisma.chatGroup.create({
+            data: {
+                type: 'DIRECT',
+                members: {
+                    create: [{ userId: userId1 }, { userId: userId2 }]
+                }
+            }
+        });
+    }
+    async createCustomGroup(creatorId, name, memberIds) {
+        const allMembers = Array.from(new Set([creatorId, ...memberIds]));
+        return this.prisma.chatGroup.create({
+            data: {
+                name,
+                type: 'CUSTOM',
+                members: {
+                    create: allMembers.map(userId => ({ userId }))
+                }
+            }
+        });
+    }
+    async getAllGroups(search) {
+        return this.prisma.chatGroup.findMany({
+            where: search ? {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { department: { name: { contains: search, mode: 'insensitive' } } }
+                ]
+            } : {},
+            include: {
+                department: { select: { name: true } },
+                task: { select: { title: true } },
+                _count: { select: { members: true, messages: true } },
+            },
+            orderBy: { createdAt: 'desc' }
         });
     }
 };

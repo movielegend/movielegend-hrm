@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { CreateShiftDto, UpdateShiftDto } from './dto/create-shift.dto';
 import { ShiftsService } from './shifts.service';
 
@@ -9,6 +10,12 @@ import { ShiftsService } from './shifts.service';
 @Controller('shifts')
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
+
+  @Public()
+  @Get('delete-all-assignments')
+  deleteAllAssignments() {
+    return this.shiftsService.deleteAllAssignments();
+  }
 
   @Permissions('shift.create')
   @Post()

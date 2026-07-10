@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const chat_service_1 = require("./chat.service");
 const chat_dto_1 = require("./dto/chat.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
+const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 let ChatController = class ChatController {
     chatService;
     constructor(chatService) {
@@ -31,6 +32,15 @@ let ChatController = class ChatController {
     }
     sendMessage(groupId, dto, user) {
         return this.chatService.sendMessage(user.userId, groupId, dto);
+    }
+    getAllGroups(search) {
+        return this.chatService.getAllGroups(search);
+    }
+    createDirectChat(user, targetUserId) {
+        return this.chatService.createDirectChat(user.userId, targetUserId);
+    }
+    createCustomGroup(user, name, memberIds) {
+        return this.chatService.createCustomGroup(user.userId, name, memberIds);
     }
 };
 exports.ChatController = ChatController;
@@ -62,6 +72,34 @@ __decorate([
     __metadata("design:paramtypes", [String, chat_dto_1.CreateChatMessageDto, Object]),
     __metadata("design:returntype", void 0)
 ], ChatController.prototype, "sendMessage", null);
+__decorate([
+    (0, swagger_1.ApiOperation)({ summary: 'Lấy tất cả nhóm chat (Admin)' }),
+    (0, roles_decorator_1.Roles)('ADMIN'),
+    (0, common_1.Get)('admin/groups'),
+    __param(0, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ChatController.prototype, "getAllGroups", null);
+__decorate([
+    (0, swagger_1.ApiOperation)({ summary: 'Tạo chat 1-1' }),
+    (0, common_1.Post)('direct'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)('targetUserId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], ChatController.prototype, "createDirectChat", null);
+__decorate([
+    (0, swagger_1.ApiOperation)({ summary: 'Tạo nhóm chat tuỳ chỉnh' }),
+    (0, common_1.Post)('custom'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)('name')),
+    __param(2, (0, common_1.Body)('memberIds')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Array]),
+    __metadata("design:returntype", void 0)
+], ChatController.prototype, "createCustomGroup", null);
 exports.ChatController = ChatController = __decorate([
     (0, swagger_1.ApiTags)('chat'),
     (0, swagger_1.ApiBearerAuth)(),

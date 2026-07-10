@@ -24,6 +24,17 @@ let ShiftsService = class ShiftsService {
         return this.prisma.shift.findMany({
             where: { deletedAt: null },
             orderBy: { startTime: 'asc' },
+            include: {
+                assignments: {
+                    include: {
+                        user: {
+                            include: {
+                                profile: true,
+                            },
+                        },
+                    },
+                },
+            },
         });
     }
     update(id, dto) {
@@ -40,6 +51,16 @@ let ShiftsService = class ShiftsService {
                 code: `${shift.code}_del_${Date.now()}`
             },
         });
+    }
+    async deleteAllAssignments() {
+        try {
+            await this.prisma.$executeRawUnsafe('DELETE FROM "attendance_records"');
+            await this.prisma.$executeRawUnsafe('DELETE FROM "shift_assignments"');
+            return { success: true };
+        }
+        catch (e) {
+            return { success: false, error: e.message };
+        }
     }
 };
 exports.ShiftsService = ShiftsService;

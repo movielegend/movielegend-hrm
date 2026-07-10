@@ -51,7 +51,11 @@ export class ChatService {
       data: {
         groupId,
         senderId: userId,
-        content: dto.content
+        content: dto.content,
+        fileUrl: dto.fileUrl,
+        fileType: dto.fileType,
+        fileName: dto.fileName,
+        mentions: dto.mentions ?? []
       },
       include: {
         sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
@@ -99,8 +103,21 @@ export class ChatService {
         include: { sender: { select: { profile: { select: { fullName: true } } } } }
       });
 
+      let finalName = group.name;
+      if (group.type === 'DIRECT') {
+        // Find the other member to use as group name
+        const otherMember = await this.prisma.chatGroupMember.findFirst({
+          where: { groupId: group.id, userId: { not: userId } },
+          include: { user: { select: { profile: { select: { fullName: true } } } } }
+        });
+        if (otherMember?.user?.profile?.fullName) {
+          finalName = otherMember.user.profile.fullName;
+        }
+      }
+
       resultGroups.push({
         ...group,
+        name: finalName,
         latestMessage
       });
     }
@@ -118,6 +135,67 @@ export class ChatService {
           create: memberIds.map(userId => ({ userId }))
         }
       }
+    });
+  }
+
+  async createDirectChat(userId1: string, userId2: string) {
+    // Check if direct chat already exists
+    const existingGroups = await this.prisma.chatGroup.findMany({
+      where: {
+        type: 'DIRECT',
+        members: {
+          every: {
+            userId: { in: [userId1, userId2] }
+          }
+        }
+      },
+      include: {
+        members: true
+      }
+    });
+
+    // We must ensure the group has EXACTLY these 2 members
+    const group = existingGroups.find(g => g.members.length === 2);
+    if (group) return group;
+
+    // Create new direct chat
+    return this.prisma.chatGroup.create({
+      data: {
+        type: 'DIRECT',
+        members: {
+          create: [{ userId: userId1 }, { userId: userId2 }]
+        }
+      }
+    });
+  }
+
+  async createCustomGroup(creatorId: string, name: string, memberIds: string[]) {
+    const allMembers = Array.from(new Set([creatorId, ...memberIds]));
+    return this.prisma.chatGroup.create({
+      data: {
+        name,
+        type: 'CUSTOM',
+        members: {
+          create: allMembers.map(userId => ({ userId }))
+        }
+      }
+    });
+  }
+
+  async getAllGroups(search?: string) {
+    return this.prisma.chatGroup.findMany({
+      where: search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { department: { name: { contains: search, mode: 'insensitive' } } }
+        ]
+      } : {},
+      include: {
+        department: { select: { name: true } },
+        task: { select: { title: true } },
+        _count: { select: { members: true, messages: true } },
+      },
+      orderBy: { createdAt: 'desc' }
     });
   }
 }

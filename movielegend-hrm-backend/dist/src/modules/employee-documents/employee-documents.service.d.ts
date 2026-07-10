@@ -707,9 +707,9 @@ export declare class EmployeeDocumentsService {
         title: string | null;
         status: import("@prisma/client").$Enums.DocumentStatus;
         rejectionReason: string | null;
-        fileName: string;
         storageKey: string | null;
         fileUrl: string;
+        fileName: string;
         mimeType: string | null;
         documentTypeId: string | null;
         documentNumber: string | null;
