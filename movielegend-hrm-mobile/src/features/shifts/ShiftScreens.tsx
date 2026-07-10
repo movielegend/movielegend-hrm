@@ -135,6 +135,32 @@ export function AdminShiftsScreen() {
                 </Text>
               </View>
 
+              {shift.assignments && shift.assignments.length > 0 && (
+                <View style={styles.assignmentSection}>
+                  <View style={styles.assignmentHeader}>
+                    <MaterialCommunityIcons name="account-group-outline" size={16} color={colors.primary} />
+                    <Text style={styles.assignmentLabel}>Leaders đã phân ca</Text>
+                    <View style={styles.assignmentCount}>
+                      <Text style={styles.assignmentCountText}>{shift.assignments.length}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.assignmentList}>
+                    {shift.assignments.map(a => {
+                      const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
+                      const initials = name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
+                      return (
+                        <View key={a.id} style={styles.assignmentChip}>
+                          <View style={styles.assignmentAvatar}>
+                            <Text style={styles.assignmentAvatarText}>{initials}</Text>
+                          </View>
+                          <Text style={styles.assignmentName}>{name}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
               <View style={styles.shiftActions}>
                 <Pressable
                   style={[styles.actionBtn, { backgroundColor: '#FFF7ED' }]}
@@ -479,5 +505,73 @@ const styles = StyleSheet.create({
   actionText: {
     fontWeight: '600',
     fontSize: 14,
+  },
+  assignmentSection: {
+    marginTop: 12,
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  assignmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 6,
+  },
+  assignmentLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    flex: 1,
+  },
+  assignmentCount: {
+    backgroundColor: colors.primarySoft,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  assignmentCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  assignmentList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  assignmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    paddingRight: 12,
+    paddingLeft: 4,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    gap: 8,
+  },
+  assignmentAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assignmentAvatarText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  assignmentName: {
+    fontSize: 13,
+    color: '#166534',
+    fontWeight: '600',
   },
 });
