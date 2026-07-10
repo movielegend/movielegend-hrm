@@ -51,6 +51,9 @@ export interface CreateAssetPayload {
 
 export interface UpdateAssetPayload {
   name?: string;
+  brand?: string;
+  model?: string;
+  conditionNote?: string;
   conditionStatus?: AssetConditionStatus;
   assetStatus?: AssetStatus;
   imageUrl?: string;

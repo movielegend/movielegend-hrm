@@ -5,7 +5,7 @@ import { colors } from '../theme/colors';
 
 export function Screen({ children }: PropsWithChildren) {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView 
         style={styles.container} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

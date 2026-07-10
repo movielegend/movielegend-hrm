@@ -220,13 +220,7 @@ export function DashboardShell({
                   </SecondaryButton>
                 ) : null}
 
-                {hasPermission(user, 'asset.read') ? (
-                  <SecondaryButton
-                    onPress={() => router.push('/admin/assets')}
-                  >
-                    Assets
-                  </SecondaryButton>
-                ) : null}
+
 
                 {hasPermission(user, 'stock.read') ? (
                   <SecondaryButton
@@ -370,13 +364,7 @@ export function DashboardShell({
                   </SecondaryButton>
                 ) : null}
 
-                {hasPermission(user, 'asset.read') ? (
-                  <SecondaryButton
-                    onPress={() => router.push('/leader/assets')}
-                  >
-                    Department assets
-                  </SecondaryButton>
-                ) : null}
+
 
                 {hasPermission(user, 'material_issue.read') ? (
                   <SecondaryButton
@@ -481,13 +469,7 @@ export function DashboardShell({
                   </SecondaryButton>
                 ) : null}
 
-                {hasPermission(user, 'asset.read') ? (
-                  <SecondaryButton
-                    onPress={() => router.push('/employee/assets')}
-                  >
-                    My assets
-                  </SecondaryButton>
-                ) : null}
+
 
                 {hasPermission(user, 'notification.read') ? (
                   <SecondaryButton

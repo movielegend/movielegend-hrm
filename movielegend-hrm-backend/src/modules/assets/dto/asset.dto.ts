@@ -64,6 +64,21 @@ export class UpdateAssetDto {
   @IsOptional()
   conditionNote?: string;
 
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  brand?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  model?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  description?: string;
+
   @ApiPropertyOptional({ example: 'https://example.com/image.png' })
   @IsString()
   @IsOptional()

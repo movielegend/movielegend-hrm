@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Image, TextInput, Pressable } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
@@ -12,6 +13,7 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
+import { SelectModal } from '../../components/SelectModal';
 import {
   useAsset,
   useAssets,
@@ -162,6 +164,8 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
   const receiveReturn = useReceiveAssetReturn();
   const [returnCondition, setReturnCondition] = useState<AssetConditionStatus>('GOOD');
   const [returnNote, setReturnNote] = useState('');
+  const [showConditionSelect, setShowConditionSelect] = useState(false);
+  const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
   if (asset.isLoading) return <LoadingState />;
   if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />;
@@ -186,22 +190,35 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title={item.name} subtitle={item.assetCode} />
-        <SectionCard title="Thông tin">
+        <PageHeader title={item.name} subtitle={`Mã: ${item.assetCode}`} />
+        
+        {item.imageUrl ? (
+          <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md }}>
+            <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: '#f3f4f6' }} resizeMode="cover" />
+          </View>
+        ) : null}
+
+        <SectionCard title="Thông tin chi tiết">
           <View style={styles.badgeRow}>
             <AssetStatusBadge status={item.assetStatus} />
             <AssetConditionBadge condition={item.conditionStatus} />
           </View>
-          {item.brand ? <Text style={styles.meta}>Hãng: {item.brand}</Text> : null}
-          {item.model ? <Text style={styles.meta}>Model: {item.model}</Text> : null}
-          {item.serialNumber ? <Text style={styles.meta}>Serial: {item.serialNumber}</Text> : null}
-          {item.description ? <Text style={styles.body}>{item.description}</Text> : null}
-          {canSeePurchasePrice(user) && item.purchasePrice !== null && typeof item.purchasePrice !== 'undefined' ? (
-            <Text style={styles.meta}>Giá mua: {String(item.purchasePrice)}</Text>
-          ) : null}
-          {canSeePurchasePrice(user) && item.warrantyEndDate ? (
-            <Text style={styles.meta}>Hết bảo hành: {formatDateTime(item.warrantyEndDate)}</Text>
-          ) : null}
+          <View style={{ marginTop: spacing.md, gap: 8 }}>
+            <Text style={styles.meta}>Tên thiết bị: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.name}</Text></Text>
+            {item.brand ? <Text style={styles.meta}>Hãng: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.brand}</Text></Text> : null}
+            {item.model ? <Text style={styles.meta}>Dòng máy: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.model}</Text></Text> : null}
+            {item.serialNumber ? <Text style={styles.meta}>Serial: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.serialNumber}</Text></Text> : null}
+            {item.conditionNote ? <Text style={styles.meta}>Ghi chú tình trạng: <Text style={{color: '#1E293B'}}>{item.conditionNote}</Text></Text> : null}
+            {item.description ? <Text style={styles.body}>{item.description}</Text> : null}
+            
+            {canSeePurchasePrice(user) && item.purchasePrice !== null && typeof item.purchasePrice !== 'undefined' ? (
+              <Text style={styles.meta}>Giá mua: <Text style={{color: '#1E293B'}}>{String(item.purchasePrice)}</Text></Text>
+            ) : null}
+            {canSeePurchasePrice(user) && item.warrantyEndDate ? (
+              <Text style={styles.meta}>Hết bảo hành: <Text style={{color: '#1E293B'}}>{formatDateTime(item.warrantyEndDate)}</Text></Text>
+            ) : null}
+            {item.createdAt ? <Text style={styles.meta}>Ngày tạo: <Text style={{color: '#1E293B'}}>{formatDateTime(item.createdAt)}</Text></Text> : null}
+          </View>
         </SectionCard>
 
         {assignment ? (
@@ -232,16 +249,10 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
             {canReceive ? (
               <View style={styles.receiveBox}>
                 <Text style={styles.sectionLabel}>Nhận trả tài sản (tình trạng do backend quyết định trạng thái cuối)</Text>
-                <View style={styles.chipRow}>
-                  {conditionOptions.map((condition) => (
-                    <FilterChip
-                      key={condition}
-                      label={assetConditionLabels[condition]}
-                      selected={returnCondition === condition}
-                      onPress={() => setReturnCondition(condition)}
-                    />
-                  ))}
-                </View>
+                <Pressable style={[styles.pickerContainer, { marginBottom: spacing.sm }]} onPress={() => setShowConditionSelect(true)}>
+                  <Text style={styles.pickerText}>{assetConditionLabels[returnCondition]}</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
                 <FormField label="Ghi chú nhận trả" value={returnNote} onChangeText={setReturnNote} multiline />
                 <PrimaryButton
                   loading={receiveReturn.isPending}
@@ -263,28 +274,19 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
           </SectionCard>
         ) : null}
 
-        {hasPermission(user, 'asset.assign') && isAssignable(item) && (area === 'admin' || area === 'warehouse') ? (
-          <SectionCard title="Cấp phát">
-            <PrimaryButton onPress={() => router.push(`${assetBase(area)}/${item.id}/assign` as never)}>Cấp phát tài sản</PrimaryButton>
-          </SectionCard>
-        ) : null}
 
-        {hasPermission(user, 'asset.maintenance.manage') && (canStartMaintenance(item) || item.assetStatus === 'MAINTENANCE') ? (
-          <MaintenanceActionsSection asset={item} />
-        ) : null}
-
-        {hasPermission(user, 'asset.incident.create') && (isOwner || area !== 'employee') ? (
+        {hasPermission(user, 'asset.incident.create') ? (
           <SectionCard title="Sự cố">
             <SecondaryButton
               onPress={() =>
                 router.push(
                   area === 'employee'
                     ? (`/employee/assets/incidents/create?assetId=${item.id}` as never)
-                    : (`${assetBase(area)}/${item.id}` as never),
+                    : (`/admin/assets/incidents/create?assetId=${item.id}` as never),
                 )
               }
             >
-              {area === 'employee' ? 'Báo sự cố tài sản này' : 'Sự cố ghi nhận bên dưới'}
+              Báo sự cố tài sản này
             </SecondaryButton>
           </SectionCard>
         ) : null}
@@ -303,6 +305,14 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
           </SectionCard>
         ) : null}
       </ScrollView>
+      <SelectModal
+        visible={showConditionSelect}
+        title="Tình trạng nhận trả"
+        options={conditionOptions.map(c => ({ id: c, label: assetConditionLabels[c] }))}
+        selectedValue={returnCondition}
+        onSelect={(opt) => { setReturnCondition(opt.id as AssetConditionStatus); setShowConditionSelect(false); }}
+        onClose={() => setShowConditionSelect(false)}
+      />
     </Screen>
   );
 }
@@ -317,6 +327,9 @@ export function AssetCreateScreen() {
   const [customModel, setCustomModel] = useState('');
   const [conditionNote, setConditionNote] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  
+  const [showBrandSelect, setShowBrandSelect] = useState(false);
+  const [showModelSelect, setShowModelSelect] = useState(false);
 
   const brandOptions = ['Dell', 'HP', 'Apple', 'Lenovo', 'Asus', 'Acer', 'Khác'];
   const modelOptions = ['XPS', 'ThinkPad', 'MacBook Pro', 'MacBook Air', 'EliteBook', 'Khác'];
@@ -364,54 +377,112 @@ export function AssetCreateScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenContainer style={styles.content} disableGlobalRefresh={true}>
         <PageHeader
           title="Thêm thiết bị"
           subtitle="Tạo mới vật tư/thiết bị cho phòng ban."
+          onBack={() => router.back()}
         />
         <SectionCard>
-          <FormField label="Tên thiết bị" value={name} onChangeText={setName} />
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Tên thiết bị</Text>
+            <TextInput
+              style={styles.inputRounded}
+              placeholder="Ví dụ: Laptop làm việc 01"
+              placeholderTextColor="#98A0A8"
+              value={name}
+              onChangeText={setName}
+            />
+          </View>
           
-          <Text style={styles.sectionLabel}>Hãng / Thương hiệu</Text>
-          <View style={styles.chipRow}>
-            {brandOptions.map(opt => (
-              <FilterChip key={opt} label={opt} selected={brand === opt} onPress={() => setBrand(opt)} />
-            ))}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Hãng / Thương hiệu</Text>
+            <Pressable style={styles.pickerContainer} onPress={() => setShowBrandSelect(true)}>
+              <Text style={[styles.pickerText, !brand && styles.pickerPlaceholder]}>{brand || 'Chọn hãng sản xuất'}</Text>
+              <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+            </Pressable>
           </View>
           {brand === 'Khác' && (
             <FormField label="Nhập tên hãng" value={customBrand} onChangeText={setCustomBrand} />
           )}
 
-          <Text style={styles.sectionLabel}>Dòng máy / Loại</Text>
-          <View style={styles.chipRow}>
-            {modelOptions.map(opt => (
-              <FilterChip key={opt} label={opt} selected={model === opt} onPress={() => setModel(opt)} />
-            ))}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Dòng máy / Loại</Text>
+            <Pressable style={styles.pickerContainer} onPress={() => setShowModelSelect(true)}>
+              <Text style={[styles.pickerText, !model && styles.pickerPlaceholder]}>{model || 'Chọn dòng máy'}</Text>
+              <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+            </Pressable>
           </View>
           {model === 'Khác' && (
             <FormField label="Nhập dòng máy" value={customModel} onChangeText={setCustomModel} />
           )}
 
-          <FormField label="Ghi chú thủ công (Tình trạng)" value={conditionNote} onChangeText={setConditionNote} multiline />
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Ghi chú thủ công (Tình trạng)</Text>
+            <TextInput
+              style={[styles.inputRounded, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Nhập ghi chú thêm về thiết bị (nếu có)..."
+              placeholderTextColor="#98A0A8"
+              value={conditionNote}
+              onChangeText={setConditionNote}
+              multiline
+            />
+          </View>
           
-          <Text style={styles.sectionLabel}>Ảnh thiết bị</Text>
-          <FormField label="URL ảnh (VD: https://picsum.photos/200)" value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" />
-          
-          {imageUrl ? (
-            <View style={{ marginBottom: 16 }}>
-              <Image 
-                source={{ uri: imageUrl }} 
-                style={{ width: '100%', height: 150, borderRadius: 8, backgroundColor: '#f3f4f6' }} 
-                resizeMode="cover"
-              />
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Ảnh thiết bị</Text>
+            <View style={styles.imageUploaderRow}>
+              {imageUrl ? (
+                <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
+              ) : (
+                <View style={styles.imageUploaderBox}>
+                  <MaterialCommunityIcons name="plus" size={24} color="#98A0A8" />
+                </View>
+              )}
+              <View style={styles.imageUploaderTexts}>
+                {/* <Text style={styles.imageUploaderError}>Ảnh quá lớn {'>'}5MB</Text> */}
+                <TextInput
+                  style={styles.inputRoundedUrl}
+                  placeholder="URL ảnh (VD: https://picsum.photos/200)"
+                  placeholderTextColor="#98A0A8"
+                  value={imageUrl}
+                  onChangeText={setImageUrl}
+                  autoCapitalize="none"
+                />
+              </View>
             </View>
-          ) : null}
+          </View>
 
-          <PrimaryButton loading={create.isPending} disabled={!name.trim()} onPress={() => void submit()}>
-            Lưu
-          </PrimaryButton>
+          <View style={styles.bottomButtonsRow}>
+            <Pressable style={styles.cancelBtn} onPress={() => router.back()}>
+              <Text style={styles.cancelBtnText}>Hủy</Text>
+            </Pressable>
+            <Pressable style={[styles.submitBtn, !name.trim() && { opacity: 0.5 }]} onPress={submit} disabled={!name.trim() || create.isPending}>
+              <Text style={styles.submitBtnText}>{create.isPending ? 'Đang tạo...' : 'Tạo thiết bị'}</Text>
+            </Pressable>
+          </View>
+
+
         </SectionCard>
-      </ScrollView>
+      </ScreenContainer>
+
+      <SelectModal
+        visible={showBrandSelect}
+        title="Chọn hãng sản xuất"
+        options={brandOptions.map(b => ({ id: b, label: b }))}
+        selectedValue={brand}
+        onSelect={(opt) => { setBrand(opt.id); setShowBrandSelect(false); }}
+        onClose={() => setShowBrandSelect(false)}
+      />
+      
+      <SelectModal
+        visible={showModelSelect}
+        title="Chọn dòng máy"
+        options={modelOptions.map(m => ({ id: m, label: m }))}
+        selectedValue={model}
+        onSelect={(opt) => { setModel(opt.id); setShowModelSelect(false); }}
+        onClose={() => setShowModelSelect(false)}
+      />
     </Screen>
   );
 }
@@ -429,6 +500,9 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
   const [expectedReturnAt, setExpectedReturnAt] = useState('');
   const [condition, setCondition] = useState<AssetConditionStatus | ''>('');
   const [note, setNote] = useState('');
+  const [showEmployeeSelect, setShowEmployeeSelect] = useState(false);
+  const [showDepartmentSelect, setShowDepartmentSelect] = useState(false);
+  const [showConditionSelect, setShowConditionSelect] = useState(false);
 
   // Reuse GET /employees/scoped — backend tự giới hạn scope theo actor.
   const employees = useQuery({
@@ -476,43 +550,39 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
             <FilterChip label="Phòng ban" selected={targetType === 'DEPARTMENT'} onPress={() => setTargetType('DEPARTMENT')} />
           </View>
           {targetType === 'USER' ? (
-            <View style={styles.selectorBox}>
-              <FormField label="Tìm nhân viên" value={search} onChangeText={setSearch} autoCapitalize="none" />
-              {employees.isLoading ? <LoadingState /> : null}
-              {employees.data?.items.map((employee) => (
-                <FilterChip
-                  key={employee.id}
-                  label={`${employee.userCode} ${employee.fullName ?? ''}`}
-                  selected={assignedToUserId === employee.id}
-                  onPress={() => setAssignedToUserId(employee.id)}
-                />
-              ))}
+            <View style={{ marginTop: spacing.md }}>
+              <Pressable style={styles.pickerContainer} onPress={() => setShowEmployeeSelect(true)}>
+                <Text style={assignedToUserId ? styles.pickerText : styles.pickerPlaceholder}>
+                  {assignedToUserId 
+                    ? (employees.data?.items.find(e => e.id === assignedToUserId)?.fullName || employees.data?.items.find(e => e.id === assignedToUserId)?.userCode || 'Đã chọn nhân viên') 
+                    : 'Nhấn để chọn nhân viên...'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+              </Pressable>
             </View>
           ) : (
-            <View style={styles.selectorBox}>
-              {departments.data?.items.map((department) => (
-                <FilterChip
-                  key={department.id}
-                  label={department.name}
-                  selected={assignedToDepartmentId === department.id}
-                  onPress={() => setAssignedToDepartmentId(department.id)}
-                />
-              ))}
+            <View style={{ marginTop: spacing.md }}>
+              <Pressable style={styles.pickerContainer} onPress={() => setShowDepartmentSelect(true)}>
+                <Text style={assignedToDepartmentId ? styles.pickerText : styles.pickerPlaceholder}>
+                  {assignedToDepartmentId 
+                    ? (departments.data?.items.find(d => d.id === assignedToDepartmentId)?.name || 'Đã chọn phòng ban') 
+                    : 'Nhấn để chọn phòng ban...'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+              </Pressable>
             </View>
           )}
         </SectionCard>
         <SectionCard title="Thông tin cấp phát">
           <FormField label="Hạn trả dự kiến (ISO, tùy chọn)" value={expectedReturnAt} onChangeText={setExpectedReturnAt} placeholder="2026-08-01" autoCapitalize="none" />
           <Text style={styles.sectionLabel}>Tình trạng khi cấp (mặc định theo tài sản)</Text>
-          <View style={styles.chipRow}>
-            {conditionOptions.map((option) => (
-              <FilterChip
-                key={option}
-                label={assetConditionLabels[option]}
-                selected={condition === option}
-                onPress={() => setCondition(condition === option ? '' : option)}
-              />
-            ))}
+          <View style={{ marginBottom: spacing.md }}>
+            <Pressable style={styles.pickerContainer} onPress={() => setShowConditionSelect(true)}>
+              <Text style={condition ? styles.pickerText : styles.pickerPlaceholder}>
+                {condition ? assetConditionLabels[condition] : 'Mặc định (Không đổi)'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+            </Pressable>
           </View>
           <FormField label="Ghi chú" value={note} onChangeText={setNote} multiline />
           <PrimaryButton loading={assign.isPending} disabled={!targetChosen} onPress={() => void submit()}>
@@ -520,11 +590,58 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
           </PrimaryButton>
         </SectionCard>
       </ScrollView>
+
+      <SelectModal
+        visible={showEmployeeSelect}
+        title="Chọn nhân viên"
+        options={(employees.data?.items || []).map(e => ({ id: e.id, label: e.fullName || e.userCode, subtitle: e.userCode }))}
+        selectedValue={assignedToUserId}
+        onSelect={(opt) => { setAssignedToUserId(opt.id); setShowEmployeeSelect(false); }}
+        onClose={() => setShowEmployeeSelect(false)}
+        isLoading={employees.isLoading}
+      />
+      
+      <SelectModal
+        visible={showDepartmentSelect}
+        title="Chọn phòng ban"
+        options={(departments.data?.items || []).map(d => ({ id: d.id, label: d.name }))}
+        selectedValue={assignedToDepartmentId}
+        onSelect={(opt) => { setAssignedToDepartmentId(opt.id); setShowDepartmentSelect(false); }}
+        onClose={() => setShowDepartmentSelect(false)}
+        isLoading={departments.isLoading}
+      />
+
+      <SelectModal
+        visible={showConditionSelect}
+        title="Tình trạng khi cấp"
+        options={[{ id: '', label: 'Mặc định' }, ...conditionOptions.map(c => ({ id: c, label: assetConditionLabels[c] }))]}
+        selectedValue={condition}
+        onSelect={(opt) => { setCondition(opt.id as any); setShowConditionSelect(false); }}
+        onClose={() => setShowConditionSelect(false)}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    height: 44,
+    backgroundColor: '#F8FAFC',
+  },
+  pickerText: {
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  pickerPlaceholder: {
+    color: '#94A3B8',
+  },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -571,5 +688,113 @@ const styles = StyleSheet.create({
   },
   selectorBox: {
     gap: spacing.sm,
+  },
+  formGroup: {
+    marginBottom: spacing.md,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  inputRounded: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#334155',
+    backgroundColor: '#FFF',
+  },
+  inputRoundedUrl: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: '#334155',
+    backgroundColor: '#FFF',
+    marginTop: 8,
+  },
+  pill: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFF',
+  },
+  pillSelected: {
+    borderColor: '#36C59E',
+    backgroundColor: '#F0FDF4',
+  },
+  pillText: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  pillTextSelected: {
+    color: '#36C59E',
+    fontWeight: '600',
+  },
+  imageUploaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  imageUploaderBox: {
+    width: 60,
+    height: 60,
+    borderWidth: 1,
+    borderColor: '#98A0A8',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    backgroundColor: '#F8FAFC',
+  },
+  imagePreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  imageUploaderTexts: {
+    flex: 1,
+  },
+  imageUploaderError: {
+    color: '#EF4444',
+    fontSize: 12,
+  },
+  bottomButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xl,
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  cancelBtnText: {
+    color: '#64748B',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  submitBtn: {
+    backgroundColor: '#36C59E',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 16,
+  },
+  submitBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

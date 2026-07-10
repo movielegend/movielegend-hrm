@@ -192,6 +192,7 @@ export function CreateDepartmentScreen() {
 }
 
 export function DepartmentDetailScreen() {
+  const router = useRouter();
   const { id, departmentId } = useLocalSearchParams<{ id?: string, departmentId?: string }>();
   const actualId = (id || departmentId) as string;
   const { user } = useAuth();
@@ -224,12 +225,12 @@ export function DepartmentDetailScreen() {
 
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [selectedAssetForAssign, setSelectedAssetForAssign] = useState<AssetDto | null>(null);
-  const [assignedUserId, setAssignedUserId] = useState<string[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string | null>(null);
   const assignMutation = useAssignAsset();
 
   const [transferModalVisible, setTransferModalVisible] = useState(false);
   const [selectedAssetForTransfer, setSelectedAssetForTransfer] = useState<AssetDto | null>(null);
-  const [targetDepartmentId, setTargetDepartmentId] = useState<string[]>([]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string | null>(null);
   const transferMutation = useTransferAsset();
   if (department.isLoading) return <LoadingState />;
   if (department.isError) return <ErrorState error={department.error} onRetry={() => void department.refetch()} />;
@@ -290,20 +291,39 @@ export function DepartmentDetailScreen() {
             {assetsLoading ? <LoadingState label="Đang tải tài sản..." /> : null}
             <View style={{ gap: 12 }}>
               {departmentAssets.map((asset) => (
-                <View key={asset.id} style={{ padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3' }}>
+                <Pressable key={asset.id} style={{ padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3' }} onPress={() => router.push(`/admin/assets/${asset.id}` as never)}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                     <Text style={{ fontSize: 15, fontWeight: '600', color: '#0B3B61' }}>{asset.name}</Text>
                     <StatusBadge label={asset.assetStatus} tone={toneForStatus(asset.assetStatus)} />
                   </View>
                   <Text style={{ fontSize: 13, color: '#98A0A8', marginBottom: 8 }}>Mã: {asset.assetCode} - Tình trạng: {asset.conditionStatus}</Text>
                   
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={styles.assetBody}>
+                    <Text style={styles.detailLabel}>Loại:</Text>
+                    <Text style={styles.detailValue}>{asset.category?.name || 'Vật tư'}</Text>
+                  </View>
+                  <View style={styles.assetBody}>
+                    <Text style={styles.detailLabel}>Đang giao:</Text>
+                    <Text style={styles.detailValue}>
+                      {(() => {
+                        const activeAssignment = asset.assignments?.find((a: any) => a.status === 'ACTIVE' || a.status === 'PENDING_CONFIRMATION');
+                        if (!activeAssignment) return 'Chưa giao';
+                        if (activeAssignment.assignedToUserId) {
+                          const assignee = employees.data?.items?.find((e: any) => e.id === activeAssignment.assignedToUserId);
+                          return assignee ? (assignee.profile?.fullName ?? assignee.phone) : 'Nhân viên';
+                        }
+                        return 'Phòng ban';
+                      })()}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                     {asset.assetStatus === 'IN_STOCK' && (
                       <PrimaryButton
                         style={{ flex: 1, paddingVertical: 8 }}
                         onPress={() => {
                           setSelectedAssetForAssign(asset);
-                          setAssignedUserId([]);
+                          setSelectedEmployees(null);
                           setAssignModalVisible(true);
                         }}
                       >
@@ -327,14 +347,14 @@ export function DepartmentDetailScreen() {
                       style={{ flex: 1, paddingVertical: 8 }}
                       onPress={() => {
                         setSelectedAssetForTransfer(asset);
-                        setTargetDepartmentId([]);
+                        setSelectedDepartments(null);
                         setTransferModalVisible(true);
                       }}
                     >
                       Điều chuyển
                     </SecondaryButton>
                   </View>
-                </View>
+                </Pressable>
               ))}
               {!assetsLoading && departmentAssets.length === 0 && (
                 <Text style={{ color: '#98A0A8', fontStyle: 'italic', textAlign: 'center', marginVertical: 12 }}>Phòng ban chưa có tài sản nào.</Text>
@@ -385,16 +405,23 @@ export function DepartmentDetailScreen() {
         <SelectModal
           visible={assignModalVisible}
           title="Chọn nhân viên để giao"
-          options={(employees.data?.items ?? []).map(e => ({ id: e.userId, label: e.profile?.fullName ?? e.phone, subtitle: e.userCode }))}
-          selectedValues={assignedUserId}
-          onSelect={setAssignedUserId}
-          onClose={() => setAssignModalVisible(false)}
-          isLoading={employees.isLoading}
-          multiple={false}
-          onConfirm={async () => {
-            if (selectedAssetForAssign && assignedUserId[0]) {
+          options={(employees.data?.items ?? []).map((emp) => ({
+            id: emp.id,
+            label: emp.profile?.fullName ?? emp.phone,
+            subtitle: emp.userCode,
+          }))}
+          selectedValue={selectedEmployees}
+          onSelect={async (option) => {
+            setSelectedEmployees(option.id);
+            if (selectedAssetForAssign) {
               try {
-                await assignMutation.mutateAsync({ assetId: selectedAssetForAssign.id, payload: { assignedToUserId: assignedUserId[0], conditionWhenAssigned: selectedAssetForAssign.conditionStatus } });
+                await assignMutation.mutateAsync({
+                  assetId: selectedAssetForAssign.id,
+                  payload: {
+                    assignedToUserId: option.id,
+                    conditionWhenAssigned: selectedAssetForAssign.conditionStatus,
+                  },
+                });
                 Alert.alert('Thành công', 'Đã giao tài sản');
                 setAssignModalVisible(false);
               } catch (e: any) {
@@ -402,21 +429,20 @@ export function DepartmentDetailScreen() {
               }
             }
           }}
+          onClose={() => setAssignModalVisible(false)}
+          isLoading={employees.isLoading}
         />
 
         <SelectModal
           visible={transferModalVisible}
           title="Chọn phòng ban điều chuyển"
           options={(allDepartments.data?.items ?? []).filter(d => d.id !== actualId).map(d => ({ id: d.id, label: d.name, subtitle: d.code }))}
-          selectedValues={targetDepartmentId}
-          onSelect={setTargetDepartmentId}
-          onClose={() => setTransferModalVisible(false)}
-          isLoading={allDepartments.isLoading}
-          multiple={false}
-          onConfirm={async () => {
-            if (selectedAssetForTransfer && targetDepartmentId[0]) {
+          selectedValue={selectedDepartments}
+          onSelect={async (option) => {
+            setSelectedDepartments(option.id);
+            if (selectedAssetForTransfer) {
               try {
-                await transferMutation.mutateAsync({ assetId: selectedAssetForTransfer.id, payload: { targetDepartmentId: targetDepartmentId[0] } });
+                await transferMutation.mutateAsync({ assetId: selectedAssetForTransfer.id, payload: { targetDepartmentId: option.id } });
                 Alert.alert('Thành công', 'Đã điều chuyển tài sản');
                 setTransferModalVisible(false);
               } catch (e: any) {
