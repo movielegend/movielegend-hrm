@@ -26,6 +26,7 @@ import {
   ResolveIncidentDto,
   TransferAssetDto,
   UpdateAssetDto,
+  RevokeAssetDto,
 } from './dto/asset.dto';
 
 @Injectable()
@@ -156,6 +157,47 @@ export class AssetsService {
     this.notifications.emitCreated(payload.notify);
     this.realtime.emitToUser(payload.assignment.assignedToUserId ?? actor.userId, 'asset:assigned', payload.assignment);
     return payload.assignment;
+  }
+
+  async revoke(id: string, dto: RevokeAssetDto, actor: AuthenticatedUser) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id, deletedAt: null },
+      include: {
+        assignments: {
+          where: { status: { in: ['ACTIVE', 'PENDING_CONFIRMATION', 'RETURN_REQUESTED'] } },
+        },
+      },
+    });
+    if (!asset) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
+    if (asset.departmentId && !actor.roles.includes('ADMIN')) this.departments.assertDepartmentAccess(actor, asset.departmentId);
+
+    const activeAssignment = asset.assignments[0];
+    if (!activeAssignment) throw badRequest('ASSET_NOT_ASSIGNED', 'Asset is not currently assigned to anyone');
+
+    return this.prisma.$transaction(async (tx) => {
+      // Mark assignment as returned
+      await tx.assetAssignment.update({
+        where: { id: activeAssignment.id },
+        data: {
+          status: 'RETURNED',
+          actualReturnDate: new Date(),
+          returnConditionNote: dto.note || 'Thu hồi bởi quản lý',
+        },
+      });
+
+      // Reset asset to IN_STOCK
+      const updatedAsset = await tx.asset.update({
+        where: { id },
+        data: { assetStatus: 'IN_STOCK' },
+        include: { assignments: true, department: true },
+      });
+
+      await tx.auditLog.create({
+        data: { actorUserId: actor.userId, action: 'ASSET_REVOKED', entityType: 'Asset', entityId: id, details: { assignmentId: activeAssignment.id, note: dto.note } },
+      });
+
+      return updatedAsset;
+    });
   }
 
   async confirmAssignment(id: string, actor: AuthenticatedUser) {

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createAsset, getAsset, getAssets, getMyAssets, updateAsset } from '../api/assets.api';
+import { createAsset, getAsset, getAssets, getMyAssets, updateAsset, transferAsset, revokeAsset } from '../api/assets.api';
 import { assignAsset, confirmAssetAssignment, receiveAssetReturn, requestAssetReturn } from '../api/asset-assignments.api';
-import { transferAsset } from '../api/assets.api';
 import { completeAssetMaintenance, startAssetMaintenance } from '../api/asset-maintenance.api';
 import { assetKeys, maintenanceKeys, queryKeys } from '../constants/queryKeys';
 import type { CreateAssetPayload, StartMaintenancePayload, UpdateAssetPayload, AssetMaintenanceDto } from '../types/asset.types';
@@ -64,6 +63,16 @@ export function useTransferAsset() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ assetId, payload }: { assetId: string; payload: { targetDepartmentId: string; note?: string } }) => transferAsset(assetId, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+    },
+  });
+}
+
+export function useRevokeAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ assetId, payload }: { assetId: string; payload: { note?: string } }) => revokeAsset(assetId, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: assetKeys.all });
     },

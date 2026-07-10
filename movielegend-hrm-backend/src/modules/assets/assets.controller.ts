@@ -14,6 +14,7 @@ import {
   ResolveIncidentDto,
   TransferAssetDto,
   UpdateAssetDto,
+  RevokeAssetDto,
 } from './dto/asset.dto';
 
 @ApiTags('Assets')
@@ -62,6 +63,12 @@ export class AssetsController {
   @Permissions('asset.assign')
   assign(@Param('id') id: string, @Body() dto: AssignAssetDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.assets.assign(id, dto, actor);
+  }
+
+  @Post('assets/:id/revoke')
+  @Permissions('asset.assign')
+  revoke(@Param('id') id: string, @Body() dto: RevokeAssetDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assets.revoke(id, dto, actor);
   }
 
   @Post('assets/:id/incidents')

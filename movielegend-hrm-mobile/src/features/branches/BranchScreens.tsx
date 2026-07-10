@@ -112,28 +112,32 @@ export function BranchCreateScreen() {
   const router = useRouter();
   const mutation = useCreateBranch();
   
-  const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
-  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [mapVisible, setMapVisible] = useState(false);
-  const [deptModalVisible, setDeptModalVisible] = useState(false);
-
-  const departments = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => getDepartments({ limit: 1000 })
-  });
 
   const submit = async () => {
     try {
-      const payload: any = { code, name };
-      if (address) payload.address = address;
-      if (latitude !== undefined) payload.latitude = latitude;
-      if (longitude !== undefined) payload.longitude = longitude;
-      if (departmentIds.length > 0) payload.departmentIds = departmentIds;
-
+      // Auto-generate code from name
+      const initials = name
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .replace(/[^A-Z]/g, '');
+      const timestamp = new Date().getTime().toString().slice(-4);
+      const generatedCode = `${initials}-${timestamp}`;
+      
+      const payload: any = {
+        code: generatedCode,
+        name,
+        address: address || undefined,
+        locationLat: latitude,
+        locationLng: longitude,
+      };
+      
       await mutation.mutateAsync(payload);
       Alert.alert('Thành công', 'Đã tạo chi nhánh mới', [
         { text: 'OK', onPress: () => router.back() }
@@ -156,13 +160,7 @@ export function BranchCreateScreen() {
       <ScreenContainer>
         <PageHeader title="Thêm Chi nhánh" subtitle="Tạo chi nhánh mới cho công ty" />
         <SectionCard>
-          <FormField
-            label="Mã chi nhánh *"
-            value={code}
-            onChangeText={setCode}
-            placeholder="Ví dụ: HN01"
-            autoCapitalize="characters"
-          />
+
           <FormField
             label="Tên chi nhánh *"
             value={name}
@@ -197,33 +195,11 @@ export function BranchCreateScreen() {
             </View>
           </View>
 
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Phòng ban thuộc chi nhánh</Text>
-            <Pressable
-              onPress={() => setDeptModalVisible(true)}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 12,
-                padding: 12,
-                backgroundColor: colors.surface,
-              }}
-            >
-              <Text style={{ color: departmentIds.length ? colors.text : colors.muted, fontSize: 15 }}>
-                {departmentIds.length > 0
-                  ? `Đã chọn ${departmentIds.length} phòng ban`
-                  : 'Chọn phòng ban'}
-              </Text>
-              <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
-            </Pressable>
-          </View>
+
 
           <PrimaryButton 
             loading={mutation.isPending} 
-            disabled={!code || !name} 
+            disabled={!name} 
             onPress={() => void submit()}
           >
             Tạo Chi nhánh
@@ -238,15 +214,7 @@ export function BranchCreateScreen() {
         initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
       />
 
-      <MultiSelectModal
-        visible={deptModalVisible}
-        title="Chọn phòng ban"
-        options={(departments.data?.items ?? []).map((d: any) => ({ id: d.id, label: d.name, subtitle: d.code }))}
-        selectedValues={departmentIds}
-        onSelect={setDepartmentIds}
-        onClose={() => setDeptModalVisible(false)}
-        isLoading={departments.isLoading}
-      />
+
     </Screen>
   );
 }
@@ -262,14 +230,7 @@ export function BranchEditScreen() {
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
-  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [mapVisible, setMapVisible] = useState(false);
-  const [deptModalVisible, setDeptModalVisible] = useState(false);
-
-  const departments = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => getDepartments({ limit: 1000 })
-  });
 
   // Populate form with existing data when fetched
   useEffect(() => {
@@ -279,9 +240,6 @@ export function BranchEditScreen() {
       setAddress(branchQuery.data.address || '');
       setLatitude(branchQuery.data.latitude);
       setLongitude(branchQuery.data.longitude);
-      if (branchQuery.data.departments) {
-        setDepartmentIds(branchQuery.data.departments.map(d => d.id));
-      }
     }
   }, [branchQuery.data]);
 
@@ -291,7 +249,6 @@ export function BranchEditScreen() {
       if (address) payload.address = address;
       if (latitude !== undefined) payload.latitude = latitude;
       if (longitude !== undefined) payload.longitude = longitude;
-      if (departmentIds.length > 0) payload.departmentIds = departmentIds;
 
       await mutation.mutateAsync(payload);
       Alert.alert('Thành công', 'Đã lưu thay đổi chi nhánh', [
@@ -324,11 +281,12 @@ export function BranchEditScreen() {
         <PageHeader title="Sửa Chi nhánh" subtitle="Cập nhật thông tin chi nhánh" />
         <SectionCard>
           <FormField
-            label="Mã chi nhánh *"
+            label="Mã chi nhánh (Cố định) *"
             value={code}
-            onChangeText={setCode}
+            onChangeText={() => {}}
             placeholder="Ví dụ: HN01"
             autoCapitalize="characters"
+            editable={false}
           />
           <FormField
             label="Tên chi nhánh *"
@@ -364,33 +322,11 @@ export function BranchEditScreen() {
             </View>
           </View>
 
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Phòng ban thuộc chi nhánh</Text>
-            <Pressable
-              onPress={() => setDeptModalVisible(true)}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 12,
-                padding: 12,
-                backgroundColor: colors.surface,
-              }}
-            >
-              <Text style={{ color: departmentIds.length ? colors.text : colors.muted, fontSize: 15 }}>
-                {departmentIds.length > 0
-                  ? `Đã chọn ${departmentIds.length} phòng ban`
-                  : 'Chọn phòng ban'}
-              </Text>
-              <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
-            </Pressable>
-          </View>
+
 
           <PrimaryButton 
             loading={mutation.isPending} 
-            disabled={!code || !name} 
+            disabled={!name} 
             onPress={() => void submit()}
           >
             Lưu Thay đổi
@@ -405,15 +341,7 @@ export function BranchEditScreen() {
         initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
       />
 
-      <MultiSelectModal
-        visible={deptModalVisible}
-        title="Chọn phòng ban"
-        options={(departments.data?.items ?? []).map((d: any) => ({ id: d.id, label: d.name, subtitle: d.code }))}
-        selectedValues={departmentIds}
-        onSelect={setDepartmentIds}
-        onClose={() => setDeptModalVisible(false)}
-        isLoading={departments.isLoading}
-      />
+
     </Screen>
   );
 }

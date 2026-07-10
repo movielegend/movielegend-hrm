@@ -37,3 +37,8 @@ export async function transferAsset(id: string, payload: { targetDepartmentId: s
   const response = await apiClient.post<ApiResponse<AssetDto>>(`/assets/${id}/transfer`, payload);
   return unwrapData(response);
 }
+
+export async function revokeAsset(id: string, payload: { note?: string }): Promise<AssetDto> {
+  const response = await apiClient.post<ApiResponse<AssetDto>>(`/assets/${id}/revoke`, payload);
+  return unwrapData(response);
+}

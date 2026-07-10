@@ -17,20 +17,24 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
+import { SelectModal } from '../../components/SelectModal';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { useCreateDepartment, useDepartment, useDepartments, useUpdateDepartment, useDeleteDepartment } from '../../hooks/useDepartments';
 import { useBranches } from '../../api/branches.api';
 import { usePositions } from '../../hooks/usePositions';
 import { useEmployees } from '../../hooks/useEmployees';
+import { useAssets, useRevokeAsset, useAssignAsset, useTransferAsset } from '../../hooks/useAssets';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import type { CreateDepartmentPayload, UpdateDepartmentPayload } from '../../types/department.types';
+import type { AssetDto } from '../../types/asset.types';
 import { hasPermission } from '../../utils/permissions';
-import { normalizeApiError } from '../../utils/api-error';
+
 
 const createSchema = z.object({
   companyId: z.string().optional(),
   branchId: z.string().min(1, 'Vui lòng chọn chi nhánh'),
-  code: z.string().min(2, 'Mã phòng ban không được để trống'),
+  code: z.string().optional(),
   name: z.string().min(2, 'Tên phòng ban không được để trống'),
   description: z.string().optional(),
   parentId: z.string().uuid('parentId phải là định dạng UUID').optional().or(z.literal('')),
@@ -166,7 +170,13 @@ export function CreateDepartmentScreen() {
     defaultValues: { companyId: '', branchId: branchId ?? '', code: '', name: '', description: '', parentId: '' },
   });
   const submit = handleSubmit(async (payload) => {
-    await create.mutateAsync(buildCreateDepartmentPayload(payload));
+    let generatedCode = payload.code;
+    if (!generatedCode && payload.name) {
+      const initials = payload.name.split(' ').map(w => w[0]).join('').toUpperCase().replace(/[^A-Z]/g, '');
+      const timestamp = new Date().getTime().toString().slice(-4);
+      generatedCode = `${initials}-${timestamp}`;
+    }
+    await create.mutateAsync(buildCreateDepartmentPayload({...payload, code: generatedCode || `PB-${new Date().getTime().toString().slice(-4)}`}));
     router.back();
   });
   return (
@@ -202,6 +212,25 @@ export function DepartmentDetailScreen() {
       parentId: department.data?.parentId ?? '',
     },
   });
+
+  const { data: assetsData, isLoading: assetsLoading } = useAssets();
+  const departmentAssets = assetsData?.items?.filter(a => a.departmentId === actualId) || [];
+  const allDepartments = useDepartments({ limit: 1000 });
+
+  const [revokeModalVisible, setRevokeModalVisible] = useState(false);
+  const [selectedAssetForRevoke, setSelectedAssetForRevoke] = useState<AssetDto | null>(null);
+  const [revokeNote, setRevokeNote] = useState('');
+  const revokeMutation = useRevokeAsset();
+
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [selectedAssetForAssign, setSelectedAssetForAssign] = useState<AssetDto | null>(null);
+  const [assignedUserId, setAssignedUserId] = useState<string[]>([]);
+  const assignMutation = useAssignAsset();
+
+  const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [selectedAssetForTransfer, setSelectedAssetForTransfer] = useState<AssetDto | null>(null);
+  const [targetDepartmentId, setTargetDepartmentId] = useState<string[]>([]);
+  const transferMutation = useTransferAsset();
   if (department.isLoading) return <LoadingState />;
   if (department.isError) return <ErrorState error={department.error} onRetry={() => void department.refetch()} />;
   if (!department.data) return <EmptyState title="Khong tim thay phong ban" />;
@@ -257,6 +286,62 @@ export function DepartmentDetailScreen() {
             ) : null}
           </SectionCard>
 
+          <SectionCard title="Tài sản phòng ban">
+            {assetsLoading ? <LoadingState label="Đang tải tài sản..." /> : null}
+            <View style={{ gap: 12 }}>
+              {departmentAssets.map((asset) => (
+                <View key={asset.id} style={{ padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3' }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#0B3B61' }}>{asset.name}</Text>
+                    <StatusBadge label={asset.assetStatus} tone={toneForStatus(asset.assetStatus)} />
+                  </View>
+                  <Text style={{ fontSize: 13, color: '#98A0A8', marginBottom: 8 }}>Mã: {asset.assetCode} - Tình trạng: {asset.conditionStatus}</Text>
+                  
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {asset.assetStatus === 'IN_STOCK' && (
+                      <PrimaryButton
+                        style={{ flex: 1, paddingVertical: 8 }}
+                        onPress={() => {
+                          setSelectedAssetForAssign(asset);
+                          setAssignedUserId([]);
+                          setAssignModalVisible(true);
+                        }}
+                      >
+                        Giao
+                      </PrimaryButton>
+                    )}
+                    {(asset.assetStatus === 'ASSIGNED' || asset.assetStatus === 'IN_USE') && (
+                      <SecondaryButton
+                        style={{ flex: 1, paddingVertical: 8, borderColor: colors.danger }}
+                        textStyle={{ color: colors.danger }}
+                        onPress={() => {
+                          setSelectedAssetForRevoke(asset);
+                          setRevokeNote('');
+                          setRevokeModalVisible(true);
+                        }}
+                      >
+                        Thu hồi
+                      </SecondaryButton>
+                    )}
+                    <SecondaryButton
+                      style={{ flex: 1, paddingVertical: 8 }}
+                      onPress={() => {
+                        setSelectedAssetForTransfer(asset);
+                        setTargetDepartmentId([]);
+                        setTransferModalVisible(true);
+                      }}
+                    >
+                      Điều chuyển
+                    </SecondaryButton>
+                  </View>
+                </View>
+              ))}
+              {!assetsLoading && departmentAssets.length === 0 && (
+                <Text style={{ color: '#98A0A8', fontStyle: 'italic', textAlign: 'center', marginVertical: 12 }}>Phòng ban chưa có tài sản nào.</Text>
+              )}
+            </View>
+          </SectionCard>
+
           {canEdit ? (
             <SecondaryButton onPress={() => setEditing((current) => !current)} style={{ marginBottom: 16 }}>
               {editing ? 'Đóng chỉnh sửa' : 'Chỉnh sửa thông tin'}
@@ -272,12 +357,80 @@ export function DepartmentDetailScreen() {
               </PrimaryButton>
             </SectionCard>
           ) : null}
+
+        <ConfirmModal
+          visible={revokeModalVisible}
+          title="Thu hồi tài sản"
+          description={`Bạn có chắc muốn thu hồi tài sản ${selectedAssetForRevoke?.name}?`}
+          confirmText="Thu hồi"
+          confirmTone="danger"
+          isLoading={revokeMutation.isPending}
+          onConfirm={async () => {
+            if (selectedAssetForRevoke) {
+              await revokeMutation.mutateAsync({ assetId: selectedAssetForRevoke.id, payload: { note: revokeNote } });
+              Alert.alert('Thành công', 'Đã thu hồi tài sản');
+              setRevokeModalVisible(false);
+            }
+          }}
+          onCancel={() => setRevokeModalVisible(false)}
+        >
+          <FormField
+            label="Ghi chú thu hồi"
+            value={revokeNote}
+            onChangeText={setRevokeNote}
+            placeholder="Lý do, tình trạng khi thu hồi..."
+          />
+        </ConfirmModal>
+
+        <SelectModal
+          visible={assignModalVisible}
+          title="Chọn nhân viên để giao"
+          options={(employees.data?.items ?? []).map(e => ({ id: e.userId, label: e.profile?.fullName ?? e.phone, subtitle: e.userCode }))}
+          selectedValues={assignedUserId}
+          onSelect={setAssignedUserId}
+          onClose={() => setAssignModalVisible(false)}
+          isLoading={employees.isLoading}
+          multiple={false}
+          onConfirm={async () => {
+            if (selectedAssetForAssign && assignedUserId[0]) {
+              try {
+                await assignMutation.mutateAsync({ assetId: selectedAssetForAssign.id, payload: { assignedToUserId: assignedUserId[0], conditionWhenAssigned: selectedAssetForAssign.conditionStatus } });
+                Alert.alert('Thành công', 'Đã giao tài sản');
+                setAssignModalVisible(false);
+              } catch (e: any) {
+                Alert.alert('Lỗi', e.response?.data?.message || 'Không thể giao');
+              }
+            }
+          }}
+        />
+
+        <SelectModal
+          visible={transferModalVisible}
+          title="Chọn phòng ban điều chuyển"
+          options={(allDepartments.data?.items ?? []).filter(d => d.id !== actualId).map(d => ({ id: d.id, label: d.name, subtitle: d.code }))}
+          selectedValues={targetDepartmentId}
+          onSelect={setTargetDepartmentId}
+          onClose={() => setTransferModalVisible(false)}
+          isLoading={allDepartments.isLoading}
+          multiple={false}
+          onConfirm={async () => {
+            if (selectedAssetForTransfer && targetDepartmentId[0]) {
+              try {
+                await transferMutation.mutateAsync({ assetId: selectedAssetForTransfer.id, payload: { targetDepartmentId: targetDepartmentId[0] } });
+                Alert.alert('Thành công', 'Đã điều chuyển tài sản');
+                setTransferModalVisible(false);
+              } catch (e: any) {
+                Alert.alert('Lỗi', e.response?.data?.message || 'Không thể điều chuyển');
+              }
+            }
+          }}
+        />
         </ScreenContainer>
     </Screen>
   );
 }
 
-function DepartmentForm({ control, errors, fixedBranchId }: { control: Control<DepartmentFormValues>; errors: FieldErrors<DepartmentFormValues>; fixedBranchId?: string | null }) {
+function DepartmentForm({ control, errors, fixedBranchId, isEdit }: { control: Control<DepartmentFormValues>; errors: FieldErrors<DepartmentFormValues>; fixedBranchId?: string | null; isEdit?: boolean }) {
   const branches = useBranches();
   const displayBranches = fixedBranchId ? branches.data?.filter(b => b.id === fixedBranchId) : branches.data;
   
@@ -315,7 +468,9 @@ function DepartmentForm({ control, errors, fixedBranchId }: { control: Control<D
         )}
       />
 
-      <Controller control={control} name="code" render={({ field }) => <FormField autoCapitalize="characters" label="Mã phòng ban (Ví dụ: IT, HR...)" value={field.value} onChangeText={field.onChange} error={errors.code?.message} />} />
+      {isEdit && (
+        <Controller control={control} name="code" render={({ field }) => <FormField autoCapitalize="characters" label="Mã phòng ban (Cố định)" value={field.value || ''} onChangeText={() => {}} editable={false} error={errors.code?.message} />} />
+      )}
       <Controller control={control} name="name" render={({ field }) => <FormField label="Tên phòng ban" value={field.value} onChangeText={field.onChange} error={errors.name?.message} />} />
       <Controller control={control} name="description" render={({ field }) => <FormField label="Mô tả" value={field.value} onChangeText={field.onChange} error={errors.description?.message} />} />
       <Controller control={control} name="parentId" render={({ field }) => <FormField label="ID Phòng ban quản lý (Tùy chọn)" value={field.value} onChangeText={field.onChange} error={errors.parentId?.message} />} />
@@ -388,7 +543,7 @@ export function EditDepartmentScreen() {
       <ScreenContainer>
         <PageHeader title="Cập nhật Phòng ban" subtitle={`Đang sửa: ${department.data.name}`} />
         <SectionCard>
-          <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId ?? undefined} />
+          <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId ?? undefined} isEdit={true} />
           <View style={{ marginTop: 16 }}>
             <PrimaryButton onPress={() => void submit()} loading={update.isPending}>
               Lưu Thay Đổi

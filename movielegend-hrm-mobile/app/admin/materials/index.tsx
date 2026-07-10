@@ -1,5 +1,5 @@
-import { MaterialListScreen } from '../../../src/features/materials/MaterialScreens';
+import { AssetDepartmentListScreen } from '../../../src/features/materials/MaterialManagementScreens';
 
 export default function AdminMaterialsRoute() {
-  return <MaterialListScreen area="admin" />;
+  return <AssetDepartmentListScreen />;
 }

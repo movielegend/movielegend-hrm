@@ -146,6 +146,13 @@ export class ResolveIncidentDto {
   resolutionNote?: string;
 }
 
+export class RevokeAssetDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
 export class MaintenanceDto {
   @ApiProperty()
   @IsString()
