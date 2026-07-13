@@ -28,6 +28,7 @@ import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage } from
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
+import { useSocketStatus } from '../../providers/SocketProvider';
 
 // ── Helpers ──
 
@@ -160,10 +161,16 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     ? messages.data
     : (messages.data as any)?.items ?? [];
 
+  const { joinChatRoom } = useSocketStatus();
+
   // Reverse so newest at bottom
   const sortedMessages = [...messageItems].sort(
     (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
+
+  useEffect(() => {
+    if (groupId) joinChatRoom(groupId);
+  }, [groupId, joinChatRoom]);
 
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 100);

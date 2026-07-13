@@ -3,7 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 import { createHrmSocket } from '../api/socket';
-import { queryKeys } from '../constants/queryKeys';
+import { queryKeys, chatKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
 import Toast from 'react-native-toast-message';
@@ -23,15 +23,21 @@ import {
 interface SocketContextValue {
   isConnected: boolean;
   joinWarehouseRoom: (warehouseId: string) => void;
+  joinChatRoom: (groupId: string) => void;
 }
 
-const SocketContext = createContext<SocketContextValue>({ isConnected: false, joinWarehouseRoom: () => undefined });
+const SocketContext = createContext<SocketContextValue>({ 
+  isConnected: false, 
+  joinWarehouseRoom: () => undefined,
+  joinChatRoom: () => undefined,
+});
 
 export function SocketProvider({ children }: PropsWithChildren) {
   const { isAuthenticated, user } = useAuth();
   const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
   const joinedWarehouseIds = useRef<Set<string>>(new Set());
+  const joinedChatGroupIds = useRef<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -76,6 +82,13 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('asset:assigned', (payload: AssetSocketPayload) => invalidateForAssetAssigned(queryClient, payload));
       socket.on('asset:return-updated', (payload: AssetSocketPayload) => invalidateForAssetReturnUpdated(queryClient, payload));
       socket.on('asset:incident-updated', (payload: IncidentSocketPayload) => invalidateForIncidentUpdated(queryClient, payload));
+      socket.on('chat:message', (payload: any) => {
+        if (payload?.groupId) {
+          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.groupId) });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+        }
+      });
       socket.connect();
     }
 
@@ -87,6 +100,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket?.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
       joinedWarehouseIds.current.clear();
+      joinedChatGroupIds.current.clear();
     };
   }, [isAuthenticated, queryClient, user]);
 
@@ -107,6 +121,11 @@ export function SocketProvider({ children }: PropsWithChildren) {
         if (!warehouseId || joinedWarehouseIds.current.has(warehouseId)) return;
         joinedWarehouseIds.current.add(warehouseId);
         socketRef.current?.emit('warehouse:join', { warehouseId });
+      },
+      joinChatRoom: (groupId: string) => {
+        if (!groupId || joinedChatGroupIds.current.has(groupId)) return;
+        joinedChatGroupIds.current.add(groupId);
+        socketRef.current?.emit('chat:join', { groupId });
       },
     }),
     [isConnected],
