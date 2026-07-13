@@ -155,26 +155,20 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentions, setMentions] = useState<string[]>([]);
 
-  const scrollRef = useRef<ScrollView>(null);
-
   const messageItems = Array.isArray(messages.data)
     ? messages.data
     : (messages.data as any)?.items ?? [];
 
   const { joinChatRoom } = useSocketStatus();
 
-  // Reverse so newest at bottom
+  // Sort newest first for inverted list
   const sortedMessages = [...messageItems].sort(
-    (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   useEffect(() => {
     if (groupId) joinChatRoom(groupId);
   }, [groupId, joinChatRoom]);
-
-  useEffect(() => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 100);
-  }, [sortedMessages.length]);
 
   async function pickImage() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -271,73 +265,70 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         </View>
 
         {/* Messages */}
-        <ScrollView
-          ref={scrollRef}
+        <FlatList
           style={styles.messageList}
           contentContainerStyle={styles.messageListContent}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          {sortedMessages.length > 0 ? (
-            sortedMessages.map((msg: any) => {
-              const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
-              const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
+          data={sortedMessages}
+          keyExtractor={(msg: any) => msg.id}
+          inverted
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          renderItem={({ item: msg }) => {
+            const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
+            const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
 
-              return (
-                <View
-                  key={msg.id}
-                  style={[styles.messageRow, isMine && styles.messageRowMine]}
-                >
-                  {!isMine && (
-                    <View style={styles.messageBubbleAvatar}>
-                      <Text style={styles.messageBubbleAvatarText}>
-                        {getInitials(senderName)}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={[
-                    styles.messageBubble, 
-                    isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
-                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {}
-                  ]}>
-                    {!isMine && (
-                      <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
-                    )}
-                    {msg.fileUrl && msg.fileType === 'IMAGE' && (
-                      <Pressable onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}>
-                        <Image 
-                          source={{ uri: resolveImageUrl(msg.fileUrl) || '' }} 
-                          style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]} 
-                        />
-                      </Pressable>
-                    )}
-                    {!!msg.content && (
-                      <Text style={[
-                        styles.messageText, 
-                        isMine && styles.messageTextMine,
-                        msg.fileUrl && msg.fileType === 'IMAGE' ? { marginTop: 8 } : {}
-                      ]}>
-                        {msg.content}
-                      </Text>
-                    )}
-                    <Text style={[
-                      styles.messageTime, 
-                      isMine && styles.messageTimeMine,
-                      msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {}
-                    ]}>
-                      {timeAgo(msg.createdAt)}
+            return (
+              <View style={[styles.messageRow, isMine && styles.messageRowMine]}>
+                {!isMine && (
+                  <View style={styles.messageBubbleAvatar}>
+                    <Text style={styles.messageBubbleAvatarText}>
+                      {getInitials(senderName)}
                     </Text>
                   </View>
+                )}
+                <View style={[
+                  styles.messageBubble, 
+                  isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
+                  msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {}
+                ]}>
+                  {!isMine && (
+                    <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
+                  )}
+                  {msg.fileUrl && msg.fileType === 'IMAGE' && (
+                    <Pressable onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}>
+                      <Image 
+                        source={{ uri: resolveImageUrl(msg.fileUrl) || '' }} 
+                        style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]} 
+                      />
+                    </Pressable>
+                  )}
+                  {!!msg.content && (
+                    <Text style={[
+                      styles.messageText, 
+                      isMine && styles.messageTextMine,
+                      msg.fileUrl && msg.fileType === 'IMAGE' ? { marginTop: 8 } : {}
+                    ]}>
+                      {msg.content}
+                    </Text>
+                  )}
+                  <Text style={[
+                    styles.messageTime, 
+                    isMine && styles.messageTimeMine,
+                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {}
+                  ]}>
+                    {timeAgo(msg.createdAt)}
+                  </Text>
                 </View>
-              );
-            })
-          ) : (
-            <View style={styles.emptyChat}>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
               <MaterialCommunityIcons name="chat-outline" size={48} color={colors.muted} />
               <Text style={styles.emptyChatText}>Chưa có tin nhắn nào</Text>
               <Text style={styles.emptyChatSub}>Hãy bắt đầu cuộc trò chuyện!</Text>
             </View>
-          )}
-        </ScrollView>
+          }
+        />
 
         {/* Mentions Popup */}
         {showMentions && (
@@ -502,9 +493,7 @@ const styles = StyleSheet.create({
   },
   messageListContent: {
     padding: spacing.md,
-    gap: 8,
     flexGrow: 1,
-    justifyContent: 'flex-end',
   },
 
   messageRow: {
