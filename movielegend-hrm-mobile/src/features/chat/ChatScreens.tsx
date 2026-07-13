@@ -156,8 +156,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     let subscription: ScreenCapture.Subscription | undefined;
     
     // Keyboard listeners
-    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setIsKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setIsKeyboardVisible(false));
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardHeight(0));
 
     
     // Add screen capture listener
@@ -189,7 +189,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -396,7 +396,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         )}
 
         {/* Input */}
-        <View style={[styles.chatInputRow, { paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.chatInputRow, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? keyboardHeight + 10 : 10) : Math.max(insets.bottom, 10) }]}>
           <Pressable onPress={pickImage} style={styles.attachBtn}>
             <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
           </Pressable>
