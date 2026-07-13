@@ -27,15 +27,18 @@ async function bootstrap() {
     );
   }
 
-  const corsOrigins = (
-    process.env.CORS_ORIGINS ?? 'http://localhost:8081'
-  )
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  const corsOriginsStr = process.env.CORS_ORIGINS ?? '*';
+  let originConfig: any = true; // Default to reflect origin (allow all)
+
+  if (corsOriginsStr !== '*') {
+    originConfig = corsOriginsStr
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+  }
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: originConfig,
     credentials: true,
   });
 
