@@ -292,8 +292,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     <Screen>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.chatContainer}>
         {/* Header */}
