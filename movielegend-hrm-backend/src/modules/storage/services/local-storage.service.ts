@@ -12,7 +12,7 @@ export class LocalStorageService extends StorageService {
     super();
     const driver = config.get<string>('storage.driver') ?? 'local';
     if (process.env.NODE_ENV === 'production' && driver === 'local') {
-      throw new Error('Local storage is not allowed in production');
+      console.warn('WARNING: Using local storage in production. Uploaded files will be lost when the container restarts.');
     }
     this.root = path.resolve(config.get<string>('storage.localRoot') ?? 'storage');
   }
