@@ -33,18 +33,24 @@ export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void
       <View style={styles.row}>
         <View style={styles.flex}>
           <Text style={styles.title}>{task.title}</Text>
-          <Text style={styles.meta}>{task.taskCode ?? task.type}</Text>
+          <Text style={[styles.meta, { marginTop: 4 }]}>{task.taskCode ?? task.type}</Text>
         </View>
-        <StatusBadge label={task.priority} tone={priorityTone(task.priority)} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <StatusBadge label={task.priority} tone={priorityTone(task.priority)} />
+          <MaterialCommunityIcons name="dots-vertical" size={20} color={colors.text} />
+        </View>
       </View>
-      <View style={styles.rowWrap}>
+      <View style={[styles.rowWrap, { marginTop: 4, marginBottom: 8 }]}>
         <StatusBadge label={task.status} tone={toneForStatus(task.status)} />
         {overdue ? <StatusBadge label="OVERDUE" tone="danger" /> : null}
         {task.status === 'NEW' ? <StatusBadge label="NEW" tone="info" /> : null}
       </View>
       <DeadlineLabel dueAt={task.dueAt} />
-      <ProgressBar value={averageProgress} />
-      <Text style={styles.meta}>{targetSummary(task)} - {assignmentSummary(task)}</Text>
+      <View style={{ marginVertical: 8 }}>
+        <ProgressBar value={averageProgress} />
+      </View>
+      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+      <Text style={[styles.meta, { fontSize: 12 }]}>{targetSummary(task)} • {assignmentSummary(task)}</Text>
     </Pressable>
   );
 }
@@ -60,8 +66,10 @@ export function TaskStatusBadge({ status }: { status?: string }) {
 export function ProgressBar({ value }: { value: number }) {
   const width = `${Math.max(0, Math.min(100, value))}%` as `${number}%`;
   return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width }]} />
+    <View style={styles.progressContainer}>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width }]} />
+      </View>
       <Text style={styles.progressText}>{Math.round(value)}%</Text>
     </View>
   );
@@ -380,31 +388,35 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     padding: spacing.md,
   },
+    progressContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    progressTrack: {
+      backgroundColor: '#E5E5EA',
+      borderRadius: 999,
+      height: 14,
+      flex: 1,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      backgroundColor: '#1C1C1E',
+      borderRadius: 999,
+      bottom: 0,
+      left: 0,
+      position: 'absolute',
+      top: 0,
+    },
+    progressText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
   meta: {
     color: colors.muted,
     fontSize: 13,
     lineHeight: 18,
-  },
-  progressFill: {
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    top: 0,
-  },
-  progressText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  progressTrack: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    height: 20,
-    justifyContent: 'center',
-    overflow: 'hidden',
   },
   row: {
     alignItems: 'center',

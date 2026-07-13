@@ -3,6 +3,8 @@ import { useRef, useState, useEffect } from 'react';
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,7 @@ import {
   Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ScreenCapture from 'expo-screen-capture';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
@@ -146,6 +149,32 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const sendMessage = useSendMessage(groupId);
   const employees = useScopedEmployees({ limit: 100 });
 
+  useEffect(() => {
+    let subscription: ScreenCapture.Subscription | undefined;
+    
+    // Add screen capture listener
+    const initListener = async () => {
+      // expo-screen-capture has addScreenshotListener on iOS/Android
+      // Ensure we run this safely
+      try {
+        if (ScreenCapture.addScreenshotListener) {
+          subscription = ScreenCapture.addScreenshotListener(() => {
+            Alert.alert("Cảnh báo", "Bắt quả tang cap màn hình nhé! 📸");
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    initListener();
+
+    return () => {
+      if (subscription?.remove) {
+        subscription.remove();
+      }
+    };
+  }, []);
+
   const [text, setText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -250,7 +279,12 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
   return (
     <Screen>
-      <View style={styles.chatContainer}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
+      >
+        <View style={styles.chatContainer}>
         {/* Header */}
         <View style={styles.chatHeader}>
           <View style={styles.chatHeaderIcon}>
@@ -402,6 +436,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )}
         </View>
       </Modal>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

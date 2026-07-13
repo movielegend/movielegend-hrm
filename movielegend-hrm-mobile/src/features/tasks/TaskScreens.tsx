@@ -108,7 +108,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
           ) : null}
           {reviewRoute ? (
             <Pressable style={styles.actionBtnSecondary} onPress={() => router.push(reviewRoute)}>
-              <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.primary} />
+              <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.text} />
               <Text style={styles.actionBtnTextSecondary}>Hàng đợi duyệt</Text>
             </Pressable>
           ) : null}
@@ -530,38 +530,46 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
               return (
                 <Pressable
                   key={item}
-                  style={[styles.priorityPill, isActive && { backgroundColor: getPriorityColor(item), borderColor: getPriorityColor(item) }]}
+                  style={[styles.priorityPill, isActive && styles.priorityPillActive]}
                   onPress={() => setPriority(item)}
                 >
-                  <Text style={[styles.priorityText, isActive && { color: '#fff' }]} >{PRIORITY_LABELS[item]}</Text>
+                  <Text style={[styles.priorityText, isActive && styles.priorityTextActive]} >{PRIORITY_LABELS[item]}</Text>
                 </Pressable>
               );
             })}
           </View>
 
-          <View style={styles.dateRow}>
-            <View style={styles.dateCol}>
-              <Text style={styles.fieldLabel}>Thời gian bắt đầu</Text>
-              <Pressable style={styles.datePickerBtn} onPress={() => {
-                setShowDueDatePicker(false);
-                setShowStartDatePicker(true);
-              }}>
-                <MaterialCommunityIcons name="calendar-start" size={20} color={colors.muted} />
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Thời gian bắt đầu</Text>
+            <View style={styles.splitDateRow}>
+              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}>
+                <MaterialCommunityIcons name="calendar-month-outline" size={20} color={colors.text} />
                 <Text style={startAt ? styles.dateText : styles.datePlaceholder}>
-                  {startAt ? `${startAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} ${startAt.toLocaleDateString('vi-VN')}` : 'Chọn thời gian'}
+                  {startAt ? startAt.toLocaleDateString('vi-VN') : 'Chọn thời gian'}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}>
+                <MaterialCommunityIcons name="clock-outline" size={20} color={colors.text} />
+                <Text style={startAt ? styles.dateText : styles.datePlaceholder}>
+                  {startAt ? startAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : 'Chọn thời gian'}
                 </Text>
               </Pressable>
             </View>
-            
-            <View style={styles.dateCol}>
-              <Text style={styles.fieldLabel}>Thời gian hết hạn</Text>
-              <Pressable style={styles.datePickerBtn} onPress={() => {
-                setShowStartDatePicker(false);
-                setShowDueDatePicker(true);
-              }}>
-                <MaterialCommunityIcons name="calendar-check" size={20} color={colors.muted} />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Thời gian hết hạn</Text>
+            <View style={styles.splitDateRow}>
+              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}>
+                <MaterialCommunityIcons name="calendar-month-outline" size={20} color={colors.text} />
                 <Text style={dueAt ? styles.dateText : styles.datePlaceholder}>
-                  {dueAt ? `${dueAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} ${dueAt.toLocaleDateString('vi-VN')}` : 'Chọn thời gian'}
+                  {dueAt ? dueAt.toLocaleDateString('vi-VN') : 'Chọn thời gian'}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}>
+                <MaterialCommunityIcons name="clock-outline" size={20} color={colors.text} />
+                <Text style={dueAt ? styles.dateText : styles.datePlaceholder}>
+                  {dueAt ? dueAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : 'Chọn thời gian'}
                 </Text>
               </Pressable>
             </View>
@@ -909,9 +917,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fieldLabel: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs, marginTop: spacing.sm },
+  fieldGroup: { marginBottom: spacing.md },
   priorityWrap: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.md },
-  priorityPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background },
-  priorityText: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  priorityPill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff' },
+  priorityPillActive: { backgroundColor: '#1C1C1E', borderColor: '#1C1C1E' },
+  priorityText: { fontSize: 13, fontWeight: '500', color: colors.text },
+  priorityTextActive: { color: '#fff', fontWeight: '700' },
+  splitDateRow: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },
+  splitDatePickerBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: '#fff' },
   dateRow: { flexDirection: 'row', gap: spacing.md },
   dateCol: { flex: 1 },
   datePickerBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.background },
@@ -949,14 +962,14 @@ const styles = StyleSheet.create({
   
   // List UI
   actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md, marginTop: spacing.sm },
-  actionBtnPrimary: { flex: 1, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 8 },
+  actionBtnPrimary: { flex: 1, backgroundColor: '#1C1C1E', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8 },
   actionBtnTextPrimary: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  actionBtnSecondary: { flex: 1, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 8, borderWidth: 1, borderColor: colors.primary },
-  actionBtnTextSecondary: { color: colors.primaryDark, fontSize: 15, fontWeight: '700' },
+  actionBtnSecondary: { flex: 1, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8, borderWidth: 1, borderColor: colors.border },
+  actionBtnTextSecondary: { color: colors.text, fontSize: 15, fontWeight: '700' },
   tabsContainer: { marginHorizontal: -spacing.lg, marginBottom: spacing.lg },
   tabsScroll: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  tabPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
-  tabPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tabPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border },
+  tabPillActive: { backgroundColor: '#1C1C1E', borderColor: '#1C1C1E' },
   tabText: { fontSize: 14, fontWeight: '600', color: colors.muted },
   tabTextActive: { color: '#fff' },
   
