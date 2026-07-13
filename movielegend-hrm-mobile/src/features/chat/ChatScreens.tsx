@@ -15,7 +15,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as ScreenCapture from 'expo-screen-capture';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -148,9 +150,15 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
   const employees = useScopedEmployees({ limit: 100 });
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let subscription: ScreenCapture.Subscription | undefined;
+    
+    // Keyboard listeners
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setIsKeyboardVisible(false));
+
     
     // Add screen capture listener
     const initListener = async () => {
@@ -172,6 +180,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       if (subscription?.remove) {
         subscription.remove();
       }
+      showSub.remove();
+      hideSub.remove();
     };
   }, []);
 
@@ -179,6 +189,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -386,7 +397,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         )}
 
         {/* Input */}
-        <View style={styles.chatInputRow}>
+        <View style={[styles.chatInputRow, { paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, 10) }]}>
           <Pressable onPress={pickImage} style={styles.attachBtn}>
             <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
           </Pressable>
