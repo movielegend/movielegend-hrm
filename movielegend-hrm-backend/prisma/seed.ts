@@ -569,6 +569,7 @@ async function main() {
 main()
   .finally(async () => {
     await prisma.$disconnect();
+    process.exit(0);
   })
   .catch(async (error: unknown) => {
     console.error(error);
