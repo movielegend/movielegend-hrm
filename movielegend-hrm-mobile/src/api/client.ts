@@ -40,9 +40,11 @@ const refreshClient = axios.create({
 apiClient.interceptors.request.use(async (config) => {
   const token = await getAccessToken();
   if (token) {
-    const headers = AxiosHeaders.from(config.headers);
-    headers.set('Authorization', `Bearer ${token}`);
-    config.headers = headers;
+    if (config.headers && typeof config.headers.set === 'function') {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      config.headers = { ...config.headers, Authorization: `Bearer ${token}` } as any;
+    }
   }
   return config;
 });
@@ -62,9 +64,11 @@ apiClient.interceptors.response.use(
       throw error;
     }
 
-    const headers = AxiosHeaders.from(originalRequest.headers);
-    headers.set('Authorization', `Bearer ${token}`);
-    originalRequest.headers = headers;
+    if (originalRequest.headers && typeof (originalRequest.headers as any).set === 'function') {
+      (originalRequest.headers as any).set('Authorization', `Bearer ${token}`);
+    } else {
+      originalRequest.headers = { ...originalRequest.headers, Authorization: `Bearer ${token}` } as any;
+    }
     return apiClient.request(originalRequest);
   },
 );

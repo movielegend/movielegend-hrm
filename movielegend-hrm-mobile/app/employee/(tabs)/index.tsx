@@ -1,5 +1,5 @@
-import { EmployeeDashboard } from '../../../src/features/dashboard/EmployeeDashboard';
+import { EmployeeDashboardScreen } from '../../../src/features/employee/EmployeeDashboardScreen';
 
-export default function EmployeeDashboardRoute() {
-  return <EmployeeDashboard />;
+export default function EmployeeHomeRoute() {
+  return <EmployeeDashboardScreen />;
 }

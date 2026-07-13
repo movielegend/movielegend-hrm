@@ -96,9 +96,9 @@ async function main() {
     const lat = Number(loc.latitude);
     const lng = Number(loc.longitude);
     try {
-        const checkinRes = await attendanceService.checkIn({ latitude: lat, longitude: lng, workDate: todayStr, faceImage: 'fake_image' }, empActor);
+        const checkinRes = await attendanceService.checkIn({ latitude: lat, longitude: lng, workDate: todayStr, faceImage: 'fake_image' }, empActor, '127.0.0.1');
         console.log(`  -> CHECK-IN THÀNH CÔNG: ID = ${checkinRes.id}, Trạng thái = ${checkinRes.status}`);
-        const checkoutRes = await attendanceService.checkOut({ latitude: lat, longitude: lng }, empActor);
+        const checkoutRes = await attendanceService.checkOut({ latitude: lat, longitude: lng }, empActor, '127.0.0.1');
         console.log(`  -> CHECK-OUT THÀNH CÔNG: Trạng thái = ${checkoutRes.status}`);
         const newCheckIn = new Date(today);
         newCheckIn.setHours(7, 45, 0, 0);

@@ -28,12 +28,18 @@ let ShiftAssignmentsService = class ShiftAssignmentsService {
         const workDate = new Date(dto.workDate);
         return this.prisma.$transaction(async (tx) => {
             const [user, shift, existing] = await Promise.all([
-                tx.user.findUnique({ where: { id: dto.userId } }),
+                tx.user.findUnique({ where: { id: dto.userId }, include: { roles: { include: { role: true } } } }),
                 tx.shift.findUnique({ where: { id: dto.shiftId } }),
                 tx.shiftAssignment.findUnique({ where: { userId_workDate: { userId: dto.userId, workDate } } }),
             ]);
             if (!user || !user.isActive || user.accountStatus === client_1.AccountStatus.RESIGNED || user.accountStatus === client_1.AccountStatus.TERMINATED) {
                 throw (0, error_util_1.badRequest)('USER_NOT_ACTIVE', 'User không còn active để phân ca');
+            }
+            if (actor.roles.includes('ADMIN')) {
+                const isLeader = user.roles.some((r) => r.role?.code === 'LEADER' || r.role?.code === 'admin');
+                if (!isLeader) {
+                    throw (0, error_util_1.badRequest)('FORBIDDEN', 'Admin chỉ có thể phân ca cho Leader');
+                }
             }
             if (!shift)
                 throw (0, error_util_1.notFound)('SHIFT_NOT_FOUND', 'Không tìm thấy ca làm');

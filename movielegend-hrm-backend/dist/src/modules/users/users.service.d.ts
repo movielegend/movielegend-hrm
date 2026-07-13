@@ -13,7 +13,6 @@ export declare class UsersService {
             updatedAt: Date;
             userId: string;
             fullName: string;
-            positionId: string | null;
             dateOfBirth: Date | null;
             gender: import("@prisma/client").$Enums.Gender | null;
             idCardNumber: string;
@@ -29,6 +28,7 @@ export declare class UsersService {
             employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
             emergencyContactName: string | null;
             emergencyContactPhone: string | null;
+            positionId: string | null;
         } | null;
         id: string;
         isActive: boolean;

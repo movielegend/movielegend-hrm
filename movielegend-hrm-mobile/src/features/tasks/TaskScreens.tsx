@@ -73,11 +73,11 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
 
 const TASK_STATUS_TABS = [
   { label: 'Tất cả', value: '' },
-  { label: 'Mới tạo', value: 'NEW' },
+  { label: 'Chờ nhận', value: 'NEW' },
   { label: 'Đang làm', value: 'IN_PROGRESS' },
   { label: 'Chờ duyệt', value: 'WAITING_REVIEW' },
   { label: 'Hoàn thành', value: 'COMPLETED' },
-  { label: 'Từ chối', value: 'REJECTED' },
+  { label: 'Làm lại', value: 'REJECTED' },
   { label: 'Đã hủy', value: 'CANCELLED' },
 ];
 
@@ -791,7 +791,7 @@ function AssigneeSelectorModal({
           <View style={styles.assigneeTabs}>
             {(['USER', 'DEPARTMENT'] as const).map(tab => {
               const isActive = activeTab === tab;
-              const labels = { USER: 'Cá nhân', DEPARTMENT: 'Phòng ban' };
+              const labels = { USER: 'Cá nhân', DEPARTMENT: area === 'leader' ? 'Leader phòng ban' : 'Phòng ban' };
               return (
                 <Pressable 
                   key={tab} 
@@ -824,8 +824,12 @@ function AssigneeSelectorModal({
             {activeTab === 'DEPARTMENT' && departments.data?.items.map(d => (
               <Pressable key={d.id} style={styles.assigneeRow} onPress={() => toggleTarget('DEPARTMENT', d.id)}>
                 <View style={styles.assigneeInfo}>
-                  <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="domain" size={20} color={colors.muted} /></View>
-                  <Text style={styles.assigneeName}>{d.name}</Text>
+                  <View style={styles.assigneeAvatar}>
+                    <MaterialCommunityIcons name={area === 'leader' ? "account-tie" : "domain"} size={20} color={colors.muted} />
+                  </View>
+                  <Text style={styles.assigneeName}>
+                    {area === 'leader' ? `Leader ${d.name}` : d.name}
+                  </Text>
                 </View>
                 <MaterialCommunityIcons 
                   name={isSelected('DEPARTMENT', d.id) ? 'check-circle' : 'circle-outline'} 

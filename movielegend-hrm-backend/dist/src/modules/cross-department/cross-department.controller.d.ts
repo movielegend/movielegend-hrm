@@ -8,8 +8,8 @@ export declare class CrossDepartmentController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
+        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -24,8 +24,8 @@ export declare class CrossDepartmentController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
+        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -47,8 +47,8 @@ export declare class CrossDepartmentController {
         };
         linkedTask: {
             id: string;
-            title: string;
             status: import("@prisma/client").$Enums.TaskStatus;
+            title: string;
             taskCode: string;
             priority: import("@prisma/client").$Enums.TaskPriority;
             dueAt: Date | null;
@@ -82,8 +82,8 @@ export declare class CrossDepartmentController {
         })[];
         task: {
             id: string;
-            title: string;
             status: import("@prisma/client").$Enums.TaskStatus;
+            title: string;
             taskCode: string;
             priority: import("@prisma/client").$Enums.TaskPriority;
             dueAt: Date | null;
@@ -117,8 +117,8 @@ export declare class CrossDepartmentController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
+        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -133,8 +133,8 @@ export declare class CrossDepartmentController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
+        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -149,8 +149,8 @@ export declare class CrossDepartmentController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
+        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -165,8 +165,8 @@ export declare class CrossDepartmentController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
+        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -181,8 +181,8 @@ export declare class CrossDepartmentController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         status: import("@prisma/client").$Enums.CrossDepartmentRequestStatus;
+        title: string;
         rejectionReason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;

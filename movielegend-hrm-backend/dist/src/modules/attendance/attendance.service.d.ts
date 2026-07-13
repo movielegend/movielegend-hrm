@@ -15,7 +15,36 @@ export declare class AttendanceService {
     private readonly storage;
     private readonly businessTime;
     constructor(prisma: PrismaService, scope: DepartmentScopeService, faceVerification: FaceVerificationService, imageProcessing: ImageProcessingService, storage: StorageService, businessTime?: BusinessTimeService);
-    checkIn(dto: CheckInDto, actor: AuthenticatedUser): Promise<{
+    checkIn(dto: CheckInDto, actor: AuthenticatedUser, ip: string): Promise<{
+        user: {
+            id: string;
+            userCode: string;
+            phone: string;
+            email: string | null;
+            profile: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: string;
+                fullName: string;
+                dateOfBirth: Date | null;
+                gender: import("@prisma/client").$Enums.Gender | null;
+                idCardNumber: string;
+                idCardIssueDate: Date | null;
+                idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
+                permanentAddress: string | null;
+                temporaryAddress: string | null;
+                avatarUrl: string | null;
+                joinDate: Date | null;
+                officialDate: Date | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                emergencyContactName: string | null;
+                emergencyContactPhone: string | null;
+                positionId: string | null;
+            } | null;
+        };
         shiftAssignment: {
             department: {
                 id: string;
@@ -53,11 +82,11 @@ export declare class AttendanceService {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            departmentId: string;
-            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-            workDate: Date;
-            shiftId: string;
             assignedByUserId: string | null;
+            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+            departmentId: string;
+            shiftId: string;
+            workDate: Date;
         };
         photoFile: {
             id: string;
@@ -88,8 +117,8 @@ export declare class AttendanceService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        departmentId: string;
         status: import("@prisma/client").$Enums.AttendanceStatus;
+        departmentId: string;
         workDate: Date;
         photoFileId: string | null;
         shiftAssignmentId: string;
@@ -100,7 +129,36 @@ export declare class AttendanceService {
         checkOutLatitude: Prisma.Decimal | null;
         checkOutLongitude: Prisma.Decimal | null;
     }>;
-    checkOut(dto: CheckOutDto, actor: AuthenticatedUser): Promise<({
+    checkOut(dto: CheckOutDto, actor: AuthenticatedUser, ip: string): Promise<({
+        user: {
+            id: string;
+            userCode: string;
+            phone: string;
+            email: string | null;
+            profile: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: string;
+                fullName: string;
+                dateOfBirth: Date | null;
+                gender: import("@prisma/client").$Enums.Gender | null;
+                idCardNumber: string;
+                idCardIssueDate: Date | null;
+                idCardIssuePlace: string | null;
+                idCardFrontUrl: string | null;
+                idCardBackUrl: string | null;
+                permanentAddress: string | null;
+                temporaryAddress: string | null;
+                avatarUrl: string | null;
+                joinDate: Date | null;
+                officialDate: Date | null;
+                employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
+                emergencyContactName: string | null;
+                emergencyContactPhone: string | null;
+                positionId: string | null;
+            } | null;
+        };
         shiftAssignment: {
             department: {
                 id: string;
@@ -138,11 +196,11 @@ export declare class AttendanceService {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            departmentId: string;
-            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-            workDate: Date;
-            shiftId: string;
             assignedByUserId: string | null;
+            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+            departmentId: string;
+            shiftId: string;
+            workDate: Date;
         };
         photoFile: {
             id: string;
@@ -173,8 +231,8 @@ export declare class AttendanceService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        departmentId: string;
         status: import("@prisma/client").$Enums.AttendanceStatus;
+        departmentId: string;
         workDate: Date;
         photoFileId: string | null;
         shiftAssignmentId: string;
@@ -236,16 +294,17 @@ export declare class AttendanceService {
                 createdAt: Date;
                 updatedAt: Date;
                 userId: string;
-                departmentId: string;
-                status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-                workDate: Date;
-                shiftId: string;
                 assignedByUserId: string | null;
+                status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+                departmentId: string;
+                shiftId: string;
+                workDate: Date;
             };
             photo: {
                 fileId: string;
                 fileUrl: string;
             } | null;
+            user: any;
         };
     }>;
     myHistory(actor: AuthenticatedUser, query: AttendanceQueryDto): Promise<{
@@ -295,16 +354,17 @@ export declare class AttendanceService {
                 createdAt: Date;
                 updatedAt: Date;
                 userId: string;
-                departmentId: string;
-                status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-                workDate: Date;
-                shiftId: string;
                 assignedByUserId: string | null;
+                status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+                departmentId: string;
+                shiftId: string;
+                workDate: Date;
             };
             photo: {
                 fileId: string;
                 fileUrl: string;
             } | null;
+            user: any;
         }[];
         pagination: {
             page: number;
@@ -387,16 +447,17 @@ export declare class AttendanceService {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            departmentId: string;
-            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-            workDate: Date;
-            shiftId: string;
             assignedByUserId: string | null;
+            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+            departmentId: string;
+            shiftId: string;
+            workDate: Date;
         };
         photo: {
             fileId: string;
             fileUrl: string;
         } | null;
+        user: any;
     }>;
     activeLocations(actor: AuthenticatedUser): Promise<{
         latitude: number;
@@ -415,8 +476,8 @@ export declare class AttendanceService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        departmentId: string;
         status: import("@prisma/client").$Enums.AttendanceAdjustmentStatus;
+        departmentId: string;
         reason: string;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -429,8 +490,8 @@ export declare class AttendanceService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        departmentId: string;
         status: import("@prisma/client").$Enums.AttendanceAdjustmentStatus;
+        departmentId: string;
         reason: string;
         decidedByUserId: string | null;
         decidedAt: Date | null;
@@ -451,7 +512,6 @@ export declare class AttendanceService {
                     updatedAt: Date;
                     userId: string;
                     fullName: string;
-                    positionId: string | null;
                     dateOfBirth: Date | null;
                     gender: import("@prisma/client").$Enums.Gender | null;
                     idCardNumber: string;
@@ -467,6 +527,7 @@ export declare class AttendanceService {
                     employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                     emergencyContactName: string | null;
                     emergencyContactPhone: string | null;
+                    positionId: string | null;
                 } | null;
             };
             shiftAssignment: {
@@ -492,19 +553,19 @@ export declare class AttendanceService {
                 createdAt: Date;
                 updatedAt: Date;
                 userId: string;
-                departmentId: string;
-                status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-                workDate: Date;
-                shiftId: string;
                 assignedByUserId: string | null;
+                status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+                departmentId: string;
+                shiftId: string;
+                workDate: Date;
             };
         } & {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            departmentId: string;
             status: import("@prisma/client").$Enums.AttendanceStatus;
+            departmentId: string;
             workDate: Date;
             photoFileId: string | null;
             shiftAssignmentId: string;
@@ -539,6 +600,7 @@ export declare class AttendanceService {
         deletedAt: Date | null;
         latitude: Prisma.Decimal;
         longitude: Prisma.Decimal;
+        allowedIps: string[];
         radiusMeters: number;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
     updateLocation(id: string, dto: UpdateAttendanceLocationDto): Prisma.Prisma__AttendanceLocationClient<{
@@ -551,6 +613,7 @@ export declare class AttendanceService {
         deletedAt: Date | null;
         latitude: Prisma.Decimal;
         longitude: Prisma.Decimal;
+        allowedIps: string[];
         radiusMeters: number;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
     removeLocation(id: string): Promise<{
@@ -563,6 +626,7 @@ export declare class AttendanceService {
         deletedAt: Date | null;
         latitude: Prisma.Decimal;
         longitude: Prisma.Decimal;
+        allowedIps: string[];
         radiusMeters: number;
     }>;
     createWifi(dto: CreateWifiConfigDto): Prisma.Prisma__WifiConfigClient<{
@@ -587,6 +651,7 @@ export declare class AttendanceService {
     private attendanceInclude;
     private validateAttendancePhoto;
     private findAllowedLocation;
+    private assertIpAllowed;
     private assertWifiAllowed;
     private isWithinCheckInWindow;
     private shiftDateTime;

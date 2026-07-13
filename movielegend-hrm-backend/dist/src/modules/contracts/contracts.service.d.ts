@@ -25,22 +25,22 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        storageKey: string | null;
-        version: number;
         createdById: string;
         contractType: import("@prisma/client").$Enums.ContractType;
         templateFileUrl: string;
+        storageKey: string | null;
+        version: number;
     }>;
     findTemplates(): Prisma.PrismaPromise<({
         versions: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         }[];
     } & {
         id: string;
@@ -52,22 +52,22 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        storageKey: string | null;
-        version: number;
         createdById: string;
         contractType: import("@prisma/client").$Enums.ContractType;
         templateFileUrl: string;
+        storageKey: string | null;
+        version: number;
     })[]>;
     findTemplate(id: string): Promise<{
         versions: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         }[];
     } & {
         id: string;
@@ -79,11 +79,11 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        storageKey: string | null;
-        version: number;
         createdById: string;
         contractType: import("@prisma/client").$Enums.ContractType;
         templateFileUrl: string;
+        storageKey: string | null;
+        version: number;
     }>;
     updateTemplate(id: string, dto: UpdateContractTemplateDto, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -95,11 +95,11 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        storageKey: string | null;
-        version: number;
         createdById: string;
         contractType: import("@prisma/client").$Enums.ContractType;
         templateFileUrl: string;
+        storageKey: string | null;
+        version: number;
     }>;
     createContract(dto: CreateEmployeeContractDto, actor: AuthenticatedUser): Promise<{
         user: {
@@ -109,7 +109,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -125,6 +124,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -150,21 +150,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -185,22 +185,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -210,6 +208,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     findAll(actor: AuthenticatedUser, departmentId?: string): Promise<({
         user: {
@@ -219,7 +219,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -235,6 +234,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -260,21 +260,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -295,22 +295,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -320,6 +318,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     })[]>;
     findMine(actor: AuthenticatedUser): Prisma.PrismaPromise<({
         user: {
@@ -329,7 +329,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -345,6 +344,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -370,21 +370,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -405,22 +405,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -430,6 +428,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     })[]>;
     findOne(id: string, actor: AuthenticatedUser): Promise<{
         user: {
@@ -439,7 +439,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -455,6 +454,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -480,21 +480,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -515,22 +515,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -540,6 +538,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     updateContract(id: string, dto: UpdateEmployeeContractDto, actor: AuthenticatedUser): Promise<{
         user: {
@@ -549,7 +549,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -565,6 +564,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -590,21 +590,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -625,22 +625,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -650,6 +648,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     submitApproval(id: string, actor: AuthenticatedUser): Promise<{
         user: {
@@ -659,7 +659,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -675,6 +674,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -700,21 +700,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -735,22 +735,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -760,6 +758,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
         user: {
@@ -769,7 +769,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -785,6 +784,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -810,21 +810,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -845,22 +845,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -870,6 +868,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     reject(id: string, actor: AuthenticatedUser, dto: RejectContractDto): Promise<{
         user: {
@@ -879,7 +879,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -895,6 +894,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -920,21 +920,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -955,22 +955,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -980,6 +978,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     requestEmployeeSignature(id: string, actor: AuthenticatedUser): Promise<{
         user: {
@@ -989,7 +989,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1005,6 +1004,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1030,21 +1030,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -1065,22 +1065,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -1090,6 +1088,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     signEmployee(id: string, dto: SignContractDto, actor: AuthenticatedUser): Promise<{
         user: {
@@ -1099,7 +1099,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1115,6 +1114,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1140,21 +1140,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -1175,22 +1175,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -1200,6 +1198,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     signCompany(id: string, dto: SignContractDto, actor: AuthenticatedUser): Promise<{
         user: {
@@ -1209,7 +1209,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1225,6 +1224,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1250,21 +1250,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -1285,22 +1285,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -1310,6 +1308,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     activate(id: string, actor: AuthenticatedUser): Promise<{
         user: {
@@ -1319,7 +1319,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1335,6 +1334,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1360,21 +1360,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -1395,22 +1395,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -1420,6 +1418,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     terminate(id: string, actor: AuthenticatedUser, dto: TerminateContractDto): Promise<{
         user: {
@@ -1429,7 +1429,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1445,6 +1444,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1470,21 +1470,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -1505,22 +1505,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -1530,6 +1528,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     expiry(days?: number): Prisma.PrismaPromise<({
         user: {
@@ -1539,7 +1539,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1555,6 +1554,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1580,21 +1580,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -1615,22 +1615,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -1640,6 +1638,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     })[]>;
     acknowledgeContract(id: string, dto: {
         isAgreed: boolean;
@@ -1652,7 +1652,6 @@ export declare class ContractsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1668,6 +1667,7 @@ export declare class ContractsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1693,21 +1693,21 @@ export declare class ContractsService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            storageKey: string | null;
-            version: number;
             createdById: string;
             contractType: import("@prisma/client").$Enums.ContractType;
             templateFileUrl: string;
+            storageKey: string | null;
+            version: number;
         };
         contractTemplateVersion: {
             id: string;
             createdAt: Date;
-            storageKey: string | null;
             createdById: string;
             templateFileUrl: string;
-            contractTemplateId: string;
+            storageKey: string | null;
             versionNumber: number;
             contentHash: string | null;
+            contractTemplateId: string;
         };
         signatures: {
             id: string;
@@ -1728,22 +1728,20 @@ export declare class ContractsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.ContractStatus;
         createdById: string;
-        approvedAt: Date | null;
-        approvedById: string | null;
         contractType: import("@prisma/client").$Enums.ContractType;
         contractTemplateId: string;
-        contractTemplateVersionId: string;
+        status: import("@prisma/client").$Enums.ContractStatus;
+        contractCode: string;
+        title: string;
         startDate: Date;
         endDate: Date | null;
-        draftFileUrl: string | null;
-        signedFileUrl: string | null;
-        contractCode: string;
         baseSalarySnapshot: Prisma.JsonValue | null;
         positionSnapshot: Prisma.JsonValue | null;
         departmentSnapshot: Prisma.JsonValue | null;
+        draftFileUrl: string | null;
+        signedFileUrl: string | null;
+        approvedAt: Date | null;
         employeeSignedAt: Date | null;
         companySignedAt: Date | null;
         effectiveAt: Date | null;
@@ -1753,6 +1751,8 @@ export declare class ContractsService {
         employeeAcknowledgedAt: Date | null;
         employeeAcknowledgementNote: string | null;
         employeeAcknowledgedByIp: string | null;
+        contractTemplateVersionId: string;
+        approvedById: string | null;
     }>;
     private transition;
     private sign;

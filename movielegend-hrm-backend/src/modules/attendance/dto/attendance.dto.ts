@@ -103,6 +103,16 @@ export class CheckOutDto {
   @Min(-180)
   @Max(180)
   longitude!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  wifiSsid?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  wifiBssid?: string;
 }
 
 export class CreateAttendanceAdjustmentDto {

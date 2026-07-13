@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SecondaryButton } from '../../components/Buttons';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -45,23 +46,58 @@ export function AssetCard({ asset, onPress }: { asset: AssetDto; onPress?: () =>
 export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssignmentDto; onPress?: () => void }) {
   const asset = assignment.asset;
   const openIncidents = asset.incidents?.length ?? 0;
+
+  let iconName: any = 'cube-outline';
+  const nameLower = asset.name.toLowerCase();
+  if (nameLower.includes('laptop') || nameLower.includes('macbook')) iconName = 'laptop';
+  else if (nameLower.includes('màn hình') || nameLower.includes('monitor')) iconName = 'monitor';
+  else if (nameLower.includes('chuột') || nameLower.includes('mouse')) iconName = 'mouse';
+  else if (nameLower.includes('bàn phím') || nameLower.includes('keyboard')) iconName = 'keyboard';
+  else if (nameLower.includes('điện thoại') || nameLower.includes('phone')) iconName = 'cellphone';
+  else if (nameLower.includes('ghế')) iconName = 'chair-rolling';
+  else if (nameLower.includes('bàn')) iconName = 'desk';
+  else if (nameLower.includes('xe')) iconName = 'car';
+
   return (
-    <SectionCard>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{asset.name}</Text>
+    <Pressable style={({ pressed }) => [styles.myAssetCard, pressed && { opacity: 0.9 }]} onPress={onPress}>
+      <View style={styles.myAssetHeader}>
+        <View style={styles.myAssetIconWrap}>
+          <MaterialCommunityIcons name={iconName} size={32} color={colors.primary} />
+        </View>
+        <View style={styles.myAssetInfo}>
+          <Text style={styles.myAssetTitle}>{asset.name}</Text>
+          <Text style={styles.myAssetCode}>{asset.assetCode} {(asset as any).brand ? `• ${(asset as any).brand}` : ''}</Text>
+        </View>
         <AssetStatusBadge status={asset.assetStatus} />
       </View>
-      <Text style={styles.meta}>Mã: {asset.assetCode}</Text>
-      {asset.serialNumber ? <Text style={styles.meta}>Serial: {asset.serialNumber}</Text> : null}
-      <View style={styles.badgeRow}>
-        <StatusBadge label={assignment.status} tone={assignmentStatusTone(assignment.status)} />
-        <AssetConditionBadge condition={asset.conditionStatus} />
-        {openIncidents > 0 ? <StatusBadge label={`Sự cố mở: ${openIncidents}`} tone="danger" /> : null}
+
+      <View style={styles.myAssetDivider} />
+
+      <View style={styles.myAssetBodyRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.metaLabel}>Trạng thái cấp phát</Text>
+          <StatusBadge label={assignment.status} tone={assignmentStatusTone(assignment.status)} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.metaLabel}>Tình trạng thiết bị</Text>
+          <AssetConditionBadge condition={asset.conditionStatus} />
+        </View>
       </View>
-      <Text style={styles.meta}>Cấp phát: {formatDateTime(assignment.assignedAt)}</Text>
-      {assignment.expectedReturnAt ? <Text style={styles.meta}>Hạn trả: {formatDateTime(assignment.expectedReturnAt)}</Text> : null}
-      {onPress ? <SecondaryButton onPress={onPress}>Chi tiết</SecondaryButton> : null}
-    </SectionCard>
+
+      {openIncidents > 0 ? (
+        <View style={styles.myAssetAlert}>
+          <MaterialCommunityIcons name="alert-circle" size={16} color={colors.danger} />
+          <Text style={styles.myAssetAlertText}>Đang có {openIncidents} sự cố chưa xử lý</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.myAssetFooter}>
+        <Text style={styles.myAssetFooterText}>
+          Nhận: {formatDateTime(assignment.assignedAt)}
+          {assignment.expectedReturnAt ? `  •  Hạn trả: ${formatDateTime(assignment.expectedReturnAt)}` : ''}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -159,5 +195,84 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: '800',
+  },
+  myAssetCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  myAssetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  myAssetIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  myAssetInfo: {
+    flex: 1,
+  },
+  myAssetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  myAssetCode: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  myAssetDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.md,
+  },
+  myAssetBodyRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  metaLabel: {
+    fontSize: 12,
+    color: colors.muted,
+    marginBottom: 4,
+  },
+  myAssetAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    padding: spacing.sm,
+    borderRadius: 8,
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  myAssetAlertText: {
+    fontSize: 13,
+    color: colors.danger,
+    fontWeight: '500',
+  },
+  myAssetFooter: {
+    backgroundColor: '#F8FAFC',
+    padding: spacing.sm,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  myAssetFooterText: {
+    fontSize: 12,
+    color: colors.muted,
+    fontWeight: '500',
   },
 });

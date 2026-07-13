@@ -9,10 +9,10 @@ export declare class EmployeeRequestsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
         title: string;
         departmentId: string;
-        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
         decidedByUserId: string | null;
         decidedAt: Date | null;
         content: string;
@@ -33,7 +33,6 @@ export declare class EmployeeRequestsController {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -49,6 +48,7 @@ export declare class EmployeeRequestsController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         };
     } & {
@@ -56,10 +56,10 @@ export declare class EmployeeRequestsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
         title: string;
         departmentId: string;
-        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
         decidedByUserId: string | null;
         decidedAt: Date | null;
         content: string;
@@ -74,10 +74,10 @@ export declare class EmployeeRequestsController {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            type: import("@prisma/client").$Enums.EmployeeRequestType;
+            status: import("@prisma/client").$Enums.EmployeeRequestStatus;
             title: string;
             departmentId: string;
-            status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+            type: import("@prisma/client").$Enums.EmployeeRequestType;
             decidedByUserId: string | null;
             decidedAt: Date | null;
             content: string;
@@ -98,10 +98,27 @@ export declare class EmployeeRequestsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
         title: string;
         departmentId: string;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        content: string;
+        amount: import("@prisma/client/runtime/library").Decimal | null;
+        attachmentMetadata: import("@prisma/client/runtime/library").JsonValue | null;
+        referenceId: string | null;
+        currentApproverUserId: string | null;
+    }>;
+    reject(id: string, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
         status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+        title: string;
+        departmentId: string;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
         decidedByUserId: string | null;
         decidedAt: Date | null;
         content: string;

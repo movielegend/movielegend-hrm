@@ -23,7 +23,7 @@ export class CloudinaryStorageService implements StorageService {
           public_id: input.storageKey ? input.storageKey.split('.')[0] : undefined,
           resource_type: 'auto',
         },
-        (error, result) => {
+        (error: any, result: any) => {
           if (error) {
             this.logger.error('Upload to Cloudinary failed', error);
             return reject(error);

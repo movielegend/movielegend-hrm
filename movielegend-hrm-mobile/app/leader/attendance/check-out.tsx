@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,14 +10,28 @@ import { Screen } from '../../../src/components/Screen';
 import { checkOut } from '../../../src/api/attendance.api';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
+import { useMySchedule } from '../../../src/hooks/useShifts';
 
 export default function CheckOutScreen() {
   const router = useRouter();
+  const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
+  
+  // Find today's shift
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayShift = schedule?.find(s => new Date(s.workDate).toISOString().substring(0, 10) === todayStr);
+
   const [permission, requestPermission] = useCameraPermissions();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ipv4, setIpv4] = useState<string>('Đang lấy IP...');
 
+  useEffect(() => {
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => setIpv4(data.ip))
+      .catch(() => setIpv4('Không xác định'));
+  }, []);
 
   const fetchLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -68,7 +82,8 @@ export default function CheckOutScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
-      Alert.alert('Lỗi chấm công', e.message || 'Có lỗi xảy ra khi chấm công.');
+      const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
+      Alert.alert('Lỗi chấm công', msg);
     } finally {
       setLoading(false);
     }
@@ -117,45 +132,49 @@ export default function CheckOutScreen() {
         </Pressable>
       </View>
 
-      {/* Wifi Info */}
+      {/* Network Info */}
       <View style={styles.wifiBox}>
-        <Text style={styles.wifiLabel}>Kết nối: wifi</Text>
+        <Text style={styles.wifiLabel}>Kết nối mạng</Text>
         <View style={styles.wifiRight}>
-          <Text style={styles.wifiName}>MOVIE LEGEND HA NOI</Text>
-          <Text style={styles.wifiBssid}>(bssid: ec:41:18:e:cd:6d)</Text>
+          <Text style={styles.wifiName}>IPv4: {ipv4}</Text>
+          <Text style={styles.wifiBssid}>(IP Public)</Text>
         </View>
       </View>
 
       {/* Shift Selection */}
-      <Text style={styles.shiftSectionTitle}>Bạn đang có 1 ca làm, chọn ca để Ra ca</Text>
-      
-      <Pressable style={styles.shiftCard}>
-        <MaterialCommunityIcons name="radiobox-marked" size={24} color={colors.primary} style={styles.radioIcon} />
-        <View>
-          <Text style={styles.shiftName}>Ca hành chính</Text>
-          <Text style={styles.shiftTime}>(08:00 - 17:30)</Text>
-        </View>
-      </Pressable>
-
-      {/* Hidden Camera for background capture */}
-      <View style={styles.hiddenCamera}>
-        
-      </View>
+      {scheduleLoading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+      ) : todayShift ? (
+        <>
+          <Text style={styles.shiftSectionTitle}>Bạn đang có 1 ca làm, chọn ca để Ra ca</Text>
+          <Pressable style={styles.shiftCard}>
+            <MaterialCommunityIcons name="radiobox-marked" size={24} color={colors.primary} style={styles.radioIcon} />
+            <View>
+              <Text style={styles.shiftName}>{todayShift.shift?.name}</Text>
+              <Text style={styles.shiftTime}>({todayShift.shift?.startTime} - {todayShift.shift?.endTime})</Text>
+            </View>
+          </Pressable>
+        </>
+      ) : (
+        <Text style={[styles.shiftSectionTitle, { color: colors.danger, textAlign: 'center', marginTop: 20 }]}>Bạn không có ca làm việc hôm nay</Text>
+      )}
 
       {/* Footer Confirm Button */}
-      <View style={styles.footer}>
-        <Pressable 
-          style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]} 
-          onPress={() => void handleConfirm()}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.confirmBtnText}>Xác nhận</Text>
-          )}
-        </Pressable>
-      </View>
+      {todayShift ? (
+        <View style={styles.footer}>
+          <Pressable 
+            style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]} 
+            onPress={() => void handleConfirm()}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.confirmBtnText}>Xác nhận</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -243,42 +262,40 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   wifiLabel: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.muted,
   },
   wifiRight: {
     alignItems: 'flex-end',
   },
   wifiName: {
-    fontSize: 15,
-    color: '#334155',
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
   wifiBssid: {
     fontSize: 12,
     color: colors.muted,
   },
   shiftSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
     marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   shiftCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#fff',
     marginHorizontal: spacing.md,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignSelf: 'flex-start',
-    minWidth: '60%',
+    borderColor: colors.primary,
   },
   radioIcon: {
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   shiftName: {
     fontSize: 16,
@@ -289,26 +306,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.muted,
   },
-  hiddenCamera: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-  },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: spacing.lg,
+    padding: spacing.md,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   confirmBtn: {
-    backgroundColor: '#10B981', // Emerald 500
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
     alignItems: 'center',
   },
   confirmBtnDisabled: {
@@ -316,7 +327,7 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  }
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

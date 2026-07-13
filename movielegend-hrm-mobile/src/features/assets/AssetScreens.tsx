@@ -65,6 +65,7 @@ export function MyAssetsScreen() {
   const myAssets = useMyAssets();
   const confirm = useConfirmAssetAssignment();
   const requestReturn = useRequestAssetReturn();
+  const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'ACTIVE'>('ALL');
 
   async function runConfirm(assignmentId: string) {
     try {
@@ -86,34 +87,90 @@ export function MyAssetsScreen() {
     }
   }
 
+  const items = myAssets.data?.items ?? [];
+  const activeCount = items.filter((a) => a.status === 'ACTIVE').length;
+  const pendingCount = items.filter((a) => a.status === 'PENDING').length;
+
+  const visibleItems = useMemo(() => {
+    if (activeTab === 'ACTIVE') return items.filter((a) => a.status === 'ACTIVE');
+    if (activeTab === 'PENDING') return items.filter((a) => a.status === 'PENDING');
+    return items;
+  }, [items, activeTab]);
+
   return (
     <Screen>
-      <ScreenContainer refreshControl={<RefreshControl refreshing={myAssets.isRefetching} onRefresh={() => void myAssets.refetch()} />}>
-        <PageHeader title="Tài sản của tôi" subtitle="Nguồn: GET /assets/my — chỉ tài sản cấp phát cho bạn." />
-        {myAssets.isLoading ? <LoadingState /> : null}
-        {myAssets.isError ? <ErrorState error={myAssets.error} onRetry={() => void myAssets.refetch()} /> : null}
-        {myAssets.data?.items.map((assignment) => (
-          <View key={assignment.id} style={styles.cardWrap}>
-            <MyAssetCard assignment={assignment} onPress={() => router.push(`/employee/assets/${assignment.assetId}` as never)} />
-            {canConfirmAssignment(user, assignment) ? (
-              <PrimaryButton loading={confirm.isPending} onPress={() => void runConfirm(assignment.id)}>
-                Xác nhận nhận tài sản
-              </PrimaryButton>
-            ) : null}
-            {canRequestReturn(user, assignment) ? (
-              <SecondaryButton loading={requestReturn.isPending} onPress={() => void runRequestReturn(assignment.id)}>
-                Yêu cầu trả tài sản
-              </SecondaryButton>
-            ) : null}
-            {hasPermission(user, 'asset.incident.create') ? (
-              <SecondaryButton onPress={() => router.push(`/employee/assets/incidents/create?assetId=${assignment.assetId}` as never)}>
-                Báo sự cố
-              </SecondaryButton>
-            ) : null}
+      <ScrollView refreshControl={<RefreshControl refreshing={myAssets.isRefetching} onRefresh={() => void myAssets.refetch()} />} contentContainerStyle={{ paddingBottom: 100 }}>
+        
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>Tài sản của tôi</Text>
+          <Text style={styles.heroSubtitle}>Quản lý các thiết bị được công ty cấp phát</Text>
+          
+          <View style={styles.heroStatsContainer}>
+            <View style={styles.heroStatBox}>
+              <Text style={styles.heroStatNumber}>{activeCount}</Text>
+              <Text style={styles.heroStatLabel}>Đang sử dụng</Text>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStatBox}>
+              <Text style={[styles.heroStatNumber, pendingCount > 0 && { color: colors.warning }]}>{pendingCount}</Text>
+              <Text style={styles.heroStatLabel}>Chờ xác nhận</Text>
+            </View>
           </View>
-        ))}
-        {myAssets.data && !myAssets.data.items.length ? <EmptyState title="Bạn chưa được cấp phát tài sản" /> : null}
-      </ScreenContainer>
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContent}>
+            <Pressable style={[styles.tabButton, activeTab === 'ALL' && styles.tabButtonActive]} onPress={() => setActiveTab('ALL')}>
+              <Text style={[styles.tabText, activeTab === 'ALL' && styles.tabTextActive]}>Tất cả</Text>
+            </Pressable>
+            <Pressable style={[styles.tabButton, activeTab === 'ACTIVE' && styles.tabButtonActive]} onPress={() => setActiveTab('ACTIVE')}>
+              <Text style={[styles.tabText, activeTab === 'ACTIVE' && styles.tabTextActive]}>Đang dùng</Text>
+            </Pressable>
+            <Pressable style={[styles.tabButton, activeTab === 'PENDING' && styles.tabButtonActive]} onPress={() => setActiveTab('PENDING')}>
+              <Text style={[styles.tabText, activeTab === 'PENDING' && styles.tabTextActive]}>Chờ xác nhận</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+
+        <View style={styles.listContainer}>
+          {myAssets.isLoading ? <LoadingState /> : null}
+          {myAssets.isError ? <ErrorState error={myAssets.error} onRetry={() => void myAssets.refetch()} /> : null}
+          
+          {visibleItems.map((assignment) => (
+            <View key={assignment.id} style={styles.cardWrap}>
+              <MyAssetCard assignment={assignment} onPress={() => router.push(`/employee/assets/${assignment.assetId}` as never)} />
+              
+              <View style={styles.actionRow}>
+                {canConfirmAssignment(user, assignment) ? (
+                  <PrimaryButton style={{ flex: 1 }} loading={confirm.isPending} onPress={() => void runConfirm(assignment.id)}>
+                    Xác nhận
+                  </PrimaryButton>
+                ) : null}
+                
+                {canRequestReturn(user, assignment) ? (
+                  <SecondaryButton style={{ flex: 1 }} loading={requestReturn.isPending} onPress={() => void runRequestReturn(assignment.id)}>
+                    Yêu cầu trả
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'asset.incident.create') && assignment.status === 'ACTIVE' ? (
+                  <SecondaryButton style={{ flex: 1 }} onPress={() => router.push(`/employee/assets/incidents/create?assetId=${assignment.assetId}` as never)}>
+                    Báo lỗi
+                  </SecondaryButton>
+                ) : null}
+              </View>
+            </View>
+          ))}
+          
+          {myAssets.data && !visibleItems.length ? (
+            <View style={{ marginTop: spacing.xl }}>
+              <EmptyState title={activeTab === 'PENDING' ? "Không có tài sản chờ xác nhận" : "Bạn chưa được cấp phát tài sản"} />
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -750,10 +807,93 @@ const styles = StyleSheet.create({
     borderColor: '#98A0A8',
     borderStyle: 'dashed',
     borderRadius: 8,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+  },
+  heroSection: {
+    backgroundColor: '#EEF2FF',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.lg,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: spacing.md,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    color: colors.muted,
+    marginBottom: spacing.xl,
+  },
+  heroStatsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: spacing.lg,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  heroStatBox: {
+    flex: 1,
     alignItems: 'center',
-    marginRight: 12,
-    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+  },
+  heroStatDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+  },
+  heroStatNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  heroStatLabel: {
+    fontSize: 13,
+    color: colors.muted,
+    fontWeight: '500',
+  },
+  tabContainer: {
+    marginBottom: spacing.md,
+  },
+  tabScrollContent: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  tabButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  tabButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  tabTextActive: {
+    color: '#ffffff',
+  },
+  listContainer: {
+    paddingHorizontal: spacing.lg,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: -spacing.md,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   imagePreview: {
     width: 60,

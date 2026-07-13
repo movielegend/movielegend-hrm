@@ -32,3 +32,13 @@ function cleanMyRequestParams(filters: EmployeeRequestFilters): Omit<EmployeeReq
     ...(typeof filters.limit === 'number' ? { limit: filters.limit } : {}),
   };
 }
+
+export async function approveEmployeeRequest(id: string): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/approve`);
+  return unwrapData(response);
+}
+
+export async function rejectEmployeeRequest(id: string): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/reject`);
+  return unwrapData(response);
+}

@@ -21,7 +21,7 @@ export function AssignShiftScreen() {
   const router = useRouter();
   const { user } = useAuth();
   
-  const isAdmin = user?.roles?.some((r: any) => r.name?.toUpperCase().includes('ADMIN'));
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.some?.((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin');
 
   // Queries
   const allShiftsQuery = useShifts();
@@ -64,7 +64,7 @@ export function AssignShiftScreen() {
 
     if (isAdmin) {
       // Admin chỉ gán cho Leader
-      items = items.filter((emp: any) => emp.roles?.some((r: any) => r.name?.toUpperCase().includes('LEADER') || r.role?.name?.toUpperCase().includes('LEADER')));
+      items = items.filter((emp: any) => emp.roles?.some((r: any) => r.role?.code === 'LEADER' || r.role?.code === 'admin'));
     } else {
       // Leader gán cho nhân viên (không bao gồm chính họ nếu cần, nhưng tạm thời cứ lấy hết trong scope của họ)
     }
@@ -79,33 +79,13 @@ export function AssignShiftScreen() {
   }, [employeesQuery.data, isAdmin]);
 
   const shiftOptions: SelectOption[] = useMemo(() => {
-    if (isAdmin) {
-      // Admin lấy từ kho tất cả các ca
-      if (!allShiftsQuery.data) return [];
-      return allShiftsQuery.data.filter((s: any) => s.isActive).map((s: any) => ({
-        id: s.id,
-        label: s.name,
-        subtitle: `${s.startTime} - ${s.endTime}`,
-      }));
-    } else {
-      // Leader lấy từ các ca đã được gán cho mình
-      if (!myScheduleQuery.data) return [];
-      // myScheduleQuery trả về danh sách ShiftAssignment (có thể trùng Shift nếu được gán nhiều ngày)
-      const uniqueShifts = new Map();
-      const scheduleData = Array.isArray(myScheduleQuery.data) ? myScheduleQuery.data : (myScheduleQuery.data as any).items || [];
-      
-      scheduleData.forEach((assignment: any) => {
-        if (assignment.shift && assignment.shift.isActive && !uniqueShifts.has(assignment.shift.id)) {
-          uniqueShifts.set(assignment.shift.id, assignment.shift);
-        }
-      });
-      return Array.from(uniqueShifts.values()).map((s: any) => ({
-        id: s.id,
-        label: s.name,
-        subtitle: `${s.startTime} - ${s.endTime}`,
-      }));
-    }
-  }, [isAdmin, allShiftsQuery.data, myScheduleQuery.data]);
+    if (!allShiftsQuery.data) return [];
+    return allShiftsQuery.data.filter((s: any) => s.isActive).map((s: any) => ({
+      id: s.id,
+      label: s.name,
+      subtitle: `${s.startTime} - ${s.endTime}`,
+    }));
+  }, [allShiftsQuery.data]);
 
   const getWeekDates = (date: Date) => {
     const currentDay = date.getDay();

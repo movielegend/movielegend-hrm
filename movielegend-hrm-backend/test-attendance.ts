@@ -129,7 +129,7 @@ async function bootstrap() {
       longitude: 20.001,
       accuracy: 5,
       photoFileId: photo.id,
-    }, actor);
+    }, actor, '127.0.0.1');
     console.log('Check-In Successful:', checkInResult.id);
   } catch (err: any) {
     console.error('Check-In Failed:', err.message);
@@ -141,7 +141,7 @@ async function bootstrap() {
     const checkOutResult = await attendanceService.checkOut({
       latitude: 10.001,
       longitude: 20.001,
-    }, actor);
+    }, actor, '127.0.0.1');
     console.log('Check-Out Successful:', checkOutResult?.id, checkOutResult?.checkOutAt);
   } catch (err: any) {
     console.error('Check-Out Failed:', err.message);

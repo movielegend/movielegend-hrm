@@ -22,6 +22,7 @@ import { normalizeApiError } from '../../utils/api-error';
 import {
   useContractTemplates,
   useContracts,
+  useMyContracts,
   useContract,
   useCreateContract,
   useSubmitContractApproval,
@@ -207,6 +208,73 @@ export function ContractListScreen() {
             <EmptyState
               title="Chưa có hợp đồng"
               message="Nhấn Tạo HĐ để tạo hợp đồng mới"
+            />
+          ) : null}
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+// ── Employee Contract List Screen ──
+
+export function EmployeeContractListScreen() {
+  const router = useRouter();
+  const contracts = useMyContracts();
+  const contractItems = Array.isArray(contracts.data) ? contracts.data : [];
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content}>
+        <PageHeader
+          title="Hợp đồng của tôi"
+          subtitle="Danh sách hợp đồng lao động"
+        />
+
+        <View style={styles.list}>
+          {contractItems.length > 0 ? (
+            contractItems.map((contract: any) => {
+              return (
+                <Pressable
+                  key={contract.id}
+                  style={styles.contractCard}
+                  onPress={() => router.push(`/employee/contracts/${contract.id}`)}
+                >
+                  <View style={styles.contractHeader}>
+                    <View style={styles.contractAvatar}>
+                      <Text style={styles.contractAvatarText}>HĐ</Text>
+                    </View>
+                    <View style={styles.contractMainInfo}>
+                      <Text style={styles.contractTitle}>{contract.title}</Text>
+                      <Text style={styles.contractEmpName}>{contract.contractCode}</Text>
+                    </View>
+                    <StatusBadge
+                      label={CONTRACT_STATUS_LABELS[contract.status as ContractStatus] ?? contract.status}
+                      tone={getStatusTone(contract.status)}
+                    />
+                  </View>
+
+                  <View style={styles.contractDetails}>
+                    <View style={styles.detailItem}>
+                      <MaterialCommunityIcons name="tag-outline" size={14} color={colors.muted} />
+                      <Text style={styles.detailText}>
+                        {CONTRACT_TYPE_LABELS[contract.contractType as ContractType] ?? contract.contractType}
+                      </Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <MaterialCommunityIcons name="calendar-range" size={14} color={colors.muted} />
+                      <Text style={styles.detailText}>
+                        {formatDate(contract.startDate)} → {formatDate(contract.endDate)}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })
+          ) : !contracts.isLoading ? (
+            <EmptyState
+              title="Chưa có hợp đồng"
+              message="Bạn hiện chưa có hợp đồng lao động nào."
             />
           ) : null}
         </View>
@@ -772,3 +840,149 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 });
+
+// ── Leader Contract List Screen ──
+
+export function LeaderContractListScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  
+  const departmentId = user?.department?.id;
+  const { data: contracts } = useContracts(departmentId);
+  const [activeTab, setActiveTab] = useState<'MY_CONTRACTS' | 'TEAM_CONTRACTS'>('MY_CONTRACTS');
+  const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRING'>('ALL');
+
+  const filteredContracts = contracts?.filter(c => {
+    // 1. Filter by Tab
+    if (activeTab === 'MY_CONTRACTS' && c.userId !== user?.id) return false;
+    if (activeTab === 'TEAM_CONTRACTS' && c.userId === user?.id) return false;
+
+    // 2. Filter by Status
+    if (filter === 'ACTIVE' && c.status !== 'ACTIVE') return false;
+    if (filter === 'EXPIRING') {
+      if (!c.endDate || c.status !== 'ACTIVE') return false;
+      const d = new Date(c.endDate);
+      const diff = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+      if (diff < 0 || diff > 30) return false;
+    }
+    return true;
+  }) || [];
+
+  return (
+    <Screen>
+      <PageHeader title="Quản lý hợp đồng" />
+      
+      <View style={{ flexDirection: 'row', backgroundColor: '#F1F5F9', marginHorizontal: spacing.md, marginTop: spacing.sm, borderRadius: 8, padding: 4 }}>
+        <Pressable 
+          style={[{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 }, activeTab === 'MY_CONTRACTS' && { backgroundColor: colors.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }]}
+          onPress={() => setActiveTab('MY_CONTRACTS')}
+        >
+          <Text style={[{ fontSize: 14, fontWeight: '500', color: colors.muted }, activeTab === 'MY_CONTRACTS' && { color: colors.text, fontWeight: '600' }]}>
+            Của tôi
+          </Text>
+        </Pressable>
+        <Pressable 
+          style={[{ flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 }, activeTab === 'TEAM_CONTRACTS' && { backgroundColor: colors.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }]}
+          onPress={() => setActiveTab('TEAM_CONTRACTS')}
+        >
+          <Text style={[{ fontSize: 14, fontWeight: '500', color: colors.muted }, activeTab === 'TEAM_CONTRACTS' && { color: colors.text, fontWeight: '600' }]}>
+            Nhân sự
+          </Text>
+        </Pressable>
+      </View>
+
+      <View style={{ marginTop: spacing.md, marginBottom: spacing.sm }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.sm }}>
+          <Pressable 
+            style={[{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' }, filter === 'ALL' && { backgroundColor: '#EFF6FF', borderColor: colors.primary }]}
+            onPress={() => setFilter('ALL')}
+          >
+            <Text style={[{ fontSize: 13, color: colors.muted, fontWeight: '500' }, filter === 'ALL' && { color: colors.primary, fontWeight: '600' }]}>Tất cả</Text>
+          </Pressable>
+          <Pressable 
+            style={[{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' }, filter === 'ACTIVE' && { backgroundColor: '#EFF6FF', borderColor: colors.primary }]}
+            onPress={() => setFilter('ACTIVE')}
+          >
+            <Text style={[{ fontSize: 13, color: colors.muted, fontWeight: '500' }, filter === 'ACTIVE' && { color: colors.primary, fontWeight: '600' }]}>Đang hiệu lực</Text>
+          </Pressable>
+          <Pressable 
+            style={[{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' }, filter === 'EXPIRING' && { backgroundColor: '#EFF6FF', borderColor: colors.primary }]}
+            onPress={() => setFilter('EXPIRING')}
+          >
+            <Text style={[{ fontSize: 13, color: colors.muted, fontWeight: '500' }, filter === 'EXPIRING' && { color: colors.primary, fontWeight: '600' }]}>Sắp hết hạn</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content}>
+        {filteredContracts.length === 0 ? (
+          <EmptyState title="Không có hợp đồng nào" />
+        ) : (
+          filteredContracts.map((contract: any) => {
+            const empName = contract.user?.profile?.fullName ?? contract.user?.userCode ?? '-';
+            const initials = getInitials(empName);
+            
+            let statusLabel = CONTRACT_STATUS_LABELS[contract.status as ContractStatus] ?? contract.status;
+            let statusTone = getStatusTone(contract.status as ContractStatus);
+            
+            if (contract.status === 'ACTIVE' && contract.endDate) {
+              const d = new Date(contract.endDate);
+              const diff = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+              if (diff >= 0 && diff <= 30) {
+                statusLabel = 'Sắp hết hạn';
+                statusTone = 'warning';
+              }
+            }
+
+            return (
+              <Pressable
+                key={contract.id}
+                style={styles.contractCard}
+                onPress={() => router.push(`/leader/contracts/${contract.id}`)}
+              >
+                <View style={styles.contractHeader}>
+                  {activeTab === 'TEAM_CONTRACTS' ? (
+                    <View style={styles.contractAvatar}>
+                      <Text style={styles.contractAvatarText}>{initials}</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.templateIcon}>
+                      <MaterialCommunityIcons name="file-document-outline" size={24} color={colors.primary} />
+                    </View>
+                  )}
+                  <View style={styles.contractMainInfo}>
+                    <Text style={styles.contractTitle}>{contract.title}</Text>
+                    {activeTab === 'TEAM_CONTRACTS' && (
+                      <Text style={styles.contractEmpName}>{empName}</Text>
+                    )}
+                  </View>
+                  <StatusBadge label={statusLabel} tone={statusTone} />
+                </View>
+
+                <View style={styles.contractDetails}>
+                  <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="identifier" size={14} color={colors.muted} />
+                    <Text style={styles.detailText}>{contract.contractCode}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="tag-outline" size={14} color={colors.muted} />
+                    <Text style={styles.detailText}>
+                      {CONTRACT_TYPE_LABELS[contract.contractType as ContractType] ?? contract.contractType}
+                    </Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="calendar-range" size={14} color={colors.muted} />
+                    <Text style={styles.detailText}>
+                      {formatDate(contract.startDate)} → {formatDate(contract.endDate)}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })
+        )}
+      </ScrollView>
+    </Screen>
+  );
+}
+

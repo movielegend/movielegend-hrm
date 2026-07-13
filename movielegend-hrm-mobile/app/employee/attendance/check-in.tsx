@@ -8,15 +8,32 @@ import MapView, { Marker, PROVIDER_GOOGLE } from '../../../src/lib/Maps';
 
 import { Screen } from '../../../src/components/Screen';
 import { checkIn } from '../../../src/api/attendance.api';
+import { uploadFile } from '../../../src/api/uploads.api';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
+import { useMySchedule } from '../../../src/hooks/useShifts';
 
 export default function CheckInScreen() {
   const router = useRouter();
+  const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
+  
+  // Find today's shift
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayShift = schedule?.find(s => new Date(s.workDate).toISOString().substring(0, 10) === todayStr);
+
   const [permission, requestPermission] = useCameraPermissions();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ipv4, setIpv4] = useState<string>('Đang lấy IP...');
+
+  useEffect(() => {
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => setIpv4(data.ip))
+      .catch(() => setIpv4('Không xác định'));
+  }, []);
+  const [isCameraVisible, setCameraVisible] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
   const fetchLocation = async () => {
@@ -55,19 +72,31 @@ export default function CheckInScreen() {
       Alert.alert('Lỗi', locationError || 'Đang lấy vị trí, vui lòng chờ...');
       return;
     }
-    if (!cameraRef.current) return;
+    setCameraVisible(true);
+  };
+
+  const handleCaptureAndSubmit = async () => {
+    if (!cameraRef.current || !location) return;
     
     setLoading(true);
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.5 });
+      const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 0.5 });
       
-      if (!photo?.base64) throw new Error('Không thể chụp ảnh xác thực');
+      if (!photo?.uri) throw new Error('Không thể chụp ảnh xác thực');
 
+      // 1. Upload photo first
+      const uploaded = await uploadFile({
+        uri: photo.uri,
+        name: 'attendance.jpg',
+        mimeType: 'image/jpeg',
+        purpose: 'ATTENDANCE',
+      });
+
+      // 2. Check in with photoFileId
       const payload = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        faceImageBase64: photo.base64,
-        shiftAssignmentId: undefined,
+        photoFileId: uploaded.fileId,
         workDate: new Date().toISOString().substring(0, 10),
       };
 
@@ -76,9 +105,11 @@ export default function CheckInScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
-      Alert.alert('Lỗi chấm công', e.message || 'Có lỗi xảy ra khi chấm công.');
+      const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
+      Alert.alert('Lỗi chấm công', msg);
     } finally {
       setLoading(false);
+      setCameraVisible(false);
     }
   };
 
@@ -125,45 +156,60 @@ export default function CheckInScreen() {
         </Pressable>
       </View>
 
-      {/* Wifi Info */}
+      {/* Network Info */}
       <View style={styles.wifiBox}>
-        <Text style={styles.wifiLabel}>Kết nối: wifi</Text>
+        <Text style={styles.wifiLabel}>Kết nối mạng</Text>
         <View style={styles.wifiRight}>
-          <Text style={styles.wifiName}>MOVIE LEGEND HA NOI</Text>
-          <Text style={styles.wifiBssid}>(bssid: ec:41:18:e:cd:6d)</Text>
+          <Text style={styles.wifiName}>IPv4: {ipv4}</Text>
+          <Text style={styles.wifiBssid}>(IP Public)</Text>
         </View>
       </View>
 
       {/* Shift Selection */}
-      <Text style={styles.shiftSectionTitle}>Bạn đang có 1 ca làm, chọn ca để Vào ca</Text>
-      
-      <Pressable style={styles.shiftCard}>
-        <MaterialCommunityIcons name="radiobox-marked" size={24} color={colors.primary} style={styles.radioIcon} />
-        <View>
-          <Text style={styles.shiftName}>Ca hành chính</Text>
-          <Text style={styles.shiftTime}>(08:00 - 17:30)</Text>
-        </View>
-      </Pressable>
+      {scheduleLoading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+      ) : todayShift ? (
+        <>
+          <Text style={styles.shiftSectionTitle}>Bạn đang có 1 ca làm, chọn ca để Vào ca</Text>
+          <Pressable style={styles.shiftCard}>
+            <MaterialCommunityIcons name="radiobox-marked" size={24} color={colors.primary} style={styles.radioIcon} />
+            <View>
+              <Text style={styles.shiftName}>{todayShift.shift?.name}</Text>
+              <Text style={styles.shiftTime}>({todayShift.shift?.startTime} - {todayShift.shift?.endTime})</Text>
+            </View>
+          </Pressable>
+        </>
+      ) : (
+        <Text style={[styles.shiftSectionTitle, { color: colors.danger, textAlign: 'center', marginTop: 20 }]}>Bạn không có ca làm việc hôm nay</Text>
+      )}
 
-      {/* Hidden Camera for background capture */}
-      <View style={styles.hiddenCamera}>
-        <CameraView style={{ flex: 1 }} facing="front" ref={cameraRef} />
-      </View>
+      {/* Camera Modal */}
+      {isCameraVisible ? (
+        <View style={styles.cameraModal}>
+          <CameraView style={styles.fullCamera} facing="front" ref={cameraRef} />
+          <View style={styles.cameraControls}>
+            <Pressable style={styles.cameraCancelBtn} onPress={() => setCameraVisible(false)} disabled={loading}>
+              <Text style={styles.cameraBtnText}>Hủy</Text>
+            </Pressable>
+            <Pressable style={styles.cameraCaptureBtn} onPress={() => void handleCaptureAndSubmit()} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <MaterialCommunityIcons name="camera" size={32} color="#fff" />}
+            </Pressable>
+            <View style={{ width: 60 }} />
+          </View>
+        </View>
+      ) : null}
 
       {/* Footer Confirm Button */}
-      <View style={styles.footer}>
-        <Pressable 
-          style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]} 
-          onPress={() => void handleConfirm()}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
+      {todayShift && !isCameraVisible ? (
+        <View style={styles.footer}>
+          <Pressable 
+            style={styles.confirmBtn} 
+            onPress={() => void handleConfirm()}
+          >
             <Text style={styles.confirmBtnText}>Xác nhận</Text>
-          )}
-        </Pressable>
-      </View>
+          </Pressable>
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -296,6 +342,46 @@ const styles = StyleSheet.create({
   shiftTime: {
     fontSize: 14,
     color: colors.muted,
+  },
+  cameraModal: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 1000,
+  },
+  fullCamera: {
+    flex: 1,
+  },
+  cameraControls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  cameraCancelBtn: {
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+    width: 60,
+    alignItems: 'center',
+  },
+  cameraCaptureBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  cameraBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   hiddenCamera: {
     position: 'absolute',

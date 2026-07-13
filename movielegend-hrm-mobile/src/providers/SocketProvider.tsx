@@ -6,6 +6,7 @@ import { createHrmSocket } from '../api/socket';
 import { queryKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
+import Toast from 'react-native-toast-message';
 import {
   invalidateForAssetAssigned,
   invalidateForAssetReturnUpdated,
@@ -53,9 +54,17 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('task:commented', (payload: TaskSocketPayload) => invalidateTaskEvent(queryClient, payload));
       socket.on('task:submitted', (payload: TaskSocketPayload) => invalidateTaskEvent(queryClient, payload));
       socket.on('task:reviewed', (payload: TaskSocketPayload) => invalidateTaskEvent(queryClient, payload));
-      socket.on('notification.created', () => {
+      socket.on('notification.created', (payload?: any) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
+        
+        Toast.show({
+          type: 'info',
+          text1: payload?.title || 'Thông báo mới',
+          text2: payload?.content || 'Bạn có một thông báo mới từ hệ thống.',
+          position: 'top',
+          visibilityTime: 4000,
+        });
       });
       socket.on('cross-department:updated', (payload: CrossDepartmentSocketPayload) => {
         void queryClient.invalidateQueries({ queryKey: ['cross-department-requests'] });

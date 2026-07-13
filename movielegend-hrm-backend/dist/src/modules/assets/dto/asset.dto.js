@@ -70,6 +70,9 @@ class UpdateAssetDto {
     assetStatus;
     departmentId;
     conditionNote;
+    brand;
+    model;
+    description;
     imageUrl;
 }
 exports.UpdateAssetDto = UpdateAssetDto;
@@ -103,6 +106,24 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateAssetDto.prototype, "conditionNote", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateAssetDto.prototype, "brand", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateAssetDto.prototype, "model", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateAssetDto.prototype, "description", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'https://example.com/image.png' }),
     (0, class_validator_1.IsString)(),

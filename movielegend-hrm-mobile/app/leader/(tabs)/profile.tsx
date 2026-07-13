@@ -1,5 +1,5 @@
-import { AdminProfileScreen } from '../../../src/features/employees/AdminProfileScreen';
+import { LeaderProfileScreen } from '../../../src/features/employees/LeaderProfileScreen';
 
 export default function LeaderProfileRoute() {
-  return <AdminProfileScreen />;
+  return <LeaderProfileScreen />;
 }

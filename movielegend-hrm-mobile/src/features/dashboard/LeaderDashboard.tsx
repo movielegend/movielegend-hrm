@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { getDashboardByRole } from '../../api/dashboard.api';
 
 export function LeaderDashboard() {
   const router = useRouter();
@@ -14,6 +15,15 @@ export function LeaderDashboard() {
   const queryClient = useQueryClient();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
+
+  const { data: dashboardData } = useQuery({
+    queryKey: ['dashboard', 'LEADER'],
+    queryFn: () => getDashboardByRole('LEADER'),
+  });
+  
+  const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0 };
+  // Approximate checked in today:
+  const checkedInCount = Math.max(0, deptStats.activeEmployeeCount - deptStats.absentToday - deptStats.onLeaveToday);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -118,19 +128,19 @@ export function LeaderDashboard() {
           <Text style={styles.sectionTitleFolder}>Thống kê nhóm hôm nay</Text>
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>12</Text>
+              <Text style={styles.statNumber}>{deptStats.activeEmployeeCount}</Text>
               <Text style={styles.statLabel}>Tổng NV</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#10B981' }]}>10</Text>
+              <Text style={[styles.statNumber, { color: '#10B981' }]}>{checkedInCount}</Text>
               <Text style={styles.statLabel}>Đã check-in</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#F59E0B' }]}>1</Text>
+              <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{deptStats.lateToday}</Text>
               <Text style={styles.statLabel}>Đi trễ</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#EF4444' }]}>1</Text>
+              <Text style={[styles.statNumber, { color: '#EF4444' }]}>{deptStats.absentToday}</Text>
               <Text style={styles.statLabel}>Vắng mặt</Text>
             </View>
           </View>
@@ -140,7 +150,7 @@ export function LeaderDashboard() {
         <Text style={styles.sectionTitleFolder}>Thư mục</Text>
         <View style={styles.grid}>
           <GridCard 
-            title="Chấm công" 
+            title="Lịch sử chấm công phòng ban" 
             icon="swap-horizontal" 
             iconBg="#E0F2FE" 
             iconColor="#3B82F6"
@@ -166,6 +176,13 @@ export function LeaderDashboard() {
             iconBg="#FFE4E6" 
             iconColor="#F43F5E"
             onPress={() => router.push('/leader/asset-incidents')}
+          />
+          <GridCard 
+            title="Hợp đồng" 
+            icon="file-document-outline" 
+            iconBg="#FEF3C7" 
+            iconColor="#D97706"
+            onPress={() => router.push('/leader/contracts')}
           />
         </View>
       </ScrollView>

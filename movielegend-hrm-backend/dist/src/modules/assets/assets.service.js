@@ -265,7 +265,7 @@ let AssetsService = class AssetsService {
             if (lostIncidentTypes.includes(dto.incidentType)) {
                 await tx.asset.update({ where: { id: assetId }, data: { assetStatus: client_1.AssetStatus.LOST } });
             }
-            if (dto.incidentType === client_1.AssetIncidentType.DAMAGED) {
+            else {
                 await tx.asset.update({ where: { id: assetId }, data: { assetStatus: client_1.AssetStatus.DAMAGED, conditionStatus: client_1.AssetConditionStatus.DAMAGED } });
             }
             return incident;

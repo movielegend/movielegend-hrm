@@ -16,14 +16,17 @@ const error_util_1 = require("../../common/utils/error.util");
 const prisma_service_1 = require("../../database/prisma.service");
 const department_scope_service_1 = require("../phase2-policy/department-scope.service");
 const business_time_service_1 = require("../time/business-time.service");
+const notifications_service_1 = require("../notifications/notifications.service");
 let EmployeeRequestsService = class EmployeeRequestsService {
     prisma;
     scope;
     businessTime;
-    constructor(prisma, scope, businessTime) {
+    notifications;
+    constructor(prisma, scope, businessTime, notifications) {
         this.prisma = prisma;
         this.scope = scope;
         this.businessTime = businessTime;
+        this.notifications = notifications;
     }
     async create(dto, actor) {
         const departmentId = await this.scope.getPrimaryDepartmentId(actor.userId);
@@ -96,9 +99,42 @@ let EmployeeRequestsService = class EmployeeRequestsService {
         if (request.status !== client_1.EmployeeRequestStatus.PENDING) {
             throw (0, error_util_1.badRequest)('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn chờ duyệt');
         }
-        return this.prisma.employeeRequest.update({
-            where: { id },
-            data: { status: client_1.EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.employeeRequest.update({
+                where: { id },
+                data: { status: client_1.EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
+            });
+            const notif = await this.notifications.createForUsers(tx, [request.userId], {
+                type: client_1.NotificationType.SYSTEM,
+                title: 'Yêu cầu đã được duyệt',
+                body: `Yêu cầu "${request.title}" của bạn đã được duyệt.`,
+                metadata: { requestId: id },
+            });
+            this.notifications.emitCreated(notif);
+            return updated;
+        });
+    }
+    async reject(id, actor) {
+        const request = await this.prisma.employeeRequest.findUnique({ where: { id } });
+        if (!request)
+            throw (0, error_util_1.notFound)('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
+        this.scope.assertDepartmentAccess(actor, request.departmentId);
+        if (request.status !== client_1.EmployeeRequestStatus.PENDING) {
+            throw (0, error_util_1.badRequest)('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn chờ duyệt');
+        }
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.employeeRequest.update({
+                where: { id },
+                data: { status: client_1.EmployeeRequestStatus.REJECTED, decidedByUserId: actor.userId, decidedAt: new Date() },
+            });
+            const notif = await this.notifications.createForUsers(tx, [request.userId], {
+                type: client_1.NotificationType.SYSTEM,
+                title: 'Yêu cầu bị từ chối',
+                body: `Yêu cầu "${request.title}" của bạn đã bị từ chối.`,
+                metadata: { requestId: id },
+            });
+            this.notifications.emitCreated(notif);
+            return updated;
         });
     }
     departmentFilter(requestedDepartmentId, visibleDepartmentIds) {
@@ -127,6 +163,7 @@ exports.EmployeeRequestsService = EmployeeRequestsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         department_scope_service_1.DepartmentScopeService,
-        business_time_service_1.BusinessTimeService])
+        business_time_service_1.BusinessTimeService,
+        notifications_service_1.NotificationsService])
 ], EmployeeRequestsService);
 //# sourceMappingURL=employee-requests.service.js.map

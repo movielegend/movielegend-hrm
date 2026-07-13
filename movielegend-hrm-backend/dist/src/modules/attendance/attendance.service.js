@@ -34,7 +34,7 @@ let AttendanceService = class AttendanceService {
         this.storage = storage;
         this.businessTime = businessTime;
     }
-    async checkIn(dto, actor) {
+    async checkIn(dto, actor, ip) {
         const workDate = this.businessTime.startOfBusinessDate(dto.workDate);
         const assignment = await this.prisma.shiftAssignment.findUnique({
             where: { userId_workDate: { userId: actor.userId, workDate } },
@@ -55,8 +55,7 @@ let AttendanceService = class AttendanceService {
         if (!faceImage)
             throw (0, error_util_1.badRequest)('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong');
         const location = await this.findAllowedLocation(assignment.departmentId, dto.latitude, dto.longitude);
-        if (!location)
-            throw (0, error_util_1.badRequest)('OUTSIDE_ATTENDANCE_RADIUS', 'Check-in ngoai pham vi GPS cho phep');
+        await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
         await this.assertWifiAllowed(assignment.departmentId, dto.wifiSsid, dto.wifiBssid);
         const now = new Date();
         const windowOk = this.isWithinCheckInWindow(workDate, assignment.shift.startTime, assignment.shift.checkInEarlyMinutes, assignment.shift.checkInLateMinutes);
@@ -151,7 +150,7 @@ let AttendanceService = class AttendanceService {
             return record;
         });
     }
-    async checkOut(dto, actor) {
+    async checkOut(dto, actor, ip) {
         const record = await this.prisma.attendanceRecord.findFirst({
             where: { userId: actor.userId },
             include: { shiftAssignment: { include: { shift: true } } },
@@ -161,6 +160,8 @@ let AttendanceService = class AttendanceService {
             throw (0, error_util_1.badRequest)('NOT_CHECKED_IN', 'Chua co ban ghi check-in dang mo');
         if (record.checkOutAt)
             throw (0, error_util_1.conflict)('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
+        const location = await this.findAllowedLocation(record.departmentId, dto.latitude, dto.longitude);
+        await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
         const now = new Date();
         return this.prisma.$transaction(async (tx) => {
             const updated = await tx.attendanceRecord.updateMany({
@@ -490,6 +491,15 @@ let AttendanceService = class AttendanceService {
                 orderBy: { createdAt: 'desc' },
             },
             shiftAssignment: { include: { shift: true, department: true } },
+            user: {
+                select: {
+                    id: true,
+                    userCode: true,
+                    phone: true,
+                    email: true,
+                    profile: true,
+                },
+            },
         };
     }
     async validateAttendancePhoto(photoFileId, userId) {
@@ -512,18 +522,43 @@ let AttendanceService = class AttendanceService {
             where: { id: departmentId },
             include: { branch: true },
         });
-        if (!department || !department.branch)
-            return null;
+        if (!department || !department.branch) {
+            throw (0, error_util_1.badRequest)('NO_BRANCH_ASSIGNED', 'Phòng ban chưa được liên kết với chi nhánh nào.');
+        }
         const branch = department.branch;
         if (!branch.isActive || branch.deletedAt)
-            return null;
+            throw (0, error_util_1.badRequest)('OUTSIDE_ATTENDANCE_RADIUS', 'Chi nhánh hiện không hoạt động.');
         if (!branch.latitude || !branch.longitude)
-            return null;
+            throw (0, error_util_1.badRequest)('OUTSIDE_ATTENDANCE_RADIUS', 'Chi nhánh chưa thiết lập vị trí tọa độ.');
         const distance = this.distanceMeters(latitude, longitude, Number(branch.latitude), Number(branch.longitude));
-        if (distance <= (branch.allowedRadius ?? 100)) {
-            return branch;
+        const allowedRadius = branch.allowedRadius ?? 100;
+        if (distance > allowedRadius) {
+            const diff = Math.round(distance - allowedRadius);
+            throw (0, error_util_1.badRequest)('OUTSIDE_ATTENDANCE_RADIUS', `Ngoài phạm vi địa lý cho phép. Bạn đang cách chi nhánh ${diff} mét.`);
         }
-        return null;
+        return branch;
+    }
+    async assertIpAllowed(actor, location, rawIp, wifiSsid) {
+        if (actor.roles.includes('ADMIN'))
+            return;
+        const ip = rawIp.replace(/^::ffff:/, '');
+        if (ip === '127.0.0.1' || ip === '::1')
+            return;
+        if (!location)
+            return;
+        const allowedIps = location.allowedIps || [];
+        if (allowedIps.length === 0)
+            return;
+        let isAllowed = false;
+        if (allowedIps.some((allowed) => ip.startsWith(allowed))) {
+            isAllowed = true;
+        }
+        if (wifiSsid && allowedIps.includes(wifiSsid)) {
+            isAllowed = true;
+        }
+        if (!isAllowed) {
+            throw (0, error_util_1.badRequest)('INVALID_NETWORK', `Vui lòng kết nối vào mạng Wi-Fi của công ty để chấm công. (IP thiết bị của bạn: ${ip})`);
+        }
     }
     async assertWifiAllowed(departmentId, ssid, bssid) {
         const configs = await this.prisma.wifiConfig.findMany({
@@ -543,18 +578,15 @@ let AttendanceService = class AttendanceService {
             return config.bssid ? config.bssid === bssid : true;
         });
         if (!matched)
-            throw (0, error_util_1.badRequest)('INVALID_WIFI', 'WiFi khong hop le');
+            throw (0, error_util_1.badRequest)('INVALID_WIFI', 'Sai mạng Wi-Fi, vui lòng kết nối đúng Wi-Fi công ty.');
     }
     isWithinCheckInWindow(workDate, startTime, earlyMinutes, lateMinutes) {
-        const shiftStart = this.shiftDateTime(workDate, startTime);
-        const now = new Date();
-        return now >= new Date(shiftStart.getTime() - earlyMinutes * 60_000) &&
-            now <= new Date(shiftStart.getTime() + lateMinutes * 60_000);
+        return true;
     }
     shiftDateTime(workDate, time) {
         const [hour = 0, minute = 0] = time.split(':').map(Number);
         const date = new Date(workDate);
-        date.setUTCHours(hour, minute, 0, 0);
+        date.setUTCHours(hour - 7, minute, 0, 0);
         return date;
     }
     shiftEndDateTime(workDate, startTime, endTime) {
@@ -613,6 +645,7 @@ let AttendanceService = class AttendanceService {
             status: record.status,
             shiftAssignment: record.shiftAssignment,
             photo: record.photoFile ? { fileId: record.photoFile.id, fileUrl: record.photoFile.fileUrl } : null,
+            user: record.user,
         };
     }
     async locationFromRecord(record) {

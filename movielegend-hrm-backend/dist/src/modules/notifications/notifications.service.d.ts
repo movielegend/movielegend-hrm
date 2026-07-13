@@ -18,8 +18,8 @@ export declare class NotificationsService {
         notification: {
             id: string;
             createdAt: Date;
-            type: import("@prisma/client").$Enums.NotificationType;
             title: string;
+            type: import("@prisma/client").$Enums.NotificationType;
             metadata: Prisma.JsonValue | null;
             body: string;
             dedupKey: string | null;
@@ -32,8 +32,8 @@ export declare class NotificationsService {
         notification: {
             id: string;
             createdAt: Date;
-            type: import("@prisma/client").$Enums.NotificationType;
             title: string;
+            type: import("@prisma/client").$Enums.NotificationType;
             metadata: Prisma.JsonValue | null;
             body: string;
             dedupKey: string | null;
@@ -51,8 +51,8 @@ export declare class NotificationsService {
         notification: {
             id: string;
             createdAt: Date;
-            type: import("@prisma/client").$Enums.NotificationType;
             title: string;
+            type: import("@prisma/client").$Enums.NotificationType;
             metadata: Prisma.JsonValue | null;
             body: string;
             dedupKey: string | null;

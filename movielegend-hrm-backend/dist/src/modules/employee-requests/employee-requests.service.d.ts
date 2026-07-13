@@ -4,20 +4,22 @@ import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { BusinessTimeService } from '../time/business-time.service';
 import { CreateEmployeeRequestDto, EmployeeRequestQueryDto } from './dto/employee-request.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 export declare class EmployeeRequestsService {
     private readonly prisma;
     private readonly scope;
     private readonly businessTime;
-    constructor(prisma: PrismaService, scope: DepartmentScopeService, businessTime: BusinessTimeService);
+    private readonly notifications;
+    constructor(prisma: PrismaService, scope: DepartmentScopeService, businessTime: BusinessTimeService, notifications: NotificationsService);
     create(dto: CreateEmployeeRequestDto, actor: AuthenticatedUser): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
         title: string;
         departmentId: string;
-        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
         decidedByUserId: string | null;
         decidedAt: Date | null;
         content: string;
@@ -38,7 +40,6 @@ export declare class EmployeeRequestsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -54,6 +55,7 @@ export declare class EmployeeRequestsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         };
     } & {
@@ -61,10 +63,10 @@ export declare class EmployeeRequestsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
         title: string;
         departmentId: string;
-        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
         decidedByUserId: string | null;
         decidedAt: Date | null;
         content: string;
@@ -79,10 +81,10 @@ export declare class EmployeeRequestsService {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            type: import("@prisma/client").$Enums.EmployeeRequestType;
+            status: import("@prisma/client").$Enums.EmployeeRequestStatus;
             title: string;
             departmentId: string;
-            status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+            type: import("@prisma/client").$Enums.EmployeeRequestType;
             decidedByUserId: string | null;
             decidedAt: Date | null;
             content: string;
@@ -103,10 +105,27 @@ export declare class EmployeeRequestsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        status: import("@prisma/client").$Enums.EmployeeRequestStatus;
         title: string;
         departmentId: string;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
+        decidedByUserId: string | null;
+        decidedAt: Date | null;
+        content: string;
+        amount: Prisma.Decimal | null;
+        attachmentMetadata: Prisma.JsonValue | null;
+        referenceId: string | null;
+        currentApproverUserId: string | null;
+    }>;
+    reject(id: string, actor: AuthenticatedUser): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
         status: import("@prisma/client").$Enums.EmployeeRequestStatus;
+        title: string;
+        departmentId: string;
+        type: import("@prisma/client").$Enums.EmployeeRequestType;
         decidedByUserId: string | null;
         decidedAt: Date | null;
         content: string;

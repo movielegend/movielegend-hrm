@@ -32,7 +32,6 @@ export declare class SalaryProfilesController {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -48,6 +47,7 @@ export declare class SalaryProfilesController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         };
     } & {

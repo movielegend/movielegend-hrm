@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Ip, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -24,14 +24,14 @@ export class AttendanceController {
 
   @Permissions('attendance.checkin')
   @Post('check-in')
-  checkIn(@Body() dto: CheckInDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.attendanceService.checkIn(dto, actor);
+  checkIn(@Body() dto: CheckInDto, @CurrentUser() actor: AuthenticatedUser, @Ip() ip: string) {
+    return this.attendanceService.checkIn(dto, actor, ip);
   }
 
   @Permissions('attendance.checkin')
   @Post('check-out')
-  checkOut(@Body() dto: CheckOutDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.attendanceService.checkOut(dto, actor);
+  checkOut(@Body() dto: CheckOutDto, @CurrentUser() actor: AuthenticatedUser, @Ip() ip: string) {
+    return this.attendanceService.checkOut(dto, actor, ip);
   }
 
   @Permissions('attendance.adjust')

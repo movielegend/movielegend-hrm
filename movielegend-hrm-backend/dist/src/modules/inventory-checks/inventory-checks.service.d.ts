@@ -25,13 +25,13 @@ export declare class InventoryChecksService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        createdById: string;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
         note: string | null;
+        approvedById: string | null;
         warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
-        createdById: string;
-        approvedById: string | null;
         checkCode: string;
     }>;
     findAll(actor: AuthenticatedUser): Prisma.PrismaPromise<({
@@ -48,13 +48,13 @@ export declare class InventoryChecksService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        createdById: string;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
         note: string | null;
+        approvedById: string | null;
         warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
-        createdById: string;
-        approvedById: string | null;
         checkCode: string;
     })[]>;
     findOne(id: string, actor: AuthenticatedUser): Promise<{
@@ -71,13 +71,13 @@ export declare class InventoryChecksService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        createdById: string;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
         note: string | null;
+        approvedById: string | null;
         warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
-        createdById: string;
-        approvedById: string | null;
         checkCode: string;
     }>;
     updateItems(id: string, dto: UpdateInventoryCheckItemsDto, actor: AuthenticatedUser): Promise<({
@@ -94,26 +94,26 @@ export declare class InventoryChecksService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        createdById: string;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
         note: string | null;
+        approvedById: string | null;
         warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
-        createdById: string;
-        approvedById: string | null;
         checkCode: string;
     }) | null>;
     submit(id: string, actor: AuthenticatedUser): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        createdById: string;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
         note: string | null;
+        approvedById: string | null;
         warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
-        createdById: string;
-        approvedById: string | null;
         checkCode: string;
     }>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
@@ -130,13 +130,13 @@ export declare class InventoryChecksService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        createdById: string;
         status: import("@prisma/client").$Enums.InventoryCheckStatus;
         note: string | null;
+        approvedById: string | null;
         warehouseId: string;
         startedAt: Date;
         completedAt: Date | null;
-        createdById: string;
-        approvedById: string | null;
         checkCode: string;
     }>;
 }

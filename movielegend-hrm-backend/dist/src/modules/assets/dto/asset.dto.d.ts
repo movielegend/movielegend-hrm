@@ -14,6 +14,9 @@ export declare class UpdateAssetDto {
     assetStatus?: AssetStatus;
     departmentId?: string;
     conditionNote?: string;
+    brand?: string;
+    model?: string;
+    description?: string;
     imageUrl?: string;
 }
 export declare class TransferAssetDto {

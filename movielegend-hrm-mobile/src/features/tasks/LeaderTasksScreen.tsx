@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -7,11 +7,14 @@ import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { useMyTasks, useTasks } from '../../hooks/useTasks';
+import { TaskCard } from './TaskComponents';
+import { useAuth } from '../../providers/AuthProvider';
+import { RefreshControl } from 'react-native';
 
 type TabMode = 'ASSIGNEE' | 'ASSIGNER';
 
 export function LeaderTasksScreen() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabMode>('ASSIGNEE');
 
   return (
@@ -61,24 +64,62 @@ export function LeaderTasksScreen() {
 }
 
 function AssigneeView() {
+  const router = useRouter();
+  const { data: myTasks, isLoading, refetch } = useMyTasks();
+  const tasks = myTasks?.items || [];
+
   return (
-    <ScrollView contentContainerStyle={styles.listContainer}>
-      {/* Dummy data for Assignee view */}
-      <EmptyState title="Bạn chưa có nhiệm vụ nào" description="Khi cấp trên giao việc, công việc sẽ hiển thị tại đây" />
+    <ScrollView 
+      contentContainerStyle={styles.listContainer}
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => void refetch()} />}
+    >
+      {tasks.length > 0 ? (
+        tasks.map(task => (
+          <TaskCard 
+            key={task.id} 
+            task={task as any} 
+            onPress={() => router.push(`/leader/tasks/${task.id}`)} 
+          />
+        ))
+      ) : (
+        <EmptyState title="Bạn chưa có nhiệm vụ nào" message="Khi cấp trên giao việc, công việc sẽ hiển thị tại đây" />
+      )}
     </ScrollView>
   );
 }
 
 function AssignerView() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { data: assignedTasks, isLoading, refetch } = useTasks({ createdById: user?.id });
+  const tasks = assignedTasks?.items || [];
+
   return (
-    <ScrollView contentContainerStyle={styles.listContainer}>
+    <ScrollView 
+      contentContainerStyle={styles.listContainer}
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => void refetch()} />}
+    >
       <View style={styles.actionRow}>
-        <Pressable style={styles.createBtn}>
+        <Pressable 
+          style={styles.createBtn}
+          onPress={() => router.push('/leader/tasks/create')}
+        >
           <MaterialCommunityIcons name="plus" size={20} color="#fff" />
           <Text style={styles.createBtnText}>Giao việc mới</Text>
         </Pressable>
       </View>
-      <EmptyState title="Chưa có nhiệm vụ nào được giao" description="Bấm Giao việc mới để bắt đầu phân công cho nhóm" />
+
+      {tasks.length > 0 ? (
+        tasks.map(task => (
+          <TaskCard 
+            key={task.id} 
+            task={task as any} 
+            onPress={() => router.push(`/leader/tasks/${task.id}`)} 
+          />
+        ))
+      ) : (
+        <EmptyState title="Chưa có nhiệm vụ nào được giao" message="Bấm Giao việc mới để bắt đầu phân công cho nhóm" />
+      )}
     </ScrollView>
   );
 }

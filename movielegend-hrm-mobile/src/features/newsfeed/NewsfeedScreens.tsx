@@ -95,13 +95,17 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           title="Bảng tin công ty"
           subtitle="Tin tức và thông báo nội bộ"
           right={
-            <Pressable
-              style={styles.addBtn}
-              onPress={() => router.push('/admin/newsfeed/create')}
-            >
-              <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-              <Text style={styles.addBtnText}>Đăng bài</Text>
-            </Pressable>
+            user?.roles?.includes('ADMIN') ? (
+              <Pressable
+                style={styles.addBtn}
+                onPress={() => {
+                  router.push('/admin/newsfeed/create' as any);
+                }}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                <Text style={styles.addBtnText}>Đăng bài</Text>
+              </Pressable>
+            ) : undefined
           }
         />
 
@@ -118,7 +122,12 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
                 <Pressable
                   key={post.id}
                   style={styles.postCard}
-                  onPress={() => router.push(`/admin/newsfeed/${post.id}`)}
+                  onPress={() => {
+                    const isAdmin = user?.roles?.includes('ADMIN');
+                    const isLeader = user?.roles?.includes('LEADER');
+                    const basePath = isAdmin ? '/admin/newsfeed' : isLeader ? '/leader/newsfeed' : '/employee/newsfeed';
+                    router.push(`${basePath}/${post.id}` as any);
+                  }}
                 >
                   {/* Author row */}
                   <View style={styles.authorRow}>

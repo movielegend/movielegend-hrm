@@ -167,27 +167,42 @@ export function MaterialIssueListScreen({ area }: { area: OperationArea }) {
   const issues = useMaterialIssues(canRead);
   const base = baseFor(area);
 
+  function translateStatus(status: string) {
+    if (status === 'PENDING') return 'Chờ duyệt';
+    if (status === 'APPROVED') return 'Đã duyệt';
+    if (status === 'ISSUED') return 'Đã xuất';
+    if (status === 'REJECTED') return 'Từ chối';
+    if (status === 'CANCELLED') return 'Đã hủy';
+    return status;
+  }
+
+  function translateTarget(type: string) {
+    if (type === 'DEPARTMENT') return 'Phòng ban';
+    if (type === 'USER') return 'Cá nhân';
+    return type;
+  }
+
   return (
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={issues.isRefetching} onRefresh={() => void issues.refetch()} />}>
-        <PageHeader title="Material issues" subtitle="GET /material-issues. Backend controls scope; mobile does not filter global data for access." />
+        <PageHeader title="Danh sách yêu cầu VTTB" subtitle="Quản lý cấp phát tài sản, vật tư trong hệ thống" />
         {hasAnyPermission(user, ['material_issue.create', 'stock.export']) ? (
-          <PrimaryButton onPress={() => router.push(`${base}/material-issues/create` as never)}>Create issue</PrimaryButton>
+          <PrimaryButton onPress={() => router.push(`${base}/material-issues/create` as never)}>Tạo yêu cầu mới</PrimaryButton>
         ) : null}
         {issues.isLoading ? <LoadingState /> : null}
         {issues.isError ? <ErrorState error={issues.error} onRetry={() => void issues.refetch()} /> : null}
         {issues.data?.items.map((issue) => (
           <SectionCard key={issue.id}>
             <View style={styles.headerRow}>
-              <Text style={styles.title}>{issue.issueCode}</Text>
-              <StatusBadge label={issue.status} tone={issueStatusTone(issue.status)} />
+              <Text style={styles.title}>Mã YC: {issue.issueCode}</Text>
+              <StatusBadge label={translateStatus(issue.status)} tone={issueStatusTone(issue.status)} />
             </View>
-            <Text style={styles.meta}>Warehouse: {issue.warehouseId}</Text>
-            <Text style={styles.meta}>Target: {issue.issueTargetType}</Text>
-            <SecondaryButton onPress={() => router.push(`${base}/material-issues/${issue.id}` as never)}>Open</SecondaryButton>
+            <Text style={styles.meta}>Kho xuất: {issue.warehouseId}</Text>
+            <Text style={styles.meta}>Cấp phát cho: {translateTarget(issue.issueTargetType)}</Text>
+            <SecondaryButton onPress={() => router.push(`${base}/material-issues/${issue.id}` as never)}>Xem chi tiết</SecondaryButton>
           </SectionCard>
         ))}
-        {issues.data && !issues.data.items.length ? <EmptyState title="No material issues in scope" /> : null}
+        {issues.data && !issues.data.items.length ? <EmptyState title="Chưa có yêu cầu VTTB nào" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -199,11 +214,19 @@ export function MaterialIssueDetailScreen() {
   const issue = useMaterialIssue(id);
   const action = useMaterialIssueAction();
 
+  function translateAction(kind: string) {
+    if (kind === 'approve') return 'Phê duyệt';
+    if (kind === 'reject') return 'Từ chối';
+    if (kind === 'issue') return 'Thực xuất';
+    if (kind === 'cancel') return 'Hủy yêu cầu';
+    return kind.toUpperCase();
+  }
+
   async function run(kind: 'approve' | 'reject' | 'issue' | 'cancel') {
     if (!id) return;
     try {
       await action.mutateAsync({ id, action: kind });
-      Alert.alert('Success', `Issue ${kind} completed.`);
+      Alert.alert('Thành công', `Đã ${translateAction(kind).toLowerCase()} yêu cầu.`);
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
       Alert.alert(mapped.code, mapped.message);
@@ -212,24 +235,41 @@ export function MaterialIssueDetailScreen() {
 
   if (issue.isLoading) return <LoadingState />;
   if (issue.isError) return <ErrorState error={issue.error} onRetry={() => void issue.refetch()} />;
-  if (!issue.data) return <EmptyState title="Issue not found" />;
+  if (!issue.data) return <EmptyState title="Không tìm thấy yêu cầu" />
 
   const actions = availableIssueActions(user, issue.data);
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title={issue.data.issueCode} subtitle={issue.data.warehouseId} />
-        <SectionCard title="Items">
+        <PageHeader title={`Yêu cầu: ${issue.data.issueCode}`} subtitle={`Kho: ${issue.data.warehouseId}`} />
+        <SectionCard title="Danh sách vật tư">
           {issue.data.items.map((item) => (
             <Text key={item.id} style={styles.meta}>
-              {item.material?.name ?? item.materialId}: requested {formatQuantity(item.quantityRequested)}
+              - {item.material?.name ?? item.materialId}: xin cấp {formatQuantity(item.quantityRequested)}
             </Text>
           ))}
         </SectionCard>
-        {actions.map((kind) => (
-          <SecondaryButton key={kind} loading={action.isPending} onPress={() => void run(kind)}>{kind.toUpperCase()}</SecondaryButton>
-        ))}
+        
+        {actions.length > 0 ? (
+          <SectionCard title="Thao tác xét duyệt">
+            <View style={{ gap: 8 }}>
+              {actions.map((kind) => {
+                const isDanger = kind === 'reject' || kind === 'cancel';
+                const isPrimary = kind === 'approve' || kind === 'issue';
+                return (
+                  <View key={kind}>
+                    {isPrimary ? (
+                      <PrimaryButton loading={action.isPending} onPress={() => void run(kind)}>{translateAction(kind)}</PrimaryButton>
+                    ) : (
+                      <SecondaryButton loading={action.isPending} onPress={() => void run(kind)}>{translateAction(kind)}</SecondaryButton>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </SectionCard>
+        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -280,26 +320,34 @@ export function MaterialIssueCreateScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Create material issue" subtitle="Backend may reject non-warehouse actors with FORBIDDEN_WAREHOUSE_SCOPE." />
-        <WarehousePicker value={warehouseId} onChange={setWarehouseId} warehouses={warehouses.data?.items ?? []} />
-        <View style={styles.chipRow}>
-          <FilterChip label="Department" selected={issueTargetType === 'DEPARTMENT'} onPress={() => setIssueTargetType('DEPARTMENT')} />
-          <FilterChip label="User ID" selected={issueTargetType === 'USER'} onPress={() => setIssueTargetType('USER')} />
-        </View>
-        {issueTargetType === 'DEPARTMENT' ? (
-          <SectionCard title="Target department">
-            {departments.data?.items.map((department) => (
-              <FilterChip key={department.id} label={department.name} selected={issuedToDepartmentId === department.id} onPress={() => setIssuedToDepartmentId(department.id)} />
-            ))}
-          </SectionCard>
-        ) : (
-          <FormField label="Issued to user id" value={issuedToUserId} onChangeText={setIssuedToUserId} autoCapitalize="none" />
-        )}
-        <FormField label="Note" value={note} onChangeText={setNote} multiline />
-        <SectionCard title="Items">
+        <PageHeader title="Tạo yêu cầu VTTB" subtitle="Chọn kho xuất và vật tư cần cấp phát" />
+        <SectionCard title="Kho xuất">
+          <WarehousePicker value={warehouseId} onChange={setWarehouseId} warehouses={warehouses.data?.items ?? []} />
+        </SectionCard>
+        <SectionCard title="Cấp phát cho">
+          <View style={styles.chipRow}>
+            <FilterChip label="Phòng ban" selected={issueTargetType === 'DEPARTMENT'} onPress={() => setIssueTargetType('DEPARTMENT')} />
+            <FilterChip label="Cá nhân" selected={issueTargetType === 'USER'} onPress={() => setIssueTargetType('USER')} />
+          </View>
+          <View style={{ marginTop: 12 }}>
+            {issueTargetType === 'DEPARTMENT' ? (
+              <View style={styles.chipRow}>
+                {departments.data?.items.map((department) => (
+                  <FilterChip key={department.id} label={department.name} selected={issuedToDepartmentId === department.id} onPress={() => setIssuedToDepartmentId(department.id)} />
+                ))}
+              </View>
+            ) : (
+              <FormField label="Mã/ID Cá nhân nhận" value={issuedToUserId} onChangeText={setIssuedToUserId} autoCapitalize="none" />
+            )}
+          </View>
+        </SectionCard>
+        <SectionCard title="Thông tin thêm">
+          <FormField label="Ghi chú / Lý do" value={note} onChangeText={setNote} multiline />
+        </SectionCard>
+        <SectionCard title="Danh sách vật tư cần xin">
           <StockLineBuilder materials={materials.data?.items ?? []} lines={lines} onChange={setLines} />
         </SectionCard>
-        <PrimaryButton loading={create.isPending} disabled={Boolean(validation)} onPress={() => void submit()}>Create issue</PrimaryButton>
+        <PrimaryButton loading={create.isPending} disabled={Boolean(validation)} onPress={() => void submit()}>Gửi yêu cầu VTTB</PrimaryButton>
       </ScrollView>
     </Screen>
   );

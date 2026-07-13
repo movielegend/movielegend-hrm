@@ -39,9 +39,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        departmentId: string | null;
         positionId: string | null;
         createdById: string;
+        departmentId: string | null;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }>;
     findTemplates(): Prisma.PrismaPromise<({
@@ -70,9 +70,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        departmentId: string | null;
         positionId: string | null;
         createdById: string;
+        departmentId: string | null;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     })[]>;
     findTemplate(id: string): Promise<{
@@ -101,9 +101,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        departmentId: string | null;
         positionId: string | null;
         createdById: string;
+        departmentId: string | null;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }>;
     updateTemplate(id: string, dto: UpdateKpiTemplateDto): Prisma.Prisma__KpiTemplateClient<{
@@ -132,9 +132,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        departmentId: string | null;
         positionId: string | null;
         createdById: string;
+        departmentId: string | null;
         periodType: import("@prisma/client").$Enums.KpiPeriodType;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
     addCriteria(templateId: string, dto: CreateKpiCriteriaDto): Promise<{
@@ -160,7 +160,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -176,6 +175,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -217,9 +217,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -259,9 +259,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
@@ -279,7 +279,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -295,6 +294,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -336,9 +336,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -378,9 +378,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
@@ -398,7 +398,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -414,6 +413,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -455,9 +455,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -497,9 +497,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
@@ -517,7 +517,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -533,6 +532,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -574,9 +574,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -616,9 +616,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
@@ -636,7 +636,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -652,6 +651,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -693,9 +693,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -735,9 +735,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
@@ -755,7 +755,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -771,6 +770,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -812,9 +812,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -854,9 +854,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
@@ -874,7 +874,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -890,6 +889,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -931,9 +931,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -973,9 +973,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;
@@ -993,7 +993,6 @@ export declare class KpiService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -1009,6 +1008,7 @@ export declare class KpiService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -1050,9 +1050,9 @@ export declare class KpiService {
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            departmentId: string | null;
             positionId: string | null;
             createdById: string;
+            departmentId: string | null;
             periodType: import("@prisma/client").$Enums.KpiPeriodType;
         };
         results: ({
@@ -1092,9 +1092,9 @@ export declare class KpiService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         assignedById: string;
         assignedAt: Date;
+        status: import("@prisma/client").$Enums.EmployeeKpiAssignmentStatus;
         reviewedAt: Date | null;
         snapshot: Prisma.JsonValue | null;
         kpiTemplateId: string;

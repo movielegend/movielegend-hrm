@@ -37,52 +37,41 @@ export function LeaderProfileScreen() {
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
           </View>
-          <Text style={styles.userName}>{user?.fullName || 'Trưởng phòng'}</Text>
-          <Text style={styles.userRole}>Leader</Text>
+          <Text style={styles.userName}>{user?.fullName || 'Quản lý'}</Text>
+          <Text style={styles.userRole}>{user?.position?.name || 'Trưởng phòng / Quản lý'}</Text>
+          <Text style={styles.userDepartment}>{user?.department?.name || ''}</Text>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>Đang hoạt động</Text>
           </View>
         </View>
 
-        {/* NHÓM CÁC CHỨC NĂNG DÀNH CHO LEADER */}
-
-        {/* Nhóm 1: Quản lý Nhân sự */}
+        {/* Nhóm 1: Quản lý Phòng ban */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quản lý Nhân sự</Text>
+          <Text style={styles.sectionTitle}>Quản lý Phòng ban</Text>
           <View style={styles.grid}>
-            <GridCard title="Nhân sự phòng" icon="account-tie" iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/leader/employees')} />
-            <GridCard title="Duyệt tài khoản" icon="check-decagram-outline" iconBg="#FEF3C7" iconColor="#F59E0B" onPress={() => router.push('/leader/approvals')} />
+            <GridCard title="Nhân sự phòng" icon="account-group-outline" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/leader/employees' as any)} />
+            <GridCard title="Phân ca làm" icon="calendar-account-outline" iconBg="#E0E7FF" iconColor="#6366F1" onPress={() => router.push('/leader/shift-management' as any)} />
           </View>
         </View>
 
-        {/* Nhóm 2: Chấm công & Ca làm */}
+        {/* Nhóm 2: Nội bộ & Truyền thông */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chấm công & Nghỉ phép</Text>
+          <Text style={styles.sectionTitle}>Nội bộ & Truyền thông</Text>
           <View style={styles.grid}>
-            <GridCard title="Chấm công" icon="clock-check-outline" iconBg="#E0F2FE" iconColor="#3B82F6" onPress={() => router.push('/leader/attendance')} />
-            <GridCard title="Phân ca" icon="view-grid" iconBg="#E0E7FF" iconColor="#6366F1" onPress={() => router.push('/leader/shift-management')} />
-            <GridCard title="Nghỉ phép" icon="calendar-remove" iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/leader/leave-approvals')} />
-            <GridCard title="Tăng ca" icon="clock-fast" iconBg="#FFEDD5" iconColor="#F97316" onPress={() => router.push('/leader/overtime-approvals')} />
+            <GridCard title="Bảng tin" icon="newspaper-variant" iconBg="#CCFBF1" iconColor="#14B8A6" onPress={() => router.push('/leader/newsfeed' as any)} />
+            <GridCard title="Nhóm Chat" icon="chat" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/leader/chat' as any)} />
           </View>
         </View>
 
-        {/* Nhóm 3: Công việc */}
+        {/* Nhóm 3: Cá nhân */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Công việc & Liên kết</Text>
+          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.grid}>
-            <GridCard title="Công việc" icon="briefcase-check-outline" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/leader/tasks')} />
-
-            <GridCard title="Liên phòng ban" icon="transit-connection-variant" iconBg="#FEF9C3" iconColor="#EAB308" onPress={() => router.push('/leader/cross-department')} />
-          </View>
-        </View>
-
-        {/* Nhóm 4: Tài sản */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tài sản & VTTB</Text>
-          <View style={styles.grid}>
-            <GridCard title="Sự cố tài sản" icon="alert-circle-outline" iconBg="#FFE4E6" iconColor="#F43F5E" onPress={() => router.push('/leader/asset-incidents')} />
-            <GridCard title="Yêu cầu VTTB" icon="box-variant" iconBg="#FCE7F3" iconColor="#DB2777" onPress={() => router.push('/leader/material-issues')} />
+            <GridCard title="Hồ sơ của tôi" icon="card-account-details-outline" iconBg="#CCFBF1" iconColor="#14B8A6" onPress={() => router.push('/leader/my-profile' as any)} />
+            <GridCard title="Bảng lương" icon="cash-multiple" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/leader/payslip' as any)} />
+            <GridCard title="Lịch cá nhân" icon="calendar-month-outline" iconBg="#FEF3C7" iconColor="#D97706" onPress={() => router.push('/leader/schedule' as any)} />
+            <GridCard title="Hợp đồng" icon="file-document-outline" iconBg="#E2E8F0" iconColor="#64748B" onPress={() => router.push('/leader/contracts' as any)} />
           </View>
         </View>
 
@@ -90,6 +79,14 @@ export function LeaderProfileScreen() {
         <View style={[styles.section, { marginTop: spacing.xl }]}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           
+          <Pressable style={styles.actionRow} onPress={() => {}}>
+            <View style={[styles.actionIconBg, { backgroundColor: '#F1F5F9' }]}>
+              <MaterialCommunityIcons name="lock-outline" size={20} color={colors.text} />
+            </View>
+            <Text style={styles.actionLabel}>Đổi mật khẩu</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
+          </Pressable>
+
           <Pressable style={styles.actionRow} onPress={handleLogout}>
             <View style={[styles.actionIconBg, { backgroundColor: colors.dangerSoft }]}>
               <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
@@ -121,27 +118,26 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   headerBg: {
+    backgroundColor: colors.primary,
+    height: 160,
+    width: '100%',
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
-    height: 180,
-    backgroundColor: colors.primary,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
   profileCard: {
-    margin: spacing.lg,
-    marginTop: 60,
-    backgroundColor: colors.background,
+    backgroundColor: '#fff',
+    marginTop: 80,
+    marginHorizontal: spacing.lg,
     borderRadius: 24,
     padding: spacing.xl,
     alignItems: 'center',
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   avatarContainer: {
     width: 80,
@@ -150,39 +146,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
     borderWidth: 4,
-    borderColor: '#FFFFFF',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: '#fff',
+    marginTop: -50,
+    marginBottom: spacing.md,
   },
   avatarText: {
     fontSize: 32,
-    fontWeight: '700',
-    color: colors.primary,
+    fontWeight: '800',
+    color: colors.primaryDark,
   },
   userName: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   userRole: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  userDepartment: {
+    fontSize: 13,
     color: colors.muted,
     marginBottom: spacing.md,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 20,
-    gap: spacing.xs,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
   },
   statusDot: {
     width: 8,
@@ -192,61 +190,63 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: colors.success,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   section: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    marginLeft: 4,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
+    justifyContent: 'space-between',
   },
   card: {
-    width: '30%',
+    width: '47%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: spacing.md,
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
-    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   cardIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   cardTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    textAlign: 'center',
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#fff',
     padding: spacing.md,
     borderRadius: 16,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 1,
   },
   actionIconBg: {
     width: 40,
@@ -260,11 +260,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
+    color: colors.text,
   },
   versionText: {
     textAlign: 'center',
     color: colors.muted,
-    fontSize: 14,
     marginTop: spacing.xl,
-  },
+    fontSize: 13,
+  }
 });

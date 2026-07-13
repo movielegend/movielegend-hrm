@@ -15,43 +15,107 @@ import { spacing } from '../../theme/spacing';
 import { businessDateToday, formatDate, formatShiftRange } from '../../utils/date-time';
 import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
+import { getHomeRouteForUser } from '../../utils/role-routing';
 import { findTodayShift } from '../attendance/attendance.logic';
 import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts } from '../../hooks/useShifts';
 
 export function EmployeeScheduleScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const schedule = useMySchedule();
   const todayShift = useMemo(() => findTodayShift(schedule.data ?? []), [schedule.data]);
+  
+  const rolePrefix = useMemo(() => getHomeRouteForUser(user), [user]);
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Lich lam viec" subtitle={`Hom nay: ${businessDateToday()}`} />
-        <SectionCard title="Ca hom nay">
+        <PageHeader 
+          title="Lịch làm việc cá nhân" 
+          subtitle={`Hôm nay: ${businessDateToday()}`} 
+        />
+        
+        <SectionCard title="Ca làm việc hôm nay">
           {todayShift?.shift ? (
-            <>
-              <Text style={styles.title}>{todayShift.shift.name}</Text>
-              <Text style={styles.text}>{formatDate(todayShift.workDate)} - {formatShiftRange(todayShift.shift.startTime, todayShift.shift.endTime)}</Text>
-              <StatusBadge label={todayShift.shift.isNightShift ? 'Ca dem' : 'Ca ngay'} tone={todayShift.shift.isNightShift ? 'info' : 'neutral'} />
-            </>
+            <Pressable 
+              style={styles.todayShiftCard}
+              onPress={() => router.push(`${rolePrefix}/attendance/check-in` as any)}
+            >
+              <View style={styles.shiftIconBox}>
+                <MaterialCommunityIcons name="briefcase-clock-outline" size={28} color={colors.primary} />
+              </View>
+              <View style={styles.grow}>
+                <Text style={styles.shiftTitleText}>{todayShift.shift.name}</Text>
+                <View style={styles.timeRow}>
+                  <MaterialCommunityIcons name="clock-outline" size={16} color={colors.muted} />
+                  <Text style={styles.timeText}>{formatDate(todayShift.workDate)} • {formatShiftRange(todayShift.shift.startTime, todayShift.shift.endTime)}</Text>
+                </View>
+                <View style={{ alignSelf: 'flex-start', marginTop: 8 }}>
+                  <StatusBadge label={todayShift.shift.isNightShift ? 'Ca đêm' : 'Ca ngày'} tone={todayShift.shift.isNightShift ? 'warning' : 'success'} />
+                </View>
+              </View>
+              <View style={styles.attendanceActionBox}>
+                <MaterialCommunityIcons name="fingerprint" size={24} color={colors.primary} />
+                <Text style={styles.attendanceActionText}>Chấm công</Text>
+              </View>
+            </Pressable>
           ) : (
-            <EmptyState title="Chua co ca hom nay" message="Backend chua tra ca lam cho ngay hien tai." />
+            <EmptyState 
+              title="Không có lịch làm việc" 
+              message="Hôm nay bạn không có ca làm việc nào được xếp." 
+              icon="calendar-blank-outline"
+            />
           )}
         </SectionCard>
-        <SectionCard title="Danh sach ca">
-          {(schedule.data ?? []).length ? (schedule.data ?? []).map((assignment) => (
-            <View key={assignment.id} style={styles.row}>
-              <View style={styles.grow}>
-                <Text style={styles.title}>{assignment.shift?.name ?? assignment.shiftId}</Text>
-                <Text style={styles.text}>{formatDate(assignment.workDate)} - {formatShiftRange(assignment.shift?.startTime, assignment.shift?.endTime)}</Text>
+        
+        <SectionCard title="Tiện ích ca làm việc">
+          <View style={styles.utilitiesGrid}>
+            <Pressable style={styles.utilityBtn} onPress={() => Alert.alert('Thông báo', 'Tính năng Đăng ký ca làm việc đang được nâng cấp.')}>
+              <View style={[styles.utilityIconBox, { backgroundColor: '#ECFDF5' }]}>
+                <MaterialCommunityIcons name="calendar-plus" size={24} color="#10B981" />
               </View>
-              <StatusBadge label={assignment.status} tone="info" />
-            </View>
-          )) : <EmptyState />}
+              <Text style={styles.utilityText}>Đăng ký ca</Text>
+            </Pressable>
+            
+            <Pressable style={styles.utilityBtn} onPress={() => Alert.alert('Thông báo', 'Tính năng Đề xuất đổi ca đang được nâng cấp.')}>
+              <View style={[styles.utilityIconBox, { backgroundColor: '#FFFBEB' }]}>
+                <MaterialCommunityIcons name="calendar-sync" size={24} color="#F59E0B" />
+              </View>
+              <Text style={styles.utilityText}>Đổi ca</Text>
+            </Pressable>
+
+            <Pressable style={styles.utilityBtn} onPress={() => router.push(`${rolePrefix}/attendance/check-in` as any)}>
+              <View style={[styles.utilityIconBox, { backgroundColor: '#EFF6FF' }]}>
+                <MaterialCommunityIcons name="fingerprint" size={24} color="#3B82F6" />
+              </View>
+              <Text style={styles.utilityText}>Chấm công</Text>
+            </Pressable>
+          </View>
         </SectionCard>
-        <SecondaryButton onPress={() => router.push('/employee/attendance')}>Mo cham cong</SecondaryButton>
-        <ShiftRegistrationCard />
-        <ShiftSwapCard />
+
+        <SectionCard title="Danh sách ca sắp tới">
+          {(schedule.data ?? []).length ? (schedule.data ?? []).map((assignment) => (
+            <View key={assignment.id} style={styles.upcomingShiftRow}>
+              <View style={styles.dateBox}>
+                <Text style={styles.dateDayText}>{new Date(assignment.workDate).getDate()}</Text>
+                <Text style={styles.dateMonthText}>Thg {new Date(assignment.workDate).getMonth() + 1}</Text>
+              </View>
+              <View style={styles.upcomingShiftInfo}>
+                <Text style={styles.upcomingShiftTitle}>{assignment.shift?.name ?? assignment.shiftId}</Text>
+                <View style={styles.timeRow}>
+                  <MaterialCommunityIcons name="timer-outline" size={14} color={colors.muted} />
+                  <Text style={styles.timeText}>{formatShiftRange(assignment.shift?.startTime, assignment.shift?.endTime)}</Text>
+                </View>
+              </View>
+              <View style={styles.statusBox}>
+                <StatusBadge 
+                  label={assignment.status === 'ACTIVE' ? 'Đã xếp ca' : assignment.status} 
+                  tone={assignment.status === 'ACTIVE' ? 'info' : 'neutral'} 
+                />
+              </View>
+            </View>
+          )) : <EmptyState title="Trống" message="Chưa có ca làm việc nào trong thời gian tới." />}
+        </SectionCard>
       </ScrollView>
     </Screen>
   );
@@ -332,67 +396,7 @@ export function LeaderShiftManagementScreen() {
   );
 }
 
-function ShiftSwapCard() {
-  const mutation = useCreateShiftSwap();
-  const [targetUserId, setTargetUserId] = useState('');
-  const [fromShiftId, setFromShiftId] = useState('');
-  const [toShiftId, setToShiftId] = useState('');
-  const [fromDate, setFromDate] = useState(businessDateToday());
-  const [toDate, setToDate] = useState(businessDateToday());
-  const [reason, setReason] = useState('');
 
-  async function submit() {
-    try {
-      await mutation.mutateAsync({ targetUserId, fromShiftId, toShiftId, fromDate, toDate, reason });
-      Alert.alert('Thanh cong', 'Da tao yeu cau doi ca');
-    } catch (error) {
-      const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
-    }
-  }
-
-  return (
-    <SectionCard title="Yeu cau doi ca">
-      <Text style={styles.muted}>Backend DTO hien dung targetUserId/fromShiftId/toShiftId/fromDate/toDate/reason.</Text>
-      <FormField label="Target user ID" value={targetUserId} onChangeText={setTargetUserId} autoCapitalize="none" />
-      <FormField label="From shift ID" value={fromShiftId} onChangeText={setFromShiftId} autoCapitalize="none" />
-      <FormField label="To shift ID" value={toShiftId} onChangeText={setToShiftId} autoCapitalize="none" />
-      <FormField label="From date" value={fromDate} onChangeText={setFromDate} />
-      <FormField label="To date" value={toDate} onChangeText={setToDate} />
-      <FormField label="Ly do" value={reason} onChangeText={setReason} multiline />
-      <PrimaryButton loading={mutation.isPending} disabled={!targetUserId || !fromShiftId || !toShiftId || reason.length < 3} onPress={() => void submit()}>Gui doi ca</PrimaryButton>
-    </SectionCard>
-  );
-}
-
-function ShiftRegistrationCard() {
-  const mutation = useCreateShiftRegistration();
-  const shifts = useShifts();
-  const [shiftId, setShiftId] = useState('');
-  const [workDate, setWorkDate] = useState(businessDateToday());
-  const [reason, setReason] = useState('');
-
-  async function submit() {
-    try {
-      await mutation.mutateAsync({ shiftId, workDate, reason });
-      Alert.alert('Thanh cong', 'Da gui yeu cau dang ky ca');
-    } catch (error) {
-      const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
-    }
-  }
-
-  return (
-    <SectionCard title="Dang ky ca">
-      <Text style={styles.muted}>Chon shiftId that tu backend /shifts.</Text>
-      {(shifts.data ?? []).slice(0, 5).map((shift) => <Text key={shift.id} style={styles.text}>{shift.name}: {shift.id}</Text>)}
-      <FormField label="Shift ID" value={shiftId} onChangeText={setShiftId} autoCapitalize="none" />
-      <FormField label="Work date" value={workDate} onChangeText={setWorkDate} />
-      <FormField label="Ly do" value={reason} onChangeText={setReason} multiline />
-      <PrimaryButton loading={mutation.isPending} disabled={!shiftId || reason.length < 3} onPress={() => void submit()}>Gui dang ky ca</PrimaryButton>
-    </SectionCard>
-  );
-}
 
 const styles = StyleSheet.create({
   content: {
@@ -578,5 +582,110 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#166534',
     fontWeight: '600',
+  },
+  todayShiftCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  shiftTitleText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timeText: {
+    fontSize: 14,
+    color: colors.muted,
+  },
+  attendanceActionBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginLeft: spacing.sm,
+  },
+  attendanceActionText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: 4,
+  },
+  upcomingShiftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  dateBox: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  dateDayText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  dateMonthText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#0284C7',
+  },
+  upcomingShiftInfo: {
+    flex: 1,
+  },
+  upcomingShiftTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  statusBox: {
+    marginLeft: spacing.sm,
+  },
+  utilitiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    justifyContent: 'space-between',
+  },
+  utilityBtn: {
+    width: '30%',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  utilityIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  utilityText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.text,
   },
 });

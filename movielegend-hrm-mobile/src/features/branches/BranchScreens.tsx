@@ -116,6 +116,7 @@ export function BranchCreateScreen() {
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
+  const [allowedIps, setAllowedIps] = useState('');
   const [mapVisible, setMapVisible] = useState(false);
 
   const submit = async () => {
@@ -134,8 +135,9 @@ export function BranchCreateScreen() {
         code: generatedCode,
         name,
         address: address || undefined,
-        locationLat: latitude,
-        locationLng: longitude,
+        latitude: latitude,
+        longitude: longitude,
+        allowedIps: allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [],
       };
       
       await mutation.mutateAsync(payload);
@@ -166,6 +168,13 @@ export function BranchCreateScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Ví dụ: Chi nhánh Hà Nội"
+          />
+          <FormField
+            label="ID mạng Wi-Fi (IP công ty)"
+            value={allowedIps}
+            onChangeText={setAllowedIps}
+            placeholder="Ví dụ: 11.22.33.44 (Cách nhau dấu phẩy)"
+            autoCapitalize="none"
           />
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
@@ -230,6 +239,7 @@ export function BranchEditScreen() {
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
+  const [allowedIps, setAllowedIps] = useState('');
   const [mapVisible, setMapVisible] = useState(false);
 
   // Populate form with existing data when fetched
@@ -240,6 +250,7 @@ export function BranchEditScreen() {
       setAddress(branchQuery.data.address || '');
       setLatitude(branchQuery.data.latitude);
       setLongitude(branchQuery.data.longitude);
+      setAllowedIps((branchQuery.data as any).allowedIps?.join(', ') || '');
     }
   }, [branchQuery.data]);
 
@@ -249,6 +260,7 @@ export function BranchEditScreen() {
       if (address) payload.address = address;
       if (latitude !== undefined) payload.latitude = latitude;
       if (longitude !== undefined) payload.longitude = longitude;
+      payload.allowedIps = allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [];
 
       await mutation.mutateAsync(payload);
       Alert.alert('Thành công', 'Đã lưu thay đổi chi nhánh', [
@@ -293,6 +305,13 @@ export function BranchEditScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Ví dụ: Chi nhánh Hà Nội"
+          />
+          <FormField
+            label="ID mạng Wi-Fi (IP công ty)"
+            value={allowedIps}
+            onChangeText={setAllowedIps}
+            placeholder="Ví dụ: 11.22.33.44 (Cách nhau dấu phẩy)"
+            autoCapitalize="none"
           />
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>

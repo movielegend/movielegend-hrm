@@ -25,11 +25,11 @@ let AttendanceController = class AttendanceController {
     constructor(attendanceService) {
         this.attendanceService = attendanceService;
     }
-    checkIn(dto, actor) {
-        return this.attendanceService.checkIn(dto, actor);
+    checkIn(dto, actor, ip) {
+        return this.attendanceService.checkIn(dto, actor, ip);
     }
-    checkOut(dto, actor) {
-        return this.attendanceService.checkOut(dto, actor);
+    checkOut(dto, actor, ip) {
+        return this.attendanceService.checkOut(dto, actor, ip);
     }
     createAdjustment(dto, actor) {
         return this.attendanceService.createAdjustment(dto, actor);
@@ -77,8 +77,9 @@ __decorate([
     (0, common_1.Post)('check-in'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.Ip)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [attendance_dto_1.CheckInDto, Object]),
+    __metadata("design:paramtypes", [attendance_dto_1.CheckInDto, Object, String]),
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "checkIn", null);
 __decorate([
@@ -86,8 +87,9 @@ __decorate([
     (0, common_1.Post)('check-out'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.Ip)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [attendance_dto_1.CheckOutDto, Object]),
+    __metadata("design:paramtypes", [attendance_dto_1.CheckOutDto, Object, String]),
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "checkOut", null);
 __decorate([

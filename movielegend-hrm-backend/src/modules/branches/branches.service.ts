@@ -18,7 +18,12 @@ export class BranchesService {
     return this.prisma.branch.findMany({
       where: { companyId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: { departments: { select: { id: true, name: true, code: true } } },
+      include: { 
+        departments: { 
+          where: { deletedAt: null },
+          select: { id: true, name: true, code: true } 
+        } 
+      },
     });
   }
 
@@ -26,7 +31,12 @@ export class BranchesService {
     const companyId = await this.getCompanyId();
     const branch = await this.prisma.branch.findFirst({
       where: { id, companyId, deletedAt: null },
-      include: { departments: { select: { id: true, name: true, code: true } } },
+      include: { 
+        departments: { 
+          where: { deletedAt: null },
+          select: { id: true, name: true, code: true } 
+        } 
+      },
     });
     if (!branch) throw new NotFoundException('Branch not found');
     return branch;
@@ -48,7 +58,12 @@ export class BranchesService {
           connect: departmentIds.map(id => ({ id }))
         } : undefined
       },
-      include: { departments: { select: { id: true, name: true, code: true } } },
+      include: { 
+        departments: { 
+          where: { deletedAt: null },
+          select: { id: true, name: true, code: true } 
+        } 
+      },
     });
   }
 
@@ -72,15 +87,30 @@ export class BranchesService {
           set: departmentIds.map(id => ({ id }))
         } : undefined
       },
-      include: { departments: { select: { id: true, name: true, code: true } } },
+      include: { 
+        departments: { 
+          where: { deletedAt: null },
+          select: { id: true, name: true, code: true } 
+        } 
+      },
     });
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    const branch = await this.findOne(id);
+    if (branch.departments && branch.departments.length > 0) {
+      throw new BadRequestException('Không thể xóa chi nhánh đang có phòng ban trực thuộc');
+    }
     return this.prisma.branch.update({
       where: { id },
       data: { deletedAt: new Date() },
+    });
+  }
+
+  async restoreDeleted() {
+    return this.prisma.branch.updateMany({
+      where: { deletedAt: { not: null } },
+      data: { deletedAt: null },
     });
   }
 }

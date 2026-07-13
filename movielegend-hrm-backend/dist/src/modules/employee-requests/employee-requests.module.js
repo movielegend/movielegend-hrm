@@ -12,12 +12,13 @@ const phase2_policy_module_1 = require("../phase2-policy/phase2-policy.module");
 const time_module_1 = require("../time/time.module");
 const employee_requests_controller_1 = require("./employee-requests.controller");
 const employee_requests_service_1 = require("./employee-requests.service");
+const notifications_module_1 = require("../notifications/notifications.module");
 let EmployeeRequestsModule = class EmployeeRequestsModule {
 };
 exports.EmployeeRequestsModule = EmployeeRequestsModule;
 exports.EmployeeRequestsModule = EmployeeRequestsModule = __decorate([
     (0, common_1.Module)({
-        imports: [phase2_policy_module_1.Phase2PolicyModule, time_module_1.TimeModule],
+        imports: [phase2_policy_module_1.Phase2PolicyModule, time_module_1.TimeModule, notifications_module_1.NotificationsModule],
         controllers: [employee_requests_controller_1.EmployeeRequestsController],
         providers: [employee_requests_service_1.EmployeeRequestsService],
     })

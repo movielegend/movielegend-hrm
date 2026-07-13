@@ -1,11 +1,13 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
 export function EmployeeProfileScreen() {
+  const router = useRouter();
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
@@ -76,6 +78,42 @@ export function EmployeeProfileScreen() {
         </View>
 
         {/* Action Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tính năng</Text>
+          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/contracts' as any)}>
+            <View style={[styles.actionIconBg, { backgroundColor: '#DBEAFE' }]}>
+              <MaterialCommunityIcons name="text-box-check-outline" size={20} color="#2563EB" />
+            </View>
+            <Text style={styles.actionLabel}>Hợp đồng lao động</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
+          </Pressable>
+
+          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/payroll' as any)}>
+            <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
+              <MaterialCommunityIcons name="cash-multiple" size={20} color="#DC2626" />
+            </View>
+            <Text style={styles.actionLabel}>Phiếu lương</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
+          </Pressable>
+          
+          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/assets' as any)}>
+            <View style={[styles.actionIconBg, { backgroundColor: '#EDE9FE' }]}>
+              <MaterialCommunityIcons name="laptop" size={20} color="#7C3AED" />
+            </View>
+            <Text style={styles.actionLabel}>Tài sản của tôi</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
+          </Pressable>
+
+          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/news' as any)}>
+            <View style={[styles.actionIconBg, { backgroundColor: '#CCFBF1' }]}>
+              <MaterialCommunityIcons name="newspaper-variant" size={20} color="#14B8A6" />
+            </View>
+            <Text style={styles.actionLabel}>Bảng tin nội bộ</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
+          </Pressable>
+        </View>
+
+        {/* Setting Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           

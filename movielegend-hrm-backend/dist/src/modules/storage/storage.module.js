@@ -8,14 +8,28 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StorageModule = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const local_storage_service_1 = require("./services/local-storage.service");
+const cloudinary_storage_service_1 = require("./services/cloudinary-storage.service");
 const storage_service_1 = require("./storage.service");
 let StorageModule = class StorageModule {
 };
 exports.StorageModule = StorageModule;
 exports.StorageModule = StorageModule = __decorate([
     (0, common_1.Module)({
-        providers: [{ provide: storage_service_1.StorageService, useClass: local_storage_service_1.LocalStorageService }],
+        imports: [config_1.ConfigModule],
+        providers: [
+            {
+                provide: storage_service_1.StorageService,
+                useFactory: (config) => {
+                    if (process.env.CLOUDINARY_CLOUD_NAME) {
+                        return new cloudinary_storage_service_1.CloudinaryStorageService();
+                    }
+                    return new local_storage_service_1.LocalStorageService(config);
+                },
+                inject: [config_1.ConfigService],
+            },
+        ],
         exports: [storage_service_1.StorageService],
     })
 ], StorageModule);

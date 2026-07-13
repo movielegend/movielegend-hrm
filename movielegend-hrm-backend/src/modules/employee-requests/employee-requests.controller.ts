@@ -35,4 +35,10 @@ export class EmployeeRequestsController {
   approve(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.employeeRequestsService.approve(id, actor);
   }
+
+  @Permissions('employee.request.approve')
+  @Post(':id/reject')
+  reject(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.employeeRequestsService.reject(id, actor);
+  }
 }

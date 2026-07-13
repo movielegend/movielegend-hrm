@@ -18,10 +18,11 @@ export declare class BranchesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        address: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
-        address: string | null;
         allowedRadius: number | null;
+        allowedIps: string[];
     }>;
     findAll(): Promise<({
         departments: {
@@ -38,11 +39,13 @@ export declare class BranchesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        address: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
-        address: string | null;
         allowedRadius: number | null;
+        allowedIps: string[];
     })[]>;
+    restoreDeleted(): Promise<import("@prisma/client").Prisma.BatchPayload>;
     findOne(id: string): Promise<{
         departments: {
             id: string;
@@ -58,10 +61,11 @@ export declare class BranchesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        address: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
-        address: string | null;
         allowedRadius: number | null;
+        allowedIps: string[];
     }>;
     update(id: string, updateBranchDto: UpdateBranchDto): Promise<{
         departments: {
@@ -78,10 +82,11 @@ export declare class BranchesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        address: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
-        address: string | null;
         allowedRadius: number | null;
+        allowedIps: string[];
     }>;
     remove(id: string): Promise<{
         id: string;
@@ -92,9 +97,10 @@ export declare class BranchesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        address: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
-        address: string | null;
         allowedRadius: number | null;
+        allowedIps: string[];
     }>;
 }

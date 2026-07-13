@@ -23,7 +23,6 @@ export declare class ApprovalsController {
                     updatedAt: Date;
                     userId: string;
                     fullName: string;
-                    positionId: string | null;
                     dateOfBirth: Date | null;
                     gender: import("@prisma/client").$Enums.Gender | null;
                     idCardNumber: string;
@@ -39,6 +38,7 @@ export declare class ApprovalsController {
                     employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                     emergencyContactName: string | null;
                     emergencyContactPhone: string | null;
+                    positionId: string | null;
                 } | null;
                 faceProfile: ({
                     images: {
@@ -74,10 +74,10 @@ export declare class ApprovalsController {
             histories: {
                 id: string;
                 createdAt: Date;
+                note: string | null;
                 action: import("@prisma/client").$Enums.ApprovalAction;
                 actorUserId: string | null;
                 approvalRequestId: string;
-                note: string | null;
             }[];
         } & {
             id: string;

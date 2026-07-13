@@ -21,6 +21,11 @@ export class BranchesController {
     return this.branchesService.findAll();
   }
 
+  @Get('restore-deleted')
+  restoreDeleted() {
+    return this.branchesService.restoreDeleted();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.branchesService.findOne(id);

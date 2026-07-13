@@ -17,8 +17,8 @@ export declare class PerformanceReviewsService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         periodStart: Date;
         periodEnd: Date;
         selfReviewStart: Date;
@@ -62,8 +62,8 @@ export declare class PerformanceReviewsService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         periodStart: Date;
         periodEnd: Date;
         selfReviewStart: Date;
@@ -107,8 +107,8 @@ export declare class PerformanceReviewsService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         periodStart: Date;
         periodEnd: Date;
         selfReviewStart: Date;
@@ -144,8 +144,8 @@ export declare class PerformanceReviewsService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         periodStart: Date;
         periodEnd: Date;
         selfReviewStart: Date;
@@ -181,8 +181,8 @@ export declare class PerformanceReviewsService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         periodStart: Date;
         periodEnd: Date;
         selfReviewStart: Date;
@@ -218,8 +218,8 @@ export declare class PerformanceReviewsService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
         periodStart: Date;
         periodEnd: Date;
         selfReviewStart: Date;
@@ -245,7 +245,6 @@ export declare class PerformanceReviewsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -261,6 +260,7 @@ export declare class PerformanceReviewsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -283,8 +283,8 @@ export declare class PerformanceReviewsService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
+            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             periodStart: Date;
             periodEnd: Date;
             selfReviewStart: Date;
@@ -334,7 +334,6 @@ export declare class PerformanceReviewsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -350,6 +349,7 @@ export declare class PerformanceReviewsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -372,8 +372,8 @@ export declare class PerformanceReviewsService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
+            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             periodStart: Date;
             periodEnd: Date;
             selfReviewStart: Date;
@@ -423,7 +423,6 @@ export declare class PerformanceReviewsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -439,6 +438,7 @@ export declare class PerformanceReviewsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -461,8 +461,8 @@ export declare class PerformanceReviewsService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
+            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             periodStart: Date;
             periodEnd: Date;
             selfReviewStart: Date;
@@ -512,7 +512,6 @@ export declare class PerformanceReviewsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -528,6 +527,7 @@ export declare class PerformanceReviewsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -550,8 +550,8 @@ export declare class PerformanceReviewsService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
+            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             periodStart: Date;
             periodEnd: Date;
             selfReviewStart: Date;
@@ -601,7 +601,6 @@ export declare class PerformanceReviewsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -617,6 +616,7 @@ export declare class PerformanceReviewsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -639,8 +639,8 @@ export declare class PerformanceReviewsService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
+            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             periodStart: Date;
             periodEnd: Date;
             selfReviewStart: Date;
@@ -690,7 +690,6 @@ export declare class PerformanceReviewsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -706,6 +705,7 @@ export declare class PerformanceReviewsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         } & {
             id: string;
@@ -728,8 +728,8 @@ export declare class PerformanceReviewsService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             createdById: string;
+            status: import("@prisma/client").$Enums.PerformanceReviewCycleStatus;
             periodStart: Date;
             periodEnd: Date;
             selfReviewStart: Date;

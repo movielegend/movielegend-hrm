@@ -133,6 +133,8 @@ __decorate([
 class CheckOutDto {
     latitude;
     longitude;
+    wifiSsid;
+    wifiBssid;
 }
 exports.CheckOutDto = CheckOutDto;
 __decorate([
@@ -151,6 +153,18 @@ __decorate([
     (0, class_validator_1.Max)(180),
     __metadata("design:type", Number)
 ], CheckOutDto.prototype, "longitude", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CheckOutDto.prototype, "wifiSsid", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CheckOutDto.prototype, "wifiBssid", void 0);
 class CreateAttendanceAdjustmentDto {
     attendanceRecordId;
     requestedCheckInAt;

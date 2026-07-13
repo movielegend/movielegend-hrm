@@ -10,16 +10,16 @@ export declare class BonusesController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         bonusType: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
@@ -27,16 +27,16 @@ export declare class BonusesController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         bonusType: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }[]>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -44,16 +44,16 @@ export declare class BonusesController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         bonusType: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }>;
     reject(id: string, dto: RejectCompensationDto): import("@prisma/client").Prisma.Prisma__EmployeeBonusClient<{
         id: string;
@@ -61,16 +61,16 @@ export declare class BonusesController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         bonusType: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     cancel(id: string): import("@prisma/client").Prisma.Prisma__EmployeeBonusClient<{
         id: string;
@@ -78,16 +78,16 @@ export declare class BonusesController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeBonusStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         bonusType: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
 }
 export declare class DeductionsController {
@@ -99,16 +99,16 @@ export declare class DeductionsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
         deductionType: string;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     findAll(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
@@ -116,16 +116,16 @@ export declare class DeductionsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
         deductionType: string;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }[]>;
     approve(id: string, actor: AuthenticatedUser): Promise<{
         id: string;
@@ -133,16 +133,16 @@ export declare class DeductionsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
         deductionType: string;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }>;
     reject(id: string, dto: RejectCompensationDto): import("@prisma/client").Prisma.Prisma__EmployeeDeductionClient<{
         id: string;
@@ -150,16 +150,16 @@ export declare class DeductionsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
         deductionType: string;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     cancel(id: string): import("@prisma/client").Prisma.Prisma__EmployeeDeductionClient<{
         id: string;
@@ -167,15 +167,15 @@ export declare class DeductionsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        title: string;
-        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
         createdById: string;
+        status: import("@prisma/client").$Enums.EmployeeDeductionStatus;
+        title: string;
+        approvedAt: Date | null;
+        approvedById: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         effectiveDate: Date;
         deductionType: string;
-        approvedAt: Date | null;
         relatedEntityType: string | null;
         relatedEntityId: string | null;
-        approvedById: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
 }

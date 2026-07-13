@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EmployeeRequestStatus, EmployeeRequestType, Prisma } from '@prisma/client';
+import { EmployeeRequestStatus, EmployeeRequestType, Prisma, NotificationType } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
@@ -7,12 +7,15 @@ import { DepartmentScopeService } from '../phase2-policy/department-scope.servic
 import { BusinessTimeService } from '../time/business-time.service';
 import { CreateEmployeeRequestDto, EmployeeRequestQueryDto } from './dto/employee-request.dto';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class EmployeeRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,
     private readonly businessTime: BusinessTimeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(dto: CreateEmployeeRequestDto, actor: AuthenticatedUser) {
@@ -88,9 +91,48 @@ export class EmployeeRequestsService {
     if (request.status !== EmployeeRequestStatus.PENDING) {
       throw badRequest('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn chờ duyệt');
     }
-    return this.prisma.employeeRequest.update({
-      where: { id },
-      data: { status: EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeRequest.update({
+        where: { id },
+        data: { status: EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
+      });
+
+      const notif = await this.notifications.createForUsers(tx, [request.userId], {
+        type: NotificationType.SYSTEM,
+        title: 'Yêu cầu đã được duyệt',
+        body: `Yêu cầu "${request.title}" của bạn đã được duyệt.`,
+        metadata: { requestId: id },
+      });
+      this.notifications.emitCreated(notif);
+
+      return updated;
+    });
+  }
+
+  async reject(id: string, actor: AuthenticatedUser) {
+    const request = await this.prisma.employeeRequest.findUnique({ where: { id } });
+    if (!request) throw notFound('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
+    this.scope.assertDepartmentAccess(actor, request.departmentId);
+    if (request.status !== EmployeeRequestStatus.PENDING) {
+      throw badRequest('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn chờ duyệt');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeRequest.update({
+        where: { id },
+        data: { status: EmployeeRequestStatus.REJECTED, decidedByUserId: actor.userId, decidedAt: new Date() },
+      });
+
+      const notif = await this.notifications.createForUsers(tx, [request.userId], {
+        type: NotificationType.SYSTEM,
+        title: 'Yêu cầu bị từ chối',
+        body: `Yêu cầu "${request.title}" của bạn đã bị từ chối.`,
+        metadata: { requestId: id },
+      });
+      this.notifications.emitCreated(notif);
+
+      return updated;
     });
   }
 

@@ -47,7 +47,7 @@ export default function EmployeeLayout() {
         }}
       />
       <Tabs.Screen
-        name="newsfeed"
+        name="news"
         options={{
           title: 'Bảng tin',
           tabBarIcon: ({ color, size }) => (
@@ -61,6 +61,15 @@ export default function EmployeeLayout() {
           title: 'Tin nhắn',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="chat-processing-outline" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="newsfeed"
+        options={{
+          title: 'Thông báo',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="bell-outline" size={24} color={color} />
           ),
         }}
       />

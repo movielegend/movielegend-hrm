@@ -33,7 +33,6 @@ export declare class ShiftAssignmentsService {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -49,6 +48,7 @@ export declare class ShiftAssignmentsService {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
         };
         shift: {
@@ -73,11 +73,11 @@ export declare class ShiftAssignmentsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        departmentId: string;
-        status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-        workDate: Date;
-        shiftId: string;
         assignedByUserId: string | null;
+        status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+        departmentId: string;
+        shiftId: string;
+        workDate: Date;
     }>;
     mySchedule(userId: string): import("@prisma/client").Prisma.PrismaPromise<({
         department: {
@@ -116,33 +116,33 @@ export declare class ShiftAssignmentsService {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        departmentId: string;
-        status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-        workDate: Date;
-        shiftId: string;
         assignedByUserId: string | null;
+        status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+        departmentId: string;
+        shiftId: string;
+        workDate: Date;
     })[]>;
     registerShift(dto: ShiftRegistrationDto, actor: AuthenticatedUser): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        departmentId: string;
         status: import("@prisma/client").$Enums.ShiftRegistrationStatus;
+        departmentId: string;
+        shiftId: string;
+        workDate: Date;
         reason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;
-        workDate: Date;
-        shiftId: string;
     }>;
     requestSwap(dto: ShiftSwapDto, actor: AuthenticatedUser): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.ShiftSwapStatus;
         departmentId: string;
         fromDate: Date;
         toDate: Date;
-        status: import("@prisma/client").$Enums.ShiftSwapStatus;
         reason: string | null;
         decidedByUserId: string | null;
         decidedAt: Date | null;

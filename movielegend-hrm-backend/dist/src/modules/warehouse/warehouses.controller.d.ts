@@ -108,10 +108,10 @@ export declare class WarehousesController {
     } & {
         id: string;
         updatedAt: Date;
+        version: number;
         warehouseId: string;
         materialId: string;
         quantityOnHand: import("@prisma/client/runtime/library").Decimal;
         quantityReserved: import("@prisma/client/runtime/library").Decimal;
-        version: number;
     })[]>;
 }

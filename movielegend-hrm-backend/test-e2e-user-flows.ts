@@ -168,7 +168,7 @@ async function bootstrap() {
     try {
       const checkinRes = await attendanceService.checkIn(
         { latitude: 10.0, longitude: 20.0, workDate: todayStr, faceImage: 'fake_image' },
-        empActor
+        empActor, '127.0.0.1'
       );
       console.log(`  -> CHECK-IN THÀNH CÔNG: Status = ${checkinRes.status}`);
     } catch (e: any) {

@@ -57,6 +57,7 @@ interface EmployeeListFilters {
 
 export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const router = useRouter();
+  const { user } = useAuth();
   const { departmentId, branchId } = useLocalSearchParams<{ departmentId?: string; branchId?: string }>();
   const [filters, setFilters] = useState<EmployeeListFilters>({
     page: 1,
@@ -224,20 +225,43 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   return (
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={leaderReport.isRefetching} onRefresh={() => void leaderReport.refetch()} />}>
-        <PageHeader title="Nhan su phong" subtitle="Leader dung bao cao da scope theo phong ban tu backend." />
-        <SearchInput value={filters.search ?? ''} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tim nhan su" />
+        <PageHeader title="Nhân sự phòng ban" subtitle="Danh sách nhân viên thuộc sự quản lý của bạn" />
+        <SearchInput value={filters.search ?? ''} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tìm kiếm nhân sự..." />
         {leaderReport.isLoading ? <LoadingState /> : null}
         {leaderReport.isError ? <ErrorState error={leaderReport.error} onRetry={() => void leaderReport.refetch()} /> : null}
-        {!leaderReport.isLoading && !leaderReport.data?.items.length ? <EmptyState title="Chua co nhan vien phu hop bo loc" /> : null}
-        {leaderReport.data?.items.map((employee) => (
-          <SectionCard key={`${employee.userCode}-${employee.fullName}`}>
-            <Text style={styles.titleText}>{employee.fullName ?? '-'}</Text>
-            <Text style={styles.meta}>Ma: {employee.userCode ?? '-'}</Text>
-            <Text style={styles.meta}>Phong ban: {employee.department ?? '-'}</Text>
-            <Text style={styles.meta}>Vi tri: {employee.position ?? '-'}</Text>
-            <StatusBadge label={employee.accountStatus ?? '-'} tone={toneForStatus(employee.accountStatus)} />
-          </SectionCard>
-        ))}
+        {!leaderReport.isLoading && !leaderReport.data?.items.length ? <EmptyState title="Chưa có nhân viên phù hợp với bộ lọc" /> : null}
+        {leaderReport.data?.items.filter(emp => emp.userCode !== user?.userCode).map((employee) => {
+          let viStatus = employee.accountStatus;
+          if (viStatus === 'ACTIVE') viStatus = 'Hoạt động';
+          else if (viStatus === 'INACTIVE') viStatus = 'Khóa';
+          else if (viStatus === 'SUSPENDED') viStatus = 'Đình chỉ';
+
+          return (
+            <SectionCard key={`${employee.userCode}-${employee.fullName}`} style={{ padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Avatar name={employee.fullName ?? 'NV'} size={56} />
+                
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4 }}>
+                    {employee.fullName ?? 'Chưa cập nhật'}
+                  </Text>
+                  
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                    <View style={{ backgroundColor: colors.background, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: colors.border }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: colors.muted }}>Mã NV: {employee.userCode ?? '-'}</Text>
+                    </View>
+                    <StatusBadge label={viStatus ?? '-'} tone={toneForStatus(employee.accountStatus as any)} />
+                  </View>
+                  
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Ionicons name="briefcase-outline" size={14} color={colors.muted} />
+                    <Text style={{ fontSize: 13, color: colors.muted, marginLeft: 6, flex: 1 }}>{employee.position ?? 'Chưa có vị trí'}</Text>
+                  </View>
+                </View>
+              </View>
+            </SectionCard>
+          );
+        })}
       </ScreenContainer>
     </Screen>
   );

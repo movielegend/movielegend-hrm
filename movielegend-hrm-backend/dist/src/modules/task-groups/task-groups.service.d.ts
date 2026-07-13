@@ -37,12 +37,12 @@ export declare class TaskGroupsService {
                     id: string;
                     userCode: string;
                     profile: {
+                        fullName: string;
+                        avatarUrl: string | null;
                         position: {
                             id: string;
                             name: string;
                         } | null;
-                        fullName: string;
-                        avatarUrl: string | null;
                     } | null;
                 };
             } & {
@@ -88,12 +88,12 @@ export declare class TaskGroupsService {
                 id: string;
                 userCode: string;
                 profile: {
+                    fullName: string;
+                    avatarUrl: string | null;
                     position: {
                         id: string;
                         name: string;
                     } | null;
-                    fullName: string;
-                    avatarUrl: string | null;
                 } | null;
             };
         } & {

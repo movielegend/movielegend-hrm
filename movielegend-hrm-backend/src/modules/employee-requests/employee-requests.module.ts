@@ -4,8 +4,10 @@ import { TimeModule } from '../time/time.module';
 import { EmployeeRequestsController } from './employee-requests.controller';
 import { EmployeeRequestsService } from './employee-requests.service';
 
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
-  imports: [Phase2PolicyModule, TimeModule],
+  imports: [Phase2PolicyModule, TimeModule, NotificationsModule],
   controllers: [EmployeeRequestsController],
   providers: [EmployeeRequestsService],
 })

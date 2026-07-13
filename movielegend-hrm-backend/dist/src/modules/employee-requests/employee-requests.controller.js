@@ -36,6 +36,9 @@ let EmployeeRequestsController = class EmployeeRequestsController {
     approve(id, actor) {
         return this.employeeRequestsService.approve(id, actor);
     }
+    reject(id, actor) {
+        return this.employeeRequestsService.reject(id, actor);
+    }
 };
 exports.EmployeeRequestsController = EmployeeRequestsController;
 __decorate([
@@ -74,6 +77,15 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], EmployeeRequestsController.prototype, "approve", null);
+__decorate([
+    (0, permissions_decorator_1.Permissions)('employee.request.approve'),
+    (0, common_1.Post)(':id/reject'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], EmployeeRequestsController.prototype, "reject", null);
 exports.EmployeeRequestsController = EmployeeRequestsController = __decorate([
     (0, swagger_1.ApiTags)('Employee Requests'),
     (0, swagger_1.ApiBearerAuth)(),

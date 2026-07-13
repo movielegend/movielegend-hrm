@@ -90,6 +90,9 @@ let EmployeesService = class EmployeesService {
                             position: { select: { id: true, name: true } },
                         },
                     },
+                    roles: {
+                        include: { role: true }
+                    }
                 },
                 orderBy: { userCode: 'asc' },
                 skip: (query.page - 1) * query.limit,
@@ -109,6 +112,7 @@ let EmployeesService = class EmployeesService {
                     position: link?.position ?? null,
                     employmentStatus: item.profile?.employmentStatus ?? null,
                     isActive: item.isActive,
+                    roles: item.roles,
                 };
             }),
             pagination: {

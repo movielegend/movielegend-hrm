@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, Modal } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useMemo, useState, type ComponentType } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback } from 'react-native';
 
@@ -25,6 +25,14 @@ import { useActiveAttendanceLocations, useAttendanceDetail, useAttendanceHistory
   useUpdateAttendanceLocation,
   useDeleteAttendanceLocation,
 } from '../../hooks/useAttendance';
+import { assertSocketUrl } from '../../constants/env';
+
+function getAbsoluteImageUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith('http')) return url;
+  return `${assertSocketUrl()}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 import { useMySchedule } from '../../hooks/useShifts';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -489,8 +497,12 @@ export function AttendanceAdjustmentScreen() {
 
 export function AdminAttendanceScreen() {
   const router = useRouter();
+  const segments = useSegments();
+  const basePath = segments[0] === 'leader' ? '/leader' : '/admin';
+  const isLeader = segments[0] === 'leader';
   const [currentDate, setCurrentDate] = useState<string>(new Date().toISOString().split('T')[0] || ''); // YYYY-MM-DD
   const [showPicker, setShowPicker] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowPicker(false);
@@ -517,7 +529,7 @@ export function AdminAttendanceScreen() {
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#0B3B61" />
             </Pressable>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#0B3B61' }}>Quản lý chấm công</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#0B3B61' }}>{isLeader ? 'Lịch sử chấm công của phòng ban' : 'Quản lý chấm công'}</Text>
           </View>
         </View>
 
@@ -596,12 +608,14 @@ export function AdminAttendanceScreen() {
               const time = new Date(record.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
               
               return (
-                <Pressable key={record.id} onPress={() => router.push(`/admin/attendance/${record.id}`)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E6EEF3' }}>
-                  <Image source={{ uri: user?.profile?.avatarUrl || 'https://via.placeholder.com/150' }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
+                <View key={record.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E6EEF3' }}>
+                  <Pressable onPress={() => { if ((record as any).photo?.fileUrl) setSelectedImage(getAbsoluteImageUrl((record as any).photo.fileUrl) || null); }}>
+                    <Image source={{ uri: getAbsoluteImageUrl((record as any).photo?.fileUrl) || getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 48, height: 48, borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3' }} />
+                  </Pressable>
+                  <Pressable style={{ flex: 1, marginLeft: 12 }} onPress={() => router.push(`${basePath}/attendance/${record.id}`)}>
                     <Text style={{ fontSize: 15, fontWeight: '700', color: '#0B3B61' }}>{name}</Text>
                     <Text style={{ fontSize: 12, color: '#98A0A8', marginTop: 2 }}>{user?.userCode}</Text>
-                  </View>
+                  </Pressable>
                   <View style={{ alignItems: 'flex-end', marginRight: 12 }}>
                     <View style={{ backgroundColor: '#EAF4FE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginBottom: 4 }}>
                       <Text style={{ fontSize: 10, fontWeight: '700', color: '#1E88E5' }}>CÓ MẶT</Text>
@@ -611,14 +625,32 @@ export function AdminAttendanceScreen() {
                       <Text style={{ fontSize: 11, color: '#98A0A8' }}>{time}</Text>
                     </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#C4C8CC" />
-                </Pressable>
+                  <Pressable onPress={() => router.push(`${basePath}/attendance/${record.id}`)} style={{ padding: 4 }}>
+                    <Ionicons name="chevron-forward" size={16} color="#C4C8CC" />
+                  </Pressable>
+                </View>
               );
             })}
           </View>
         )}
 
       </ScrollView>
+
+      {/* Fullscreen Image Modal */}
+      {selectedImage && (
+        <Modal visible={true} transparent={true} animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+            <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
+              <Ionicons name="close-circle" size={36} color="#FFF" />
+            </Pressable>
+            <View style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 8 }}>
+              <Ionicons name="videocam-outline" size={20} color="#FF3B30" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>MOVIE LEGEND</Text>
+            </View>
+            <Image source={{ uri: selectedImage }} style={{ width: '90%', height: '80%', resizeMode: 'contain' }} />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -627,6 +659,7 @@ export function AdminAttendanceDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: detail, isLoading } = useAttendanceDetail(id);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -664,7 +697,7 @@ export function AdminAttendanceDetailScreen() {
 
         {/* User Info */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Image source={{ uri: user?.profile?.avatarUrl || 'https://via.placeholder.com/150' }} style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 16 }} />
+          <Image source={{ uri: getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 16 }} />
           <Text style={{ fontSize: 20, fontWeight: '800', color: '#0B3B61', marginBottom: 4 }}>{name}</Text>
           <Text style={{ fontSize: 13, color: '#98A0A8', marginBottom: 12 }}>{role}</Text>
           <View style={{ backgroundColor: '#EAF4FE', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 }}>
@@ -704,9 +737,17 @@ export function AdminAttendanceDetailScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="location-outline" size={14} color="#98A0A8" />
                   <Text style={{ fontSize: 12, color: '#98A0A8' }}>
-                    Tọa độ: {detail.checkInLatitude}, {detail.checkInLongitude}
+                    Tọa độ: {(detail as any).gps?.attendanceLocation?.name || `${(detail as any).gps?.checkInLatitude}, ${(detail as any).gps?.checkInLongitude}`}
                   </Text>
                 </View>
+                {(detail as any).photo?.fileUrl && (
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#98A0A8', marginBottom: 8, textTransform: 'uppercase' }}>Ảnh Check-in</Text>
+                    <Pressable onPress={() => setSelectedImage(getAbsoluteImageUrl((detail as any).photo.fileUrl) || null)}>
+                      <Image source={{ uri: getAbsoluteImageUrl((detail as any).photo.fileUrl) }} style={{ width: 100, height: 100, borderRadius: 12, borderWidth: 1, borderColor: '#E6EEF3' }} />
+                    </Pressable>
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -730,7 +771,7 @@ export function AdminAttendanceDetailScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="location-outline" size={14} color="#98A0A8" />
                   <Text style={{ fontSize: 12, color: '#98A0A8' }}>
-                    Tọa độ: {detail.checkOutLatitude}, {detail.checkOutLongitude}
+                    Tọa độ: {(detail as any).gps?.attendanceLocation?.name || `${(detail as any).gps?.checkOutLatitude}, ${(detail as any).gps?.checkOutLongitude}`}
                   </Text>
                 </View>
               </View>
@@ -739,6 +780,22 @@ export function AdminAttendanceDetailScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Fullscreen Image Modal */}
+      {selectedImage && (
+        <Modal visible={true} transparent={true} animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+            <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
+              <Ionicons name="close-circle" size={36} color="#FFF" />
+            </Pressable>
+            <View style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 8 }}>
+              <Ionicons name="videocam-outline" size={20} color="#FF3B30" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>MOVIE LEGEND</Text>
+            </View>
+            <Image source={{ uri: selectedImage }} style={{ width: '90%', height: '80%', resizeMode: 'contain' }} />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }

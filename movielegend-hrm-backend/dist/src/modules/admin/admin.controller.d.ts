@@ -40,7 +40,6 @@ export declare class AdminController {
                 updatedAt: Date;
                 userId: string;
                 fullName: string;
-                positionId: string | null;
                 dateOfBirth: Date | null;
                 gender: import("@prisma/client").$Enums.Gender | null;
                 idCardNumber: string;
@@ -56,6 +55,7 @@ export declare class AdminController {
                 employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                 emergencyContactName: string | null;
                 emergencyContactPhone: string | null;
+                positionId: string | null;
             } | null;
             roles: ({
                 role: {
@@ -107,8 +107,8 @@ export declare class AdminController {
                 createdAt: Date;
                 updatedAt: Date;
                 userId: string;
-                departmentId: string;
                 positionId: string | null;
+                departmentId: string;
                 leftAt: Date | null;
                 isPrimary: boolean;
                 joinedAt: Date;
@@ -139,7 +139,6 @@ export declare class AdminController {
             updatedAt: Date;
             userId: string;
             fullName: string;
-            positionId: string | null;
             dateOfBirth: Date | null;
             gender: import("@prisma/client").$Enums.Gender | null;
             idCardNumber: string;
@@ -155,6 +154,7 @@ export declare class AdminController {
             employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
             emergencyContactName: string | null;
             emergencyContactPhone: string | null;
+            positionId: string | null;
         } | null;
         roles: ({
             role: {
@@ -206,8 +206,8 @@ export declare class AdminController {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            departmentId: string;
             positionId: string | null;
+            departmentId: string;
             leftAt: Date | null;
             isPrimary: boolean;
             joinedAt: Date;
@@ -244,7 +244,6 @@ export declare class AdminController {
             updatedAt: Date;
             userId: string;
             fullName: string;
-            positionId: string | null;
             dateOfBirth: Date | null;
             gender: import("@prisma/client").$Enums.Gender | null;
             idCardNumber: string;
@@ -260,6 +259,7 @@ export declare class AdminController {
             employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
             emergencyContactName: string | null;
             emergencyContactPhone: string | null;
+            positionId: string | null;
         } | null;
         id: string;
         isActive: boolean;

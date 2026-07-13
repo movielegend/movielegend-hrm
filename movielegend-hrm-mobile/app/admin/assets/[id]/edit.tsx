@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { normalizeApiError } from '../../../../src/utils/api-error';
 import { PageHeader } from '../../../../src/components/PageHeader';
 import { Screen } from '../../../../src/components/Screen';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
@@ -11,7 +12,6 @@ import { LoadingState } from '../../../../src/components/LoadingState';
 import { ErrorState } from '../../../../src/components/ErrorState';
 import { spacing } from '../../../../src/theme/spacing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Image, TextInput, Pressable, Text } from 'react-native';
 import { assetStatusLabels, assetConditionLabels } from '../../../../src/features/assets/asset.logic';
 import type { AssetStatus, AssetConditionStatus } from '../../../../src/types/asset.types';
 import { SelectModal } from '../../../../src/components/SelectModal';
@@ -81,10 +81,10 @@ export default function AssetEditScreen() {
         }
       });
       router.back();
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      const errMessage = e?.response?.data?.message || e.message || 'Có lỗi xảy ra';
-      Alert.alert('Lỗi', Array.isArray(errMessage) ? errMessage.join(', ') : String(errMessage));
+      const normalized = normalizeApiError(e);
+      Alert.alert('Lỗi', normalized.message);
     }
   }
 

@@ -42,6 +42,7 @@ const attendanceErrorMessages: Record<string, string> = {
   FACE_PROFILE_NOT_READY: 'Ho so khuon mat chua san sang de cham cong.',
   FACE_VERIFICATION_FAILED: 'Xac minh khuon mat khong thanh cong. Hay chup lai anh ro hon.',
   GPS_ACCURACY_TOO_LOW: 'Do chinh xac GPS thap. Hay ra gan cua so hoac bat lai dinh vi.',
+  INVALID_NETWORK: 'Vui long ket noi vao mang Wi-Fi cua cong ty de cham cong.',
   INVALID_WIFI: 'WiFi khong hop le theo cau hinh cham cong.',
   NETWORK_ERROR: 'Khong the ket noi may chu. Hay kiem tra mang va tai lai trang thai.',
   NO_ACTIVE_SHIFT: 'Khong co ca lam dang hoat dong.',

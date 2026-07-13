@@ -20,6 +20,25 @@ export declare class EmployeesController {
             } | null;
             employmentStatus: import("@prisma/client").$Enums.EmploymentStatus | null;
             isActive: boolean;
+            roles: ({
+                role: {
+                    id: string;
+                    code: string;
+                    name: string;
+                    description: string | null;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    isSystem: boolean;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: string;
+                roleId: string;
+                scopeType: import("@prisma/client").$Enums.RoleScopeType;
+                scopeId: string | null;
+            })[];
         }[];
         pagination: {
             page: number;
@@ -70,11 +89,11 @@ export declare class EmployeesController {
             updatedAt: Date;
             deletedAt: Date | null;
             userId: string | null;
-            type: string;
-            title: string | null;
-            status: import("@prisma/client").$Enums.DocumentStatus;
-            rejectionReason: string | null;
             storageKey: string | null;
+            status: import("@prisma/client").$Enums.DocumentStatus;
+            title: string | null;
+            type: string;
+            rejectionReason: string | null;
             fileUrl: string;
             fileName: string;
             mimeType: string | null;
@@ -98,7 +117,6 @@ export declare class EmployeesController {
         updatedAt: Date;
         userId: string;
         fullName: string;
-        positionId: string | null;
         dateOfBirth: Date | null;
         gender: import("@prisma/client").$Enums.Gender | null;
         idCardNumber: string;
@@ -114,5 +132,6 @@ export declare class EmployeesController {
         employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
         emergencyContactName: string | null;
         emergencyContactPhone: string | null;
+        positionId: string | null;
     }>;
 }

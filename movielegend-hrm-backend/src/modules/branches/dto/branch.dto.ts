@@ -49,6 +49,12 @@ export class CreateBranchDto {
   @IsArray()
   @IsString({ each: true })
   departmentIds?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  allowedIps?: string[];
 }
 
 export class UpdateBranchDto extends CreateBranchDto {}

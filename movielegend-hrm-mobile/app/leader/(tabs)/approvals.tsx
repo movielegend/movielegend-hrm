@@ -16,18 +16,11 @@ export default function ApprovalsTabScreen() {
         
         <View style={styles.grid}>
           <ApprovalCard 
-            title="Duyệt nghỉ phép" 
-            icon="calendar-check" 
+            title="Duyệt yêu cầu" 
+            icon="file-document-multiple-outline" 
             iconBg="#FEE2E2" 
             iconColor="#EF4444"
-            onPress={() => router.push('/leader/leave-approvals')}
-          />
-          <ApprovalCard 
-            title="Duyệt tăng ca" 
-            icon="clock-check" 
-            iconBg="#FFEDD5" 
-            iconColor="#F97316"
-            onPress={() => router.push('/leader/overtime-approvals')}
+            onPress={() => router.push('/leader/employee-requests')}
           />
           <ApprovalCard 
             title="Duyệt tài khoản" 

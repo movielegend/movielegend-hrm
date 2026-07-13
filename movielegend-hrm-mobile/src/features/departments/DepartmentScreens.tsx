@@ -370,7 +370,7 @@ export function DepartmentDetailScreen() {
 
           {editing ? (
             <SectionCard title="Cập nhật thông tin">
-              <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId ?? undefined} />
+              <DepartmentForm control={control} errors={errors} />
               {update.error ? <Text style={styles.error}>{normalizeApiError(update.error).message}</Text> : null}
               <PrimaryButton onPress={() => void submit()} loading={update.isPending} style={{ marginTop: 16 }}>
                 Lưu thay đổi
@@ -569,7 +569,7 @@ export function EditDepartmentScreen() {
       <ScreenContainer>
         <PageHeader title="Cập nhật Phòng ban" subtitle={`Đang sửa: ${department.data.name}`} />
         <SectionCard>
-          <DepartmentForm control={control} errors={errors} fixedBranchId={department.data.branchId ?? undefined} isEdit={true} />
+          <DepartmentForm control={control} errors={errors} isEdit={true} />
           <View style={{ marginTop: 16 }}>
             <PrimaryButton onPress={() => void submit()} loading={update.isPending}>
               Lưu Thay Đổi

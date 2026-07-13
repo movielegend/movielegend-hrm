@@ -119,14 +119,14 @@ async function main() {
   try {
     const checkinRes = await attendanceService.checkIn(
       { latitude: lat, longitude: lng, workDate: todayStr, faceImage: 'fake_image' },
-      empActor
+      empActor, '127.0.0.1'
     );
     console.log(`  -> CHECK-IN THÀNH CÔNG: ID = ${checkinRes.id}, Trạng thái = ${checkinRes.status}`);
     
     // Check-out
     const checkoutRes = await attendanceService.checkOut(
       { latitude: lat, longitude: lng },
-      empActor
+      empActor, '127.0.0.1'
     );
     console.log(`  -> CHECK-OUT THÀNH CÔNG: Trạng thái = ${checkoutRes!.status}`);
 

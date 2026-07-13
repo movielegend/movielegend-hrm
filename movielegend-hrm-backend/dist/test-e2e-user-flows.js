@@ -125,7 +125,7 @@ async function bootstrap() {
         console.log(`  -> Đã phân ca.`);
         console.log('\n[3] EMPLOYEE FLOW: Chấm công (Check-in / Check-out)');
         try {
-            const checkinRes = await attendanceService.checkIn({ latitude: 10.0, longitude: 20.0, workDate: todayStr, faceImage: 'fake_image' }, empActor);
+            const checkinRes = await attendanceService.checkIn({ latitude: 10.0, longitude: 20.0, workDate: todayStr, faceImage: 'fake_image' }, empActor, '127.0.0.1');
             console.log(`  -> CHECK-IN THÀNH CÔNG: Status = ${checkinRes.status}`);
         }
         catch (e) {

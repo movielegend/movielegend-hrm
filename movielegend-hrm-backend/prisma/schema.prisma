@@ -869,6 +869,7 @@ model Branch {
   latitude            Decimal?             @db.Decimal(10, 7)
   longitude           Decimal?             @db.Decimal(10, 7)
   allowedRadius       Int?                 @default(100)
+  allowedIps          String[]
   isActive            Boolean              @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
@@ -1255,6 +1256,7 @@ model AttendanceLocation {
   longitude    Decimal   @db.Decimal(10, 7)
   radiusMeters Int       @default(100)
   isActive     Boolean   @default(true)
+  allowedIps   String[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?

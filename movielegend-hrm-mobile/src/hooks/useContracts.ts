@@ -5,6 +5,7 @@ import {
   createContractTemplate,
   updateContractTemplate,
   getEmployeeContracts,
+  getMyContracts,
   getEmployeeContract,
   createEmployeeContract,
   updateEmployeeContract,
@@ -68,6 +69,13 @@ export function useContracts(departmentId?: string) {
   return useQuery({
     queryKey: contractKeys.list(departmentId),
     queryFn: () => getEmployeeContracts(departmentId),
+  });
+}
+
+export function useMyContracts() {
+  return useQuery({
+    queryKey: ['contracts', 'my'],
+    queryFn: () => getMyContracts(),
   });
 }
 

@@ -20,6 +20,8 @@ export declare class CheckInDto {
 export declare class CheckOutDto {
     latitude: number;
     longitude: number;
+    wifiSsid?: string;
+    wifiBssid?: string;
 }
 export declare class CreateAttendanceAdjustmentDto {
     attendanceRecordId?: string;

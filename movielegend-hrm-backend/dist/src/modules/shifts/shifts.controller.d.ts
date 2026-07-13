@@ -36,7 +36,6 @@ export declare class ShiftsController {
                     updatedAt: Date;
                     userId: string;
                     fullName: string;
-                    positionId: string | null;
                     dateOfBirth: Date | null;
                     gender: import("@prisma/client").$Enums.Gender | null;
                     idCardNumber: string;
@@ -52,6 +51,7 @@ export declare class ShiftsController {
                     employmentStatus: import("@prisma/client").$Enums.EmploymentStatus;
                     emergencyContactName: string | null;
                     emergencyContactPhone: string | null;
+                    positionId: string | null;
                 } | null;
             } & {
                 id: string;
@@ -72,11 +72,11 @@ export declare class ShiftsController {
             createdAt: Date;
             updatedAt: Date;
             userId: string;
-            departmentId: string;
-            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
-            workDate: Date;
-            shiftId: string;
             assignedByUserId: string | null;
+            status: import("@prisma/client").$Enums.ShiftAssignmentStatus;
+            departmentId: string;
+            shiftId: string;
+            workDate: Date;
         })[];
     } & {
         id: string;

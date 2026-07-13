@@ -27,8 +27,8 @@ export declare class ChatController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        type: import("@prisma/client").$Enums.ChatGroupType;
         departmentId: string | null;
+        type: import("@prisma/client").$Enums.ChatGroupType;
         taskId: string | null;
         isArchived: boolean;
     }[]>;
@@ -90,8 +90,8 @@ export declare class ChatController {
         name: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import("@prisma/client").$Enums.ChatGroupType;
         departmentId: string | null;
+        type: import("@prisma/client").$Enums.ChatGroupType;
         taskId: string | null;
         isArchived: boolean;
     })[]>;
@@ -100,8 +100,8 @@ export declare class ChatController {
         name: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import("@prisma/client").$Enums.ChatGroupType;
         departmentId: string | null;
+        type: import("@prisma/client").$Enums.ChatGroupType;
         taskId: string | null;
         isArchived: boolean;
     }>;
@@ -110,8 +110,8 @@ export declare class ChatController {
         name: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import("@prisma/client").$Enums.ChatGroupType;
         departmentId: string | null;
+        type: import("@prisma/client").$Enums.ChatGroupType;
         taskId: string | null;
         isArchived: boolean;
     }>;

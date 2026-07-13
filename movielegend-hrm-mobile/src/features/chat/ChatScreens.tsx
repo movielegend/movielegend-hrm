@@ -57,6 +57,7 @@ function getInitials(name: string): string {
 
 export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all' }) {
   const router = useRouter();
+  const { user } = useAuth();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
   const groups = scope === 'all' ? allGroups : myGroups;
@@ -87,12 +88,12 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                 <Pressable
                   key={group.id}
                   style={styles.groupCard}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/admin/chat/[id]',
-                      params: { id: group.id, name: groupName },
-                    })
-                  }
+                  onPress={() => {
+                    const isAdmin = user?.roles?.includes('ADMIN');
+                    const isLeader = user?.roles?.includes('LEADER');
+                    const basePath = isAdmin ? '/admin/chat' : isLeader ? '/leader/chat' : '/employee/chat';
+                    router.push(`${basePath}/${group.id}?name=${encodeURIComponent(groupName)}` as any);
+                  }}
                 >
                   <View style={[
                     styles.groupIcon,
