@@ -14,13 +14,13 @@ export function SearchInput({ value, onChangeText, placeholder = 'Tìm kiếm' }
 
 const styles = StyleSheet.create({
   input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderColor: '#E5E7EB',
+    borderRadius: 24,
     borderWidth: 1,
-    color: colors.text,
+    color: '#111827',
     fontSize: 15,
-    minHeight: 44,
-    paddingHorizontal: spacing.md,
+    minHeight: 48,
+    paddingHorizontal: 20,
   },
 });

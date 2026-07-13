@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -57,14 +58,34 @@ export function ApprovalListScreen({ title }: { title: string }) {
           refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
         >
           {approvals.data?.items.map((approval) => (
-            <SectionCard key={approval.id}>
-              <Text style={styles.titleText}>{approval.user?.profile?.fullName ?? 'Chưa có tên'}</Text>
-              <Text style={styles.meta}>Mã: {approval.user?.userCode ?? '-'}</Text>
-              <Text style={styles.meta}>SĐT: {maskPhone(approval.user?.phone)}</Text>
-              <Text style={styles.meta}>Phòng ban: {approval.requestedDepartment?.name ?? '-'}</Text>
-              <StatusBadge label={statusLabels[approval.status] || approval.status} tone={toneForStatus(approval.status)} />
-              <SecondaryButton onPress={() => router.push(`./approvals/${approval.id}`)}>Xem chi tiết</SecondaryButton>
-            </SectionCard>
+            <View key={approval.id} style={localStyles.card}>
+              <View style={localStyles.cardHeader}>
+                <Avatar name={approval.user?.profile?.fullName} uri={approval.user?.profile?.avatarUrl} size={56} />
+                <View style={localStyles.cardHeaderText}>
+                  <Text style={localStyles.cardTitle}>{approval.user?.profile?.fullName ?? 'Chưa có tên'}</Text>
+                  <Text style={localStyles.cardSubtitle}>Mã: {approval.user?.userCode ?? '-'}</Text>
+                  
+                  <View style={localStyles.infoRow}>
+                    <MaterialCommunityIcons name="phone-outline" size={16} color="#6B7280" />
+                    <Text style={localStyles.infoText}>SĐT: {maskPhone(approval.user?.phone)}</Text>
+                  </View>
+                  
+                  <View style={localStyles.infoRow}>
+                    <MaterialCommunityIcons name="office-building-outline" size={16} color="#6B7280" />
+                    <Text style={localStyles.infoText}>Phòng ban: {approval.requestedDepartment?.name ?? '-'}</Text>
+                  </View>
+                  
+                  <View style={{ alignSelf: 'flex-start', marginTop: 8 }}>
+                    <StatusBadge label={statusLabels[approval.status] || approval.status} tone={toneForStatus(approval.status)} />
+                  </View>
+                </View>
+              </View>
+              
+              <Pressable style={localStyles.actionBtn} onPress={() => router.push(`./approvals/${approval.id}`)}>
+                <Text style={localStyles.actionBtnText}>Xem chi tiết</Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#111827" />
+              </Pressable>
+            </View>
           ))}
         </ScreenContainer>
       </ScreenContainer>
@@ -107,35 +128,64 @@ export function ApprovalDetailScreen() {
       <ScreenContainer>
         <PageHeader title="Chi tiết duyệt tài khoản" subtitle="Xem thông tin chi tiết để quyết định duyệt hoặc từ chối yêu cầu." />
         <SectionCard>
-          <View style={styles.identityRow}>
-            <Avatar name={item.user?.profile?.fullName} uri={item.user?.profile?.avatarUrl} />
-            <View style={styles.flex}>
-              <Text style={styles.titleText}>{item.user?.profile?.fullName ?? '-'}</Text>
-              <Text style={styles.meta}>{item.user?.userCode ?? '-'}</Text>
+          <View style={localStyles.detailHeader}>
+            <Avatar name={item.user?.profile?.fullName} uri={item.user?.profile?.avatarUrl} size={64} />
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <Text style={localStyles.cardTitle}>{item.user?.profile?.fullName ?? '-'}</Text>
+              <Text style={localStyles.cardSubtitle}>{item.user?.userCode ?? '-'}</Text>
             </View>
-            <StatusBadge label={statusLabels[item.status] || item.status} tone={toneForStatus(item.status)} />
+            <View style={{ alignSelf: 'flex-start' }}>
+              <StatusBadge label={statusLabels[item.status] || item.status} tone={toneForStatus(item.status)} />
+            </View>
           </View>
-          <Text style={styles.meta}>SĐT: {maskPhone(item.user?.phone)}</Text>
-          <Text style={styles.meta}>Email: {item.user?.email ?? '-'}</Text>
-          <Text style={styles.meta}>Phòng ban yêu cầu: {item.requestedDepartment?.name ?? '-'}</Text>
-          <Text style={styles.meta}>Ngày đăng ký: {createdDate}</Text>
-          <Text style={styles.meta}>Giờ đăng ký: {createdTime}</Text>
-
-          {faceImages.length > 0 ? (
-            <View style={styles.imagesContainer}>
-              <Text style={styles.imagesTitle}>Ảnh khuôn mặt đăng ký:</Text>
-              <View style={styles.imagesGrid}>
-                {faceImages.map((img) => (
-                  <TouchableOpacity key={img.id} style={styles.faceImageWrapper} onPress={() => setViewingImage(getAbsoluteImageUrl(img.imageUrl) ?? null)}>
-                    <Image source={{ uri: getAbsoluteImageUrl(img.imageUrl) }} style={styles.faceImage} resizeMode="cover" />
-                    <Text style={styles.poseText}>{img.pose}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          
+          <View style={localStyles.detailList}>
+            <View style={localStyles.infoRow}>
+              <MaterialCommunityIcons name="phone-outline" size={18} color="#6B7280" />
+              <Text style={localStyles.infoTextDetail}>SĐT: {maskPhone(item.user?.phone)}</Text>
             </View>
-          ) : (
-            <Text style={styles.meta}>Ảnh khuôn mặt: Chưa cập nhật</Text>
-          )}
+            <View style={localStyles.infoRow}>
+              <MaterialCommunityIcons name="email-outline" size={18} color="#6B7280" />
+              <Text style={localStyles.infoTextDetail}>Email: {item.user?.email ?? '-'}</Text>
+            </View>
+            <View style={localStyles.infoRow}>
+              <MaterialCommunityIcons name="office-building-outline" size={18} color="#6B7280" />
+              <Text style={localStyles.infoTextDetail}>Phòng ban yêu cầu: {item.requestedDepartment?.name ?? '-'}</Text>
+            </View>
+            <View style={localStyles.infoRow}>
+              <MaterialCommunityIcons name="calendar-outline" size={18} color="#6B7280" />
+              <Text style={localStyles.infoTextDetail}>Ngày đăng ký: {createdDate}</Text>
+            </View>
+            <View style={localStyles.infoRow}>
+              <MaterialCommunityIcons name="clock-outline" size={18} color="#6B7280" />
+              <Text style={localStyles.infoTextDetail}>Giờ đăng ký: {createdTime}</Text>
+            </View>
+          </View>
+
+          <View style={localStyles.divider} />
+
+          <View style={localStyles.imagesSection}>
+            <Text style={localStyles.imagesTitle}>Ảnh khuôn mặt đăng ký</Text>
+            <View style={localStyles.imagesGrid}>
+              {['FRONT', 'LEFT', 'RIGHT'].map((pose) => {
+                const img = faceImages.find((i) => i.pose === pose);
+                return (
+                  <View key={pose} style={localStyles.faceImageWrapper}>
+                    {img ? (
+                      <TouchableOpacity style={{ width: '100%' }} onPress={() => setViewingImage(getAbsoluteImageUrl(img.imageUrl) ?? null)}>
+                        <Image source={{ uri: getAbsoluteImageUrl(img.imageUrl) }} style={localStyles.faceImage} resizeMode="cover" />
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={localStyles.faceImagePlaceholder}>
+                        <MaterialCommunityIcons name="account" size={40} color="#D1D5DB" />
+                      </View>
+                    )}
+                    <Text style={localStyles.poseText}>{pose}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
         </SectionCard>
         {approve.error || reject.error ? <Text style={styles.error}>{normalizeApiError(approve.error ?? reject.error).message}</Text> : null}
         {canApprove ? <PrimaryButton onPress={() => setConfirmApprove(true)} loading={approve.isPending}>Duyệt tài khoản</PrimaryButton> : null}
@@ -205,4 +255,117 @@ const styles = StyleSheet.create({
   fullScreenImage: { width: '100%', height: '100%' },
   watermarkContainer: { position: 'absolute', top: 20, left: 20 },
   watermarkLogo: { width: 100, height: 40, opacity: 0.8 },
+});
+
+const localStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  cardHeaderText: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginLeft: 6,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+  },
+  actionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginRight: 4,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  detailList: {
+    gap: 12,
+  },
+  infoTextDetail: {
+    fontSize: 14,
+    color: '#374151',
+    marginLeft: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 24,
+  },
+  imagesSection: {
+    marginTop: 4,
+  },
+  imagesTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  imagesGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  faceImageWrapper: {
+    flex: 1,
+  },
+  faceImage: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  faceImagePlaceholder: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  poseText: {
+    fontSize: 12,
+    color: '#4B5563',
+    marginTop: 8,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

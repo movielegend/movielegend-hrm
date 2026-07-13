@@ -16,8 +16,8 @@ export default function AdminTabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarActiveTintColor: '#111827', // Dark Navy from mockup
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
           borderTopWidth: 0,
           backgroundColor: '#fff',
@@ -32,7 +32,7 @@ export default function AdminTabsLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: '600',
           marginTop: 4,
         }
       }}
@@ -40,36 +40,27 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Làm việc',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home-variant-outline" size={26} color={color} />
+          title: 'Trang chủ',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={28} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="tasks"
         options={{
-          title: 'Giao việc',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="clock-check-outline" size={24} color={color} />
+          title: 'Duyệt đơn',
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="clipboard-check-outline" size={26} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="elearning"
         options={{
-          title: 'E-Learning',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="book-open-page-variant-outline" size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Tài khoản',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-outline" size={26} color={color} />
+          title: 'Chấm công',
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="clock-outline" size={26} color={color} />
           ),
         }}
       />
@@ -77,8 +68,17 @@ export default function AdminTabsLayout() {
         name="notifications"
         options={{
           title: 'Thông báo',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell-outline" size={24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="bell-outline" size={26} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Hồ sơ',
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="account-circle-outline" size={26} color={color} />
           ),
         }}
       />

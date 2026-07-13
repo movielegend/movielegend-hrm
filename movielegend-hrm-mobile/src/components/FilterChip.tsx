@@ -18,22 +18,22 @@ export function FilterChip({ label, selected, onPress }: FilterChipProps) {
 
 const styles = StyleSheet.create({
   chip: {
-    borderColor: colors.border,
-    borderRadius: 999,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   selected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#111827',
+    borderColor: '#111827',
   },
   selectedText: {
-    color: colors.surface,
+    color: '#FFFFFF',
   },
   text: {
-    color: colors.text,
+    color: '#4B5563',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '500',
   },
 });

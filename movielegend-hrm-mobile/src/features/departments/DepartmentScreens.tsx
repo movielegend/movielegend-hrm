@@ -90,7 +90,7 @@ export function DepartmentListScreen() {
           right={
             canCreate ? (
               <Pressable style={styles.addBtn} onPress={() => router.push(branchId ? `/admin/branches/${branchId}/departments/create` : '/admin/departments/create')}>
-                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                <MaterialCommunityIcons name="plus" size={18} color="#fff" />
                 <Text style={styles.addBtnText}>Thêm mới</Text>
               </Pressable>
             ) : undefined
@@ -106,50 +106,51 @@ export function DepartmentListScreen() {
           {filteredItems?.map((department) => (
             <Pressable key={department.id} style={styles.card} onPress={() => router.push(`/admin/branches/${department.branchId || branchId}/departments/${department.id}/employees`)}>
               <View style={styles.cardHeader}>
-                <View style={styles.iconBox}>
-                  <MaterialCommunityIcons name="office-building-outline" size={24} color={colors.primary} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+                  <View style={styles.iconBox}>
+                    <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.cardTitle}>{department.name}</Text>
+                    <Text style={styles.cardSubtitle}>Mã: {department.code}</Text>
+                  </View>
                 </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>{department.name}</Text>
-                  <Text style={styles.cardSubtitle}>Mã: {department.code}</Text>
+                <View style={styles.badgeWrapper}>
+                  <Text style={styles.badgeText}>{department.isActive ? 'Đang hoạt động' : 'Đã ẩn'}</Text>
                 </View>
-                <StatusBadge 
-                  label={department.isActive ? 'Đang hoạt động' : 'Đã ẩn'} 
-                  tone={department.isActive ? 'success' : 'neutral'} 
-                />
               </View>
 
               <View style={styles.cardMeta}>
-                <MaterialCommunityIcons name="account-tie-outline" size={16} color="#64748B" />
+                <MaterialCommunityIcons name="account-outline" size={20} color="#111827" />
                 <Text style={styles.metaText}>Quản lý: {department.leader?.profile?.fullName ?? department.leaderUserId ?? 'Chưa bổ nhiệm'}</Text>
               </View>
 
               <View style={styles.actions}>
                 <Pressable
-                  style={[styles.actionBtn, { backgroundColor: '#F0F9FF' }]}
+                  style={styles.actionBtn}
                   onPress={() => router.push(branchId ? `/admin/branches/${branchId}/departments/${department.id}` : `/admin/departments/${department.id}`)}
                 >
-                  <MaterialCommunityIcons name="eye-outline" size={18} color="#0369A1" />
-                  <Text style={[styles.actionText, { color: '#0369A1' }]}>Chi tiết</Text>
+                  <MaterialCommunityIcons name="eye-outline" size={18} color="#111827" />
+                  <Text style={styles.actionText}>Chi tiết</Text>
                 </Pressable>
 
                 {canUpdate ? (
                   <Pressable
-                    style={[styles.actionBtn, { backgroundColor: '#FFF7ED' }]}
+                    style={styles.actionBtn}
                     onPress={() => router.push(branchId ? `/admin/branches/${branchId}/departments/${department.id}/edit` : `/admin/departments/edit/${department.id}`)}
                   >
-                    <MaterialCommunityIcons name="pencil" size={18} color="#EA580C" />
-                    <Text style={[styles.actionText, { color: '#EA580C' }]}>Sửa</Text>
+                    <MaterialCommunityIcons name="pencil" size={18} color="#111827" />
+                    <Text style={styles.actionText}>Sửa</Text>
                   </Pressable>
                 ) : null}
 
                 {canDelete ? (
                   <Pressable
-                    style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
+                    style={styles.actionBtn}
                     onPress={() => handleDelete(department.id, department.name)}
                   >
-                    <MaterialCommunityIcons name="delete-outline" size={18} color="#DC2626" />
-                    <Text style={[styles.actionText, { color: '#DC2626' }]}>Xóa</Text>
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#111827" />
+                    <Text style={styles.actionText}>Xóa</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -588,10 +589,10 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 8,
     gap: 4,
   },
   addBtnText: {
@@ -602,30 +603,28 @@ const styles = StyleSheet.create({
   list: {
     gap: 16,
     paddingBottom: 32,
+    marginTop: 16,
   },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   iconBox: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: 12,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   cardInfo: {
     flex: 1,
@@ -633,26 +632,38 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.text,
+    color: '#111827',
   },
   cardSubtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: '#4B5563',
+    fontWeight: '500',
     marginTop: 2,
+  },
+  badgeWrapper: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  badgeText: {
+    color: '#111827',
+    fontSize: 12,
+    fontWeight: '600',
   },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
     marginBottom: 16,
-    gap: 8,
+    gap: 12,
   },
   metaText: {
     fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
+    color: '#111827',
+    fontWeight: '600',
   },
   actions: {
     flexDirection: 'row',
@@ -663,12 +674,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    backgroundColor: '#F8FAFC',
     borderRadius: 8,
     gap: 6,
   },
   actionText: {
     fontWeight: '600',
     fontSize: 14,
+    color: '#111827',
   },
 });

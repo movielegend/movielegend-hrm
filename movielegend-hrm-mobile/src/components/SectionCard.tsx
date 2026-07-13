@@ -18,15 +18,15 @@ export function SectionCard({ title, children }: SectionCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderColor: '#F3F4F6',
+    borderRadius: 16,
     borderWidth: 1,
     gap: spacing.md,
     padding: spacing.lg,
   },
   title: {
-    color: colors.text,
+    color: '#111827',
     fontSize: 17,
     fontWeight: '800',
   },

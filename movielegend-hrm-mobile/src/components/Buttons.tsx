@@ -42,8 +42,8 @@ export function SecondaryButton({ children, onPress, disabled, loading, accessib
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: 8,
-    minHeight: 44,
+    borderRadius: 12,
+    minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   primary: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
   },
   primaryText: {
     color: colors.surface,
@@ -60,11 +60,11 @@ const styles = StyleSheet.create({
   },
   secondary: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: '#E5E7EB',
     borderWidth: 1,
   },
   secondaryText: {
-    color: colors.primary,
+    color: '#111827',
     fontSize: 15,
     fontWeight: '800',
   },

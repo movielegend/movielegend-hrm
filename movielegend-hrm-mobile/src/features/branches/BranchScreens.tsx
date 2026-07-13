@@ -62,7 +62,7 @@ export function BranchListScreen() {
           subtitle="Quản lý chi nhánh công ty"
           right={
             <Pressable style={styles.addBtn} onPress={() => router.push('./branches/create')}>
-              <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+              <MaterialCommunityIcons name="plus" size={18} color="#fff" />
               <Text style={styles.addBtnText}>Thêm mới</Text>
             </Pressable>
           }
@@ -77,29 +77,28 @@ export function BranchListScreen() {
           {filteredItems?.map((branch) => (
             <Pressable key={branch.id} style={styles.card} onPress={() => router.push(`/admin/branches/${branch.id}/departments`)}>
               <View style={styles.cardHeader}>
-                <View style={styles.iconBox}>
-                  <MaterialCommunityIcons name="domain" size={24} color={colors.primary} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+                  <View style={styles.iconBox}>
+                    <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.cardTitle}>{branch.name}</Text>
+                    <Text style={styles.cardSubtitle}>Mã: {branch.code}</Text>
+                  </View>
                 </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>{branch.name}</Text>
-                  <Text style={styles.cardSubtitle}>Mã: {branch.code}</Text>
-                  {branch.address ? <Text style={styles.cardDesc}>{branch.address}</Text> : null}
-                  {branch.departments && branch.departments.length > 0 ? (
-                    <Text style={{ fontSize: 12, color: colors.primary, marginTop: 4 }}>
-                      {branch.departments.length} phòng ban
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-
-                  <Pressable
-                    style={styles.actionBtn}
-                    onPress={() => handleDelete(branch.id, branch.name)}
-                  >
-                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
-                  </Pressable>
-                </View>
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => handleDelete(branch.id, branch.name)}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="#111827" />
+                </Pressable>
               </View>
+              {branch.address ? <Text style={styles.cardDesc}>{branch.address}</Text> : null}
+              {branch.departments && branch.departments.length > 0 ? (
+                <Text style={styles.cardCount}>
+                  {branch.departments.length} phòng ban
+                </Text>
+              ) : null}
             </Pressable>
           ))}
         </View>
@@ -177,29 +176,29 @@ export function BranchCreateScreen() {
             autoCapitalize="none"
           />
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: address ? '#333' : '#98A0A8', fontSize: 15 }} numberOfLines={2}>
-                  {address || 'Chưa chọn vị trí'}
-                </Text>
-                {latitude && longitude && (
-                  <Text style={{ fontSize: 12, color: '#1E88E5', marginTop: 4 }}>
-                    {latitude.toFixed(6)}, {longitude.toFixed(6)}
-                  </Text>
-                )}
-              </View>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
+            <View style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              borderWidth: 1, 
+              borderColor: '#E5E7EB', 
+              borderRadius: 12, 
+              paddingLeft: 16, 
+              paddingRight: 8,
+              minHeight: 48 
+            }}>
+              <Text style={{ flex: 1, color: address ? '#111827' : '#9CA3AF', fontSize: 15 }} numberOfLines={1}>
+                {address || 'Chưa chọn vị trí'}
+              </Text>
               <Pressable 
                 onPress={() => setMapVisible(true)}
                 style={{
-                  backgroundColor: '#E0F2FE',
-                  padding: 12,
+                  backgroundColor: '#F3F4F6',
+                  padding: 8,
                   borderRadius: 8,
-                  alignItems: 'center',
-                  justifyContent: 'center'
                 }}
               >
-                <MaterialCommunityIcons name="map-marker-radius" size={24} color="#0284C7" />
+                <MaterialCommunityIcons name="map-marker-outline" size={20} color="#3B82F6" />
               </Pressable>
             </View>
           </View>
@@ -314,29 +313,29 @@ export function BranchEditScreen() {
             autoCapitalize="none"
           />
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0B3B61', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: address ? '#333' : '#98A0A8', fontSize: 15 }} numberOfLines={2}>
-                  {address || 'Chưa chọn vị trí'}
-                </Text>
-                {latitude && longitude && (
-                  <Text style={{ fontSize: 12, color: '#1E88E5', marginTop: 4 }}>
-                    {latitude.toFixed(6)}, {longitude.toFixed(6)}
-                  </Text>
-                )}
-              </View>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
+            <View style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              borderWidth: 1, 
+              borderColor: '#E5E7EB', 
+              borderRadius: 12, 
+              paddingLeft: 16, 
+              paddingRight: 8,
+              minHeight: 48 
+            }}>
+              <Text style={{ flex: 1, color: address ? '#111827' : '#9CA3AF', fontSize: 15 }} numberOfLines={1}>
+                {address || 'Chưa chọn vị trí'}
+              </Text>
               <Pressable 
                 onPress={() => setMapVisible(true)}
                 style={{
-                  backgroundColor: '#E0F2FE',
-                  padding: 12,
+                  backgroundColor: '#F3F4F6',
+                  padding: 8,
                   borderRadius: 8,
-                  alignItems: 'center',
-                  justifyContent: 'center'
                 }}
               >
-                <MaterialCommunityIcons name="map-marker-radius" size={24} color="#0284C7" />
+                <MaterialCommunityIcons name="map-marker-outline" size={20} color="#3B82F6" />
               </Pressable>
             </View>
           </View>
@@ -366,24 +365,25 @@ export function BranchEditScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 16 },
+  list: { gap: 16, marginTop: 16 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E6EEF3',
+    borderColor: '#F3F4F6',
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   iconBox: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#F0F8FF',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -391,28 +391,34 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0B3B61',
-    marginBottom: 4,
+    color: '#111827',
   },
   cardSubtitle: {
     fontSize: 13,
-    color: '#1E88E5',
-    fontWeight: '600',
-    marginBottom: 4,
+    color: '#4B5563',
+    fontWeight: '500',
+    marginTop: 2,
   },
   cardDesc: {
-    fontSize: 13,
-    color: '#98A0A8',
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  cardCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
   },
   actionBtn: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,

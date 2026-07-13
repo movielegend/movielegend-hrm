@@ -6,16 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { z } from 'zod';
-import { LogoMark } from '../../components/LogoMark';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
 import { mapLoginError } from '../../utils/api-error';
 import { getHomeRouteForUser } from '../../utils/role-routing';
 
 const loginSchema = z.object({
-  phone: z.string().min(8, 'Vui lòng nhập số điện thoại'),
+  phone: z.string().min(8, 'Vui lòng nhập số điện thoại hoặc email'),
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
@@ -47,110 +44,120 @@ export function LoginScreen() {
 
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+      <View style={styles.container}>
         <KeyboardAwareScrollView 
-          contentContainerStyle={{ flexGrow: 1 }} 
+          contentContainerStyle={styles.scrollContent} 
           enableOnAndroid={true}
           extraScrollHeight={20}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+          <View style={styles.innerContent}>
 
             {/* Header Branding */}
-            <View style={{ alignItems: 'center', marginBottom: 40 }}>
-              <View style={{ width: 80, height: 80, backgroundColor: '#1E88E5', borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 16, shadowColor: '#1E88E5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 }}>
-                <Ionicons name="film-outline" size={40} color="#FFFFFF" />
+            <View style={styles.header}>
+              <View style={styles.logoBox}>
+                <Text style={styles.logoText}>ERP</Text>
+                <Text style={styles.logoText}>OS</Text>
               </View>
-              <Text style={{ fontSize: 28, fontWeight: '800', color: '#0B3B61', letterSpacing: -0.5 }}>MovieLegend</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E88E5', letterSpacing: 2, marginTop: 4 }}>HR MANAGEMENT</Text>
+              <Text style={styles.welcomeText}>Welcome back</Text>
+              <Text style={styles.subtitleText}>Sign in to continue to ERP OS</Text>
             </View>
 
-            {/* Login Form Card */}
-            <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5 }}>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#0B3B61', marginBottom: 6 }}>Chào mừng trở lại</Text>
-              <Text style={{ fontSize: 14, color: '#64748B', marginBottom: 24 }}>Đăng nhập để tiếp tục quản lý công việc</Text>
-
-              <View style={{ gap: 20 }}>
-                {/* Phone Field */}
-                <View>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#3B4A59', marginBottom: 8, textTransform: 'uppercase' }}>Số điện thoại</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: errors.phone ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 52 }}>
-                    <Ionicons name="call-outline" size={20} color={errors.phone ? '#EF4444' : '#94A3B8'} style={{ marginRight: 8 }} />
-                    <Controller
-                      control={control}
-                      name="phone"
-                      render={({ field: { onBlur, onChange, value } }) => (
-                        <TextInput
-                          autoCapitalize="none"
-                          keyboardType="phone-pad"
-                          onBlur={onBlur}
-                          onChangeText={onChange}
-                          placeholder="Nhập số điện thoại"
-                          placeholderTextColor="#94A3B8"
-                          style={{ flex: 1, fontSize: 15, color: '#1E293B', height: '100%' }}
-                          value={value}
-                        />
-                      )}
+            {/* Login Form */}
+            <View style={styles.formContainer}>
+              {/* Phone/Email Field */}
+              <View style={[styles.inputWrapper, errors.phone && styles.inputError]}>
+                <Text style={styles.inputLabel}>Email address</Text>
+                <Controller
+                  control={control}
+                  name="phone"
+                  render={({ field: { onBlur, onChange, value } }) => (
+                    <TextInput
+                      autoCapitalize="none"
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      placeholder="binh.hoang@company.com"
+                      placeholderTextColor="#9CA3AF"
+                      style={styles.inputText}
+                      value={value}
                     />
-                  </View>
-                  {errors.phone ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 6 }}>{errors.phone.message}</Text> : null}
-                </View>
-
-                {/* Password Field */}
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#3B4A59', textTransform: 'uppercase' }}>Mật khẩu</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E88E5' }}>Quên mật khẩu?</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: errors.password ? '#EF4444' : '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 52 }}>
-                    <Ionicons name="lock-closed-outline" size={20} color={errors.password ? '#EF4444' : '#94A3B8'} style={{ marginRight: 8 }} />
-                    <Controller
-                      control={control}
-                      name="password"
-                      render={({ field: { onBlur, onChange, value } }) => (
-                        <TextInput
-                          autoCapitalize="none"
-                          onBlur={onBlur}
-                          onChangeText={onChange}
-                          placeholder="Nhập mật khẩu"
-                          placeholderTextColor="#94A3B8"
-                          secureTextEntry={secureText}
-                          style={{ flex: 1, fontSize: 15, color: '#1E293B', height: '100%' }}
-                          value={value}
-                        />
-                      )}
-                    />
-                    <Pressable onPress={() => setSecureText(!secureText)} style={{ padding: 4 }}>
-                      <Ionicons name={secureText ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94A3B8" />
-                    </Pressable>
-                  </View>
-                  {errors.password ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 6 }}>{errors.password.message}</Text> : null}
-                </View>
-
-                {formError ? (
-                  <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                    <Text style={{ color: '#EF4444', fontSize: 13, flex: 1 }}>{formError}</Text>
-                  </View>
-                ) : null}
-
-                <Pressable
-                  disabled={isSubmitting}
-                  onPress={onSubmit}
-                  style={{ backgroundColor: isSubmitting ? '#93C5FD' : '#1E88E5', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 8, shadowColor: '#1E88E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}
-                >
-                  {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>ĐĂNG NHẬP</Text>}
-                </Pressable>
-
+                  )}
+                />
               </View>
+              {errors.phone ? <Text style={styles.errorText}>{errors.phone.message}</Text> : null}
+
+              {/* Password Field */}
+              <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={styles.passwordRow}>
+                  <Controller
+                    control={control}
+                    name="password"
+                    render={({ field: { onBlur, onChange, value } }) => (
+                      <TextInput
+                        autoCapitalize="none"
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="••••••••"
+                        placeholderTextColor="#9CA3AF"
+                        secureTextEntry={secureText}
+                        style={[styles.inputText, { flex: 1 }]}
+                        value={value}
+                      />
+                    )}
+                  />
+                  <Pressable onPress={() => setSecureText(!secureText)} style={styles.eyeBtn}>
+                    <Ionicons name={secureText ? 'eye-outline' : 'eye-off-outline'} size={20} color="#6B7280" />
+                  </Pressable>
+                </View>
+              </View>
+              {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
+
+              <Pressable style={styles.forgotPassword}>
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </Pressable>
+
+              {formError ? (
+                <View style={styles.formErrorBox}>
+                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                  <Text style={styles.formErrorText}>{formError}</Text>
+                </View>
+              ) : null}
+
+              <Pressable
+                disabled={isSubmitting}
+                onPress={onSubmit}
+                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Đăng nhập</Text>
+                )}
+              </Pressable>
+
+              {/* OR Divider */}
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* Social Logins */}
+              <Pressable style={styles.socialButton}>
+                <Ionicons name="logo-google" size={20} color="#EA4335" style={styles.socialIcon} />
+                <Text style={styles.socialButtonText}>Continue with Google</Text>
+              </Pressable>
+
             </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 32 }}>
-              <Text style={{ fontSize: 14, color: '#64748B' }}>Nhân sự mới? </Text>
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
               <Pressable onPress={() => router.push('/register')}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E88E5' }}>Đăng ký tài khoản</Text>
+                <Text style={styles.footerLink}>Sign up</Text>
               </Pressable>
             </View>
+
           </View>
         </KeyboardAwareScrollView>
       </View>
@@ -159,111 +166,183 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  caption: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   container: {
     flex: 1,
-    gap: spacing.xl,
-    justifyContent: 'center',
-    padding: spacing.xl,
+    backgroundColor: '#FAFBFC', // Lighter background
   },
-  disabled: {
-    opacity: 0.7,
+  scrollContent: {
+    flexGrow: 1,
   },
-  field: {
-    gap: spacing.sm,
-  },
-  fieldError: {
-    color: colors.danger,
-    fontSize: 13,
-  },
-  formError: {
-    backgroundColor: colors.dangerSoft,
-    borderRadius: 8,
-    color: colors.danger,
-    fontSize: 14,
-    lineHeight: 20,
-    padding: spacing.md,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    color: colors.text,
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
-  },
-  keyboard: {
+  innerContent: {
     flex: 1,
-  },
-  label: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  loginButton: {
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    minHeight: 50,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+    width: '100%',
+  },
+  logoBox: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#111827',
+    borderRadius: 24, // Squircle
+    alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 24,
   },
-  loginText: {
-    color: colors.surface,
-    fontSize: 16,
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: 20,
     fontWeight: '800',
+    lineHeight: 24,
+    letterSpacing: 0.5,
   },
-  panel: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
+  welcomeText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  subtitleText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  formContainer: {
+    width: '100%',
+  },
+  inputWrapper: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    gap: spacing.lg,
-    padding: spacing.xl,
+    borderColor: '#ECEEF3',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
   },
-  passwordInput: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  inputText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    height: 24,
+    padding: 0,
   },
   passwordRow: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
     flexDirection: 'row',
-  },
-  title: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  registerLink: {
     alignItems: 'center',
-    minHeight: 40,
+  },
+  eyeBtn: {
+    paddingLeft: 12,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 16,
+    marginLeft: 4,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-start',
+    marginBottom: 24,
+  },
+  forgotPasswordText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  formErrorBox: {
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 24,
+  },
+  formErrorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    flex: 1,
+  },
+  submitButton: {
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    height: 56,
+    alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 32,
   },
-  registerText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '800',
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
-  toggle: {
-    minHeight: 48,
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ECEEF3',
+  },
+  dividerText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 16,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#ECEEF3',
+    borderRadius: 20,
+    height: 52,
+    marginBottom: 16,
   },
-  toggleText: {
-    color: colors.primary,
+  socialIcon: {
+    marginRight: 12,
+  },
+  socialButtonText: {
+    color: '#111827',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '600',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  footerLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
   },
 });

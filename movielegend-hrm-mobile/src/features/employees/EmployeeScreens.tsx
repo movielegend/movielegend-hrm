@@ -85,7 +85,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               right={
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Pressable style={styles.addBtn} onPress={() => router.push('/admin/employees/create')}>
-                    <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                    <MaterialCommunityIcons name="plus" size={18} color="#fff" />
                     <Text style={styles.addBtnText}>Thêm mới</Text>
                   </Pressable>
                 </View>
@@ -96,9 +96,15 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             <SearchInput value={filters.search ?? ''} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tìm nhân sự" />
           </View>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-            <FilterChip label="Đang hoạt động" selected={filters.accountStatus === 'ACTIVE'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'ACTIVE', page: 1 }))} />
-            <FilterChip label="Tạm khóa" selected={filters.accountStatus === 'SUSPENDED'} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'SUSPENDED', page: 1 }))} />
-            <FilterChip label="Tất cả" selected={!filters.accountStatus} onPress={() => setFilters((f) => ({ ...f, accountStatus: undefined, page: 1 }))} />
+            <Pressable style={[styles.filterChip, filters.accountStatus === 'ACTIVE' && styles.filterChipActive]} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'ACTIVE', page: 1 }))}>
+              <Text style={[styles.filterChipText, filters.accountStatus === 'ACTIVE' && styles.filterChipTextActive]}>Đang hoạt động</Text>
+            </Pressable>
+            <Pressable style={[styles.filterChip, filters.accountStatus === 'SUSPENDED' && styles.filterChipActive]} onPress={() => setFilters((f) => ({ ...f, accountStatus: 'SUSPENDED', page: 1 }))}>
+              <Text style={[styles.filterChipText, filters.accountStatus === 'SUSPENDED' && styles.filterChipTextActive]}>Tạm khóa</Text>
+            </Pressable>
+            <Pressable style={[styles.filterChip, !filters.accountStatus && styles.filterChipActive]} onPress={() => setFilters((f) => ({ ...f, accountStatus: undefined, page: 1 }))}>
+              <Text style={[styles.filterChipText, !filters.accountStatus && styles.filterChipTextActive]}>Tất cả</Text>
+            </Pressable>
           </View>
           
           <View style={styles.list}>
@@ -108,7 +114,9 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             {adminUsers.data?.items.map((employee) => (
               <View key={employee.id} style={styles.card}>
                 <View style={styles.identityRow}>
-                  <Avatar name={employee.profile?.fullName} uri={employee.profile?.avatarUrl} />
+                  <View style={styles.avatarBox}>
+                    <Text style={styles.avatarText}>{employee.profile?.fullName ? employee.profile.fullName.split(' ').pop()?.[0] || 'NV' : 'NV'}</Text>
+                  </View>
                   <View style={styles.flex}>
                     <Text style={styles.titleText}>{employee.profile?.fullName ?? '-'}</Text>
                     <Text style={styles.metaText}>{employee.userCode}</Text>
@@ -116,26 +124,26 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                       Vị trí: {employee.roles?.some((r) => r.role.code === 'LEADER') ? 'Quản lý (Leader)' : (employee.profile?.position?.name ?? 'Chưa có')}
                     </Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end', gap: 8 }}>
-                    <StatusBadge label={employee.accountStatus} tone={toneForStatus(employee.accountStatus)} />
+                  <View style={styles.badgeWrapper}>
+                    <Text style={styles.badgeText}>{employee.accountStatus}</Text>
                   </View>
                 </View>
                 
                 <View style={styles.cardMeta}>
-                  <MaterialCommunityIcons name="office-building" size={16} color={colors.primary} />
-                  <Text style={styles.metaText}>{employee.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}</Text>
+                  <MaterialCommunityIcons name="office-building" size={18} color="#111827" />
+                  <Text style={[styles.metaText, { color: '#111827', fontWeight: '500' }]}>{employee.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}</Text>
                 </View>
 
                 <View style={styles.actions}>
-                  <Pressable style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]} onPress={() => router.push(`/admin/employees/${employee.id}`)}>
-                    <MaterialCommunityIcons name="eye" size={18} color={colors.text} />
-                    <Text style={[styles.actionText, { color: colors.text }]}>Chi tiết</Text>
+                  <Pressable style={styles.actionBtn} onPress={() => router.push(`/admin/employees/${employee.id}`)}>
+                    <MaterialCommunityIcons name="eye-outline" size={18} color="#111827" />
+                    <Text style={styles.actionText}>Chi tiết</Text>
                   </Pressable>
                   {scope === 'admin' ? (
                     <>
-                      <Pressable style={[styles.actionBtn, { backgroundColor: '#FFF7ED' }]} onPress={() => router.push({ pathname: '/admin/employees/[id]', params: { id: employee.id, edit: '1' } })}>
-                        <MaterialCommunityIcons name="pencil" size={18} color="#EA580C" />
-                        <Text style={[styles.actionText, { color: '#EA580C' }]}>Sửa</Text>
+                      <Pressable style={styles.actionBtn} onPress={() => router.push({ pathname: '/admin/employees/[id]', params: { id: employee.id, edit: '1' } })}>
+                        <MaterialCommunityIcons name="pencil" size={18} color="#111827" />
+                        <Text style={styles.actionText}>Sửa</Text>
                       </Pressable>
                       {departmentId ? (
                         (() => {
@@ -143,17 +151,17 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                           if (leaderRole) {
                             return (
                               <Pressable 
-                                style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
+                                style={styles.actionBtn}
                                 onPress={() => setConfirmAction({ type: 'revoke', employeeId: employee.id, employeeName: employee.profile?.fullName || 'N/A', leaderRoleId: leaderRole.id })}
                               >
-                                <MaterialCommunityIcons name="account-remove" size={18} color="#DC2626" />
-                                <Text style={[styles.actionText, { color: '#DC2626' }]}>Thu hồi</Text>
+                                <MaterialCommunityIcons name="account-remove-outline" size={18} color="#111827" />
+                                <Text style={styles.actionText}>Thu hồi</Text>
                               </Pressable>
                             );
                           } else {
                             return (
                               <Pressable 
-                                style={[styles.actionBtn, { backgroundColor: '#ECFDF5' }]}
+                                style={styles.actionBtn}
                                 onPress={() => {
                                   if (employee.accountStatus !== 'ACTIVE') {
                                     setConfirmAction({ type: 'error_inactive' });
@@ -162,8 +170,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                                   setConfirmAction({ type: 'appoint', employeeId: employee.id, employeeName: employee.profile?.fullName || 'N/A' });
                                 }}
                               >
-                                <MaterialCommunityIcons name="account-star" size={18} color="#059669" />
-                                <Text style={[styles.actionText, { color: '#059669' }]}>Bổ nhiệm</Text>
+                                <MaterialCommunityIcons name="account-star-outline" size={18} color="#111827" />
+                                <Text style={styles.actionText}>Bổ nhiệm</Text>
                               </Pressable>
                             );
                           }
@@ -310,12 +318,16 @@ export function EmployeeDetailScreen() {
           
           <SectionCard title="Thông tin cơ bản">
             <View style={[styles.identityRow, { marginBottom: 16 }]}>
-              <Avatar name={item.profile?.fullName} uri={item.profile?.avatarUrl} />
-              <View style={styles.flex}>
-                <Text style={[styles.titleText, { fontSize: 18 }]}>{item.profile?.fullName ?? 'Chưa cập nhật'}</Text>
-                <Text style={[styles.meta, { color: '#1E88E5', fontWeight: '600' }]}>{item.userCode}</Text>
+              <View style={[styles.avatarBox, { width: 56, height: 56, borderRadius: 28 }]}>
+                <Text style={[styles.avatarText, { fontSize: 20 }]}>{item.profile?.fullName ? item.profile.fullName.split(' ').pop()?.[0] || 'NV' : 'NV'}</Text>
               </View>
-              <StatusBadge label={item.accountStatus === 'ACTIVE' ? 'ĐANG HOẠT ĐỘNG' : item.accountStatus} tone={toneForStatus(item.accountStatus)} />
+              <View style={styles.flex}>
+                <Text style={[styles.titleText, { fontSize: 18, marginBottom: 4 }]}>{item.profile?.fullName ?? 'Chưa cập nhật'}</Text>
+                <Text style={[styles.metaText, { color: '#4B5563', fontWeight: '600' }]}>{item.userCode}</Text>
+              </View>
+              <View style={styles.badgeWrapper}>
+                <Text style={styles.badgeText}>{item.accountStatus === 'ACTIVE' ? 'ĐANG HOẠT ĐỘNG' : item.accountStatus}</Text>
+              </View>
             </View>
 
             <View style={{ gap: 12 }}>
@@ -335,30 +347,30 @@ export function EmployeeDetailScreen() {
           </SectionCard>
 
           <SectionCard title="Công việc & Vai trò">
-            <View style={{ gap: 12 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 8 }}>
-                <Text style={{ fontSize: 14, color: '#98A0A8' }}>Phòng ban</Text>
-                <Text style={{ fontSize: 14, color: '#0B3B61', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+            <View style={{ gap: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+                <Text style={{ fontSize: 14, color: '#6B7280' }}>Phòng ban</Text>
+                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
                   {item.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}
                 </Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 8 }}>
-                <Text style={{ fontSize: 14, color: '#98A0A8' }}>Vị trí</Text>
-                <Text style={{ fontSize: 14, color: '#0B3B61', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+                <Text style={{ fontSize: 14, color: '#6B7280' }}>Vị trí</Text>
+                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
                   {item.roles?.some((r) => r.role.code === 'LEADER') ? 'Quản lý (Leader)' : (item.departmentLinks?.map((link) => link.position?.name).filter(Boolean).join(', ') || item.profile?.position?.name || 'Chưa có vị trí')}
                 </Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 8 }}>
-                <Text style={{ fontSize: 14, color: '#98A0A8' }}>Phân quyền</Text>
-                <Text style={{ fontSize: 14, color: '#0B3B61', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+                <Text style={{ fontSize: 14, color: '#6B7280' }}>Phân quyền</Text>
+                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
                   {item.roles?.map((role) => role.role.code).join(', ') || 'USER'}
                 </Text>
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 14, color: '#98A0A8' }}>Trạng thái khuôn mặt</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name={item.profile?.avatarUrl ? "checkmark-circle" : "close-circle"} size={16} color={item.profile?.avatarUrl ? "#10B981" : "#F59E0B"} />
-                  <Text style={{ fontSize: 14, color: item.profile?.avatarUrl ? '#10B981' : '#F59E0B', fontWeight: '500' }}>
+                <Text style={{ fontSize: 14, color: '#6B7280' }}>Trạng thái khuôn mặt</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="information-circle" size={16} color="#111827" />
+                  <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>
                     {item.profile?.avatarUrl ? 'Đã có dữ liệu' : 'Chưa cập nhật'}
                   </Text>
                 </View>
@@ -488,33 +500,53 @@ export function CreateEmployeeScreen() {
 const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 14 },
   flex: { flex: 1 },
-  identityRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  identityRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   meta: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   positionOption: {
-    borderColor: colors.border,
+    borderColor: '#F3F4F6',
     borderRadius: 8,
     borderWidth: 1,
-    padding: spacing.md,
+    padding: 16,
     marginTop: 8,
   },
   positionOptionSelected: {
-    borderColor: colors.primary,
+    borderColor: '#111827',
     borderWidth: 2,
   },
-  titleText: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  titleText: { color: '#111827', fontSize: 17, fontWeight: '800' },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 8,
     gap: 4,
   },
   addBtnText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterChipActive: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#fff',
   },
   list: {
     gap: 16,
@@ -524,26 +556,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 10,
-    borderRadius: 8,
     marginBottom: 16,
     gap: 8,
     marginTop: 12,
   },
   metaText: {
-    fontSize: 14,
-    color: colors.text,
+    fontSize: 13,
+    color: '#4B5563',
     fontWeight: '500',
+    marginTop: 2,
   },
   actions: {
     flexDirection: 'row',
@@ -554,17 +581,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    backgroundColor: '#F8FAFC',
     borderRadius: 8,
     gap: 6,
   },
   actionText: {
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
+    color: '#111827',
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: '#111827',
+  },
+  avatarBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  badgeWrapper: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgeText: {
+    color: '#111827',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

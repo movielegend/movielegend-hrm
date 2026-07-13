@@ -10,11 +10,11 @@ interface StatusBadgeProps {
 }
 
 const toneColors: Record<StatusTone, { backgroundColor: string; color: string }> = {
-  danger: { backgroundColor: colors.dangerSoft, color: colors.danger },
-  info: { backgroundColor: colors.primarySoft, color: colors.primaryDark },
-  neutral: { backgroundColor: '#EEF2F7', color: colors.muted },
-  success: { backgroundColor: '#E6FFFA', color: colors.success },
-  warning: { backgroundColor: '#FFF7ED', color: colors.warning },
+  danger: { backgroundColor: '#FEE2E2', color: '#EF4444' },
+  info: { backgroundColor: '#E0F2FE', color: '#3B82F6' },
+  neutral: { backgroundColor: '#F3F4F6', color: '#374151' },
+  success: { backgroundColor: '#F3F4F6', color: '#374151' }, // Used for ĐÃ DUYỆT
+  warning: { backgroundColor: '#FEF3C7', color: '#F59E0B' },
 };
 
 export function StatusBadge({ label, tone = 'neutral' }: StatusBadgeProps) {
