@@ -396,7 +396,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         )}
 
         {/* Input */}
-        <View style={[styles.chatInputRow, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? keyboardHeight + 10 : 10) : Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.chatInputRow, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? keyboardHeight + insets.bottom + 10 : 10) : Math.max(insets.bottom, 10) }]}>
           <Pressable onPress={pickImage} style={styles.attachBtn}>
             <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
           </Pressable>
