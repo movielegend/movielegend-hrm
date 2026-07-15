@@ -3,6 +3,8 @@ import { useRef, useState, useEffect } from 'react';
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,8 +15,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as ScreenCapture from 'expo-screen-capture';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
@@ -28,6 +33,7 @@ import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage } from
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
+import { useSocketStatus } from '../../providers/SocketProvider';
 
 // ── Helpers ──
 
@@ -144,30 +150,65 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
   const employees = useScopedEmployees({ limit: 100 });
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    let subscription: ScreenCapture.Subscription | undefined;
+    
+    // Keyboard listeners
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardHeight(0));
+
+    
+    // Add screen capture listener
+    const initListener = async () => {
+      // expo-screen-capture has addScreenshotListener on iOS/Android
+      // Ensure we run this safely
+      try {
+        if (ScreenCapture.addScreenshotListener) {
+          subscription = ScreenCapture.addScreenshotListener(() => {
+            Alert.alert("Cảnh báo", "Bắt quả tang cap màn hình nhé! 📸");
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    initListener();
+
+    return () => {
+      if (subscription?.remove) {
+        subscription.remove();
+      }
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [text, setText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentions, setMentions] = useState<string[]>([]);
 
-  const scrollRef = useRef<ScrollView>(null);
-
   const messageItems = Array.isArray(messages.data)
     ? messages.data
     : (messages.data as any)?.items ?? [];
 
-  // Reverse so newest at bottom
+  const { joinChatRoom } = useSocketStatus();
+
+  // Sort newest first for inverted list
   const sortedMessages = [...messageItems].sort(
-    (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   useEffect(() => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 100);
-  }, [sortedMessages.length]);
+    if (groupId) joinChatRoom(groupId);
+  }, [groupId, joinChatRoom]);
 
   async function pickImage() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -249,7 +290,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
   return (
     <Screen>
-      <View style={styles.chatContainer}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.chatContainer}>
         {/* Header */}
         <View style={styles.chatHeader}>
           <View style={styles.chatHeaderIcon}>
@@ -264,73 +309,70 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         </View>
 
         {/* Messages */}
-        <ScrollView
-          ref={scrollRef}
+        <FlatList
           style={styles.messageList}
           contentContainerStyle={styles.messageListContent}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          {sortedMessages.length > 0 ? (
-            sortedMessages.map((msg: any) => {
-              const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
-              const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
+          data={sortedMessages}
+          keyExtractor={(msg: any) => msg.id}
+          inverted
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          renderItem={({ item: msg }) => {
+            const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
+            const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
 
-              return (
-                <View
-                  key={msg.id}
-                  style={[styles.messageRow, isMine && styles.messageRowMine]}
-                >
-                  {!isMine && (
-                    <View style={styles.messageBubbleAvatar}>
-                      <Text style={styles.messageBubbleAvatarText}>
-                        {getInitials(senderName)}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={[
-                    styles.messageBubble, 
-                    isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
-                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {}
-                  ]}>
-                    {!isMine && (
-                      <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
-                    )}
-                    {msg.fileUrl && msg.fileType === 'IMAGE' && (
-                      <Pressable onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}>
-                        <Image 
-                          source={{ uri: resolveImageUrl(msg.fileUrl) || '' }} 
-                          style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]} 
-                        />
-                      </Pressable>
-                    )}
-                    {!!msg.content && (
-                      <Text style={[
-                        styles.messageText, 
-                        isMine && styles.messageTextMine,
-                        msg.fileUrl && msg.fileType === 'IMAGE' ? { marginTop: 8 } : {}
-                      ]}>
-                        {msg.content}
-                      </Text>
-                    )}
-                    <Text style={[
-                      styles.messageTime, 
-                      isMine && styles.messageTimeMine,
-                      msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {}
-                    ]}>
-                      {timeAgo(msg.createdAt)}
+            return (
+              <View style={[styles.messageRow, isMine && styles.messageRowMine]}>
+                {!isMine && (
+                  <View style={styles.messageBubbleAvatar}>
+                    <Text style={styles.messageBubbleAvatarText}>
+                      {getInitials(senderName)}
                     </Text>
                   </View>
+                )}
+                <View style={[
+                  styles.messageBubble, 
+                  isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
+                  msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {}
+                ]}>
+                  {!isMine && (
+                    <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
+                  )}
+                  {msg.fileUrl && msg.fileType === 'IMAGE' && (
+                    <Pressable onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}>
+                      <Image 
+                        source={{ uri: resolveImageUrl(msg.fileUrl) || '' }} 
+                        style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]} 
+                      />
+                    </Pressable>
+                  )}
+                  {!!msg.content && (
+                    <Text style={[
+                      styles.messageText, 
+                      isMine && styles.messageTextMine,
+                      msg.fileUrl && msg.fileType === 'IMAGE' ? { marginTop: 8 } : {}
+                    ]}>
+                      {msg.content}
+                    </Text>
+                  )}
+                  <Text style={[
+                    styles.messageTime, 
+                    isMine && styles.messageTimeMine,
+                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {}
+                  ]}>
+                    {timeAgo(msg.createdAt)}
+                  </Text>
                 </View>
-              );
-            })
-          ) : (
-            <View style={styles.emptyChat}>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
               <MaterialCommunityIcons name="chat-outline" size={48} color={colors.muted} />
               <Text style={styles.emptyChatText}>Chưa có tin nhắn nào</Text>
               <Text style={styles.emptyChatSub}>Hãy bắt đầu cuộc trò chuyện!</Text>
             </View>
-          )}
-        </ScrollView>
+          }
+        />
 
         {/* Mentions Popup */}
         {showMentions && (
@@ -354,7 +396,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         )}
 
         {/* Input */}
-        <View style={styles.chatInputRow}>
+        <View style={[styles.chatInputRow, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? keyboardHeight + insets.bottom + 10 : 10) : Math.max(insets.bottom, 10) }]}>
           <Pressable onPress={pickImage} style={styles.attachBtn}>
             <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
           </Pressable>
@@ -404,6 +446,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )}
         </View>
       </Modal>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -495,9 +538,7 @@ const styles = StyleSheet.create({
   },
   messageListContent: {
     padding: spacing.md,
-    gap: 8,
     flexGrow: 1,
-    justifyContent: 'flex-end',
   },
 
   messageRow: {

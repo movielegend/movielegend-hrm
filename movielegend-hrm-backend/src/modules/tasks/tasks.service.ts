@@ -115,7 +115,7 @@ export class TasksService {
         },
       });
       return { task, notification };
-    });
+    }, { maxWait: 15000, timeout: 30000 });
     this.notifications.emitCreated(payload.notification);
     return payload.task;
   }
