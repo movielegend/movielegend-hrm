@@ -64,7 +64,7 @@ export function LeaveHomeScreen() {
 
         <View style={{ marginBottom: 16 }}>
           <Text style={{ fontSize: 16, fontWeight: '800', color: '#0B3B61', marginBottom: 12 }}>Lịch sử đơn nghỉ</Text>
-          {requests.isLoading ? <ActivityIndicator style={{ marginVertical: 20 }} /> : (
+          {requests.isLoading ? <ActivityIndicator style={{ marginVertical: 20 }} color="#4B5563" /> : (
             <View style={{ gap: 12 }}>
               {(requests.data ?? []).map((request) => (
                 <View key={request.id} style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E6EEF3' }}>
@@ -105,7 +105,7 @@ export function CreateLeaveRequestScreen() {
         
         <View style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 16, fontWeight: '800', color: '#0B3B61', marginBottom: 12 }}>Loại nghỉ phép</Text>
-          {leaveTypes.isLoading ? <ActivityIndicator /> : (
+          {leaveTypes.isLoading ? <ActivityIndicator color="#4B5563" /> : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {(leaveTypes.data ?? []).map((leaveType) => {
                 const isSelected = leaveTypeId === leaveType.id;
@@ -253,7 +253,7 @@ export function AdminLeaveApprovalScreen() {
                     style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#FEF2F2', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                     disabled={reject.isPending}
                   >
-                    {reject.isPending ? <ActivityIndicator size="small" color="#EF4444" /> : <Ionicons name="close-circle-outline" size={18} color="#EF4444" />}
+                    {reject.isPending ? <ActivityIndicator size="small" color="#4B5563" /> : <Ionicons name="close-circle-outline" size={18} color="#EF4444" />}
                     <Text style={{ color: '#EF4444', fontSize: 14, fontWeight: '700' }}>Từ chối</Text>
                   </Pressable>
                   

@@ -109,6 +109,17 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           }
         />
 
+        <View style={styles.filterRow}>
+          <Pressable style={[styles.filterBtn, styles.filterBtnActive]}>
+            <MaterialCommunityIcons name="clock-outline" size={16} color="#fff" />
+            <Text style={[styles.filterBtnText, styles.filterBtnTextActive]}>Mới nhất</Text>
+          </Pressable>
+          <Pressable style={styles.filterBtn}>
+            <MaterialCommunityIcons name="star-outline" size={16} color="#475569" />
+            <Text style={styles.filterBtnText}>Theo dõi</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.postList}>
           {postItems.length > 0 ? (
             postItems.map((post: any) => {
@@ -173,9 +184,9 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
                       <MaterialCommunityIcons
                         name={isLiked ? 'heart' : 'heart-outline'}
                         size={20}
-                        color={isLiked ? '#EF4444' : colors.muted}
+                        color={isLiked ? '#111827' : colors.muted}
                       />
-                      <Text style={[styles.actionLabel, isLiked && { color: '#EF4444' }]}>
+                      <Text style={[styles.actionLabel, isLiked && { color: '#111827' }]}>
                         {likeCount}
                       </Text>
                     </Pressable>
@@ -189,6 +200,11 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
                       <Text style={styles.actionLabel}>{commentCount}</Text>
                     </View>
 
+                    {!canModerate && (
+                      <View style={[styles.actionItem, styles.deleteAction]}>
+                        <MaterialCommunityIcons name="bookmark-outline" size={20} color={colors.muted} />
+                      </View>
+                    )}
                     {canModerate && (
                       <Pressable
                         style={[styles.actionItem, styles.deleteAction]}
@@ -197,7 +213,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
                           confirmDelete(post.id);
                         }}
                       >
-                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#111827" />
                       </Pressable>
                     )}
                   </View>
@@ -336,7 +352,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
           {likedNames.length > 0 && (
             <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'flex-start' }}>
-              <MaterialCommunityIcons name="heart" size={16} color="#EF4444" style={{ marginRight: 6, marginTop: 2 }} />
+              <MaterialCommunityIcons name="heart" size={16} color="#111827" style={{ marginRight: 6, marginTop: 2 }} />
               <Text style={{ fontSize: 13, color: colors.text, flex: 1, lineHeight: 20 }}>
                 Thích bởi <Text style={{ fontWeight: '600' }}>{likedNames.join(', ')}</Text>
               </Text>
@@ -497,7 +513,7 @@ export function CreatePostScreen() {
           
           <Field label="Hình ảnh">
             <Pressable style={styles.imagePickerBtn} onPress={() => void pickImage()}>
-              <MaterialCommunityIcons name="image-plus" size={24} color={colors.primary} />
+              <MaterialCommunityIcons name="image-plus" size={24} color="#111827" />
               <Text style={styles.imagePickerText}>{uploading ? 'Đang tải lên...' : (imageUri ? 'Đổi hình ảnh' : 'Thêm hình ảnh')}</Text>
             </Pressable>
             {imageUri ? (
@@ -538,16 +554,41 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 12,
-    gap: 4,
+    gap: 6,
   },
   addBtnText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: spacing.md,
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  filterBtnActive: {
+    backgroundColor: '#111827',
+  },
+  filterBtnText: {
+    color: '#475569',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  filterBtnTextActive: {
+    color: '#fff',
   },
   postList: {
     gap: spacing.md,
@@ -571,7 +612,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -636,7 +677,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -662,14 +703,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E0E7FF',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   commentAvatarText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#4338CA',
+    color: '#111827',
   },
   commentBody: {
     flex: 1,
@@ -724,7 +765,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -780,7 +821,7 @@ const styles = StyleSheet.create({
   },
   imagePickerText: {
     fontSize: 14,
-    color: colors.primary,
+    color: '#111827',
     fontWeight: '600',
   },
   previewImage: {

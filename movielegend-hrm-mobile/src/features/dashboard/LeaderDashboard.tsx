@@ -51,23 +51,12 @@ export function LeaderDashboard() {
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Generate week dates dynamically
-  const today = new Date();
-  const currentDayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ...
-  
-  // Find Monday of the current week
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - (currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1));
-
-  const weekDates = Array.from({ length: 7 }).map((_, index) => {
-    const d = new Date(startOfWeek);
-    d.setDate(startOfWeek.getDate() + index);
-    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    return {
-      day: dayNames[d.getDay()],
-      date: d.getDate().toString().padStart(2, '0'),
-      active: d.toDateString() === today.toDateString()
-    };
+  // Date format for the header
+  const headerDate = currentTime.toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
   });
 
   return (
@@ -75,138 +64,152 @@ export function LeaderDashboard() {
       <ScrollView 
         contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.userInfo}>
+          <View style={styles.headerLeft}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
             </View>
-            <Text style={styles.userName}>{user?.fullName || 'Quản trị viên'}</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable style={styles.chatBtn} onPress={() => router.push('/(chat)')}>
-              <MaterialCommunityIcons name="chat-outline" size={24} color={colors.primaryDark} />
-            </Pressable>
-            <Pressable style={styles.bellBtn} onPress={() => router.push('/leader/notifications')}>
-              <MaterialCommunityIcons name="bell-outline" size={24} color={colors.primaryDark} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Lịch làm việc */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Lịch làm việc</Text>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.muted} />
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.calendarStrip}>
-          {weekDates.map((item, index) => (
-            <View key={index} style={[styles.dateItem, item.active && styles.dateItemActive]}>
-              <Text style={[styles.dayText, item.active && styles.dayTextActive]}>{item.day}</Text>
-              <Text style={[styles.dateTextNum, item.active && styles.dateTextNumActive]}>{item.date}</Text>
-              {item.active && <View style={styles.dot} />}
+            <View style={styles.greetingInfo}>
+              <Text style={styles.greetingText}>Xin chào 👋</Text>
+              <Text style={styles.userName}>{user?.fullName || 'Quản lý'}</Text>
+              <Text style={styles.dateText}>{headerDate}</Text>
             </View>
-          ))}
-        </ScrollView>
-
-        {/* Nút Vào ca */}
-        <Pressable 
-          style={styles.heroButton}
-          onPress={() => router.push('/leader/attendance/check-in')}
-        >
-          <View>
-            <Text style={styles.heroTitle}>Vào ca</Text>
-            <Text style={styles.heroSubtitle}>{timeString}</Text>
           </View>
-          <View style={styles.fingerprintIcon}>
-            <MaterialCommunityIcons name="fingerprint" size={32} color={colors.primaryDark} />
+          <View style={styles.headerRight}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/notifications' as any)}>
+              <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
+              <View style={styles.badgeDot} />
+            </Pressable>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/(chat)' as any)}>
+              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Hero Card (Đã chấm công) */}
+        <Pressable 
+          style={styles.heroCard}
+          onPress={() => router.push('/leader/attendance/check-in' as any)}
+        >
+          {/* SVG/Pattern background mock */}
+          <View style={styles.heroCardPattern} />
+          
+          <View style={styles.statusBadge}>
+            <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
+            <Text style={styles.statusBadgeText}>Vào ca / Chấm công</Text>
+          </View>
+          <View style={styles.timeContainer}>
+            <Text style={styles.timeValue}>{timeString.split(' ')[0]}</Text>
+            <Text style={styles.timeAmPm}>{timeString.split(' ')[1] || 'AM'}</Text>
+          </View>
+          <View style={styles.locationContainer}>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color="#6B7280" />
+            <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
           </View>
         </Pressable>
 
-        <View style={styles.teamStatsContainer}>
-          <Text style={styles.sectionTitleFolder}>Thống kê nhóm hôm nay</Text>
+        {/* Thao tác nhanh (Quick Actions - Leader Features) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thao tác nhanh</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActions}>
+            <QuickAction icon="swap-horizontal" title="Chấm công" onPress={() => router.push('/leader/attendance' as any)} />
+            <QuickAction icon="view-grid-outline" title="Phân ca" onPress={() => router.push('/leader/shift-management' as any)} />
+            <QuickAction icon="account-tie-outline" title="Nhân sự" onPress={() => router.push('/leader/employees' as any)} />
+            <QuickAction icon="file-document-outline" title="Hợp đồng" onPress={() => router.push('/leader/contracts' as any)} />
+            <QuickAction icon="alert-circle-outline" title="Sự cố" onPress={() => router.push('/leader/asset-incidents' as any)} />
+          </ScrollView>
+        </View>
+
+        {/* Tổng quan nhóm hôm nay (Team Stats) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thống kê nhóm hôm nay</Text>
           <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{deptStats.activeEmployeeCount}</Text>
-              <Text style={styles.statLabel}>Tổng NV</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#10B981' }]}>{checkedInCount}</Text>
-              <Text style={styles.statLabel}>Đã check-in</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{deptStats.lateToday}</Text>
-              <Text style={styles.statLabel}>Đi trễ</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#EF4444' }]}>{deptStats.absentToday}</Text>
-              <Text style={styles.statLabel}>Vắng mặt</Text>
-            </View>
+            <StatCard title="Tổng NV" value={deptStats.activeEmployeeCount} color="#111827" />
+            <StatCard title="Đã check-in" value={checkedInCount} color="#10B981" />
+            <StatCard title="Đi trễ" value={deptStats.lateToday} color="#F59E0B" />
+            <StatCard title="Vắng mặt" value={deptStats.absentToday} color="#EF4444" />
           </View>
         </View>
 
-        {/* Thư mục */}
-        <Text style={styles.sectionTitleFolder}>Thư mục</Text>
-        <View style={styles.grid}>
-          <GridCard 
-            title="Lịch sử chấm công phòng ban" 
-            icon="swap-horizontal" 
-            iconBg="#E0F2FE" 
-            iconColor="#3B82F6"
-            onPress={() => router.push('/leader/attendance')}
-          />
-          <GridCard 
-            title="Phân ca" 
-            icon="view-grid" 
-            iconBg="#E0E7FF" 
-            iconColor="#6366F1"
-            onPress={() => router.push('/leader/shift-management')}
-          />
-          <GridCard 
-            title="Nhân sự phòng" 
-            icon="account-tie" 
-            iconBg="#D1FAE5" 
-            iconColor="#10B981"
-            onPress={() => router.push('/leader/employees')}
-          />
-          <GridCard 
-            title="Sự cố tài sản" 
-            icon="alert-circle-outline" 
-            iconBg="#FFE4E6" 
-            iconColor="#F43F5E"
-            onPress={() => router.push('/leader/asset-incidents')}
-          />
-          <GridCard 
-            title="Hợp đồng" 
-            icon="file-document-outline" 
-            iconBg="#FEF3C7" 
-            iconColor="#D97706"
-            onPress={() => router.push('/leader/contracts')}
-          />
+        {/* Hoạt động gần đây */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Hoạt động gần đây</Text>
+            <Text style={styles.seeAllText}>Xem tất cả</Text>
+          </View>
+          
+          <View style={styles.timeline}>
+            <TimelineItem 
+              time="09:02 AM" 
+              icon="clock-outline"
+              title="Chấm công vào" 
+              desc="Văn phòng Hà Nội"
+              isFirst
+            />
+            <TimelineItem 
+              time="08:45 AM" 
+              icon="account-group-outline"
+              title="Duyệt đơn xin nghỉ" 
+              desc="Nhân viên Nguyễn Văn A"
+            />
+            <TimelineItem 
+              time="Hôm qua" 
+              icon="clipboard-check-outline"
+              title="Phân ca hoàn tất" 
+              desc="Tuần 10/07 - 16/07"
+              isLast
+            />
+          </View>
         </View>
       </ScrollView>
     </Screen>
   );
 }
 
-function GridCard({ title, icon, iconBg, iconColor, badges, onPress }: any) {
+function QuickAction({ icon, title, onPress }: any) {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={[styles.cardIconBg, { backgroundColor: iconBg }]}>
-        <MaterialCommunityIcons name={icon} size={24} color={iconColor} />
+    <Pressable style={styles.quickActionCard} onPress={onPress}>
+      <View style={styles.quickActionIconBg}>
+        <MaterialCommunityIcons name={icon} size={26} color="#111827" />
       </View>
-      <Text style={styles.cardTitle}>{title}</Text>
-      {badges && (
-        <View style={styles.badgeRow}>
-          {badges.map((b: any, i: number) => (
-            <View key={i} style={[styles.badge, { backgroundColor: b.color }]}>
-              <Text style={{ color: b.text, fontSize: 10, fontWeight: 'bold' }}>{b.val}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <Text style={styles.quickActionTitle}>{title}</Text>
     </Pressable>
+  );
+}
+
+function StatCard({ title, value, color }: any) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statTitle}>{title}</Text>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+    </View>
+  );
+}
+
+function TimelineItem({ time, title, desc, icon, isFirst, isLast }: any) {
+  return (
+    <View style={styles.timelineItem}>
+      <View style={styles.timelineTimeCol}>
+        <View style={styles.timelineIconContainer}>
+          <MaterialCommunityIcons name={icon} size={20} color="#4B5563" />
+        </View>
+        {!isLast && <View style={styles.timelineLine} />}
+      </View>
+      
+      <View style={styles.timelineContentCol}>
+        <View style={styles.timelineRow}>
+          <Text style={styles.timelineTime}>{time}</Text>
+          <View style={styles.timelineDetails}>
+            <Text style={styles.timelineTitle}>{title}</Text>
+            <Text style={styles.timelineDesc}>{desc}</Text>
+          </View>
+        </View>
+        {!isLast && <View style={styles.timelineDivider} />}
+      </View>
+    </View>
   );
 }
 
@@ -214,59 +217,146 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
-    backgroundColor: '#FFFFFF',
-    minHeight: '100%',
+    backgroundColor: '#FAFAFA',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: spacing.xl,
+    marginTop: spacing.md,
   },
-  userInfo: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#C7D2FE',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#4F46E5',
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  greetingInfo: {
+    justifyContent: 'center',
+  },
+  greetingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
   },
   userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 2,
   },
-  headerActions: {
+  dateText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  heroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: spacing.xl,
+    marginBottom: spacing.xl,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EFF6FF',
+  },
+  heroCardPattern: {
+    position: 'absolute',
+    right: -40,
+    top: -20,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 20,
+    borderColor: '#EFF6FF',
+    opacity: 0.5,
+  },
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    marginBottom: spacing.md,
   },
-  chatBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
+  statusBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E3A8A',
   },
-  bellBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.background,
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
+  },
+  timeValue: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -1,
+  },
+  timeAmPm: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginLeft: 8,
+  },
+  locationContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+  },
+  locationText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  section: {
+    marginBottom: spacing.xl,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -275,155 +365,144 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  calendarStrip: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  dateItem: {
-    width: 50,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  dateItemActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#FFFFFF',
-  },
-  dayText: {
-    fontSize: 12,
-    color: colors.muted,
-    marginBottom: 4,
-  },
-  dayTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  dateTextNum: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  dateTextNumActive: {
-    color: colors.primary,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-    marginTop: 4,
-  },
-  heroButton: {
-    backgroundColor: '#22C55E',
-    borderRadius: 20,
-    padding: spacing.xl,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    shadowColor: '#22C55E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  heroSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 16,
-    marginTop: 4,
-  },
-  fingerprintIcon: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitleFolder: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
     marginBottom: spacing.md,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    justifyContent: 'space-between',
+  seeAllText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: spacing.md,
   },
-  card: {
-    width: '47%',
+  quickActions: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  quickActionCard: {
+    width: 88,
+    height: 100,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: spacing.md,
+    borderRadius: 20,
+    padding: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-    marginBottom: spacing.sm,
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  cardIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  quickActionIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#FAFAFA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
     marginBottom: spacing.sm,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  badge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  teamStatsContainer: {
-    marginBottom: spacing.xl,
+  quickActionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  statBox: {
+  statCard: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     alignItems: 'center',
-    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  statNumber: {
-    fontSize: 20,
+  statTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  timeline: {
+    marginTop: spacing.sm,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+  },
+  timelineTimeCol: {
+    width: 40,
+    alignItems: 'center',
+  },
+  timelineIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    marginTop: -4,
+    marginBottom: -4,
+    zIndex: 1,
+  },
+  timelineContentCol: {
+    flex: 1,
+    paddingLeft: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  timelineTime: {
+    width: 70,
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  timelineDetails: {
+    flex: 1,
+  },
+  timelineTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.text,
+    color: '#111827',
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 11,
-    color: colors.muted,
-    textAlign: 'center',
+  timelineDesc: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  timelineDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginTop: spacing.md,
+    marginBottom: -spacing.md,
   }
 });

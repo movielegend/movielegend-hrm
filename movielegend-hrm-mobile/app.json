@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "package": "com.binhpthe1fpt.movielegendhrmmobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,6 +27,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "347f4427-0ab1-4e84-94a8-6efbb1ea285c"
+      }
+    }
   }
 }

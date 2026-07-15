@@ -19,5 +19,7 @@ export function getHomeRouteForUser(user: AuthUser | null): AppRoute {
 
 export function canAccessRoleRoute(user: AuthUser | null, route: AppRoute): boolean {
   if (!user) return route === '/login';
+  // Allow ADMIN to access any route
+  if (user.roles.includes('ADMIN')) return true;
   return getHomeRouteForUser(user) === route;
 }

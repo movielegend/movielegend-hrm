@@ -13,8 +13,12 @@ interface EmptyStateProps {
 export function EmptyState({ title, message, icon, small }: EmptyStateProps) {
   return (
     <View style={[styles.container, small && styles.containerSmall]}>
-      {icon && <MaterialCommunityIcons name={icon} size={small ? 32 : 48} color={colors.muted} />}
-      <Text style={[styles.title, small && styles.titleSmall]}>{title ?? 'Chua c� d? li?u'}</Text>
+      {icon && (
+        <View style={styles.iconContainer}>
+          <MaterialCommunityIcons name={icon} size={small ? 24 : 32} color={colors.muted} />
+        </View>
+      )}
+      <Text style={[styles.title, small && styles.titleSmall]}>{title ?? 'Chưa có dữ liệu'}</Text>
       {message ? <Text style={[styles.message, small && styles.messageSmall]}>{message}</Text> : null}
     </View>
   );
@@ -28,6 +32,15 @@ const styles = StyleSheet.create({
   },
   containerSmall: {
     padding: spacing.md,
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
   },
   message: {
     color: colors.muted,

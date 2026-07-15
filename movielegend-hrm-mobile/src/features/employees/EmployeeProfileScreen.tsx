@@ -45,93 +45,48 @@ export function EmployeeProfileScreen() {
           </View>
         </View>
 
-        {/* Info Section */}
+        {/* Thông tin cá nhân */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-          
-          <InfoRow 
-            icon="identifier" 
-            label="Mã nhân viên" 
-            value={user?.userCode || 'Chưa cập nhật'} 
-          />
-          <InfoRow 
-            icon="phone-outline" 
-            label="Số điện thoại" 
-            value={user?.phone || 'Chưa cập nhật'} 
-          />
-          <InfoRow 
-            icon="email-outline" 
-            label="Email" 
-            value={user?.email || 'Chưa cập nhật'} 
-          />
-          <InfoRow 
-            icon="office-building-outline" 
-            label="Phòng ban" 
-            value={user?.department?.name || 'Chưa cập nhật'} 
-          />
-          <InfoRow 
-            icon="face-recognition" 
-            label="Dữ liệu khuôn mặt" 
-            value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
-            valueColor={user?.hasFaceData ? colors.success : colors.danger}
-          />
+          <View style={styles.infoCard}>
+            <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
+            <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
+            <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
+            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
+            <InfoRow 
+              icon="face-recognition" 
+              label="Dữ liệu khuôn mặt" 
+              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
+              valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
+              isLast
+            />
+          </View>
         </View>
 
-        {/* Action Section */}
+        {/* Tính năng Nhân sự */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tính năng</Text>
-          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/contracts' as any)}>
-            <View style={[styles.actionIconBg, { backgroundColor: '#DBEAFE' }]}>
-              <MaterialCommunityIcons name="text-box-check-outline" size={20} color="#2563EB" />
-            </View>
-            <Text style={styles.actionLabel}>Hợp đồng lao động</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
-          </Pressable>
-
-          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/payroll' as any)}>
-            <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
-              <MaterialCommunityIcons name="cash-multiple" size={20} color="#DC2626" />
-            </View>
-            <Text style={styles.actionLabel}>Phiếu lương</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
-          </Pressable>
-          
-          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/assets' as any)}>
-            <View style={[styles.actionIconBg, { backgroundColor: '#EDE9FE' }]}>
-              <MaterialCommunityIcons name="laptop" size={20} color="#7C3AED" />
-            </View>
-            <Text style={styles.actionLabel}>Tài sản của tôi</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
-          </Pressable>
-
-          <Pressable style={styles.actionRow} onPress={() => router.push('/employee/news' as any)}>
-            <View style={[styles.actionIconBg, { backgroundColor: '#CCFBF1' }]}>
-              <MaterialCommunityIcons name="newspaper-variant" size={20} color="#14B8A6" />
-            </View>
-            <Text style={styles.actionLabel}>Bảng tin nội bộ</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
-          </Pressable>
+          <View style={styles.infoCard}>
+            <ActionRow icon="text-box-check-outline" title="Hợp đồng lao động" onPress={() => router.push('/employee/contracts' as any)} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/employee/payroll' as any)} />
+            <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/employee/assets' as any)} />
+            <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} isLast />
+          </View>
         </View>
 
-        {/* Setting Section */}
+        {/* Cài đặt */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
-          
-          <Pressable style={styles.actionRow} onPress={() => {}}>
-            <View style={[styles.actionIconBg, { backgroundColor: '#F1F5F9' }]}>
-              <MaterialCommunityIcons name="lock-outline" size={20} color={colors.text} />
-            </View>
-            <Text style={styles.actionLabel}>Đổi mật khẩu</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
-          </Pressable>
-
-          <Pressable style={styles.actionRow} onPress={handleLogout}>
-            <View style={[styles.actionIconBg, { backgroundColor: colors.dangerSoft }]}>
-              <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
-            </View>
-            <Text style={[styles.actionLabel, { color: colors.danger }]}>Đăng xuất</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.danger} />
-          </Pressable>
+          <View style={styles.infoCard}>
+            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => {}} />
+            <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
+              <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
+                <MaterialCommunityIcons name="logout" size={20} color="#DC2626" />
+              </View>
+              <Text style={[styles.actionLabel, { color: '#DC2626' }]}>Đăng xuất</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#DC2626" />
+            </Pressable>
+          </View>
         </View>
 
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
@@ -140,11 +95,11 @@ export function EmployeeProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, valueColor }: { icon: any; label: string; value: string; valueColor?: string }) {
+function InfoRow({ icon, label, value, valueColor, isLast }: any) {
   return (
-    <View style={styles.infoRow}>
+    <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
       <View style={styles.infoIconBg}>
-        <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
+        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
@@ -154,12 +109,26 @@ function InfoRow({ icon, label, value, valueColor }: { icon: any; label: string;
   );
 }
 
+function ActionRow({ icon, title, onPress, isLast }: any) {
+  return (
+    <Pressable style={[styles.actionRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
+      <View style={styles.actionIconBg}>
+        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
+      </View>
+      <Text style={styles.actionLabel}>{title}</Text>
+      <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xxl,
+    backgroundColor: '#FAFAFA',
+    minHeight: '100%',
   },
   headerBg: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     height: 160,
     width: '100%',
     position: 'absolute',
@@ -184,47 +153,49 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
     borderColor: '#fff',
-    marginTop: -50, // Float above card
+    marginTop: -50,
     marginBottom: spacing.md,
   },
   avatarText: {
     fontSize: 32,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: '#111827',
   },
   userName: {
     fontSize: 22,
     fontWeight: '700',
-    color: colors.text,
+    color: '#111827',
     marginBottom: 4,
   },
   userRole: {
     fontSize: 15,
-    color: colors.muted,
+    color: '#6B7280',
     marginBottom: spacing.md,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4', // Emerald 50
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 16,
     gap: 6,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.success,
+    backgroundColor: '#111827',
   },
   statusText: {
-    color: colors.success,
+    color: '#4B5563',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -235,28 +206,32 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.text,
+    color: '#111827',
     marginBottom: spacing.md,
     marginLeft: 4,
+  },
+  infoCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    borderRadius: 16,
-    marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   infoIconBg: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -266,44 +241,39 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: colors.muted,
+    color: '#6B7280',
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: '#111827',
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    borderRadius: 16,
-    marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   actionIconBg: {
     width: 40,
     height: 40,
     borderRadius: 12,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
   actionLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: '#111827',
   },
   versionText: {
     textAlign: 'center',
-    color: colors.muted,
+    color: '#9CA3AF',
     marginTop: spacing.xl,
     fontSize: 13,
   }

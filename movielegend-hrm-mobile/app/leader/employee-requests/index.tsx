@@ -123,7 +123,7 @@ export default function LeaderRequestsScreen() {
               <MaterialCommunityIcons 
                 name={t.icon} 
                 size={16} 
-                color={selectedType === t.type ? '#fff' : t.color} 
+                color={selectedType === t.type ? '#fff' : '#111827'} 
                 style={styles.filterPillIcon} 
               />
               <Text style={[styles.filterPillText, selectedType === t.type && styles.filterPillTextActive]}>
@@ -145,7 +145,7 @@ export default function LeaderRequestsScreen() {
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
         >
           <View style={styles.emptyIconBg}>
-            <MaterialCommunityIcons name="file-document-edit-outline" size={64} color={colors.primary} />
+            <MaterialCommunityIcons name="file-document-edit-outline" size={64} color="#9CA3AF" />
           </View>
           <Text style={styles.emptyText}>Không có yêu cầu nào</Text>
         </ScrollView>
@@ -163,16 +163,23 @@ export default function LeaderRequestsScreen() {
               <View key={item.id} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={styles.cardIconBox}>
-                    <MaterialCommunityIcons name={config.icon} size={24} color={config.color} />
+                    <MaterialCommunityIcons name={config.icon} size={24} color="#111827" />
                   </View>
                   <View style={styles.cardHeaderRight}>
                     <Text style={styles.cardUserName}>{userName}</Text>
                     <Text style={styles.cardSubtitle}>{config.label} • {dateStr}</Text>
                   </View>
-                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={styles.statusPill}>
+                      <Text style={styles.statusPillText}>
+                         {item.status === 'PENDING' ? 'Chờ xử lý' : item.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
+                      </Text>
+                    </View>
+                    <View style={styles.blackDot} />
+                  </View>
                 </View>
                 
-                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardTitle}>{item.title || config.label}</Text>
                 <Text style={styles.cardContent} numberOfLines={3}>{item.content}</Text>
                 
                 {item.amount != null && (
@@ -256,16 +263,16 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: colors.primary,
+    borderBottomColor: '#111827',
   },
   tabText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.muted,
+    color: '#9CA3AF',
     marginRight: 6,
   },
   tabTextActive: {
-    color: colors.primary,
+    color: '#111827',
   },
   filterContainer: {
     padding: spacing.md,
@@ -275,24 +282,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-    marginRight: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 24,
+    marginRight: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E5E7EB',
   },
   filterPillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#111827',
+    borderColor: '#111827',
   },
   filterPillIcon: {
-    marginRight: 4,
+    marginRight: 6,
   },
   filterPillText: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.text,
+    color: '#111827',
   },
   filterPillTextActive: {
     color: '#fff',
@@ -364,13 +371,27 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: '#6B7280',
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginLeft: spacing.sm,
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+  },
+  statusPillText: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  blackDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#111827',
+    marginLeft: 8,
   },
   cardContent: {
     fontSize: 14,

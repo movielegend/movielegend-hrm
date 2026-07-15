@@ -45,60 +45,56 @@ export function AdminProfileScreen() {
           </View>
         </View>
 
-        {/* CÁC CHỨC NĂNG QUẢN TRỊ */}
-
-        {/* Nhóm 1: Quản trị Nhân sự */}
+        {/* Thông tin cá nhân */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quản trị Nhân sự</Text>
-          <View style={styles.grid}>
-            <GridCard title="Cơ cấu Tổ chức" icon="domain" iconBg="#F3E8FF" iconColor="#A855F7" onPress={() => router.push('/admin/branches')} />
+          <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+          <View style={styles.infoCard}>
+            <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
+            <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
+            <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
+            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} isLast />
           </View>
         </View>
 
-        {/* Nhóm 2: Chấm công & Lịch làm */}
+        {/* Tính năng Nhân sự */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chấm công & Ca làm</Text>
-          <View style={styles.grid}>
-            <GridCard title="Dữ liệu Chấm công" icon="clock-check-outline" iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/admin/attendance')} />
-            <GridCard title="Ca làm việc" icon="calendar-clock" iconBg="#E0E7FF" iconColor="#6366F1" onPress={() => router.push('/admin/shifts')} />
-            <GridCard title="Duyệt đơn" icon="clipboard-check-outline" iconBg="#FFE4E6" iconColor="#F43F5E" onPress={() => router.push('/admin/approvals')} />
-            <GridCard title="Luân chuyển PB" icon="swap-horizontal" iconBg="#E2E8F0" iconColor="#64748B" onPress={() => router.push('/admin/cross-department')} />
+          <Text style={styles.sectionTitle}>Tính năng Nhân sự</Text>
+          <View style={styles.infoCard}>
+            <ActionRow icon="domain" title="Cơ cấu Tổ chức" onPress={() => router.push('/admin/branches')} />
+            <ActionRow icon="clock-check-outline" title="Dữ liệu Chấm công" onPress={() => router.push('/admin/attendance')} />
+            <ActionRow icon="calendar-clock" title="Ca làm việc" onPress={() => router.push('/admin/shifts')} />
+            <ActionRow icon="clipboard-check-outline" title="Duyệt đơn" onPress={() => router.push('/leader/employee-requests')} />
+            <ActionRow icon="account-check-outline" title="Duyệt tài khoản" onPress={() => router.push('/admin/approvals')} />
+            <ActionRow icon="swap-horizontal" title="Luân chuyển PB" onPress={() => router.push('/admin/cross-department')} />
+            <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} isLast />
           </View>
         </View>
 
-        {/* Nhóm Nội bộ & Truyền thông */}
+        {/* Tính năng Vận hành */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Nội bộ & Truyền thông</Text>
-          <View style={styles.grid}>
-            <GridCard title="Bảng tin" icon="newspaper-variant" iconBg="#CCFBF1" iconColor="#14B8A6" onPress={() => router.push('/admin/newsfeed')} />
-            <GridCard title="Nhóm Chat" icon="chat" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/admin/chat')} />
-            <GridCard title="Hợp đồng" icon="file-document-edit" iconBg="#FEF3C7" iconColor="#D97706" onPress={() => router.push('/admin/contracts')} />
+          <Text style={styles.sectionTitle}>Tính năng Vận hành</Text>
+          <View style={styles.infoCard}>
+            <ActionRow icon="newspaper-variant" title="Bảng tin" onPress={() => router.push('/admin/newsfeed')} />
+            <ActionRow icon="chat" title="Nhóm Chat" onPress={() => router.push('/admin/chat')} />
+            <ActionRow icon="briefcase-check-outline" title="Công việc" onPress={() => router.push('/admin/tasks')} />
+            <ActionRow icon="alert-octagon-outline" title="Sự cố" onPress={() => router.push('/admin/asset-incidents')} />
+            <ActionRow icon="cube-outline" title="Vật tư" onPress={() => router.push('/admin/materials')} isLast />
           </View>
         </View>
 
-        {/* Nhóm 3: Công việc & Tài sản */}
+        {/* Cài đặt */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Công việc & Tài sản</Text>
-          <View style={styles.grid}>
-            <GridCard title="Công việc" icon="briefcase-check-outline" iconBg="#CFFAFE" iconColor="#06B6D4" onPress={() => router.push('/admin/tasks')} />
-
-            <GridCard title="Sự cố" icon="alert-octagon-outline" iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/admin/asset-incidents')} />
-
-            <GridCard title="Vật tư" icon="cube-outline" iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/admin/materials')} />
-          </View>
-        </View>
-
-        {/* Action Section */}
-        <View style={[styles.section, { marginTop: spacing.xl }]}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
-          
-          <Pressable style={styles.actionRow} onPress={handleLogout}>
-            <View style={[styles.actionIconBg, { backgroundColor: colors.dangerSoft }]}>
-              <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
-            </View>
-            <Text style={[styles.actionLabel, { color: colors.danger }]}>Đăng xuất</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.danger} />
-          </Pressable>
+          <View style={styles.infoCard}>
+            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => {}} />
+            <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
+              <View style={[styles.actionIconBg, { backgroundColor: colors.dangerSoft }]}>
+                <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
+              </View>
+              <Text style={[styles.actionLabel, { color: colors.danger }]}>Đăng xuất</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.danger} />
+            </Pressable>
+          </View>
         </View>
 
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
@@ -107,13 +103,28 @@ export function AdminProfileScreen() {
   );
 }
 
-function GridCard({ title, icon, iconBg, iconColor, onPress }: any) {
+function InfoRow({ icon, label, value, isLast }: any) {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={[styles.cardIconBg, { backgroundColor: iconBg }]}>
-        <MaterialCommunityIcons name={icon} size={24} color={iconColor} />
+    <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
+      <View style={styles.infoIconBg}>
+        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
       </View>
-      <Text style={styles.cardTitle}>{title}</Text>
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+function ActionRow({ icon, title, onPress, isLast }: any) {
+  return (
+    <Pressable style={[styles.actionRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
+      <View style={styles.actionIconBg}>
+        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
+      </View>
+      <Text style={styles.actionLabel}>{title}</Text>
+      <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
     </Pressable>
   );
 }
@@ -123,7 +134,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   headerBg: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     height: 160,
     width: '100%',
     position: 'absolute',
@@ -148,7 +159,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
@@ -159,36 +170,38 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: '#111827',
   },
   userName: {
     fontSize: 22,
     fontWeight: '700',
-    color: colors.text,
+    color: '#111827',
     marginBottom: 4,
   },
   userRole: {
     fontSize: 15,
-    color: colors.muted,
+    color: '#6B7280',
     marginBottom: spacing.md,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 16,
     gap: 6,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.success,
+    backgroundColor: '#111827',
   },
   statusText: {
-    color: colors.success,
+    color: '#4B5563',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -199,71 +212,74 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.text,
+    color: '#111827',
     marginBottom: spacing.md,
     marginLeft: 4,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    justifyContent: 'space-between',
-  },
-  card: {
-    width: '47%',
-    backgroundColor: '#FFFFFF',
+  infoCard: {
+    backgroundColor: '#fff',
     borderRadius: 16,
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 2,
-    marginBottom: spacing.sm,
   },
-  cardIconBg: {
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  infoIconBg: {
     width: 40,
     height: 40,
     borderRadius: 12,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginRight: spacing.md,
   },
-  cardTitle: {
-    fontSize: 14,
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: '#111827',
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    borderRadius: 16,
-    marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   actionIconBg: {
     width: 40,
     height: 40,
     borderRadius: 12,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
   actionLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: '#111827',
   },
   versionText: {
     textAlign: 'center',
-    color: colors.muted,
+    color: '#9CA3AF',
     marginTop: spacing.xl,
     fontSize: 13,
   }

@@ -180,16 +180,16 @@ export function AdminShiftsScreen() {
             <View key={shift.id} style={styles.shiftCard}>
               <View style={styles.shiftHeader}>
                 <View style={styles.shiftIconBox}>
-                  <MaterialCommunityIcons name="clock-outline" size={24} color={colors.primary} />
+                  <MaterialCommunityIcons name="clock-outline" size={24} color="#111827" />
                 </View>
                 <View style={styles.shiftInfo}>
                   <Text style={styles.shiftName}>{shift.name}</Text>
                   <Text style={styles.shiftCode}>Mã: {shift.code}</Text>
                 </View>
-                <StatusBadge
-                  label={shift.isActive ? 'Đang hoạt động' : 'Đã ẩn'}
-                  tone={shift.isActive ? 'success' : 'neutral'}
-                />
+                <View style={styles.statusBadge}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>{shift.isActive ? 'Đang hoạt động' : 'Đã ẩn'}</Text>
+                </View>
               </View>
               
               <View style={styles.shiftTimeBox}>
@@ -206,7 +206,7 @@ export function AdminShiftsScreen() {
                 return (
                   <View style={styles.assignmentSection}>
                     <View style={styles.assignmentHeader}>
-                      <MaterialCommunityIcons name="account-group-outline" size={16} color={colors.primary} />
+                      <MaterialCommunityIcons name="account-group-outline" size={16} color="#111827" />
                       <Text style={styles.assignmentLabel}>Leaders đã phân ca</Text>
                       <View style={styles.assignmentCount}>
                         <Text style={styles.assignmentCountText}>{uniqueAssignments.length}</Text>
@@ -232,19 +232,19 @@ export function AdminShiftsScreen() {
 
               <View style={styles.shiftActions}>
                 <Pressable
-                  style={[styles.actionBtn, { backgroundColor: '#FFF7ED' }]}
+                  style={[styles.actionBtn, { backgroundColor: '#F3F4F6' }]}
                   onPress={() => router.push(`/admin/shifts/edit/${shift.id}`)}
                 >
-                  <MaterialCommunityIcons name="pencil" size={18} color="#EA580C" />
-                  <Text style={[styles.actionText, { color: '#EA580C' }]}>Sửa</Text>
+                  <MaterialCommunityIcons name="pencil" size={18} color="#111827" />
+                  <Text style={[styles.actionText, { color: '#111827' }]}>Sửa</Text>
                 </Pressable>
 
                 <Pressable
-                  style={[styles.actionBtn, { backgroundColor: '#FEF2F2' }]}
+                  style={[styles.actionBtn, { backgroundColor: '#F3F4F6' }]}
                   onPress={() => handleDelete(shift.id, shift.name)}
                 >
-                  <MaterialCommunityIcons name="delete-outline" size={18} color="#DC2626" />
-                  <Text style={[styles.actionText, { color: '#DC2626' }]}>Xóa</Text>
+                  <MaterialCommunityIcons name="delete-outline" size={18} color="#111827" />
+                  <Text style={[styles.actionText, { color: '#111827' }]}>Xóa</Text>
                 </Pressable>
               </View>
             </View>
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   assignmentCount: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     minWidth: 22,
     height: 22,
     borderRadius: 11,
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   assignmentCountText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.primary,
+    color: '#111827',
   },
   assignmentList: {
     flexDirection: 'row',
@@ -556,31 +556,53 @@ const styles = StyleSheet.create({
   assignmentChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#F9FAFB',
     paddingRight: 12,
     paddingLeft: 4,
     paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#E5E7EB',
     gap: 8,
   },
   assignmentAvatar: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.primary,
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   assignmentAvatarText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#fff',
+    color: '#111827',
   },
   assignmentName: {
     fontSize: 13,
-    color: '#166534',
+    color: '#374151',
+    fontWeight: '600',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#111827',
+  },
+  statusText: {
+    color: '#4B5563',
+    fontSize: 13,
     fontWeight: '600',
   },
   todayShiftCard: {

@@ -15,9 +15,12 @@ interface SelectModalProps {
   title: string;
   options: SelectOption[];
   selectedValue?: string | null | undefined;
-  onSelect: (option: SelectOption) => void;
+  onSelect?: (option: SelectOption) => void;
   onClose: () => void;
   isLoading?: boolean;
+  isMulti?: boolean;
+  selectedValues?: string[];
+  onSelectMulti?: (option: SelectOption) => void;
 }
 
 export function SelectModal({
@@ -28,6 +31,9 @@ export function SelectModal({
   onSelect,
   onClose,
   isLoading = false,
+  isMulti = false,
+  selectedValues = [],
+  onSelectMulti,
 }: SelectModalProps) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -54,13 +60,20 @@ export function SelectModal({
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.listContainer}
               renderItem={({ item }) => {
-                const isSelected = item.id === selectedValue;
+                const isSelected = isMulti 
+                  ? selectedValues.includes(item.id)
+                  : item.id === selectedValue;
+                
                 return (
                   <Pressable
                     style={[styles.optionRow, isSelected && styles.optionRowSelected]}
                     onPress={() => {
-                      onSelect(item);
-                      onClose();
+                      if (isMulti && onSelectMulti) {
+                        onSelectMulti(item);
+                      } else if (onSelect) {
+                        onSelect(item);
+                        onClose();
+                      }
                     }}
                   >
                     <View style={styles.optionContent}>
@@ -72,14 +85,30 @@ export function SelectModal({
                       ) : null}
                     </View>
                     {isSelected ? (
-                      <MaterialCommunityIcons name="check-circle" size={24} color={colors.primary} />
+                      <MaterialCommunityIcons 
+                        name={isMulti ? "checkbox-marked" : "radiobox-marked"} 
+                        size={24} 
+                        color="#111827" 
+                      />
                     ) : (
-                      <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={24} color={colors.border} />
+                      <MaterialCommunityIcons 
+                        name={isMulti ? "checkbox-blank-outline" : "radiobox-blank"} 
+                        size={24} 
+                        color="#E5E7EB" 
+                      />
                     )}
                   </Pressable>
                 );
               }}
             />
+          )}
+
+          {isMulti && !isLoading && options.length > 0 && (
+            <View style={styles.footer}>
+              <Pressable style={styles.confirmBtn} onPress={onClose}>
+                <Text style={styles.confirmBtnText}>Xác nhận</Text>
+              </Pressable>
+            </View>
           )}
           <SafeAreaView />
         </View>
@@ -132,8 +161,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   optionRowSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
+    borderColor: '#111827',
+    backgroundColor: '#F3F4F6',
   },
   optionContent: {
     flex: 1,
@@ -145,7 +174,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   optionLabelSelected: {
-    color: colors.primaryDark,
+    color: '#111827',
   },
   optionSubtitle: {
     fontSize: 13,
@@ -159,5 +188,21 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.muted,
     fontSize: 15,
+  },
+  footer: {
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  confirmBtn: {
+    backgroundColor: '#111827',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  confirmBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

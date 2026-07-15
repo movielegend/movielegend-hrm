@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 20.5.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.28.61:3001/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.61:3001"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

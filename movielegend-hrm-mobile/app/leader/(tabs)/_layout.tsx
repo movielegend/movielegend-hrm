@@ -16,8 +16,8 @@ export default function LeaderTabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarActiveTintColor: '#111827',
+        tabBarInactiveTintColor: '#6B7280',
         tabBarStyle: {
           borderTopWidth: 0,
           backgroundColor: '#fff',
@@ -40,9 +40,9 @@ export default function LeaderTabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Làm việc',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home-variant-outline" size={26} color={color} />
+          title: 'Trang chủ',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
           ),
         }}
       />
@@ -50,26 +50,23 @@ export default function LeaderTabsLayout() {
         name="tasks"
         options={{
           title: 'Giao việc',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="clock-check-outline" size={24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "clock-check" : "clock-check-outline"} size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="approvals"
         options={{
-          title: 'Duyệt đơn',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="clipboard-check-outline" size={24} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Tài khoản',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-outline" size={26} color={color} />
+          title: 'Hồ sơ',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={26} color={color} />
           ),
         }}
       />
@@ -77,8 +74,8 @@ export default function LeaderTabsLayout() {
         name="notifications"
         options={{
           title: 'Thông báo',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell-outline" size={24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} size={24} color={color} />
           ),
         }}
       />
