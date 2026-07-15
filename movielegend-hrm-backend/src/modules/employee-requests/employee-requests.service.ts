@@ -37,7 +37,7 @@ export class EmployeeRequestsService {
       }
     });
 
-    // Notify admins and HR
+    // Notify admins, HR, and Department Leader
     const admins = await this.prisma.user.findMany({
       where: {
         accountStatus: 'ACTIVE',
@@ -50,11 +50,27 @@ export class EmployeeRequestsService {
       select: { id: true }
     });
 
-    if (admins.length > 0) {
+    let leaderId: string | undefined;
+    if (departmentId) {
+      const dept = await this.prisma.department.findUnique({
+        where: { id: departmentId },
+        select: { leaderUserId: true }
+      });
+      if (dept?.leaderUserId) {
+        leaderId = dept.leaderUserId;
+      }
+    }
+
+    const targetUserIds = admins.map(a => a.id);
+    if (leaderId && leaderId !== actor.userId && !targetUserIds.includes(leaderId)) {
+      targetUserIds.push(leaderId);
+    }
+
+    if (targetUserIds.length > 0) {
       this.prisma.$transaction(async (tx) => {
         const notif = await this.notifications.createForUsers(
           tx as any,
-          admins.map(a => a.id),
+          targetUserIds,
           {
             type: 'SYSTEM' as NotificationType,
             title: 'Yêu cầu mới',

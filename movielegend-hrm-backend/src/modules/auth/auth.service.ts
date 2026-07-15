@@ -50,11 +50,13 @@ export class AuthService {
     return this.prisma.$transaction(async (tx) => {
       const [existingPhone, existingEmail, existingCard, department] = await Promise.all([
         tx.user.findUnique({ where: { phone: dto.phone } }),
-        tx.user.findUnique({ where: { email: dto.email } }),
-        tx.employeeProfile.findUnique({ where: { idCardNumber: dto.idCardNumber } }),
-        tx.department.findFirst({
-          where: { id: dto.requestedDepartmentId, isActive: true, deletedAt: null },
-        }),
+        dto.email ? tx.user.findUnique({ where: { email: dto.email } }) : null,
+        dto.idCardNumber ? tx.employeeProfile.findUnique({ where: { idCardNumber: dto.idCardNumber } }) : null,
+        dto.requestedDepartmentId
+          ? tx.department.findFirst({
+              where: { id: dto.requestedDepartmentId, isActive: true, deletedAt: null },
+            })
+          : null,
       ]);
 
       if (existingPhone) throw conflict('DUPLICATE_PHONE', 'Số điện thoại đã tồn tại');
@@ -233,10 +235,11 @@ export class AuthService {
   }
 
   async me(userId: string) {
-    const user = await this.prisma.user.findUniqueOrThrow({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: this.userInclude(),
     });
+    if (!user) throw unauthorized('USER_NOT_FOUND', 'Người dùng không tồn tại');
     return this.toAuthUser(user);
   }
 

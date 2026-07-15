@@ -25,13 +25,13 @@ import { formatDateTime } from '../../utils/date-time';
 import { normalizeApiError } from '../../utils/api-error';
 import { isOverdue, priorityTone, taskDeadlineLabel, translatePriority, translateStatus, translateTimelineType } from './task.logic';
 import { useMinuteTicker } from './deadline-clock';
-import { env } from '../../constants/env';
+import { apiUrl } from '../../constants/env';
 
 function resolveFileUrl(uri?: string | null): string | null {
   if (!uri) return null;
   let url = uri;
   if (!url.startsWith('http')) {
-    url = `${env.API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+    url = `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
   return url;
 }
@@ -48,10 +48,9 @@ export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void
           <Text style={[styles.meta, { marginTop: 4 }]}>{task.taskCode ?? task.type}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <StatusBadge label={task.priority} tone={priorityTone(task.priority)} />
+          <StatusBadge label={translatePriority(task.priority)} tone={priorityTone(task.priority)} />
           <MaterialCommunityIcons name="dots-vertical" size={20} color={colors.text} />
         </View>
-        <StatusBadge label={translatePriority(task.priority)} tone={priorityTone(task.priority)} />
       </View>
       <View style={[styles.rowWrap, { marginTop: 4, marginBottom: 8 }]}>
         <StatusBadge label={translateStatus(task.status)} tone={toneForStatus(task.status)} />
@@ -388,7 +387,7 @@ function targetSummary(task: TaskDto): string {
   const targets = task.targets ?? [];
   if (!targets.length) return 'Chưa giao việc';
   const counts = targets.reduce<Record<string, number>>((memo, target) => {
-    let type = target.targetType ?? target.type;
+    let type: string = target.targetType ?? target.type ?? '';
     if (type === 'USER') type = 'Cá nhân';
     else if (type === 'DEPARTMENT') type = 'Phòng ban';
     else if (type === 'GROUP') type = 'Nhóm';

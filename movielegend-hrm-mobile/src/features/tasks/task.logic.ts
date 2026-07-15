@@ -58,7 +58,7 @@ export function translatePriority(priority?: TaskPriority | string): string {
   return 'Bình thường';
 }
 
-export function translateStatus(status?: string): string {
+export function translateStatus(status?: string | null): string {
   const map: Record<string, string> = {
     NEW: 'Mới',
     ACCEPTED: 'Đã nhận',

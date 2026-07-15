@@ -1,4 +1,4 @@
-import { useState, useEffect, type ComponentProps } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,10 +24,10 @@ export function EmployeeDashboardScreen() {
   }, [schedule]);
 
   useEffect(() => {
-    if (myTasks?.items && myTasks.items.length > 0) {
+    if (myTasks && myTasks.items && myTasks.items.length > 0) {
       scheduleTaskNotifications(myTasks.items).catch(console.error);
     }
-  }, [myTasks?.items]);
+  }, [myTasks]);
 
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -134,7 +134,7 @@ export function EmployeeDashboardScreen() {
   );
 }
 
-function GridItem({ icon, label, onPress, color, badge }: { icon: ComponentProps<typeof MaterialCommunityIcons>['name'], label: string, onPress: () => void, color: string, badge?: string }) {
+function GridItem({ icon, label, onPress, color, badge }: { icon: keyof typeof MaterialCommunityIcons.glyphMap, label: string, onPress: () => void, color: string, badge?: string }) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
       <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: colors.error,
+    backgroundColor: colors.danger,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
