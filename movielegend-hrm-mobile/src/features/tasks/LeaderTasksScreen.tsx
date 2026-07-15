@@ -30,7 +30,7 @@ export function LeaderTasksScreen() {
           <MaterialCommunityIcons 
             name="account-hard-hat" 
             size={20} 
-            color={activeTab === 'ASSIGNEE' ? colors.primary : colors.muted} 
+            color={activeTab === 'ASSIGNEE' ? '#111827' : colors.muted} 
           />
           <Text style={[styles.tabText, activeTab === 'ASSIGNEE' && styles.tabTextActive]}>
             Việc của tôi
@@ -43,7 +43,7 @@ export function LeaderTasksScreen() {
           <MaterialCommunityIcons 
             name="account-group" 
             size={20} 
-            color={activeTab === 'ASSIGNER' ? colors.primary : colors.muted} 
+            color={activeTab === 'ASSIGNER' ? '#111827' : colors.muted} 
           />
           <Text style={[styles.tabText, activeTab === 'ASSIGNER' && styles.tabTextActive]}>
             Việc tôi giao
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabButtonActive: {
-    borderBottomColor: colors.primary,
+    borderBottomColor: '#111827',
   },
   tabText: {
     fontSize: 14,
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   tabTextActive: {
-    color: colors.primary,
+    color: '#111827',
   },
   content: {
     flex: 1,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   createBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,

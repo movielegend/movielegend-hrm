@@ -145,7 +145,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
             onSubmitEditing={handleSearch}
             returnKeyType="search"
           />
-          {searching && <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 8 }} />}
+          {searching && <ActivityIndicator size="small" color="#4B5563" style={{ marginRight: 8 }} />}
           {searchQuery.length > 0 && !searching && (
             <Pressable onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
               <Ionicons name="close-circle" size={18} color="#ccc" />
@@ -172,7 +172,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
             <View style={{ flex: 1 }}>
               <SecondaryButton onPress={getCurrentLocation} loading={loading}>
-                <Ionicons name="location" size={16} color={colors.primary} /> Vị trí của tôi
+                <Ionicons name="location" size={16} color="#4B5563" /> Vị trí của tôi
               </SecondaryButton>
             </View>
             <View style={{ flex: 1 }}>

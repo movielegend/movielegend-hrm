@@ -101,17 +101,11 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                     router.push(`${basePath}/${group.id}?name=${encodeURIComponent(groupName)}` as any);
                   }}
                 >
-                  <View style={[
-                    styles.groupIcon,
-                    isCompany && { backgroundColor: '#FEF3C7' },
-                    group.type === 'TASK' && { backgroundColor: '#DBEAFE' },
-                    isDirect && { backgroundColor: '#F3F4F6' },
-                    isCustom && { backgroundColor: '#FCE7F3' },
-                  ]}>
+                  <View style={[styles.groupIcon, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons
                       name={isDirect ? 'account' : isCustom ? 'account-multiple' : isCompany ? 'domain' : group.type === 'DEPARTMENT' ? 'account-group' : 'clipboard-text-outline'}
                       size={24}
-                      color={isDirect ? '#4B5563' : isCustom ? '#EC4899' : isCompany ? '#F59E0B' : group.type === 'DEPARTMENT' ? colors.primary : '#3B82F6'}
+                      color="#111827"
                     />
                   </View>
 
@@ -124,7 +118,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
                   <StatusBadge
                     label={typeLabel}
-                    tone={isDirect ? 'neutral' : isCustom ? 'danger' : isCompany ? 'warning' : group.type === 'DEPARTMENT' ? 'success' : 'info'}
+                    tone="neutral"
                   />
 
                   <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />
@@ -298,7 +292,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         {/* Header */}
         <View style={styles.chatHeader}>
           <View style={styles.chatHeaderIcon}>
-            <MaterialCommunityIcons name="account-group" size={20} color={colors.primary} />
+            <MaterialCommunityIcons name="account-group" size={20} color="#111827" />
           </View>
           <View style={styles.chatHeaderInfo}>
             <Text style={styles.chatHeaderName}>{groupName ?? 'Nhóm chat'}</Text>
@@ -515,7 +509,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -554,14 +548,14 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#E0E7FF',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   messageBubbleAvatarText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#4338CA',
+    color: '#111827',
   },
 
   messageBubble: {
@@ -571,7 +565,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   messageBubbleMine: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     borderBottomRightRadius: 4,
   },
   messageBubbleOther: {
@@ -587,7 +581,7 @@ const styles = StyleSheet.create({
   messageSender: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.primary,
+    color: '#111827',
     marginBottom: 2,
   },
   messageText: {
@@ -689,7 +683,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -756,7 +750,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#E0E7FF',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
@@ -764,7 +758,7 @@ const styles = StyleSheet.create({
   mentionAvatarText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#4338CA',
+    color: '#111827',
   },
   mentionName: {
     fontSize: 14,

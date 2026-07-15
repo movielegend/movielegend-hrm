@@ -9,7 +9,7 @@ interface LoadingStateProps {
 export function LoadingState({ label = 'Đang tải dữ liệu' }: LoadingStateProps) {
   return (
     <View style={styles.container}>
-      <ActivityIndicator color={colors.primary} size="large" />
+      <ActivityIndicator color="#4B5563" size="large" />
       <Text style={styles.label}>{label}</Text>
     </View>
   );

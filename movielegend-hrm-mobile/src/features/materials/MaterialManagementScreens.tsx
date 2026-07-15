@@ -34,17 +34,29 @@ export function AssetDepartmentListScreen() {
     <Screen>
       <ScreenContainer style={styles.container} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}>
         
-        <View style={styles.header}>
-          <View style={styles.headerIcon}>
-            <MaterialCommunityIcons name="lightning-bolt" size={24} color="#36C59E" />
+        <PageHeader 
+          title="Vật tư" 
+          subtitle="Chọn phòng ban làm việc" 
+          onBack={() => router.back()}
+          right={
+            <Pressable style={styles.historyBtn}>
+              <MaterialCommunityIcons name="history" size={22} color="#111827" />
+            </Pressable>
+          }
+        />
+
+        <View style={styles.bannerCard}>
+          <View style={styles.bannerIconBox}>
+            <MaterialCommunityIcons name="lightning-bolt" size={28} color="#FFF" />
           </View>
-          <View>
-            <Text style={styles.headerTitle}>Vật tư</Text>
-            <Text style={styles.headerSubtitle}>Chọn phòng ban làm việc</Text>
+          <View style={styles.bannerTextContainer}>
+            <Text style={styles.bannerTitle}>Quản lý vật tư</Text>
+            <Text style={styles.bannerSubtitle}>Xem và quản lý vật tư theo phòng ban.</Text>
           </View>
+          <MaterialCommunityIcons name="package-variant-closed" size={60} color="#E2E8F0" style={styles.bannerImage} />
         </View>
 
-        <Text style={styles.sectionLabelGray}>TÌM PHÒNG BAN</Text>
+        <Text style={styles.sectionLabelHeader}>Tìm phòng ban</Text>
         
         <View style={styles.searchBarContainerDept}>
            <MaterialCommunityIcons name="magnify" size={20} color="#98A0A8" />
@@ -60,6 +72,7 @@ export function AssetDepartmentListScreen() {
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionLabelHeader}>Danh sách phòng ban</Text>
           <View style={styles.countBadge}>
+            <MaterialCommunityIcons name="office-building" size={14} color="#111827" />
             <Text style={styles.countBadgeText}>{filteredDepartments?.length || 0} Đơn vị</Text>
           </View>
         </View>
@@ -70,19 +83,42 @@ export function AssetDepartmentListScreen() {
         {filteredDepartments?.map((dept) => (
           <Pressable key={dept.id} onPress={() => router.push(`/admin/materials/department/${dept.id}` as never)}>
             <View style={styles.popularDeptCard}>
-              <View style={styles.popularDeptIcon}>
-                <MaterialCommunityIcons name="office-building" size={24} color="#5C6AC4" />
-              </View>
-              <View style={styles.popularDeptInfo}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                   <Text style={styles.popularDeptName}>{dept.name}</Text>
-                   {dept.name.toLowerCase().includes('kho thành phẩm') && (
-                     <View style={styles.newBadge}><Text style={styles.newBadgeText}>Mới</Text></View>
-                   )}
+              <View style={styles.deptCardTop}>
+                <View style={styles.popularDeptIcon}>
+                  <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
                 </View>
-                <Text style={styles.popularDeptDesc}>Quản lý vật tư thuộc bộ phận {dept.name.toLowerCase()}</Text>
+                <View style={styles.popularDeptInfo}>
+                  <Text style={styles.popularDeptName}>{dept.name}</Text>
+                  <Text style={styles.popularDeptDesc}>Quản lý vật tư thuộc bộ phận {dept.name.toLowerCase()}</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
               </View>
-              <MaterialCommunityIcons name="chevron-right" size={24} color="#CBD5E1" />
+              
+              <View style={styles.deptStatsRow}>
+                <View style={styles.deptStatItem}>
+                  <MaterialCommunityIcons name="cube-outline" size={20} color="#4B5563" />
+                  <View style={styles.deptStatTextCol}>
+                    <Text style={styles.deptStatValue}>256</Text>
+                    <Text style={styles.deptStatLabel}>Vật tư</Text>
+                  </View>
+                </View>
+                <View style={styles.deptStatDivider} />
+                <View style={styles.deptStatItem}>
+                  <MaterialCommunityIcons name="clipboard-text-outline" size={20} color="#4B5563" />
+                  <View style={styles.deptStatTextCol}>
+                    <Text style={styles.deptStatValue}>32</Text>
+                    <Text style={styles.deptStatLabel}>Yêu cầu</Text>
+                  </View>
+                </View>
+                <View style={styles.deptStatDivider} />
+                <View style={styles.deptStatItem}>
+                  <MaterialCommunityIcons name="alert-outline" size={20} color="#4B5563" />
+                  <View style={styles.deptStatTextCol}>
+                    <Text style={styles.deptStatValue}>5</Text>
+                    <Text style={styles.deptStatLabel}>Sắp hết</Text>
+                  </View>
+                </View>
+              </View>
             </View>
           </Pressable>
         ))}
@@ -90,6 +126,15 @@ export function AssetDepartmentListScreen() {
         {filteredDepartments && filteredDepartments.length === 0 && !isLoading ? (
           <EmptyState title="Không tìm thấy phòng ban nào" />
         ) : null}
+
+        <View style={styles.tipCard}>
+          <MaterialCommunityIcons name="lightbulb-outline" size={20} color="#4B5563" />
+          <View style={styles.tipTextContainer}>
+             <Text style={styles.tipTitle}>Mẹo</Text>
+             <Text style={styles.tipDesc}>Chọn phòng ban để xem chi tiết vật tư và các yêu cầu liên quan.</Text>
+          </View>
+          <MaterialCommunityIcons name="close" size={16} color="#9CA3AF" />
+        </View>
 
       </ScreenContainer>
     </Screen>
@@ -306,17 +351,17 @@ function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer }
 
         <View style={styles.assetActionsTeal}>
           <Pressable style={styles.actionBtnTeal} onPress={() => router.push(`/admin/assets/${asset.id}/edit` as never)}>
-            <MaterialCommunityIcons name="pencil-outline" size={18} color="#36C59E" />
+            <MaterialCommunityIcons name="pencil-outline" size={18} color="#111827" />
             <Text style={styles.actionBtnTealText}>Sửa</Text>
           </Pressable>
           {asset.assetStatus === 'IN_STOCK' ? (
             <>
               <Pressable style={styles.actionBtnTeal} onPress={onAssign}>
-                <MaterialCommunityIcons name="rocket-launch-outline" size={18} color="#36C59E" />
+                <MaterialCommunityIcons name="rocket-launch-outline" size={18} color="#111827" />
                 <Text style={styles.actionBtnTealText}>Giao</Text>
               </Pressable>
               <Pressable style={styles.actionBtnTeal} onPress={onTransfer}>
-                <MaterialCommunityIcons name="swap-horizontal" size={18} color="#36C59E" />
+                <MaterialCommunityIcons name="swap-horizontal" size={18} color="#111827" />
                 <Text style={styles.actionBtnTealText}>Chuyển</Text>
               </Pressable>
             </>
@@ -398,26 +443,42 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 14, color: colors.muted },
   sectionLabel: { fontSize: 16, fontWeight: '700', color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
   sectionLabelGray: { fontSize: 12, fontWeight: '700', color: '#98A0A8', marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
-  sectionLabelHeader: { fontSize: 18, fontWeight: '700', color: colors.text },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: spacing.md, marginTop: spacing.xl, marginBottom: spacing.md },
-  countBadge: { backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
-  countBadgeText: { color: '#5C6AC4', fontSize: 12, fontWeight: '600' },
+  sectionLabelHeader: { fontSize: 16, fontWeight: '700', color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.md, marginBottom: spacing.sm },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.md },
+  countBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, gap: 4 },
+  countBadgeText: { color: '#111827', fontSize: 13, fontWeight: '600' },
   pickerContainer: { marginHorizontal: spacing.md },
   searchDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF' },
   searchDropdownText: { fontSize: 14 },
-  popularDeptCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 16, marginHorizontal: spacing.md, marginBottom: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  popularDeptCardSelected: { borderColor: '#36C59E', backgroundColor: '#F0FDF4' },
-  popularDeptIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
+  popularDeptCard: { backgroundColor: '#FFF', padding: 16, marginHorizontal: spacing.md, marginBottom: 12, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  deptCardTop: { flexDirection: 'row', alignItems: 'center' },
+  popularDeptCardSelected: { borderColor: '#111827', backgroundColor: '#F9FAFB' },
+  popularDeptIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
   popularDeptInfo: { flex: 1 },
-  popularDeptName: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
-  popularDeptDesc: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  newBadge: { backgroundColor: '#5C6AC4', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, marginLeft: 8 },
-  newBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+  popularDeptName: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  popularDeptDesc: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  deptStatsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginTop: 16, gap: 12 },
+  deptStatItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  deptStatTextCol: {},
+  deptStatValue: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  deptStatLabel: { fontSize: 11, color: '#64748B' },
+  deptStatDivider: { width: 1, height: 24, backgroundColor: '#E2E8F0' },
+  historyBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  bannerCard: { flexDirection: 'row', backgroundColor: '#FFF', marginHorizontal: spacing.md, marginTop: 8, marginBottom: spacing.lg, borderRadius: 16, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 },
+  bannerIconBox: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  bannerTextContainer: { flex: 1, zIndex: 1 },
+  bannerTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
+  bannerSubtitle: { fontSize: 13, color: '#64748B', lineHeight: 18 },
+  bannerImage: { position: 'absolute', right: -10, top: 10, opacity: 0.5 },
+  tipCard: { flexDirection: 'row', backgroundColor: '#F9FAFB', marginHorizontal: spacing.md, marginTop: spacing.md, marginBottom: spacing.xl, padding: 16, borderRadius: 12, alignItems: 'flex-start' },
+  tipTextContainer: { flex: 1, marginHorizontal: 12 },
+  tipTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  tipDesc: { fontSize: 13, color: '#64748B', lineHeight: 18 },
   bottomBar: { padding: spacing.lg, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  continueButton: { backgroundColor: '#36C59E', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
-  continueButtonDisabled: { backgroundColor: '#A7F3D0' },
+  continueButton: { backgroundColor: '#111827', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  continueButtonDisabled: { backgroundColor: '#D1D5DB' },
   continueButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  createAssetButton: { backgroundColor: '#36C59E', borderRadius: 12, paddingVertical: 16, marginHorizontal: spacing.lg, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
+  createAssetButton: { backgroundColor: '#111827', borderRadius: 12, paddingVertical: 16, marginHorizontal: spacing.lg, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
   createAssetButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700', marginLeft: 8 },
   filterDropdownRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.md },
   miniDropdown: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF' },
@@ -434,8 +495,8 @@ const styles = StyleSheet.create({
   assetDetailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   assetDetailText: { fontSize: 12, color: '#64748B', marginLeft: 4 },
   assetActionsTeal: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  actionBtnTeal: { flex: 1, minWidth: '25%', paddingVertical: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#36C59E', borderRadius: 8 },
-  actionBtnTealText: { color: '#36C59E', fontSize: 14, fontWeight: '600', marginLeft: 4 },
+  actionBtnTeal: { flex: 1, minWidth: '25%', paddingVertical: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#111827', borderRadius: 8 },
+  actionBtnTealText: { color: '#111827', fontSize: 14, fontWeight: '600', marginLeft: 4 },
   searchBarContainerDept: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, marginHorizontal: spacing.md, backgroundColor: '#F8FAFC', marginBottom: spacing.md },
   searchInputDept: { flex: 1, marginLeft: 12, fontSize: 15, color: '#334155' },
 });

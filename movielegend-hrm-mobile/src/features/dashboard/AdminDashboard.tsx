@@ -121,7 +121,7 @@ export function AdminDashboard() {
           <GridCard 
             title="Duyệt đơn" 
             icon="calendar-outline" 
-            onPress={() => router.navigate('/admin/approvals')}
+            onPress={() => router.navigate('/leader/employee-requests')}
           />
           <GridCard 
             title="Công việc" 

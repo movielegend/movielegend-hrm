@@ -32,7 +32,7 @@ export function AssignShiftScreen() {
   const assignMutation = useAssignShift();
 
   // State
-  const [selectedEmployee, setSelectedEmployee] = useState<SelectOption | null>(null);
+  const [selectedEmployees, setSelectedEmployees] = useState<SelectOption[]>([]);
   const [selectedShift, setSelectedShift] = useState<SelectOption | null>(null);
   const [workDate, setWorkDate] = useState<Date>(new Date());
   
@@ -103,16 +103,7 @@ export function AssignShiftScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedEmployee || !selectedShift) return;
-
-    // Get the departmentId from the selected employee's raw data
-    const empRaw = (selectedEmployee as any).raw;
-    const departmentId = empRaw?.department?.id;
-
-    if (!departmentId) {
-      Alert.alert('Lỗi', 'Nhân viên/Leader này chưa thuộc phòng ban nào, không thể phân ca.');
-      return;
-    }
+    if (selectedEmployees.length === 0 || !selectedShift) return;
 
     try {
       const allWeekDates = getWeekDates(workDate);
@@ -123,17 +114,27 @@ export function AssignShiftScreen() {
         return;
       }
       
-      for (const dateStr of datesToAssign) {
-        if (!dateStr) continue;
-        await assignMutation.mutateAsync({
-          userId: selectedEmployee.id,
-          departmentId: departmentId as string,
-          shiftId: selectedShift.id,
-          workDate: dateStr,
-        });
+      for (const employee of selectedEmployees) {
+        const empRaw = (employee as any).raw;
+        const departmentId = empRaw?.department?.id;
+
+        if (!departmentId) {
+          Alert.alert('Cảnh báo', `Nhân viên ${employee.label} chưa thuộc phòng ban nào, đã bỏ qua.`);
+          continue;
+        }
+
+        for (const dateStr of datesToAssign) {
+          if (!dateStr) continue;
+          await assignMutation.mutateAsync({
+            userId: employee.id,
+            departmentId: departmentId as string,
+            shiftId: selectedShift.id,
+            workDate: dateStr,
+          });
+        }
       }
       
-      Alert.alert('Thành công', `Đã phân ca tuần thành công cho quản lý/leader:\n${selectedEmployee.label}`, [
+      Alert.alert('Thành công', `Đã phân ca tuần thành công cho ${selectedEmployees.length} nhân viên.`, [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
@@ -186,13 +187,13 @@ export function AssignShiftScreen() {
             onPress={() => setEmployeeModalVisible(true)}
           >
             <View style={styles.selectorContent}>
-              <MaterialCommunityIcons name="account-outline" size={24} color={colors.primary} />
+              <MaterialCommunityIcons name="account-outline" size={24} color="#111827" />
               <View style={styles.selectorTextWrap}>
-                <Text style={selectedEmployee ? styles.selectorTextVal : styles.selectorTextPlaceholder}>
-                  {selectedEmployee ? selectedEmployee.label : 'Chọn nhân viên...'}
+                <Text style={selectedEmployees.length > 0 ? styles.selectorTextVal : styles.selectorTextPlaceholder}>
+                  {selectedEmployees.length > 0 ? (selectedEmployees.length === 1 ? selectedEmployees[0].label : `Đã chọn ${selectedEmployees.length} nhân viên`) : 'Chọn nhân viên...'}
                 </Text>
-                {selectedEmployee?.subtitle && (
-                  <Text style={styles.selectorSubtitle}>{selectedEmployee.subtitle}</Text>
+                {selectedEmployees.length === 1 && selectedEmployees[0]?.subtitle && (
+                  <Text style={styles.selectorSubtitle}>{selectedEmployees[0]?.subtitle}</Text>
                 )}
               </View>
             </View>
@@ -206,7 +207,7 @@ export function AssignShiftScreen() {
             onPress={() => setShiftModalVisible(true)}
           >
             <View style={styles.selectorContent}>
-              <MaterialCommunityIcons name="clock-outline" size={24} color={colors.primary} />
+              <MaterialCommunityIcons name="clock-outline" size={24} color="#111827" />
               <View style={styles.selectorTextWrap}>
                 <Text style={selectedShift ? styles.selectorTextVal : styles.selectorTextPlaceholder}>
                   {selectedShift ? selectedShift.label : 'Chọn ca làm...'}
@@ -226,7 +227,7 @@ export function AssignShiftScreen() {
             onPress={() => setShowDatePicker(true)}
           >
             <View style={styles.selectorContent}>
-              <MaterialCommunityIcons name="calendar-month-outline" size={24} color={colors.primary} />
+              <MaterialCommunityIcons name="calendar-month-outline" size={24} color="#111827" />
               <View style={styles.selectorTextWrap}>
                 <Text style={styles.selectorTextVal}>{formatWeekRange(workDate)}</Text>
               </View>
@@ -263,23 +264,32 @@ export function AssignShiftScreen() {
 
         </View>
 
-        <PrimaryButton 
-          loading={assignMutation.isPending}
-          disabled={!selectedEmployee || !selectedShift || selectedWeekdays.length === 0}
+        <Pressable 
+          style={[styles.submitBtn, (selectedEmployees.length === 0 || !selectedShift || selectedWeekdays.length === 0) && styles.submitBtnDisabled]}
+          disabled={selectedEmployees.length === 0 || !selectedShift || selectedWeekdays.length === 0 || assignMutation.isPending}
           onPress={handleSubmit}
         >
-          Xác nhận Phân ca
-        </PrimaryButton>
+          <Text style={styles.submitBtnText}>
+            {assignMutation.isPending ? 'Đang xử lý...' : 'Xác nhận Phân ca'}
+          </Text>
+        </Pressable>
       </ScrollView>
 
       {/* Modals */}
       <SelectModal
+        isMulti
         visible={employeeModalVisible}
         title="Chọn nhân viên"
         options={employeeOptions}
         isLoading={employeesQuery.isLoading}
-        selectedValue={selectedEmployee?.id}
-        onSelect={setSelectedEmployee}
+        selectedValues={selectedEmployees.map(e => e.id)}
+        onSelectMulti={(option) => {
+          setSelectedEmployees(prev => {
+            const exists = prev.find(p => p.id === option.id);
+            if (exists) return prev.filter(p => p.id !== option.id);
+            return [...prev, option];
+          });
+        }}
         onClose={() => setEmployeeModalVisible(false)}
       />
 
@@ -366,22 +376,37 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
   weekdayBtnActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    backgroundColor: '#111827',
+    borderColor: '#111827',
   },
   weekdayText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.muted,
+    color: '#6B7280',
   },
   weekdayTextActive: {
-    color: colors.primaryDark,
+    color: '#fff',
+  },
+  submitBtn: {
+    backgroundColor: '#111827',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

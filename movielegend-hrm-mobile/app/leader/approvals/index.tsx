@@ -1,5 +1,5 @@
-import { ApprovalListScreen } from '../../../src/features/approvals/ApprovalScreens';
+import { ApprovalMenuScreen } from '../../../src/features/approvals/ApprovalMenuScreen';
 
-export default function LeaderApprovalsRoute() {
-  return <ApprovalListScreen title="Duyệt tài khoản phòng" />;
+export default function LeaderApprovalsMenuRoute() {
+  return <ApprovalMenuScreen />;
 }

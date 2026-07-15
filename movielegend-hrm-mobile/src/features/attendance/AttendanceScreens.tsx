@@ -17,6 +17,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { queryKeys } from '../../constants/queryKeys';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 import { LoadingState } from '../../components/LoadingState';
 import { useActiveAttendanceLocations, useAttendanceDetail, useAttendanceHistory, useAttendanceReport, useAttendanceDashboardStats, useCheckIn, useCheckOut,
   useCreateAttendanceAdjustment,
@@ -539,59 +540,64 @@ export function AdminAttendanceScreen() {
           style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#E6EEF3' }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="calendar-outline" size={20} color="#1E88E5" />
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#0B3B61' }}>{new Date(currentDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+            <Ionicons name="calendar-outline" size={20} color="#111827" />
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{new Date(currentDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</Text>
           </View>
-          <Ionicons name="chevron-down" size={20} color="#98A0A8" />
+          <Ionicons name="chevron-down" size={20} color="#111827" />
         </Pressable>
 
         {showPicker && (
-          <DateTimePicker
-            value={new Date(currentDate)}
-            mode="date"
-            display="default"
-            onChange={onChangeDate}
+          <CustomDatePickerModal
+            visible={showPicker}
+            initialDate={new Date(currentDate)}
+            onClose={() => setShowPicker(false)}
+            onSelect={(date) => {
+              setShowPicker(false);
+              setCurrentDate(date.toISOString().split('T')[0]);
+            }}
           />
         )}
 
         {/* Stat Cards */}
         {statsQuery.isLoading ? <LoadingState /> : (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-            <View style={{ flex: 1, backgroundColor: '#EAF4FE', padding: 16, borderRadius: 16, marginRight: 8 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="people" size={14} color="#1E88E5" />
+          <View style={{ gap: 16, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
+              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Ionicons name="people" size={14} color="#111827" />
+                </View>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{stats?.present ?? 0}/{stats?.totalUsers ?? 0}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Có mặt</Text>
               </View>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#1E88E5', marginBottom: 4 }}>{stats?.present ?? 0}/{stats?.totalUsers ?? 0}</Text>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#1E88E5', textTransform: 'uppercase' }}>Có mặt</Text>
+
+              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Ionicons name="time-outline" size={14} color="#111827" />
+                </View>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{onTimePercentage}%</Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Đúng giờ</Text>
+              </View>
             </View>
 
-            <View style={{ flex: 1, backgroundColor: '#ECFDF5', padding: 16, borderRadius: 16, marginRight: 8 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="checkmark-circle-outline" size={14} color="#10B981" />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
+              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Ionicons name="time-outline" size={14} color="#111827" />
+                </View>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{stats?.late ?? 0}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Đi muộn</Text>
               </View>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#10B981', marginBottom: 4 }}>{onTimePercentage}%</Text>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#10B981', textTransform: 'uppercase' }}>Đúng giờ</Text>
-            </View>
 
-            <View style={{ flex: 1, backgroundColor: '#FEF2F2', padding: 16, borderRadius: 16 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="warning-outline" size={14} color="#EF4444" />
+              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Ionicons name="close-outline" size={16} color="#111827" />
+                </View>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{stats?.absent ?? 0}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Vắng mặt</Text>
               </View>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#EF4444', marginBottom: 4 }}>{stats?.late ?? 0}</Text>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#EF4444', textTransform: 'uppercase' }}>Đi muộn</Text>
             </View>
           </View>
         )}
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-           <View style={{ flex: 1, backgroundColor: '#F3F4F6', padding: 16, borderRadius: 16 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="close-circle-outline" size={14} color="#6B7280" />
-              </View>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#6B7280', marginBottom: 4 }}>{stats?.absent ?? 0}</Text>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Vắng mặt</Text>
-            </View>
-        </View>
 
         {/* Employee List Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -601,7 +607,7 @@ export function AdminAttendanceScreen() {
         {/* Employee List */}
         {reportQuery.isLoading ? <LoadingState /> : (
           <View style={{ gap: 12 }}>
-            {records.length === 0 ? <EmptyState title="Không có bản ghi nào hôm nay" /> : null}
+            {records.length === 0 ? <EmptyState icon="file-document-outline" title="Không có bản ghi nào hôm nay" message="Dữ liệu chấm công sẽ hiển thị tại đây khi có bản ghi." /> : null}
             {records.map((record) => {
               const user = (record as any).user; // The backend includes 'user' in findAll
               const name = user?.profile?.fullName || user?.userCode || 'Unknown';

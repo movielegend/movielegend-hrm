@@ -90,7 +90,7 @@ export function LeaderAssignmentScreen() {
                     <Text style={styles.titleText}>
                       {emp.profile?.fullName || emp.phone} {isCurrentLeader ? '(Quản lý hiện tại)' : ''}
                     </Text>
-                    <Text style={[styles.meta, isCurrentLeader && { color: colors.primary, fontWeight: '600' }]}>
+                    <Text style={[styles.meta, isCurrentLeader && { color: '#111827', fontWeight: '600' }]}>
                       {emp.userCode} - {isCurrentLeader ? 'Quản lý (Leader)' : (emp.profile?.position?.name || 'Chưa có chức vụ')}
                     </Text>
                   </Pressable>
@@ -120,9 +120,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   optionSelected: {
-    borderColor: colors.primary,
+    borderColor: '#111827',
     borderWidth: 2,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#F9FAFB',
   },
   titleText: { color: colors.text, fontSize: 15, fontWeight: '600' },
 });

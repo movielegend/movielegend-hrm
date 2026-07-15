@@ -24,6 +24,10 @@ export function MyProfileScreen() {
     <Screen>
       <PageHeader title="Hồ sơ cá nhân" subtitle="Thông tin tài khoản của bạn" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
+        
+        {/* Background Header - to flow from PageHeader */}
+        <View style={styles.headerBg} />
+
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
@@ -31,6 +35,10 @@ export function MyProfileScreen() {
           <Text style={styles.userName}>{user?.fullName || 'Người dùng'}</Text>
           <Text style={styles.userRole}>{user?.position?.name || 'Nhân viên'}</Text>
           <Text style={styles.userDepartment}>{user?.department?.name || ''}</Text>
+          <View style={styles.statusBadge}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>Đang hoạt động</Text>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -44,7 +52,7 @@ export function MyProfileScreen() {
               icon="face-recognition" 
               label="Dữ liệu khuôn mặt" 
               value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
-              valueColor={user?.hasFaceData ? colors.success : colors.danger}
+              valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
               isLast
             />
           </View>
@@ -58,7 +66,7 @@ function InfoRow({ icon, label, value, valueColor, isLast }: any) {
   return (
     <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
       <View style={styles.infoIconBg}>
-        <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
+        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
@@ -70,60 +78,98 @@ function InfoRow({ icon, label, value, valueColor, isLast }: any) {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    padding: spacing.lg,
     paddingBottom: spacing.xxl,
+    backgroundColor: '#FAFAFA',
+    minHeight: '100%',
+  },
+  headerBg: {
+    backgroundColor: '#111827',
+    height: 100,
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   profileCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    marginTop: 30,
+    marginHorizontal: spacing.lg,
+    borderRadius: 24,
     padding: spacing.xl,
     alignItems: 'center',
-    marginBottom: spacing.xl,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   avatarContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 4,
+    borderColor: '#fff',
+    marginTop: -50,
     marginBottom: spacing.md,
   },
   avatarText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.primaryDark,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#111827',
   },
   userName: {
     fontSize: 22,
     fontWeight: '700',
-    color: colors.text,
+    color: '#111827',
     marginBottom: 4,
   },
   userRole: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 2,
   },
   userDepartment: {
-    fontSize: 14,
-    color: colors.muted,
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: spacing.md,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#111827',
+  },
+  statusText: {
+    color: '#4B5563',
+    fontSize: 13,
+    fontWeight: '600',
   },
   section: {
-    marginBottom: spacing.xl,
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: spacing.md,
-    marginLeft: spacing.xs,
+    marginLeft: 4,
   },
   infoCard: {
     backgroundColor: '#fff',
@@ -140,13 +186,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#F3F4F6',
   },
   infoIconBg: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -156,12 +202,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: colors.muted,
+    color: '#6B7280',
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
+    fontWeight: '600',
+    color: '#111827',
   },
 });

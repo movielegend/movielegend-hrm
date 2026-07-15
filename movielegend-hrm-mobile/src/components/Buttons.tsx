@@ -34,7 +34,7 @@ export function SecondaryButton({ children, onPress, disabled, loading, accessib
       onPress={onPress}
       style={[styles.button, styles.secondary, (disabled || loading) && styles.disabled, style]}
     >
-      {loading ? <ActivityIndicator color={colors.primary} /> : <Text style={styles.secondaryText}>{children}</Text>}
+      {loading ? <ActivityIndicator color="#111827" /> : <Text style={styles.secondaryText}>{children}</Text>}
     </Pressable>
   );
 }
