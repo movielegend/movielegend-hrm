@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ChatService {
   constructor(
-    private prisma: PrismaService,
-    private realtime: RealtimeEventsService
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeEventsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   // Get or Create group for a department
@@ -65,8 +67,63 @@ export class ChatService {
     // Phát tín hiệu qua WebSocket cho tất cả user
     if (group.departmentId) {
       this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
+      
+      const members = await this.prisma.departmentMember.findMany({
+        where: { departmentId: group.departmentId, leftAt: null, userId: { not: userId } },
+        select: { userId: true }
+      });
+      if (members.length > 0) {
+        await this.prisma.$transaction(async (tx) => {
+          const payload = await this.notifications.createForUsers(
+            tx as any,
+            members.map(m => m.userId),
+            {
+              type: 'CHAT_MESSAGE',
+              title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode}`,
+              body: message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]'),
+              metadata: { groupId: group.id, messageId: message.id }
+            }
+          );
+          if (payload) this.notifications.emitCreated(payload);
+        });
+      }
     } else {
       this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
+      
+      const members = await this.prisma.chatGroupMember.findMany({
+        where: { groupId }
+      });
+      for (const m of members) {
+        this.realtime.emitToUser(m.userId, 'chat:message', message);
+      }
+      
+      const otherMembers = members.filter(m => m.userId !== userId);
+      console.log(`[ChatService] Sending message from ${userId} to groupId ${groupId}`);
+      console.log(`[ChatService] Found ${members.length} members, otherMembers: ${otherMembers.length}`);
+      
+      if (otherMembers.length > 0) {
+        try {
+          await this.prisma.$transaction(async (tx) => {
+            const payload = await this.notifications.createForUsers(
+              tx as any,
+              otherMembers.map(m => m.userId),
+              {
+                type: 'CHAT_MESSAGE',
+                title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode}`,
+                body: message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]'),
+                metadata: { groupId: group.id, messageId: message.id }
+              }
+            );
+            console.log(`[ChatService] Notification created successfully:`, !!payload);
+            if (payload) {
+              this.notifications.emitCreated(payload);
+              console.log(`[ChatService] Emitted notification.created to users`);
+            }
+          });
+        } catch (error) {
+          console.error(`[ChatService] Failed to create notification:`, error);
+        }
+      }
     }
 
     return message;

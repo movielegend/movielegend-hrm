@@ -312,7 +312,7 @@ export class AuthService {
     const session = await this.prisma.refreshSession.create({
       data: {
         userId,
-        tokenHash: 'pending',
+        tokenHash: 'pending_' + Date.now() + '_' + Math.random().toString(36).substring(2),
         expiresAt: new Date(Date.now() + refreshDays * 24 * 60 * 60 * 1000),
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,

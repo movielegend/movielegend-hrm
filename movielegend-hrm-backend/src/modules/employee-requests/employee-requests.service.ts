@@ -21,7 +21,7 @@ export class EmployeeRequestsService {
   async create(dto: CreateEmployeeRequestDto, actor: AuthenticatedUser) {
     const departmentId = await this.scope.getPrimaryDepartmentId(actor.userId);
     this.assertFinancialRequest(dto);
-    return this.prisma.employeeRequest.create({
+    const request = await this.prisma.employeeRequest.create({
       data: {
         userId: actor.userId,
         departmentId,
@@ -32,7 +32,41 @@ export class EmployeeRequestsService {
         attachmentMetadata: dto.attachmentMetadata as Prisma.InputJsonValue | undefined,
         referenceId: dto.referenceId,
       },
+      include: {
+        user: { select: { profile: { select: { fullName: true } } } }
+      }
     });
+
+    // Notify admins and HR
+    const admins = await this.prisma.user.findMany({
+      where: {
+        accountStatus: 'ACTIVE',
+        roles: {
+          some: {
+            role: { code: { in: ['ADMIN', 'HR', 'ACCOUNTANT'] } }
+          }
+        }
+      },
+      select: { id: true }
+    });
+
+    if (admins.length > 0) {
+      this.prisma.$transaction(async (tx) => {
+        const notif = await this.notifications.createForUsers(
+          tx as any,
+          admins.map(a => a.id),
+          {
+            type: 'SYSTEM' as NotificationType,
+            title: 'Yêu cầu mới',
+            body: `Nhân viên ${request.user?.profile?.fullName || 'ẩn danh'} vừa gửi yêu cầu: ${request.title}`,
+            metadata: { requestId: request.id }
+          }
+        );
+        if (notif) this.notifications.emitCreated(notif);
+      });
+    }
+
+    return request;
   }
 
   findAll(actor: AuthenticatedUser, departmentId?: string) {

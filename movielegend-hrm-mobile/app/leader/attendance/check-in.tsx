@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from '../../../src/lib/Maps';
@@ -72,6 +73,27 @@ export default function CheckInScreen() {
       Alert.alert('Lỗi', locationError || 'Đang lấy vị trí, vui lòng chờ...');
       return;
     }
+    
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (hasHardware && isEnrolled) {
+        const authResult = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Xác nhận danh tính để chấm công',
+          fallbackLabel: 'Sử dụng mật khẩu',
+        });
+
+        if (!authResult.success) {
+          Alert.alert('Xác thực thất bại', 'Bạn cần xác thực sinh trắc học hoặc mật khẩu điện thoại để tiếp tục.');
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi xác thực sinh trắc học:', err);
+      // Có thể bỏ qua nếu lỗi phần cứng hoặc tiếp tục tùy theo yêu cầu
+    }
+
     setCameraVisible(true);
   };
 

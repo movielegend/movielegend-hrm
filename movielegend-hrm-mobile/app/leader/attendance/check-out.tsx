@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from '../../../src/lib/Maps';
 
 import { Screen } from '../../../src/components/Screen';
 import { checkOut } from '../../../src/api/attendance.api';
+import { uploadFile } from '../../../src/api/uploads.api';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { useMySchedule } from '../../../src/hooks/useShifts';
@@ -19,12 +21,14 @@ export default function CheckOutScreen() {
   // Find today's shift
   const todayStr = new Date().toISOString().substring(0, 10);
   const todayShift = schedule?.find(s => new Date(s.workDate).toISOString().substring(0, 10) === todayStr);
-
   const [permission, requestPermission] = useCameraPermissions();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [ipv4, setIpv4] = useState<string>('Đang lấy IP...');
+
+  const [isCameraVisible, setCameraVisible] = useState(false);
+  const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
     fetch('https://api.ipify.org?format=json')
@@ -70,11 +74,52 @@ export default function CheckOutScreen() {
       return;
     }
     
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (hasHardware && isEnrolled) {
+        const authResult = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Xác nhận danh tính để chấm công',
+          fallbackLabel: 'Sử dụng mật khẩu',
+        });
+
+        if (!authResult.success) {
+          Alert.alert('Xác thực thất bại', 'Bạn cần xác thực sinh trắc học hoặc mật khẩu điện thoại để tiếp tục.');
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi xác thực sinh trắc học:', err);
+      // Có thể bỏ qua nếu lỗi phần cứng hoặc tiếp tục tùy theo yêu cầu
+    }
+
+    setCameraVisible(true);
+  };
+
+  const handleCaptureAndSubmit = async () => {
+    if (!cameraRef.current || !location) return;
+    
     setLoading(true);
     try {
+      const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 0.5 });
+      
+      if (!photo?.uri) throw new Error('Không thể chụp ảnh xác thực');
+
+      // 1. Upload photo first
+      const uploaded = await uploadFile({
+        uri: photo.uri,
+        name: 'checkout_attendance.jpg',
+        mimeType: 'image/jpeg',
+        purpose: 'ATTENDANCE',
+      });
+
+      // 2. Check out with photoFileId
       const payload = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy ?? 0,
+        photoFileId: uploaded.fileId,
       };
 
       await checkOut(payload);
@@ -82,10 +127,11 @@ export default function CheckOutScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
-      const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
-      Alert.alert('Lỗi chấm công', msg);
+      const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi ra ca.';
+      Alert.alert('Lỗi ra ca', msg);
     } finally {
       setLoading(false);
+      setCameraVisible(false);
     }
   };
 
@@ -173,6 +219,22 @@ export default function CheckOutScreen() {
               <Text style={styles.confirmBtnText}>Xác nhận</Text>
             )}
           </Pressable>
+        </View>
+      ) : null}
+
+      {/* Camera Modal */}
+      {isCameraVisible ? (
+        <View style={styles.cameraModal}>
+          <CameraView style={styles.fullCamera} facing="front" ref={cameraRef} />
+          <View style={styles.cameraControls}>
+            <Pressable style={styles.cameraCancelBtn} onPress={() => setCameraVisible(false)} disabled={loading}>
+              <Text style={styles.cameraBtnText}>Hủy</Text>
+            </Pressable>
+            <Pressable style={styles.cameraCaptureBtn} onPress={() => void handleCaptureAndSubmit()} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <MaterialCommunityIcons name="camera" size={32} color="#fff" />}
+            </Pressable>
+            <View style={{ width: 60 }} />
+          </View>
         </View>
       ) : null}
     </Screen>
@@ -329,5 +391,42 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  cameraModal: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 999,
+  },
+  fullCamera: {
+    flex: 1,
+  },
+  cameraControls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 24, // spacing.xl
+    paddingBottom: 40, // spacing.xxl
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  cameraCancelBtn: {
+    padding: 16, // spacing.md
+  },
+  cameraBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cameraCaptureBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
 });

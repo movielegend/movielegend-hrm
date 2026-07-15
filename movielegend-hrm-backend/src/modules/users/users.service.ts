@@ -72,10 +72,15 @@ export class UsersService {
         await tx.faceRegistrationImage.deleteMany({
           where: { faceProfileId },
         });
+        // Auto-approve when updating
+        await tx.faceProfile.update({
+          where: { id: faceProfileId },
+          data: { status: 'APPROVED' },
+        });
       } else {
-        // Create new face profile
+        // Create new face profile and auto-approve
         const newFaceProfile = await tx.faceProfile.create({
-          data: { userId: actor.userId },
+          data: { userId: actor.userId, status: 'APPROVED' },
         });
         faceProfileId = newFaceProfile.id;
       }

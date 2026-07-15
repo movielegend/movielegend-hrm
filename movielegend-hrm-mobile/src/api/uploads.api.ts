@@ -6,11 +6,24 @@ import type { UploadFileInput, UploadedFileDto } from '../types/upload.types';
 export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDto> {
   const formData = new FormData();
   formData.append('purpose', input.purpose);
-  formData.append('file', {
-    uri: input.uri,
-    name: input.name,
-    type: input.mimeType,
-  } as unknown as Blob);
+  
+  let fileBlob: any = input.file;
+  
+  if (!fileBlob) {
+    if (typeof window !== 'undefined' && input.uri.startsWith('blob:')) {
+      // On web, fetch the blob from the blob URI
+      fileBlob = await fetch(input.uri).then(r => r.blob());
+    } else {
+      // React Native approach
+      fileBlob = {
+        uri: input.uri,
+        name: input.name,
+        type: input.mimeType,
+      } as unknown as Blob;
+    }
+  }
+
+  formData.append('file', fileBlob, input.name);
 
   const config: AxiosRequestConfig<FormData> = {
     timeout: 30_000,

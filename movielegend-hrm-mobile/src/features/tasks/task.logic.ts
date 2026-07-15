@@ -23,6 +23,11 @@ export function canSubmitAssignment(status?: TaskAssignmentStatus): boolean {
   return status === 'IN_PROGRESS' || status === 'REJECTED';
 }
 
+export function canCancelTask(task: TaskDto, userId?: string): boolean {
+  if (task.status === 'COMPLETED' || task.status === 'CANCELLED') return false;
+  return task.createdByUserId === userId || task.groupLeaderId === userId;
+}
+
 export function isReadOnlyStatus(status?: TaskStatus | TaskAssignmentStatus): boolean {
   return status === 'WAITING_REVIEW' || status === 'COMPLETED' || status === 'CANCELLED';
 }
@@ -36,14 +41,52 @@ export function isOverdue(dueAt?: string | null, status?: TaskStatus | TaskAssig
 
 export function taskDeadlineLabel(dueAt?: string | null, now = new Date()): string {
   const dueDate = toDate(dueAt);
-  if (!dueDate) return 'No deadline';
+  if (!dueDate) return 'Không có hạn chót';
   const diffMs = dueDate.getTime() - now.getTime();
   const absMinutes = Math.max(1, Math.round(Math.abs(diffMs) / 60_000));
   const days = Math.floor(absMinutes / 1440);
   const hours = Math.floor((absMinutes % 1440) / 60);
   const minutes = absMinutes % 60;
-  const text = days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  return diffMs >= 0 ? `Due in ${text}` : `Overdue ${text}`;
+  const text = days > 0 ? `${days} ngày ${hours} giờ` : hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
+  return diffMs >= 0 ? `Còn ${text}` : `Quá hạn ${text}`;
+}
+
+export function translatePriority(priority?: TaskPriority | string): string {
+  if (priority === 'URGENT') return 'Khẩn cấp';
+  if (priority === 'HIGH') return 'Cao';
+  if (priority === 'LOW') return 'Thấp';
+  return 'Bình thường';
+}
+
+export function translateStatus(status?: string): string {
+  const map: Record<string, string> = {
+    NEW: 'Mới',
+    ACCEPTED: 'Đã nhận',
+    IN_PROGRESS: 'Đang làm',
+    WAITING_REVIEW: 'Chờ duyệt',
+    COMPLETED: 'Hoàn thành',
+    REJECTED: 'Làm lại',
+    CANCELLED: 'Đã hủy',
+    PENDING: 'Chờ xử lý',
+    APPROVED: 'Đã duyệt',
+  };
+  return status ? (map[status] ?? status) : '-';
+}
+
+export function translateTimelineType(type: string): string {
+  const map: Record<string, string> = {
+    TASK_CREATED: 'Tạo công việc',
+    STATUS_CHANGED: 'Thay đổi trạng thái',
+    ASSIGNMENT_CREATED: 'Giao việc',
+    ATTACHMENT_ADDED: 'Thêm đính kèm',
+    TASK_SUBMITTED: 'Nộp kết quả',
+    COMMENT_ADDED: 'Thêm bình luận',
+    EXTENSION_REQUESTED: 'Yêu cầu gia hạn',
+    EXTENSION_APPROVED: 'Duyệt gia hạn',
+    EXTENSION_REJECTED: 'Từ chối gia hạn',
+    PROGRESS_UPDATED: 'Cập nhật tiến độ',
+  };
+  return map[type] ?? type;
 }
 
 export function priorityTone(priority?: TaskPriority): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {

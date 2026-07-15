@@ -1,15 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentProps } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../providers/AuthProvider';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { useMySchedule } from '../../hooks/useShifts';
+import { useMyTasks } from '../../hooks/useTasks';
+import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
 import { Screen } from '../../components/Screen';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 export function EmployeeDashboardScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  
+  const { data: currentAttendance } = useCurrentAttendance();
+  const { data: schedule } = useMySchedule();
+  const { data: myTasks } = useMyTasks({ limit: 100 });
+
+  useEffect(() => {
+    if (schedule && schedule.length > 0) {
+      scheduleShiftNotifications(schedule).catch(console.error);
+    }
+  }, [schedule]);
+
+  useEffect(() => {
+    if (myTasks?.items && myTasks.items.length > 0) {
+      scheduleTaskNotifications(myTasks.items).catch(console.error);
+    }
+  }, [myTasks?.items]);
+
   const getInitials = (name?: string) => {
     if (!name) return 'U';
     const parts = name.split(' ').filter(Boolean);
@@ -33,7 +52,7 @@ export function EmployeeDashboardScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
-        
+
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerTextContainer}>
@@ -52,52 +71,60 @@ export function EmployeeDashboardScreen() {
         </View>
 
         {/* Quick Check-in Button */}
-        <Pressable 
-          style={styles.checkInButton}
-          onPress={() => router.push('/employee/attendance/check-in')}
+        <Pressable
+          style={[styles.checkInButton, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
+          onPress={() => {
+            if (currentAttendance?.state === 'CHECKED_IN') {
+              router.push('/employee/attendance/check-out');
+            } else {
+              router.push('/employee/attendance/check-in');
+            }
+          }}
         >
           <MaterialCommunityIcons name="line-scan" size={32} color="#fff" />
-          <Text style={styles.checkInText}>Chấm công ngay</Text>
+          <Text style={styles.checkInText}>
+            {currentAttendance?.state === 'CHECKED_IN' ? 'Kết thúc ca làm (Ra ca)' : 'Chấm công ngay (Vào ca)'}
+          </Text>
         </Pressable>
 
         {/* Action Grid */}
         <Text style={styles.sectionTitle}>Tiện ích</Text>
         <View style={styles.grid}>
-          <GridItem 
-            icon="calendar-clock" 
-            label="Ca làm việc" 
-            onPress={() => router.push('/employee/schedule')} 
+          <GridItem
+            icon="calendar-clock"
+            label="Ca làm việc"
+            onPress={() => router.push('/employee/schedule')}
             color="#4F46E5"
           />
-          <GridItem 
-            icon="format-list-checks" 
-            label="Công việc" 
-            onPress={() => router.push('/employee/tasks')} 
+          <GridItem
+            icon="format-list-checks"
+            label="Công việc"
+            onPress={() => router.push('/employee/tasks')}
             color="#059669"
             badge="2"
           />
-          <GridItem 
-            icon="file-document-edit-outline" 
-            label="Đơn từ" 
-            onPress={() => router.push('/employee/requests')} 
+          <GridItem
+            icon="file-document-edit-outline"
+            label="Đơn từ"
+            onPress={() => router.push('/employee/requests')}
             color="#D97706"
           />
-          <GridItem 
-            icon="cash-multiple" 
-            label="Lương thưởng" 
-            onPress={() => router.push('/employee/payroll')} 
+          <GridItem
+            icon="cash-multiple"
+            label="Lương thưởng"
+            onPress={() => router.push('/employee/payroll')}
             color="#DC2626"
           />
-          <GridItem 
-            icon="text-box-check-outline" 
-            label="Hợp đồng" 
-            onPress={() => router.push('/employee/contracts')} 
+          <GridItem
+            icon="text-box-check-outline"
+            label="Hợp đồng"
+            onPress={() => router.push('/employee/contracts')}
             color="#2563EB"
           />
-          <GridItem 
-            icon="laptop" 
-            label="Tài sản" 
-            onPress={() => router.push('/employee/assets')} 
+          <GridItem
+            icon="laptop"
+            label="Tài sản"
+            onPress={() => router.push('/employee/assets')}
             color="#7C3AED"
           />
         </View>
@@ -107,7 +134,7 @@ export function EmployeeDashboardScreen() {
   );
 }
 
-function GridItem({ icon, label, onPress, color, badge }: { icon: any, label: string, onPress: () => void, color: string, badge?: string }) {
+function GridItem({ icon, label, onPress, color, badge }: { icon: ComponentProps<typeof MaterialCommunityIcons>['name'], label: string, onPress: () => void, color: string, badge?: string }) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
       <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>

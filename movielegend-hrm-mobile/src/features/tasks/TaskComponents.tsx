@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View, Linking } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -21,8 +23,18 @@ import type {
 } from '../../types/task.types';
 import { formatDateTime } from '../../utils/date-time';
 import { normalizeApiError } from '../../utils/api-error';
-import { isOverdue, priorityTone, taskDeadlineLabel } from './task.logic';
+import { isOverdue, priorityTone, taskDeadlineLabel, translatePriority, translateStatus, translateTimelineType } from './task.logic';
 import { useMinuteTicker } from './deadline-clock';
+import { env } from '../../constants/env';
+
+function resolveFileUrl(uri?: string | null): string | null {
+  if (!uri) return null;
+  let url = uri;
+  if (!url.startsWith('http')) {
+    url = `${env.API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+  return url;
+}
 
 export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void }) {
   const now = useMinuteTicker();
@@ -39,11 +51,12 @@ export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void
           <StatusBadge label={task.priority} tone={priorityTone(task.priority)} />
           <MaterialCommunityIcons name="dots-vertical" size={20} color={colors.text} />
         </View>
+        <StatusBadge label={translatePriority(task.priority)} tone={priorityTone(task.priority)} />
       </View>
       <View style={[styles.rowWrap, { marginTop: 4, marginBottom: 8 }]}>
-        <StatusBadge label={task.status} tone={toneForStatus(task.status)} />
-        {overdue ? <StatusBadge label="OVERDUE" tone="danger" /> : null}
-        {task.status === 'NEW' ? <StatusBadge label="NEW" tone="info" /> : null}
+        <StatusBadge label={translateStatus(task.status)} tone={toneForStatus(task.status)} />
+        {overdue ? <StatusBadge label="Quá hạn" tone="danger" /> : null}
+        {task.status === 'NEW' ? <StatusBadge label="Mới" tone="info" /> : null}
       </View>
       <DeadlineLabel dueAt={task.dueAt} />
       <View style={{ marginVertical: 8 }}>
@@ -56,11 +69,11 @@ export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void
 }
 
 export function PriorityBadge({ priority }: { priority?: TaskPriority }) {
-  return <StatusBadge label={priority ?? 'NORMAL'} tone={priorityTone(priority)} />;
+  return <StatusBadge label={translatePriority(priority)} tone={priorityTone(priority)} />;
 }
 
 export function TaskStatusBadge({ status }: { status?: string }) {
-  return <StatusBadge label={status ?? '-'} tone={toneForStatus(status)} />;
+  return <StatusBadge label={translateStatus(status)} tone={toneForStatus(status)} />;
 }
 
 export function ProgressBar({ value }: { value: number }) {
@@ -96,10 +109,10 @@ export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefi
             <View style={styles.timelineIconWrapper}>
               <MaterialCommunityIcons name={icon} size={20} color={color} />
             </View>
-            <Text style={styles.titleSmall}>{item.type}</Text>
+            <Text style={styles.titleSmall}>{translateTimelineType(item.type)}</Text>
             <Text style={styles.metaSmall}>{formatDateTime(item.createdAt)}</Text>
             {item.data?.note ? <Text style={styles.body}>{item.data.note}</Text> : null}
-            {item.data?.oldStatus || item.data?.newStatus ? <Text style={styles.meta}>{`${item.data?.oldStatus ?? '-'} -> ${item.data?.newStatus ?? '-'}`}</Text> : null}
+            {item.data?.oldStatus || item.data?.newStatus ? <Text style={styles.meta}>{`${translateStatus(item.data?.oldStatus)} -> ${translateStatus(item.data?.newStatus)}`}</Text> : null}
           </View>
         );
       })}
@@ -169,6 +182,7 @@ export function AttachmentPicker({
         name: asset.name,
         mimeType: asset.mimeType ?? 'application/octet-stream',
         purpose: 'TASK_ATTACHMENT',
+        file: asset.file,
       });
       setStaged({
         fileName: asset.name,
@@ -211,17 +225,49 @@ export function AttachmentPicker({
 }
 
 export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDto[] | undefined }) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
   if (!attachments?.length) return <EmptyState small icon="paperclip" title="Chưa có tệp đính kèm" message="Thêm tài liệu liên quan đến công việc này." />;
   return (
     <View style={styles.stack}>
       {attachments.map((attachment) => (
-        <View key={attachment.id} style={[styles.row, styles.attachmentTile]}>
+        <Pressable 
+          key={attachment.id} 
+          style={[styles.row, styles.attachmentTile, downloadingId === attachment.id && { opacity: 0.6 }]}
+          onPress={async () => {
+            const url = resolveFileUrl(attachment.fileUrl);
+            if (!url) return;
+            
+            try {
+              setDownloadingId(attachment.id);
+              // Clean filename to remove invalid characters, default to 'document' if missing
+              const cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
+              const localUri = FileSystem.documentDirectory + cleanFileName;
+              
+              const { uri } = await FileSystem.downloadAsync(url, localUri);
+              const canShare = await Sharing.isAvailableAsync();
+              if (canShare) {
+                await Sharing.shareAsync(uri);
+              } else {
+                // Fallback to open URL
+                Linking.openURL(url).catch((err) => console.error("Couldn't load page", err));
+              }
+            } catch (err) {
+              console.error(err);
+              Linking.openURL(url).catch((e) => console.error(e));
+            } finally {
+              setDownloadingId(null);
+            }
+          }}
+        >
           <MaterialCommunityIcons name="file-document-outline" size={28} color={colors.primary} />
           <View style={styles.flex}>
-            <Text style={styles.titleSmall} numberOfLines={1}>{attachment.fileName}</Text>
+            <Text style={styles.titleSmall} numberOfLines={1}>
+              {downloadingId === attachment.id ? 'Đang mở...' : attachment.fileName}
+            </Text>
             <Text style={styles.metaSmall}>{attachment.mimeType ?? attachment.type}</Text>
           </View>
-        </View>
+        </Pressable>
       ))}
     </View>
   );
@@ -340,9 +386,12 @@ function averageAssignmentProgress(task: TaskDto): number {
 
 function targetSummary(task: TaskDto): string {
   const targets = task.targets ?? [];
-  if (!targets.length) return 'No target metadata';
+  if (!targets.length) return 'Chưa giao việc';
   const counts = targets.reduce<Record<string, number>>((memo, target) => {
-    const type = target.targetType ?? target.type;
+    let type = target.targetType ?? target.type;
+    if (type === 'USER') type = 'Cá nhân';
+    else if (type === 'DEPARTMENT') type = 'Phòng ban';
+    else if (type === 'GROUP') type = 'Nhóm';
     memo[type] = (memo[type] ?? 0) + 1;
     return memo;
   }, {});
@@ -351,9 +400,9 @@ function targetSummary(task: TaskDto): string {
 
 function assignmentSummary(task: TaskDto): string {
   const assignments = task.assignments ?? [];
-  if (!assignments.length) return '0 assignments';
+  if (!assignments.length) return '0 người';
   const completed = assignments.filter((assignment) => assignment.status === 'COMPLETED').length;
-  return `${completed}/${assignments.length} completed`;
+  return `${completed}/${assignments.length} hoàn thành`;
 }
 
 const styles = StyleSheet.create({

@@ -60,6 +60,20 @@ export function useRegisterCurrentDeviceToken() {
   });
 }
 
+import { useEffect } from 'react';
+import { useAuth } from '../providers/AuthProvider';
+
+export function usePushNotificationSetup() {
+  const { user } = useAuth();
+  const registerDevice = useRegisterCurrentDeviceToken();
+
+  useEffect(() => {
+    if (user) {
+      registerDevice.mutateAsync().catch(console.error);
+    }
+  }, [user?.id]); // Only run when user logs in or changes
+}
+
 export function useRevokeDeviceToken() {
   return useMutation({
     mutationFn: (id: string) => revokeDeviceToken(id),

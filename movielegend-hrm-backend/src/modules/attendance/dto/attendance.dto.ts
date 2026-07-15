@@ -113,6 +113,25 @@ export class CheckOutDto {
   @IsOptional()
   @IsString()
   wifiBssid?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  faceImage?: string;
+
+  @ApiPropertyOptional({
+    description: 'Temporary ATTENDANCE UploadedFile id owned by current user.',
+  })
+  @IsOptional()
+  @IsUUID()
+  photoFileId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  accuracy?: number;
 }
 
 export class CreateAttendanceAdjustmentDto {
