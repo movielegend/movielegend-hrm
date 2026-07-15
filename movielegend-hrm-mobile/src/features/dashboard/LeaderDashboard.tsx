@@ -134,33 +134,21 @@ export function LeaderDashboard() {
           </View>
         </View>
 
-        {/* Hoạt động gần đây */}
+        {/* Công việc của tôi */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Hoạt động gần đây</Text>
-            <Text style={styles.seeAllText}>Xem tất cả</Text>
-          </View>
-          
-          <View style={styles.timeline}>
-            <TimelineItem 
-              time="09:02 AM" 
-              icon="clock-outline"
-              title="Chấm công vào" 
-              desc="Văn phòng Hà Nội"
-              isFirst
+          <Text style={styles.sectionTitle}>Công việc của tôi</Text>
+          <View style={styles.tasksContainer}>
+            <TaskCard 
+              title="Duyệt đơn xin nghỉ của nhân viên"
+              priority="Cao"
+              priorityColor="#EF4444"
+              dueDate="Hôm nay"
             />
-            <TimelineItem 
-              time="08:45 AM" 
-              icon="account-group-outline"
-              title="Duyệt đơn xin nghỉ" 
-              desc="Nhân viên Nguyễn Văn A"
-            />
-            <TimelineItem 
-              time="Hôm qua" 
-              icon="clipboard-check-outline"
-              title="Phân ca hoàn tất" 
-              desc="Tuần 10/07 - 16/07"
-              isLast
+            <TaskCard 
+              title="Phân ca làm việc tuần sau"
+              priority="Trung bình"
+              priorityColor="#F59E0B"
+              dueDate="Ngày mai"
             />
           </View>
         </View>
@@ -189,29 +177,26 @@ function StatCard({ title, value, color }: any) {
   );
 }
 
-function TimelineItem({ time, title, desc, icon, isFirst, isLast }: any) {
+function TaskCard({ title, priority, priorityColor, dueDate }: any) {
   return (
-    <View style={styles.timelineItem}>
-      <View style={styles.timelineTimeCol}>
-        <View style={styles.timelineIconContainer}>
-          <MaterialCommunityIcons name={icon} size={20} color="#4B5563" />
-        </View>
-        {!isLast && <View style={styles.timelineLine} />}
+    <View style={styles.taskCard}>
+      <View style={styles.taskHeader}>
+        <Text style={styles.taskTitle} numberOfLines={1}>{title}</Text>
       </View>
-      
-      <View style={styles.timelineContentCol}>
-        <View style={styles.timelineRow}>
-          <Text style={styles.timelineTime}>{time}</Text>
-          <View style={styles.timelineDetails}>
-            <Text style={styles.timelineTitle}>{title}</Text>
-            <Text style={styles.timelineDesc}>{desc}</Text>
-          </View>
+      <View style={styles.taskFooter}>
+        <View style={styles.taskMeta}>
+          <MaterialCommunityIcons name="calendar-clock" size={16} color="#6B7280" />
+          <Text style={styles.taskDueDate}>{dueDate}</Text>
         </View>
-        {!isLast && <View style={styles.timelineDivider} />}
+        <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '15' }]}>
+          <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
+          <Text style={[styles.priorityText, { color: priorityColor }]}>{priority}</Text>
+        </View>
       </View>
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -442,67 +427,60 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
   },
-  timeline: {
-    marginTop: spacing.sm,
+  tasksContainer: {
+    gap: spacing.md,
   },
-  timelineItem: {
-    flexDirection: 'row',
+  taskCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  timelineTimeCol: {
-    width: 40,
-    alignItems: 'center',
+  taskHeader: {
+    marginBottom: spacing.sm,
   },
-  timelineIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-    marginTop: -4,
-    marginBottom: -4,
-    zIndex: 1,
-  },
-  timelineContentCol: {
-    flex: 1,
-    paddingLeft: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  timelineTime: {
-    width: 70,
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  timelineDetails: {
-    flex: 1,
-  },
-  timelineTitle: {
+  taskTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
   },
-  timelineDesc: {
+  taskFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  taskDueDate: {
     fontSize: 13,
     color: '#6B7280',
-    lineHeight: 18,
+    fontWeight: '500',
   },
-  timelineDivider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginTop: spacing.md,
-    marginBottom: -spacing.md,
+  priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  priorityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: '600',
   }
 });

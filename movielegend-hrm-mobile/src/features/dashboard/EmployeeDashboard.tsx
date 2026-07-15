@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Dimensions } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
-import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { hasPermission } from '../../utils/permissions';
+
+const { width } = Dimensions.get('window');
+const GRID_ITEM_WIDTH = (width - spacing.lg * 2 - spacing.md * 2) / 3;
 
 export function EmployeeDashboard() {
   const router = useRouter();
@@ -27,13 +28,27 @@ export function EmployeeDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Date format for the header
   const headerDate = currentTime.toLocaleDateString('vi-VN', {
     weekday: 'long',
     day: '2-digit',
-    month: 'short',
+    month: '2-digit',
     year: 'numeric'
   });
+
+  const timeString = currentTime.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'NB';
+    const words = name.trim().split(' ').filter(Boolean);
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <Screen>
@@ -44,98 +59,101 @@ export function EmployeeDashboard() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{user?.fullName?.charAt(0) || 'B'}</Text>
-            </View>
-            <View style={styles.greetingInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName || 'Bình'}</Text>
-              <Text style={styles.dateText}>{headerDate}</Text>
-            </View>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+          </View>
+          <View style={styles.headerInfo}>
+            <Text style={styles.greetingText}>Xin chào,</Text>
+            <Text style={styles.userName}>{user?.fullName || 'Nguyễn Văn B'}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/notifications' as any)}>
+            <Pressable style={styles.iconBtn}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              <View style={styles.badgeDot} />
             </Pressable>
             <Pressable style={styles.iconBtn}>
-              <MaterialCommunityIcons name="format-list-bulleted" size={24} color="#111827" />
+              <MaterialCommunityIcons name="menu" size={26} color="#111827" />
             </Pressable>
           </View>
         </View>
 
-        {/* Hero Card (Đã chấm công) */}
+        {/* Time Card */}
+        <View style={styles.timeCard}>
+          <View style={styles.timeCardHeader}>
+            <MaterialCommunityIcons name="clock-outline" size={18} color="#6B7280" />
+            <Text style={styles.timeCardTitle}>Thời gian hiện tại</Text>
+          </View>
+          <Text style={styles.timeValue}>{timeString}</Text>
+          <Text style={styles.dateText}>{headerDate}</Text>
+          
+          <View style={styles.timeCardPattern}>
+            <View style={styles.circle1} />
+            <View style={styles.circle2} />
+            <View style={styles.circle3} />
+          </View>
+        </View>
+
+        {/* Check-in Button */}
         <Pressable 
-          style={styles.heroCard}
+          style={styles.checkInBtn}
           onPress={() => router.push('/employee/attendance/check-in' as any)}
         >
-          {/* SVG/Pattern background mock using absolute views */}
-          <View style={styles.heroCardPattern} />
-          
-          <View style={styles.statusBadge}>
-            <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-            <Text style={styles.statusBadgeText}>Đã chấm công</Text>
-          </View>
-          <View style={styles.timeContainer}>
-            <Text style={styles.timeValue}>{timeString.split(' ')[0]}</Text>
-            <Text style={styles.timeAmPm}>{timeString.split(' ')[1] || 'AM'}</Text>
-          </View>
-          <View style={styles.locationContainer}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color="#6B7280" />
-            <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
-          </View>
+          <MaterialCommunityIcons name="scan-helper" size={24} color="#FFFFFF" />
+          <Text style={styles.checkInBtnText}>Chấm công ngay (Vào ca)</Text>
         </Pressable>
 
-        {/* Thao tác nhanh (Quick Actions) */}
+        {/* Tiện ích (Grid) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thao tác nhanh</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActions}>
-            <QuickAction icon="clock-outline" title="Chấm công" onPress={() => router.push('/employee/attendance' as any)} />
-            <QuickAction icon="calendar-blank-outline" title="Nghỉ phép" onPress={() => router.push('/employee/requests' as any)} />
-            <QuickAction icon="calendar-check-outline" title="Xếp ca" onPress={() => router.push('/employee/schedule' as any)} />
-            <QuickAction icon="wallet-outline" title="Phiếu lương" onPress={() => {}} />
-          </ScrollView>
-        </View>
-
-        {/* Tổng quan hôm nay */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tổng quan hôm nay</Text>
-          <View style={styles.statsRow}>
-            <StatCard title="Chấm công" value="98%" />
-            <StatCard title="Công việc" value="4" />
-            <StatCard title="Cuộc họp" value="2" />
-            <StatCard title="Thông báo" value="3" />
+          <Text style={styles.sectionTitle}>Tiện ích</Text>
+          <View style={styles.gridContainer}>
+            <GridItem 
+              icon="calendar-clock" 
+              title="Ca làm việc" 
+              onPress={() => router.push('/employee/schedule' as any)} 
+            />
+            <GridItem 
+              icon="playlist-check" 
+              title="Công việc" 
+              badge="2"
+              onPress={() => {}} 
+            />
+            <GridItem 
+              icon="file-document-edit-outline" 
+              title="Đơn từ" 
+              onPress={() => router.push('/employee/requests' as any)} 
+            />
+            <GridItem 
+              icon="cash-multiple" 
+              title="Lương thưởng" 
+              onPress={() => router.push('/employee/payroll' as any)} 
+            />
+            <GridItem 
+              icon="file-document-outline" 
+              title="Hợp đồng" 
+              onPress={() => router.push('/employee/contracts' as any)} 
+            />
+            <GridItem 
+              icon="laptop" 
+              title="Tài sản" 
+              onPress={() => router.push('/employee/assets' as any)} 
+            />
           </View>
         </View>
 
-        {/* Hoạt động gần đây */}
+        {/* Công việc của tôi */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Hoạt động gần đây</Text>
-            <Text style={styles.seeAllText}>Xem tất cả</Text>
-          </View>
-          
-          <View style={styles.timeline}>
-            <TimelineItem 
-              time="09:02 AM" 
-              icon="clock-outline"
-              title="Chấm công vào" 
-              desc="Văn phòng Hà Nội"
-              isFirst
+          <Text style={styles.sectionTitle}>Công việc của tôi</Text>
+          <View style={styles.tasksContainer}>
+            <TaskCard 
+              title="Thiết kế banner sự kiện"
+              priority="Cao"
+              priorityColor="#EF4444"
+              dueDate="Hôm nay"
             />
-            <TimelineItem 
-              time="08:45 AM" 
-              icon="clipboard-text-outline"
-              title="Được giao nhiệm vụ mới" 
-              desc="Thiết kế banner sự kiện"
-            />
-            <TimelineItem 
-              time="Hôm qua" 
-              icon="file-document-outline"
-              title="Đơn nghỉ phép được duyệt" 
-              desc="Nghỉ phép 1 ngày - 10/07/2024"
-              isLast
+            <TaskCard 
+              title="Cập nhật báo cáo tiến độ tuần"
+              priority="Trung bình"
+              priorityColor="#F59E0B"
+              dueDate="Ngày mai"
             />
           </View>
         </View>
@@ -144,47 +162,37 @@ export function EmployeeDashboard() {
   );
 }
 
-function QuickAction({ icon, title, onPress }: any) {
+function GridItem({ icon, title, badge, onPress }: any) {
   return (
-    <Pressable style={styles.quickActionCard} onPress={onPress}>
-      <View style={styles.quickActionIconBg}>
-        <MaterialCommunityIcons name={icon} size={26} color="#111827" />
+    <Pressable style={styles.gridItem} onPress={onPress}>
+      <View style={styles.gridIconContainer}>
+        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+        {badge && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.quickActionTitle}>{title}</Text>
+      <Text style={styles.gridTitle}>{title}</Text>
     </Pressable>
   );
 }
 
-function StatCard({ title, value }: any) {
+function TaskCard({ title, priority, priorityColor, dueDate }: any) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statTitle}>{title}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
-function TimelineItem({ time, title, desc, icon, isFirst, isLast }: any) {
-  return (
-    <View style={styles.timelineItem}>
-      {/* Time column */}
-      <View style={styles.timelineTimeCol}>
-        <View style={styles.timelineIconContainer}>
-          <MaterialCommunityIcons name={icon} size={20} color="#4B5563" />
-        </View>
-        {!isLast && <View style={styles.timelineLine} />}
+    <View style={styles.taskCard}>
+      <View style={styles.taskHeader}>
+        <Text style={styles.taskTitle} numberOfLines={1}>{title}</Text>
       </View>
-      
-      {/* Content column */}
-      <View style={styles.timelineContentCol}>
-        <View style={styles.timelineRow}>
-          <Text style={styles.timelineTime}>{time}</Text>
-          <View style={styles.timelineDetails}>
-            <Text style={styles.timelineTitle}>{title}</Text>
-            <Text style={styles.timelineDesc}>{desc}</Text>
-          </View>
+      <View style={styles.taskFooter}>
+        <View style={styles.taskMeta}>
+          <MaterialCommunityIcons name="calendar-clock" size={16} color="#6B7280" />
+          <Text style={styles.taskDueDate}>{dueDate}</Text>
         </View>
-        {!isLast && <View style={styles.timelineDivider} />}
+        <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '15' }]}>
+          <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
+          <Text style={[styles.priorityText, { color: priorityColor }]}>{priority}</Text>
+        </View>
       </View>
     </View>
   );
@@ -199,29 +207,26 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: spacing.xl,
     marginTop: spacing.md,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#E5E7EB',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: spacing.md,
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#4B5563',
+    color: '#111827',
   },
-  greetingInfo: {
+  headerInfo: {
+    flex: 1,
     justifyContent: 'center',
   },
   greetingText: {
@@ -230,116 +235,108 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   userName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 2,
-  },
-  dateText: {
-    fontSize: 13,
-    color: '#9CA3AF',
   },
   headerRight: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  timeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
     elevation: 2,
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
     borderWidth: 1,
-    borderColor: '#fff',
-  },
-  heroCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: spacing.xl,
-    marginBottom: spacing.xl,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    borderColor: '#F1F5F9',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#EFF6FF',
   },
-  heroCardPattern: {
-    position: 'absolute',
-    right: -40,
-    top: -20,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 20,
-    borderColor: '#EFF6FF',
-    opacity: 0.5,
-  },
-  statusBadge: {
+  timeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: spacing.md,
   },
-  statusBadgeText: {
+  timeCardTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1E3A8A',
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.sm,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   timeValue: {
     fontSize: 48,
     fontWeight: '800',
     color: '#111827',
     letterSpacing: -1,
+    marginBottom: 4,
   },
-  timeAmPm: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    marginLeft: 8,
-  },
-  locationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  locationText: {
-    fontSize: 14,
+  dateText: {
+    fontSize: 15,
     color: '#6B7280',
     fontWeight: '500',
   },
+  timeCardPattern: {
+    position: 'absolute',
+    right: -40,
+    bottom: -40,
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circle1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  circle2: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  circle3: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  checkInBtn: {
+    backgroundColor: '#000000',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 16,
+    marginBottom: spacing.xl,
+    gap: 12,
+  },
+  checkInBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   section: {
     marginBottom: spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: 18,
@@ -347,22 +344,17 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: spacing.md,
   },
-  seeAllText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: spacing.md,
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    justifyContent: 'space-between',
   },
-  quickActions: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
-  quickActionCard: {
-    width: 88,
-    height: 100,
+  gridItem: {
+    width: GRID_ITEM_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: spacing.sm,
+    padding: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -370,117 +362,92 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 1,
+    aspectRatio: 1,
   },
-  quickActionIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#FAFAFA',
+  gridIconContainer: {
+    marginBottom: spacing.sm,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+    backgroundColor: '#6B7280',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
-  quickActionTitle: {
-    fontSize: 12,
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  gridTitle: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#111827',
     textAlign: 'center',
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+  tasksContainer: {
+    gap: spacing.md,
   },
-  statCard: {
-    flex: 1,
+  taskCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center',
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
+    shadowOpacity: 0.03,
     shadowRadius: 8,
-    elevation: 1,
+    elevation: 2,
   },
-  statTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
+  taskHeader: {
     marginBottom: spacing.sm,
-    textAlign: 'center',
   },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  timeline: {
-    marginTop: spacing.sm,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-  },
-  timelineTimeCol: {
-    width: 40,
-    alignItems: 'center',
-  },
-  timelineIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-    marginTop: -4,
-    marginBottom: -4,
-    zIndex: 1,
-  },
-  timelineContentCol: {
-    flex: 1,
-    paddingLeft: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  timelineTime: {
-    width: 70,
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  timelineDetails: {
-    flex: 1,
-  },
-  timelineTitle: {
+  taskTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
   },
-  timelineDesc: {
+  taskFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  taskDueDate: {
     fontSize: 13,
     color: '#6B7280',
-    lineHeight: 18,
+    fontWeight: '500',
   },
-  timelineDivider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginTop: spacing.md,
-    marginBottom: -spacing.md,
+  priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  priorityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: '600',
   }
 });
