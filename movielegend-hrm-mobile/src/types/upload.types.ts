@@ -36,4 +36,5 @@ export interface UploadFileInput {
   purpose: UploadPurpose;
   signal?: AbortSignal | undefined;
   onProgress?: ((progress: UploadProgress) => void) | undefined;
+  file?: any;
 }

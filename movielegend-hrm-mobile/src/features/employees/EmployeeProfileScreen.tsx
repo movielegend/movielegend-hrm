@@ -72,8 +72,9 @@ export function EmployeeProfileScreen() {
           <InfoRow 
             icon="face-recognition" 
             label="Dữ liệu khuôn mặt" 
-            value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
+            value={user?.hasFaceData ? 'Đã thiết lập (Bấm để cập nhật)' : 'Chưa thiết lập (Bấm để thêm)'} 
             valueColor={user?.hasFaceData ? colors.success : colors.danger}
+            onPress={() => router.push('/employee/update-face' as any)}
           />
         </View>
 
@@ -140,17 +141,19 @@ export function EmployeeProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, valueColor }: { icon: any; label: string; value: string; valueColor?: string }) {
+function InfoRow({ icon, label, value, valueColor, onPress }: { icon: any; label: string; value: string; valueColor?: string; onPress?: () => void }) {
+  const Container = onPress ? Pressable : View;
   return (
-    <View style={styles.infoRow}>
+    <Container style={styles.infoRow} onPress={onPress}>
       <View style={styles.infoIconBg}>
         <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
       </View>
-      <View style={styles.infoContent}>
+      <View style={[styles.infoContent, { flex: 1 }]}>
         <Text style={styles.infoLabel}>{label}</Text>
         <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
       </View>
-    </View>
+      {onPress && <MaterialCommunityIcons name="chevron-right" size={20} color={colors.muted} />}
+    </Container>
   );
 }
 

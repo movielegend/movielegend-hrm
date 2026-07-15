@@ -1,3 +1,12 @@
+import * as Module from 'module';
+const originalRequire = (Module as any).prototype.require;
+(Module as any).prototype.require = function (id: string) {
+  if (id === '@tensorflow/tfjs-node') {
+    return require('@tensorflow/tfjs');
+  }
+  return originalRequire.apply(this, arguments);
+};
+
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';

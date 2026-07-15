@@ -9,6 +9,8 @@ export interface NewsfeedPost {
   content: string;
   createdAt: string;
   updatedAt: string;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
   _count?: {
     comments: number;
     likes: number;
@@ -49,6 +51,21 @@ export interface NewsfeedComment {
 export async function fetchNewsfeed(params?: { departmentId?: string; page?: number; limit?: number }) {
   const response = await apiClient.get<ApiResponse<{ items: NewsfeedPost[]; pagination: any }>>('/newsfeed', {
     params,
+  });
+  return unwrapData(response);
+}
+
+export async function fetchPendingPosts(params?: { departmentId?: string; page?: number; limit?: number }) {
+  const response = await apiClient.get<ApiResponse<{ items: NewsfeedPost[]; pagination: any }>>('/newsfeed/pending', {
+    params,
+  });
+  return unwrapData(response);
+}
+
+export async function approvePost(postId: string, status: 'APPROVED' | 'REJECTED', rejectionReason?: string) {
+  const response = await apiClient.patch<ApiResponse<NewsfeedPost>>(`/newsfeed/${postId}/approve`, {
+    status,
+    rejectionReason,
   });
   return unwrapData(response);
 }

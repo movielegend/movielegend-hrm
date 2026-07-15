@@ -467,12 +467,30 @@ export class TasksService {
       const updated = await tx.taskAssignment.update({
         where: { id: assignmentId },
         data: { ...data, status, acceptedAt: status === TaskAssignmentStatus.ACCEPTED ? new Date() : undefined, startedAt: status === TaskAssignmentStatus.IN_PROGRESS ? new Date() : undefined },
-        include: { task: true },
+        include: { task: true, user: { select: { profile: { select: { fullName: true } } } } },
       });
       await tx.taskStatusHistory.create({
         data: { taskId: updated.taskId, assignmentId, actorUserId: actor.userId, action, fromStatus: assignment.status, toStatus: status },
       });
       await this.syncTaskStatus(tx, updated.taskId);
+      
+      if (status === TaskAssignmentStatus.WAITING_REVIEW || status === TaskAssignmentStatus.COMPLETED) {
+        // Notify the creator / leader
+        const notifyUsers = [updated.task.createdByUserId];
+        if (updated.task.groupLeaderId && updated.task.groupLeaderId !== updated.task.createdByUserId) {
+          notifyUsers.push(updated.task.groupLeaderId);
+        }
+        
+        const payload = await this.notifications.createForUsers(tx as any, notifyUsers, {
+          type: 'TASK_REVIEW_REQUESTED' as NotificationType,
+          title: 'Công việc cần duyệt/đã hoàn thành',
+          body: `Nhân viên ${updated.user?.profile?.fullName || 'ẩn danh'} đã ${status === TaskAssignmentStatus.WAITING_REVIEW ? 'nộp' : 'hoàn thành'} công việc: ${updated.task.title}`,
+          metadata: { taskId: updated.taskId },
+          taskId: updated.taskId
+        });
+        if (payload) this.notifications.emitCreated(payload);
+      }
+      
       return updated;
     });
   }
@@ -669,7 +687,12 @@ export class TasksService {
       };
     }
 
-    if (ownOnly || (!this.has(actor, 'task.read_all') && !this.scope.visibleDepartmentIds(actor)?.length)) {
+    if (ownOnly) {
+      where.AND = [...this.toAndArray(where.AND), { assignments: { some: { userId: actor.userId } } }];
+      return where;
+    }
+
+    if (!this.has(actor, 'task.read_all') && !this.scope.visibleDepartmentIds(actor)?.length) {
       where.AND = [...this.toAndArray(where.AND), { OR: [{ createdByUserId: actor.userId }, { assignments: { some: { userId: actor.userId } } }] }];
       return where;
     }

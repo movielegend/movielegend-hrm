@@ -50,6 +50,9 @@ export interface CheckInPayload {
 export interface CheckOutPayload {
   latitude: number;
   longitude: number;
+  photoFileId?: string;
+  faceImage?: string;
+  accuracy?: number;
 }
 
 export interface AttendanceAdjustmentPayload {

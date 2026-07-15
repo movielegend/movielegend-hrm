@@ -1,15 +1,16 @@
 import { PropsWithChildren } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
 interface SectionCardProps extends PropsWithChildren {
   title?: string;
+  style?: StyleProp<ViewStyle>;
 }
 
-export function SectionCard({ title, children }: SectionCardProps) {
+export function SectionCard({ title, style, children }: SectionCardProps) {
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, style]}>
       {title ? <Text style={styles.title}>{title}</Text> : null}
       {children}
     </View>

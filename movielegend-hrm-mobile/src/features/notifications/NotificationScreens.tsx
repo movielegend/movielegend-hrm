@@ -63,7 +63,7 @@ export function NotificationListScreen() {
         <PageHeader title="Thông báo" subtitle={`Chưa đọc: ${unread.data ?? 0} - Socket: ${isConnected ? 'Online' : 'Offline'}`} />
         <View style={styles.actions}>
           <SecondaryButton loading={markAll.isPending} onPress={() => void markAll.mutateAsync()}>Đánh dấu đã đọc tất cả</SecondaryButton>
-          {/* <SecondaryButton loading={registerDevice.isPending} onPress={() => void registerPush()}>Đăng ký thiết bị</SecondaryButton> */}
+          <SecondaryButton loading={registerDevice.isPending} onPress={() => void registerPush()}>Đăng ký nhận thông báo</SecondaryButton>
         </View>
         {notifications.isLoading ? <LoadingState /> : null}
         {notifications.isError ? <ErrorState error={notifications.error} onRetry={() => void notifications.refetch()} /> : null}
@@ -79,11 +79,38 @@ export function NotificationListScreen() {
   );
 }
 
+const EN_TO_VI: Record<string, string> = {
+  'New task assigned': 'Công việc mới được giao',
+  'Task updated': 'Công việc đã cập nhật',
+  'Task cancelled': 'Công việc bị hủy',
+  'Task completed': 'Công việc hoàn thành',
+  'Violation confirmed': 'Xác nhận vi phạm',
+  'Disciplinary action approved': 'Quyết định kỷ luật được duyệt',
+  'Material issue updated': 'Cập nhật yêu cầu vật tư',
+  'Performance review updated': 'Cập nhật đánh giá hiệu suất',
+  'Payroll approved': 'Bảng lương được duyệt',
+  'Don nghi phep': 'Đơn nghỉ phép',
+  'Overtime request rejected': 'Yêu cầu làm thêm bị từ chối',
+  'KPI assigned': 'Giao chỉ tiêu KPI',
+  'KPI finalized': 'Chốt chỉ tiêu KPI',
+  'KPI updated': 'Cập nhật chỉ tiêu KPI',
+  'Contract expiring': 'Hợp đồng sắp hết hạn',
+  'Document expiring': 'Giấy tờ sắp hết hạn',
+  'Document verification required': 'Yêu cầu xác minh giấy tờ',
+  'Contract updated': 'Cập nhật hợp đồng',
+  'Contract signed': 'Hợp đồng đã ký',
+  'Cross-department request pending': 'Yêu cầu liên phòng chờ duyệt',
+  'Bonus approved': 'Thưởng được duyệt',
+  'Deduction approved': 'Khấu trừ được duyệt',
+  'Asset assigned': 'Tài sản được bàn giao',
+};
+
 export function NotificationItem({ target, onPress }: { target: NotificationTargetDto; onPress: () => void }) {
   const item = target.notification;
   const isUnread = !target.readAt;
   const iconName = getNotificationIcon(item.type);
   const iconColor = getNotificationColor(item.type);
+  const displayTitle = EN_TO_VI[item.title] || item.title;
 
   return (
     <Pressable 
@@ -91,15 +118,15 @@ export function NotificationItem({ target, onPress }: { target: NotificationTarg
       onPress={onPress}
       android_ripple={{ color: 'rgba(0,0,0,0.05)' }}
     >
-      <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
-        <MaterialCommunityIcons name={iconName} size={24} color={iconColor} />
+      <View style={[styles.iconContainer, { backgroundColor: isUnread ? iconColor : `${iconColor}15` }]}>
+        <MaterialCommunityIcons name={iconName} size={24} color={isUnread ? '#fff' : iconColor} />
       </View>
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <Text style={[styles.title, isUnread && styles.titleUnread]} numberOfLines={2}>
-            {item.title}
+            {displayTitle}
           </Text>
-          {isUnread && <View style={styles.unreadDot} />}
+          {isUnread && <View style={styles.unreadBadge}><Text style={styles.unreadBadgeText}>Mới</Text></View>}
         </View>
         <Text style={styles.body} numberOfLines={2}>{item.body}</Text>
         <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
@@ -156,28 +183,35 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
+    lineHeight: 22,
   },
   titleUnread: {
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.primary,
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    marginTop: 6,
+  unreadBadge: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  unreadBadgeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   body: {
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
+    marginTop: 2,
   },
   time: {
     color: '#94a3b8',
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 6,
+    fontWeight: '500',
   },
 });

@@ -6,6 +6,8 @@ export interface NewsfeedPostDto {
   attachments: string[];
   createdAt: string;
   updatedAt: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
   author: {
     id: string;
     userCode: string;

@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, Delete, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Delete, Query, UseGuards, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NewsfeedService } from './newsfeed.service';
-import { CreateNewsfeedPostDto, CreateCommentDto } from './dto/newsfeed.dto';
+import { CreateNewsfeedPostDto, CreateCommentDto, ApprovePostDto } from './dto/newsfeed.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -17,13 +17,25 @@ export class NewsfeedController {
   @ApiOperation({ summary: 'Tạo bài đăng mới' })
   @Post()
   createPost(@Body() dto: CreateNewsfeedPostDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.newsfeedService.createPost(user.userId, dto);
+    return this.newsfeedService.createPost(user, dto);
+  }
+
+  @ApiOperation({ summary: 'Lấy danh sách bài đăng chờ duyệt' })
+  @Get('pending')
+  getPendingPosts(@CurrentUser() user: AuthenticatedUser, @Query('departmentId') departmentId?: string) {
+    return this.newsfeedService.getPendingPosts(user, departmentId);
   }
 
   @ApiOperation({ summary: 'Lấy danh sách bài đăng (toàn công ty hoặc theo phòng ban)' })
   @Get()
   getPosts(@Query('departmentId') departmentId?: string) {
     return this.newsfeedService.getPosts(departmentId);
+  }
+
+  @ApiOperation({ summary: 'Phê duyệt hoặc từ chối bài đăng' })
+  @Patch(':id/approve')
+  approvePost(@Param('id') id: string, @Body() dto: ApprovePostDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.newsfeedService.approvePost(id, user, dto);
   }
 
   @ApiOperation({ summary: 'Lấy chi tiết 1 bài đăng (kèm bình luận)' })

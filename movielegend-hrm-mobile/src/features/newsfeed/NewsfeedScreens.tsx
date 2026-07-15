@@ -28,12 +28,15 @@ import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
 import {
   useNewsfeedPosts,
+  usePendingNewsfeedPosts,
+  useApprovePost,
   useNewsfeedPost,
   useCreatePost,
   useLikePost,
   useAddComment,
   useDeletePost,
 } from '../../hooks/useNewsfeed';
+import type { NewsfeedPostDto, PostLikeDto, PostCommentDto } from '../../types/newsfeed.types';
 
 // ── Helpers ──
 
@@ -86,7 +89,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
     ]);
   }
 
-  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as any)?.items ?? [];
+  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as { items?: NewsfeedPostDto[] })?.items ?? [];
 
   return (
     <Screen>
@@ -95,28 +98,43 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           title="Bảng tin công ty"
           subtitle="Tin tức và thông báo nội bộ"
           right={
-            user?.roles?.includes('ADMIN') ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {(user?.roles?.includes('ADMIN') || user?.roles?.includes('LEADER')) && (
+                <Pressable
+                  style={[styles.addBtn, { backgroundColor: colors.warning }]}
+                  onPress={() => {
+                    const isAdmin = user?.roles?.includes('ADMIN');
+                    router.push(isAdmin ? '/admin/newsfeed/pending' : '/leader/newsfeed/pending' as any);
+                  }}
+                >
+                  <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
+                  <Text style={styles.addBtnText}>Chờ duyệt</Text>
+                </Pressable>
+              )}
               <Pressable
                 style={styles.addBtn}
                 onPress={() => {
-                  router.push('/admin/newsfeed/create' as any);
+                  const isAdmin = user?.roles?.includes('ADMIN');
+                  const isLeader = user?.roles?.includes('LEADER');
+                  const basePath = isAdmin ? '/admin/newsfeed' : isLeader ? '/leader/newsfeed' : '/employee/newsfeed';
+                  router.push(`${basePath}/create` as never);
                 }}
               >
                 <MaterialCommunityIcons name="plus" size={20} color="#fff" />
                 <Text style={styles.addBtnText}>Đăng bài</Text>
               </Pressable>
-            ) : undefined
+            </View>
           }
         />
 
         <View style={styles.postList}>
           {postItems.length > 0 ? (
-            postItems.map((post: any) => {
+            postItems.map((post: NewsfeedPostDto) => {
               const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
               const initials = getInitials(authorName);
               const likeCount = post._count?.likes ?? post.likes?.length ?? 0;
               const commentCount = post._count?.comments ?? post.comments?.length ?? 0;
-              const isLiked = post.likes?.some((l: any) => l.userId === user?.id) ?? false;
+              const isLiked = post.likes?.some((l: PostLikeDto) => l.userId === user?.id) ?? false;
 
               return (
                 <Pressable
@@ -126,7 +144,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
                     const isAdmin = user?.roles?.includes('ADMIN');
                     const isLeader = user?.roles?.includes('LEADER');
                     const basePath = isAdmin ? '/admin/newsfeed' : isLeader ? '/leader/newsfeed' : '/employee/newsfeed';
-                    router.push(`${basePath}/${post.id}` as any);
+                    router.push(`${basePath}/${post.id}` as never);
                   }}
                 >
                   {/* Author row */}
@@ -269,7 +287,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
   const comments = post.comments ?? [];
-  const likedNames = post.likes?.map((l: any) => l.user?.profile?.fullName ?? 'Ẩn danh').filter(Boolean) || [];
+  const likedNames = post.likes?.map((l: PostLikeDto & { user?: { profile?: { fullName: string } } }) => l.user?.profile?.fullName ?? 'Ẩn danh').filter(Boolean) || [];
 
   async function handleComment() {
     if (!commentText.trim()) return;
@@ -350,7 +368,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
             Bình luận ({comments.length})
           </Text>
 
-          {comments.map((c: any) => {
+          {comments.map((c: PostCommentDto) => {
             const cName = c.author?.profile?.fullName ?? 'Ẩn danh';
             return (
               <View key={c.id} style={styles.commentCard}>
@@ -524,6 +542,182 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <Text style={styles.fieldLabel}>{label}</Text>
       {children}
     </View>
+  );
+}
+
+// ── Pending Newsfeed List Screen ──
+
+export function PendingNewsfeedListScreen() {
+  const router = useRouter();
+  const posts = usePendingNewsfeedPosts();
+
+  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as { items?: NewsfeedPostDto[] })?.items ?? [];
+
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('ADMIN');
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content}>
+        <PageHeader
+          title="Bài đăng chờ duyệt"
+          subtitle="Các bài đăng từ nhân viên"
+        />
+
+        <View style={styles.postList}>
+          {postItems.length > 0 ? (
+            postItems.map((post: NewsfeedPostDto) => {
+              const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
+              const initials = getInitials(authorName);
+
+              return (
+                <Pressable
+                  key={post.id}
+                  style={styles.postCard}
+                  onPress={() => {
+                    const basePath = isAdmin ? '/admin/newsfeed/pending' : '/leader/newsfeed/pending';
+                    router.push(`${basePath}/${post.id}` as never);
+                  }}
+                >
+                  <View style={styles.authorRow}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{initials}</Text>
+                    </View>
+                    <View style={styles.authorInfo}>
+                      <Text style={styles.authorName}>{authorName}</Text>
+                      <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+                    </View>
+                    <StatusBadge label="Chờ duyệt" tone="warning" />
+                  </View>
+
+                  {post.title ? (
+                    <Text style={styles.postTitle}>{post.title}</Text>
+                  ) : null}
+                  <Text style={styles.postContent} numberOfLines={4}>
+                    {post.content}
+                  </Text>
+                  
+                  {post.images && post.images.length > 0 ? (
+                    <Image source={{ uri: resolveImageUrl(post.images[0]) || '' }} style={styles.postImage} resizeMode="cover" />
+                  ) : null}
+                </Pressable>
+              );
+            })
+          ) : !posts.isLoading ? (
+            <EmptyState
+              title="Không có bài viết"
+              message="Chưa có bài viết nào cần duyệt"
+            />
+          ) : null}
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+// ── Pending Newsfeed Detail Screen ──
+
+export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
+  const router = useRouter();
+  const postQuery = useNewsfeedPost(postId);
+  const approvePost = useApprovePost();
+
+  function handleApprove() {
+    Alert.alert('Duyệt bài', 'Cho phép hiển thị bài đăng này trên bảng tin?', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Duyệt',
+        style: 'default',
+        onPress: () => {
+          approvePost.mutate({ postId, status: 'APPROVED' }, {
+            onSuccess: () => router.back(),
+            onError: (error) => {
+              Alert.alert('Lỗi', normalizeApiError(error).message);
+            }
+          });
+        }
+      }
+    ]);
+  }
+
+  function handleReject() {
+    Alert.prompt('Từ chối bài', 'Vui lòng nhập lý do từ chối (không bắt buộc)', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Từ chối',
+        style: 'destructive',
+        onPress: (reason) => {
+          approvePost.mutate({ postId, status: 'REJECTED', rejectionReason: reason }, {
+            onSuccess: () => router.back(),
+            onError: (error) => {
+              Alert.alert('Lỗi', normalizeApiError(error).message);
+            }
+          });
+        }
+      }
+    ]);
+  }
+
+  const post = postQuery.data;
+
+  if (postQuery.isLoading) {
+    return (
+      <Screen>
+        <PageHeader title="Chi tiết bài đăng" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: colors.muted }}>Đang tải...</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!post) {
+    return (
+      <Screen>
+        <EmptyState title="Không tìm thấy bài đăng" />
+      </Screen>
+    );
+  }
+
+  const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content}>
+        <PageHeader title="Chi tiết bài viết" />
+
+        <View style={styles.postCard}>
+          <View style={styles.authorRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
+            </View>
+            <View style={styles.authorInfo}>
+              <Text style={styles.authorName}>{authorName}</Text>
+              <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+            </View>
+            <StatusBadge label={post.status === 'PENDING' ? 'Chờ duyệt' : post.status} tone="warning" />
+          </View>
+
+          {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
+          <Text style={styles.postContentFull}>{post.content}</Text>
+
+          {post.images && post.images.length > 0 ? (
+            <Image 
+              source={{ uri: resolveImageUrl(post.images[0]) || '' }} 
+              style={styles.postImage} 
+              resizeMode="cover" 
+            />
+          ) : null}
+
+          <View style={styles.postDivider} />
+          
+          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
+             <PrimaryButton onPress={handleReject} style={{ flex: 1, backgroundColor: colors.danger }}>Từ chối</PrimaryButton>
+             <PrimaryButton onPress={handleApprove} style={{ flex: 1, backgroundColor: colors.success }}>Duyệt bài</PrimaryButton>
+          </View>
+        </View>
+      </ScrollView>
+    </Screen>
   );
 }
 

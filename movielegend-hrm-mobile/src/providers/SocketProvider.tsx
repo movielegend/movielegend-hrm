@@ -3,7 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 import { createHrmSocket } from '../api/socket';
-import { queryKeys } from '../constants/queryKeys';
+import { queryKeys, chatKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
 import Toast from 'react-native-toast-message';
@@ -61,10 +61,17 @@ export function SocketProvider({ children }: PropsWithChildren) {
         Toast.show({
           type: 'info',
           text1: payload?.title || 'Thông báo mới',
-          text2: payload?.content || 'Bạn có một thông báo mới từ hệ thống.',
+          text2: payload?.body || payload?.content || 'Bạn có một thông báo mới từ hệ thống.',
           position: 'top',
           visibilityTime: 4000,
         });
+      });
+      socket.on('chat:message', (message: any) => {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+        void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+        if (message.groupId) {
+          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(message.groupId) });
+        }
       });
       socket.on('cross-department:updated', (payload: CrossDepartmentSocketPayload) => {
         void queryClient.invalidateQueries({ queryKey: ['cross-department-requests'] });

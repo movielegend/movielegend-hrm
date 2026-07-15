@@ -34,3 +34,20 @@ export class CreateCommentDto {
   @IsString()
   content!: string;
 }
+
+export enum NewsfeedPostStatusEnum {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export class ApprovePostDto {
+  @ApiProperty({ description: 'Trạng thái phê duyệt', enum: NewsfeedPostStatusEnum })
+  @IsString()
+  status!: 'APPROVED' | 'REJECTED';
+
+  @ApiPropertyOptional({ description: 'Lý do từ chối (nếu có)' })
+  @IsOptional()
+  @IsString()
+  rejectionReason?: string;
+}

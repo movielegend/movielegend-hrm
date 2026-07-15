@@ -17,11 +17,21 @@ export class CloudinaryStorageService implements StorageService {
 
   async upload(input: UploadInput): Promise<UploadResult> {
     return new Promise((resolve, reject) => {
+      let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
+      if (input.mimeType.startsWith('image/')) resourceType = 'image';
+      else if (input.mimeType.startsWith('video/') || input.mimeType.startsWith('audio/')) resourceType = 'video';
+      else resourceType = 'raw';
+
+      // Keep original file extension for raw files so they have correct format when downloaded
+      const publicId = input.storageKey 
+        ? (resourceType === 'raw' ? input.storageKey : input.storageKey.split('.')[0])
+        : undefined;
+
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: 'hrm',
-          public_id: input.storageKey ? input.storageKey.split('.')[0] : undefined,
-          resource_type: 'auto',
+          public_id: publicId,
+          resource_type: resourceType,
         },
         (error: any, result: any) => {
           if (error) {
@@ -65,6 +75,11 @@ export class CloudinaryStorageService implements StorageService {
   }
 
   async read(key: string): Promise<Buffer> {
-    throw new Error('read() is not supported by CloudinaryStorageService natively');
+    const url = this.getPublicUrl(key);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to read file from Cloudinary: ${response.statusText}`);
+    }
+    return Buffer.from(await response.arrayBuffer());
   }
 }

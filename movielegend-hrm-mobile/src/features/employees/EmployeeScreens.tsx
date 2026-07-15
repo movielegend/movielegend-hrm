@@ -65,7 +65,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
     departmentId: departmentId,
     accountStatus: 'ACTIVE',
   });
-  
+
   const adminUsers = useEmployees(filters);
   const leaderReport = useEmployeeReport(filters);
 
@@ -79,8 +79,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
       <Screen>
         <ScreenContainer refreshControl={<RefreshControl refreshing={adminUsers.isRefetching} onRefresh={() => void adminUsers.refetch()} />}>
           <View style={{ marginBottom: 16 }}>
-            <PageHeader 
-              title="Nhân viên" 
+            <PageHeader
+              title="Nhân viên"
               subtitle="Danh sách toàn bộ nhân sự công ty"
               right={
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -106,7 +106,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               <Text style={[styles.filterChipText, !filters.accountStatus && styles.filterChipTextActive]}>Tất cả</Text>
             </Pressable>
           </View>
-          
+
           <View style={styles.list}>
             {adminUsers.isLoading ? <LoadingState /> : null}
             {adminUsers.isError ? <ErrorState error={adminUsers.error} onRetry={() => void adminUsers.refetch()} /> : null}
@@ -128,7 +128,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                     <Text style={styles.badgeText}>{employee.accountStatus}</Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.cardMeta}>
                   <MaterialCommunityIcons name="office-building" size={18} color="#111827" />
                   <Text style={[styles.metaText, { color: '#111827', fontWeight: '500' }]}>{employee.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}</Text>
@@ -150,7 +150,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                           const leaderRole = employee.roles?.find((r) => r.role.code === 'LEADER' && r.scopeId === departmentId);
                           if (leaderRole) {
                             return (
-                              <Pressable 
+                              <Pressable
                                 style={styles.actionBtn}
                                 onPress={() => setConfirmAction({ type: 'revoke', employeeId: employee.id, employeeName: employee.profile?.fullName || 'N/A', leaderRoleId: leaderRole.id })}
                               >
@@ -160,7 +160,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                             );
                           } else {
                             return (
-                              <Pressable 
+                              <Pressable
                                 style={styles.actionBtn}
                                 onPress={() => {
                                   if (employee.accountStatus !== 'ACTIVE') {
@@ -183,23 +183,23 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               </View>
             ))}
           </View>
-          <ConfirmModal 
+          <ConfirmModal
             visible={!!confirmAction}
             title={
               confirmAction?.type === 'delete' ? 'Xác nhận xóa nhân viên' :
-              confirmAction?.type === 'appoint' ? 'Xác nhận bổ nhiệm' : 
-              confirmAction?.type === 'error_inactive' ? 'Không thể bổ nhiệm' : 'Xác nhận thu hồi'
+                confirmAction?.type === 'appoint' ? 'Xác nhận bổ nhiệm' :
+                  confirmAction?.type === 'error_inactive' ? 'Không thể bổ nhiệm' : 'Xác nhận thu hồi'
             }
             message={
               confirmAction?.type === 'delete' ? `Bạn có chắc chắn muốn xóa nhân viên ${confirmAction?.employeeName}? Mọi dữ liệu liên quan sẽ bị vô hiệu hóa.` :
-              confirmAction?.type === 'appoint' ? `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?` : 
-              confirmAction?.type === 'error_inactive' ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.' :
-              `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
+                confirmAction?.type === 'appoint' ? `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?` :
+                  confirmAction?.type === 'error_inactive' ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.' :
+                    `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
             }
             confirmLabel={
               confirmAction?.type === 'delete' ? 'Xóa ngay' :
-              confirmAction?.type === 'appoint' ? 'Bổ nhiệm' : 
-              confirmAction?.type === 'error_inactive' ? 'Đã hiểu' : 'Thu hồi'
+                confirmAction?.type === 'appoint' ? 'Bổ nhiệm' :
+                  confirmAction?.type === 'error_inactive' ? 'Đã hiểu' : 'Thu hồi'
             }
             hideCancel={confirmAction?.type === 'error_inactive'}
             loading={deleteEmployee.isPending || assignLeader.isPending || revokeLeader.isPending}
@@ -237,8 +237,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         <SearchInput value={filters.search ?? ''} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tìm kiếm nhân sự..." />
         {leaderReport.isLoading ? <LoadingState /> : null}
         {leaderReport.isError ? <ErrorState error={leaderReport.error} onRetry={() => void leaderReport.refetch()} /> : null}
-        {!leaderReport.isLoading && !leaderReport.data?.items.length ? <EmptyState title="Chưa có nhân viên phù hợp với bộ lọc" /> : null}
-        {leaderReport.data?.items.filter(emp => emp.userCode !== user?.userCode).map((employee) => {
+        {!leaderReport.isLoading && !(leaderReport.data?.items?.length) ? <EmptyState title="Chưa có nhân viên phù hợp với bộ lọc" /> : null}
+        {(leaderReport.data?.items || []).filter(emp => emp.userCode !== user?.userCode).map((employee) => {
           let viStatus = employee.accountStatus;
           if (viStatus === 'ACTIVE') viStatus = 'Hoạt động';
           else if (viStatus === 'INACTIVE') viStatus = 'Khóa';
@@ -248,19 +248,19 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             <SectionCard key={`${employee.userCode}-${employee.fullName}`} style={{ padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Avatar name={employee.fullName ?? 'NV'} size={56} />
-                
+
                 <View style={{ flex: 1, marginLeft: 16 }}>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4 }}>
                     {employee.fullName ?? 'Chưa cập nhật'}
                   </Text>
-                  
+
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
                     <View style={{ backgroundColor: colors.background, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8, borderWidth: 1, borderColor: colors.border }}>
                       <Text style={{ fontSize: 11, fontWeight: '700', color: colors.muted }}>Mã NV: {employee.userCode ?? '-'}</Text>
                     </View>
                     <StatusBadge label={viStatus ?? '-'} tone={toneForStatus(employee.accountStatus as any)} />
                   </View>
-                  
+
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                     <Ionicons name="briefcase-outline" size={14} color={colors.muted} />
                     <Text style={{ fontSize: 13, color: colors.muted, marginLeft: 6, flex: 1 }}>{employee.position ?? 'Chưa có vị trí'}</Text>
@@ -315,122 +315,122 @@ export function EmployeeDetailScreen() {
     <Screen>
       <ScreenContainer style={{ paddingBottom: 100 }}>
         <PageHeader title="Chi tiết nhân sự" subtitle="Hồ sơ và thông tin cá nhân của nhân viên" />
-          
-          <SectionCard title="Thông tin cơ bản">
-            <View style={[styles.identityRow, { marginBottom: 16 }]}>
-              <View style={[styles.avatarBox, { width: 56, height: 56, borderRadius: 28 }]}>
-                <Text style={[styles.avatarText, { fontSize: 20 }]}>{item.profile?.fullName ? item.profile.fullName.split(' ').pop()?.[0] || 'NV' : 'NV'}</Text>
-              </View>
-              <View style={styles.flex}>
-                <Text style={[styles.titleText, { fontSize: 18, marginBottom: 4 }]}>{item.profile?.fullName ?? 'Chưa cập nhật'}</Text>
-                <Text style={[styles.metaText, { color: '#4B5563', fontWeight: '600' }]}>{item.userCode}</Text>
-              </View>
-              <View style={styles.badgeWrapper}>
-                <Text style={styles.badgeText}>{item.accountStatus === 'ACTIVE' ? 'ĐANG HOẠT ĐỘNG' : item.accountStatus}</Text>
-              </View>
-            </View>
 
-            <View style={{ gap: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="call-outline" size={18} color="#98A0A8" style={{ width: 24 }} />
-                <Text style={{ fontSize: 14, color: '#0B3B61', flex: 1 }}>{maskPhone(item.phone) || 'Chưa cập nhật'}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="mail-outline" size={18} color="#98A0A8" style={{ width: 24 }} />
-                <Text style={{ fontSize: 14, color: '#0B3B61', flex: 1 }}>{item.email || 'Chưa cập nhật'}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="card-outline" size={18} color="#98A0A8" style={{ width: 24 }} />
-                <Text style={{ fontSize: 14, color: '#0B3B61', flex: 1 }}>CCCD: {maskIdCard(item.profile?.idCardNumber) || 'Chưa cập nhật'}</Text>
-              </View>
+        <SectionCard title="Thông tin cơ bản">
+          <View style={[styles.identityRow, { marginBottom: 16 }]}>
+            <View style={[styles.avatarBox, { width: 56, height: 56, borderRadius: 28 }]}>
+              <Text style={[styles.avatarText, { fontSize: 20 }]}>{item.profile?.fullName ? item.profile.fullName.split(' ').pop()?.[0] || 'NV' : 'NV'}</Text>
             </View>
-          </SectionCard>
+            <View style={styles.flex}>
+              <Text style={[styles.titleText, { fontSize: 18, marginBottom: 4 }]}>{item.profile?.fullName ?? 'Chưa cập nhật'}</Text>
+              <Text style={[styles.metaText, { color: '#4B5563', fontWeight: '600' }]}>{item.userCode}</Text>
+            </View>
+            <View style={styles.badgeWrapper}>
+              <Text style={styles.badgeText}>{item.accountStatus === 'ACTIVE' ? 'ĐANG HOẠT ĐỘNG' : item.accountStatus}</Text>
+            </View>
+          </View>
 
-          <SectionCard title="Công việc & Vai trò">
-            <View style={{ gap: 16 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
-                <Text style={{ fontSize: 14, color: '#6B7280' }}>Phòng ban</Text>
-                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
-                  {item.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}
+          <View style={{ gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="call-outline" size={18} color="#98A0A8" style={{ width: 24 }} />
+              <Text style={{ fontSize: 14, color: '#0B3B61', flex: 1 }}>{maskPhone(item.phone) || 'Chưa cập nhật'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="mail-outline" size={18} color="#98A0A8" style={{ width: 24 }} />
+              <Text style={{ fontSize: 14, color: '#0B3B61', flex: 1 }}>{item.email || 'Chưa cập nhật'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="card-outline" size={18} color="#98A0A8" style={{ width: 24 }} />
+              <Text style={{ fontSize: 14, color: '#0B3B61', flex: 1 }}>CCCD: {maskIdCard(item.profile?.idCardNumber) || 'Chưa cập nhật'}</Text>
+            </View>
+          </View>
+        </SectionCard>
+
+        <SectionCard title="Công việc & Vai trò">
+          <View style={{ gap: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: '#6B7280' }}>Phòng ban</Text>
+              <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+                {item.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: '#6B7280' }}>Vị trí</Text>
+              <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+                {item.roles?.some((r) => r.role.code === 'LEADER') ? 'Quản lý (Leader)' : (item.departmentLinks?.map((link) => link.position?.name).filter(Boolean).join(', ') || item.profile?.position?.name || 'Chưa có vị trí')}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: '#6B7280' }}>Phân quyền</Text>
+              <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+                {item.roles?.map((role) => role.role.code).join(', ') || 'USER'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, color: '#6B7280' }}>Trạng thái khuôn mặt</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="information-circle" size={16} color="#111827" />
+                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>
+                  {item.profile?.avatarUrl ? 'Đã có dữ liệu' : 'Chưa cập nhật'}
                 </Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
-                <Text style={{ fontSize: 14, color: '#6B7280' }}>Vị trí</Text>
-                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
-                  {item.roles?.some((r) => r.role.code === 'LEADER') ? 'Quản lý (Leader)' : (item.departmentLinks?.map((link) => link.position?.name).filter(Boolean).join(', ') || item.profile?.position?.name || 'Chưa có vị trí')}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
-                <Text style={{ fontSize: 14, color: '#6B7280' }}>Phân quyền</Text>
-                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
-                  {item.roles?.map((role) => role.role.code).join(', ') || 'USER'}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 14, color: '#6B7280' }}>Trạng thái khuôn mặt</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="information-circle" size={16} color="#111827" />
-                  <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>
-                    {item.profile?.avatarUrl ? 'Đã có dữ liệu' : 'Chưa cập nhật'}
-                  </Text>
-                </View>
-              </View>
             </View>
-          </SectionCard>
+          </View>
+        </SectionCard>
 
-          {canEdit ? (
-            <SecondaryButton onPress={() => setEditing((current) => !current)} style={{ marginBottom: 16 }}>
-              {editing ? 'Hủy cập nhật' : 'Cập nhật thông tin'}
-            </SecondaryButton>
-          ) : null}
+        {canEdit ? (
+          <SecondaryButton onPress={() => setEditing((current) => !current)} style={{ marginBottom: 16 }}>
+            {editing ? 'Hủy cập nhật' : 'Cập nhật thông tin'}
+          </SecondaryButton>
+        ) : null}
 
-          {editing ? (
-            <SectionCard title="Cập nhật thông tin cơ bản">
-              <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ và tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
-              <Controller control={control} name="phone" render={({ field }) => <FormField label="Số điện thoại" value={field.value} onChangeText={field.onChange} error={errors.phone?.message} keyboardType="phone-pad" />} />
-              <Controller control={control} name="email" render={({ field }) => <FormField label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} keyboardType="email-address" />} />
-              
-              <View style={{ marginTop: 16 }}>
-                <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
-                {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
-                {departments.data?.items.map((dept) => (
-                  <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
-                    <Text style={styles.titleText}>{dept.name}</Text>
-                    <Text style={styles.meta}>{dept.code}</Text>
-                  </Pressable>
-                ))}
-                {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
-              </View>
-              
-              <Controller
-                control={control}
-                name="accountStatus"
-                render={({ field }) => (
-                  <View style={{ marginTop: 16 }}>
-                    <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Trạng thái tài khoản</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <Pressable 
-                        onPress={() => field.onChange('ACTIVE')}
-                        style={[styles.positionOption, field.value === 'ACTIVE' && styles.positionOptionSelected, { flex: 1, alignItems: 'center' }]}
-                      >
-                        <Text style={{ color: field.value === 'ACTIVE' ? colors.primary : colors.text, fontWeight: '600' }}>HOẠT ĐỘNG</Text>
-                      </Pressable>
-                      <Pressable 
-                        onPress={() => field.onChange('SUSPENDED')}
-                        style={[styles.positionOption, field.value === 'SUSPENDED' && { borderColor: colors.danger, borderWidth: 2 }, { flex: 1, alignItems: 'center' }]}
-                      >
-                        <Text style={{ color: field.value === 'SUSPENDED' ? colors.danger : colors.text, fontWeight: '600' }}>TẠM KHÓA</Text>
-                      </Pressable>
-                    </View>
+        {editing ? (
+          <SectionCard title="Cập nhật thông tin cơ bản">
+            <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ và tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
+            <Controller control={control} name="phone" render={({ field }) => <FormField label="Số điện thoại" value={field.value} onChangeText={field.onChange} error={errors.phone?.message} keyboardType="phone-pad" />} />
+            <Controller control={control} name="email" render={({ field }) => <FormField label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} keyboardType="email-address" />} />
+
+            <View style={{ marginTop: 16 }}>
+              <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
+              {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
+              {departments.data?.items.map((dept) => (
+                <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
+                  <Text style={styles.titleText}>{dept.name}</Text>
+                  <Text style={styles.meta}>{dept.code}</Text>
+                </Pressable>
+              ))}
+              {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
+            </View>
+
+            <Controller
+              control={control}
+              name="accountStatus"
+              render={({ field }) => (
+                <View style={{ marginTop: 16 }}>
+                  <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Trạng thái tài khoản</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      onPress={() => field.onChange('ACTIVE')}
+                      style={[styles.positionOption, field.value === 'ACTIVE' && styles.positionOptionSelected, { flex: 1, alignItems: 'center' }]}
+                    >
+                      <Text style={{ color: field.value === 'ACTIVE' ? colors.primary : colors.text, fontWeight: '600' }}>HOẠT ĐỘNG</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => field.onChange('SUSPENDED')}
+                      style={[styles.positionOption, field.value === 'SUSPENDED' && { borderColor: colors.danger, borderWidth: 2 }, { flex: 1, alignItems: 'center' }]}
+                    >
+                      <Text style={{ color: field.value === 'SUSPENDED' ? colors.danger : colors.text, fontWeight: '600' }}>TẠM KHÓA</Text>
+                    </Pressable>
                   </View>
-                )}
-              />
-              <PrimaryButton onPress={() => void submit()} loading={updateEmployee.isPending} style={{ marginTop: 24 }}>
-                Lưu thay đổi
-              </PrimaryButton>
-            </SectionCard>
-          ) : null}
-        </ScreenContainer>
+                </View>
+              )}
+            />
+            <PrimaryButton onPress={() => void submit()} loading={updateEmployee.isPending} style={{ marginTop: 24 }}>
+              Lưu thay đổi
+            </PrimaryButton>
+          </SectionCard>
+        ) : null}
+      </ScreenContainer>
     </Screen>
   );
 }
@@ -439,7 +439,7 @@ export function CreateEmployeeScreen() {
   const router = useRouter();
   const createEmployee = useCreateEmployee();
   const queryClient = useQueryClient();
-  
+
   const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<EmployeeCreateValues>({
     resolver: zodResolver(createSchema),
     defaultValues: { fullName: '', phone: '', email: '', password: '', departmentId: '' },
@@ -475,7 +475,7 @@ export function CreateEmployeeScreen() {
           <Controller control={control} name="phone" render={({ field }) => <FormField label="Số điện thoại" value={field.value} onChangeText={field.onChange} error={errors.phone?.message} keyboardType="phone-pad" />} />
           <Controller control={control} name="email" render={({ field }) => <FormField label="Email (Tùy chọn)" value={field.value} onChangeText={field.onChange} error={errors.email?.message} keyboardType="email-address" />} />
           <Controller control={control} name="password" render={({ field }) => <FormField label="Mật khẩu khởi tạo" value={field.value} onChangeText={field.onChange} error={errors.password?.message} secureTextEntry />} />
-          
+
           <View style={{ marginTop: 16 }}>
             <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
             {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}

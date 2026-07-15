@@ -8,6 +8,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { hasPermission } from '../../utils/permissions';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
 
 export function EmployeeDashboard() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export function EmployeeDashboard() {
   const queryClient = useQueryClient();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const { data: currentAttendance, isLoading: isAttendanceLoading } = useCurrentAttendance();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -79,13 +81,21 @@ export function EmployeeDashboard() {
           ))}
         </ScrollView>
 
-        {/* Nút Vào ca */}
+        {/* Nút Vào ca / Ra ca */}
         <Pressable 
-          style={styles.heroButton}
-          onPress={() => router.push('/employee/attendance/check-in')}
+          style={[styles.heroButton, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
+          onPress={() => {
+            if (currentAttendance?.state === 'CHECKED_IN') {
+              router.push('/employee/attendance/check-out');
+            } else {
+              router.push('/employee/attendance/check-in');
+            }
+          }}
         >
           <View>
-            <Text style={styles.heroTitle}>Vào ca</Text>
+            <Text style={styles.heroTitle}>
+              {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Vào ca'}
+            </Text>
             <Text style={styles.heroSubtitle}>{timeString}</Text>
           </View>
           <View style={styles.fingerprintIcon}>

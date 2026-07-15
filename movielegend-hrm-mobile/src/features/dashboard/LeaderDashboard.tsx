@@ -5,9 +5,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { getDashboardByRole } from '../../api/dashboard.api';
+import { useMySchedule } from '../../hooks/useShifts';
+import { useMyTasks } from '../../hooks/useTasks';
+import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
 
 export function LeaderDashboard() {
   const router = useRouter();
@@ -15,11 +19,27 @@ export function LeaderDashboard() {
   const queryClient = useQueryClient();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const { data: currentAttendance, isLoading: isAttendanceLoading } = useCurrentAttendance();
 
   const { data: dashboardData } = useQuery({
     queryKey: ['dashboard', 'LEADER'],
     queryFn: () => getDashboardByRole('LEADER'),
   });
+  
+  const { data: schedule } = useMySchedule();
+  const { data: myTasks } = useMyTasks({ limit: 100 });
+
+  useEffect(() => {
+    if (schedule && schedule.length > 0) {
+      scheduleShiftNotifications(schedule).catch(console.error);
+    }
+  }, [schedule]);
+
+  useEffect(() => {
+    if (myTasks?.items && myTasks.items.length > 0) {
+      scheduleTaskNotifications(myTasks.items).catch(console.error);
+    }
+  }, [myTasks?.items]);
   
   const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0 };
   // Approximate checked in today:
@@ -110,13 +130,21 @@ export function LeaderDashboard() {
           ))}
         </ScrollView>
 
-        {/* Nút Vào ca */}
+        {/* Nút Vào ca / Ra ca */}
         <Pressable 
-          style={styles.heroButton}
-          onPress={() => router.push('/leader/attendance/check-in')}
+          style={[styles.heroButton, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
+          onPress={() => {
+            if (currentAttendance?.state === 'CHECKED_IN') {
+              router.push('/leader/attendance/check-out');
+            } else {
+              router.push('/leader/attendance/check-in');
+            }
+          }}
         >
           <View>
-            <Text style={styles.heroTitle}>Vào ca</Text>
+            <Text style={styles.heroTitle}>
+              {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Vào ca'}
+            </Text>
             <Text style={styles.heroSubtitle}>{timeString}</Text>
           </View>
           <View style={styles.fingerprintIcon}>

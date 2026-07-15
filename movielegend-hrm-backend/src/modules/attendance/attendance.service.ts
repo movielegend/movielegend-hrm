@@ -70,6 +70,7 @@ export class AttendanceService {
     const face = await this.faceVerification.verifyAttendanceFace({
       userId: actor.userId,
       image: faceImage,
+      storageKey: photo?.storageKey,
     });
     if (!face.matched) {
       throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xac minh khuon mat khong thanh cong');
@@ -171,21 +172,99 @@ export class AttendanceService {
     if (!record) throw badRequest('NOT_CHECKED_IN', 'Chua co ban ghi check-in dang mo');
     if (record.checkOutAt) throw conflict('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
 
+    const photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
+    const faceImage = photo?.fileUrl ?? dto.faceImage;
+    if (!faceImage) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong de ra ca');
+
     const location = await this.findAllowedLocation(record.departmentId, dto.latitude, dto.longitude);
     await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
+    await this.assertWifiAllowed(record.departmentId, dto.wifiSsid, dto.wifiBssid);
+
+    const face = await this.faceVerification.verifyAttendanceFace({
+      userId: actor.userId,
+      image: faceImage,
+      storageKey: photo?.storageKey,
+    });
+    if (!face.matched) {
+      throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xac minh khuon mat khong thanh cong');
+    }
 
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
+      if (photo) {
+        try {
+          const user = await tx.user.findUnique({ where: { id: actor.userId } });
+          const userProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+          const imageBuffer = await this.storage.read(photo.storageKey);
+          const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
+            employeeName: userProfile?.fullName ?? 'Unknown',
+            userCode: user?.userCode ?? actor.userId,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+          });
+          
+          await this.storage.upload({
+            buffer: watermarkedBuffer,
+            fileName: photo.fileName,
+            mimeType: 'image/jpeg',
+            storageKey: photo.storageKey,
+          });
+        } catch (error) {
+          // Continue if watermarking fails
+        }
+
+        const attached = await tx.uploadedFile.updateMany({
+          where: {
+            id: photo.id,
+            status: UploadedFileStatus.TEMPORARY,
+            uploadedById: actor.userId,
+            deletedAt: null,
+          },
+          data: { status: UploadedFileStatus.ATTACHED },
+        });
+        if (attached.count !== 1) {
+          throw badRequest('ATTENDANCE_PHOTO_INVALID', 'Anh cham cong khong con kha dung');
+        }
+      }
+
       const updated = await tx.attendanceRecord.updateMany({
         where: { id: record.id, checkOutAt: null },
         data: {
           checkOutAt: now,
           checkOutLatitude: dto.latitude,
           checkOutLongitude: dto.longitude,
+          checkOutPhotoFileId: photo?.id,
           status: AttendanceStatus.CHECKED_OUT,
         },
       });
       if (updated.count === 0) throw conflict('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
+
+      await tx.attendanceVerification.createMany({
+        data: [
+          {
+            attendanceRecordId: record.id,
+            type: AttendanceVerificationType.GPS,
+            success: true,
+            metadata: {
+              attendanceLocationId: location.id,
+              accuracy: dto.accuracy,
+            },
+          },
+          {
+            attendanceRecordId: record.id,
+            type: AttendanceVerificationType.FACE,
+            success: face.matched,
+            score: face.confidence,
+            provider: face.provider,
+            metadata: {
+              reason: face.reason,
+              photoFileId: photo?.id,
+              legacyFaceImage: photo ? undefined : Boolean(dto.faceImage),
+            },
+          },
+        ],
+      });
+
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -218,6 +297,24 @@ export class AttendanceService {
       orderBy: [{ workDate: 'desc' }, { checkInAt: 'desc' }],
     });
     if (!record) return { state: 'NONE', attendance: null };
+
+    // Bỏ qua ca làm việc của ngày hôm trước nếu đã checkout xong hoặc đã quá giờ cho phép checkout
+    const isPreviousDay = record.workDate.getTime() < today.getTime();
+    if (isPreviousDay) {
+      if (record.checkOutAt || record.status === AttendanceStatus.CHECKED_OUT) {
+        return { state: 'NONE', attendance: null };
+      }
+      
+      const shift = record.shiftAssignment.shift;
+      const shiftEnd = this.shiftEndDateTime(record.workDate, shift.startTime, shift.endTime);
+      const expiredAt = new Date(shiftEnd.getTime() + (shift.checkOutLateMinutes * 60_000));
+      
+      if (new Date() > expiredAt) {
+        // Đã quên checkout ngày hôm qua và quá thời gian cho phép checkout
+        return { state: 'NONE', attendance: null };
+      }
+    }
+
     return {
       state: this.stateFor(record),
       attendance: this.toAttendanceSummary(record),

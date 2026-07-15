@@ -35,6 +35,7 @@ import {
   useTaskTimeline,
   useTasks,
   useUpdateTaskProgress,
+  useCancelTask,
 } from '../../hooks/useTasks';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
@@ -58,7 +59,7 @@ import {
   TaskStatusBadge,
   TaskTimeline,
 } from './TaskComponents';
-import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment } from './task.logic';
+import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment, canCancelTask, isReadOnlyStatus } from './task.logic';
 
 type TaskArea = 'employee' | 'leader' | 'admin';
 
@@ -161,6 +162,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const review = useReviewTaskAssignment(id);
   const extensionReview = useReviewTaskExtension(id);
   const completeTask = useCompleteTask(id ?? '');
+  const cancel = useCancelTask(id ?? '');
   const canReview = hasAnyPermission(user, ['task.review_all', 'task.review_department']);
   const canReviewExtension = hasAnyPermission(user, ['task.extension_review_all', 'task.extension_review_department']);
 
@@ -221,42 +223,61 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               <Text style={styles.warning}>Review note: {assignment.reviewNote}</Text>
             </View>
           ) : null}
+          {canCancelTask(item, user?.id) || hasAnyPermission(user, ['task.assign_any']) ? (
+            <View style={{ marginTop: spacing.md }}>
+              <SecondaryButton
+                loading={cancel.isPending}
+                onPress={() => {
+                  Alert.alert('Xác nhận hủy', 'Bạn có chắc chắn muốn hủy công việc này?', [
+                    { text: 'Không', style: 'cancel' },
+                    { text: 'Có, Hủy', onPress: () => run(() => cancel.mutateAsync(), 'Đã hủy công việc'), style: 'destructive' },
+                  ]);
+                }}
+              >
+                Hủy công việc
+              </SecondaryButton>
+            </View>
+          ) : null}
         </View>
 
         <TargetPreview task={item} />
 
-        {area === 'employee' && assignment ? (
+        {assignment ? (
           <SectionCard title="Nhiệm vụ của tôi">
             <TaskStatusBadge status={assignment.status} />
-            {canAcceptAssignment(assignment.status) ? <PrimaryButton loading={accept.isPending} onPress={() => void run(() => accept.mutateAsync(assignment.id), 'Đã nhận việc')}>Nhận việc</PrimaryButton> : null}
-            {canStartAssignment(assignment.status) ? <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã bắt đầu làm')}>Bắt đầu làm</PrimaryButton> : null}
-            {canUpdateProgress(assignment.status) ? (
+            {!isReadOnlyStatus(item.status) ? (
               <>
-                <FormField label="Tiến độ (0-100%)" value={progress} onChangeText={setProgress} keyboardType="number-pad" />
-                <SecondaryButton
-                  loading={updateProgress.isPending}
-                  onPress={() => void run(() => updateProgress.mutateAsync({ assignmentId: assignment.id, payload: { progressPercent: Number(progress) } }), 'Đã cập nhật tiến độ')}
-                >
-                  Cập nhật tiến độ
-                </SecondaryButton>
+                {canAcceptAssignment(assignment.status) ? <PrimaryButton loading={accept.isPending} onPress={() => void run(() => accept.mutateAsync(assignment.id), 'Đã nhận việc')}>Nhận việc</PrimaryButton> : null}
+                {canStartAssignment(assignment.status) ? <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã bắt đầu làm')}>Bắt đầu làm</PrimaryButton> : null}
+                {canUpdateProgress(assignment.status) ? (
+                  <>
+                    <FormField label="Tiến độ (0-100%)" value={progress} onChangeText={setProgress} keyboardType="number-pad" />
+                    <SecondaryButton
+                      loading={updateProgress.isPending}
+                      onPress={() => void run(() => updateProgress.mutateAsync({ assignmentId: assignment.id, payload: { progressPercent: Number(progress) } }), 'Đã cập nhật tiến độ')}
+                    >
+                      Cập nhật tiến độ
+                    </SecondaryButton>
+                  </>
+                ) : null}
+                {canSubmitAssignment(assignment.status) ? (
+                  <>
+                    <FormField label="Ghi chú hoàn thành" value={completionNote} onChangeText={setCompletionNote} multiline />
+                    <PrimaryButton
+                      loading={submit.isPending}
+                      onPress={() => void run(() => submit.mutateAsync({ assignmentId: assignment.id, payload: { completionNote } }), 'Đã nộp công việc')}
+                    >
+                      Nộp công việc
+                    </PrimaryButton>
+                  </>
+                ) : null}
+                <ExtensionRequestModal
+                  currentDueAt={assignment.assignmentDueAt ?? item.dueAt}
+                  pending={extension.isPending}
+                  onSubmit={(requestedDueAt, reason) => run(() => extension.mutateAsync({ assignmentId: assignment.id, requestedDueAt, reason }), 'Đã gửi yêu cầu gia hạn')}
+                />
               </>
             ) : null}
-            {canSubmitAssignment(assignment.status) ? (
-              <>
-                <FormField label="Ghi chú hoàn thành" value={completionNote} onChangeText={setCompletionNote} multiline />
-                <PrimaryButton
-                  loading={submit.isPending}
-                  onPress={() => void run(() => submit.mutateAsync({ assignmentId: assignment.id, payload: { completionNote } }), 'Đã nộp công việc')}
-                >
-                  Nộp công việc
-                </PrimaryButton>
-              </>
-            ) : null}
-            <ExtensionRequestModal
-              currentDueAt={assignment.assignmentDueAt ?? item.dueAt}
-              pending={extension.isPending}
-              onSubmit={(requestedDueAt, reason) => run(() => extension.mutateAsync({ assignmentId: assignment.id, requestedDueAt, reason }), 'Đã gửi yêu cầu gia hạn')}
-            />
           </SectionCard>
         ) : null}
 
@@ -485,7 +506,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       ...(dueAt ? { dueAt: dueAt.toISOString() } : {}),
       ...(parentTaskId ? { parentTaskId } : {}),
       isAdhocGroup,
-      ...(isAdhocGroup ? { memberIds, leaderId } : { targets }),
+      ...(isAdhocGroup ? { memberIds, leaderId } : { targets: targets.map(t => ({ targetType: t.targetType, targetId: t.targetId })) }),
     };
     try {
       await mutation.mutateAsync(payload);
@@ -633,13 +654,13 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           ) : (
             <View>
               <View style={styles.targetTagsWrap}>
-                {targets.map((target) => (
+                {targets.map((target: any) => (
                   <View key={target.targetId} style={styles.targetTag}>
                     <MaterialCommunityIcons 
                       name={target.targetType === 'USER' ? 'account' : target.targetType === 'DEPARTMENT' ? 'domain' : 'account-group'} 
                       size={16} color={colors.primaryDark} 
                     />
-                    <Text style={styles.targetTagText}>{target.targetType}: {target.targetId.substring(0,6)}...</Text>
+                    <Text style={styles.targetTagText}>{target.targetName ?? `${target.targetType}: ${target.targetId.substring(0,6)}...`}</Text>
                     <Pressable onPress={() => removeTarget(target)}>
                       <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
                     </Pressable>
@@ -769,11 +790,11 @@ function AssigneeSelectorModal({
     return targets.some(t => t.targetType === type && t.targetId === id);
   };
 
-  const toggleTarget = (type: TaskTargetType, id: string) => {
+  const toggleTarget = (type: TaskTargetType, id: string, name?: string) => {
     if (isSelected(type, id)) {
       onChange(targets.filter(t => t.targetType !== type || t.targetId !== id));
     } else {
-      onChange([...targets, { targetType: type, targetId: id }]);
+      onChange([...targets, { targetType: type, targetId: id, targetName: name } as any]);
     }
   };
 
@@ -808,7 +829,7 @@ function AssigneeSelectorModal({
 
           <ScrollView style={styles.assigneeList}>
             {activeTab === 'USER' && users.data?.items.map(u => (
-              <Pressable key={u.id} style={styles.assigneeRow} onPress={() => toggleTarget('USER', u.id)}>
+              <Pressable key={u.id} style={styles.assigneeRow} onPress={() => toggleTarget('USER', u.id, u.fullName ?? u.userCode)}>
                 <View style={styles.assigneeInfo}>
                   <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="account" size={20} color={colors.muted} /></View>
                   <Text style={styles.assigneeName}>{u.fullName ?? u.userCode}</Text>
@@ -822,7 +843,7 @@ function AssigneeSelectorModal({
             ))}
 
             {activeTab === 'DEPARTMENT' && departments.data?.items.map(d => (
-              <Pressable key={d.id} style={styles.assigneeRow} onPress={() => toggleTarget('DEPARTMENT', d.id)}>
+              <Pressable key={d.id} style={styles.assigneeRow} onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}>
                 <View style={styles.assigneeInfo}>
                   <View style={styles.assigneeAvatar}>
                     <MaterialCommunityIcons name={area === 'leader' ? "account-tie" : "domain"} size={20} color={colors.muted} />
