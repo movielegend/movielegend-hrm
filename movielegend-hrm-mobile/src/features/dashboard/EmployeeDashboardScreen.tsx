@@ -1,70 +1,73 @@
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Dimensions } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Screen } from '../../components/Screen';
+import * as Network from 'expo-network';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '../../providers/AuthProvider';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { useMySchedule } from '../../hooks/useShifts';
+import { useMyTasks } from '../../hooks/useTasks';
+import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
+import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = (width - spacing.lg * 2 - spacing.md * 2) / 3;
 
-export function EmployeeDashboard() {
+export function EmployeeDashboardScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries();
-    setRefreshing(false);
-  }, [queryClient]);
+  const { data: currentAttendance } = useCurrentAttendance();
+  const { data: schedule } = useMySchedule();
+  const { data: myTasks } = useMyTasks({ limit: 100 });
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    if (schedule && schedule.length > 0) {
+      scheduleShiftNotifications(schedule).catch(console.error);
+    }
+  }, [schedule]);
+
+  useEffect(() => {
+    if (myTasks && myTasks.items && myTasks.items.length > 0) {
+      scheduleTaskNotifications(myTasks.items).catch(console.error);
+    }
+  }, [myTasks]);
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'U';
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]?.charAt(0) || ''}${parts[parts.length - 1]?.charAt(0) || ''}`.toUpperCase();
+    }
+    return name.charAt(0).toUpperCase();
+  };
+
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDate(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const headerDate = currentTime.toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-
-  const timeString = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  const getInitials = (name?: string) => {
-    if (!name) return 'NB';
-    const words = name.trim().split(' ').filter(Boolean);
-    if (words.length >= 2) {
-      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
+  const fullName = user?.fullName || user?.userCode || 'Nhân viên';
+  const timeString = currentDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const dateString = currentDate.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
   return (
     <Screen>
       <ScrollView 
         contentContainerStyle={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+            <Text style={styles.avatarText}>{getInitials(fullName)}</Text>
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.greetingText}>Xin chào,</Text>
-            <Text style={styles.userName}>{user?.fullName || 'Nguyễn Văn B'}</Text>
+            <Text style={styles.userName}>{fullName}</Text>
           </View>
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn}>
@@ -83,7 +86,7 @@ export function EmployeeDashboard() {
             <Text style={styles.timeCardTitle}>Thời gian hiện tại</Text>
           </View>
           <Text style={styles.timeValue}>{timeString}</Text>
-          <Text style={styles.dateText}>{headerDate}</Text>
+          <Text style={styles.dateText}>{dateString}</Text>
           
           <View style={styles.timeCardPattern}>
             <View style={styles.circle1} />
@@ -93,12 +96,38 @@ export function EmployeeDashboard() {
         </View>
 
         {/* Check-in Button */}
-        <Pressable 
-          style={styles.checkInBtn}
-          onPress={() => router.push('/employee/attendance/check-in' as any)}
+        <Pressable
+          style={[styles.checkInBtn, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
+          onPress={async () => {
+            try {
+              const ip = await Network.getIpAddressAsync();
+              // Validate that the IP belongs to the company's local network (192.168.28.x)
+              if (!ip || !ip.startsWith('192.168.28.')) {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Lỗi mạng',
+                  text2: 'Vui lòng kết nối Wifi công ty để chấm công!',
+                });
+                return;
+              }
+              if (currentAttendance?.state === 'CHECKED_IN') {
+                router.push('/employee/attendance/check-out');
+              } else {
+                router.push('/employee/attendance/check-in');
+              }
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'Lỗi',
+                text2: 'Không thể kiểm tra kết nối mạng.',
+              });
+            }
+          }}
         >
-          <MaterialCommunityIcons name="scan-helper" size={24} color="#FFFFFF" />
-          <Text style={styles.checkInBtnText}>Chấm công ngay (Vào ca)</Text>
+          <MaterialCommunityIcons name="line-scan" size={24} color="#FFFFFF" />
+          <Text style={styles.checkInBtnText}>
+            {currentAttendance?.state === 'CHECKED_IN' ? 'Kết thúc ca làm (Ra ca)' : 'Chấm công ngay (Vào ca)'}
+          </Text>
         </Pressable>
 
         {/* Tiện ích (Grid) */}
@@ -108,33 +137,33 @@ export function EmployeeDashboard() {
             <GridItem 
               icon="calendar-clock" 
               title="Ca làm việc" 
-              onPress={() => router.push('/employee/schedule' as any)} 
+              onPress={() => router.push('/employee/schedule')} 
             />
             <GridItem 
-              icon="playlist-check" 
+              icon="format-list-checks" 
               title="Công việc" 
-              badge="2"
-              onPress={() => {}} 
+              badge={myTasks?.items?.length ? String(myTasks.items.length) : undefined}
+              onPress={() => router.push('/employee/tasks')} 
             />
             <GridItem 
               icon="file-document-edit-outline" 
               title="Đơn từ" 
-              onPress={() => router.push('/employee/requests' as any)} 
+              onPress={() => router.push('/employee/requests')} 
             />
             <GridItem 
               icon="cash-multiple" 
               title="Lương thưởng" 
-              onPress={() => router.push('/employee/payroll' as any)} 
+              onPress={() => router.push('/employee/payroll')} 
             />
             <GridItem 
-              icon="file-document-outline" 
+              icon="text-box-check-outline" 
               title="Hợp đồng" 
-              onPress={() => router.push('/employee/contracts' as any)} 
+              onPress={() => router.push('/employee/contracts')} 
             />
             <GridItem 
               icon="laptop" 
               title="Tài sản" 
-              onPress={() => router.push('/employee/assets' as any)} 
+              onPress={() => router.push('/employee/assets')} 
             />
           </View>
         </View>
@@ -143,26 +172,33 @@ export function EmployeeDashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Công việc của tôi</Text>
           <View style={styles.tasksContainer}>
-            <TaskCard 
-              title="Thiết kế banner sự kiện"
-              priority="Cao"
-              priorityColor="#EF4444"
-              dueDate="Hôm nay"
-            />
-            <TaskCard 
-              title="Cập nhật báo cáo tiến độ tuần"
-              priority="Trung bình"
-              priorityColor="#F59E0B"
-              dueDate="Ngày mai"
-            />
+            {myTasks?.items && myTasks.items.length > 0 ? (
+              myTasks.items.slice(0, 3).map((task) => (
+                <TaskCard 
+                  key={task.id}
+                  title={task.title}
+                  priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'MEDIUM' ? 'Trung bình' : 'Thấp'}
+                  priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'MEDIUM' ? '#F59E0B' : '#10B981'}
+                  dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
+                />
+              ))
+            ) : (
+              <TaskCard 
+                title="Cập nhật báo cáo tiến độ tuần"
+                priority="Trung bình"
+                priorityColor="#F59E0B"
+                dueDate="Ngày mai"
+              />
+            )}
           </View>
         </View>
+
       </ScrollView>
     </Screen>
   );
 }
 
-function GridItem({ icon, title, badge, onPress }: any) {
+function GridItem({ icon, title, onPress, color, badge }: any) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
       <View style={styles.gridIconContainer}>
@@ -372,9 +408,9 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -8,
-    right: -12,
-    backgroundColor: '#6B7280',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
     borderRadius: 10,
     minWidth: 20,
     height: 20,

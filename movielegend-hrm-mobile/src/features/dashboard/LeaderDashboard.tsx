@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Network from 'expo-network';
+import Toast from 'react-native-toast-message';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
@@ -83,7 +85,7 @@ export function LeaderDashboard() {
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
               <View style={styles.badgeDot} />
             </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/(chat)' as any)}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
             </Pressable>
           </View>
@@ -92,7 +94,27 @@ export function LeaderDashboard() {
         {/* Hero Card (Đã chấm công) */}
         <Pressable 
           style={styles.heroCard}
-          onPress={() => router.push('/leader/attendance/check-in' as any)}
+          onPress={async () => {
+            try {
+              const ip = await Network.getIpAddressAsync();
+              // Validate that the IP belongs to the company's local network (192.168.28.x)
+              if (!ip || !ip.startsWith('192.168.28.')) {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Lỗi mạng',
+                  text2: 'Vui lòng kết nối Wifi công ty để chấm công!',
+                });
+                return;
+              }
+              router.push('/leader/attendance/check-in' as any);
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'Lỗi',
+                text2: 'Không thể kiểm tra kết nối mạng.',
+              });
+            }
+          }}
         >
           {/* SVG/Pattern background mock */}
           <View style={styles.heroCardPattern} />
