@@ -1,7 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
-import { EmployeeRequestDetailScreen } from '../../../src/features/employee-requests/EmployeeRequestScreens';
+import { LeaderApprovalScreen } from '../../../src/features/employee-requests/LeaderApprovalScreen';
 
 export default function LeaderEmployeeRequestDetailRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  return <EmployeeRequestDetailScreen />;
+  return <LeaderApprovalScreen />;
 }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { EmployeeRequestStatus, EmployeeRequestType, Prisma, NotificationType } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { badRequest, notFound } from '../../common/utils/error.util';
+import { badRequest, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { BusinessTimeService } from '../time/business-time.service';
@@ -103,6 +103,43 @@ export class EmployeeRequestsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async findOne(id: string, actor: AuthenticatedUser) {
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            phone: true,
+            email: true,
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true,
+                position: { select: { name: true } }
+              }
+            }
+          }
+        },
+        department: { select: { name: true } }
+      }
+    });
+
+    if (!request) {
+      throw notFound('REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại');
+    }
+
+    const isOwner = request.userId === actor.userId;
+    const canApprove = actor.permissions.includes('employee.request.approve');
+
+    if (!isOwner && !canApprove) {
+      throw forbidden('FORBIDDEN', 'Bạn không có quyền xem yêu cầu này');
+    }
+
+    return request;
   }
 
   async findMine(actor: AuthenticatedUser, query: EmployeeRequestQueryDto) {

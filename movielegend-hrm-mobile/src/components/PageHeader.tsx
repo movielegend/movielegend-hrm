@@ -26,6 +26,7 @@ export function PageHeader({ title, subtitle, right, showBack }: PageHeaderProps
           <View style={styles.titleRow}>
             <Text style={styles.title}>{title}</Text>
           </View>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         {right}
       </View>
@@ -36,7 +37,7 @@ export function PageHeader({ title, subtitle, right, showBack }: PageHeaderProps
 const styles = StyleSheet.create({
   copy: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 4,
   },
   titleRow: {
     flexDirection: 'row',
@@ -44,19 +45,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    marginBottom: 16,
-    padding: 4,
+    marginBottom: 12,
+    padding: 8,
     alignSelf: 'flex-start',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
   },
   subtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    color: '#6B7280',
+    fontSize: 15,
+    lineHeight: 22,
   },
   title: {
-    color: colors.text,
-    fontSize: 24,
+    color: '#111827',
+    fontSize: 26,
     fontWeight: '800',
+    letterSpacing: -0.5,
   },
   wrap: {
     alignItems: 'center',

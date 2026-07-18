@@ -3,9 +3,11 @@ import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Refre
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
+import { shadows } from '../../../src/theme/shadows';
 import { getMyEmployeeRequests } from '../../../src/api/employee-requests.api';
 import type { EmployeeRequestType, EmployeeRequestStatus, EmployeeRequest } from '../../../src/types/request.types';
 
@@ -23,18 +25,17 @@ const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: k
 
 export default function RequestsScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');
+  const [activeTab, setActiveTab] = useState<EmployeeRequestStatus | 'ALL'>('ALL');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['employee-requests', activeTab, selectedType],
     queryFn: () => getMyEmployeeRequests({
-      status: activeTab,
+      ...(activeTab !== 'ALL' ? { status: activeTab } : {}),
       ...(selectedType !== 'ALL' ? { type: selectedType } : {})
     })
   });
-
-  const requests = data?.data || [];
+  const requests = data?.items || [];
 
   const getStatusColor = (status: EmployeeRequestStatus) => {
     switch (status) {
@@ -50,50 +51,51 @@ export default function RequestsScreen() {
   };
 
   return (
-    <Screen>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
-          </Pressable>
-          <View>
-            <Text style={styles.title}>Quản lý yêu cầu</Text>
-            <View style={styles.dateSelector}>
+    <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
+        <View style={[styles.header, shadows.sm]}>
+          <View style={styles.headerLeft}>
+            <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+              <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
+            </Pressable>
+            <View>
+              <Text style={styles.title}>Quản lý yêu cầu</Text>
               <Text style={styles.dateText}>Gần đây</Text>
             </View>
           </View>
         </View>
-        <View style={styles.headerRight}>
-          <Pressable style={styles.iconBtn}>
-            <MaterialCommunityIcons name="tune-vertical" size={24} color={colors.text} />
+
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <Pressable 
+            style={[styles.tab, activeTab === 'ALL' && styles.tabActive]} 
+            onPress={() => setActiveTab('ALL')}
+          >
+            <Text style={[styles.tabText, activeTab === 'ALL' && styles.tabTextActive]}>Tất cả</Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.tab, activeTab === 'PENDING' && styles.tabActive]} 
+            onPress={() => setActiveTab('PENDING')}
+          >
+            <Text style={[styles.tabText, activeTab === 'PENDING' && styles.tabTextActive]}>Chờ duyệt</Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.tab, activeTab === 'APPROVED' && styles.tabActive]} 
+            onPress={() => setActiveTab('APPROVED')}
+          >
+            <Text style={[styles.tabText, activeTab === 'APPROVED' && styles.tabTextActive]}>Chấp thuận</Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.tab, activeTab === 'REJECTED' && styles.tabActive]} 
+            onPress={() => setActiveTab('REJECTED')}
+          >
+            <Text style={[styles.tabText, activeTab === 'REJECTED' && styles.tabTextActive]}>Từ chối</Text>
           </Pressable>
         </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <Pressable 
-          style={[styles.tab, activeTab === 'PENDING' && styles.tabActive]} 
-          onPress={() => setActiveTab('PENDING')}
-        >
-          <Text style={[styles.tabText, activeTab === 'PENDING' && styles.tabTextActive]}>Chờ duyệt</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.tab, activeTab === 'APPROVED' && styles.tabActive]} 
-          onPress={() => setActiveTab('APPROVED')}
-        >
-          <Text style={[styles.tabText, activeTab === 'APPROVED' && styles.tabTextActive]}>Chấp thuận</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.tab, activeTab === 'REJECTED' && styles.tabActive]} 
-          onPress={() => setActiveTab('REJECTED')}
-        >
-          <Text style={[styles.tabText, activeTab === 'REJECTED' && styles.tabTextActive]}>Từ chối</Text>
-        </Pressable>
-      </View>
+      </SafeAreaView>
 
       {/* Categories Filter */}
-      <View>
+      <View style={{ backgroundColor: '#FAFAFA', paddingTop: spacing.md, paddingBottom: spacing.sm }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
           {REQUEST_TYPES.map((t) => (
             <Pressable 
@@ -103,7 +105,7 @@ export default function RequestsScreen() {
             >
               <MaterialCommunityIcons 
                 name={t.icon} 
-                size={16} 
+                size={18} 
                 color={selectedType === t.type ? '#fff' : t.color} 
                 style={styles.filterPillIcon} 
               />
@@ -126,7 +128,7 @@ export default function RequestsScreen() {
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
         >
           <View style={styles.emptyIconBg}>
-            <MaterialCommunityIcons name="file-document-edit-outline" size={64} color={colors.primary} />
+            <MaterialCommunityIcons name="file-document-edit-outline" size={64} color="#9CA3AF" />
           </View>
           <Text style={styles.emptyText}>Chưa có yêu cầu nào</Text>
         </ScrollView>
@@ -139,7 +141,11 @@ export default function RequestsScreen() {
             const config = getTypeConfig(item.type);
             const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
             return (
-              <Pressable key={item.id} style={styles.card}>
+              <Pressable 
+                key={item.id} 
+                style={styles.card}
+                onPress={() => router.push(`/employee/requests/${item.id}`)}
+              >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardIconBox}>
                     <MaterialCommunityIcons name={config.icon} size={24} color={config.color} />
@@ -166,7 +172,7 @@ export default function RequestsScreen() {
       <Pressable style={styles.fab} onPress={() => router.push('/employee/requests/create')}>
         <MaterialCommunityIcons name="plus" size={32} color="#fff" />
       </Pressable>
-    </Screen>
+    </View>
   );
 }
 
@@ -174,88 +180,81 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: spacing.md,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: '#fff',
+    zIndex: 10,
   },
   headerLeft: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   iconBtn: {
-    padding: spacing.xs,
-    marginRight: spacing.sm,
+    padding: 4,
+    marginRight: 8,
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  dateSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
+    fontWeight: '800',
+    color: '#111827',
   },
   dateText: {
-    fontSize: 14,
-    color: colors.muted,
-  },
-  headerRight: {
-    flexDirection: 'row',
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
   },
   tabs: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
   },
   tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginRight: spacing.lg,
-    borderBottomWidth: 2,
+    marginRight: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 3,
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: colors.primary,
+    borderBottomColor: '#111827',
   },
   tabText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.muted,
-    marginRight: 6,
+    color: '#9CA3AF',
   },
   tabTextActive: {
-    color: colors.primary,
+    color: '#111827',
+    fontWeight: '700',
   },
   filterContainer: {
-    padding: spacing.md,
-    paddingRight: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
     borderRadius: 20,
     marginRight: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   filterPillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#111827',
   },
   filterPillIcon: {
-    marginRight: 4,
+    marginRight: 6,
   },
   filterPillText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
+    fontWeight: '600',
+    color: '#4B5563',
   },
   filterPillTextActive: {
     color: '#fff',
@@ -274,11 +273,17 @@ const styles = StyleSheet.create({
   },
   emptyIconBg: {
     marginBottom: spacing.lg,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: colors.muted,
+    color: '#6B7280',
   },
   listContainer: {
     padding: spacing.md,
@@ -342,17 +347,17 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
+    bottom: spacing.xxl,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 8,
   }
 });

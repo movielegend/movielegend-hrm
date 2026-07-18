@@ -135,7 +135,7 @@ export function ContractListScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader
-          title="Hợp đồng nhân viên"
+          title="Hợp đồng"
           subtitle="Quản lý hợp đồng lao động"
           right={
             <View style={styles.headerActions}>
@@ -143,7 +143,7 @@ export function ContractListScreen() {
                 style={styles.headerBtn}
                 onPress={() => router.push('/admin/contracts/templates')}
               >
-                <MaterialCommunityIcons name="file-cog-outline" size={18} color={colors.primary} />
+                <MaterialCommunityIcons name="file-cog-outline" size={18} color="#111827" />
                 <Text style={styles.headerBtnText}>Mẫu HĐ</Text>
               </Pressable>
               <Pressable
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
@@ -574,14 +574,14 @@ const styles = StyleSheet.create({
   headerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 12,
     gap: 4,
   },
   headerBtnText: {
-    color: colors.primary,
+    color: '#111827',
     fontWeight: '600',
     fontSize: 13,
   },

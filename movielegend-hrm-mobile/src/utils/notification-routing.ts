@@ -30,7 +30,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const base = roleBase(user);
   
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
-  if (notification.type === 'SYSTEM' && requestId) {
+  if (requestId) {
     if (base === '/admin') return `/admin/requests/${requestId}`;
     if (base === '/leader') return `/leader/employee-requests/${requestId}`;
     if (base === '/employee') return `/employee/requests/${requestId}`;

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { CreateEmployeeRequestDto, EmployeeRequestQueryDto } from './dto/employee-request.dto';
 import { EmployeeRequestsService } from './employee-requests.service';
@@ -28,6 +29,12 @@ export class EmployeeRequestsController {
   @Get('my')
   findMine(@CurrentUser() actor: AuthenticatedUser, @Query() query: EmployeeRequestQueryDto) {
     return this.employeeRequestsService.findMine(actor, query);
+  }
+
+  @AnyPermissions('employee.request.approve', 'employee.request')
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.employeeRequestsService.findOne(id, actor);
   }
 
   @Permissions('employee.request.approve')

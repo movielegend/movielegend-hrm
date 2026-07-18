@@ -1,4 +1,6 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
@@ -9,6 +11,7 @@ import { spacing } from '../../theme/spacing';
 export function LeaderProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -27,13 +30,14 @@ export function LeaderProfileScreen() {
   };
 
   return (
-    <Screen>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
         {/* Background Header */}
-        <View style={styles.headerBg} />
+        <View style={[styles.headerBg, { height: 160 + insets.top }]} />
         
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
           </View>
@@ -53,7 +57,15 @@ export function LeaderProfileScreen() {
             <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
-            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} isLast />
+            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
+            <InfoRow 
+              icon="face-recognition" 
+              label="Dữ liệu khuôn mặt" 
+              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
+              valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
+              onPress={() => router.push('/leader/update-face' as any)}
+              isLast
+            />
           </View>
         </View>
 
@@ -98,21 +110,23 @@ export function LeaderProfileScreen() {
 
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
-function InfoRow({ icon, label, value, isLast }: any) {
+function InfoRow({ icon, label, value, valueColor, onPress, isLast }: any) {
+  const Container = onPress ? Pressable : View;
   return (
-    <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
+    <Container style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
       <View style={styles.infoIconBg}>
         <MaterialCommunityIcons name={icon} size={20} color="#111827" />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
+        <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
       </View>
-    </View>
+      {onPress && <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />}
+    </Container>
   );
 }
 
@@ -129,10 +143,12 @@ function ActionRow({ icon, title, onPress, isLast }: any) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
   scrollContent: {
     paddingBottom: spacing.xxl,
-    backgroundColor: '#FAFAFA',
-    minHeight: '100%',
   },
   headerBg: {
     backgroundColor: '#111827',

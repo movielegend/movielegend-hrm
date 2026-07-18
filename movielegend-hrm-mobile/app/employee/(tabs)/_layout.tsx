@@ -49,18 +49,18 @@ export default function EmployeeLayout() {
       <Tabs.Screen
         name="news"
         options={{
-          title: 'Công việc',
+          title: 'Bảng tin',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "calendar-check" : "calendar-check-outline"} size={24} color={color} />
+            <MaterialCommunityIcons name={focused ? "newspaper-variant" : "newspaper-variant-outline"} size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'Chấm công',
+          title: 'Nhóm chat',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "clock" : "clock-outline"} size={24} color={color} />
+            <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
           ),
         }}
       />

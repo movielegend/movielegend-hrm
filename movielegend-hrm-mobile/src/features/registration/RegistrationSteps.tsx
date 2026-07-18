@@ -284,7 +284,7 @@ export function RegistrationFaceScreen() {
   const router = useRouter();
   const { values, setFaceImage } = useRegistration();
   const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView | null>(null);
+  const cameraRef = useRef<CameraView>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
   const [activePose, setActivePose] = useState<FacePose>('FRONT');
   const [captureError, setCaptureError] = useState<string | null>(null);

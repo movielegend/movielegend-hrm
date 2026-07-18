@@ -29,10 +29,10 @@ export default function ChatListScreen() {
   const renderItem = ({ item }: { item: ChatGroup }) => (
     <Pressable style={styles.groupCard} onPress={() => router.push(`/employee/chat/${item.id}?departmentId=${item.departmentId}`)}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+        <Text style={styles.avatarText}>{(item.name || 'Nhóm chat').charAt(0)}</Text>
       </View>
       <View style={styles.groupInfo}>
-        <Text style={styles.groupName}>{item.name}</Text>
+        <Text style={styles.groupName}>{item.name || 'Nhóm chat'}</Text>
         <Text style={styles.lastMessage}>Nhấn để xem tin nhắn</Text>
       </View>
     </Pressable>

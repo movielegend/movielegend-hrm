@@ -10,11 +10,21 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { getDashboardByRole } from '../../api/dashboard.api';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
 
 export function LeaderDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: unreadData } = useUnreadNotificationCount();
+  const unreadCount = unreadData?.count || 0;
+  const { data: currentAttendance } = useCurrentAttendance();
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -83,7 +93,13 @@ export function LeaderDashboard() {
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              <View style={styles.badgeDot} />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
@@ -93,7 +109,7 @@ export function LeaderDashboard() {
 
         {/* Hero Card (Đã chấm công) */}
         <Pressable 
-          style={styles.heroCard}
+          style={[styles.heroCard, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
           onPress={async () => {
             try {
               const ip = await Network.getIpAddressAsync();
@@ -106,7 +122,11 @@ export function LeaderDashboard() {
                 });
                 return;
               }
-              router.push('/leader/attendance/check-in' as any);
+              if (currentAttendance?.state === 'CHECKED_IN') {
+                router.push('/leader/attendance/check-out' as any);
+              } else {
+                router.push('/leader/attendance/check-in' as any);
+              }
             } catch (error) {
               Toast.show({
                 type: 'error',
@@ -120,29 +140,30 @@ export function LeaderDashboard() {
           <View style={styles.heroCardPattern} />
           
           <View style={styles.statusBadge}>
-            <MaterialCommunityIcons name="check-circle" size={16} color="#3B82F6" />
-            <Text style={styles.statusBadgeText}>Vào ca / Chấm công</Text>
+            <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#3B82F6'} />
+            <Text style={[styles.statusBadgeText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>
+              {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+            </Text>
           </View>
           <View style={styles.timeContainer}>
-            <Text style={styles.timeValue}>{timeString.split(' ')[0]}</Text>
-            <Text style={styles.timeAmPm}>{timeString.split(' ')[1] || 'AM'}</Text>
+            <Text style={[styles.timeValue, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>{timeString}</Text>
           </View>
           <View style={styles.locationContainer}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color="#6B7280" />
-            <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FEF3C7' : '#6B7280'} />
+            <Text style={[styles.locationText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FEF3C7' }]}>Văn phòng Hà Nội</Text>
           </View>
         </Pressable>
 
         {/* Thao tác nhanh (Quick Actions - Leader Features) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thao tác nhanh</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActions}>
-            <QuickAction icon="swap-horizontal" title="Chấm công" onPress={() => router.push('/leader/attendance' as any)} />
-            <QuickAction icon="view-grid-outline" title="Phân ca" onPress={() => router.push('/leader/shift-management' as any)} />
-            <QuickAction icon="account-tie-outline" title="Nhân sự" onPress={() => router.push('/leader/employees' as any)} />
-            <QuickAction icon="file-document-outline" title="Hợp đồng" onPress={() => router.push('/leader/contracts' as any)} />
-            <QuickAction icon="alert-circle-outline" title="Sự cố" onPress={() => router.push('/leader/asset-incidents' as any)} />
-          </ScrollView>
+          <Text style={styles.sectionTitle}>Tiện ích</Text>
+          <View style={styles.gridContainer}>
+            <GridItem icon="swap-horizontal" title="Chấm công" onPress={() => router.push('/leader/attendance' as any)} />
+            <GridItem icon="view-grid-outline" title="Phân ca" onPress={() => router.push('/leader/shift-management' as any)} />
+            <GridItem icon="account-tie-outline" title="Nhân sự" onPress={() => router.push('/leader/employees' as any)} />
+            <GridItem icon="file-document-outline" title="Hợp đồng" onPress={() => router.push('/leader/contracts' as any)} />
+            <GridItem icon="alert-circle-outline" title="Sự cố" onPress={() => router.push('/leader/asset-incidents' as any)} />
+          </View>
         </View>
 
         {/* Tổng quan nhóm hôm nay (Team Stats) */}
@@ -175,17 +196,30 @@ export function LeaderDashboard() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Floating AI Chat Button */}
+      <Pressable 
+        style={styles.fab}
+        onPress={() => router.push('/employee/ai-chat' as any)}
+      >
+        <MaterialCommunityIcons name="robot-outline" size={28} color="#fff" />
+      </Pressable>
     </Screen>
   );
 }
 
-function QuickAction({ icon, title, onPress }: any) {
+function GridItem({ icon, title, onPress, badge }: any) {
   return (
-    <Pressable style={styles.quickActionCard} onPress={onPress}>
-      <View style={styles.quickActionIconBg}>
-        <MaterialCommunityIcons name={icon} size={26} color="#111827" />
+    <Pressable style={styles.gridItem} onPress={onPress}>
+      <View style={styles.gridIconContainer}>
+        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+        {badge && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.quickActionTitle}>{title}</Text>
+      <Text style={styles.gridTitle}>{title}</Text>
     </Pressable>
   );
 }
@@ -277,16 +311,31 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    alignItems: 'center',
+    borderColor: '#ECEEF3',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   badgeDot: {
     position: 'absolute',
@@ -383,16 +432,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: spacing.md,
   },
-  quickActions: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
   },
-  quickActionCard: {
-    width: 88,
-    height: 100,
+  gridItem: {
+    width: GRID_ITEM_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: spacing.sm,
+    padding: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -400,22 +449,36 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 1,
+    aspectRatio: 1,
   },
-  quickActionIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#FAFAFA',
+  gridIconContainer: {
+    marginBottom: spacing.sm,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
-  quickActionTitle: {
-    fontSize: 12,
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  gridTitle: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#111827',
     textAlign: 'center',
   },
   statsRow: {
@@ -504,5 +567,22 @@ const styles = StyleSheet.create({
   priorityText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xxl,
+    right: spacing.lg,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 999,
   }
 });

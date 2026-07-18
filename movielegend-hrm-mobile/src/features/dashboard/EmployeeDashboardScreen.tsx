@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
@@ -11,9 +11,10 @@ import { useMyTasks } from '../../hooks/useTasks';
 import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
 import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 
 const { width } = Dimensions.get('window');
-const GRID_ITEM_WIDTH = (width - spacing.lg * 2 - spacing.md * 2) / 3;
+const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
 
 export function EmployeeDashboardScreen() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export function EmployeeDashboardScreen() {
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: schedule } = useMySchedule();
   const { data: myTasks } = useMyTasks({ limit: 100 });
+  const { data: unreadData } = useUnreadNotificationCount();
+  const unreadCount = unreadData?.count || 0;
 
   useEffect(() => {
     if (schedule && schedule.length > 0) {
@@ -54,6 +57,8 @@ export function EmployeeDashboardScreen() {
   const timeString = currentDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
   const dateString = currentDate.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
+  const uncompletedTasksCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
+
   return (
     <Screen>
       <ScrollView 
@@ -70,34 +75,25 @@ export function EmployeeDashboardScreen() {
             <Text style={styles.userName}>{fullName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Pressable style={styles.iconBtn}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/(tabs)/newsfeed')}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
-            <Pressable style={styles.iconBtn}>
-              <MaterialCommunityIcons name="menu" size={26} color="#111827" />
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/(tabs)/chat')}>
+              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>
 
-        {/* Time Card */}
-        <View style={styles.timeCard}>
-          <View style={styles.timeCardHeader}>
-            <MaterialCommunityIcons name="clock-outline" size={18} color="#6B7280" />
-            <Text style={styles.timeCardTitle}>Thời gian hiện tại</Text>
-          </View>
-          <Text style={styles.timeValue}>{timeString}</Text>
-          <Text style={styles.dateText}>{dateString}</Text>
-          
-          <View style={styles.timeCardPattern}>
-            <View style={styles.circle1} />
-            <View style={styles.circle2} />
-            <View style={styles.circle3} />
-          </View>
-        </View>
-
-        {/* Check-in Button */}
+        {/* Hero Card - Chấm công */}
         <Pressable
-          style={[styles.checkInBtn, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
+          style={[styles.heroCard, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
           onPress={async () => {
             try {
               const ip = await Network.getIpAddressAsync();
@@ -124,10 +120,22 @@ export function EmployeeDashboardScreen() {
             }
           }}
         >
-          <MaterialCommunityIcons name="line-scan" size={24} color="#FFFFFF" />
-          <Text style={styles.checkInBtnText}>
-            {currentAttendance?.state === 'CHECKED_IN' ? 'Kết thúc ca làm (Ra ca)' : 'Chấm công ngay (Vào ca)'}
-          </Text>
+          {/* SVG/Pattern background mock */}
+          <View style={styles.heroCardPattern} />
+          
+          <View style={styles.statusBadge}>
+            <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#3B82F6'} />
+            <Text style={[styles.statusBadgeText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>
+              {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+            </Text>
+          </View>
+          <View style={styles.timeContainer}>
+            <Text style={[styles.timeValue, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>{timeString}</Text>
+          </View>
+          <View style={styles.locationContainer}>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FEF3C7' : '#6B7280'} />
+            <Text style={[styles.locationText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FEF3C7' }]}>Văn phòng Hà Nội</Text>
+          </View>
         </Pressable>
 
         {/* Tiện ích (Grid) */}
@@ -142,7 +150,7 @@ export function EmployeeDashboardScreen() {
             <GridItem 
               icon="format-list-checks" 
               title="Công việc" 
-              badge={myTasks?.items?.length ? String(myTasks.items.length) : undefined}
+              badge={uncompletedTasksCount > 0 ? String(uncompletedTasksCount) : undefined}
               onPress={() => router.push('/employee/tasks')} 
             />
             <GridItem 
@@ -152,8 +160,8 @@ export function EmployeeDashboardScreen() {
             />
             <GridItem 
               icon="cash-multiple" 
-              title="Lương thưởng" 
-              onPress={() => router.push('/employee/payroll')} 
+              title="Phiếu lương" 
+              onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')} 
             />
             <GridItem 
               icon="text-box-check-outline" 
@@ -164,6 +172,11 @@ export function EmployeeDashboardScreen() {
               icon="laptop" 
               title="Tài sản" 
               onPress={() => router.push('/employee/assets')} 
+            />
+            <GridItem 
+              icon="swap-horizontal" 
+              title="Đổi ca" 
+              onPress={() => {}} 
             />
           </View>
         </View>
@@ -194,6 +207,14 @@ export function EmployeeDashboardScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Floating AI Chat Button */}
+      <Pressable 
+        style={styles.fab}
+        onPress={() => router.push('/employee/ai-chat')}
+      >
+        <MaterialCommunityIcons name="robot-outline" size={28} color="#fff" />
+      </Pressable>
     </Screen>
   );
 }
@@ -286,90 +307,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  timeCard: {
+  heroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: spacing.xl,
-    marginBottom: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    marginBottom: spacing.xl,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EFF6FF',
   },
-  timeCardHeader: {
+  heroCardPattern: {
+    position: 'absolute',
+    right: -40,
+    top: -20,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 20,
+    borderColor: '#EFF6FF',
+    opacity: 0.5,
+  },
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: spacing.md,
   },
-  timeCardTitle: {
+  statusBadgeText: {
     fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontWeight: '700',
+    color: '#1E3A8A',
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
   },
   timeValue: {
     fontSize: 48,
     fontWeight: '800',
     color: '#111827',
     letterSpacing: -1,
-    marginBottom: 4,
   },
-  dateText: {
-    fontSize: 15,
-    color: '#6B7280',
-    fontWeight: '500',
+  timeAmPm: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginLeft: 8,
   },
-  timeCardPattern: {
-    position: 'absolute',
-    right: -40,
-    bottom: -40,
-    width: 200,
-    height: 200,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circle1: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  circle2: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  circle3: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  checkInBtn: {
-    backgroundColor: '#000000',
+  locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    borderRadius: 16,
-    marginBottom: spacing.xl,
-    gap: 12,
+    gap: 6,
   },
-  checkInBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  locationText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   section: {
     marginBottom: spacing.xl,
@@ -384,7 +383,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
-    justifyContent: 'space-between',
   },
   gridItem: {
     width: GRID_ITEM_WIDTH,
@@ -485,5 +483,22 @@ const styles = StyleSheet.create({
   priorityText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xxl,
+    right: spacing.lg,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 999,
   }
 });

@@ -21,5 +21,9 @@ export function canAccessRoleRoute(user: AuthUser | null, route: AppRoute): bool
   if (!user) return route === '/login';
   // Allow ADMIN to access any route
   if (user.roles.includes('ADMIN')) return true;
+  
+  // Cho phép Quản lý (LEADER) được phép truy cập vào các màn hình của Nhân viên (EMPLOYEE)
+  if (user.roles.includes('LEADER') && route === '/employee') return true;
+  
   return getHomeRouteForUser(user) === route;
 }

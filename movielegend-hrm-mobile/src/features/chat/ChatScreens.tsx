@@ -17,9 +17,8 @@ import {
   Modal,
   Keyboard,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import * as ScreenCapture from 'expo-screen-capture';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
@@ -140,6 +139,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 // ── Chat Room Screen ──
 
 export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupName?: string }) {
+  const router = useRouter();
   const { user } = useAuth();
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
@@ -147,33 +147,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    let subscription: ScreenCapture.Subscription | undefined;
-    
     // Keyboard listeners
     const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
     const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardHeight(0));
 
-    
-    // Add screen capture listener
-    const initListener = async () => {
-      // expo-screen-capture has addScreenshotListener on iOS/Android
-      // Ensure we run this safely
-      try {
-        if (ScreenCapture.addScreenshotListener) {
-          subscription = ScreenCapture.addScreenshotListener(() => {
-            Alert.alert("Cảnh báo", "Bắt quả tang cap màn hình nhé! 📸");
-          });
-        }
-      } catch (e) {
-        // ignore
-      }
-    };
-    initListener();
-
     return () => {
-      if (subscription?.remove) {
-        subscription.remove();
-      }
       showSub.remove();
       hideSub.remove();
     };
@@ -283,7 +261,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   }
 
   return (
-    <Screen>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -291,6 +269,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         <View style={styles.chatContainer}>
         {/* Header */}
         <View style={styles.chatHeader}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
+          </Pressable>
           <View style={styles.chatHeaderIcon}>
             <MaterialCommunityIcons name="account-group" size={20} color="#111827" />
           </View>
@@ -390,7 +371,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         )}
 
         {/* Input */}
-        <View style={[styles.chatInputRow, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? keyboardHeight + insets.bottom + 10 : 10) : Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.chatInputRow, { paddingBottom: keyboardHeight > 0 ? 10 : Math.max(insets.bottom, 10) }]}>
           <Pressable onPress={pickImage} style={styles.attachBtn}>
             <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
           </Pressable>
@@ -441,7 +422,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         </View>
       </Modal>
       </KeyboardAvoidingView>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
@@ -498,12 +479,12 @@ const styles = StyleSheet.create({
   chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    gap: 10,
+    gap: 12,
   },
   chatHeaderIcon: {
     width: 36,

@@ -528,9 +528,9 @@ export function AdminAttendanceScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-              <Ionicons name="chevron-back" size={24} color="#0B3B61" />
+              <Ionicons name="chevron-back" size={24} color="#111827" />
             </Pressable>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#0B3B61' }}>{isLeader ? 'Lịch sử chấm công của phòng ban' : 'Quản lý chấm công'}</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>{isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}</Text>
           </View>
         </View>
 
@@ -601,7 +601,7 @@ export function AdminAttendanceScreen() {
 
         {/* Employee List Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Text style={{ fontSize: 14, fontWeight: '800', color: '#0B3B61' }}>Danh sách chấm công ({reportQuery.data?.pagination?.total ?? 0})</Text>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: '#111827' }}>Danh sách chấm công ({reportQuery.data?.pagination?.total ?? 0})</Text>
         </View>
 
         {/* Employee List */}
@@ -614,25 +614,25 @@ export function AdminAttendanceScreen() {
               const time = new Date(record.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
               
               return (
-                <View key={record.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E6EEF3' }}>
+                <View key={record.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
                   <Pressable onPress={() => { if ((record as any).photo?.fileUrl) setSelectedImage(getAbsoluteImageUrl((record as any).photo.fileUrl) || null); }}>
-                    <Image source={{ uri: getAbsoluteImageUrl((record as any).photo?.fileUrl) || getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 48, height: 48, borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3' }} />
+                    <Image source={{ uri: getAbsoluteImageUrl((record as any).photo?.fileUrl) || getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#ECEEF3' }} />
                   </Pressable>
                   <Pressable style={{ flex: 1, marginLeft: 12 }} onPress={() => router.push(`${basePath}/attendance/${record.id}`)}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#0B3B61' }}>{name}</Text>
-                    <Text style={{ fontSize: 12, color: '#98A0A8', marginTop: 2 }}>{user?.userCode}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{name}</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{user?.userCode}</Text>
                   </Pressable>
                   <View style={{ alignItems: 'flex-end', marginRight: 12 }}>
-                    <View style={{ backgroundColor: '#EAF4FE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginBottom: 4 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#1E88E5' }}>CÓ MẶT</Text>
+                    <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginBottom: 4 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#3B82F6' }}>CÓ MẶT</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="time-outline" size={12} color="#98A0A8" />
-                      <Text style={{ fontSize: 11, color: '#98A0A8' }}>{time}</Text>
+                      <Ionicons name="time-outline" size={12} color="#6B7280" />
+                      <Text style={{ fontSize: 11, color: '#6B7280' }}>{time}</Text>
                     </View>
                   </View>
                   <Pressable onPress={() => router.push(`${basePath}/attendance/${record.id}`)} style={{ padding: 4 }}>
-                    <Ionicons name="chevron-forward" size={16} color="#C4C8CC" />
+                    <Ionicons name="chevron-forward" size={16} color="#111827" />
                   </Pressable>
                 </View>
               );
@@ -645,7 +645,7 @@ export function AdminAttendanceScreen() {
       {/* Fullscreen Image Modal */}
       {selectedImage && (
         <Modal visible={true} transparent={true} animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
             <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
               <Ionicons name="close-circle" size={36} color="#FFF" />
             </Pressable>
@@ -695,19 +695,19 @@ export function AdminAttendanceDetailScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-              <Ionicons name="chevron-back" size={24} color="#0B3B61" />
+              <Ionicons name="chevron-back" size={24} color="#111827" />
             </Pressable>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#0B3B61' }}>Chi tiết Check-in</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>Chi tiết Check-in</Text>
           </View>
         </View>
 
         {/* User Info */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
           <Image source={{ uri: getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 16 }} />
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#0B3B61', marginBottom: 4 }}>{name}</Text>
-          <Text style={{ fontSize: 13, color: '#98A0A8', marginBottom: 12 }}>{role}</Text>
-          <View style={{ backgroundColor: '#EAF4FE', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: '#1E88E5', textTransform: 'uppercase' }}>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{name}</Text>
+          <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>{role}</Text>
+          <View style={{ backgroundColor: '#111827', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF', textTransform: 'uppercase' }}>
               {new Date(detail.workDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' })}
             </Text>
           </View>
@@ -716,8 +716,8 @@ export function AdminAttendanceDetailScreen() {
         {/* Timeline Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="navigate-outline" size={18} color="#1E88E5" />
-            <Text style={{ fontSize: 15, fontWeight: '800', color: '#0B3B61' }}>Lộ trình Giai đoạn</Text>
+            <Ionicons name="navigate-outline" size={18} color="#111827" />
+            <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>Lộ trình Giai đoạn</Text>
           </View>
         </View>
 
@@ -727,30 +727,30 @@ export function AdminAttendanceDetailScreen() {
           {/* Check In */}
           {detail.checkInAt && (
             <View style={{ position: 'relative' }}>
-              <View style={{ position: 'absolute', left: -34, top: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3', justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="checkmark" size={12} color="#0B3B61" />
+              <View style={{ position: 'absolute', left: -34, top: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#111827', justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#111827' }} />
               </View>
-              <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E6EEF3' }}>
+              <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#98A0A8', textTransform: 'uppercase' }}>Check-in</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Check-in</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Ionicons name="time-outline" size={14} color="#1E88E5" />
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#0B3B61' }}>
+                  <Ionicons name="time-outline" size={14} color="#3B82F6" />
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
                     {new Date(detail.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="location-outline" size={14} color="#98A0A8" />
-                  <Text style={{ fontSize: 12, color: '#98A0A8' }}>
+                  <Ionicons name="location-outline" size={14} color="#6B7280" />
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>
                     Tọa độ: {(detail as any).gps?.attendanceLocation?.name || `${(detail as any).gps?.checkInLatitude}, ${(detail as any).gps?.checkInLongitude}`}
                   </Text>
                 </View>
                 {(detail as any).photo?.fileUrl && (
                   <View style={{ marginTop: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#98A0A8', marginBottom: 8, textTransform: 'uppercase' }}>Ảnh Check-in</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase' }}>Ảnh Check-in</Text>
                     <Pressable onPress={() => setSelectedImage(getAbsoluteImageUrl((detail as any).photo.fileUrl) || null)}>
-                      <Image source={{ uri: getAbsoluteImageUrl((detail as any).photo.fileUrl) }} style={{ width: 100, height: 100, borderRadius: 12, borderWidth: 1, borderColor: '#E6EEF3' }} />
+                      <Image source={{ uri: getAbsoluteImageUrl((detail as any).photo.fileUrl) }} style={{ width: 100, height: 100, borderRadius: 12, borderWidth: 1, borderColor: '#ECEEF3' }} />
                     </Pressable>
                   </View>
                 )}
@@ -761,25 +761,33 @@ export function AdminAttendanceDetailScreen() {
           {/* Check Out */}
           {detail.checkOutAt && (
             <View style={{ position: 'relative' }}>
-              <View style={{ position: 'absolute', left: -34, top: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6EEF3', justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="checkmark" size={12} color="#0B3B61" />
+              <View style={{ position: 'absolute', left: -34, top: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#111827', justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#111827' }} />
               </View>
-              <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E6EEF3' }}>
+              <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#98A0A8', textTransform: 'uppercase' }}>Check-out</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Check-out</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Ionicons name="time-outline" size={14} color="#1E88E5" />
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#0B3B61' }}>
+                  <Ionicons name="time-outline" size={14} color="#3B82F6" />
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
                     {new Date(detail.checkOutAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="location-outline" size={14} color="#98A0A8" />
-                  <Text style={{ fontSize: 12, color: '#98A0A8' }}>
+                  <Ionicons name="location-outline" size={14} color="#6B7280" />
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>
                     Tọa độ: {(detail as any).gps?.attendanceLocation?.name || `${(detail as any).gps?.checkOutLatitude}, ${(detail as any).gps?.checkOutLongitude}`}
                   </Text>
                 </View>
+                {(detail as any).checkOutPhoto?.fileUrl && (
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase' }}>Ảnh Check-out</Text>
+                    <Pressable onPress={() => setSelectedImage(getAbsoluteImageUrl((detail as any).checkOutPhoto.fileUrl) || null)}>
+                      <Image source={{ uri: getAbsoluteImageUrl((detail as any).checkOutPhoto.fileUrl) }} style={{ width: 100, height: 100, borderRadius: 12, borderWidth: 1, borderColor: '#ECEEF3' }} />
+                    </Pressable>
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -790,7 +798,7 @@ export function AdminAttendanceDetailScreen() {
       {/* Fullscreen Image Modal */}
       {selectedImage && (
         <Modal visible={true} transparent={true} animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
             <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
               <Ionicons name="close-circle" size={36} color="#FFF" />
             </Pressable>

@@ -62,20 +62,20 @@ export default function LeaderTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Hồ sơ',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={26} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="notifications"
         options={{
           title: 'Thông báo',
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Hồ sơ',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={26} color={color} />
           ),
         }}
       />

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -24,6 +25,9 @@ export function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: unreadData } = useUnreadNotificationCount();
+  const unreadCount = unreadData?.count || 0;
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -38,10 +42,10 @@ export function AdminDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const timeString = currentTime.toLocaleTimeString('en-US', {
+  const timeString = currentTime.toLocaleTimeString('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true,
+    hour12: false,
   });
 
   const dateString = currentTime.toLocaleDateString('vi-VN', {
@@ -50,6 +54,15 @@ export function AdminDashboard() {
     month: 'short',
     year: 'numeric'
   });
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'AD';
+    const words = name.trim().split(' ').filter(Boolean);
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <Screen>
@@ -61,21 +74,27 @@ export function AdminDashboard() {
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
             <View style={styles.avatar}>
-               <Text style={styles.avatarText}>B</Text>
+               <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName?.split(' ')[0] || 'Bình'}</Text>
+              <Text style={styles.userName}>{user?.fullName || 'Admin'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/admin/notifications')}>
-              <MaterialCommunityIcons name="bell-outline" size={24} color={appleTheme.textPrimary} />
-              <View style={styles.notificationDot} />
+              <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <Pressable style={styles.iconBtn}>
-              <MaterialCommunityIcons name="format-list-bulleted" size={24} color={appleTheme.textPrimary} />
+              <MaterialCommunityIcons name="format-list-bulleted" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>
@@ -100,8 +119,7 @@ export function AdminDashboard() {
           </View>
           
           <View style={{flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20}}>
-            <Text style={styles.heroSubtitle}>{timeString.split(' ')[0]}</Text>
-            <Text style={{fontSize: 16, fontWeight: '700', color: appleTheme.textPrimary}}>{timeString.split(' ')[1]}</Text>
+            <Text style={styles.heroSubtitle}>{timeString}</Text>
           </View>
 
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
@@ -229,43 +247,43 @@ function TimelineItem({ icon, time, title, subtitle, isLast = false }: any) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 120,
-    backgroundColor: appleTheme.bg,
+    backgroundColor: '#FAFAFA',
     minHeight: '100%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 32,
+    alignItems: 'flex-start',
+    marginBottom: 24,
+    marginTop: 16,
   },
   userInfoWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#111827',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#FFF',
     fontSize: 24,
     fontWeight: '700',
+    color: '#4B5563',
   },
   userInfo: {
-    flexDirection: 'column',
-    gap: 2,
+    justifyContent: 'center',
   },
   greetingText: {
-    fontSize: 13,
-    color: appleTheme.textSecondary,
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
   },
   userName: {
     fontSize: 22,
@@ -278,24 +296,43 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: appleTheme.iconBg,
-    alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#ECEEF3',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   notificationDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 12,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#EF4444',
-    borderWidth: 2,
-    borderColor: appleTheme.iconBg,
   },
   heroButton: {
     backgroundColor: appleTheme.card,

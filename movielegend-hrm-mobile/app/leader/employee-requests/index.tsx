@@ -160,7 +160,11 @@ export default function LeaderRequestsScreen() {
             const userName = item.user?.profile?.fullName || item.user?.email || 'Unknown User';
             
             return (
-              <View key={item.id} style={styles.card}>
+              <Pressable 
+                key={item.id} 
+                style={styles.card}
+                onPress={() => router.push(`/leader/employee-requests/${item.id}` as any)}
+              >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardIconBox}>
                     <MaterialCommunityIcons name={config.icon} size={24} color="#111827" />
@@ -208,7 +212,7 @@ export default function LeaderRequestsScreen() {
                     </Pressable>
                   </View>
                 )}
-              </View>
+              </Pressable>
             );
           })}
         </ScrollView>

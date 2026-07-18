@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal } from 'react-native';
+import { AttendanceCamera } from '../../../src/features/attendance/AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,7 @@ import { uploadFile } from '../../../src/api/uploads.api';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { useMySchedule } from '../../../src/hooks/useShifts';
+import Toast from 'react-native-toast-message';
 
 export default function CheckOutScreen() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function CheckOutScreen() {
   // Find today's shift
   const todayStr = new Date().toISOString().substring(0, 10);
   const todayShift = schedule?.find(s => new Date(s.workDate).toISOString().substring(0, 10) === todayStr);
-  const [permission, requestPermission] = useCameraPermissions();
+
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,36 +38,32 @@ export default function CheckOutScreen() {
       .catch(() => setIpv4('Không xác định'));
   }, []);
 
-  const fetchLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      setLocationError('Cần cấp quyền vị trí để chấm công.');
-      return;
+  const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
+
+  const fetchLocation = async (showFeedback = false) => {
+    setIsRefreshingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Cần cấp quyền vị trí để chấm công.');
+        if (showFeedback) Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Chưa cấp quyền vị trí' });
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLocation(loc);
+      if (showFeedback) Toast.show({ type: 'success', text1: 'Thành công', text2: 'Đã làm mới vị trí hiện tại' });
+    } catch (error) {
+      if (showFeedback) Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Không thể lấy vị trí' });
+    } finally {
+      setIsRefreshingLocation(false);
     }
-    const loc = await Location.getCurrentPositionAsync({});
-    setLocation(loc);
   };
 
   useEffect(() => {
     void fetchLocation();
   }, []);
 
-  if (!permission) {
-    return <View />;
-  }
 
-  if (!permission.granted) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <Text style={styles.text}>App cần quyền truy cập Camera để xác thực khuôn mặt.</Text>
-          <Pressable style={styles.btn} onPress={requestPermission}>
-            <Text style={styles.btnText}>Cấp quyền Camera</Text>
-          </Pressable>
-        </View>
-      </Screen>
-    );
-  }
 
   const handleConfirm = async () => {
     if (locationError || !location) {
@@ -97,19 +94,17 @@ export default function CheckOutScreen() {
     setCameraVisible(true);
   };
 
-  const handleCaptureAndSubmit = async () => {
-    if (!cameraRef.current || !location) return;
+  const handleCaptureAndSubmit = async (photoUri: string) => {
+    if (!location) return;
     
     setLoading(true);
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: false, quality: 0.5 });
-      
-      if (!photo?.uri) throw new Error('Không thể chụp ảnh xác thực');
+      if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
       // 1. Upload photo first
       const uploaded = await uploadFile({
-        uri: photo.uri,
-        name: 'checkout_attendance.jpg',
+        uri: photoUri,
+        name: 'attendance.jpg',
         mimeType: 'image/jpeg',
         purpose: 'ATTENDANCE',
       });
@@ -118,8 +113,8 @@ export default function CheckOutScreen() {
       const payload = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy ?? 0,
         photoFileId: uploaded.fileId,
+        workDate: new Date().toISOString().substring(0, 10),
       };
 
       await checkOut(payload);
@@ -127,8 +122,8 @@ export default function CheckOutScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
-      const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi ra ca.';
-      Alert.alert('Lỗi ra ca', msg);
+      const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
+      Alert.alert('Lỗi chấm công', msg);
     } finally {
       setLoading(false);
       setCameraVisible(false);
@@ -139,71 +134,88 @@ export default function CheckOutScreen() {
     <Screen>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
+          <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
         </Pressable>
-        <Text style={styles.title}>Chọn ca để Ra ca</Text>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-          <MaterialCommunityIcons name="close" size={24} color={colors.muted} />
-        </Pressable>
+        <Text style={styles.title}>Ra ca</Text>
+        <View style={styles.iconBtnPlaceholder} />
       </View>
 
       {/* Map View */}
-      <View style={styles.mapContainer}>
-        {location ? (
-          <MapView 
-            style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            initialRegion={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-          >
-            <Marker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} />
-          </MapView>
-        ) : (
-          <View style={[styles.map, styles.center]}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        )}
-      </View>
+      <View style={styles.mapContainerWrapper}>
+        <View style={styles.mapContainer}>
+          {location ? (
+            <MapView 
+              style={styles.map}
+              provider={PROVIDER_GOOGLE}
+              initialRegion={{
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
+              <Marker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} />
+            </MapView>
+          ) : (
+            <View style={[styles.map, styles.center]}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          )}
+        </View>
 
-      {/* Map Footer Info */}
-      <View style={styles.mapFooter}>
-        <Text style={styles.privacyText}>Quyền riêng tư</Text>
-        <Pressable style={styles.refreshBtn} onPress={() => void fetchLocation()}>
-          <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
-          <Text style={styles.refreshText}>Làm mới vị trí</Text>
-        </Pressable>
+        {/* Map Footer Info */}
+        <View style={styles.mapFooter}>
+          <Text style={styles.privacyText}>Quyền riêng tư</Text>
+          <Pressable 
+            style={styles.refreshBtn} 
+            onPress={() => void fetchLocation(true)}
+            disabled={isRefreshingLocation}
+          >
+            {isRefreshingLocation ? (
+              <ActivityIndicator size="small" color="#111827" />
+            ) : (
+              <MaterialCommunityIcons name="refresh" size={16} color="#111827" />
+            )}
+            <Text style={styles.refreshText}>{isRefreshingLocation ? 'Đang tải...' : 'Làm mới vị trí'}</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Network Info */}
-      <View style={styles.wifiBox}>
-        <Text style={styles.wifiLabel}>Kết nối mạng</Text>
-        <View style={styles.wifiRight}>
-          <Text style={styles.wifiName}>IPv4: {ipv4}</Text>
-          <Text style={styles.wifiBssid}>(IP Public)</Text>
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>Mạng hiện tại</Text>
+        <View style={styles.wifiBox}>
+          <View style={styles.wifiIconBox}>
+            <MaterialCommunityIcons name="wifi" size={24} color="#111827" />
+          </View>
+          <View style={styles.wifiInfoBox}>
+            <Text style={styles.wifiName}>IPv4: {ipv4}</Text>
+            <Text style={styles.wifiBssid}>IP Public đang kết nối</Text>
+          </View>
+          <MaterialCommunityIcons name="check-circle" size={20} color="#111827" />
         </View>
       </View>
 
       {/* Shift Selection */}
-      {scheduleLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
-      ) : todayShift ? (
-        <>
-          <Text style={styles.shiftSectionTitle}>Bạn đang có 1 ca làm, chọn ca để Ra ca</Text>
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>Ca làm việc đang chọn</Text>
+        {scheduleLoading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+        ) : todayShift ? (
           <Pressable style={styles.shiftCard}>
-            <MaterialCommunityIcons name="radiobox-marked" size={24} color={colors.primary} style={styles.radioIcon} />
+            <MaterialCommunityIcons name="radiobox-marked" size={24} color="#111827" style={styles.radioIcon} />
             <View>
               <Text style={styles.shiftName}>{todayShift.shift?.name}</Text>
-              <Text style={styles.shiftTime}>({todayShift.shift?.startTime} - {todayShift.shift?.endTime})</Text>
+              <Text style={styles.shiftTime}>{todayShift.shift?.startTime} - {todayShift.shift?.endTime}</Text>
             </View>
           </Pressable>
-        </>
-      ) : (
-        <Text style={[styles.shiftSectionTitle, { color: colors.danger, textAlign: 'center', marginTop: 20 }]}>Bạn không có ca làm việc hôm nay</Text>
-      )}
+        ) : (
+          <View style={styles.emptyShiftCard}>
+             <MaterialCommunityIcons name="calendar-blank-outline" size={32} color="#9CA3AF" />
+             <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay</Text>
+          </View>
+        )}
+      </View>
 
       {/* Footer Confirm Button */}
       {todayShift ? (
@@ -223,20 +235,13 @@ export default function CheckOutScreen() {
       ) : null}
 
       {/* Camera Modal */}
-      {isCameraVisible ? (
-        <View style={styles.cameraModal}>
-          <CameraView style={styles.fullCamera} facing="front" ref={cameraRef} />
-          <View style={styles.cameraControls}>
-            <Pressable style={styles.cameraCancelBtn} onPress={() => setCameraVisible(false)} disabled={loading}>
-              <Text style={styles.cameraBtnText}>Hủy</Text>
-            </Pressable>
-            <Pressable style={styles.cameraCaptureBtn} onPress={() => void handleCaptureAndSubmit()} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <MaterialCommunityIcons name="camera" size={32} color="#fff" />}
-            </Pressable>
-            <View style={{ width: 60 }} />
-          </View>
-        </View>
-      ) : null}
+      <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent>
+        <AttendanceCamera 
+          photoUri={null} 
+          onCapture={handleCaptureAndSubmit} 
+          onClose={() => setCameraVisible(false)} 
+        />
+      </Modal>
     </Screen>
   );
 }
@@ -248,15 +253,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     fontSize: 16,
     color: colors.text,
   },
   btn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
+    padding: spacing.md,
     borderRadius: 8,
   },
   btnText: {
@@ -268,24 +271,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: '#fff',
+    paddingVertical: spacing.md,
+    backgroundColor: '#FAFAFA',
   },
   iconBtn: {
-    padding: spacing.xs,
+    padding: 8,
+  },
+  iconBtnPlaceholder: {
+    width: 44,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  mapContainerWrapper: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
   },
   mapContainer: {
     height: 200,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    borderRadius: 16,
+    borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    backgroundColor: '#FFF',
   },
   map: {
     flex: 1,
@@ -294,79 +307,105 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.md,
   },
   privacyText: {
-    fontSize: 12,
-    color: colors.muted,
+    fontSize: 13,
+    color: '#6B7280',
     textDecorationLine: 'underline',
   },
   refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   refreshText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  sectionContainer: {
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: spacing.md,
   },
   wifiBox: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    marginHorizontal: spacing.md,
+    backgroundColor: '#FFFFFF',
     padding: spacing.md,
-    borderRadius: 8,
-    marginBottom: spacing.lg,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  wifiLabel: {
-    fontSize: 14,
-    color: colors.muted,
+  wifiIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
   },
-  wifiRight: {
-    alignItems: 'flex-end',
+  wifiInfoBox: {
+    flex: 1,
   },
   wifiName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
   },
   wifiBssid: {
-    fontSize: 12,
-    color: colors.muted,
-  },
-  shiftSectionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    fontSize: 13,
+    color: '#6B7280',
   },
   shiftCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: spacing.md,
-    padding: spacing.md,
-    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+    padding: spacing.lg,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: '#E5E7EB',
   },
   radioIcon: {
-    marginRight: spacing.sm,
+    marginRight: spacing.md,
   },
   shiftName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
   },
   shiftTime: {
     fontSize: 14,
-    color: colors.muted,
+    color: '#4B5563',
+  },
+  emptyShiftCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  emptyShiftText: {
+    marginTop: spacing.sm,
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   footer: {
     position: 'absolute',
@@ -379,10 +418,15 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   confirmBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
+    backgroundColor: '#111827',
+    paddingVertical: spacing.lg,
+    borderRadius: 24,
     alignItems: 'center',
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
   },
   confirmBtnDisabled: {
     opacity: 0.7,
@@ -393,13 +437,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   cameraModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: '#000',
-    zIndex: 999,
   },
   fullCamera: {
     flex: 1,
@@ -428,7 +467,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.primary,
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,

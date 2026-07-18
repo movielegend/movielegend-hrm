@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
@@ -53,6 +53,7 @@ export function MyProfileScreen() {
               label="Dữ liệu khuôn mặt" 
               value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
               valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
+              onPress={() => router.push('/employee/update-face' as any)}
               isLast
             />
           </View>
@@ -62,9 +63,10 @@ export function MyProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, valueColor, isLast }: any) {
+function InfoRow({ icon, label, value, valueColor, onPress, isLast }: any) {
+  const Container = onPress ? Pressable : View;
   return (
-    <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
+    <Container style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
       <View style={styles.infoIconBg}>
         <MaterialCommunityIcons name={icon} size={20} color="#111827" />
       </View>
@@ -72,7 +74,8 @@ function InfoRow({ icon, label, value, valueColor, isLast }: any) {
         <Text style={styles.infoLabel}>{label}</Text>
         <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
       </View>
-    </View>
+      {onPress && <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />}
+    </Container>
   );
 }
 

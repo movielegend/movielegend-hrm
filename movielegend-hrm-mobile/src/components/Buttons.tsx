@@ -18,7 +18,13 @@ export function PrimaryButton({ children, onPress, disabled, loading, accessibil
       accessibilityRole="button"
       disabled={disabled || loading}
       onPress={onPress}
-      style={[styles.button, styles.primary, (disabled || loading) && styles.disabled, style]}
+      style={({ pressed }) => [
+        styles.button, 
+        styles.primary, 
+        pressed && styles.primaryPressed,
+        (disabled || loading) && styles.disabled, 
+        style
+      ]}
     >
       {loading ? <ActivityIndicator color={colors.surface} /> : <Text style={styles.primaryText}>{children}</Text>}
     </Pressable>
@@ -32,7 +38,13 @@ export function SecondaryButton({ children, onPress, disabled, loading, accessib
       accessibilityRole="button"
       disabled={disabled || loading}
       onPress={onPress}
-      style={[styles.button, styles.secondary, (disabled || loading) && styles.disabled, style]}
+      style={({ pressed }) => [
+        styles.button, 
+        styles.secondary, 
+        pressed && styles.secondaryPressed,
+        (disabled || loading) && styles.disabled, 
+        style
+      ]}
     >
       {loading ? <ActivityIndicator color="#111827" /> : <Text style={styles.secondaryText}>{children}</Text>}
     </Pressable>
@@ -42,10 +54,11 @@ export function SecondaryButton({ children, onPress, disabled, loading, accessib
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: 12,
-    minHeight: 48,
+    borderRadius: 16,
+    minHeight: 52,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
   },
   disabled: {
     opacity: 0.55,
@@ -53,9 +66,12 @@ const styles = StyleSheet.create({
   primary: {
     backgroundColor: '#111827',
   },
+  primaryPressed: {
+    backgroundColor: '#374151',
+  },
   primaryText: {
     color: colors.surface,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
   },
   secondary: {
@@ -63,9 +79,12 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderWidth: 1,
   },
+  secondaryPressed: {
+    backgroundColor: '#F3F4F6',
+  },
   secondaryText: {
     color: '#111827',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
   },
 });

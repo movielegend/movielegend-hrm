@@ -27,7 +27,7 @@ export function EmployeeUpdateFaceScreen() {
   const router = useRouter();
   const { reloadProfile } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView | null>(null);
+  const cameraRef = useRef<CameraView>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
   
   const [faceImages, setFaceImages] = useState<FaceImageInput[]>([]);

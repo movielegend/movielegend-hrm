@@ -1,0 +1,12 @@
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/MLKitBarcodeAnalyzer.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/MLKitBarcodeAnalyzer.kt
+index e69de29..e69de29 100644
+--- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/MLKitBarcodeAnalyzer.kt
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/MLKitBarcodeAnalyzer.kt
+@@ -49,6 +49,6 @@
+       return@withContext results
+     } catch (e: Exception) {
+       Log.e(TAG, "Failed to detect barcode: " + e.message)
+-      return@withContext emptyList()
++      return@withContext emptyList<BarCodeScannerResult>()
+     }
+   }

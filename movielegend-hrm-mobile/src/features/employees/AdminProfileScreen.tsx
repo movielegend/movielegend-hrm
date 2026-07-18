@@ -1,4 +1,6 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
@@ -9,6 +11,7 @@ import { spacing } from '../../theme/spacing';
 export function AdminProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -27,13 +30,14 @@ export function AdminProfileScreen() {
   };
 
   return (
-    <Screen>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
         {/* Background Header */}
-        <View style={styles.headerBg} />
+        <View style={[styles.headerBg, { height: 160 + insets.top }]} />
         
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
           </View>
@@ -99,7 +103,7 @@ export function AdminProfileScreen() {
 
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
@@ -130,12 +134,15 @@ function ActionRow({ icon, title, onPress, isLast }: any) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
   scrollContent: {
     paddingBottom: spacing.xxl,
   },
   headerBg: {
     backgroundColor: '#111827',
-    height: 160,
     width: '100%',
     position: 'absolute',
     top: 0,

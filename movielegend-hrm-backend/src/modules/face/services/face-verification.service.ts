@@ -116,24 +116,34 @@ export class FaceVerificationService implements OnModuleInit {
 
       const registeredImageUrl = profile.images[0].imageUrl;
       let sourceBuffer: Buffer;
-      if (registeredImageUrl.startsWith('http')) {
-        const response = await fetch(registeredImageUrl);
-        sourceBuffer = Buffer.from(await response.arrayBuffer());
-      } else {
-        sourceBuffer = await this.storage.read(registeredImageUrl);
+      try {
+        if (registeredImageUrl.startsWith('http')) {
+          const response = await fetch(registeredImageUrl);
+          sourceBuffer = Buffer.from(await response.arrayBuffer());
+        } else {
+          sourceBuffer = await this.storage.read(registeredImageUrl);
+        }
+      } catch (e) {
+        this.logger.error('Failed to read registered face image', e);
+        return { matched: false, reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt.' };
       }
 
       // 2. Get target face (attendance photo)
       let targetBuffer: Buffer;
-      if (input.storageKey) {
-        targetBuffer = await this.storage.read(input.storageKey);
-      } else if (input.image && input.image.startsWith('http')) {
-        const response = await fetch(input.image);
-        targetBuffer = Buffer.from(await response.arrayBuffer());
-      } else if (input.image) {
-        targetBuffer = await this.storage.read(input.image);
-      } else {
-        return { matched: false, reason: 'Không tìm thấy ảnh điểm danh để so sánh.' };
+      try {
+        if (input.storageKey) {
+          targetBuffer = await this.storage.read(input.storageKey);
+        } else if (input.image && input.image.startsWith('http')) {
+          const response = await fetch(input.image);
+          targetBuffer = Buffer.from(await response.arrayBuffer());
+        } else if (input.image) {
+          targetBuffer = await this.storage.read(input.image);
+        } else {
+          return { matched: false, reason: 'Không tìm thấy ảnh điểm danh để so sánh.' };
+        }
+      } catch (e) {
+        this.logger.error('Failed to read attendance face image', e);
+        return { matched: false, reason: 'Không thể tải ảnh điểm danh vừa chụp. Vui lòng thử lại.' };
       }
 
       // 3. Extract descriptors

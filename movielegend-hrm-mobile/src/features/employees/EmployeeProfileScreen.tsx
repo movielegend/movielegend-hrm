@@ -1,4 +1,6 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
@@ -9,6 +11,7 @@ import { spacing } from '../../theme/spacing';
 export function EmployeeProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -27,13 +30,14 @@ export function EmployeeProfileScreen() {
   };
 
   return (
-    <Screen>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
         {/* Background Header */}
-        <View style={styles.headerBg} />
+        <View style={[styles.headerBg, { height: 160 + insets.top }]} />
         
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
           </View>
@@ -58,6 +62,7 @@ export function EmployeeProfileScreen() {
               label="Dữ liệu khuôn mặt" 
               value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
               valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
+              onPress={() => router.push('/employee/update-face' as any)}
               isLast
             />
           </View>
@@ -68,9 +73,10 @@ export function EmployeeProfileScreen() {
           <Text style={styles.sectionTitle}>Tính năng</Text>
           <View style={styles.infoCard}>
             <ActionRow icon="text-box-check-outline" title="Hợp đồng lao động" onPress={() => router.push('/employee/contracts' as any)} />
-            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/employee/payroll' as any)} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/employee/assets' as any)} />
-            <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} isLast />
+            <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} />
+            <ActionRow icon="message-text-outline" title="Nhóm chat" onPress={() => router.push('/employee/chat' as any)} isLast />
           </View>
         </View>
 
@@ -91,13 +97,14 @@ export function EmployeeProfileScreen() {
 
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
-function InfoRow({ icon, label, value, valueColor, isLast }: any) {
+function InfoRow({ icon, label, value, valueColor, onPress, isLast }: any) {
+  const Container = onPress ? Pressable : View;
   return (
-    <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
+    <Container style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
       <View style={styles.infoIconBg}>
         <MaterialCommunityIcons name={icon} size={20} color="#111827" />
       </View>
@@ -105,7 +112,8 @@ function InfoRow({ icon, label, value, valueColor, isLast }: any) {
         <Text style={styles.infoLabel}>{label}</Text>
         <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
       </View>
-    </View>
+      {onPress && <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />}
+    </Container>
   );
 }
 
@@ -122,10 +130,12 @@ function ActionRow({ icon, title, onPress, isLast }: any) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
   scrollContent: {
     paddingBottom: spacing.xxl,
-    backgroundColor: '#FAFAFA',
-    minHeight: '100%',
   },
   headerBg: {
     backgroundColor: '#111827',

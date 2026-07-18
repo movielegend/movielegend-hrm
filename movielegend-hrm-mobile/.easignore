@@ -1,0 +1,5 @@
+../movielegend-hrm-backend
+../movielegend-hrm-backend/**
+node_modules
+.expo
+dist

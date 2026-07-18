@@ -15,6 +15,11 @@ export async function getEmployeeRequests(filters: EmployeeRequestFilters = {}):
   return unwrapData(response);
 }
 
+export async function getEmployeeRequestById(id: string): Promise<EmployeeRequest> {
+  const response = await apiClient.get<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}`);
+  return unwrapData(response);
+}
+
 export async function getMyEmployeeRequests(filters: EmployeeRequestFilters = {}): Promise<PaginatedResult<EmployeeRequest>> {
   const response = await apiClient.get<ApiResponse<PaginatedResult<EmployeeRequest>>>('/employee-requests/my', {
     params: cleanMyRequestParams(filters),

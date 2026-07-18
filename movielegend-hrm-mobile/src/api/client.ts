@@ -29,12 +29,12 @@ export function setAuthExpiredHandler(handler: (() => void) | null): void {
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: assertApiUrl(),
-  timeout: 15_000,
+  timeout: 60_000,
 });
 
 const refreshClient = axios.create({
   baseURL: assertApiUrl(),
-  timeout: 15_000,
+  timeout: 30_000,
 });
 
 apiClient.interceptors.request.use(async (config) => {

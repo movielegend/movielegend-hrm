@@ -2,6 +2,7 @@ import { PropsWithChildren } from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { shadows } from '../theme/shadows';
 
 interface SectionCardProps extends PropsWithChildren {
   title?: string;
@@ -20,11 +21,12 @@ export function SectionCard({ title, style, children }: SectionCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
-    borderColor: '#F3F4F6',
-    borderRadius: 16,
+    borderColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 24,
     borderWidth: 1,
     gap: spacing.md,
     padding: spacing.lg,
+    ...shadows.sm,
   },
   title: {
     color: '#111827',
