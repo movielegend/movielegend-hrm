@@ -114,7 +114,6 @@ export default function CheckOutScreen() {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photoFileId: uploaded.fileId,
-        workDate: new Date().toISOString().substring(0, 10),
       };
 
       await checkOut(payload);

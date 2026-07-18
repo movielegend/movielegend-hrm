@@ -65,6 +65,11 @@ export class FaceVerificationService implements OnModuleInit {
     // Decode image purely in JS using Jimp
     const img = await Jimp.read(imageBuffer);
     
+    // Resize to prevent freezing the Node.js event loop on large phone photos
+    if (img.bitmap.width > 600 || img.bitmap.height > 600) {
+      img.scaleToFit(600, 600);
+    }
+    
     // Convert to Tensor
     const { width, height, data } = img.bitmap;
     const numPixels = width * height;
