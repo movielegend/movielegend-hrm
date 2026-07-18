@@ -19,7 +19,15 @@
       },
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
-      "package": "com.dinhhoc.movielegendhrmmobile"
+      "package": "com.dinhhoc.movielegendhrmmobile",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,7 +57,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "1d0c9c5f-1663-4948-a0f5-59220f806aea"
+        "projectId": "9cefb433-4a11-4c1d-be7c-0deb883d85cc"
       }
     },
     "owner": "bintran"
