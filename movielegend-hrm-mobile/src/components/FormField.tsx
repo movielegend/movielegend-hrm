@@ -6,13 +6,17 @@ import { spacing } from '../theme/spacing';
 interface FormFieldProps extends TextInputProps {
   label: string;
   error?: string | undefined;
+  rightLabelElement?: React.ReactNode;
 }
 
-export function FormField({ label, error, style, ...inputProps }: FormFieldProps) {
+export function FormField({ label, error, style, rightLabelElement, ...inputProps }: FormFieldProps) {
   const [isFocused, setIsFocused] = useState(false);
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <View style={styles.labelContainer}>
+        <Text style={styles.label}>{label}</Text>
+        {rightLabelElement}
+      </View>
       <TextInput 
         {...inputProps} 
         accessibilityLabel={label} 
@@ -69,4 +73,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 4,
   },
+  labelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  }
 });

@@ -96,16 +96,6 @@ export function EmployeeDashboardScreen() {
           style={[styles.heroCard, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
           onPress={async () => {
             try {
-              const ip = await Network.getIpAddressAsync();
-              // Validate that the IP belongs to the company's local network (192.168.28.x)
-              if (!ip || !ip.startsWith('192.168.28.')) {
-                Toast.show({
-                  type: 'error',
-                  text1: 'Lỗi mạng',
-                  text2: 'Vui lòng kết nối Wifi công ty để chấm công!',
-                });
-                return;
-              }
               if (currentAttendance?.state === 'CHECKED_IN') {
                 router.push('/employee/attendance/check-out');
               } else {

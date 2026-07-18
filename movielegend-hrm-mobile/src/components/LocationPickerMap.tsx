@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Modal, Dimensions, Alert, Pressable, Text, TextInput, Keyboard, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Dimensions, Alert, Pressable, Text, TextInput, Keyboard, ActivityIndicator } from 'react-native';
 import MapView, { Marker } from '../lib/Maps';
 import type { Region } from '../lib/Maps';
 
@@ -125,7 +125,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <View style={[styles.modalContainer, !visible && { display: 'none' }]}>
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable onPress={onClose} style={styles.closeBtn}>
@@ -183,11 +183,18 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
           </View>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  modalContainer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 9999,
+    backgroundColor: '#fff',
+    elevation: 99,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

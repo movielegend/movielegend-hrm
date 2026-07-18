@@ -30,11 +30,17 @@ export function setAuthExpiredHandler(handler: (() => void) | null): void {
 export const apiClient: AxiosInstance = axios.create({
   baseURL: assertApiUrl(),
   timeout: 60_000,
+  headers: {
+    'ngrok-skip-browser-warning': 'true',
+  },
 });
 
 const refreshClient = axios.create({
   baseURL: assertApiUrl(),
   timeout: 30_000,
+  headers: {
+    'ngrok-skip-browser-warning': 'true',
+  },
 });
 
 apiClient.interceptors.request.use(async (config) => {

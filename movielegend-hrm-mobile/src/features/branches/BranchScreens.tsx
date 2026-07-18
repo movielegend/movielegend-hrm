@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { RefreshControl, StyleSheet, Text, View, Pressable, Alert } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -117,6 +117,25 @@ export function BranchCreateScreen() {
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
   const [mapVisible, setMapVisible] = useState(false);
+  const [isFetchingIp, setIsFetchingIp] = useState(false);
+
+  const fetchCurrentIp = async (setter: (val: string) => void, currentValue: string) => {
+    try {
+      setIsFetchingIp(true);
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      const currentIp = data.ip;
+      if (currentValue && !currentValue.includes(currentIp)) {
+        setter(currentValue.trim() ? `${currentValue}, ${currentIp}` : currentIp);
+      } else if (!currentValue) {
+        setter(currentIp);
+      }
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không thể lấy địa chỉ IP mạng hiện tại');
+    } finally {
+      setIsFetchingIp(false);
+    }
+  };
 
   const submit = async () => {
     try {
@@ -174,6 +193,22 @@ export function BranchCreateScreen() {
             onChangeText={setAllowedIps}
             placeholder="Ví dụ: 11.22.33.44 (Cách nhau dấu phẩy)"
             autoCapitalize="none"
+            rightLabelElement={
+              <Pressable 
+                onPress={() => void fetchCurrentIp(setAllowedIps, allowedIps)}
+                style={{ flexDirection: 'row', alignItems: 'center', padding: 4, backgroundColor: '#EFF6FF', borderRadius: 4 }}
+                disabled={isFetchingIp}
+              >
+                {isFetchingIp ? (
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="wifi" size={14} color="#3B82F6" style={{ marginRight: 4 }} />
+                    <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Tự động điền mạng này</Text>
+                  </>
+                )}
+              </Pressable>
+            }
           />
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
@@ -240,6 +275,25 @@ export function BranchEditScreen() {
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
   const [mapVisible, setMapVisible] = useState(false);
+  const [isFetchingIp, setIsFetchingIp] = useState(false);
+
+  const fetchCurrentIp = async (setter: (val: string) => void, currentValue: string) => {
+    try {
+      setIsFetchingIp(true);
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      const currentIp = data.ip;
+      if (currentValue && !currentValue.includes(currentIp)) {
+        setter(currentValue.trim() ? `${currentValue}, ${currentIp}` : currentIp);
+      } else if (!currentValue) {
+        setter(currentIp);
+      }
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không thể lấy địa chỉ IP mạng hiện tại');
+    } finally {
+      setIsFetchingIp(false);
+    }
+  };
 
   // Populate form with existing data when fetched
   useEffect(() => {
@@ -311,6 +365,22 @@ export function BranchEditScreen() {
             onChangeText={setAllowedIps}
             placeholder="Ví dụ: 11.22.33.44 (Cách nhau dấu phẩy)"
             autoCapitalize="none"
+            rightLabelElement={
+              <Pressable 
+                onPress={() => void fetchCurrentIp(setAllowedIps, allowedIps)}
+                style={{ flexDirection: 'row', alignItems: 'center', padding: 4, backgroundColor: '#EFF6FF', borderRadius: 4 }}
+                disabled={isFetchingIp}
+              >
+                {isFetchingIp ? (
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="wifi" size={14} color="#3B82F6" style={{ marginRight: 4 }} />
+                    <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Tự động điền mạng này</Text>
+                  </>
+                )}
+              </Pressable>
+            }
           />
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>

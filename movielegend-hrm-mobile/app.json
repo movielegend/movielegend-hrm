@@ -20,6 +20,11 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.dinhhoc.movielegendhrmmobile",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCsSPp2vj3uEo4wgp2wwkj051CLr04NeFE"
+        }
+      },
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -27,12 +32,7 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
-      ],
-      "config": {
-        "googleMaps": {
-          "apiKey": "[AIzaSyCsSPp2vj3uEo4wgp2wwkj051CLr04NeFE]"
-        }
-      }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
