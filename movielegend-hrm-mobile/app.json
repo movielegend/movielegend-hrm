@@ -43,13 +43,24 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "App cần truy cập Camera để điểm danh"
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
         }
       ],
-      "expo-location",
-      "expo-image-picker",
-      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ],
       "expo-local-authentication",
+      "expo-font",
+      "expo-notifications",
       [
         "expo-build-properties",
         {
@@ -62,9 +73,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "9cefb433-4a11-4c1d-be7c-0deb883d85cc"
+        "projectId": "8f0cce1a-a3e4-4754-8965-6f6fc48f4b80"
       }
     },
-    "owner": "bintran"
+    "owner": "hocdinh"
   }
 }

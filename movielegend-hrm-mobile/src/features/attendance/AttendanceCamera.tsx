@@ -46,7 +46,7 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
     setError(null);
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8, // Tăng chất lượng một chút cho đẹp
+        quality: 0.3, // Giảm chất lượng ảnh để tránh server bị treo (Timeout) khi xử lý nhận diện khuôn mặt
         skipProcessing: Platform.OS === 'android', // iOS đôi khi cần processing
       });
       if (photo?.uri) {
