@@ -504,6 +504,12 @@ export class TasksService {
   ) {
     const assignment = await this.prisma.taskAssignment.findUnique({ where: { id: assignmentId }, include: { task: true } });
     if (!assignment) throw notFound('TASK_ASSIGNMENT_NOT_FOUND', 'Assignment not found');
+    
+    // Prevent self-review unless they created the assignment themselves
+    if (assignment.userId === actor.userId && assignment.assignedByUserId !== actor.userId) {
+      throw forbidden('CANNOT_REVIEW_OWN_ASSIGNMENT', 'Bạn không thể tự duyệt công việc do người khác giao cho mình');
+    }
+
     this.scope.assertDepartmentAccess(actor, assignment.task.departmentContextId ?? (await this.scope.getPrimaryDepartmentId(assignment.userId)));
     this.policy.assertAssignmentTransition(assignment.status, status);
     return this.prisma.$transaction(async (tx) => {

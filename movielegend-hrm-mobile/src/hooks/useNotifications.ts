@@ -86,7 +86,8 @@ async function getExpoPushTokenIfAvailable(): Promise<string | null> {
   const finalStatus = existing.granted ? existing.status : (await Notifications.requestPermissionsAsync()).status;
   if (finalStatus !== 'granted') return null;
   try {
-    const token = await Notifications.getExpoPushTokenAsync();
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
     return token.data;
   } catch {
     return null;

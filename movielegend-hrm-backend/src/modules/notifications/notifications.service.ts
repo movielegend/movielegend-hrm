@@ -6,12 +6,14 @@ import { notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { RegisterDeviceTokenDto } from './dto/notification.dto';
+import { ExpoPushService } from './expo-push.service';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEventsService,
+    private readonly expoPush: ExpoPushService,
   ) {}
 
   async createForUsers(
@@ -41,6 +43,14 @@ export class NotificationsService {
     for (const userId of payload.userIds) {
       this.realtime.emitToUser(userId, 'notification.created', payload.notification);
     }
+    
+    // Also send push notification
+    this.expoPush.sendPushNotification(
+      payload.userIds,
+      payload.notification.title,
+      payload.notification.body,
+      { taskId: payload.notification.taskId }
+    ).catch(e => console.error('Failed to send push notification', e));
   }
 
   findMine(actor: AuthenticatedUser) {

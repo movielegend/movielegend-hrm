@@ -38,6 +38,14 @@ export class AttendanceService {
   ) {}
 
   async checkIn(dto: CheckInDto, actor: AuthenticatedUser, ip: string) {
+    // HARD BLOCK: Require accepting NEW tasks before check-in
+    const unacceptedTasks = await this.prisma.taskAssignment.count({
+      where: { userId: actor.userId, status: 'NEW' },
+    });
+    if (unacceptedTasks > 0) {
+      throw badRequest('UNACCEPTED_TASKS', 'Bạn có công việc chưa nhận. Vui lòng vào mục Nhiệm vụ để "Nhận việc" trước khi chấm công!');
+    }
+
     const workDate = this.businessTime.startOfBusinessDate(dto.workDate);
     const assignment = await this.prisma.shiftAssignment.findUnique({
       where: { userId_workDate: { userId: actor.userId, workDate } },
@@ -672,13 +680,16 @@ export class AttendanceService {
   }
 
   private async assertIpAllowed(actor: AuthenticatedUser, location: any, rawIp: string, wifiSsid?: string): Promise<void> {
+    const fs = require('fs');
+    fs.appendFileSync('debug-attendance.log', `[${new Date().toISOString()}] assertIpAllowed - rawIp: ${rawIp}, roles: ${actor.roles}\n`);
+    fs.appendFileSync('debug-attendance.log', `[${new Date().toISOString()}] assertIpAllowed - allowedIps: ${JSON.stringify(location?.allowedIps)}\n`);
     if (actor.roles.includes('ADMIN')) return;
     
     // Clean IPv4 prefix if present (e.g. ::ffff:192.168.1.55 -> 192.168.1.55)
     const ip = rawIp.replace(/^::ffff:/, '');
 
-    // For testing/development in localhost, we might want to bypass or mock
-    if (ip === '127.0.0.1' || ip === '::1') return;
+    // Removed localhost bypass as requested by user to enforce network checks
+    // if (ip === '127.0.0.1' || ip === '::1') return;
 
     if (!location) return;
 
@@ -710,6 +721,8 @@ export class AttendanceService {
         OR: [{ departmentId }, { departmentId: null }],
       },
     });
+    const fs = require('fs');
+    fs.appendFileSync('debug-attendance.log', `[${new Date().toISOString()}] assertWifiAllowed - active configs: ${configs.length}, passed ssid: ${ssid}\n`);
     if (!configs.length) return;
     if (!ssid) throw badRequest('INVALID_WIFI', 'Thieu thong tin WiFi');
     const matched = configs.some((config) => {

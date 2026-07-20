@@ -170,8 +170,15 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (task.isError) return <ErrorState error={task.error} onRetry={() => void task.refetch()} />;
   if (!task.data) return <EmptyState title="Khong tim thay task" />;
   const item = task.data;
-  const reviewAssignments = item.assignments?.filter((entry) => entry.status === 'WAITING_REVIEW') ?? [];
-  const pendingExtensions = item.extensionRequests?.filter((entry) => entry.status === 'PENDING') ?? [];
+  
+  const isSelfAssigned = (entry: any) => entry.userId !== user?.id || entry.assignedByUserId === user?.id;
+  
+  const reviewAssignments = item.assignments?.filter((entry) => entry.status === 'WAITING_REVIEW' && isSelfAssigned(entry)) ?? [];
+  const pendingExtensions = item.extensionRequests?.filter((entry) => {
+    if (entry.status !== 'PENDING') return false;
+    const relatedAssignment = item.assignments?.find(a => a.id === entry.assignmentId);
+    return relatedAssignment ? isSelfAssigned(relatedAssignment) : true;
+  }) ?? [];
 
   async function run(action: () => Promise<unknown>, success: string) {
     try {

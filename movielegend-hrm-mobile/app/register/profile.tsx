@@ -1,5 +1,5 @@
-import { RegistrationPersonalScreen } from '../../src/features/registration/RegistrationSteps';
+import { RegistrationProfileScreen } from '../../src/features/registration/RegistrationSteps';
 
 export default function RegisterProfileRoute() {
-  return <RegistrationPersonalScreen />;
+  return <RegistrationProfileScreen />;
 }

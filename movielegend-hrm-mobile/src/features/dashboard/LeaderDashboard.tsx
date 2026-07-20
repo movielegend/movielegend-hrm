@@ -9,9 +9,10 @@ import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { getDashboardByRole } from '../../api/dashboard.api';
+import { getDashboardByRole, getLeaderActivities } from '../../api/dashboard.api';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { useMyTasks } from '../../hooks/useTasks';
 import { Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -21,9 +22,11 @@ export function LeaderDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'TASKS' | 'ACTIVITY'>('TASKS');
   const { data: unreadData } = useUnreadNotificationCount();
   const unreadCount = unreadData?.count || 0;
   const { data: currentAttendance } = useCurrentAttendance();
+  const { data: myTasks } = useMyTasks({ limit: 10 });
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -31,6 +34,11 @@ export function LeaderDashboard() {
   const { data: dashboardData } = useQuery({
     queryKey: ['dashboard', 'LEADER'],
     queryFn: () => getDashboardByRole('LEADER'),
+  });
+
+  const { data: activities } = useQuery({
+    queryKey: ['dashboard', 'LEADER', 'activities'],
+    queryFn: getLeaderActivities,
   });
   
   const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0 };
@@ -167,23 +175,67 @@ export function LeaderDashboard() {
           </View>
         </View>
 
-        {/* Công việc của tôi */}
+        {/* Tabs: Công việc của tôi / Nhật ký hoạt động */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Công việc của tôi</Text>
-          <View style={styles.tasksContainer}>
-            <TaskCard 
-              title="Duyệt đơn xin nghỉ của nhân viên"
-              priority="Cao"
-              priorityColor="#EF4444"
-              dueDate="Hôm nay"
-            />
-            <TaskCard 
-              title="Phân ca làm việc tuần sau"
-              priority="Trung bình"
-              priorityColor="#F59E0B"
-              dueDate="Ngày mai"
-            />
+          <View style={styles.tabContainer}>
+            <Pressable 
+              onPress={() => setActiveTab('TASKS')} 
+              style={[styles.tabButton, activeTab === 'TASKS' && styles.tabButtonActive]}
+            >
+              <Text style={[styles.tabText, activeTab === 'TASKS' && styles.tabTextActive]}>Công việc của tôi</Text>
+            </Pressable>
+            <Pressable 
+              onPress={() => setActiveTab('ACTIVITY')} 
+              style={[styles.tabButton, activeTab === 'ACTIVITY' && styles.tabButtonActive]}
+            >
+              <Text style={[styles.tabText, activeTab === 'ACTIVITY' && styles.tabTextActive]}>Nhật ký hoạt động</Text>
+            </Pressable>
           </View>
+
+          {activeTab === 'TASKS' ? (
+            <View style={styles.tasksContainer}>
+              {myTasks?.items && myTasks.items.length > 0 ? (
+                [...myTasks.items]
+                  .sort((a, b) => {
+                    const isACompleted = a.status === 'COMPLETED' || a.status === 'CANCELLED';
+                    const isBCompleted = b.status === 'COMPLETED' || b.status === 'CANCELLED';
+                    if (isACompleted && !isBCompleted) return 1;
+                    if (!isACompleted && isBCompleted) return -1;
+                    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                  })
+                  .slice(0, 5)
+                  .map((task) => (
+                  <TaskCard 
+                    key={task.id}
+                    title={task.title}
+                    priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
+                    priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
+                    dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
+                    onPress={() => router.push(`/leader/tasks/${task.id}` as any)}
+                    isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
+                  />
+                ))
+              ) : (
+                <Text style={{ textAlign: 'center', color: '#6B7280', marginTop: spacing.md }}>Chưa có công việc nào</Text>
+              )}
+            </View>
+          ) : (
+            <View style={styles.tasksContainer}>
+              {activities && activities.length > 0 ? (
+                activities.map(activity => (
+                  <ActivityItem 
+                    key={activity.id}
+                    title={activity.title} 
+                    time={new Date(activity.time).toLocaleString('vi-VN')} 
+                    icon={activity.icon}
+                    color={activity.color}
+                  />
+                ))
+              ) : (
+                <Text style={{ textAlign: 'center', color: '#6B7280', marginTop: spacing.md }}>Chưa có hoạt động nào</Text>
+              )}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -223,23 +275,46 @@ function StatCard({ title, value, color }: any) {
   );
 }
 
-function TaskCard({ title, priority, priorityColor, dueDate }: any) {
+function ActivityItem({ title, time, icon, color }: any) {
   return (
-    <View style={styles.taskCard}>
-      <View style={styles.taskHeader}>
-        <Text style={styles.taskTitle} numberOfLines={1}>{title}</Text>
+    <View style={styles.activityItem}>
+      <View style={[styles.activityIconWrapper, { backgroundColor: color + '15' }]}>
+        <MaterialCommunityIcons name={icon} size={20} color={color} />
       </View>
-      <View style={styles.taskFooter}>
-        <View style={styles.taskMeta}>
-          <MaterialCommunityIcons name="calendar-clock" size={16} color="#6B7280" />
-          <Text style={styles.taskDueDate}>{dueDate}</Text>
-        </View>
-        <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '15' }]}>
-          <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
-          <Text style={[styles.priorityText, { color: priorityColor }]}>{priority}</Text>
-        </View>
+      <View style={styles.activityContent}>
+        <Text style={styles.activityTitle}>{title}</Text>
+        <Text style={styles.activityTime}>{time}</Text>
       </View>
     </View>
+  );
+}
+
+function TaskCard({ title, priority, priorityColor, dueDate, onPress, isCompleted }: any) {
+  return (
+    <Pressable style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#F9FAFB' }]} onPress={onPress}>
+      <View style={styles.taskIconWrapper}>
+        <MaterialCommunityIcons 
+          name={isCompleted ? "check-circle" : "checkbox-blank-circle-outline"} 
+          size={24} 
+          color={isCompleted ? "#10B981" : "#D1D5DB"} 
+        />
+      </View>
+      <View style={styles.taskContent}>
+        <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9CA3AF' }]} numberOfLines={2}>
+          {title}
+        </Text>
+        <View style={styles.taskFooter}>
+          <View style={styles.taskMeta}>
+            <MaterialCommunityIcons name="calendar-clock-outline" size={14} color="#6B7280" />
+            <Text style={styles.taskDueDate}>{dueDate}</Text>
+          </View>
+          <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '15' }]}>
+            <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
+            <Text style={[styles.priorityText, { color: priorityColor }]}>{priority}</Text>
+          </View>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -506,6 +581,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   taskCard: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: spacing.md,
@@ -516,20 +592,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
+    alignItems: 'flex-start',
   },
-  taskHeader: {
-    marginBottom: spacing.sm,
+  taskIconWrapper: {
+    marginRight: spacing.sm,
+    marginTop: 2,
+  },
+  taskContent: {
+    flex: 1,
   },
   taskTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#111827',
+    marginBottom: spacing.sm,
+    lineHeight: 20,
   },
   taskFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
   },
   taskMeta: {
     flexDirection: 'row',
@@ -574,5 +656,65 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 999,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: spacing.lg,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  tabTextActive: {
+    color: '#111827',
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: spacing.sm,
+  },
+  activityIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  activityTime: {
+    fontSize: 12,
+    color: '#6B7280',
   }
 });

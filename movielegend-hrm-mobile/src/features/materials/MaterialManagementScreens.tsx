@@ -98,7 +98,7 @@ export function AssetDepartmentListScreen() {
                 <View style={styles.deptStatItem}>
                   <MaterialCommunityIcons name="cube-outline" size={20} color="#4B5563" />
                   <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>256</Text>
+                    <Text style={styles.deptStatValue}>0</Text>
                     <Text style={styles.deptStatLabel}>Vật tư</Text>
                   </View>
                 </View>
@@ -106,7 +106,7 @@ export function AssetDepartmentListScreen() {
                 <View style={styles.deptStatItem}>
                   <MaterialCommunityIcons name="clipboard-text-outline" size={20} color="#4B5563" />
                   <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>32</Text>
+                    <Text style={styles.deptStatValue}>0</Text>
                     <Text style={styles.deptStatLabel}>Yêu cầu</Text>
                   </View>
                 </View>
@@ -114,7 +114,7 @@ export function AssetDepartmentListScreen() {
                 <View style={styles.deptStatItem}>
                   <MaterialCommunityIcons name="alert-outline" size={20} color="#4B5563" />
                   <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>5</Text>
+                    <Text style={styles.deptStatValue}>0</Text>
                     <Text style={styles.deptStatLabel}>Sắp hết</Text>
                   </View>
                 </View>

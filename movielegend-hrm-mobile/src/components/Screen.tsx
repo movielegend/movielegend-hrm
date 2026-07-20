@@ -10,8 +10,9 @@ export function Screen({ children }: PropsWithChildren) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
         {children}
       </KeyboardAvoidingView>

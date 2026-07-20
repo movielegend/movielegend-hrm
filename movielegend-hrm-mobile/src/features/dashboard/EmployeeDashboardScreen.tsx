@@ -176,13 +176,24 @@ export function EmployeeDashboardScreen() {
           <Text style={styles.sectionTitle}>Công việc của tôi</Text>
           <View style={styles.tasksContainer}>
             {myTasks?.items && myTasks.items.length > 0 ? (
-              myTasks.items.slice(0, 3).map((task) => (
+              [...myTasks.items]
+                .sort((a, b) => {
+                  const isACompleted = a.status === 'COMPLETED' || a.status === 'CANCELLED';
+                  const isBCompleted = b.status === 'COMPLETED' || b.status === 'CANCELLED';
+                  if (isACompleted && !isBCompleted) return 1;
+                  if (!isACompleted && isBCompleted) return -1;
+                  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                })
+                .slice(0, 5)
+                .map((task) => (
                 <TaskCard 
                   key={task.id}
                   title={task.title}
-                  priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'MEDIUM' ? 'Trung bình' : 'Thấp'}
-                  priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'MEDIUM' ? '#F59E0B' : '#10B981'}
+                  priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
+                  priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
                   dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
+                  onPress={() => router.push(`/employee/tasks/${task.id}`)}
+                  isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
                 />
               ))
             ) : (
@@ -191,6 +202,7 @@ export function EmployeeDashboardScreen() {
                 priority="Trung bình"
                 priorityColor="#F59E0B"
                 dueDate="Ngày mai"
+                onPress={() => router.push('/employee/tasks')}
               />
             )}
           </View>
@@ -225,23 +237,32 @@ function GridItem({ icon, title, onPress, color, badge }: any) {
   );
 }
 
-function TaskCard({ title, priority, priorityColor, dueDate }: any) {
+function TaskCard({ title, priority, priorityColor, dueDate, onPress, isCompleted }: any) {
   return (
-    <View style={styles.taskCard}>
-      <View style={styles.taskHeader}>
-        <Text style={styles.taskTitle} numberOfLines={1}>{title}</Text>
+    <Pressable style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#F9FAFB' }]} onPress={onPress}>
+      <View style={styles.taskIconWrapper}>
+        <MaterialCommunityIcons 
+          name={isCompleted ? "check-circle" : "checkbox-blank-circle-outline"} 
+          size={24} 
+          color={isCompleted ? "#10B981" : "#D1D5DB"} 
+        />
       </View>
-      <View style={styles.taskFooter}>
-        <View style={styles.taskMeta}>
-          <MaterialCommunityIcons name="calendar-clock" size={16} color="#6B7280" />
-          <Text style={styles.taskDueDate}>{dueDate}</Text>
-        </View>
-        <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '15' }]}>
-          <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
-          <Text style={[styles.priorityText, { color: priorityColor }]}>{priority}</Text>
+      <View style={styles.taskContent}>
+        <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9CA3AF' }]} numberOfLines={2}>
+          {title}
+        </Text>
+        <View style={styles.taskFooter}>
+          <View style={styles.taskMeta}>
+            <MaterialCommunityIcons name="calendar-clock-outline" size={14} color="#6B7280" />
+            <Text style={styles.taskDueDate}>{dueDate}</Text>
+          </View>
+          <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '15' }]}>
+            <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
+            <Text style={[styles.priorityText, { color: priorityColor }]}>{priority}</Text>
+          </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -422,6 +443,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   taskCard: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: spacing.md,
@@ -432,20 +454,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
+    alignItems: 'flex-start',
   },
-  taskHeader: {
-    marginBottom: spacing.sm,
+  taskIconWrapper: {
+    marginRight: spacing.sm,
+    marginTop: 2,
+  },
+  taskContent: {
+    flex: 1,
   },
   taskTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#111827',
+    marginBottom: spacing.sm,
+    lineHeight: 20,
   },
   taskFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
   },
   taskMeta: {
     flexDirection: 'row',

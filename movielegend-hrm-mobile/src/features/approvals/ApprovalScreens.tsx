@@ -37,7 +37,7 @@ const statusLabels: Record<string, string> = {
 };
 const rejectSchema = z.object({ reason: z.string().min(3, 'Vui lòng nhập lý do từ chối') });
 
-export function ApprovalListScreen({ title }: { title: string }) {
+export function ApprovalListScreen({ title, detailRoute }: { title: string, detailRoute?: (id: string) => string }) {
   const router = useRouter();
   const [status, setStatus] = useState<ApprovalStatus | undefined>('PENDING');
   const [search, setSearch] = useState('');
@@ -81,7 +81,13 @@ export function ApprovalListScreen({ title }: { title: string }) {
                 </View>
               </View>
               
-              <Pressable style={localStyles.actionBtn} onPress={() => router.push(`./approvals/${approval.id}`)}>
+              <Pressable style={localStyles.actionBtn} onPress={() => {
+                if (detailRoute) {
+                  router.push(detailRoute(approval.id) as any);
+                } else {
+                  router.push(`./${approval.id}`);
+                }
+              }}>
                 <Text style={localStyles.actionBtnText}>Xem chi tiết</Text>
                 <MaterialCommunityIcons name="chevron-right" size={20} color="#111827" />
               </Pressable>

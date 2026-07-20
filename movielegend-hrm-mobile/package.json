@@ -32,6 +32,7 @@
     "react-dom": "19.1.0",
     "react-hook-form": "^7.81.0",
     "react-native": "0.81.5",
+    "react-native-image-viewing": "^0.2.2",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-maps": "^1.18.0",
     "react-native-safe-area-context": "~5.6.0",

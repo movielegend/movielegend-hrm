@@ -264,7 +264,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
         <View style={styles.chatContainer}>
         {/* Header */}

@@ -21,10 +21,22 @@ export class DashboardController {
     return this.adminDashboard.summary();
   }
 
+  @Get('admin/activities')
+  @Permissions('dashboard.admin.read')
+  adminActivities() {
+    return this.adminDashboard.activities();
+  }
+
   @Get('leader')
   @Permissions('dashboard.department.read')
   leader(@CurrentUser() actor: AuthenticatedUser) {
     return this.leaderDashboard.summary(actor);
+  }
+
+  @Get('leader/activities')
+  @Permissions('dashboard.department.read')
+  leaderActivities(@CurrentUser() actor: AuthenticatedUser) {
+    return this.leaderDashboard.activities(actor);
   }
 
   @Get('me')

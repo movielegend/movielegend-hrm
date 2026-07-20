@@ -1,5 +1,5 @@
-import { ApprovalListScreen } from '../../../src/features/approvals/ApprovalScreens';
+import { ApprovalMenuScreen } from '../../../src/features/approvals/ApprovalMenuScreen';
 
 export default function AdminTasksTab() {
-  return <ApprovalListScreen title="Duyệt đơn" />;
+  return <ApprovalMenuScreen />;
 }

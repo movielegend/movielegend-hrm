@@ -6,12 +6,15 @@ import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { AssignShiftDto } from './dto/shift-assignment.dto';
 import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class ShiftAssignmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async assign(dto: AssignShiftDto, actor: AuthenticatedUser) {
@@ -70,6 +73,15 @@ export class ShiftAssignmentsService {
           metadata: { userId: dto.userId, departmentId: dto.departmentId, shiftId: dto.shiftId, workDate: dto.workDate },
         },
       });
+
+      const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Phân ca mới',
+        body: `Bạn đã được phân ca ${shift.name} vào ngày ${workDate.toLocaleDateString('vi-VN')}.`,
+        metadata: { shiftId: shift.id, assignmentId: assignment.id },
+      });
+      if (notif) this.notifications.emitCreated(notif);
+
       return assignment;
     });
   }

@@ -10,3 +10,23 @@ export async function getDashboardByRole(role: DashboardRole): Promise<Dashboard
   const response = await apiClient.get<ApiResponse<DashboardData>>(path);
   return unwrapData(response);
 }
+
+export interface LeaderActivity {
+  id: string;
+  title: string;
+  time: string;
+  icon: string;
+  color: string;
+  rawAction: string;
+  entityType: string;
+}
+
+export async function getLeaderActivities(): Promise<LeaderActivity[]> {
+  const response = await apiClient.get<ApiResponse<LeaderActivity[]>>('/dashboard/leader/activities');
+  return unwrapData(response);
+}
+
+export async function getAdminActivities(): Promise<LeaderActivity[]> {
+  const response = await apiClient.get<ApiResponse<LeaderActivity[]>>('/dashboard/admin/activities');
+  return unwrapData(response);
+}

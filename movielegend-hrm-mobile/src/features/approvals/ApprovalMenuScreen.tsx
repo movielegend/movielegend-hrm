@@ -3,9 +3,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
+import { useAuth } from '../../providers/AuthProvider';
 
 export function ApprovalMenuScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  
+  const isAdmin = user?.roles?.includes('ADMIN');
 
   return (
     <Screen>
@@ -33,20 +37,24 @@ export function ApprovalMenuScreen() {
             iconColor="#D97706" 
             onPress={() => router.push('/leader/approvals/account' as any)} 
           />
-          <MenuRow 
-            title="Yêu cầu VTTB" 
-            icon="help" 
-            iconBg="#FDF2F8" 
-            iconColor="#DB2777" 
-            onPress={() => router.push('/leader/material-issues' as any)} 
-          />
-          <MenuRow 
-            title="Liên phòng ban" 
-            icon="transit-connection-variant" 
-            iconBg="#E0F2FE" 
-            iconColor="#2563EB" 
-            onPress={() => router.push('/leader/cross-department' as any)} 
-          />
+          {!isAdmin && (
+            <>
+              <MenuRow 
+                title="Yêu cầu VTTB" 
+                icon="help" 
+                iconBg="#FDF2F8" 
+                iconColor="#DB2777" 
+                onPress={() => router.push('/leader/material-issues' as any)} 
+              />
+              <MenuRow 
+                title="Liên phòng ban" 
+                icon="transit-connection-variant" 
+                iconBg="#E0F2FE" 
+                iconColor="#2563EB" 
+                onPress={() => router.push('/leader/cross-department' as any)} 
+              />
+            </>
+          )}
         </View>
       </ScrollView>
     </Screen>

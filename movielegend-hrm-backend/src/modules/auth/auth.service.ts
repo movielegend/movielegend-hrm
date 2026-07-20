@@ -150,13 +150,30 @@ export class AuthService {
       await this.uploads.attachTemporaryFiles(faceFileIds, user.id, UploadPurpose.FACE_REGISTRATION, tx);
       await this.uploads.attachTemporaryFiles(idCardFileIds, user.id, UploadPurpose.EMPLOYEE_DOCUMENT, tx);
 
-      // Fetch all admins to notify
-      const admins = await tx.user.findMany({ where: { roles: { some: { role: { name: 'ADMIN' } } } }, select: { id: true } });
-      if (admins.length > 0) {
-        await this.notifications.createForUsers(tx, admins.map(a => a.id), {
-          type: 'ACCOUNT_APPROVAL_REQUESTED' as any,
-          title: 'Tài khoản đăng ký mới',
-          body: `Có một tài khoản nhân viên mới đăng ký (${user.userCode}) đang chờ duyệt.`,
+      const admins = await tx.userRole.findMany({
+        where: { role: { code: 'ADMIN' } },
+        select: { userId: true }
+      });
+
+      const notifyUserIds = new Set(admins.map(a => a.userId));
+
+      if (dto.requestedDepartmentId) {
+        const leaders = await tx.userRole.findMany({
+          where: { 
+            role: { code: 'LEADER' },
+            scopeType: 'DEPARTMENT',
+            scopeId: dto.requestedDepartmentId
+          },
+          select: { userId: true }
+        });
+        leaders.forEach(l => notifyUserIds.add(l.userId));
+      }
+
+      if (notifyUserIds.size > 0) {
+        await this.notifications.createForUsers(tx, Array.from(notifyUserIds), {
+          type: 'SYSTEM',
+          title: 'Yêu cầu đăng ký tài khoản mới',
+          body: `Nhân viên ${dto.fullName} (SĐT: ${dto.phone}) vừa gửi yêu cầu tạo tài khoản mới. Vui lòng kiểm tra và xét duyệt.`,
           metadata: { approvalRequestId: request.id },
         });
       }

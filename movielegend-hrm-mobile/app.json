@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "movielegend-hrm-mobile",
+    "name": "Movielegend",
     "slug": "movielegend-hrm-mobile",
     "scheme": "movielegend-hrm",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -73,9 +73,8 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8f0cce1a-a3e4-4754-8965-6f6fc48f4b80"
+        "projectId": "d086bb3f-15e3-4aee-b046-ff21e79f3339"
       }
-    },
-    "owner": "hocdinh"
+    }
   }
 }

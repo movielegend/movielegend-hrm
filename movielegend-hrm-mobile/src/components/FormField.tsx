@@ -13,70 +13,71 @@ export function FormField({ label, error, style, rightLabelElement, ...inputProp
   const [isFocused, setIsFocused] = useState(false);
   return (
     <View style={styles.field}>
-      <View style={styles.labelContainer}>
-        <Text style={styles.label}>{label}</Text>
-        {rightLabelElement}
+      <View style={[styles.inputWrapper, isFocused && styles.inputFocused, error ? styles.inputError : null, style]}>
+        <View style={styles.labelRow}>
+          <Text style={styles.inputLabel}>{label}</Text>
+          {rightLabelElement}
+        </View>
+        <TextInput 
+          {...inputProps} 
+          accessibilityLabel={label} 
+          onFocus={(e) => {
+            setIsFocused(true);
+            inputProps.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setIsFocused(false);
+            inputProps.onBlur?.(e);
+          }}
+          style={styles.inputText} 
+          placeholderTextColor="#9CA3AF"
+        />
       </View>
-      <TextInput 
-        {...inputProps} 
-        accessibilityLabel={label} 
-        onFocus={(e) => {
-          setIsFocused(true);
-          inputProps.onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setIsFocused(false);
-          inputProps.onBlur?.(e);
-        }}
-        style={[
-          styles.input, 
-          isFocused && styles.inputFocused,
-          error ? styles.inputError : null,
-          style
-        ]} 
-        placeholderTextColor="#9CA3AF"
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  error: {
-    color: colors.danger,
-    fontSize: 13,
-  },
   field: {
-    gap: spacing.sm,
+    marginBottom: 0,
   },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
+  inputWrapper: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    color: '#111827',
-    fontSize: 16,
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+    borderColor: '#ECEEF3',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   inputFocused: {
     borderColor: '#111827',
-    backgroundColor: '#FFFFFF',
   },
   inputError: {
     borderColor: colors.danger,
   },
-  label: {
-    color: '#111827',
-    fontSize: 14,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  labelContainer: {
+  labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
-  }
+    marginBottom: 4,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  inputText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    height: 24,
+    padding: 0,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 16,
+  },
 });

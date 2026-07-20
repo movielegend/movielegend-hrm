@@ -3,7 +3,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import * as faceapi from '@vladmandic/face-api';
 import * as path from 'path';
-import Jimp from 'jimp';
+import sharp from 'sharp';
 
 export interface AttendanceFaceVerificationInput {
   userId: string;
@@ -62,24 +62,17 @@ export class FaceVerificationService implements OnModuleInit {
   }
 
   private async getFaceDescriptor(imageBuffer: Buffer) {
-    // Decode image purely in JS using Jimp
-    const img = await Jimp.read(imageBuffer);
-    
-    // Resize to prevent freezing the Node.js event loop on large phone photos
-    if (img.bitmap.width > 600 || img.bitmap.height > 600) {
-      img.scaleToFit(600, 600);
-    }
+    // Decode and resize image using sharp (100x faster than Jimp)
+    // Add failOn: 'none' to tolerate corrupt Android JPEGs
+    const { data, info } = await sharp(imageBuffer, { failOn: 'none' })
+      .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
+      .removeAlpha() // Ensure 3 channels (RGB)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
     
     // Convert to Tensor
-    const { width, height, data } = img.bitmap;
-    const numPixels = width * height;
-    const values = new Int32Array(numPixels * 3);
-
-    for (let i = 0; i < numPixels; i++) {
-      values[i * 3 + 0] = data[i * 4 + 0]; // R
-      values[i * 3 + 1] = data[i * 4 + 1]; // G
-      values[i * 3 + 2] = data[i * 4 + 2]; // B
-    }
+    const { width, height } = info;
+    const values = Int32Array.from(data);
 
     const tensor = faceapi.tf.tensor3d(values, [height, width, 3], 'int32');
     
@@ -165,8 +158,8 @@ export class FaceVerificationService implements OnModuleInit {
       // 4. Calculate Distance
       const distance = faceapi.euclideanDistance(sourceDescriptor, targetDescriptor);
       
-      // Usually distance < 0.6 is a match. Use 0.5 for stricter matching.
-      if (distance < 0.55) {
+      // Usually distance < 0.6 is a match. Use 0.85 for looser matching (as requested).
+      if (distance < 0.85) {
         return {
           matched: true,
           confidence: 1 - distance,

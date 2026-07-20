@@ -266,7 +266,9 @@ export default function CreateRequestScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
-      Alert.alert('Lỗi', e.response?.data?.message || e.message || 'Có lỗi xảy ra khi gửi đơn.');
+      console.log('API Error:', JSON.stringify(e.response?.data, null, 2) || e.message);
+      const errorMsg = e.response?.data?.error?.message || e.response?.data?.message || e.message || 'Có lỗi xảy ra khi gửi đơn.';
+      Alert.alert('Lỗi', Array.isArray(errorMsg) ? errorMsg.join('\n') : errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -275,7 +277,8 @@ export default function CreateRequestScreen() {
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1, backgroundColor: '#FAFAFA' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
         <View style={[styles.header, shadows.sm]}>

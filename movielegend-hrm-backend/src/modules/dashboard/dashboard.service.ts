@@ -164,6 +164,83 @@ export class AdminDashboardService {
     ]);
     return { activeAssignments, waitingSelfReview, waitingLeaderReview, finalized };
   }
+
+  async activities() {
+    const logs = await this.prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        actor: {
+          select: {
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return logs.map(log => {
+      const name = log.actor?.profile?.fullName || 'Người dùng ẩn danh';
+      let title = `${name} đã thực hiện một hành động`;
+      let icon = 'history';
+      let color = '#6B7280';
+      const meta = log.metadata as any || {};
+      
+      const actionUpper = log.action.toUpperCase();
+      
+      // Enhanced translation mapping
+      if (actionUpper.includes('CREATE') || actionUpper.includes('NEW')) {
+        let entityName = log.entityType;
+        if (entityName === 'Task' || actionUpper.includes('TASK')) entityName = 'công việc';
+        if (entityName === 'LeaveRequest' || actionUpper.includes('LEAVE')) entityName = 'đơn xin nghỉ phép';
+        if (entityName === 'OvertimeRequest' || actionUpper.includes('OVERTIME')) entityName = 'đơn làm thêm giờ';
+        
+        title = `${name} đã tạo ${entityName}`;
+        if (meta.taskCode) title += ` (${meta.taskCode})`;
+        icon = 'plus-circle-outline';
+        color = '#3B82F6';
+      } else if (actionUpper.includes('APPROVE')) {
+        title = `${name} đã duyệt ${log.entityType}`;
+        icon = 'check-circle-outline';
+        color = '#10B981';
+      } else if (actionUpper.includes('REJECT')) {
+        title = `${name} đã từ chối ${log.entityType}`;
+        if (meta.reason) title += ` (Lý do: ${meta.reason})`;
+        icon = 'close-circle-outline';
+        color = '#EF4444';
+      } else if (actionUpper.includes('CANCEL')) {
+        title = `${name} đã hủy ${log.entityType}`;
+        icon = 'cancel';
+        color = '#F59E0B';
+      } else if (actionUpper.includes('COMPLETE')) {
+        title = `${name} đã hoàn thành ${log.entityType === 'Task' ? 'công việc' : log.entityType}`;
+        icon = 'check-decagram-outline';
+        color = '#10B981';
+      } else if (actionUpper.includes('ASSIGN')) {
+        title = `${name} đã phân công ${log.entityType}`;
+        icon = 'account-arrow-right-outline';
+        color = '#8B5CF6';
+      } else if (actionUpper.includes('UPDATE')) {
+        title = `${name} đã cập nhật ${log.entityType}`;
+        icon = 'pencil-outline';
+        color = '#F59E0B';
+      }
+      
+      return {
+        id: log.id,
+        title,
+        time: log.createdAt.toISOString(),
+        icon,
+        color,
+        rawAction: log.action,
+        entityType: log.entityType
+      };
+    });
+  }
 }
 
 @Injectable()
@@ -204,6 +281,99 @@ export class LeaderDashboardService {
       kpi: { awaitingLeaderReview, finalizedAverageScore: null },
       assets: { assignedDepartmentAssets, damagedAssetReports },
     };
+  }
+
+  async activities(actor: AuthenticatedUser) {
+    const departmentIds = this.scope.visibleDepartmentIds(actor) ?? [];
+    
+    // Find all users in these departments
+    const members = await this.prisma.departmentMember.findMany({ 
+      where: { departmentId: { in: departmentIds }, leftAt: null }, 
+      select: { userId: true } 
+    });
+    
+    const userIds = members.map(m => m.userId);
+    
+    if (userIds.length === 0) return [];
+    
+    // Fetch recent audit logs for these users
+    const logs = await this.prisma.auditLog.findMany({
+      where: {
+        actorUserId: { in: userIds }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        actor: {
+          select: {
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return logs.map(log => {
+      const name = log.actor?.profile?.fullName || 'Người dùng ẩn danh';
+      let title = `${name} đã thực hiện một hành động`;
+      let icon = 'history';
+      let color = '#6B7280';
+      const meta = log.metadata as any || {};
+      
+      const actionUpper = log.action.toUpperCase();
+      
+      // Enhanced translation mapping
+      if (actionUpper.includes('CREATE') || actionUpper.includes('NEW')) {
+        let entityName = log.entityType;
+        if (entityName === 'Task' || actionUpper.includes('TASK')) entityName = 'công việc';
+        if (entityName === 'LeaveRequest' || actionUpper.includes('LEAVE')) entityName = 'đơn xin nghỉ phép';
+        if (entityName === 'OvertimeRequest' || actionUpper.includes('OVERTIME')) entityName = 'đơn làm thêm giờ';
+        
+        title = `${name} đã tạo ${entityName}`;
+        if (meta.taskCode) title += ` (${meta.taskCode})`;
+        icon = 'plus-circle-outline';
+        color = '#3B82F6';
+      } else if (actionUpper.includes('APPROVE')) {
+        title = `${name} đã duyệt ${log.entityType}`;
+        icon = 'check-circle-outline';
+        color = '#10B981';
+      } else if (actionUpper.includes('REJECT')) {
+        title = `${name} đã từ chối ${log.entityType}`;
+        if (meta.reason) title += ` (Lý do: ${meta.reason})`;
+        icon = 'close-circle-outline';
+        color = '#EF4444';
+      } else if (actionUpper.includes('CANCEL')) {
+        title = `${name} đã hủy ${log.entityType}`;
+        icon = 'cancel';
+        color = '#F59E0B';
+      } else if (actionUpper.includes('COMPLETE')) {
+        title = `${name} đã hoàn thành ${log.entityType === 'Task' ? 'công việc' : log.entityType}`;
+        icon = 'check-decagram-outline';
+        color = '#10B981';
+      } else if (actionUpper.includes('ASSIGN')) {
+        title = `${name} đã phân công ${log.entityType}`;
+        icon = 'account-arrow-right-outline';
+        color = '#8B5CF6';
+      } else if (actionUpper.includes('UPDATE')) {
+        title = `${name} đã cập nhật ${log.entityType}`;
+        icon = 'pencil-outline';
+        color = '#F59E0B';
+      }
+      
+      return {
+        id: log.id,
+        title,
+        time: log.createdAt.toISOString(),
+        icon,
+        color,
+        rawAction: log.action,
+        entityType: log.entityType
+      };
+    });
   }
 }
 

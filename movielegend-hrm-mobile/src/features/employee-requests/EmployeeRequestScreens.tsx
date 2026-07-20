@@ -1,7 +1,9 @@
+import React, { useState } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ImageView from 'react-native-image-viewing';
 import { useMyEmployeeRequests, useEmployeeRequestById } from '../../hooks/useEmployeeRequests';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
@@ -66,6 +68,7 @@ export function CreateEmployeeRequestScreen() {
 export function EmployeeRequestDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const { data: request, isLoading, isError } = useEmployeeRequestById(id);
 
   if (isLoading) {
@@ -118,7 +121,8 @@ export function EmployeeRequestDetailScreen() {
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1, backgroundColor: '#FAFAFA' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
         <View style={[styles.header, shadows.sm]}>
@@ -175,11 +179,13 @@ export function EmployeeRequestDetailScreen() {
             {request.attachmentMetadata?.image && (
               <View style={styles.attachmentBox}>
                 <Text style={styles.attachmentLabel}>Ảnh minh chứng đính kèm:</Text>
-                <Image 
-                  source={{ uri: request.attachmentMetadata.image }} 
-                  style={styles.evidenceImage} 
-                  resizeMode="cover"
-                />
+                <TouchableOpacity onPress={() => setSelectedImage(request.attachmentMetadata.image)}>
+                  <Image 
+                    source={{ uri: request.attachmentMetadata.image }} 
+                    style={styles.evidenceImage} 
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -242,6 +248,14 @@ export function EmployeeRequestDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Full-screen Image Viewer with Zoom */}
+      <ImageView
+        images={[{ uri: selectedImage || '' }]}
+        imageIndex={0}
+        visible={!!selectedImage}
+        onRequestClose={() => setSelectedImage(null)}
+      />
     </KeyboardAvoidingView>
   );
 }

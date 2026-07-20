@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { z } from 'zod';
 import { Screen } from '../../components/Screen';
@@ -55,19 +55,19 @@ export function LoginScreen() {
 
             {/* Header Branding */}
             <View style={styles.header}>
-              <View style={styles.logoBox}>
-                <Text style={styles.logoText}>ERP</Text>
-                <Text style={styles.logoText}>OS</Text>
-              </View>
-              <Text style={styles.welcomeText}>Welcome back</Text>
-              <Text style={styles.subtitleText}>Sign in to continue to ERP OS</Text>
+              <Image 
+                source={require('../../../assets/logo-watermark.png')} 
+                style={styles.logoImage} 
+                resizeMode="contain" 
+              />
+              <Text style={styles.subtitleText}>Sign in to continue to Movielegend</Text>
             </View>
 
             {/* Login Form */}
             <View style={styles.formContainer}>
               {/* Phone/Email Field */}
               <View style={[styles.inputWrapper, errors.phone && styles.inputError]}>
-                <Text style={styles.inputLabel}>Email address</Text>
+                <Text style={styles.inputLabel}>Số điện thoại</Text>
                 <Controller
                   control={control}
                   name="phone"
@@ -76,8 +76,9 @@ export function LoginScreen() {
                       autoCapitalize="none"
                       onBlur={onBlur}
                       onChangeText={onChange}
-                      placeholder="binh.hoang@company.com"
+                      placeholder="0987654321"
                       placeholderTextColor="#9CA3AF"
+                      keyboardType="phone-pad"
                       style={styles.inputText}
                       value={value}
                     />
@@ -186,27 +187,10 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     width: '100%',
   },
-  logoBox: {
-    width: 80,
+  logoImage: {
+    width: 200,
     height: 80,
-    backgroundColor: '#111827',
-    borderRadius: 24, // Squircle
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 24,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-    lineHeight: 24,
-    letterSpacing: 0.5,
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
   },
   subtitleText: {
     fontSize: 14,

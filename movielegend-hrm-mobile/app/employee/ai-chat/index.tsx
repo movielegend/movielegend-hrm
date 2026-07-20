@@ -118,8 +118,8 @@ export default function AiChatScreen() {
       <StatusBar style="dark" />
       <KeyboardAvoidingView 
         style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
         <View style={[styles.header, shadows.sm]}>
           <Pressable onPress={() => router.back()} style={styles.iconBtn}>

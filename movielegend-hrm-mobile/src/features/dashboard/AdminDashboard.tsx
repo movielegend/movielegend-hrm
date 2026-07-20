@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useAdminActivities } from '../../hooks/useDashboard';
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -27,6 +28,8 @@ export function AdminDashboard() {
   const queryClient = useQueryClient();
   const { data: unreadData } = useUnreadNotificationCount();
   const unreadCount = unreadData?.count || 0;
+  
+  const { data: activities, isLoading: isLoadingActivities } = useAdminActivities();
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -139,7 +142,7 @@ export function AdminDashboard() {
           <GridCard 
             title="Duyệt đơn" 
             icon="calendar-outline" 
-            onPress={() => router.navigate('/leader/employee-requests')}
+            onPress={() => router.navigate('/leader/approvals')}
           />
           <GridCard 
             title="Công việc" 
@@ -175,27 +178,44 @@ export function AdminDashboard() {
           <View style={styles.timelineLine} />
 
           {/* Timeline Items */}
-          <TimelineItem 
-            icon="clock-outline"
-            time="09:02 AM"
-            title="Chấm công vào"
-            subtitle="Văn phòng Hà Nội"
-          />
-          
-          <TimelineItem 
-            icon="clipboard-outline"
-            time="08:45 AM"
-            title="Được giao nhiệm vụ mới"
-            subtitle="Thiết kế banner sự kiện"
-          />
-          
-          <TimelineItem 
-            icon="office-building-outline"
-            time="Hôm qua"
-            title="Đơn nghỉ phép được duyệt"
-            subtitle="Nghỉ phép 1 ngày - 10/07/2024"
-            isLast={true}
-          />
+          {isLoadingActivities ? (
+            <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Đang tải...</Text>
+          ) : activities?.length ? (
+            activities.map((activity, index) => {
+              const date = new Date(activity.time);
+              const now = new Date();
+              const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+              
+              const yesterday = new Date(now);
+              yesterday.setDate(yesterday.getDate() - 1);
+              const isYesterday = date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth() && date.getFullYear() === yesterday.getFullYear();
+
+              let timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+              if (isToday) {
+                // keep timeStr
+              } else if (isYesterday) {
+                timeStr = 'Hôm qua';
+              } else {
+                timeStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+              }
+              
+              const fullSubtitle = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+              
+              return (
+                <TimelineItem 
+                  key={activity.id}
+                  icon={activity.icon.replace('-outline', '')} 
+                  time={timeStr}
+                  title={activity.title}
+                  subtitle={fullSubtitle}
+                  isLast={index === activities.length - 1}
+                  color={activity.color}
+                />
+              );
+            })
+          ) : (
+            <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Chưa có hoạt động nào</Text>
+          )}
         </View>
 
       </ScrollView>
@@ -223,11 +243,11 @@ function GridCard({ title, icon, onPress }: any) {
   );
 }
 
-function TimelineItem({ icon, time, title, subtitle, isLast = false }: any) {
+function TimelineItem({ icon, time, title, subtitle, isLast = false, color = '#111827' }: any) {
   return (
     <View style={[styles.timelineItem, isLast && styles.timelineItemLast]}>
-      <View style={styles.timelineIconWrapper}>
-        <MaterialCommunityIcons name={icon} size={18} color="#111827" />
+      <View style={[styles.timelineIconWrapper, { backgroundColor: color + '1A' }]}>
+        <MaterialCommunityIcons name={icon} size={18} color={color} />
       </View>
       <View style={styles.timelineContent}>
         <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 2, gap: 16}}>

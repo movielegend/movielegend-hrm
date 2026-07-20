@@ -649,9 +649,8 @@ export function AdminAttendanceScreen() {
             <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
               <Ionicons name="close-circle" size={36} color="#FFF" />
             </Pressable>
-            <View style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="videocam-outline" size={20} color="#FF3B30" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>MOVIE LEGEND</Text>
+            <View style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>
+              <Image source={require('../../../assets/logo-watermark.png')} style={{ width: 120, height: 30, resizeMode: 'contain' }} />
             </View>
             <Image source={{ uri: selectedImage }} style={{ width: '90%', height: '80%', resizeMode: 'contain' }} />
           </View>
@@ -802,9 +801,8 @@ export function AdminAttendanceDetailScreen() {
             <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
               <Ionicons name="close-circle" size={36} color="#FFF" />
             </Pressable>
-            <View style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="videocam-outline" size={20} color="#FF3B30" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>MOVIE LEGEND</Text>
+            <View style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>
+              <Image source={require('../../../assets/logo-watermark.png')} style={{ width: 120, height: 30, resizeMode: 'contain' }} />
             </View>
             <Image source={{ uri: selectedImage }} style={{ width: '90%', height: '80%', resizeMode: 'contain' }} />
           </View>

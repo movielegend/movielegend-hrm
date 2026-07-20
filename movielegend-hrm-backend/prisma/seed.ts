@@ -185,16 +185,6 @@ async function main() {
     create: { code: 'MOVIE_LEGEND', name: 'Movie Legend' },
   });
 
-  await prisma.department.upsert({
-    where: { companyId_code: { companyId: company.id, code: 'MEDIA' } },
-    update: {},
-    create: { companyId: company.id, code: 'MEDIA', name: 'Media' },
-  });
-  await prisma.department.upsert({
-    where: { companyId_code: { companyId: company.id, code: 'MARKETING' } },
-    update: {},
-    create: { companyId: company.id, code: 'MARKETING', name: 'Marketing' },
-  });
 
   const permissions = await Promise.all(
     permissionCodes.map((code) =>

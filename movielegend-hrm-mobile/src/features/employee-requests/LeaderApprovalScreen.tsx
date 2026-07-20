@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Alert, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ImageView from 'react-native-image-viewing';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest } from '../../hooks/useEmployeeRequests';
@@ -14,6 +15,7 @@ type RequestType = 'LEAVE' | 'ATTENDANCE_ADJUSTMENT' | 'LATE_ARRIVAL' | 'EARLY_L
 export function LeaderApprovalScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const { data: request, isLoading, isError } = useEmployeeRequestById(id);
@@ -87,8 +89,9 @@ export function LeaderApprovalScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#FAFAFA' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: '#F0F4F8' }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
         <View style={[styles.header, shadows.sm]}>
@@ -150,11 +153,13 @@ export function LeaderApprovalScreen() {
             {request.attachmentMetadata?.image && (
               <View style={{ marginTop: 16 }}>
                 <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 8, fontWeight: '500' }}>Ảnh minh chứng đính kèm:</Text>
-                <Image 
-                  source={{ uri: request.attachmentMetadata.image }} 
-                  style={{ width: '100%', height: 250, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6' }} 
-                  resizeMode="cover"
-                />
+                <TouchableOpacity onPress={() => setSelectedImage(request.attachmentMetadata.image)}>
+                  <Image 
+                    source={{ uri: request.attachmentMetadata.image }} 
+                    style={{ width: '100%', height: 250, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6' }} 
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -210,6 +215,13 @@ export function LeaderApprovalScreen() {
           </Text>
         </View>
       )}
+      {/* Full-screen Image Viewer with Zoom */}
+      <ImageView
+        images={[{ uri: selectedImage || '' }]}
+        imageIndex={0}
+        visible={!!selectedImage}
+        onRequestClose={() => setSelectedImage(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
