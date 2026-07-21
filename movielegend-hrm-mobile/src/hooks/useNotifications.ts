@@ -75,21 +75,25 @@ export function usePushNotificationSetup() {
       const data = response.notification.request.content.data;
       console.log('--- Người dùng bấm vào thông báo. Data:', data);
       
-      // Xử lý logic điều hướng dựa theo payload data từ backend gửi về
-      if (data && data.route) {
-        // Ví dụ backend gửi: { "route": "/employee/tasks/123" }
-        router.push(data.route as any);
-      } else if (data && data.type) {
-        // Hoặc backend gửi { "type": "TASK", "id": "123" }
-        switch (data.type) {
-          case 'TASK':
-            if (data.id) router.push(`/employee/tasks/${data.id}` as any);
-            break;
-          case 'SHIFT':
-            if (data.id) router.push(`/employee/shifts` as any); // Chuyển tạm tới shifts list
-            break;
+      if (data && data.type) {
+        // Tạo một object giả lập NotificationTargetDto để dùng lại hàm notificationRoute
+        const mockTarget = {
+          notification: {
+            id: data.notificationId,
+            type: data.type,
+            taskId: data.taskId,
+            metadata: data.metadata,
+          }
+        };
+        const route = require('../utils/notification-routing').notificationRoute(mockTarget, user);
+        if (route) {
+          router.push(route as any);
+          return;
         }
       }
+      
+      // Fallback
+      router.push('/(tabs)/notifications');
     });
 
     return () => {

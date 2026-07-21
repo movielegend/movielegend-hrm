@@ -79,7 +79,7 @@ export class ChatService {
             members.map(m => m.userId),
             {
               type: 'CHAT_MESSAGE',
-              title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode}`,
+              title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode} (Nhóm: ${group.name || 'Chung'})`,
               body: message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]'),
               metadata: { groupId: group.id, messageId: message.id }
             }
@@ -109,7 +109,7 @@ export class ChatService {
               otherMembers.map(m => m.userId),
               {
                 type: 'CHAT_MESSAGE',
-                title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode}`,
+                title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode} (Nhóm: ${group.name || 'Cá nhân'})`,
                 body: message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]'),
                 metadata: { groupId: group.id, messageId: message.id }
               }

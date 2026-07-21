@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Modal, StyleSheet, View, Text } from 'react-native';
-import SignatureScreen from 'react-native-signature-canvas';
+import SignatureScreen from '../../components/SignaturePad/SignaturePad';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { colors } from '../../theme/colors';

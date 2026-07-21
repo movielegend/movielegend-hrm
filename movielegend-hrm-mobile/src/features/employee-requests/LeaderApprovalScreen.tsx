@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoid
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ImageView from 'react-native-image-viewing';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest } from '../../hooks/useEmployeeRequests';

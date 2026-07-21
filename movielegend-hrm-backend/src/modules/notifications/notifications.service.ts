@@ -49,7 +49,12 @@ export class NotificationsService {
       payload.userIds,
       payload.notification.title,
       payload.notification.body,
-      { taskId: payload.notification.taskId }
+      { 
+        notificationId: payload.notification.id,
+        type: payload.notification.type,
+        taskId: payload.notification.taskId,
+        metadata: payload.notification.metadata
+      }
     ).catch(e => console.error('Failed to send push notification', e));
   }
 

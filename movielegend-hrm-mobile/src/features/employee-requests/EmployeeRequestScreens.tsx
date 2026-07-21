@@ -3,7 +3,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ImageView from 'react-native-image-viewing';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { useMyEmployeeRequests, useEmployeeRequestById } from '../../hooks/useEmployeeRequests';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
