@@ -28,7 +28,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
@@ -65,6 +65,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
   const { user } = useAuth();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
+  const markAsRead = useMarkGroupAsRead();
   const groups = scope === 'all' ? allGroups : myGroups;
   const groupItems = Array.isArray(groups.data) ? groups.data : [];
 
@@ -88,6 +89,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
               const lastMsgText = lastMsg
                 ? `${lastMsg.sender?.profile?.fullName ?? 'Ai đó'}: ${lastMsg.content}`
                 : `${group._count?.members ?? group.members?.length ?? 0} thành viên`;
+              const unreadCount = group.unreadCount || 0;
 
               return (
                 <Pressable
@@ -97,6 +99,11 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                     const isAdmin = user?.roles?.includes('ADMIN');
                     const isLeader = user?.roles?.includes('LEADER');
                     const basePath = isAdmin ? '/admin/chat' : isLeader ? '/leader/chat' : '/employee/chat';
+                    
+                    if (unreadCount > 0) {
+                      markAsRead.mutateAsync(group.id).catch(console.error);
+                    }
+                    
                     router.push(`${basePath}/${group.id}?name=${encodeURIComponent(groupName)}` as any);
                   }}
                 >
@@ -109,8 +116,15 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                   </View>
 
                   <View style={styles.groupInfo}>
-                    <Text style={styles.groupName}>{groupName}</Text>
-                    <Text style={styles.groupMeta} numberOfLines={1}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.groupName, { flex: 1 }]} numberOfLines={1}>{groupName}</Text>
+                      {unreadCount > 0 && (
+                        <View style={{ backgroundColor: '#EF4444', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginLeft: 8 }}>
+                          <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>{unreadCount}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.groupMeta, unreadCount > 0 && { color: '#111827', fontWeight: '500' }]} numberOfLines={1}>
                       {lastMsgText}
                     </Text>
                   </View>
@@ -146,22 +160,10 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const employees = useScopedEmployees({ limit: 100 });
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    // Keyboard listeners
-    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
-    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardHeight(0));
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   const [text, setText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -264,8 +266,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+        behavior="padding"
+        keyboardVerticalOffset={insets.bottom}
       >
         <View style={styles.chatContainer}>
         {/* Header */}
@@ -372,7 +374,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         )}
 
         {/* Input */}
-        <View style={[styles.chatInputRow, { paddingBottom: keyboardHeight > 0 ? 10 : Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.chatInputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <Pressable onPress={pickImage} style={styles.attachBtn}>
             <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
           </Pressable>
@@ -650,16 +652,18 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   chatInput: {
-    flex: 1,
     backgroundColor: '#F8FAFC',
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
     fontSize: 15,
     color: colors.text,
-    maxHeight: 100,
+    minHeight: 40,
+    maxHeight: 120,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    textAlignVertical: 'center',
   },
   chatSendBtn: {
     width: 42,

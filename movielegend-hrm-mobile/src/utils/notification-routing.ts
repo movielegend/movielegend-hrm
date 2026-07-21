@@ -60,6 +60,9 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     }
     return `${base}/newsfeed`; // Could navigate to specific post in newsfeed if supported
   }
+  if (notification.type === 'SYSTEM' && postId) {
+    return `${base}/newsfeed`;
+  }
   if (notification.type === 'SYSTEM' && (notification.title === 'Phân ca mới' || notification.title === 'Phân ca làm việc mới')) {
     return `${base}/schedule`;
   }

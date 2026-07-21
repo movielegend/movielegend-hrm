@@ -32,6 +32,12 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ]
     },
@@ -69,7 +75,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
@@ -77,6 +84,16 @@
         "projectId": "347f4427-0ab1-4e84-94a8-6efbb1ea285c"
       }
     },
+<<<<<<< Updated upstream
     "owner": "movielegend-hrm-mobile"
+=======
+    "owner": "binhpthe1fpt",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/347f4427-0ab1-4e84-94a8-6efbb1ea285c"
+    }
+>>>>>>> Stashed changes
   }
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View, Linking } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View, Linking, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as WebBrowser from 'expo-web-browser';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -239,17 +240,20 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
             
             try {
               setDownloadingId(attachment.id);
-              // Clean filename to remove invalid characters, default to 'document' if missing
               const cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
               const localUri = FileSystem.documentDirectory + cleanFileName;
-              
               const { uri } = await FileSystem.downloadAsync(url, localUri);
-              const canShare = await Sharing.isAvailableAsync();
-              if (canShare) {
-                await Sharing.shareAsync(uri);
+              
+              if (Platform.OS === 'android') {
+                const IntentLauncher = await import('expo-intent-launcher');
+                const contentUri = await FileSystem.getContentUriAsync(uri);
+                await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+                  data: contentUri,
+                  flags: 1,
+                  type: attachment.mimeType || 'application/pdf',
+                });
               } else {
-                // Fallback to open URL
-                Linking.openURL(url).catch((err) => console.error("Couldn't load page", err));
+                await Sharing.shareAsync(uri);
               }
             } catch (err) {
               console.error(err);

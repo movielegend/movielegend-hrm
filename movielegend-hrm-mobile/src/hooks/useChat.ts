@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, type SendMessagePayload } from '../api/chat.api';
+import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, markGroupAsRead, type SendMessagePayload } from '../api/chat.api';
 import { chatKeys } from '../constants/queryKeys';
 
 export function useChatGroups() {
@@ -52,5 +52,16 @@ export function useCreateCustomChat() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
     },
+  });
+}
+
+export function useMarkGroupAsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => markGroupAsRead(groupId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] }); // Notifications unread count might change
+    }
   });
 }

@@ -6,9 +6,13 @@ import { useAuth } from '../../../src/providers/AuthProvider';
 import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role-routing';
 import { colors } from '../../../src/theme/colors';
 
+import { useUnreadNotificationCount } from '../../../src/hooks/useNotifications';
+
 export default function AdminTabsLayout() {
   const insets = useSafeAreaInsets();
   const { isLoading, user } = useAuth();
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+
   if (isLoading) return <LoadingState />;
   if (!canAccessRoleRoute(user, '/admin')) return <Redirect href={getHomeRouteForUser(user)} />;
   
@@ -68,6 +72,7 @@ export default function AdminTabsLayout() {
         name="notifications"
         options={{
           title: 'Thông báo',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="bell-outline" size={26} color={color} />
           ),

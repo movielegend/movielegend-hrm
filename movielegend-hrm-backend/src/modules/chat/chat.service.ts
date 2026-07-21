@@ -151,6 +151,24 @@ export class ChatService {
       groups.push(m.group);
     }
 
+    const unreadChatNotifications = await this.prisma.notificationTarget.findMany({
+      where: {
+        userId,
+        readAt: null,
+        notification: { type: 'CHAT_MESSAGE' }
+      },
+      include: { notification: { select: { metadata: true } } }
+    });
+
+    const unreadCountByGroup: Record<string, number> = {};
+    for (const target of unreadChatNotifications) {
+      const metadata = target.notification.metadata as any;
+      if (metadata && metadata.groupId) {
+        const groupId = metadata.groupId;
+        unreadCountByGroup[groupId] = (unreadCountByGroup[groupId] || 0) + 1;
+      }
+    }
+
     const resultGroups = [];
     for (const group of groups) {
       // Fetch latest message
@@ -175,7 +193,8 @@ export class ChatService {
       resultGroups.push({
         ...group,
         name: finalName,
-        latestMessage
+        latestMessage,
+        unreadCount: unreadCountByGroup[group.id] || 0
       });
     }
 
@@ -254,6 +273,33 @@ export class ChatService {
       },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  async markGroupAsRead(groupId: string, userId: string) {
+    const unreadChatNotifications = await this.prisma.notificationTarget.findMany({
+      where: {
+        userId,
+        readAt: null,
+        notification: { type: 'CHAT_MESSAGE' }
+      },
+      include: { notification: { select: { id: true, metadata: true } } }
+    });
+
+    const targetIdsToUpdate: string[] = [];
+    for (const target of unreadChatNotifications) {
+      const metadata = target.notification.metadata as any;
+      if (metadata && metadata.groupId === groupId) {
+        targetIdsToUpdate.push(target.id);
+      }
+    }
+
+    if (targetIdsToUpdate.length > 0) {
+      await this.prisma.notificationTarget.updateMany({
+        where: { id: { in: targetIdsToUpdate } },
+        data: { readAt: new Date() }
+      });
+    }
+    return { success: true, markedCount: targetIdsToUpdate.length };
   }
 }
 
