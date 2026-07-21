@@ -39,46 +39,63 @@ export function FeedbackCard({ feedback, onPress, isAdmin }: Props) {
   );
 }
 
+const appleTheme = {
+  primary: '#111827',
+  card: '#FFFFFF',
+  text: '#111827',
+  textSecondary: '#6B7280',
+  border: 'rgba(17, 24, 39, 0.05)',
+};
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    backgroundColor: appleTheme.card,
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: appleTheme.border,
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
+    fontSize: 17,
+    fontWeight: '800',
+    color: appleTheme.primary,
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
   content: {
-    fontSize: 14,
-    color: colors.muted,
-    marginBottom: 12,
-    lineHeight: 20,
+    fontSize: 15,
+    color: appleTheme.textSecondary,
+    marginBottom: 16,
+    lineHeight: 22,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: appleTheme.border,
+    paddingTop: 16,
   },
   date: {
-    fontSize: 12,
-    color: colors.muted,
+    fontSize: 13,
+    color: appleTheme.textSecondary,
+    fontWeight: '500',
   },
   sender: {
-    fontSize: 12,
-    color: '#000',
-    fontWeight: '500',
+    fontSize: 13,
+    color: appleTheme.primary,
+    fontWeight: '700',
   },
 });
