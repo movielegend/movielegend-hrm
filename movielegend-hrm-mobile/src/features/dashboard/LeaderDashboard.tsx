@@ -162,6 +162,7 @@ export function LeaderDashboard() {
             <GridItem icon="account-tie-outline" title="Nhân sự" onPress={() => router.push('/leader/employees' as any)} />
             <GridItem icon="file-document-outline" title="Hợp đồng" onPress={() => router.push('/leader/contracts' as any)} />
             <GridItem icon="alert-circle-outline" title="Sự cố" onPress={() => router.push('/leader/asset-incidents' as any)} />
+            <GridItem icon="message-draw" title="Góp ý" onPress={() => router.push('/leader/feedbacks' as any)} />
           </View>
         </View>
 

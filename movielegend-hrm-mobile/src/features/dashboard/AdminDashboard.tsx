@@ -28,7 +28,7 @@ export function AdminDashboard() {
   const queryClient = useQueryClient();
   const { data: unreadData } = useUnreadNotificationCount();
   const unreadCount = unreadData?.count || 0;
-  
+
   const { data: activities, isLoading: isLoadingActivities } = useAdminActivities();
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -69,7 +69,7 @@ export function AdminDashboard() {
 
   return (
     <Screen>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
@@ -77,7 +77,7 @@ export function AdminDashboard() {
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
             <View style={styles.avatar}>
-               <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+              <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.greetingText}>Xin chào 👋</Text>
@@ -85,7 +85,7 @@ export function AdminDashboard() {
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/admin/notifications')}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
               {unreadCount > 0 && (
@@ -103,7 +103,7 @@ export function AdminDashboard() {
         </View>
 
         {/* Checked In Card with decorative background */}
-        <Pressable 
+        <Pressable
           style={styles.heroButton}
           onPress={() => router.navigate('/admin/attendance')}
         >
@@ -113,45 +113,45 @@ export function AdminDashboard() {
           <View style={styles.heroDecoration3} />
           <View style={styles.heroDecoration4} />
           <View style={styles.heroDecoration5} />
-          
+
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-             <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-               <MaterialCommunityIcons name="check" size={16} color="#FFF" />
-             </View>
-             <Text style={styles.heroTitle}>Đã chấm công</Text>
+            <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="check" size={16} color="#FFF" />
+            </View>
+            <Text style={styles.heroTitle}>Đã chấm công</Text>
           </View>
-          
-          <View style={{flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20}}>
+
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20 }}>
             <Text style={styles.heroSubtitle}>{timeString}</Text>
           </View>
 
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-             <MaterialCommunityIcons name="map-marker-outline" size={16} color={appleTheme.textSecondary} />
-             <Text style={{ color: appleTheme.textSecondary, fontSize: 13 }}>Văn phòng Hà Nội</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color={appleTheme.textSecondary} />
+            <Text style={{ color: appleTheme.textSecondary, fontSize: 13 }}>Văn phòng Hà Nội</Text>
           </View>
         </Pressable>
 
         {/* Thao tác nhanh */}
         <Text style={styles.sectionTitleFolder}>Thao tác nhanh</Text>
         <View style={styles.grid}>
-          <GridCard 
-            title="Chấm công" 
-            icon="clock-outline" 
+          <GridCard
+            title="Chấm công"
+            icon="clock-outline"
             onPress={() => router.navigate('/admin/attendance')}
           />
-          <GridCard 
-            title="Duyệt đơn" 
-            icon="calendar-outline" 
+          <GridCard
+            title="Duyệt đơn"
+            icon="calendar-outline"
             onPress={() => router.navigate('/leader/approvals')}
           />
-          <GridCard 
-            title="Công việc" 
-            icon="calendar-check-outline" 
+          <GridCard
+            title="Công việc"
+            icon="calendar-check-outline"
             onPress={() => router.navigate('/admin/tasks')}
           />
-          <GridCard 
-            title="Quản lý" 
-            icon="wallet-outline" 
+          <GridCard
+            title="Quản lý"
+            icon="wallet-outline"
             onPress={() => router.navigate('/admin/branches')}
           />
         </View>
@@ -172,7 +172,7 @@ export function AdminDashboard() {
             <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500' }}>Xem tất cả</Text>
           </Pressable>
         </View>
-        
+
         <View style={styles.timelineContainer}>
           {/* Vertical Line */}
           <View style={styles.timelineLine} />
@@ -185,7 +185,7 @@ export function AdminDashboard() {
               const date = new Date(activity.time);
               const now = new Date();
               const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-              
+
               const yesterday = new Date(now);
               yesterday.setDate(yesterday.getDate() - 1);
               const isYesterday = date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth() && date.getFullYear() === yesterday.getFullYear();
@@ -198,13 +198,13 @@ export function AdminDashboard() {
               } else {
                 timeStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
               }
-              
+
               const fullSubtitle = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-              
+
               return (
-                <TimelineItem 
+                <TimelineItem
                   key={activity.id}
-                  icon={activity.icon.replace('-outline', '')} 
+                  icon={activity.icon.replace('-outline', '')}
                   time={timeStr}
                   title={activity.title}
                   subtitle={fullSubtitle}
@@ -250,15 +250,15 @@ function TimelineItem({ icon, time, title, subtitle, isLast = false, color = '#1
         <MaterialCommunityIcons name={icon} size={18} color={color} />
       </View>
       <View style={styles.timelineContent}>
-        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 2, gap: 16}}>
-          <Text style={{fontSize: 12, color: appleTheme.textSecondary, width: 60}}>{time}</Text>
-          <View style={{flex: 1}}>
-             <Text style={{fontSize: 14, fontWeight: '700', color: appleTheme.textPrimary}}>{title}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2, gap: 16 }}>
+          <Text style={{ fontSize: 12, color: appleTheme.textSecondary, width: 60 }}>{time}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: appleTheme.textPrimary }}>{title}</Text>
           </View>
         </View>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 16}}>
-           <View style={{width: 60}} />
-           <Text style={{flex: 1, fontSize: 13, color: appleTheme.textSecondary}}>{subtitle}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <View style={{ width: 60 }} />
+          <Text style={{ flex: 1, fontSize: 13, color: appleTheme.textSecondary }}>{subtitle}</Text>
         </View>
       </View>
     </View>

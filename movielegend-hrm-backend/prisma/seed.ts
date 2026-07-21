@@ -176,6 +176,10 @@ const permissionCodes = [
   'audit.read',
   'job.read',
   'job.run_manual',
+  'feedback.create',
+  'feedback.read_own',
+  'feedback.read_all',
+  'feedback.update_status',
 ];
 
 async function main() {
@@ -285,6 +289,8 @@ async function main() {
     'report.asset.read',
     'report.kpi.read',
     'report.export.csv',
+    'feedback.create',
+    'feedback.read_own',
   ]) {
     const permission = permissions.find((item) => item.code === code);
     if (permission) {
@@ -338,6 +344,8 @@ async function main() {
     'dashboard.own.read',
     'notification_preference.read_own',
     'notification_preference.update_own',
+    'feedback.create',
+    'feedback.read_own',
   ]) {
     const permission = permissions.find((item) => item.code === code);
     if (permission) {
@@ -409,6 +417,10 @@ async function main() {
     'job.run_manual',
     'notification.read',
     'device_token.manage_own',
+    'feedback.create',
+    'feedback.read_own',
+    'feedback.read_all',
+    'feedback.update_status',
   ]) {
     const permission = permissions.find((item) => item.code === code);
     if (permission) {

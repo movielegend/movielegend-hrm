@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { FeedbackQueryDto } from './dto/feedback-query.dto';
@@ -75,8 +76,8 @@ export class FeedbackController {
     }
 
     @Get(':id')
-    @Permissions('feedback.read_all')
-    @ApiOperation({ summary: 'Chi tiết một góp ý (Management)' })
+    @AnyPermissions('feedback.read_all', 'feedback.read_own')
+    @ApiOperation({ summary: 'Chi tiết một góp ý (Management hoặc của chính mình)' })
     findOne(
         @Param('id') id: string,
         @CurrentUser() actor: AuthenticatedUser,

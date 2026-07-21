@@ -76,7 +76,8 @@ export function EmployeeProfileScreen() {
             <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/employee/assets' as any)} />
             <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} />
-            <ActionRow icon="message-text-outline" title="Nhóm chat" onPress={() => router.push('/employee/chat' as any)} isLast />
+            <ActionRow icon="message-text-outline" title="Nhóm chat" onPress={() => router.push('/employee/chat' as any)} />
+            <ActionRow icon="message-draw" title="Góp ý" onPress={() => router.push('/employee/feedbacks' as any)} isLast />
           </View>
         </View>
 

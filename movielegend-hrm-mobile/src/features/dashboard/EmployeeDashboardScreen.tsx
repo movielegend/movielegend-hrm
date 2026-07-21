@@ -159,6 +159,11 @@ export function EmployeeDashboardScreen() {
               onPress={() => router.push('/employee/contracts')} 
             />
             <GridItem 
+              icon="message-draw" 
+              title="Góp ý" 
+              onPress={() => router.push('/employee/feedbacks' as any)} 
+            />
+            <GridItem 
               icon="laptop" 
               title="Tài sản" 
               onPress={() => router.push('/employee/assets')} 

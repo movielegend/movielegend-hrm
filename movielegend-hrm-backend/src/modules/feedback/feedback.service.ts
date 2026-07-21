@@ -13,6 +13,7 @@ import { UpdateFeedbackStatusDto } from './dto/update-feedback-status.dto';
 type AuthenticatedUser = {
     userId: string;
     roles?: string[];
+    permissions?: string[];
     departmentId?: string | null;
 };
 
@@ -111,7 +112,6 @@ export class FeedbackService {
         user: AuthenticatedUser,
         query: FeedbackQueryDto,
     ) {
-        this.assertCanManage(user);
 
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
@@ -220,9 +220,9 @@ export class FeedbackService {
         }
 
         const isOwner = feedback.senderUserId === user.userId;
-        const canManage = this.canManage(user);
+        const hasReadAll = user.roles?.includes('ADMIN') || user.roles?.includes('HR') || user.permissions?.includes('feedback.read_all');
 
-        if (!isOwner && !canManage) {
+        if (!isOwner && !hasReadAll) {
             throw new ForbiddenException('Bạn không có quyền xem góp ý này');
         }
 
@@ -257,8 +257,6 @@ export class FeedbackService {
         id: string,
         dto: UpdateFeedbackStatusDto,
     ) {
-        this.assertCanManage(user);
-
         const exists = await this.prisma.feedback.findFirst({
             where: { id, deletedAt: null },
             select: { id: true, status: true },
@@ -323,7 +321,6 @@ export class FeedbackService {
     // ─── Stats (management) ─────────────────────────────────────────────────────
 
     async getStats(user: AuthenticatedUser) {
-        this.assertCanManage(user);
 
         const [total, byStatus, anonymous] = await this.prisma.$transaction([
             this.prisma.feedback.count({ where: { deletedAt: null } }),
@@ -331,6 +328,7 @@ export class FeedbackService {
                 by: ['status'],
                 where: { deletedAt: null },
                 _count: { _all: true },
+                orderBy: { status: 'asc' },
             }),
             this.prisma.feedback.count({
                 where: { deletedAt: null, isAnonymous: true },
@@ -339,7 +337,7 @@ export class FeedbackService {
 
         const statusMap: Record<string, number> = {};
         for (const row of byStatus) {
-            statusMap[row.status] = row._count._all;
+            statusMap[row.status] = (row._count as any)._all;
         }
 
         return {
@@ -359,16 +357,4 @@ export class FeedbackService {
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
-    private canManage(user: AuthenticatedUser): boolean {
-        const roles = user.roles ?? [];
-        return roles.some((role) =>
-            ['ADMIN', 'HR', 'LEADER'].includes(role),
-        );
-    }
-
-    private assertCanManage(user: AuthenticatedUser): void {
-        if (!this.canManage(user)) {
-            throw new ForbiddenException('Bạn không có quyền quản lý góp ý');
-        }
-    }
 }
