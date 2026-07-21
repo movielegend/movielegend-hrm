@@ -240,9 +240,16 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
             
             try {
               setDownloadingId(attachment.id);
+              
+              // Force fl_attachment for Cloudinary URLs to bypass free account PDF delivery restrictions
+              let downloadUrl = url;
+              if (downloadUrl.includes('res.cloudinary.com') && !downloadUrl.includes('fl_attachment')) {
+                downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+              }
+
               const cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
               const localUri = FileSystem.documentDirectory + cleanFileName;
-              const { uri } = await FileSystem.downloadAsync(url, localUri);
+              const { uri } = await FileSystem.downloadAsync(downloadUrl, localUri);
               
               if (Platform.OS === 'android') {
                 const IntentLauncher = await import('expo-intent-launcher');

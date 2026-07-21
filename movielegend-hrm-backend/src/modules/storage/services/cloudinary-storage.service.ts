@@ -42,9 +42,14 @@ export class CloudinaryStorageService implements StorageService {
             return reject(new Error('Cloudinary upload returned null result'));
           }
           
+          let finalUrl = result.secure_url;
+          if (input.mimeType === 'application/pdf' && finalUrl.includes('/upload/')) {
+            finalUrl = finalUrl.replace('/upload/', '/upload/fl_attachment/');
+          }
+
           resolve({
             storageKey: result.public_id,
-            fileUrl: result.secure_url,
+            fileUrl: finalUrl,
           });
         },
       );
