@@ -58,6 +58,7 @@ import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { NewsfeedModule } from './modules/newsfeed/newsfeed.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 
 @Module({
   imports: [
@@ -128,6 +129,7 @@ import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
     NewsfeedModule,
     ChatModule,
     AiAssistantModule,
+    FeedbackModule,
   ],
 })
 export class AppModule implements NestModule {
