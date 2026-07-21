@@ -1738,6 +1738,7 @@ model DeviceToken {
   id         String                 @id @default(uuid()) @db.Uuid
   userId     String                 @db.Uuid
   tokenHash  String                 @unique
+  token      String                 @default("")
   platform   DevicePlatform
   deviceId   String?
   lastSeenAt DateTime               @default(now())

@@ -24,13 +24,13 @@ export class ExpoPushService {
     const messages: ExpoPushMessage[] = [];
 
     for (const device of devices) {
-      if (!Expo.isExpoPushToken(device.tokenHash)) {
-        this.logger.warn(`Push token ${device.tokenHash} is not a valid Expo push token`);
+      if (!Expo.isExpoPushToken(device.token)) {
+        this.logger.warn(`Push token ${device.token} is not a valid Expo push token`);
         continue;
       }
       
       messages.push({
-        to: device.tokenHash,
+        to: device.token,
         sound: 'default',
         title,
         body,

@@ -92,6 +92,7 @@ export class NotificationsService {
       where: { tokenHash },
       update: {
         userId: actor.userId,
+        token: dto.token,
         platform: dto.platform,
         deviceId: dto.deviceId,
         revokedAt: null,
@@ -100,6 +101,7 @@ export class NotificationsService {
       create: {
         userId: actor.userId,
         tokenHash,
+        token: dto.token,
         platform: dto.platform,
         deviceId: dto.deviceId,
       },

@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/app-icon.png",
@@ -73,8 +74,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d086bb3f-15e3-4aee-b046-ff21e79f3339"
+        "projectId": "347f4427-0ab1-4e84-94a8-6efbb1ea285c"
       }
-    }
+    },
+    "owner": "binhpthe1fpt"
   }
 }
