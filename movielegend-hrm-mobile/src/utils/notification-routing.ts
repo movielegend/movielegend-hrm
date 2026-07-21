@@ -38,8 +38,8 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     if (base === '/employee') return `/employee/requests/${requestId}`;
   }
   if (swapId) {
-    if (base === '/leader') return `/leader/shift-swaps/${swapId}`;
-    return `/employee/shift-swaps/${swapId}`;
+    if (base === '/leader') return `/leader/shift-swaps`;
+    return `/employee/shift-swaps`;
   }
   if (notification.type === 'SYSTEM' && (notification.title === 'Yêu cầu đổi ca làm việc' || notification.title === 'Kết quả đơn đổi ca' || notification.title === 'Yêu cầu duyệt đổi ca')) {
     if (base === '/leader') return `/leader/shift-swaps`;

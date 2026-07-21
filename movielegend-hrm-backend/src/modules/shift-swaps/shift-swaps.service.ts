@@ -91,6 +91,12 @@ export class ShiftSwapsService {
       throw new BadRequestException('Chỉ có thể đổi ca trong cùng một phòng ban');
     }
 
+    const requester = await this.prisma.user.findUnique({
+      where: { id: user.userId },
+      include: { profile: true },
+    });
+    const requesterName = requester?.profile?.fullName || requester?.email || 'một nhân viên';
+
     const swap = await this.prisma.shiftSwap.create({
       data: {
         requesterUserId: user.userId,
@@ -109,7 +115,7 @@ export class ShiftSwapsService {
     const notif = await this.notificationsService.createForUsers(this.prisma, [dto.targetUserId], {
       type: NotificationType.SYSTEM,
       title: 'Yêu cầu đổi ca làm việc',
-      body: `Bạn có một yêu cầu đổi ca làm việc từ ${user.userId}.`,
+      body: `Bạn có một yêu cầu đổi ca làm việc từ ${requesterName}.`,
       metadata: { swapId: swap.id },
     });
     this.notificationsService.emitCreated(notif);

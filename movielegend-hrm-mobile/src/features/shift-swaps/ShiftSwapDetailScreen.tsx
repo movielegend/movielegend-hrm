@@ -60,7 +60,7 @@ export function ShiftSwapDetailScreen() {
   const toDateStr = swap.toDate ? new Date(swap.toDate).toLocaleDateString('vi-VN') : '';
   const dateStr = swap.createdAt ? new Date(swap.createdAt).toLocaleDateString('vi-VN') : '';
   
-  const isTargetUser = user?.userId === swap.targetUserId;
+  const isTargetUser = user?.id === swap.targetUserId;
   // Note: For simplicity, assume if we see the action buttons in the API it allows it, or we rely on role. 
   // We can just check status and role for rendering buttons.
   const isLeader = user?.roles?.includes('LEADER') || user?.roles?.includes('ADMIN');
