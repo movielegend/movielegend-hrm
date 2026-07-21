@@ -222,17 +222,17 @@ export class NewsfeedService {
       where: { id: postId },
       select: { authorId: true, title: true }
     });
-    const liker = await this.prisma.userProfile.findUnique({
-      where: { userId: userId },
-      select: { fullName: true }
+    const liker = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true }
     });
     
-    if (post && post.authorId !== userId && liker) {
+    if (post && post.authorId !== userId && liker?.profile) {
       const notifPayload = await this.prisma.$transaction(async (tx) => {
         return this.notificationsService.createForUsers(tx, [post.authorId], {
           type: NotificationType.SYSTEM,
           title: 'Có người vừa thả tim bài viết của bạn',
-          body: `${liker.fullName} đã thích bài viết của bạn.`,
+          body: `${liker?.profile?.fullName || 'Người dùng'} đã thích bài viết của bạn.`,
           metadata: { postId, action: 'LIKE' }
         });
       });
@@ -264,7 +264,7 @@ export class NewsfeedService {
         return this.notificationsService.createForUsers(tx, [post.authorId], {
           type: NotificationType.SYSTEM,
           title: 'Bình luận mới về bài viết của bạn',
-          body: `${comment.author.profile.fullName} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
+          body: `${comment.author?.profile?.fullName || 'Người dùng'} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
           metadata: { postId, action: 'COMMENT' }
         });
       });

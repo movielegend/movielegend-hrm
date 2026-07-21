@@ -1,5 +1,5 @@
 cd d:\MovieLegend
 git add .
-git commit -m "fix: target user id checking and notification routing"
+git commit -m "feat: update AdminDashboard actions and recent feedbacks"
 git pull --rebase
 git push

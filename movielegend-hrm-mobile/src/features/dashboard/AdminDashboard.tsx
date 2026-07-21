@@ -6,7 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
-import { useAdminActivities } from '../../hooks/useDashboard';
+import { useFeedbacksForManagement } from '../../hooks/useFeedback';
+import { FeedbackCard } from '../feedback/components/FeedbackCard';
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -29,7 +30,7 @@ export function AdminDashboard() {
   const { data: unreadData } = useUnreadNotificationCount();
   const unreadCount = unreadData?.count || 0;
 
-  const { data: activities, isLoading: isLoadingActivities } = useAdminActivities();
+  const { data: feedbackData, isLoading: isLoadingFeedbacks } = useFeedbacksForManagement({ limit: 5 });
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -133,7 +134,12 @@ export function AdminDashboard() {
 
         {/* Thao tác nhanh */}
         <Text style={styles.sectionTitleFolder}>Thao tác nhanh</Text>
-        <View style={styles.grid}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 16 }}
+          style={{ marginHorizontal: -16 }}
+        >
           <GridCard
             title="Chấm công"
             icon="clock-outline"
@@ -154,7 +160,12 @@ export function AdminDashboard() {
             icon="wallet-outline"
             onPress={() => router.navigate('/admin/branches')}
           />
-        </View>
+          <GridCard
+            title="Góp ý"
+            icon="message-alert-outline"
+            onPress={() => router.navigate('/admin/feedbacks')}
+          />
+        </ScrollView>
 
         {/* Tổng quan hôm nay */}
         <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan hôm nay</Text>
@@ -165,56 +176,28 @@ export function AdminDashboard() {
           <SummaryCard label="Thông báo" value="3" />
         </View>
 
-        {/* Hoạt động gần đây */}
+        {/* Góp ý mới nhất */}
         <View style={[styles.sectionHeader, { marginTop: 16 }]}>
-          <Text style={styles.sectionTitleFolder}>Hoạt động gần đây</Text>
-          <Pressable>
+          <Text style={styles.sectionTitleFolder}>Góp ý mới nhất</Text>
+          <Pressable onPress={() => router.navigate('/admin/feedbacks')}>
             <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500' }}>Xem tất cả</Text>
           </Pressable>
         </View>
 
-        <View style={styles.timelineContainer}>
-          {/* Vertical Line */}
-          <View style={styles.timelineLine} />
-
-          {/* Timeline Items */}
-          {isLoadingActivities ? (
+        <View style={{ gap: 12, marginBottom: 24 }}>
+          {isLoadingFeedbacks ? (
             <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Đang tải...</Text>
-          ) : activities?.length ? (
-            activities.map((activity, index) => {
-              const date = new Date(activity.time);
-              const now = new Date();
-              const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-
-              const yesterday = new Date(now);
-              yesterday.setDate(yesterday.getDate() - 1);
-              const isYesterday = date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth() && date.getFullYear() === yesterday.getFullYear();
-
-              let timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-              if (isToday) {
-                // keep timeStr
-              } else if (isYesterday) {
-                timeStr = 'Hôm qua';
-              } else {
-                timeStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-              }
-
-              const fullSubtitle = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-              return (
-                <TimelineItem
-                  key={activity.id}
-                  icon={activity.icon.replace('-outline', '')}
-                  time={timeStr}
-                  title={activity.title}
-                  subtitle={fullSubtitle}
-                  isLast={index === activities.length - 1}
-                  color={activity.color}
-                />
-              );
-            })
+          ) : feedbackData?.data?.length ? (
+            feedbackData.data.map((fb) => (
+              <FeedbackCard
+                key={fb.id}
+                feedback={fb}
+                isAdmin
+                onPress={() => router.navigate(`/admin/feedbacks/${fb.id}` as any)}
+              />
+            ))
           ) : (
-            <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Chưa có hoạt động nào</Text>
+            <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Chưa có góp ý nào</Text>
           )}
         </View>
 
@@ -412,7 +395,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   card: {
-    width: '23%',
+    width: 85,
     backgroundColor: appleTheme.card,
     borderRadius: 16,
     paddingVertical: 16,
