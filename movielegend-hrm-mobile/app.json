@@ -84,16 +84,12 @@
         "projectId": "347f4427-0ab1-4e84-94a8-6efbb1ea285c"
       }
     },
-<<<<<<< Updated upstream
-    "owner": "movielegend-hrm-mobile"
-=======
-    "owner": "binhpthe1fpt",
+    "owner": "movielegend-hrm-mobile",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/347f4427-0ab1-4e84-94a8-6efbb1ea285c"
     }
->>>>>>> Stashed changes
   }
 }
