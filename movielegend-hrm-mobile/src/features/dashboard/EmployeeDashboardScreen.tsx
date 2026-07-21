@@ -171,7 +171,7 @@ export function EmployeeDashboardScreen() {
             <GridItem 
               icon="swap-horizontal" 
               title="Đổi ca" 
-              onPress={() => {}} 
+              onPress={() => router.push('/employee/shift-swaps')} 
             />
           </View>
         </View>

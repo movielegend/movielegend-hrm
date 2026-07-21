@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   Pressable,
@@ -18,6 +18,7 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useAuth } from '../../providers/AuthProvider';
 
 import { colors } from '../../theme/colors';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { spacing } from '../../theme/spacing';
 
 import type { DashboardRole } from '../../api/dashboard.api';
@@ -46,6 +47,7 @@ export function DashboardShell({
   title,
 }: DashboardShellProps) {
   const router = useRouter();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const {
     user,
@@ -89,7 +91,7 @@ export function DashboardShell({
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => void logout()}
+            onPress={() => setShowLogoutConfirm(true)}
             style={styles.logoutButton}
           >
             <Text style={styles.logoutText}>
@@ -520,6 +522,18 @@ export function DashboardShell({
           <EmptyState />
         )}
       </ScrollView>
+
+      <ConfirmModal
+        visible={showLogoutConfirm}
+        title="Đăng xuất"
+        message="Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?"
+        confirmLabel="Đăng xuất"
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          void logout();
+        }}
+      />
     </Screen>
   );
 }

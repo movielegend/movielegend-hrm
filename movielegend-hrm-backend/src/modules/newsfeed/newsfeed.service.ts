@@ -216,11 +216,34 @@ export class NewsfeedService {
       return { liked: false };
     }
     await this.prisma.postLike.create({ data: { postId, userId } });
+
+    // Notify the author
+    const post = await this.prisma.newsfeedPost.findUnique({
+      where: { id: postId },
+      select: { authorId: true, title: true }
+    });
+    const liker = await this.prisma.userProfile.findUnique({
+      where: { userId: userId },
+      select: { fullName: true }
+    });
+    
+    if (post && post.authorId !== userId && liker) {
+      const notifPayload = await this.prisma.$transaction(async (tx) => {
+        return this.notificationsService.createForUsers(tx, [post.authorId], {
+          type: NotificationType.SYSTEM,
+          title: 'Có người vừa thả tim bài viết của bạn',
+          body: `${liker.fullName} đã thích bài viết của bạn.`,
+          metadata: { postId, action: 'LIKE' }
+        });
+      });
+      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+    }
+
     return { liked: true };
   }
 
   async addComment(userId: string, postId: string, dto: CreateCommentDto) {
-    return this.prisma.postComment.create({
+    const comment = await this.prisma.postComment.create({
       data: {
         postId,
         authorId: userId,
@@ -230,6 +253,25 @@ export class NewsfeedService {
         author: { select: { id: true, profile: { select: { fullName: true, avatarUrl: true } } } }
       }
     });
+
+    const post = await this.prisma.newsfeedPost.findUnique({
+      where: { id: postId },
+      select: { authorId: true }
+    });
+    
+    if (post && post.authorId !== userId && comment.author?.profile) {
+      const notifPayload = await this.prisma.$transaction(async (tx) => {
+        return this.notificationsService.createForUsers(tx, [post.authorId], {
+          type: NotificationType.SYSTEM,
+          title: 'Bình luận mới về bài viết của bạn',
+          body: `${comment.author.profile.fullName} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
+          metadata: { postId, action: 'COMMENT' }
+        });
+      });
+      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+    }
+
+    return comment;
   }
 
   async deletePost(id: string) {

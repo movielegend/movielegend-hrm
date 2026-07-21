@@ -6,7 +6,7 @@ import { createHrmSocket } from '../api/socket';
 import { queryKeys, chatKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
-import Toast from 'react-native-toast-message';
+
 import {
   invalidateForAssetAssigned,
   invalidateForAssetReturnUpdated,
@@ -63,14 +63,6 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('notification.created', (payload?: any) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
-        
-        Toast.show({
-          type: 'info',
-          text1: payload?.title || 'Thông báo mới',
-          text2: payload?.body || payload?.content || 'Bạn có một thông báo mới từ hệ thống.',
-          position: 'top',
-          visibilityTime: 4000,
-        });
       });
       socket.on('chat:message', (message: any) => {
         void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });

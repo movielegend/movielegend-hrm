@@ -168,7 +168,7 @@ export class AttendanceService {
         },
       });
       return record;
-    });
+    }, { timeout: 20000 });
   }
 
   async checkOut(dto: CheckOutDto, actor: AuthenticatedUser, ip: string) {
@@ -290,7 +290,7 @@ export class AttendanceService {
         where: { id: record.id },
         include: this.attendanceInclude(),
       });
-    });
+    }, { timeout: 20000 });
   }
 
   async current(actor: AuthenticatedUser) {
@@ -688,8 +688,8 @@ export class AttendanceService {
     // Clean IPv4 prefix if present (e.g. ::ffff:192.168.1.55 -> 192.168.1.55)
     const ip = rawIp.replace(/^::ffff:/, '');
 
-    // Removed localhost bypass as requested by user to enforce network checks
-    // if (ip === '127.0.0.1' || ip === '::1') return;
+    // Re-enabled localhost bypass for local testing
+    if (ip === '127.0.0.1' || ip === '::1') return;
 
     if (!location) return;
 

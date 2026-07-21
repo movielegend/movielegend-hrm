@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { createTaskAttachment } from '../../api/tasks.api';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
@@ -481,6 +482,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   
   const [departmentContextId, setDepartmentContextId] = useState(user?.department?.id ?? '');
+  const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
   const [targetModalVisible, setTargetModalVisible] = useState(false);
   
@@ -516,7 +518,16 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       ...(isAdhocGroup ? { memberIds, leaderId } : { targets: targets.map(t => ({ targetType: t.targetType, targetId: t.targetId })) }),
     };
     try {
-      await mutation.mutateAsync(payload);
+      const task = await mutation.mutateAsync(payload);
+      
+      for (const attachment of attachments) {
+        try {
+          await createTaskAttachment(task.id, attachment);
+        } catch (e) {
+          console.error('Failed to attach file:', e);
+        }
+      }
+      
       Alert.alert('Thành công', 'Đã giao việc thành công!');
       router.back();
     } catch (error) {
@@ -548,6 +559,26 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         <SectionCard title="Thông tin công việc">
           <FormField label="Tên công việc" value={title} onChangeText={setTitle} placeholder="Nhập tên công việc..." />
           <FormField label="Mô tả chi tiết" value={description} onChangeText={setDescription} multiline placeholder="Mô tả các yêu cầu cần làm..." />
+          
+          <View style={{ marginTop: spacing.md }}>
+            <Text style={styles.fieldLabel}>Tệp đính kèm</Text>
+            {attachments.length > 0 && (
+              <View style={{ marginBottom: spacing.sm, gap: spacing.xs }}>
+                {attachments.map((att, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: spacing.sm, borderRadius: 8 }}>
+                    <MaterialCommunityIcons name="paperclip" size={20} color={colors.primary} />
+                    <Text style={{ flex: 1, marginLeft: spacing.sm, color: colors.text }} numberOfLines={1}>{att.fileName}</Text>
+                    <Pressable onPress={() => setAttachments(attachments.filter((_, idx) => idx !== i))}>
+                      <MaterialCommunityIcons name="close" size={20} color={colors.danger} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+            <AttachmentPicker onAttach={async (payload) => {
+              setAttachments(prev => [...prev, payload]);
+            }} pending={mutation.isPending} />
+          </View>
         </SectionCard>
 
         <SectionCard title="Phân loại & Thời hạn">

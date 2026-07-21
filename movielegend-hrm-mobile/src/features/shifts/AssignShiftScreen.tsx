@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Alert, Platform, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -144,7 +144,9 @@ export function AssignShiftScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
     if (selectedDate) {
       setWorkDate(selectedDate);
     }
@@ -234,13 +236,37 @@ export function AssignShiftScreen() {
             </View>
             <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.muted} />
           </Pressable>
-          {showDatePicker && (
+          {showDatePicker && Platform.OS === 'android' && (
             <DateTimePicker
               value={workDate}
               mode="date"
               display="default"
               onChange={handleDateChange}
             />
+          )}
+
+          {Platform.OS === 'ios' && (
+            <Modal visible={showDatePicker} transparent animationType="slide">
+              <View style={styles.datePickerModalContainer}>
+                <View style={styles.datePickerModalContent}>
+                  <View style={styles.datePickerHeader}>
+                    <Pressable onPress={() => setShowDatePicker(false)}>
+                      <Text style={styles.datePickerCancelText}>Hủy</Text>
+                    </Pressable>
+                    <Pressable onPress={() => setShowDatePicker(false)}>
+                      <Text style={styles.datePickerDoneText}>Xong</Text>
+                    </Pressable>
+                  </View>
+                  <DateTimePicker
+                    value={workDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleDateChange}
+                    style={styles.iosDatePicker}
+                  />
+                </View>
+              </View>
+            </Modal>
           )}
 
           {/* Weekday Selector */}
@@ -408,5 +434,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  datePickerModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  datePickerModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  datePickerCancelText: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  datePickerDoneText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  iosDatePicker: {
+    backgroundColor: 'white',
   },
 });

@@ -59,6 +59,7 @@ import { NewsfeedModule } from './modules/newsfeed/newsfeed.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { ShiftSwapsModule } from './modules/shift-swaps/shift-swaps.module';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { FeedbackModule } from './modules/feedback/feedback.module';
     BranchesModule,
     ShiftsModule,
     ShiftAssignmentsModule,
+    ShiftSwapsModule,
     AttendanceModule,
     LeaveModule,
     EmployeeRequestsModule,

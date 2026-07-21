@@ -307,11 +307,11 @@ export default function CreateRequestScreen() {
               return (
                 <Pressable 
                   key={t.type} 
-                  style={[styles.typeBox, isSelected && { borderColor: t.color, backgroundColor: `${t.color}08` }]}
+                  style={[styles.typeBox, isSelected && { borderColor: t.color, backgroundColor: `${t.color}08`, borderWidth: 2 }]}
                   onPress={() => setSelectedType(t.type)}
                 >
                   <View style={[styles.typeIconWrap, { backgroundColor: isSelected ? t.color : '#F3F4F6' }]}>
-                    <MaterialCommunityIcons name={t.icon} size={28} color={isSelected ? '#fff' : '#6B7280'} />
+                    <MaterialCommunityIcons name={t.icon} size={24} color={isSelected ? '#fff' : '#6B7280'} />
                   </View>
                   <Text style={[styles.typeLabel, isSelected && { color: t.color, fontWeight: '700' }]}>
                     {t.label}
@@ -325,7 +325,7 @@ export default function CreateRequestScreen() {
             {isExplanation ? (
               <>
                 {/* Employee Name */}
-                <View style={[styles.rowInput, shadows.sm]}>
+                <View style={styles.rowInput}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-group" size={20} color="#000" />
                   </View>
@@ -334,7 +334,7 @@ export default function CreateRequestScreen() {
                 </View>
 
                 {/* Ngày giải trình */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('single')}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="calendar-today" size={20} color="#000" />
                   </View>
@@ -345,7 +345,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* Chọn Ca làm việc */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowShiftModal(true)}>
+                <Pressable style={styles.rowInput} onPress={() => setShowShiftModal(true)}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="briefcase-clock" size={20} color="#000" />
                   </View>
@@ -356,7 +356,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* Chọn Loại giải trình */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowExplanationTypeModal(true)}>
+                <Pressable style={styles.rowInput} onPress={() => setShowExplanationTypeModal(true)}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="form-select" size={20} color="#000" />
                   </View>
@@ -368,7 +368,7 @@ export default function CreateRequestScreen() {
 
                 {/* Giờ vào / ra thực tế tùy loại giải trình */}
                 {['Quên Check-in', 'Quên cả In & Out'].includes(explanationType) && (
-                  <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('start')}>
+                  <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('start')}>
                     <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                       <MaterialCommunityIcons name="clock-in" size={20} color="#000" />
                     </View>
@@ -380,7 +380,7 @@ export default function CreateRequestScreen() {
                 )}
 
                 {['Quên Check-out', 'Quên cả In & Out'].includes(explanationType) && (
-                  <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('end')}>
+                  <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('end')}>
                     <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                       <MaterialCommunityIcons name="clock-out" size={20} color="#000" />
                     </View>
@@ -394,7 +394,7 @@ export default function CreateRequestScreen() {
 
 
                 {/* Nhập nội dung/lý do chi tiết */}
-                <View style={[styles.rowInput, shadows.sm, { alignItems: 'flex-start', paddingVertical: 16 }]}>
+                <View style={[styles.rowInput, { alignItems: 'flex-start', paddingVertical: 16 }]}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6', marginTop: 2 }]}>
                     <MaterialCommunityIcons name="message-text-outline" size={20} color="#000" />
                   </View>
@@ -415,7 +415,7 @@ export default function CreateRequestScreen() {
                 {/* Chụp ảnh minh chứng */}
                 <View style={{ marginBottom: spacing.md }}>
                   <Pressable 
-                    style={[styles.rowInput, shadows.sm, { marginBottom: 8 }]} 
+                    style={[styles.rowInput, { marginBottom: 8 }]} 
                     onPress={handleTakePhoto}
                   >
                     <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
@@ -430,7 +430,7 @@ export default function CreateRequestScreen() {
                   </Pressable>
 
                   {photoUri && (
-                    <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={[styles.photoPreviewWrap, shadows.sm]}>
+                    <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={[styles.photoPreviewWrap]}>
                       <Image source={{ uri: photoUri }} style={styles.photoPreview} />
                       <View style={styles.photoOverlay}>
                         <MaterialCommunityIcons name="magnify-plus-outline" size={24} color="#fff" />
@@ -443,7 +443,7 @@ export default function CreateRequestScreen() {
             ) : isOvertime ? (
               <>
                 {/* Employee Name */}
-                <View style={[styles.rowInput, shadows.sm]}>
+                <View style={styles.rowInput}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-group" size={20} color="#000" />
                   </View>
@@ -452,7 +452,7 @@ export default function CreateRequestScreen() {
                 </View>
 
                 {/* Ngày làm thêm */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('single')}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="calendar-today" size={20} color="#000" />
                   </View>
@@ -463,7 +463,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* Chọn Ca làm việc (Nếu có) */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowShiftModal(true)}>
+                <Pressable style={styles.rowInput} onPress={() => setShowShiftModal(true)}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="briefcase-clock" size={20} color="#000" />
                   </View>
@@ -474,7 +474,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* Từ giờ */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('start')}>
+                <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('start')}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="clock-in" size={20} color="#000" />
                   </View>
@@ -485,7 +485,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* Đến giờ */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('end')}>
+                <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('end')}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="clock-out" size={20} color="#000" />
                   </View>
@@ -517,7 +517,7 @@ export default function CreateRequestScreen() {
             ) : isFinancial ? (
               <>
                 {/* Employee Name */}
-                <View style={[styles.rowInput, shadows.sm]}>
+                <View style={styles.rowInput}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-group" size={20} color="#000" />
                   </View>
@@ -526,7 +526,7 @@ export default function CreateRequestScreen() {
                 </View>
 
                 {/* Amount */}
-                <View style={[styles.rowInput, shadows.sm]}>
+                <View style={styles.rowInput}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="cash" size={20} color="#000" />
                   </View>
@@ -546,7 +546,7 @@ export default function CreateRequestScreen() {
                 </View>
 
                 {/* Ngày cần nhận / Ngày phát sinh */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('single')}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="calendar-today" size={20} color="#000" />
                   </View>
@@ -619,7 +619,7 @@ export default function CreateRequestScreen() {
             ) : isLeave ? (
               <>
                 {/* Employee Name */}
-                <View style={[styles.rowInput, shadows.sm]}>
+                <View style={styles.rowInput}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-group" size={20} color="#000" />
                   </View>
@@ -628,7 +628,7 @@ export default function CreateRequestScreen() {
                 </View>
 
                 {/* Chọn loại */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowLeaveDurationModal(true)}>
+                <Pressable style={styles.rowInput} onPress={() => setShowLeaveDurationModal(true)}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="view-grid-outline" size={20} color="#000" />
                   </View>
@@ -639,7 +639,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* Chọn loại nghỉ phép */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowLeaveTypeModal(true)}>
+                <Pressable style={styles.rowInput} onPress={() => setShowLeaveTypeModal(true)}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="water-outline" size={20} color="#000" />
                   </View>
@@ -652,7 +652,7 @@ export default function CreateRequestScreen() {
                 {/* Dynamic Date/Time Fields for Leave */}
                 {leaveDurationType === 'Nhiều ngày' ? (
                   <>
-                    <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowDatePicker('from')}>
+                    <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('from')}>
                       <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                         <MaterialCommunityIcons name="calendar-range" size={20} color="#000" />
                       </View>
@@ -661,7 +661,7 @@ export default function CreateRequestScreen() {
                       </Text>
                       <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
                     </Pressable>
-                    <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowDatePicker('to')}>
+                    <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('to')}>
                       <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                         <MaterialCommunityIcons name="calendar-range" size={20} color="#000" />
                       </View>
@@ -673,7 +673,7 @@ export default function CreateRequestScreen() {
                   </>
                 ) : ['Theo giờ', '1/4 ngày', '1/2 ngày', '3/4 ngày'].includes(leaveDurationType) ? (
                   <>
-                    <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowDatePicker('single')}>
+                    <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('single')}>
                       <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                         <MaterialCommunityIcons name="calendar-today" size={20} color="#000" />
                       </View>
@@ -682,7 +682,7 @@ export default function CreateRequestScreen() {
                       </Text>
                       <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
                     </Pressable>
-                    <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('start')}>
+                    <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('start')}>
                       <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                         <MaterialCommunityIcons name="clock-outline" size={20} color="#000" />
                       </View>
@@ -691,7 +691,7 @@ export default function CreateRequestScreen() {
                       </Text>
                       <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
                     </Pressable>
-                    <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('end')}>
+                    <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('end')}>
                       <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                         <MaterialCommunityIcons name="clock-outline" size={20} color="#000" />
                       </View>
@@ -702,7 +702,7 @@ export default function CreateRequestScreen() {
                     </Pressable>
                   </>
                 ) : leaveDurationType ? (
-                  <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowDatePicker('single')}>
+                  <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('single')}>
                     <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                       <MaterialCommunityIcons name="calendar-today" size={20} color="#000" />
                     </View>
@@ -714,7 +714,7 @@ export default function CreateRequestScreen() {
                 ) : null}
 
                 {/* Chọn người bàn giao */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowEmployeeModal(true)}>
+                <Pressable style={styles.rowInput} onPress={() => setShowEmployeeModal(true)}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-tie-outline" size={20} color="#000" />
                   </View>
@@ -777,7 +777,7 @@ export default function CreateRequestScreen() {
                 </View>
 
                 {/* Employee Name */}
-                <View style={[styles.rowInput, shadows.sm]}>
+                <View style={styles.rowInput}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-group" size={20} color="#000" />
                   </View>
@@ -786,7 +786,7 @@ export default function CreateRequestScreen() {
                 </View>
 
                 {/* Start Time */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('start')}>
+                <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('start')}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="clock-outline" size={20} color="#000" />
                   </View>
@@ -797,7 +797,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* End Time */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowTimeModal('end')}>
+                <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('end')}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="clock-outline" size={20} color="#000" />
                   </View>
@@ -808,7 +808,7 @@ export default function CreateRequestScreen() {
                 </Pressable>
 
                 {/* Shift */}
-                <Pressable style={[styles.rowInput, shadows.sm]} onPress={() => setShowShiftModal(true)}>
+                <Pressable style={styles.rowInput} onPress={() => setShowShiftModal(true)}>
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="view-grid-outline" size={20} color="#000" />
                   </View>
@@ -1216,29 +1216,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   typeBox: {
-    width: 110,
-    height: 120,
+    width: 100,
+    height: 110,
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   typeIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   typeLabel: {
     fontSize: 13,
@@ -1257,11 +1252,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   rowIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

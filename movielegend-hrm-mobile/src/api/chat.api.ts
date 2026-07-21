@@ -71,3 +71,8 @@ export async function createCustomChat(name: string, memberIds: string[]) {
   const response = await apiClient.post<ApiResponse<ChatGroup>>('/chat/custom', { name, memberIds });
   return unwrapData(response);
 }
+
+export async function markGroupAsRead(groupId: string) {
+  const response = await apiClient.post<ApiResponse<any>>(`/chat/groups/${groupId}/read`);
+  return unwrapData(response);
+}

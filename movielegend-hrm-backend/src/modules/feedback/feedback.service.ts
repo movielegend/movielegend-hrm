@@ -337,7 +337,7 @@ export class FeedbackService {
 
         const statusMap: Record<string, number> = {};
         for (const row of byStatus) {
-            statusMap[row.status] = (row._count as any)._all;
+            statusMap[row.status] = (row._count as any)?._all ?? 0;
         }
 
         return {

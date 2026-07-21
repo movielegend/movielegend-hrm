@@ -65,5 +65,14 @@ export class ChatController {
   ) {
     return this.chatService.createCustomGroup(user.userId, name, memberIds);
   }
+
+  @ApiOperation({ summary: 'Đánh dấu đã đọc tin nhắn trong nhóm' })
+  @Post('groups/:groupId/read')
+  markGroupAsRead(
+    @Param('groupId') groupId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.chatService.markGroupAsRead(groupId, user.userId);
+  }
 }
 

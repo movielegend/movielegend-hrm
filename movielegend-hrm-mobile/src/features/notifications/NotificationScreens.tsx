@@ -63,7 +63,6 @@ export function NotificationListScreen() {
         <PageHeader title="Thông báo" subtitle={`Chưa đọc: ${unread.data ?? 0} - Socket: ${isConnected ? 'Online' : 'Offline'}`} />
         <View style={styles.actions}>
           <SecondaryButton loading={markAll.isPending} onPress={() => void markAll.mutateAsync()}>Đánh dấu đã đọc tất cả</SecondaryButton>
-          <SecondaryButton loading={registerDevice.isPending} onPress={() => void registerPush()}>Đăng ký nhận thông báo</SecondaryButton>
         </View>
         {notifications.isLoading ? <LoadingState /> : null}
         {notifications.isError ? <ErrorState error={notifications.error} onRetry={() => void notifications.refetch()} /> : null}

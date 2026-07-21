@@ -18,13 +18,13 @@ export class CloudinaryStorageService implements StorageService {
   async upload(input: UploadInput): Promise<UploadResult> {
     return new Promise((resolve, reject) => {
       let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
-      if (input.mimeType.startsWith('image/')) resourceType = 'image';
+      if (input.mimeType.startsWith('image/') || input.mimeType === 'application/pdf') resourceType = 'image';
       else if (input.mimeType.startsWith('video/') || input.mimeType.startsWith('audio/')) resourceType = 'video';
       else resourceType = 'raw';
 
-      // Keep original file extension for raw files so they have correct format when downloaded
+      // Keep original file extension for raw files and PDFs so they have correct format when downloaded
       const publicId = input.storageKey 
-        ? (resourceType === 'raw' ? input.storageKey : input.storageKey.split('.')[0])
+        ? ((resourceType === 'raw' || input.mimeType === 'application/pdf') ? input.storageKey : input.storageKey.split('.')[0])
         : undefined;
 
       const uploadStream = cloudinary.uploader.upload_stream(

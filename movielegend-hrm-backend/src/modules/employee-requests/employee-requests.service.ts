@@ -67,7 +67,7 @@ export class EmployeeRequestsService {
     }
 
     if (targetUserIds.length > 0) {
-      this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         const notif = await this.notifications.createForUsers(
           tx as any,
           targetUserIds,
