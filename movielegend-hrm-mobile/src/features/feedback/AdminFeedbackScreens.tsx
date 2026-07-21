@@ -41,11 +41,11 @@ export function AdminFeedbackListScreen() {
               <Text style={styles.statLabel}>Tổng cộng</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: colors.info }]}>{statsQuery.data.byStatus.SEND || 0}</Text>
+              <Text style={[styles.statNumber, { color: '#000' }]}>{statsQuery.data.byStatus.SEND || 0}</Text>
               <Text style={styles.statLabel}>Chờ duyệt</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: colors.warning }]}>{statsQuery.data.byStatus.REVIEWED || 0}</Text>
+              <Text style={[styles.statNumber, { color: '#4B5563' }]}>{statsQuery.data.byStatus.REVIEWED || 0}</Text>
               <Text style={styles.statLabel}>Đang xem</Text>
             </View>
           </View>
@@ -63,12 +63,12 @@ export function AdminFeedbackListScreen() {
                     paddingHorizontal: 16,
                     paddingVertical: 8,
                     borderRadius: 20,
-                    backgroundColor: isActive ? colors.primary : colors.surface,
+                    backgroundColor: isActive ? '#000' : '#FFF',
                     borderWidth: 1,
-                    borderColor: isActive ? colors.primary : colors.border,
+                    borderColor: isActive ? '#000' : '#E5E7EB',
                   }}
                 >
-                  <Text style={{ color: isActive ? '#FFF' : colors.text, fontWeight: '600' }}>
+                  <Text style={{ color: isActive ? '#FFF' : '#111827', fontWeight: '600' }}>
                     {opt.label}
                   </Text>
                 </Pressable>
@@ -79,11 +79,11 @@ export function AdminFeedbackListScreen() {
 
         <View style={{ gap: 12 }}>
           {feedbacksQuery.isLoading ? (
-            <ActivityIndicator style={{ marginVertical: 20 }} color={colors.primary} />
-          ) : feedbacksQuery.data?.data.length === 0 ? (
+            <ActivityIndicator style={{ marginVertical: 20 }} color="#000" />
+          ) : feedbacksQuery.data?.items.length === 0 ? (
             <EmptyState title="Trống" message="Chưa có góp ý nào." />
           ) : (
-            feedbacksQuery.data?.data.map((fb) => (
+            feedbacksQuery.data?.items.map((fb) => (
               <FeedbackCard 
                 key={fb.id} 
                 feedback={fb} 
@@ -111,7 +111,7 @@ export function AdminFeedbackDetailScreen() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#000" />
       </View>
     );
   }
@@ -157,7 +157,7 @@ export function AdminFeedbackDetailScreen() {
           <View style={styles.divider} />
 
           <Text style={styles.label}>Người gửi:</Text>
-          <Text style={{ fontSize: 15, fontWeight: '500', color: colors.primaryDark, marginBottom: 12 }}>
+          <Text style={{ fontSize: 15, fontWeight: '500', color: '#000', marginBottom: 12 }}>
             {feedback.isAnonymous ? 'Thư ẩn danh (Không xác định)' : (feedback.senderDisplayName || 'Không rõ')}
           </Text>
 
@@ -173,8 +173,8 @@ export function AdminFeedbackDetailScreen() {
 
           {feedback.reason && (
             <View style={styles.reasonBox}>
-              <Text style={{ fontWeight: '700', color: colors.primaryDark, marginBottom: 4 }}>Phản hồi hiện tại:</Text>
-              <Text style={{ color: colors.text, lineHeight: 20 }}>{feedback.reason}</Text>
+              <Text style={{ fontWeight: '700', color: '#000', marginBottom: 4 }}>Phản hồi hiện tại:</Text>
+              <Text style={{ color: '#111827', lineHeight: 20 }}>{feedback.reason}</Text>
             </View>
           )}
         </View>
@@ -182,14 +182,14 @@ export function AdminFeedbackDetailScreen() {
         <View style={{ marginTop: 24, gap: 12 }}>
           <Text style={styles.label}>Cập nhật trạng thái:</Text>
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Pressable style={[styles.actionBtn, { backgroundColor: colors.info }]} onPress={() => openModal('REVIEWED')}>
-              <Text style={styles.actionBtnText}>Đang xem xét</Text>
+            <Pressable style={[styles.actionBtn, { backgroundColor: '#4B5563' }]} onPress={() => openModal('REVIEWED')}>
+              <Text style={styles.actionBtnText}>Đang xem</Text>
             </Pressable>
-            <Pressable style={[styles.actionBtn, { backgroundColor: colors.success }]} onPress={() => openModal('RESOLVED')}>
-              <Text style={styles.actionBtnText}>Đã giải quyết</Text>
+            <Pressable style={[styles.actionBtn, { backgroundColor: '#000' }]} onPress={() => openModal('RESOLVED')}>
+              <Text style={styles.actionBtnText}>Đã xử lý</Text>
             </Pressable>
-            <Pressable style={[styles.actionBtn, { backgroundColor: colors.danger }]} onPress={() => openModal('REJECTED')}>
-              <Text style={styles.actionBtnText}>Từ chối</Text>
+            <Pressable style={[styles.actionBtn, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#000' }]} onPress={() => openModal('REJECTED')}>
+              <Text style={[styles.actionBtnText, { color: '#000' }]}>Từ chối</Text>
             </Pressable>
           </View>
         </View>
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
   reasonBox: {
     marginTop: 12,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F3F4F6',
     padding: 16,
     borderRadius: 12,
   },

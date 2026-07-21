@@ -9,10 +9,10 @@ interface Props {
 }
 
 const statusConfig: Record<FeedbackStatus, { label: string; color: string; bgColor: string }> = {
-  SEND: { label: 'Đã gửi', color: colors.info, bgColor: '#EFF6FF' },
-  REVIEWED: { label: 'Đang xem xét', color: colors.warning, bgColor: colors.warningSoft },
-  RESOLVED: { label: 'Đã giải quyết', color: colors.success, bgColor: colors.primarySoft },
-  REJECTED: { label: 'Từ chối', color: colors.danger, bgColor: colors.dangerSoft },
+  SEND: { label: 'Đã gửi', color: '#111827', bgColor: '#F3F4F6' },
+  REVIEWED: { label: 'Đang xem xét', color: '#4B5563', bgColor: '#E5E7EB' },
+  RESOLVED: { label: 'Đã giải quyết', color: '#FFFFFF', bgColor: '#000000' },
+  REJECTED: { label: 'Từ chối', color: '#000000', bgColor: '#E5E7EB' },
 };
 
 export function FeedbackStatusBadge({ status, style }: Props) {

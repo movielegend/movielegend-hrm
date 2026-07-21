@@ -43,7 +43,7 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
         <View style={{ marginBottom: 24 }}>
           <Pressable
             onPress={() => router.push(`${basePath}/feedbacks/create` as any)}
-            style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            style={{ backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
           >
             <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
             <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tạo góp ý mới</Text>
@@ -62,12 +62,12 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
                     paddingHorizontal: 16,
                     paddingVertical: 8,
                     borderRadius: 20,
-                    backgroundColor: isActive ? colors.primary : colors.surface,
+                    backgroundColor: isActive ? '#000' : '#FFF',
                     borderWidth: 1,
-                    borderColor: isActive ? colors.primary : colors.border,
+                    borderColor: isActive ? '#000' : '#E5E7EB',
                   }}
                 >
-                  <Text style={{ color: isActive ? '#FFF' : colors.text, fontWeight: '600' }}>
+                  <Text style={{ color: isActive ? '#FFF' : '#111827', fontWeight: '600' }}>
                     {opt.label}
                   </Text>
                 </Pressable>
@@ -78,11 +78,11 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
 
         <View style={{ gap: 12 }}>
           {feedbacksQuery.isLoading ? (
-            <ActivityIndicator style={{ marginVertical: 20 }} color={colors.primary} />
-          ) : feedbacksQuery.data?.data.length === 0 ? (
+            <ActivityIndicator style={{ marginVertical: 20 }} color="#000" />
+          ) : feedbacksQuery.data?.items.length === 0 ? (
             <EmptyState title="Trống" message="Chưa có góp ý nào." />
           ) : (
-            feedbacksQuery.data?.data.map((fb) => (
+            feedbacksQuery.data?.items.map((fb) => (
               <FeedbackCard
                 key={fb.id}
                 feedback={fb}
@@ -203,18 +203,17 @@ export function CreateFeedbackScreen() {
 
         <View style={styles.switchGroup}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Gửi ẩn danh</Text>
-            <Text style={{ fontSize: 13, color: colors.muted }}>Người nhận sẽ không biết ai đã gửi góp ý này</Text>
+            <Text style={{ fontWeight: '500', color: '#111827', fontSize: 15 }}>Gửi ẩn danh</Text>
           </View>
           <Controller
             control={control}
             name="isAnonymous"
-            render={({ field: { onChange, value } }) => (
+            render={({ field }) => (
               <Switch
-                value={value}
-                onValueChange={onChange}
-                trackColor={{ false: '#767577', true: colors.primarySoft }}
-                thumbColor={value ? colors.primary : '#f4f3f4'}
+                value={field.value}
+                onValueChange={field.onChange}
+                trackColor={{ false: '#E5E7EB', true: '#000' }}
+                thumbColor={'#FFFFFF'}
               />
             )}
           />

@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   },
   sender: {
     fontSize: 12,
-    color: colors.primary,
+    color: '#000',
     fontWeight: '500',
   },
 });
