@@ -13,6 +13,7 @@ import {
   TerminateContractDto,
   UpdateContractTemplateDto,
   UpdateEmployeeContractDto,
+  ScanContractDto,
 } from './dto/contract.dto';
 import { AcknowledgeContractDto } from './dto/acknowledge-contract.dto';
 
@@ -57,6 +58,12 @@ export class EmployeeContractsController {
   @Permissions('contract.create')
   create(@Body() dto: CreateEmployeeContractDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contracts.createContract(dto, actor);
+  }
+
+  @Post('scan')
+  @Permissions('contract.create')
+  scanContract(@Body() dto: ScanContractDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.contracts.scanContract(dto, actor);
   }
 
   @Get()
@@ -122,6 +129,12 @@ export class EmployeeContractsController {
   @Permissions('contract.approve')
   requestEmployeeSignature(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.contracts.requestEmployeeSignature(id, actor);
+  }
+
+  @Post(':id/reject-signature')
+  @Permissions('contract.read_own')
+  rejectSignature(@Param('id') id: string, @Body() dto: RejectContractDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.contracts.employeeReject(id, actor, dto);
   }
 
   @Post(':id/sign/employee')

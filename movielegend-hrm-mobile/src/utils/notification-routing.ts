@@ -1,5 +1,6 @@
 import type { AuthUser } from '../types/user.types';
 import type { NotificationTargetDto } from '../types/notification.types';
+import { colors } from '../theme/colors';
 
 export function stringMeta(metadata: Record<string, unknown> | null | undefined, key: string): string | null {
   const value = metadata?.[key];
@@ -50,11 +51,14 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     }
     return `${base}/newsfeed`; // Could navigate to specific post in newsfeed if supported
   }
+  if (notification.type === 'SYSTEM' && (notification.title === 'Phân ca mới' || notification.title === 'Phân ca làm việc mới')) {
+    return `${base}/schedule`;
+  }
   
   return null;
 }
 
-export function getNotificationIcon(type: string): any {
+export function getNotificationIcon(type: string, title?: string): any {
   if (type.startsWith('TASK_')) return 'clipboard-check-outline';
   if (type.startsWith('ASSET_INCIDENT_')) return 'alert-circle-outline';
   if (type.startsWith('ASSET_')) return 'desktop-mac';
@@ -64,21 +68,25 @@ export function getNotificationIcon(type: string): any {
   if (type.startsWith('CHAT_')) return 'chat-processing-outline';
   if (type.startsWith('VIOLATION_')) return 'gavel';
   if (type.startsWith('NEWSFEED_')) return 'newspaper-variant-outline';
-  if (type === 'ACCOUNT_APPROVAL_REQUESTED') return 'account-check-outline';
+  if (type === 'KPI_FINALIZED') return 'target';
+  if (type === 'KPI_UPDATED') return 'target-account';
+  if (type === 'SYSTEM' && (title === 'Phân ca mới' || title === 'Phân ca làm việc mới')) return 'calendar-clock';
   if (type === 'SYSTEM') return 'bell-outline';
   
-  return 'bell-ring-outline';
+  return 'bell-outline';
 }
 
-export function getNotificationColor(type: string): string {
-  if (type.startsWith('TASK_')) return '#3b82f6'; // blue
-  if (type.startsWith('ASSET_')) return '#8b5cf6'; // purple
-  if (type.startsWith('MATERIAL_ISSUE_')) return '#f59e0b'; // amber
-  if (type.startsWith('PAYROLL_')) return '#10b981'; // emerald
-  if (type === 'ACCOUNT_APPROVAL_REQUESTED') return '#ec4899'; // pink
-  if (type === 'NEWSFEED_POST_PENDING') return '#f59e0b'; // amber
-  if (type.includes('REJECTED') || type.includes('FAILED')) return '#ef4444'; // red
-  if (type.includes('APPROVED') || type.includes('CONFIRMED')) return '#10b981'; // emerald
+export function getNotificationColor(type: string, title?: string): string {
+  if (type.startsWith('TASK_')) return colors.primary;
+  if (type.startsWith('ASSET_INCIDENT_')) return colors.danger;
+  if (type.startsWith('ASSET_')) return colors.warning;
+  if (type.startsWith('MATERIAL_')) return colors.info;
+  if (type.startsWith('PAYROLL_')) return colors.success;
+  if (type === 'ACCOUNT_APPROVAL_REQUESTED') return colors.warning;
+  if (type === 'NEWSFEED_POST_PENDING') return colors.warning;
+  if (type.includes('REJECTED') || type.includes('FAILED')) return colors.danger;
+  if (type.includes('APPROVED') || type.includes('CONFIRMED')) return colors.success;
+  if (type === 'SYSTEM' && (title === 'Phân ca mới' || title === 'Phân ca làm việc mới')) return colors.primary;
   
-  return '#64748b'; // slate
+  return colors.textLight;
 }

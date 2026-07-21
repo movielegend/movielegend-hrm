@@ -114,4 +114,32 @@ export class EmployeesService {
       },
     };
   }
+
+  async remove(id: string, actorUserId: string) {
+    const profile = await this.prisma.employeeProfile.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+    if (!profile) throw notFound('EMPLOYEE_NOT_FOUND', 'Không tìm thấy hồ sơ nhân viên');
+
+    await this.prisma.$transaction(async (tx) => {
+      // Xóa cứng user (tự động xóa cascade profile, departmentMember, faceProfile, etc.)
+      await tx.user.delete({
+        where: { id: profile.userId },
+      });
+
+      // Ghi log xóa
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          action: 'employee.delete',
+          entityType: 'User',
+          entityId: profile.userId,
+          metadata: { profileId: id },
+        },
+      });
+    });
+
+    return { success: true };
+  }
 }

@@ -561,6 +561,7 @@ enum ContractStatus {
   EXPIRED
   TERMINATED
   CANCELLED
+  REJECTED
 }
 
 enum ContractSignerRole {
@@ -2495,6 +2496,9 @@ model EmployeeContract {
   departmentSnapshot            Json?
   draftFileUrl                  String?
   signedFileUrl                 String?
+  scannedDocumentUrl            String?
+  employeeSignatureUrl          String?
+  rejectReason                  String?
   createdById                   String                  @db.Uuid
   approvedById                  String?                 @db.Uuid
   approvedAt                    DateTime?

@@ -92,6 +92,16 @@ export async function requestEmployeeSignature(id: string): Promise<EmployeeCont
   return unwrapData(response);
 }
 
+export async function rejectContractSignature(id: string, payload: RejectContractPayload): Promise<EmployeeContractDto> {
+  const response = await apiClient.post<ApiResponse<EmployeeContractDto>>(`/employee-contracts/${id}/reject-signature`, payload);
+  return unwrapData(response);
+}
+
+export async function scanContract(imageUrl: string): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/employee-contracts/scan', { imageUrl });
+  return unwrapData(response);
+}
+
 export async function signContractEmployee(id: string, payload: SignContractPayload): Promise<EmployeeContractDto> {
   const response = await apiClient.post<ApiResponse<EmployeeContractDto>>(`/employee-contracts/${id}/sign/employee`, payload);
   return unwrapData(response);

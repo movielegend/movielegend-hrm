@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ContractScannerModal } from './ContractScannerModal';
+import { ContractSignatureModal } from './ContractSignatureModal';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -28,6 +30,8 @@ import {
   useSubmitContractApproval,
   useApproveContract,
   useActivateContract,
+  useSignContractEmployee,
+  useRejectContractSignature,
 } from '../../hooks/useContracts';
 import {
   CONTRACT_TYPE_LABELS,
@@ -290,6 +294,10 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const submitApproval = useSubmitContractApproval();
   const approve = useApproveContract();
   const activate = useActivateContract();
+  const signContract = useSignContractEmployee(contractId);
+  const rejectSignature = useRejectContractSignature(contractId);
+  
+  const [isSignatureVisible, setSignatureVisible] = useState(false);
 
   const data = contract.data;
   if (!data && !contract.isLoading) {
@@ -397,8 +405,36 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               Kích hoạt
             </PrimaryButton>
           )}
+          {status === 'WAITING_EMPLOYEE_SIGNATURE' && (
+            <>
+              <PrimaryButton
+                onPress={() => setSignatureVisible(true)}
+              >
+                Ký điện tử
+              </PrimaryButton>
+              <SecondaryButton
+                onPress={() => {
+                  Alert.prompt('Từ chối ký', 'Vui lòng nhập lý do từ chối', (reason) => {
+                    handleAction(() => rejectSignature.mutateAsync({ reason }), 'Đã từ chối hợp đồng');
+                  });
+                }}
+                loading={rejectSignature.isPending}
+              >
+                Từ chối
+              </SecondaryButton>
+            </>
+          )}
         </View>
       </ScrollView>
+
+      <ContractSignatureModal
+        visible={isSignatureVisible}
+        onClose={() => setSignatureVisible(false)}
+        onSave={(signature) => {
+          setSignatureVisible(false);
+          handleAction(() => signContract.mutateAsync({ signatureType: 'DRAWN', signatureImageUrl: signature }), 'Đã ký hợp đồng');
+        }}
+      />
     </Screen>
   );
 }
@@ -425,6 +461,7 @@ export function CreateContractScreen() {
   const [contractType, setContractType] = useState<ContractType>('FIXED_TERM');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isScannerVisible, setScannerVisible] = useState(false);
 
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
 
@@ -453,10 +490,18 @@ export function CreateContractScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Tạo hợp đồng mới" />
+        <PageHeader 
+          title="Tạo hợp đồng mới" 
+          right={
+            <Pressable style={styles.scanBtn} onPress={() => setScannerVisible(true)}>
+              <MaterialCommunityIcons name="line-scan" size={18} color="#059669" />
+              <Text style={styles.scanBtnText}>Scan AI</Text>
+            </Pressable>
+          }
+        />
 
         <View style={styles.formCard}>
-          <Field label="ID Nhân viên">
+          <Field icon="account-circle-outline" label="ID Nhân viên">
             <TextInput
               style={styles.input}
               placeholder="Nhập User ID"
@@ -466,19 +511,24 @@ export function CreateContractScreen() {
             />
           </Field>
 
-          <Field label="Mẫu hợp đồng">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templatePicker}>
+          <Field icon="file-document-outline" label="Mẫu hợp đồng">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templatePicker} contentContainerStyle={{ gap: 8 }}>
               {templateItems.map((tpl: any) => (
                 <Pressable
                   key={tpl.id}
-                  style={[styles.templateOption, templateId === tpl.id && styles.templateOptionSelected]}
+                  style={[styles.templateChip, templateId === tpl.id && styles.templateChipSelected]}
                   onPress={() => {
                     setTemplateId(tpl.id);
                     setContractType(tpl.contractType);
                     if (!title) setTitle(tpl.name);
                   }}
                 >
-                  <Text style={[styles.templateOptionText, templateId === tpl.id && styles.templateOptionTextSelected]}>
+                  <MaterialCommunityIcons 
+                    name={templateId === tpl.id ? "check-circle" : "circle-outline"} 
+                    size={18} 
+                    color={templateId === tpl.id ? colors.primary : colors.muted} 
+                  />
+                  <Text style={[styles.templateChipText, templateId === tpl.id && styles.templateChipTextSelected]}>
                     {tpl.name}
                   </Text>
                 </Pressable>
@@ -486,7 +536,7 @@ export function CreateContractScreen() {
             </ScrollView>
           </Field>
 
-          <Field label="Tiêu đề hợp đồng">
+          <Field icon="format-title" label="Tiêu đề hợp đồng">
             <TextInput
               style={styles.input}
               placeholder="VD: Hợp đồng thử việc - Nguyễn Văn A"
@@ -496,39 +546,56 @@ export function CreateContractScreen() {
             />
           </Field>
 
-          <Field label="Ngày bắt đầu (YYYY-MM-DD)">
+          <Field icon="calendar-range" label="Ngày bắt đầu">
             <TextInput
               style={styles.input}
-              placeholder="2025-01-01"
+              placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.muted}
               value={startDate}
               onChangeText={setStartDate}
             />
           </Field>
 
-          <Field label="Ngày kết thúc (YYYY-MM-DD) — không bắt buộc">
+          <Field icon="calendar-end" label="Ngày kết thúc (Không bắt buộc)">
             <TextInput
               style={styles.input}
-              placeholder="2026-01-01"
+              placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.muted}
               value={endDate}
               onChangeText={setEndDate}
             />
           </Field>
 
-          <PrimaryButton onPress={submit} loading={createContract.isPending}>
-            Tạo hợp đồng
-          </PrimaryButton>
+          <View style={{ marginTop: 12 }}>
+            <PrimaryButton onPress={submit} loading={createContract.isPending}>
+              Tạo hợp đồng
+            </PrimaryButton>
+          </View>
         </View>
       </ScrollView>
+
+      <ContractScannerModal 
+        visible={isScannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScanComplete={(data) => {
+          setScannerVisible(false);
+          if (data.title) setTitle(data.title);
+          if (data.contractType) setContractType(data.contractType as ContractType);
+          if (data.startDate) setStartDate(data.startDate);
+          if (data.endDate) setEndDate(data.endDate);
+        }}
+      />
     </Screen>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
   return (
     <View style={styles.fieldGroup}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.fieldLabelContainer}>
+        <MaterialCommunityIcons name={icon as any} size={18} color={colors.primary} />
+        <Text style={styles.fieldLabel}>{label}</Text>
+      </View>
       {children}
     </View>
   );
@@ -538,11 +605,28 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 const styles = StyleSheet.create({
   fieldGroup: {
+    gap: 8,
+    marginBottom: 20,
+  },
+  fieldLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+    marginBottom: 4,
   },
   fieldLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
     color: colors.text,
   },
   content: {
@@ -571,21 +655,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  headerBtn: {
+  scanBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  scanBtnText: {
+    color: '#059669',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  templateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 12,
-    gap: 4,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
   },
-  headerBtnText: {
-    color: '#111827',
-    fontWeight: '600',
-    fontSize: 13,
+  templateChipSelected: {
+    backgroundColor: '#EEF2FF',
+    borderColor: colors.primary,
   },
-
+  templateChipText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  templateChipTextSelected: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
   // Template card
   templateCard: {
     backgroundColor: '#fff',

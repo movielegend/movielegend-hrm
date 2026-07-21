@@ -108,8 +108,8 @@ const EN_TO_VI: Record<string, string> = {
 export function NotificationItem({ target, onPress }: { target: NotificationTargetDto; onPress: () => void }) {
   const item = target.notification;
   const isUnread = !target.readAt;
-  const iconName = getNotificationIcon(item.type);
-  const iconColor = getNotificationColor(item.type);
+  const iconName = getNotificationIcon(item.type, item.title);
+  const iconColor = getNotificationColor(item.type, item.title);
   const displayTitle = EN_TO_VI[item.title] || item.title;
 
   return (

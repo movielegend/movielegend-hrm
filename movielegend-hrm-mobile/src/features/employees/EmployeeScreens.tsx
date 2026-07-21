@@ -280,9 +280,12 @@ export function EmployeeDetailScreen() {
   const { user } = useAuth();
   const employee = useEmployee(id);
   const updateEmployee = useUpdateEmployee(id);
+  const deleteEmployee = useDeleteEmployee();
   const [editing, setEditing] = useState(edit === '1');
   const canEdit = hasPermission(user, 'user.update');
+  const canDelete = hasPermission(user, 'user.manage');
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EmployeeEditValues>({
     resolver: zodResolver(editSchema),
     values: {
@@ -429,6 +432,29 @@ export function EmployeeDetailScreen() {
               Lưu thay đổi
             </PrimaryButton>
           </SectionCard>
+        ) : null}
+
+        {canDelete ? (
+          <SecondaryButton
+            loading={deleteEmployee.isPending}
+            onPress={() => {
+              Alert.alert('Xóa nhân sự', 'Bạn có chắc chắn muốn xóa nhân sự này không? Hành động này sẽ xóa hoàn toàn thông tin định danh (SĐT, Email, CCCD) khỏi hệ thống.', [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                  text: 'Xóa vĩnh viễn',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await deleteEmployee.mutateAsync(id);
+                    router.back();
+                  },
+                },
+              ]);
+            }}
+            style={{ marginBottom: 16, borderColor: colors.danger }}
+            textStyle={{ color: colors.danger }}
+          >
+            Xóa nhân sự
+          </SecondaryButton>
         ) : null}
       </ScreenContainer>
     </Screen>

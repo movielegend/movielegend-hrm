@@ -171,7 +171,7 @@ export class AuthService {
 
       if (notifyUserIds.size > 0) {
         await this.notifications.createForUsers(tx, Array.from(notifyUserIds), {
-          type: 'SYSTEM',
+          type: 'ACCOUNT_APPROVAL_REQUESTED',
           title: 'Yêu cầu đăng ký tài khoản mới',
           body: `Nhân viên ${dto.fullName} (SĐT: ${dto.phone}) vừa gửi yêu cầu tạo tài khoản mới. Vui lòng kiểm tra và xét duyệt.`,
           metadata: { approvalRequestId: request.id },
@@ -246,6 +246,11 @@ export class AuthService {
     const payload = await this.verifyRefreshToken(dto.refreshToken, secret);
     await this.prisma.refreshSession.updateMany({
       where: { id: payload.sessionId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    // Revoke device tokens so they don't receive push notifications after logout
+    await this.prisma.deviceToken.updateMany({
+      where: { userId: payload.sub, revokedAt: null },
       data: { revokedAt: new Date() },
     });
     return { revoked: true };

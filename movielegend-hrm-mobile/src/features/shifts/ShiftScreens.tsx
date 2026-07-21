@@ -203,17 +203,23 @@ export function AdminShiftsScreen() {
                 const uniqueAssignments = shift.assignments.filter(
                   (a, index, self) => index === self.findIndex((t) => t.userId === a.userId)
                 );
+                const leaderAssignments = uniqueAssignments.filter(a => 
+                  a.user?.roles?.some(r => r.role?.code === 'LEADER')
+                );
+                
+                if (leaderAssignments.length === 0) return null;
+
                 return (
                   <View style={styles.assignmentSection}>
                     <View style={styles.assignmentHeader}>
                       <MaterialCommunityIcons name="account-group-outline" size={16} color="#111827" />
                       <Text style={styles.assignmentLabel}>Leaders đã phân ca</Text>
                       <View style={styles.assignmentCount}>
-                        <Text style={styles.assignmentCountText}>{uniqueAssignments.length}</Text>
+                        <Text style={styles.assignmentCountText}>{leaderAssignments.length}</Text>
                       </View>
                     </View>
                     <View style={styles.assignmentList}>
-                      {uniqueAssignments.map(a => {
+                      {leaderAssignments.map(a => {
                         const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
                         const initials = name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
                         return (

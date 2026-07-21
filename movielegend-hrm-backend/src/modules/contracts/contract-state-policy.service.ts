@@ -8,7 +8,7 @@ export class ContractStatePolicy {
     DRAFT: [ContractStatus.PENDING_INTERNAL_APPROVAL, ContractStatus.CANCELLED],
     PENDING_INTERNAL_APPROVAL: [ContractStatus.APPROVED, ContractStatus.CANCELLED],
     APPROVED: [ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.CANCELLED],
-    WAITING_EMPLOYEE_SIGNATURE: [ContractStatus.EMPLOYEE_SIGNED, ContractStatus.CANCELLED],
+    WAITING_EMPLOYEE_SIGNATURE: [ContractStatus.EMPLOYEE_SIGNED, ContractStatus.CANCELLED, ContractStatus.REJECTED],
     EMPLOYEE_SIGNED: [ContractStatus.WAITING_COMPANY_SIGNATURE],
     WAITING_COMPANY_SIGNATURE: [ContractStatus.COMPLETED, ContractStatus.CANCELLED],
     COMPLETED: [ContractStatus.ACTIVE],
@@ -16,6 +16,7 @@ export class ContractStatePolicy {
     EXPIRED: [],
     TERMINATED: [],
     CANCELLED: [],
+    REJECTED: [],
   };
 
   assertTransition(from: ContractStatus, to: ContractStatus): void {

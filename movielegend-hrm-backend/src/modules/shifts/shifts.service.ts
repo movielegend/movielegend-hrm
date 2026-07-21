@@ -20,6 +20,9 @@ export class ShiftsService {
             user: {
               include: {
                 profile: true,
+                roles: {
+                  include: { role: true }
+                }
               },
             },
           },

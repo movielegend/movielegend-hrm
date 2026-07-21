@@ -15,6 +15,9 @@ import {
   rejectContract,
   activateContract,
   terminateContract,
+  scanContract,
+  rejectContractSignature,
+  signContractEmployee,
 } from '../api/contracts.api';
 import { contractTemplateKeys, contractKeys } from '../constants/queryKeys';
 import type {
@@ -103,10 +106,26 @@ export function useUpdateContract(id: string) {
     mutationFn: (payload: UpdateEmployeeContractPayload) => updateEmployeeContract(id, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contractKeys.all });
-      void queryClient.invalidateQueries({ queryKey: contractKeys.detail(id) });
     },
   });
 }
+
+export function useScanContract() {
+  return useMutation({
+    mutationFn: (imageUrl: string) => scanContract(imageUrl),
+  });
+}
+
+export function useRejectContractSignature(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: RejectContractPayload) => rejectContractSignature(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contractKeys.all });
+    },
+  });
+}
+
 
 export function useExpiringContracts(days?: number) {
   return useQuery({
@@ -150,6 +169,16 @@ export function useActivateContract() {
   return useContractAction(activateContract);
 }
 
+export function useSignContractEmployee(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { signatureType: 'DRAWN'; signatureImageUrl: string; signatureData?: string }) =>
+      signContractEmployee(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contractKeys.all });
+    },
+  });
+}
 export function useTerminateContract() {
   const queryClient = useQueryClient();
   return useMutation({

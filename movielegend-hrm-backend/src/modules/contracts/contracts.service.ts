@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ContractSignerRole, ContractStatus, NotificationType, Prisma } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
@@ -16,6 +17,7 @@ import {
   TerminateContractDto,
   UpdateContractTemplateDto,
   UpdateEmployeeContractDto,
+  ScanContractDto,
 } from './dto/contract.dto';
 
 @Injectable()
@@ -154,6 +156,38 @@ export class ContractsService {
     });
   }
 
+  async scanContract(dto: ScanContractDto, actor: AuthenticatedUser) {
+    try {
+      const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const prompt = `Bạn là một chuyên gia OCR và pháp lý nhân sự. 
+Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thông tin sau và trả về ĐÚNG định dạng JSON (không markdown, không giải thích):
+{
+  "contractCode": "mã hợp đồng",
+  "title": "tên hợp đồng",
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD",
+  "contractType": "PROBATION | FIXED_TERM | INDEFINITE_TERM | SERVICE | CONFIDENTIALITY | COMMITMENT | OTHER"
+}`;
+      
+      const result = await model.generateContent([
+        prompt,
+        { inlineData: { data: dto.imageUrl.split(',')[1], mimeType: 'image/jpeg' } }
+      ]);
+      
+      const text = result.response.text();
+      if (!text) {
+        throw new Error('No content generated');
+      }
+      
+      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error('OCR Error:', error);
+      throw badRequest('OCR_FAILED', 'Không thể bóc tách dữ liệu từ ảnh');
+    }
+  }
+
   submitApproval(id: string, actor: AuthenticatedUser) {
     return this.transition(id, actor, ContractStatus.DRAFT, ContractStatus.PENDING_INTERNAL_APPROVAL, 'CONTRACT_SUBMITTED', NotificationType.CONTRACT_APPROVAL_REQUIRED);
   }
@@ -180,6 +214,12 @@ export class ContractsService {
     if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Contract not found');
     if (contract.userId !== actor.userId) throw forbidden('CONTRACT_EMPLOYEE_SIGNATURE_DENIED', 'Employee can only sign own contract');
     return this.sign(id, dto, actor, ContractSignerRole.EMPLOYEE, ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.EMPLOYEE_SIGNED, 'CONTRACT_EMPLOYEE_SIGNED');
+  }
+
+  employeeReject(id: string, actor: AuthenticatedUser, dto: RejectContractDto) {
+    return this.transition(id, actor, ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.REJECTED, 'CONTRACT_REJECTED', NotificationType.SYSTEM, {
+      rejectReason: dto.reason,
+    });
   }
 
   async signCompany(id: string, dto: SignContractDto, actor: AuthenticatedUser) {

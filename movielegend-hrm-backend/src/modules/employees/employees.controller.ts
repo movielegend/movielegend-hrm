@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, Delete } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -23,5 +23,11 @@ export class EmployeesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.employeesService.findOne(id);
+  }
+
+  @Permissions('user.manage')
+  @Delete(':id')
+  remove(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.employeesService.remove(id, actor.userId);
   }
 }

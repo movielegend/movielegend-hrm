@@ -31,7 +31,7 @@ export async function createEmployee(payload: Record<string, any>): Promise<Empl
 }
 
 export async function deleteAdminUser(id: string): Promise<unknown> {
-  const response = await apiClient.delete<ApiResponse<unknown>>(`/admin/users/${id}`);
+  const response = await apiClient.delete<ApiResponse<unknown>>(`/employees/${id}`);
   return unwrapData(response);
 }
 

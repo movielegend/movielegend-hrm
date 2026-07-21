@@ -157,3 +157,9 @@ export class TerminateContractDto {
   @IsString()
   reason!: string;
 }
+
+export class ScanContractDto {
+  @ApiProperty()
+  @IsString()
+  imageUrl!: string;
+}
