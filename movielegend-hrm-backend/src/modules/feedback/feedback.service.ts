@@ -43,10 +43,7 @@ export class FeedbackService {
             },
         });
 
-        return {
-            message: 'Gửi góp ý thành công',
-            data: feedback,
-        };
+        return feedback;
     }
 
     // ─── Get my feedbacks ───────────────────────────────────────────────────────
@@ -96,8 +93,8 @@ export class FeedbackService {
         ]);
 
         return {
-            data: items,
-            meta: {
+            items,
+            pagination: {
                 page,
                 limit,
                 total,
@@ -185,8 +182,8 @@ export class FeedbackService {
         }));
 
         return {
-            data: sanitizedItems,
-            meta: {
+            items: sanitizedItems,
+            pagination: {
                 page,
                 limit,
                 total,
@@ -227,26 +224,24 @@ export class FeedbackService {
         }
 
         return {
-            data: {
-                id: feedback.id,
-                title: feedback.title,
-                content: feedback.content,
-                isAnonymous: feedback.isAnonymous,
-                status: feedback.status,
-                reason: feedback.reason,
-                img: feedback.img,
-                reviewedAt: feedback.reviewedAt,
-                createdAt: feedback.createdAt,
-                // Chỉ lộ sender nếu: (1) không anonymous, hoặc (2) chính chủ xem
-                sender:
-                    feedback.isAnonymous && !isOwner
-                        ? null
-                        : {
-                            id: feedback.sender.id,
-                            userCode: feedback.sender.userCode,
-                            fullName: feedback.sender.profile?.fullName ?? null,
-                        },
-            },
+            id: feedback.id,
+            title: feedback.title,
+            content: feedback.content,
+            isAnonymous: feedback.isAnonymous,
+            status: feedback.status,
+            reason: feedback.reason,
+            img: feedback.img,
+            reviewedAt: feedback.reviewedAt,
+            createdAt: feedback.createdAt,
+            // Chỉ lộ sender nếu: (1) không anonymous, hoặc (2) chính chủ xem
+            sender:
+                feedback.isAnonymous && !isOwner
+                    ? null
+                    : {
+                        id: feedback.sender.id,
+                        userCode: feedback.sender.userCode,
+                        fullName: feedback.sender.profile?.fullName ?? null,
+                    },
         };
     }
 
@@ -282,10 +277,7 @@ export class FeedbackService {
             },
         });
 
-        return {
-            message: 'Cập nhật góp ý thành công',
-            data: feedback,
-        };
+        return feedback;
     }
 
     // ─── Delete own feedback ────────────────────────────────────────────────────
@@ -315,7 +307,7 @@ export class FeedbackService {
             data: { deletedAt: new Date() },
         });
 
-        return { message: 'Xóa góp ý thành công' };
+        return undefined;
     }
 
     // ─── Stats (management) ─────────────────────────────────────────────────────
@@ -341,17 +333,15 @@ export class FeedbackService {
         }
 
         return {
-            data: {
-                total,
-                byStatus: {
-                    SEND: statusMap['SEND'] ?? 0,
-                    REVIEWED: statusMap['REVIEWED'] ?? 0,
-                    RESOLVED: statusMap['RESOLVED'] ?? 0,
-                    REJECTED: statusMap['REJECTED'] ?? 0,
-                },
-                anonymous,
-                nonAnonymous: total - anonymous,
+            total,
+            byStatus: {
+                SEND: statusMap['SEND'] ?? 0,
+                REVIEWED: statusMap['REVIEWED'] ?? 0,
+                RESOLVED: statusMap['RESOLVED'] ?? 0,
+                REJECTED: statusMap['REJECTED'] ?? 0,
             },
+            anonymous,
+            nonAnonymous: total - anonymous,
         };
     }
 
