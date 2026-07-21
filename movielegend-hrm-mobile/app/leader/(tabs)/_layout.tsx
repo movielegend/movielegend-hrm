@@ -58,7 +58,10 @@ export default function LeaderTabsLayout() {
       <Tabs.Screen
         name="approvals"
         options={{
-          href: null,
+          title: 'Duyệt đơn',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "file-document-multiple" : "file-document-multiple-outline"} size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen

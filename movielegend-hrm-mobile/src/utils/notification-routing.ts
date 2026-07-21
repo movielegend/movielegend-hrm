@@ -27,6 +27,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const groupId = stringMeta(notification.metadata, 'groupId');
   const violationId = stringMeta(notification.metadata, 'violationId');
   const postId = stringMeta(notification.metadata, 'postId');
+  const swapId = stringMeta(notification.metadata, 'swapId');
   
   const base = roleBase(user);
   
@@ -35,6 +36,14 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     if (base === '/admin') return `/admin/requests/${requestId}`;
     if (base === '/leader') return `/leader/employee-requests/${requestId}`;
     if (base === '/employee') return `/employee/requests/${requestId}`;
+  }
+  if (swapId) {
+    if (base === '/leader') return `/leader/shift-swaps/${swapId}`;
+    return `/employee/shift-swaps/${swapId}`;
+  }
+  if (notification.type === 'SYSTEM' && (notification.title === 'Yêu cầu đổi ca làm việc' || notification.title === 'Kết quả đơn đổi ca' || notification.title === 'Yêu cầu duyệt đổi ca')) {
+    if (base === '/leader') return `/leader/shift-swaps`;
+    return `/employee/shift-swaps`;
   }
   if (notification.type.startsWith('TASK_') && taskId) return `${base}/tasks/${taskId}`;
   if (notification.type.startsWith('CROSS_DEPARTMENT_') && requestId) return `${base}/cross-department/${requestId}`;

@@ -27,7 +27,7 @@ export default function ApprovalsTabScreen() {
             icon="account-check" 
             iconBg="#FEF3C7" 
             iconColor="#F59E0B"
-            onPress={() => router.push('/leader/approvals')}
+            onPress={() => router.push('/leader/approvals/account')}
           />
           <ApprovalCard 
             title="Yêu cầu VTTB" 
@@ -42,6 +42,13 @@ export default function ApprovalsTabScreen() {
             iconBg="#E0F2FE" 
             iconColor="#3B82F6"
             onPress={() => router.push('/leader/cross-department')}
+          />
+          <ApprovalCard 
+            title="Đổi ca làm việc" 
+            icon="swap-horizontal-circle" 
+            iconBg="#EDE9FE" 
+            iconColor="#8B5CF6"
+            onPress={() => router.push('/leader/shift-swaps')}
           />
         </View>
       </ScrollView>
