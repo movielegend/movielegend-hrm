@@ -11,7 +11,7 @@ import { StorageService } from './storage.service';
       provide: StorageService,
       useFactory: (config: ConfigService) => {
         if (process.env.CLOUDINARY_CLOUD_NAME) {
-          return new CloudinaryStorageService();
+          return new CloudinaryStorageService(config);
         }
         return new LocalStorageService(config);
       },

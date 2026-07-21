@@ -3,22 +3,32 @@ import { StorageService, UploadInput, UploadResult } from '../storage.service';
 import { v2 as cloudinary } from 'cloudinary';
 import * as streamifier from 'streamifier';
 
+import { ConfigService } from '@nestjs/config';
+import { LocalStorageService } from './local-storage.service';
+
 @Injectable()
 export class CloudinaryStorageService implements StorageService {
   private readonly logger = new Logger(CloudinaryStorageService.name);
+  private readonly localFallback: LocalStorageService;
 
-  constructor() {
+  constructor(configService: ConfigService) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
+    this.localFallback = new LocalStorageService(configService);
   }
 
   async upload(input: UploadInput): Promise<UploadResult> {
+    if (input.mimeType === 'application/pdf') {
+      this.logger.log('Delegating PDF upload to LocalStorageService due to Cloudinary restrictions');
+      return this.localFallback.upload(input);
+    }
+
     return new Promise((resolve, reject) => {
       let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
-      if (input.mimeType.startsWith('image/') || input.mimeType === 'application/pdf') resourceType = 'image';
+      if (input.mimeType.startsWith('image/')) resourceType = 'image';
       else if (input.mimeType.startsWith('video/') || input.mimeType.startsWith('audio/')) resourceType = 'video';
       else resourceType = 'raw';
 
@@ -43,9 +53,6 @@ export class CloudinaryStorageService implements StorageService {
           }
           
           let finalUrl = result.secure_url;
-          if (input.mimeType === 'application/pdf' && finalUrl.includes('/upload/')) {
-            finalUrl = finalUrl.replace('/upload/', '/upload/fl_attachment/');
-          }
 
           resolve({
             storageKey: result.public_id,
@@ -60,6 +67,10 @@ export class CloudinaryStorageService implements StorageService {
 
   async delete(key: string): Promise<void> {
     try {
+      if (key.toLowerCase().endsWith('.pdf')) {
+        await this.localFallback.delete(key);
+        return;
+      }
       await cloudinary.uploader.destroy(key);
     } catch (error) {
       this.logger.error(`Failed to delete file from Cloudinary: ${key}`, error);
@@ -68,6 +79,9 @@ export class CloudinaryStorageService implements StorageService {
 
   async exists(key: string): Promise<boolean> {
     try {
+      if (key.toLowerCase().endsWith('.pdf')) {
+        return this.localFallback.exists(key);
+      }
       const result = await cloudinary.api.resource(key);
       return !!result;
     } catch (error) {
@@ -76,10 +90,16 @@ export class CloudinaryStorageService implements StorageService {
   }
 
   getPublicUrl(key: string): string {
+    if (key.toLowerCase().endsWith('.pdf')) {
+      return this.localFallback.getPublicUrl(key);
+    }
     return cloudinary.url(key, { secure: true });
   }
 
   async read(key: string): Promise<Buffer> {
+    if (key.toLowerCase().endsWith('.pdf')) {
+      return this.localFallback.read(key);
+    }
     const url = this.getPublicUrl(key);
     const response = await fetch(url);
     if (!response.ok) {

@@ -241,27 +241,19 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
             try {
               setDownloadingId(attachment.id);
               
-              // Force fl_attachment for Cloudinary URLs to bypass free account PDF delivery restrictions
               let downloadUrl = url;
-              if (downloadUrl.includes('res.cloudinary.com') && !downloadUrl.includes('fl_attachment')) {
-                downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
-              }
 
-              const cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
+              const assumedMimeType = attachment.mimeType || 'application/pdf';
+              let cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
+              if (assumedMimeType === 'application/pdf' && !cleanFileName.toLowerCase().endsWith('.pdf')) {
+                cleanFileName += '.pdf';
+              }
+              
               const localUri = FileSystem.documentDirectory + cleanFileName;
               const { uri } = await FileSystem.downloadAsync(downloadUrl, localUri);
               
-              if (Platform.OS === 'android') {
-                const IntentLauncher = await import('expo-intent-launcher');
-                const contentUri = await FileSystem.getContentUriAsync(uri);
-                await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-                  data: contentUri,
-                  flags: 1,
-                  type: attachment.mimeType || 'application/pdf',
-                });
-              } else {
-                await Sharing.shareAsync(uri);
-              }
+              // CÁCH 2: Dùng bảng Chia sẻ (Expo Sharing) để mở/lưu file (Hoạt động hoàn hảo 100% trên Expo Go)
+              await Sharing.shareAsync(uri, { UTI: assumedMimeType, mimeType: assumedMimeType });
             } catch (err) {
               console.error(err);
               Linking.openURL(url).catch((e) => console.error(e));
