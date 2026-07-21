@@ -331,6 +331,7 @@ export class FeedbackService {
                 by: ['status'],
                 where: { deletedAt: null },
                 _count: { _all: true },
+                orderBy: { status: 'asc' },
             }),
             this.prisma.feedback.count({
                 where: { deletedAt: null, isAnonymous: true },
@@ -339,7 +340,7 @@ export class FeedbackService {
 
         const statusMap: Record<string, number> = {};
         for (const row of byStatus) {
-            statusMap[row.status] = row._count._all;
+            statusMap[row.status] = (row._count as any)?._all ?? 0;
         }
 
         return {

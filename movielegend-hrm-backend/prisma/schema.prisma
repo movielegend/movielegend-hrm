@@ -93,6 +93,8 @@ enum ShiftRegistrationStatus {
 
 enum ShiftSwapStatus {
   PENDING
+  PENDING_TARGET_APPROVAL
+  PENDING_LEADER_APPROVAL
   APPROVED
   REJECTED
   CANCELLED
