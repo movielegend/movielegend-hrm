@@ -4,19 +4,33 @@ import { v2 as cloudinary } from 'cloudinary';
 import * as streamifier from 'streamifier';
 
 import { ConfigService } from '@nestjs/config';
+import { LocalStorageService } from './local-storage.service';
 
 @Injectable()
 export class CloudinaryStorageService implements StorageService {
   private readonly logger = new Logger(CloudinaryStorageService.name);
+  private readonly localStorageFallback: LocalStorageService;
+
   constructor(configService: ConfigService) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
+    this.localStorageFallback = new LocalStorageService(configService);
   }
 
   async upload(input: UploadInput): Promise<UploadResult> {
+    const isPdf = 
+      input.mimeType === 'application/pdf' || 
+      (input.fileName && input.fileName.toLowerCase().endsWith('.pdf')) ||
+      (input.storageKey && input.storageKey.toLowerCase().endsWith('.pdf'));
+    
+    if (isPdf) {
+      this.logger.log('Delegating PDF upload to LocalStorageService');
+      return this.localStorageFallback.upload(input);
+    }
+
     return new Promise((resolve, reject) => {
       let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
       if (input.mimeType.startsWith('image/')) resourceType = 'image';
@@ -58,6 +72,10 @@ export class CloudinaryStorageService implements StorageService {
 
   async delete(key: string): Promise<void> {
     try {
+      if (key.toLowerCase().endsWith('.pdf')) {
+        await this.localStorageFallback.delete(key);
+        return;
+      }
       await cloudinary.uploader.destroy(key);
     } catch (error) {
       this.logger.error(`Failed to delete file from Cloudinary: ${key}`, error);
@@ -66,6 +84,9 @@ export class CloudinaryStorageService implements StorageService {
 
   async exists(key: string): Promise<boolean> {
     try {
+      if (key.toLowerCase().endsWith('.pdf')) {
+        return this.localStorageFallback.exists(key);
+      }
       const result = await cloudinary.api.resource(key);
       return !!result;
     } catch (error) {
@@ -74,10 +95,16 @@ export class CloudinaryStorageService implements StorageService {
   }
 
   getPublicUrl(key: string): string {
+    if (key.toLowerCase().endsWith('.pdf')) {
+      return this.localStorageFallback.getPublicUrl(key);
+    }
     return cloudinary.url(key, { secure: true });
   }
 
   async read(key: string): Promise<Buffer> {
+    if (key.toLowerCase().endsWith('.pdf')) {
+      return this.localStorageFallback.read(key);
+    }
     const url = this.getPublicUrl(key);
     const response = await fetch(url);
     if (!response.ok) {
