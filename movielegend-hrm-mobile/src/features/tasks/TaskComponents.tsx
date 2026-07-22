@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View, Linking, Platform } from 'react-native';
+import { Alert, Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking, Platform } from 'react-native';
+import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -226,9 +227,35 @@ export function AttachmentPicker({
 
 export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDto[] | undefined }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [pdfHtml, setPdfHtml] = useState<string | null>(null);
 
   if (!attachments?.length) return <EmptyState small icon="paperclip" title="Chưa có tệp đính kèm" message="Thêm tài liệu liên quan đến công việc này." />;
   return (
+    <>
+    {/* Modal xem PDF ngay trong App */}
+    <Modal visible={!!pdfHtml} animationType="slide" onRequestClose={() => setPdfHtml(null)}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#1a1a1a', gap: 8 }}>
+          <Pressable
+            onPress={() => setPdfHtml(null)}
+            style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#333', borderRadius: 8 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>✕ Đóng</Text>
+          </Pressable>
+          <Text style={{ color: '#fff', flex: 1, fontWeight: '600', fontSize: 15 }}>Xem tài liệu</Text>
+        </View>
+        {pdfHtml ? (
+          <WebView
+            source={{ html: pdfHtml, baseUrl: '' }}
+            style={{ flex: 1 }}
+            originWhitelist={['*']}
+            javaScriptEnabled
+            startInLoadingState
+            mixedContentMode="always"
+          />
+        ) : null}
+      </SafeAreaView>
+    </Modal>
     <View style={styles.stack}>
       {attachments.map((attachment) => (
         <Pressable 
@@ -241,22 +268,63 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
             try {
               setDownloadingId(attachment.id);
               
-              let downloadUrl = url;
-
               const assumedMimeType = attachment.mimeType || 'application/pdf';
-              let cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
-              if (assumedMimeType === 'application/pdf' && !cleanFileName.toLowerCase().endsWith('.pdf')) {
-                cleanFileName += '.pdf';
+
+              if (assumedMimeType === 'application/pdf') {
+                // Tải file về máy trước, sau đó render bằng PDF.js trong WebView
+                let cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
+                if (!cleanFileName.toLowerCase().endsWith('.pdf')) cleanFileName += '.pdf';
+                const localUri = FileSystem.documentDirectory + cleanFileName;
+                const info = await FileSystem.getInfoAsync(localUri);
+                let fileUri = localUri;
+                if (!info.exists) {
+                  const { uri } = await FileSystem.downloadAsync(url, localUri);
+                  fileUri = uri;
+                }
+                const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+                // Tạo HTML page với PDF.js để render PDF từ base64 - hoạt động hoàn toàn offline
+                const html = `<!DOCTYPE html><html><head>
+                  <meta name="viewport" content="width=device-width,initial-scale=1">
+                  <style>body{margin:0;background:#525659;}canvas{display:block;margin:8px auto;box-shadow:0 2px 8px rgba(0,0,0,.4);}#loading{color:#fff;text-align:center;padding:40px;font-family:sans-serif;font-size:16px;}#error{color:#f88;text-align:center;padding:40px;font-family:sans-serif;}</style>
+                </head><body>
+                  <div id="loading">Đang tải PDF...</div>
+                  <div id="container"></div>
+                  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+                  <script>
+                    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    const base64='${base64}';
+                    const binary=atob(base64);
+                    const bytes=new Uint8Array(binary.length);
+                    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+                    pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){
+                      document.getElementById('loading').style.display='none';
+                      for(let p=1;p<=pdf.numPages;p++){
+                        pdf.getPage(p).then(function(page){
+                          const vp=page.getViewport({scale:window.innerWidth/page.getViewport({scale:1}).width});
+                          const canvas=document.createElement('canvas');
+                          canvas.width=vp.width; canvas.height=vp.height;
+                          document.getElementById('container').appendChild(canvas);
+                          page.render({canvasContext:canvas.getContext('2d'),viewport:vp});
+                        });
+                      }
+                    }).catch(function(e){
+                      document.getElementById('loading').style.display='none';
+                      document.getElementById('error').innerHTML='Lỗi: '+e.message;
+                    });
+                  </script>
+                </body></html>`;
+                setPdfHtml(html);
+                return;
               }
-              
+
+              // Các file khác: Sharing
+              let cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
               const localUri = FileSystem.documentDirectory + cleanFileName;
-              const { uri } = await FileSystem.downloadAsync(downloadUrl, localUri);
-              
-              // CÁCH 2: Dùng bảng Chia sẻ (Expo Sharing) để mở/lưu file (Hoạt động hoàn hảo 100% trên Expo Go)
+              const { uri } = await FileSystem.downloadAsync(url, localUri);
               await Sharing.shareAsync(uri, { UTI: assumedMimeType, mimeType: assumedMimeType });
             } catch (err) {
               console.error(err);
-              Linking.openURL(url).catch((e) => console.error(e));
+              Linking.openURL(resolveFileUrl(attachment.fileUrl) ?? '').catch((e) => console.error(e));
             } finally {
               setDownloadingId(null);
             }
@@ -272,6 +340,7 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
         </Pressable>
       ))}
     </View>
+    </>
   );
 }
 
