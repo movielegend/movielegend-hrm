@@ -18,3 +18,23 @@ export class AssignShiftDto {
   @IsDateString()
   workDate!: string;
 }
+
+export class BatchAssignShiftDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  userIds!: string[];
+
+  @ApiProperty()
+  @IsUUID()
+  departmentId!: string;
+
+  @ApiProperty()
+  @IsUUID()
+  shiftId!: string;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsDateString({}, { each: true })
+  dates!: string[];
+}

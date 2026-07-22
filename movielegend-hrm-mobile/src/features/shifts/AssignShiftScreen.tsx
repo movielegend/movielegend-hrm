@@ -10,7 +10,7 @@ import { PrimaryButton } from '../../components/Buttons';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
 
 import { useAuth } from '../../providers/AuthProvider';
-import { useShifts, useAssignShift, useMySchedule } from '../../hooks/useShifts';
+import { useShifts, useAssignShift, useAssignShiftBatch, useMySchedule } from '../../hooks/useShifts';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 
 import { colors } from '../../theme/colors';
@@ -30,6 +30,7 @@ export function AssignShiftScreen() {
   // Fetch employees scoped to current user (Admin gets all, Leader gets their department)
   const employeesQuery = useScopedEmployees({ page: 1, limit: 100 });
   const assignMutation = useAssignShift();
+  const assignBatchMutation = useAssignShiftBatch();
 
   // State
   const [selectedEmployees, setSelectedEmployees] = useState<SelectOption[]>([]);
@@ -107,32 +108,28 @@ export function AssignShiftScreen() {
 
     try {
       const allWeekDates = getWeekDates(workDate);
-      const datesToAssign = selectedWeekdays.map(index => allWeekDates[index]);
+      const datesToAssign = selectedWeekdays.map(index => allWeekDates[index]).filter(Boolean) as string[];
 
       if (datesToAssign.length === 0) {
         Alert.alert('Lỗi', 'Vui lòng chọn ít nhất một ngày trong tuần.');
         return;
       }
       
-      for (const employee of selectedEmployees) {
-        const empRaw = (employee as any).raw;
-        const departmentId = empRaw?.department?.id;
+      const userIds = selectedEmployees.map(e => e.id);
+      const firstEmpRaw = (selectedEmployees[0] as any).raw;
+      const departmentId = firstEmpRaw?.department?.id;
 
-        if (!departmentId) {
-          Alert.alert('Cảnh báo', `Nhân viên ${employee.label} chưa thuộc phòng ban nào, đã bỏ qua.`);
-          continue;
-        }
-
-        for (const dateStr of datesToAssign) {
-          if (!dateStr) continue;
-          await assignMutation.mutateAsync({
-            userId: employee.id,
-            departmentId: departmentId as string,
-            shiftId: selectedShift.id,
-            workDate: dateStr,
-          });
-        }
+      if (!departmentId) {
+        Alert.alert('Cảnh báo', `Vui lòng chọn nhân viên đã thuộc phòng ban.`);
+        return;
       }
+
+      await assignBatchMutation.mutateAsync({
+        userIds,
+        departmentId,
+        shiftId: selectedShift.id,
+        dates: datesToAssign,
+      });
       
       Alert.alert('Thành công', `Đã phân ca tuần thành công cho ${selectedEmployees.length} nhân viên.`, [
         { text: 'OK', onPress: () => router.back() }
@@ -292,11 +289,11 @@ export function AssignShiftScreen() {
 
         <Pressable 
           style={[styles.submitBtn, (selectedEmployees.length === 0 || !selectedShift || selectedWeekdays.length === 0) && styles.submitBtnDisabled]}
-          disabled={selectedEmployees.length === 0 || !selectedShift || selectedWeekdays.length === 0 || assignMutation.isPending}
+          disabled={selectedEmployees.length === 0 || !selectedShift || selectedWeekdays.length === 0 || assignBatchMutation.isPending}
           onPress={handleSubmit}
         >
           <Text style={styles.submitBtnText}>
-            {assignMutation.isPending ? 'Đang xử lý...' : 'Xác nhận Phân ca'}
+            {assignBatchMutation.isPending ? 'Đang xử lý...' : 'Xác nhận Phân ca'}
           </Text>
         </Pressable>
       </ScrollView>

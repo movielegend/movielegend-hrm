@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { AssignShiftDto } from './dto/shift-assignment.dto';
+import { AssignShiftDto, BatchAssignShiftDto } from './dto/shift-assignment.dto';
 import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
 import { ShiftAssignmentsService } from './shift-assignments.service';
 
@@ -17,6 +17,12 @@ export class ShiftAssignmentsController {
   @Post()
   assign(@Body() dto: AssignShiftDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.shiftAssignmentsService.assign(dto, actor);
+  }
+
+  @Permissions('shift.assign')
+  @Post('batch')
+  assignBatch(@Body() dto: BatchAssignShiftDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.shiftAssignmentsService.assignBatch(dto, actor);
   }
 
   @Permissions('shift.read')

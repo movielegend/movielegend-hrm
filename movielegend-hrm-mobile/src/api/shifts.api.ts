@@ -36,6 +36,11 @@ export async function assignShift(payload: AssignShiftPayload): Promise<ShiftAss
   return unwrapData(response);
 }
 
+export async function assignShiftBatch(payload: { userIds: string[]; departmentId: string; shiftId: string; dates: string[] }): Promise<unknown> {
+  const response = await apiClient.post<ApiResponse<unknown>>('/shift-assignments/batch', payload);
+  return unwrapData(response);
+}
+
 export async function getMySchedule(): Promise<ShiftAssignment[]> {
   const response = await apiClient.get<ApiResponse<ShiftAssignment[]>>('/shift-assignments/me');
   return unwrapData(response);
