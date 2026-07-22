@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsUUID } from 'class-validator';
+import { IsArray, IsDateString, IsUUID } from 'class-validator';
 
 export class AssignShiftDto {
   @ApiProperty()
