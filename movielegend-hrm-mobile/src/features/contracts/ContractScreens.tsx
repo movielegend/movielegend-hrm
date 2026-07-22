@@ -13,6 +13,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ContractScannerModal } from './ContractScannerModal';
 import { ContractSignatureModal } from './ContractSignatureModal';
+import { CreateTemplateModal } from './CreateTemplateModal';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -95,6 +96,7 @@ function getInitials(name: string): string {
 export function ContractTemplatesScreen() {
   const templates = useContractTemplates();
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
+  const [isCreateModalVisible, setCreateModalVisible] = useState(false);
 
   return (
     <Screen>
@@ -102,6 +104,11 @@ export function ContractTemplatesScreen() {
         <PageHeader
           title="Mẫu hợp đồng"
           subtitle="Danh sách mẫu hợp đồng công ty"
+          right={
+            <Pressable onPress={() => setCreateModalVisible(true)} style={styles.headerBtn}>
+              <MaterialCommunityIcons name="plus" size={24} color={colors.primary} />
+            </Pressable>
+          }
         />
 
         <View style={styles.list}>
@@ -156,6 +163,11 @@ export function ContractTemplatesScreen() {
           ) : null}
         </View>
       </ScrollView>
+
+      <CreateTemplateModal 
+        visible={isCreateModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+      />
     </Screen>
   );
 }

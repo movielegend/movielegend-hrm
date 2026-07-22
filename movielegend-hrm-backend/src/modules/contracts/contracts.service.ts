@@ -36,8 +36,14 @@ export class ContractsService {
 
   async createTemplate(dto: CreateContractTemplateDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
+      let companyId = dto.companyId;
+      if (!companyId) {
+        const company = await tx.company.findFirst();
+        if (!company) throw new Error('No company found');
+        companyId = company.id;
+      }
       const template = await tx.contractTemplate.create({
-        data: { ...dto, createdById: actor.userId },
+        data: { ...dto, companyId, createdById: actor.userId },
       });
       await tx.contractTemplateVersion.create({
         data: {

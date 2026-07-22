@@ -3,9 +3,10 @@ import { ContractType, SignatureType } from '@prisma/client';
 import { IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateContractTemplateDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsUUID()
-  companyId!: string;
+  companyId?: string;
 
   @ApiProperty()
   @IsString()
