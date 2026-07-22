@@ -13,6 +13,7 @@ import {
   assetConditionTone,
   assetStatusLabels,
   assetStatusTone,
+  assignmentStatusLabels,
   assignmentStatusTone,
   incidentStatusTone,
   incidentTypeLabels,
@@ -61,7 +62,7 @@ export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssign
     <Pressable style={({ pressed }) => [styles.myAssetCard, pressed && { opacity: 0.9 }]} onPress={onPress}>
       <View style={styles.myAssetHeader}>
         <View style={styles.myAssetIconWrap}>
-          <MaterialCommunityIcons name={iconName} size={32} color={colors.primary} />
+          <MaterialCommunityIcons name={iconName} size={30} color="#09090B" />
         </View>
         <View style={styles.myAssetInfo}>
           <Text style={styles.myAssetTitle}>{asset.name}</Text>
@@ -75,7 +76,7 @@ export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssign
       <View style={styles.myAssetBodyRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.metaLabel}>Trạng thái cấp phát</Text>
-          <StatusBadge label={assignment.status} tone={assignmentStatusTone(assignment.status)} />
+          <StatusBadge label={assignmentStatusLabels[assignment.status] ?? assignment.status} tone={assignmentStatusTone(assignment.status)} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.metaLabel}>Tình trạng thiết bị</Text>
@@ -198,17 +199,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   myAssetCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E4E4E7',
   },
   myAssetHeader: {
     flexDirection: 'row',
@@ -216,10 +217,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   myAssetIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: '#EEF2FF',
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#F4F4F5',
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -210,9 +210,33 @@ export class AssetsService {
     });
   }
 
+  private async notifyManagers(
+    tx: Prisma.TransactionClient,
+    actor: AuthenticatedUser,
+    type: NotificationType,
+    title: string,
+    body: string,
+    metadata: Record<string, unknown>,
+  ) {
+    const managers = await tx.userRole.findMany({
+      where: { role: { code: { in: ['ADMIN', 'WAREHOUSE_MANAGER'] } } },
+      select: { userId: true },
+    });
+    const notifyUserIds = Array.from(new Set(managers.map((m) => m.userId))).filter((id) => id !== actor.userId);
+    if (notifyUserIds.length > 0) {
+      const notify = await this.notifications.createForUsers(tx, notifyUserIds, {
+        type,
+        title,
+        body,
+        metadata: metadata as any,
+      });
+      this.notifications.emitCreated(notify);
+    }
+  }
+
   async confirmAssignment(id: string, actor: AuthenticatedUser) {
     const payload = await this.prisma.$transaction(async (tx) => {
-      const assignment = await tx.assetAssignment.findUnique({ where: { id } });
+      const assignment = await tx.assetAssignment.findUnique({ where: { id }, include: { asset: true } });
       if (!assignment) throw notFound('ASSET_ASSIGNMENT_NOT_FOUND', 'Asset assignment not found');
       if (assignment.assignedToUserId !== actor.userId) throw forbidden('ASSET_ASSIGNMENT_OWNER_ONLY', 'Only receiver can confirm this assignment');
       if (assignment.status !== AssetAssignmentStatus.PENDING_CONFIRMATION) throw conflict('ASSET_ASSIGNMENT_ALREADY_PROCESSED', 'Assignment already processed');
@@ -221,6 +245,19 @@ export class AssetsService {
         data: { status: AssetAssignmentStatus.ACTIVE, receiverConfirmedAt: new Date(), histories: { create: { action: AssetAssignmentAction.CONFIRMED, performedById: actor.userId } } },
       });
       await tx.asset.update({ where: { id: assignment.assetId }, data: { assetStatus: AssetStatus.IN_USE } });
+
+      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorName = actorProfile?.fullName || 'Nhân sự';
+
+      await this.notifyManagers(
+        tx,
+        actor,
+        NotificationType.ASSET_ASSIGNMENT_CONFIRMED,
+        'Xác nhận nhận thiết bị',
+        `${actorName} đã xác nhận nhận thiết bị ${assignment.asset.name} (${assignment.asset.assetCode}).`,
+        { assetId: assignment.assetId, assignmentId: id },
+      );
+
       return updated;
     });
     this.realtime.emitToUser(actor.userId, 'asset:assigned', payload);
@@ -228,14 +265,31 @@ export class AssetsService {
   }
 
   async requestReturn(id: string, actor: AuthenticatedUser) {
-    const assignment = await this.prisma.assetAssignment.findUnique({ where: { id } });
-    if (!assignment) throw notFound('ASSET_ASSIGNMENT_NOT_FOUND', 'Asset assignment not found');
-    if (assignment.assignedToUserId !== actor.userId) throw forbidden('ASSET_ASSIGNMENT_OWNER_ONLY', 'Only assignee can request return');
-    if (assignment.status !== AssetAssignmentStatus.ACTIVE) throw conflict('ASSET_ASSIGNMENT_NOT_ACTIVE', 'Assignment is not active');
-    return this.prisma.assetAssignment.update({
-      where: { id },
-      data: { status: AssetAssignmentStatus.RETURN_REQUESTED, histories: { create: { action: AssetAssignmentAction.RETURN_REQUESTED, performedById: actor.userId } } },
+    const payload = await this.prisma.$transaction(async (tx) => {
+      const assignment = await tx.assetAssignment.findUnique({ where: { id }, include: { asset: true } });
+      if (!assignment) throw notFound('ASSET_ASSIGNMENT_NOT_FOUND', 'Asset assignment not found');
+      if (assignment.assignedToUserId !== actor.userId) throw forbidden('ASSET_ASSIGNMENT_OWNER_ONLY', 'Only assignee can request return');
+      if (assignment.status !== AssetAssignmentStatus.ACTIVE) throw conflict('ASSET_ASSIGNMENT_NOT_ACTIVE', 'Assignment is not active');
+      const updated = await tx.assetAssignment.update({
+        where: { id },
+        data: { status: AssetAssignmentStatus.RETURN_REQUESTED, histories: { create: { action: AssetAssignmentAction.RETURN_REQUESTED, performedById: actor.userId } } },
+      });
+
+      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorName = actorProfile?.fullName || 'Nhân sự';
+
+      await this.notifyManagers(
+        tx,
+        actor,
+        NotificationType.ASSET_RETURN_REQUESTED,
+        'Yêu cầu trả lại thiết bị',
+        `${actorName} vừa gửi yêu cầu trả lại thiết bị ${assignment.asset.name} (${assignment.asset.assetCode}).`,
+        { assetId: assignment.assetId, assignmentId: id },
+      );
+
+      return updated;
     });
+    return payload;
   }
 
   async receiveReturn(id: string, dto: ReceiveReturnDto, actor: AuthenticatedUser) {
@@ -270,6 +324,9 @@ export class AssetsService {
   async reportIncident(assetId: string, dto: ReportIncidentDto, actor: AuthenticatedUser) {
     await this.assertCanReportAsset(assetId, actor);
     const payload = await this.prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.findUnique({ where: { id: assetId } });
+      if (!asset) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
+
       const incident = await tx.assetIncidentReport.create({
         data: { assetId, reportedById: actor.userId, incidentType: dto.incidentType, description: dto.description, evidenceUrl: dto.evidenceUrl },
       });
@@ -279,6 +336,19 @@ export class AssetsService {
       } else {
         await tx.asset.update({ where: { id: assetId }, data: { assetStatus: AssetStatus.DAMAGED, conditionStatus: AssetConditionStatus.DAMAGED } });
       }
+
+      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorName = actorProfile?.fullName || 'Nhân sự';
+
+      await this.notifyManagers(
+        tx,
+        actor,
+        NotificationType.ASSET_INCIDENT_REPORTED,
+        'Báo cáo sự cố thiết bị',
+        `${actorName} vừa báo sự cố cho thiết bị ${asset.name} (${asset.assetCode}): ${dto.description}`,
+        { assetId, incidentId: incident.id },
+      );
+
       return incident;
     });
     this.realtime.emitToRoom('asset:incident-updated', 'asset:incident-updated', payload);
@@ -295,13 +365,30 @@ export class AssetsService {
     return incident;
   }
 
-  investigateIncident(id: string) {
-    return this.prisma.assetIncidentReport.update({ where: { id }, data: { status: AssetIncidentStatus.INVESTIGATING } });
+  async investigateIncident(id: string, actor: AuthenticatedUser) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const incident = await tx.assetIncidentReport.findUnique({ where: { id }, include: { asset: true } });
+      if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
+      const result = await tx.assetIncidentReport.update({ where: { id }, data: { status: AssetIncidentStatus.INVESTIGATING } });
+
+      if (incident.reportedById && incident.reportedById !== actor.userId) {
+        const notify = await this.notifications.createForUsers(tx, [incident.reportedById], {
+          type: NotificationType.ASSET_INCIDENT_REPORTED,
+          title: 'Sự cố thiết bị đang xử lý',
+          body: `Báo cáo sự cố thiết bị ${incident.asset.name} (${incident.asset.assetCode}) của bạn đang được kiểm tra & xử lý.`,
+          metadata: { assetId: incident.assetId, incidentId: id },
+        });
+        this.notifications.emitCreated(notify);
+      }
+      return result;
+    });
+    this.realtime.emitToRoom('asset:incident-updated', 'asset:incident-updated', updated);
+    return updated;
   }
 
   async resolveIncident(id: string, dto: ResolveIncidentDto, actor: AuthenticatedUser) {
     const updated = await this.prisma.$transaction(async (tx) => {
-      const incident = await tx.assetIncidentReport.findUnique({ where: { id } });
+      const incident = await tx.assetIncidentReport.findUnique({ where: { id }, include: { asset: true } });
       if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
       const assetStatus = dto.assetStatus ?? (incident.incidentType === AssetIncidentType.DAMAGED ? AssetStatus.MAINTENANCE : AssetStatus.LOST);
       await tx.asset.update({ where: { id: incident.assetId }, data: { assetStatus } });
@@ -312,17 +399,46 @@ export class AssetsService {
       await tx.auditLog.create({
         data: { actorUserId: actor.userId, action: 'ASSET_INCIDENT_RESOLVED', entityType: 'AssetIncidentReport', entityId: id },
       });
+
+      if (incident.reportedById && incident.reportedById !== actor.userId) {
+        const notify = await this.notifications.createForUsers(tx, [incident.reportedById], {
+          type: NotificationType.ASSET_INCIDENT_RESOLVED,
+          title: 'Sự cố thiết bị đã xử lý',
+          body: `Báo cáo sự cố thiết bị ${incident.asset.name} (${incident.asset.assetCode}) đã được xử lý xong: ${dto.resolutionNote || 'Thành công'}.`,
+          metadata: { assetId: incident.assetId, incidentId: id },
+        });
+        this.notifications.emitCreated(notify);
+      }
+
       return result;
     });
     this.realtime.emitToRoom('asset:incident-updated', 'asset:incident-updated', updated);
     return updated;
   }
 
-  rejectIncident(id: string, dto: ResolveIncidentDto, actor: AuthenticatedUser) {
-    return this.prisma.assetIncidentReport.update({
-      where: { id },
-      data: { status: AssetIncidentStatus.REJECTED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote },
+  async rejectIncident(id: string, dto: ResolveIncidentDto, actor: AuthenticatedUser) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const incident = await tx.assetIncidentReport.findUnique({ where: { id }, include: { asset: true } });
+      if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
+      const result = await tx.assetIncidentReport.update({
+        where: { id },
+        data: { status: AssetIncidentStatus.REJECTED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote },
+      });
+
+      if (incident.reportedById && incident.reportedById !== actor.userId) {
+        const notify = await this.notifications.createForUsers(tx, [incident.reportedById], {
+          type: NotificationType.ASSET_INCIDENT_RESOLVED,
+          title: 'Báo cáo sự cố bị từ chối',
+          body: `Báo cáo sự cố thiết bị ${incident.asset.name} (${incident.asset.assetCode}) bị từ chối: ${dto.resolutionNote || 'Không hợp lệ'}.`,
+          metadata: { assetId: incident.assetId, incidentId: id },
+        });
+        this.notifications.emitCreated(notify);
+      }
+
+      return result;
     });
+    this.realtime.emitToRoom('asset:incident-updated', 'asset:incident-updated', updated);
+    return updated;
   }
 
   async startMaintenance(assetId: string, dto: MaintenanceDto, actor: AuthenticatedUser) {

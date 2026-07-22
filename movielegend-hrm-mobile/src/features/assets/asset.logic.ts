@@ -26,6 +26,15 @@ export const assetConditionLabels: Record<AssetConditionStatus, string> = {
   DAMAGED: 'Hư hỏng',
 };
 
+export const assignmentStatusLabels: Record<string, string> = {
+  ACTIVE: 'Đang sử dụng',
+  PENDING_CONFIRMATION: 'Chờ xác nhận',
+  RETURN_REQUESTED: 'Chờ thu hồi',
+  RETURNED: 'Đã thu hồi',
+  CANCELLED: 'Đã hủy',
+  REJECTED: 'Đã từ chối',
+};
+
 export const incidentTypeLabels: Record<AssetIncidentType, string> = {
   DAMAGED: 'Hư hỏng',
   LOST: 'Thất lạc',

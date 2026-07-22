@@ -129,8 +129,8 @@ export class AssetIncidentsController {
 
   @Post(':id/investigate')
   @Permissions('asset.incident.resolve')
-  investigate(@Param('id') id: string) {
-    return this.assets.investigateIncident(id);
+  investigate(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assets.investigateIncident(id, actor);
   }
 
   @Post(':id/resolve')

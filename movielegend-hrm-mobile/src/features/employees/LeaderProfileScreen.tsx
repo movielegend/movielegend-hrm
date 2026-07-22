@@ -91,6 +91,7 @@ export function LeaderProfileScreen() {
           <View style={styles.infoCard}>
             <ActionRow icon="card-account-details-outline" title="Hồ sơ của tôi" onPress={() => router.push('/leader/my-profile' as any)} />
             <ActionRow icon="cash-multiple" title="Bảng lương" onPress={() => router.push('/leader/payslip' as any)} />
+            <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/leader/assets' as any)} />
             <ActionRow icon="message-draw" title="Góp ý" onPress={() => router.push('/leader/feedbacks' as any)} isLast />
           </View>
         </View>

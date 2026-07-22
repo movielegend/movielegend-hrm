@@ -61,7 +61,7 @@ export function EmployeeDashboardScreen() {
 
   return (
     <Screen>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
@@ -112,7 +112,7 @@ export function EmployeeDashboardScreen() {
         >
           {/* SVG/Pattern background mock */}
           <View style={styles.heroCardPattern} />
-          
+
           <View style={styles.statusBadge}>
             <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#3B82F6'} />
             <Text style={[styles.statusBadgeText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>
@@ -130,48 +130,48 @@ export function EmployeeDashboardScreen() {
 
         {/* Tiện ích (Grid) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tiện ích</Text>
+          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.gridContainer}>
-            <GridItem 
-              icon="calendar-clock" 
-              title="Ca làm việc" 
-              onPress={() => router.push('/employee/schedule')} 
+            <GridItem
+              icon="calendar-clock"
+              title="Ca làm việc"
+              onPress={() => router.push('/employee/schedule')}
             />
-            <GridItem 
-              icon="format-list-checks" 
-              title="Công việc" 
+            <GridItem
+              icon="format-list-checks"
+              title="Công việc"
               badge={uncompletedTasksCount > 0 ? String(uncompletedTasksCount) : undefined}
-              onPress={() => router.push('/employee/tasks')} 
+              onPress={() => router.push('/employee/tasks')}
             />
-            <GridItem 
-              icon="file-document-edit-outline" 
-              title="Đơn từ" 
-              onPress={() => router.push('/employee/requests')} 
+            <GridItem
+              icon="file-document-edit-outline"
+              title="Đơn từ"
+              onPress={() => router.push('/employee/requests')}
             />
-            <GridItem 
-              icon="cash-multiple" 
-              title="Phiếu lương" 
-              onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')} 
+            <GridItem
+              icon="cash-multiple"
+              title="Phiếu lương"
+              onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')}
             />
-            <GridItem 
-              icon="text-box-check-outline" 
-              title="Hợp đồng" 
-              onPress={() => router.push('/employee/contracts')} 
+            <GridItem
+              icon="text-box-check-outline"
+              title="Hợp đồng"
+              onPress={() => router.push('/employee/contracts')}
             />
-            <GridItem 
-              icon="message-draw" 
-              title="Góp ý" 
-              onPress={() => router.push('/employee/feedbacks' as any)} 
+            <GridItem
+              icon="message-draw"
+              title="Góp ý"
+              onPress={() => router.push('/employee/feedbacks' as any)}
             />
-            <GridItem 
-              icon="laptop" 
-              title="Tài sản" 
-              onPress={() => router.push('/employee/assets')} 
+            <GridItem
+              icon="laptop"
+              title="Tài sản"
+              onPress={() => router.push('/employee/assets')}
             />
-            <GridItem 
-              icon="swap-horizontal" 
-              title="Đổi ca" 
-              onPress={() => router.push('/employee/shift-swaps')} 
+            <GridItem
+              icon="swap-horizontal"
+              title="Đổi ca"
+              onPress={() => router.push('/employee/shift-swaps')}
             />
           </View>
         </View>
@@ -191,18 +191,18 @@ export function EmployeeDashboardScreen() {
                 })
                 .slice(0, 5)
                 .map((task) => (
-                <TaskCard 
-                  key={task.id}
-                  title={task.title}
-                  priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
-                  priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
-                  dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
-                  onPress={() => router.push(`/employee/tasks/${task.id}`)}
-                  isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
-                />
-              ))
+                  <TaskCard
+                    key={task.id}
+                    title={task.title}
+                    priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
+                    priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
+                    dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
+                    onPress={() => router.push(`/employee/tasks/${task.id}`)}
+                    isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
+                  />
+                ))
             ) : (
-              <TaskCard 
+              <TaskCard
                 title="Cập nhật báo cáo tiến độ tuần"
                 priority="Trung bình"
                 priorityColor="#F59E0B"
@@ -216,7 +216,7 @@ export function EmployeeDashboardScreen() {
       </ScrollView>
 
       {/* Floating AI Chat Button */}
-      <Pressable 
+      <Pressable
         style={styles.fab}
         onPress={() => router.push('/employee/ai-chat')}
       >
@@ -246,10 +246,10 @@ function TaskCard({ title, priority, priorityColor, dueDate, onPress, isComplete
   return (
     <Pressable style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#F9FAFB' }]} onPress={onPress}>
       <View style={styles.taskIconWrapper}>
-        <MaterialCommunityIcons 
-          name={isCompleted ? "check-circle" : "checkbox-blank-circle-outline"} 
-          size={24} 
-          color={isCompleted ? "#10B981" : "#D1D5DB"} 
+        <MaterialCommunityIcons
+          name={isCompleted ? "check-circle" : "checkbox-blank-circle-outline"}
+          size={24}
+          color={isCompleted ? "#10B981" : "#D1D5DB"}
         />
       </View>
       <View style={styles.taskContent}>
