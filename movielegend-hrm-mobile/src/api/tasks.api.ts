@@ -84,6 +84,11 @@ export async function createTaskAttachment(taskId: string, payload: CreateTaskAt
   return unwrapData(response);
 }
 
+export async function deleteTaskAttachment(taskId: string, attachmentId: string): Promise<void> {
+  const response = await apiClient.delete<ApiResponse<void>>(`/tasks/${taskId}/attachments/${attachmentId}`);
+  return unwrapData(response);
+}
+
 export async function createTaskExtensionRequest(taskId: string, payload: CreateTaskExtensionPayload): Promise<TaskExtensionRequestDto> {
   const response = await apiClient.post<ApiResponse<TaskExtensionRequestDto>>(`/tasks/${taskId}/extensions`, payload);
   return unwrapData(response);

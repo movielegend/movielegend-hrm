@@ -5,6 +5,7 @@ import {
   createTaskAttachment,
   createTaskComment,
   createTaskExtensionRequest,
+  deleteTaskAttachment,
   getMyTasks,
   getPendingTaskExtensions,
   getTask,
@@ -169,6 +170,14 @@ export function useCreateTaskAttachment(taskId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateTaskAttachmentPayload) => createTaskAttachment(taskId, payload),
+    onSuccess: () => invalidateTask(queryClient, taskId),
+  });
+}
+
+export function useDeleteTaskAttachment(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (attachmentId: string) => deleteTaskAttachment(taskId, attachmentId),
     onSuccess: () => invalidateTask(queryClient, taskId),
   });
 }

@@ -24,6 +24,7 @@ import {
   useCreateTask,
   useCreateTaskAttachment,
   useCreateTaskComment,
+  useDeleteTaskAttachment,
   useCreateTaskExtension,
   useMyTasks,
   usePendingTaskExtensions,
@@ -159,6 +160,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const submit = useSubmitTaskAssignment(id ?? '');
   const comment = useCreateTaskComment(id ?? '');
   const attachment = useCreateTaskAttachment(id ?? '');
+  const deleteAttachment = useDeleteTaskAttachment(id ?? '');
   const extension = useCreateTaskExtension(id ?? '');
   const review = useReviewTaskAssignment(id);
   const extensionReview = useReviewTaskExtension(id);
@@ -363,7 +365,14 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         </SectionCard>
 
         <SectionCard title="Tệp đính kèm">
-          <AttachmentList attachments={item.attachments} />
+          <AttachmentList 
+            attachments={item.attachments} 
+            canDelete={(attachmentId) => {
+              const att = item.attachments?.find(a => a.id === attachmentId);
+              return hasAnyPermission(user, ['task.assign_any']) || item.groupLeaderId === user?.id || att?.uploadedByUserId === user?.id;
+            }}
+            onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu')}
+          />
           <AttachmentPicker pending={attachment.isPending} onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)} />
         </SectionCard>
 

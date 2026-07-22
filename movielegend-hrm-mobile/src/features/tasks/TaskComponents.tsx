@@ -230,9 +230,18 @@ export function AttachmentPicker({
   );
 }
 
-export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDto[] | undefined }) {
+export function AttachmentList({ 
+  attachments,
+  canDelete,
+  onDeleteAttachment 
+}: { 
+  attachments?: TaskAttachmentDto[] | undefined;
+  canDelete?: (attachmentId: string) => boolean;
+  onDeleteAttachment?: (id: string) => Promise<void>;
+}) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
+  const [currentPdfUri, setCurrentPdfUri] = useState<string | null>(null);
 
   if (!attachments?.length) return <EmptyState small icon="paperclip" title="Chưa có tệp đính kèm" message="Thêm tài liệu liên quan đến công việc này." />;
   return (
@@ -242,12 +251,23 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
       <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#1a1a1a', gap: 8 }}>
           <Pressable
-            onPress={() => setPdfHtml(null)}
+            onPress={() => {
+              setPdfHtml(null);
+              setCurrentPdfUri(null);
+            }}
             style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#333', borderRadius: 8 }}
           >
             <Text style={{ color: '#fff', fontWeight: '600' }}>✕ Đóng</Text>
           </Pressable>
           <Text style={{ color: '#fff', flex: 1, fontWeight: '600', fontSize: 15 }}>Xem tài liệu</Text>
+          {currentPdfUri && (
+            <Pressable
+              onPress={() => Sharing.shareAsync(currentPdfUri, { UTI: 'application/pdf', mimeType: 'application/pdf' }).catch(console.error)}
+              style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.primary, borderRadius: 8 }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Lưu / Chia sẻ</Text>
+            </Pressable>
+          )}
         </View>
         {pdfHtml ? (
           <WebView
@@ -320,6 +340,7 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
                   </script>
                 </body></html>`;
                 setPdfHtml(html);
+                setCurrentPdfUri(fileUri);
                 return;
               }
 
@@ -343,6 +364,21 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
             </Text>
             <Text style={styles.metaSmall}>{attachment.mimeType ?? attachment.type}</Text>
           </View>
+          {onDeleteAttachment && (!canDelete || canDelete(attachment.id)) && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                Alert.alert('Xoá tài liệu', 'Bạn có chắc chắn muốn xoá tài liệu này?', [
+                  { text: 'Huỷ', style: 'cancel' },
+                  { text: 'Xoá', style: 'destructive', onPress: () => void onDeleteAttachment(attachment.id) }
+                ]);
+              }}
+              style={{ padding: 8 }}
+              hitSlop={10}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.error} />
+            </Pressable>
+          )}
         </Pressable>
       ))}
     </View>

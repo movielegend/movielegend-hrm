@@ -417,6 +417,27 @@ export class TasksService {
     });
   }
 
+  async deleteAttachment(taskId: string, attachmentId: string, actor: AuthenticatedUser) {
+    const attachment = await this.prisma.taskAttachment.findUnique({ where: { id: attachmentId, taskId } });
+    if (!attachment) throw notFound('ATTACHMENT_NOT_FOUND', 'Attachment not found');
+    
+    if (attachment.uploadedByUserId !== actor.userId && !actor.roles.includes('ADMIN') && !this.has(actor, 'task.assign_any')) {
+      const task = await this.prisma.task.findUnique({ where: { id: taskId } });
+      if (task?.groupLeaderId !== actor.userId) {
+        throw forbidden('NOT_AUTHORIZED', 'You can only delete your own attachments');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.taskAttachment.delete({ where: { id: attachmentId } });
+      // We could use TaskHistoryAction.UPDATED if DETACHED doesn't exist
+      await tx.taskStatusHistory.create({
+        data: { taskId, actorUserId: actor.userId, action: TaskHistoryAction.UPDATED },
+      });
+      return { success: true };
+    });
+  }
+
   async requestExtension(taskId: string, dto: CreateTaskExtensionRequestDto, actor: AuthenticatedUser) {
     const assignment = await this.assertOwnAssignment(dto.assignmentId, actor);
     if (assignment.taskId !== taskId) throw badRequest('TASK_ASSIGNMENT_MISMATCH', 'Assignment does not belong to task');

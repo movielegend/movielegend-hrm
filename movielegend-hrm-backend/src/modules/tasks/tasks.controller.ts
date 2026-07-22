@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Delete, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -78,6 +78,12 @@ export class TasksController {
   @AnyPermissions('task.comment_own', 'task.read_department', 'task.read_all')
   attach(@Param('id') id: string, @Body() dto: CreateTaskAttachmentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.attach(id, dto, actor);
+  }
+
+  @Delete(':id/attachments/:attachmentId')
+  @AnyPermissions('task.comment_own', 'task.read_department', 'task.read_all')
+  deleteAttachment(@Param('id') id: string, @Param('attachmentId') attachmentId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.tasks.deleteAttachment(id, attachmentId, actor);
   }
 
   @Post(':id/extensions')
