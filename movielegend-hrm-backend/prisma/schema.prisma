@@ -360,21 +360,13 @@ enum StockTransferStatus {
 
 enum AssetStatus {
   IN_STOCK
-  ASSIGNED
-  IN_USE
-  MAINTENANCE
-  LOST
-  DAMAGED
-  DISPOSED
-  TRANSFER_PENDING
+  OUT_OF_STOCK
 }
 
 enum AssetConditionStatus {
-  NEW
-  GOOD
-  FAIR
-  POOR
-  DAMAGED
+  BROKEN
+  PENDING
+  OK
 }
 
 enum AssetAssignmentStatus {
@@ -730,9 +722,6 @@ model User {
   assetAssignments                AssetAssignment[]            @relation("AssetAssignmentUserTarget")
   assignedAssets                  AssetAssignment[]            @relation("AssetAssignmentAssigner")
   assetAssignmentHistories        AssetAssignmentHistory[]     @relation("AssetAssignmentHistoryActor")
-  assetIncidentReports            AssetIncidentReport[]        @relation("AssetIncidentReporter")
-  resolvedAssetIncidents          AssetIncidentReport[]        @relation("AssetIncidentResolver")
-  assetMaintenanceRecords         AssetMaintenanceRecord[]     @relation("AssetMaintenanceCreator")
   createdInventoryChecks          InventoryCheck[]             @relation("InventoryCheckCreator")
   approvedInventoryChecks         InventoryCheck[]             @relation("InventoryCheckApprover")
   salaryProfiles                  SalaryProfile[]              @relation("SalaryProfileUser")
@@ -2028,26 +2017,24 @@ model StockTransferItem {
 }
 
 model Asset {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  assetCode          String                   @unique
-  departmentId       String?                  @db.Uuid
-  name               String
-  brand              String?
-  model              String?
-  conditionStatus    AssetConditionStatus     @default(GOOD)
-  conditionNote      String?
-  assetStatus        AssetStatus              @default(IN_STOCK)
-  description        String?
-  imageUrl           String?
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  deletedAt          DateTime?
-  department         Department?              @relation(fields: [departmentId], references: [id])
-  assignments        AssetAssignment[]
-  incidents          AssetIncidentReport[]
-  maintenanceRecords AssetMaintenanceRecord[]
-  warehouse          Warehouse?               @relation(fields: [warehouseId], references: [id])
-  warehouseId        String?                  @db.Uuid
+  id              String               @id @default(uuid()) @db.Uuid
+  assetCode       String               @unique
+  departmentId    String?              @db.Uuid
+  name            String
+  brand           String?
+  model           String?
+  conditionStatus AssetConditionStatus @default(OK)
+  conditionNote   String?
+  assetStatus     AssetStatus          @default(IN_STOCK)
+  description     String?
+  imageUrl        String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deletedAt       DateTime?
+  department      Department?          @relation(fields: [departmentId], references: [id])
+  assignments     AssetAssignment[]
+  warehouse       Warehouse?           @relation(fields: [warehouseId], references: [id])
+  warehouseId     String?              @db.Uuid
 
   @@index([assetStatus])
   @@map("assets")
@@ -2092,48 +2079,6 @@ model AssetAssignmentHistory {
   performedBy       User                  @relation("AssetAssignmentHistoryActor", fields: [performedById], references: [id])
 
   @@map("asset_assignment_histories")
-}
-
-model AssetIncidentReport {
-  id             String              @id @default(uuid()) @db.Uuid
-  assetId        String              @db.Uuid
-  reportedById   String              @db.Uuid
-  incidentType   AssetIncidentType
-  description    String
-  evidenceUrl    String?
-  status         AssetIncidentStatus @default(OPEN)
-  resolvedById   String?             @db.Uuid
-  resolvedAt     DateTime?
-  resolutionNote String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  asset          Asset               @relation(fields: [assetId], references: [id])
-  reportedBy     User                @relation("AssetIncidentReporter", fields: [reportedById], references: [id])
-  resolvedBy     User?               @relation("AssetIncidentResolver", fields: [resolvedById], references: [id])
-
-  @@index([status, createdAt])
-  @@index([assetId, status])
-  @@map("asset_incident_reports")
-}
-
-model AssetMaintenanceRecord {
-  id              String                 @id @default(uuid()) @db.Uuid
-  assetId         String                 @db.Uuid
-  maintenanceType String
-  vendorName      String?
-  description     String
-  cost            Decimal?               @db.Decimal(14, 2)
-  startedAt       DateTime
-  completedAt     DateTime?
-  status          AssetMaintenanceStatus @default(IN_PROGRESS)
-  createdById     String                 @db.Uuid
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  asset           Asset                  @relation(fields: [assetId], references: [id])
-  createdBy       User                   @relation("AssetMaintenanceCreator", fields: [createdById], references: [id])
-
-  @@index([assetId, status])
-  @@map("asset_maintenance_records")
 }
 
 model InventoryCheck {
@@ -2912,9 +2857,9 @@ model Feedback {
   isAnonymous  Boolean        @default(false)
   status       FeedbackStatus @default(SEND)
 
-  reason       String?
-  reviewedAt   DateTime?
-  img          String?
+  reason     String?
+  reviewedAt DateTime?
+  img        String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
