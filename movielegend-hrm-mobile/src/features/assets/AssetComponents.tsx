@@ -100,6 +100,21 @@ export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssign
   );
 }
 
+export function IncidentCard({ incident, onPress }: { incident: any; onPress?: () => void }) {
+  return (
+    <SectionCard>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>{incident.asset?.name ?? incident.assetId}</Text>
+        <StatusBadge label={incident.status} tone={incidentStatusTone(incident.status)} />
+      </View>
+      <Text style={styles.meta}>Loại: {incidentTypeLabels[incident.incidentType] ?? incident.incidentType}</Text>
+      <Text style={styles.body} numberOfLines={2}>{incident.description}</Text>
+      <Text style={styles.meta}>{formatDateTime(incident.createdAt)}</Text>
+      {onPress ? <SecondaryButton onPress={onPress}>Chi tiết</SecondaryButton> : null}
+    </SectionCard>
+  );
+}
+
 
 
 export function MaintenanceCard({ record, costVisible }: { record: AssetMaintenanceDto; costVisible: boolean }) {
