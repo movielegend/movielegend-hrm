@@ -21,15 +21,6 @@ export class CloudinaryStorageService implements StorageService {
   }
 
   async upload(input: UploadInput): Promise<UploadResult> {
-    const isPdf = 
-      input.mimeType === 'application/pdf' || 
-      (input.fileName && input.fileName.toLowerCase().endsWith('.pdf')) ||
-      (input.storageKey && input.storageKey.toLowerCase().endsWith('.pdf'));
-    if (isPdf) {
-      this.logger.log('Delegating PDF upload to FirebaseStorageService');
-      return this.firebaseFallback.upload(input);
-    }
-
     return new Promise((resolve, reject) => {
       let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
       if (input.mimeType.startsWith('image/')) resourceType = 'image';
@@ -71,10 +62,6 @@ export class CloudinaryStorageService implements StorageService {
 
   async delete(key: string): Promise<void> {
     try {
-      if (key.toLowerCase().endsWith('.pdf')) {
-        await this.firebaseFallback.delete(key);
-        return;
-      }
       await cloudinary.uploader.destroy(key);
     } catch (error) {
       this.logger.error(`Failed to delete file from Cloudinary: ${key}`, error);
@@ -83,9 +70,6 @@ export class CloudinaryStorageService implements StorageService {
 
   async exists(key: string): Promise<boolean> {
     try {
-      if (key.toLowerCase().endsWith('.pdf')) {
-        return this.firebaseFallback.exists(key);
-      }
       const result = await cloudinary.api.resource(key);
       return !!result;
     } catch (error) {
@@ -94,16 +78,10 @@ export class CloudinaryStorageService implements StorageService {
   }
 
   getPublicUrl(key: string): string {
-    if (key.toLowerCase().endsWith('.pdf')) {
-      return this.firebaseFallback.getPublicUrl(key);
-    }
     return cloudinary.url(key, { secure: true });
   }
 
   async read(key: string): Promise<Buffer> {
-    if (key.toLowerCase().endsWith('.pdf')) {
-      return this.firebaseFallback.read(key);
-    }
     const url = this.getPublicUrl(key);
     const response = await fetch(url);
     if (!response.ok) {
