@@ -25,7 +25,7 @@ export function OvertimeHomeScreen() {
         <PrimaryButton onPress={() => router.push('/employee/overtime/create')}>Tao don tang ca</PrimaryButton>
         <SectionCard title="Lich su tang ca">
           {(overtime.data?.items ?? []).map((request) => <OvertimeCard key={request.id} request={request} />)}
-          {!overtime.data?.items.length ? <EmptyState title="Chua co don tang ca" /> : null}
+          {!overtime.data?.items?.length ? <EmptyState title="Chua co don tang ca" /> : null}
         </SectionCard>
       </ScrollView>
     </Screen>
@@ -108,7 +108,7 @@ export function LeaderOvertimeApprovalsScreen() {
             </View>
           </SectionCard>
         ))}
-        {!pending.data?.items.length ? <EmptyState title="Khong co OT pending" /> : null}
+        {!pending.data?.items?.length ? <EmptyState title="Khong co OT pending" /> : null}
       </ScrollView>
     </Screen>
   );

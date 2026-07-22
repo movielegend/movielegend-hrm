@@ -45,7 +45,7 @@ export function validateTransferDraft(input: {
   if (!input.sourceWarehouseId) return 'Chọn kho nguồn';
   if (!input.targetWarehouseId) return 'Chọn kho đích';
   if (input.sourceWarehouseId === input.targetWarehouseId) return 'Kho nguồn và kho đích phải khác nhau';
-  if (!input.items.length) return 'Thêm ít nhất một vật tư';
+  if (!input.items?.length) return 'Thêm ít nhất một vật tư';
   if (input.items.some((item) => !item.materialId || item.quantity <= 0)) return 'Số lượng từng dòng phải lớn hơn 0';
   return null;
 }

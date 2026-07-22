@@ -1,7 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
   assetKeys,
-  incidentKeys,
   inventoryCheckKeys,
   materialIssueKeys,
   queryKeys,
@@ -69,9 +68,6 @@ export function invalidateForAssetReturnUpdated(queryClient: QueryClient, payloa
 }
 
 export function invalidateForIncidentUpdated(queryClient: QueryClient, payload: IncidentSocketPayload): void {
-  void queryClient.invalidateQueries({ queryKey: incidentKeys.all });
-  const incidentId = payload.incidentId ?? payload.id;
-  if (incidentId) void queryClient.invalidateQueries({ queryKey: incidentKeys.detail(incidentId) });
   if (payload.assetId) void queryClient.invalidateQueries({ queryKey: assetKeys.detail(payload.assetId) });
 }
 

@@ -1,6 +1,5 @@
 import type { DecimalString } from './material.types';
 import type { AssetAssignmentDto } from './asset-assignment.types';
-import type { AssetIncidentDto } from './asset-incident.types';
 
 export type AssetStatus =
   | 'IN_STOCK'
@@ -12,7 +11,7 @@ export type AssetStatus =
   | 'DISPOSED'
   | 'TRANSFER_PENDING';
 
-export type AssetConditionStatus = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
+export type AssetConditionStatus = 'BROKEN' | 'PENDING' | 'OK';
 
 export type AssetMaintenanceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
@@ -35,7 +34,6 @@ export interface AssetDto {
   createdAt: string;
   updatedAt: string;
   assignments?: AssetAssignmentDto[];
-  incidents?: AssetIncidentDto[];
 }
 
 /** Actual CreateAssetDto — backend chỉ nhận đúng các field này (forbidNonWhitelisted). */

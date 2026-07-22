@@ -85,12 +85,6 @@ export const assignmentKeys = {
   all: ['asset-assignments'] as const,
 };
 
-export const incidentKeys = {
-  all: ['asset-incidents'] as const,
-  list: () => ['asset-incidents', 'list'] as const,
-  detail: (id: string) => ['asset-incidents', 'detail', id] as const,
-};
-
 export const maintenanceKeys = {
   all: ['asset-maintenance'] as const,
   activeByAsset: (assetId: string) => ['asset-maintenance', 'active', assetId] as const,

@@ -61,7 +61,7 @@ export function StockReceiptListScreen({ area }: { area: Extract<OperationArea, 
         {hasPermission(user, 'stock.import') ? <PrimaryButton onPress={() => router.push(`${base}/stock-receipts/create` as never)}>Create receipt</PrimaryButton> : null}
         {receipts.isLoading ? <LoadingState /> : null}
         {receipts.isError ? <ErrorState error={receipts.error} onRetry={() => void receipts.refetch()} /> : null}
-        {receipts.data?.items.map((receipt) => (
+        {receipts.data?.items?.map((receipt) => (
           <SectionCard key={receipt.id}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>{receipt.receiptCode}</Text>
@@ -72,7 +72,7 @@ export function StockReceiptListScreen({ area }: { area: Extract<OperationArea, 
             <SecondaryButton onPress={() => router.push(`${base}/stock-receipts/${receipt.id}` as never)}>Open</SecondaryButton>
           </SectionCard>
         ))}
-        {receipts.data && !receipts.data.items.length ? <EmptyState title="No receipts" /> : null}
+        {receipts.data && !receipts.data.items?.length ? <EmptyState title="No receipts" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -104,7 +104,7 @@ export function StockReceiptDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader title={receipt.data.receiptCode} subtitle={receipt.data.warehouse?.name ?? receipt.data.warehouseId} />
         <SectionCard title="Items">
-          {receipt.data.items.map((item) => (
+          {receipt.data.items?.map((item) => (
             <Text key={item.id} style={styles.meta}>
               {item.material?.name ?? item.materialId}: {formatQuantity(item.quantity)}
             </Text>
@@ -191,7 +191,7 @@ export function MaterialIssueListScreen({ area }: { area: OperationArea }) {
         ) : null}
         {issues.isLoading ? <LoadingState /> : null}
         {issues.isError ? <ErrorState error={issues.error} onRetry={() => void issues.refetch()} /> : null}
-        {issues.data?.items.map((issue) => (
+        {issues.data?.items?.map((issue) => (
           <SectionCard key={issue.id}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>Mã YC: {issue.issueCode}</Text>
@@ -202,7 +202,7 @@ export function MaterialIssueListScreen({ area }: { area: OperationArea }) {
             <SecondaryButton onPress={() => router.push(`${base}/material-issues/${issue.id}` as never)}>Xem chi tiết</SecondaryButton>
           </SectionCard>
         ))}
-        {issues.data && !issues.data.items.length ? <EmptyState title="Chưa có yêu cầu VTTB nào" /> : null}
+        {issues.data && !issues.data.items?.length ? <EmptyState title="Chưa có yêu cầu VTTB nào" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -244,7 +244,7 @@ export function MaterialIssueDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader title={`Yêu cầu: ${issue.data.issueCode}`} subtitle={`Kho: ${issue.data.warehouseId}`} />
         <SectionCard title="Danh sách vật tư">
-          {issue.data.items.map((item) => (
+          {issue.data.items?.map((item) => (
             <Text key={item.id} style={styles.meta}>
               - {item.material?.name ?? item.materialId}: xin cấp {formatQuantity(item.quantityRequested)}
             </Text>
@@ -332,7 +332,7 @@ export function MaterialIssueCreateScreen() {
           <View style={{ marginTop: 12 }}>
             {issueTargetType === 'DEPARTMENT' ? (
               <View style={styles.chipRow}>
-                {departments.data?.items.map((department) => (
+                {departments.data?.items?.map((department) => (
                   <FilterChip key={department.id} label={department.name} selected={issuedToDepartmentId === department.id} onPress={() => setIssuedToDepartmentId(department.id)} />
                 ))}
               </View>
@@ -366,7 +366,7 @@ export function StockTransferListScreen({ area }: { area: Extract<OperationArea,
         {hasPermission(user, 'stock.transfer') ? <PrimaryButton onPress={() => router.push(`${base}/stock-transfers/create` as never)}>Create transfer</PrimaryButton> : null}
         {transfers.isLoading ? <LoadingState /> : null}
         {transfers.isError ? <ErrorState error={transfers.error} onRetry={() => void transfers.refetch()} /> : null}
-        {transfers.data?.items.map((transfer) => (
+        {transfers.data?.items?.map((transfer) => (
           <SectionCard key={transfer.id}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>{transfer.transferCode}</Text>
@@ -376,7 +376,7 @@ export function StockTransferListScreen({ area }: { area: Extract<OperationArea,
             <SecondaryButton onPress={() => router.push(`${base}/stock-transfers/${transfer.id}` as never)}>Open</SecondaryButton>
           </SectionCard>
         ))}
-        {transfers.data && !transfers.data.items.length ? <EmptyState title="No transfers" /> : null}
+        {transfers.data && !transfers.data.items?.length ? <EmptyState title="No transfers" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -410,7 +410,7 @@ export function StockTransferDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader title={transfer.transfer.transferCode} subtitle={`${transfer.transfer.sourceWarehouseId} to ${transfer.transfer.targetWarehouseId}`} />
         <SectionCard title="Items">
-          {transfer.transfer.items.map((item) => (
+          {transfer.transfer.items?.map((item) => (
             <Text key={item.id} style={styles.meta}>{item.material?.name ?? item.materialId}: {formatQuantity(item.quantity)}</Text>
           ))}
         </SectionCard>

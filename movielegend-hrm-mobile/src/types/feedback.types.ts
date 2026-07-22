@@ -1,4 +1,9 @@
-import type { PaginatedQuery, PaginatedResponse } from './pagination.types';
+import type { PaginatedResult } from './pagination.types';
+
+export interface PaginatedQuery {
+  page?: number;
+  limit?: number;
+}
 
 export type FeedbackStatus = 'SEND' | 'REVIEWED' | 'RESOLVED' | 'REJECTED';
 
@@ -51,4 +56,4 @@ export interface FeedbackStats {
   nonAnonymous: number;
 }
 
-export type FeedbackListResponse = PaginatedResponse<Feedback>;
+export type FeedbackListResponse = PaginatedResult<Feedback>;

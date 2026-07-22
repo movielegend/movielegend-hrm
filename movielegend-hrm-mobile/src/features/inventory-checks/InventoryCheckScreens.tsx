@@ -45,7 +45,7 @@ export function InventoryCheckListScreen({ area }: { area: 'warehouse' | 'admin'
         ) : null}
         {checks.isLoading ? <LoadingState /> : null}
         {checks.isError ? <ErrorState error={checks.error} onRetry={() => void checks.refetch()} /> : null}
-        {checks.data?.items.map((check) => (
+        {checks.data?.items?.map((check) => (
           <SectionCard key={check.id}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>{check.checkCode}</Text>
@@ -55,7 +55,7 @@ export function InventoryCheckListScreen({ area }: { area: 'warehouse' | 'admin'
             <SecondaryButton onPress={() => router.push(`${base}/inventory-checks/${check.id}` as never)}>Open</SecondaryButton>
           </SectionCard>
         ))}
-        {checks.data && !checks.data.items.length ? <EmptyState title="No inventory checks" /> : null}
+        {checks.data && !checks.data.items?.length ? <EmptyState title="No inventory checks" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -88,7 +88,7 @@ export function InventoryCheckCreateScreen() {
         <PageHeader title="Create inventory check" subtitle="Backend snapshots stock and assets; mobile does not create local stock lines." />
         <SectionCard title="Warehouse">
           <View style={styles.chipRow}>
-            {warehouses.data?.items.map((warehouse) => (
+            {warehouses.data?.items?.map((warehouse) => (
               <FilterChip key={warehouse.id} label={`${warehouse.code} ${warehouse.name}`} selected={warehouseId === warehouse.id} onPress={() => setWarehouseId(warehouse.id)} />
             ))}
           </View>
@@ -149,7 +149,7 @@ export function InventoryCheckDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader title={check.data.checkCode} subtitle={check.data.warehouseId} />
         <SectionCard title="Items">
-          {check.data.items.map((item) => (
+          {check.data.items?.map((item) => (
             <View key={item.id} style={styles.itemRow}>
               <Text style={styles.title}>{item.materialId ?? item.assetId ?? item.id}</Text>
               <Text style={styles.meta}>System: {formatQuantity(item.systemQuantity)}</Text>

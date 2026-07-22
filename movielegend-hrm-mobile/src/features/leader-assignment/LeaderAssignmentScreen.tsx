@@ -66,7 +66,7 @@ export function LeaderAssignmentScreen() {
             <View style={{ marginBottom: 16 }}>
               <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>1. Chọn phòng ban</Text>
               {departments.isLoading ? <Text style={styles.meta}>Đang tải phòng ban...</Text> : null}
-              {departments.data?.items.map((dept) => (
+              {departments.data?.items?.map((dept) => (
                 <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); setValue('userId', '', { shouldValidate: true }); }} style={[styles.option, selectedDepartmentId === dept.id && styles.optionSelected]}>
                   <Text style={styles.titleText}>{dept.name}</Text>
                   <Text style={styles.meta}>{dept.code}</Text>
@@ -79,10 +79,10 @@ export function LeaderAssignmentScreen() {
               <View style={{ marginBottom: 24 }}>
                 <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>2. Chọn nhân viên làm Leader</Text>
                 {employees.isLoading ? <Text style={styles.meta}>Đang tải nhân viên...</Text> : null}
-                {!employees.isLoading && !employees.data?.items.length ? (
+                {!employees.isLoading && !employees.data?.items?.length ? (
                   <Text style={styles.meta}>Phòng ban này chưa có nhân viên nào.</Text>
                 ) : null}
-                {employees.data?.items.map((emp) => {
+                {employees.data?.items?.map((emp) => {
                   const isCurrentLeader = departments.data?.items.find(d => d.id === selectedDepartmentId)?.leaderUserId === emp.id;
                   
                   return (

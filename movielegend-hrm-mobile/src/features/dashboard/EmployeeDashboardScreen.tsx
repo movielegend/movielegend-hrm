@@ -32,7 +32,7 @@ export function EmployeeDashboardScreen() {
   }, [schedule]);
 
   useEffect(() => {
-    if (myTasks && myTasks.items && myTasks.items.length > 0) {
+    if (myTasks && myTasks.items && myTasks.items?.length > 0) {
       scheduleTaskNotifications(myTasks.items).catch(console.error);
     }
   }, [myTasks]);
@@ -180,7 +180,7 @@ export function EmployeeDashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Công việc của tôi</Text>
           <View style={styles.tasksContainer}>
-            {myTasks?.items && myTasks.items.length > 0 ? (
+            {myTasks?.items && myTasks.items?.length > 0 ? (
               [...myTasks.items]
                 .sort((a, b) => {
                   const isACompleted = a.status === 'COMPLETED' || a.status === 'CANCELLED';

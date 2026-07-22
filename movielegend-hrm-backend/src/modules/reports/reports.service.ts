@@ -138,16 +138,12 @@ export class ReportsService {
   }
 
   async assets() {
-    const [total, assigned, inStock, maintenance, damaged, lost, disposed] = await Promise.all([
+    const [total, inStock, outOfStock] = await Promise.all([
       this.prisma.asset.count(),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.ASSIGNED } }),
       this.prisma.asset.count({ where: { assetStatus: AssetStatus.IN_STOCK } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.MAINTENANCE } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.DAMAGED } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.LOST } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.DISPOSED } }),
+      this.prisma.asset.count({ where: { assetStatus: AssetStatus.OUT_OF_STOCK } }),
     ]);
-    return [{ total, assigned, inStock, maintenance, damaged, lost, disposed }];
+    return [{ total, inStock, outOfStock }];
   }
 
   async kpi(query: KpiReportQueryDto, actor: AuthenticatedUser) {

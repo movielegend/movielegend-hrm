@@ -141,7 +141,7 @@ export function CreateCrossDepartmentScreen() {
 
   const departmentOptions: SelectOption[] = useMemo(() => {
     if (!departmentsQuery.data?.items) return [];
-    return departmentsQuery.data.items.map(d => ({
+    return departmentsQuery.data.items?.map(d => ({
       id: d.id,
       label: d.name,
       subtitle: `Mã: ${d.code}`

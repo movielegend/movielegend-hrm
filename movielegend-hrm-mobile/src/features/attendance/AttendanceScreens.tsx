@@ -310,7 +310,7 @@ export function AttendanceHistoryScreen() {
             <PressableRow record={record} onPress={() => router.push(`/employee/attendance/${record.id}`)} />
           </SectionCard>
         ))}
-        {!history.data?.items.length ? (
+        {!history.data?.items?.length ? (
           history.isError ? (
             <EmptyState title="Chua co du lieu" message="Khong tai duoc /attendance/my." />
           ) : (

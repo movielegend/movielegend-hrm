@@ -1,5 +1,4 @@
 import type { AssetConditionStatus, AssetStatus } from './asset.types';
-import type { AssetIncidentDto } from './asset-incident.types';
 
 export type AssetAssignmentStatus =
   | 'PENDING_CONFIRMATION'
@@ -34,7 +33,6 @@ export interface MyAssetAssignmentDto extends AssetAssignmentDto {
     serialNumber?: string | null;
     conditionStatus: AssetConditionStatus;
     assetStatus: AssetStatus;
-    incidents: AssetIncidentDto[];
   };
 }
 

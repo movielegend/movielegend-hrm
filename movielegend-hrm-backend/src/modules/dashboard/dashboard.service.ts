@@ -123,15 +123,12 @@ export class AdminDashboardService {
   }
 
   private async assetSummary() {
-    const [total, assigned, inStock, maintenance, damaged, lost] = await Promise.all([
+    const [total, inStock, outOfStock] = await Promise.all([
       this.prisma.asset.count({ where: { deletedAt: null } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.ASSIGNED, deletedAt: null } }),
       this.prisma.asset.count({ where: { assetStatus: AssetStatus.IN_STOCK, deletedAt: null } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.MAINTENANCE, deletedAt: null } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.DAMAGED, deletedAt: null } }),
-      this.prisma.asset.count({ where: { assetStatus: AssetStatus.LOST, deletedAt: null } }),
+      this.prisma.asset.count({ where: { assetStatus: AssetStatus.OUT_OF_STOCK, deletedAt: null } }),
     ]);
-    return { total, assigned, inStock, maintenance, damaged, lost };
+    return { total, inStock, outOfStock };
   }
 
   private async payrollSummary() {
@@ -254,7 +251,7 @@ export class LeaderDashboardService {
     const departmentIds = this.scope.visibleDepartmentIds(actor) ?? [];
     const { start, end } = new DashboardAggregationService(this.prisma).todayRange();
     const userIds = (await this.prisma.departmentMember.findMany({ where: { departmentId: { in: departmentIds }, leftAt: null }, select: { userId: true } })).map((item) => item.userId);
-    const [activeEmployeeCount, absentToday, lateToday, onLeaveToday, activeTasks, overdueTasks, waitingReview, completedThisPeriod, scheduledToday, pendingLeave, pendingAdjustments, pendingOt, pendingApproval, awaitingLeaderReview, assignedDepartmentAssets, damagedAssetReports] =
+    const [activeEmployeeCount, absentToday, lateToday, onLeaveToday, activeTasks, overdueTasks, waitingReview, completedThisPeriod, scheduledToday, pendingLeave, pendingAdjustments, pendingOt, pendingApproval, awaitingLeaderReview, assignedDepartmentAssets] =
       await Promise.all([
         this.prisma.user.count({ where: { id: { in: userIds }, accountStatus: AccountStatus.ACTIVE } }),
         this.prisma.shiftAssignment.count({ where: { userId: { in: userIds }, workDate: { gte: start, lte: end } } }),
@@ -271,7 +268,6 @@ export class LeaderDashboardService {
         this.prisma.userApprovalRequest.count({ where: { requestedDepartmentId: { in: departmentIds }, status: 'PENDING' } }),
         this.prisma.employeeKpiAssignment.count({ where: { userId: { in: userIds }, status: EmployeeKpiAssignmentStatus.LEADER_REVIEW } }),
         this.prisma.assetAssignment.count({ where: { assignedToDepartmentId: { in: departmentIds }, status: 'ACTIVE' } }),
-        this.prisma.assetIncidentReport.count({ where: { asset: { assignments: { some: { assignedToDepartmentId: { in: departmentIds } } } }, status: { in: ['OPEN', 'INVESTIGATING'] } } }),
       ]);
     return {
       department: { activeEmployeeCount, absentToday, lateToday, onLeaveToday },
@@ -279,7 +275,7 @@ export class LeaderDashboardService {
       shift: { scheduledToday, unassignedEmployees: Math.max(0, activeEmployeeCount - scheduledToday) },
       requests: { pendingLeave, pendingAttendanceAdjustment: pendingAdjustments, pendingOt, pendingAccountApproval: pendingApproval },
       kpi: { awaitingLeaderReview, finalizedAverageScore: null },
-      assets: { assignedDepartmentAssets, damagedAssetReports },
+      assets: { assignedDepartmentAssets },
     };
   }
 
@@ -387,7 +383,7 @@ export class EmployeeDashboardService {
     start.setHours(0, 0, 0, 0);
     const end = new Date(now);
     end.setHours(23, 59, 59, 999);
-    const [shiftToday, attendance, newTasks, dueToday, overdue, waitingReview, leaveBalances, pendingLeave, latestPayslip, activeContract, signatureRequired, expiringContract, activeKpi, assignedAssetsCount, openIncidentReports, unreadNotifications] =
+    const [shiftToday, attendance, newTasks, dueToday, overdue, waitingReview, leaveBalances, pendingLeave, latestPayslip, activeContract, signatureRequired, expiringContract, activeKpi, assignedAssetsCount, unreadNotifications] =
       await Promise.all([
         this.prisma.shiftAssignment.findFirst({ where: { userId: actor.userId, workDate: { gte: start, lte: end } }, include: { shift: true } }),
         this.prisma.attendanceRecord.findFirst({ where: { userId: actor.userId, workDate: { gte: start, lte: end } } }),
@@ -403,7 +399,6 @@ export class EmployeeDashboardService {
         this.prisma.employeeContract.count({ where: { userId: actor.userId, status: ContractStatus.ACTIVE, endDate: { gte: start, lte: new Date(start.getTime() + 30 * 86_400_000) } } }),
         this.prisma.employeeKpiAssignment.findFirst({ where: { userId: actor.userId, status: { in: [EmployeeKpiAssignmentStatus.ACTIVE, EmployeeKpiAssignmentStatus.LEADER_REVIEW, EmployeeKpiAssignmentStatus.FINAL_REVIEW] } }, orderBy: { periodStart: 'desc' } }),
         this.prisma.assetAssignment.count({ where: { assignedToUserId: actor.userId, status: 'ACTIVE' } }),
-        this.prisma.assetIncidentReport.count({ where: { reportedById: actor.userId, status: { in: ['OPEN', 'INVESTIGATING'] } } }),
         this.prisma.notificationTarget.count({ where: { userId: actor.userId, readAt: null } }),
       ]);
     return {
@@ -413,7 +408,7 @@ export class EmployeeDashboardService {
       payroll: { latestVisiblePayslipPeriod: latestPayslip?.period?.periodCode ?? null },
       contract: { activeContract, signatureRequired, expiringContract },
       kpi: { activeAssignment: activeKpi, actionRequired: activeKpi?.status ?? null },
-      assets: { assignedAssetsCount, openIncidentReports },
+      assets: { assignedAssetsCount },
       notifications: { unreadCount: unreadNotifications },
     };
   }

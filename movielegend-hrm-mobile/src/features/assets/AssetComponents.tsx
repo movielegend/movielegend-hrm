@@ -7,7 +7,6 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { AssetConditionStatus, AssetDto, AssetMaintenanceDto, AssetStatus } from '../../types/asset.types';
 import type { MyAssetAssignmentDto } from '../../types/asset-assignment.types';
-import type { AssetIncidentDto } from '../../types/asset-incident.types';
 import { formatDateTime } from '../../utils/date-time';
 import {
   assetConditionLabels,
@@ -101,20 +100,7 @@ export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssign
   );
 }
 
-export function IncidentCard({ incident, onPress }: { incident: AssetIncidentDto; onPress?: () => void }) {
-  return (
-    <SectionCard>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{incident.asset?.name ?? incident.assetId}</Text>
-        <StatusBadge label={incident.status} tone={incidentStatusTone(incident.status)} />
-      </View>
-      <Text style={styles.meta}>Loại: {incidentTypeLabels[incident.incidentType] ?? incident.incidentType}</Text>
-      <Text style={styles.body} numberOfLines={2}>{incident.description}</Text>
-      <Text style={styles.meta}>{formatDateTime(incident.createdAt)}</Text>
-      {onPress ? <SecondaryButton onPress={onPress}>Chi tiết</SecondaryButton> : null}
-    </SectionCard>
-  );
-}
+
 
 export function MaintenanceCard({ record, costVisible }: { record: AssetMaintenanceDto; costVisible: boolean }) {
   return (

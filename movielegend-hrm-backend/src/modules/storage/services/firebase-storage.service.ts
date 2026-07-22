@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StorageService, UploadInput, UploadResult } from '../storage.service';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getStorage } from 'firebase-admin/storage';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
@@ -9,7 +10,7 @@ import * as path from 'path';
 @Injectable()
 export class FirebaseStorageService implements StorageService {
   private readonly logger = new Logger(FirebaseStorageService.name);
-  private bucket: ReturnType<typeof admin.storage.prototype.bucket>;
+  private bucket: any;
   private isInitialized = false;
 
   constructor() {
@@ -17,13 +18,13 @@ export class FirebaseStorageService implements StorageService {
   }
 
   private initFirebase() {
-    if (!admin.apps.length) {
+    if (!getApps().length) {
       try {
         const serviceAccountPath = path.resolve(process.cwd(), 'firebase-service-account.json');
         if (fs.existsSync(serviceAccountPath)) {
           const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-          admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
+          initializeApp({
+            credential: cert(serviceAccount),
             storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`
           });
           this.isInitialized = true;
@@ -39,7 +40,7 @@ export class FirebaseStorageService implements StorageService {
     }
     
     if (this.isInitialized) {
-      this.bucket = admin.storage().bucket();
+      this.bucket = getStorage().bucket();
     }
   }
 

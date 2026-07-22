@@ -110,8 +110,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
           <View style={styles.list}>
             {adminUsers.isLoading ? <LoadingState /> : null}
             {adminUsers.isError ? <ErrorState error={adminUsers.error} onRetry={() => void adminUsers.refetch()} /> : null}
-            {!adminUsers.isLoading && !adminUsers.data?.items.length ? <EmptyState title="Chưa có nhân viên phù hợp" /> : null}
-            {adminUsers.data?.items.map((employee) => (
+            {!adminUsers.isLoading && !adminUsers.data?.items?.length ? <EmptyState title="Chưa có nhân viên phù hợp" /> : null}
+            {adminUsers.data?.items?.map((employee) => (
               <View key={employee.id} style={styles.card}>
                 <View style={styles.identityRow}>
                   <View style={styles.avatarBox}>
@@ -396,7 +396,7 @@ export function EmployeeDetailScreen() {
             <View style={{ marginTop: 16 }}>
               <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
               {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
-              {departments.data?.items.map((dept) => (
+              {departments.data?.items?.map((dept) => (
                 <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
                   <Text style={styles.titleText}>{dept.name}</Text>
                   <Text style={styles.meta}>{dept.code}</Text>
@@ -505,7 +505,7 @@ export function CreateEmployeeScreen() {
           <View style={{ marginTop: 16 }}>
             <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
             {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
-            {departments.data?.items.map((dept) => (
+            {departments.data?.items?.map((dept) => (
               <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
                 <Text style={styles.titleText}>{dept.name}</Text>
                 <Text style={styles.meta}>{dept.code}</Text>

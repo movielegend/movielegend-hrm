@@ -79,10 +79,10 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
         <View style={{ gap: 12 }}>
           {feedbacksQuery.isLoading ? (
             <ActivityIndicator style={{ marginVertical: 20 }} color="#000" />
-          ) : feedbacksQuery.data?.items.length === 0 ? (
+          ) : !feedbacksQuery.data || !feedbacksQuery.data.items || feedbacksQuery.data.items.length === 0 ? (
             <EmptyState title="Trống" message="Chưa có góp ý nào." />
           ) : (
-            feedbacksQuery.data?.items.map((fb) => (
+            feedbacksQuery.data.items?.map((fb) => (
               <FeedbackCard
                 key={fb.id}
                 feedback={fb}

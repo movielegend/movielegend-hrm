@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -10,8 +10,6 @@ import {
   CreateAssetDto,
   MaintenanceDto,
   ReceiveReturnDto,
-  ReportIncidentDto,
-  ResolveIncidentDto,
   TransferAssetDto,
   UpdateAssetDto,
   RevokeAssetDto,
@@ -23,6 +21,12 @@ import {
 export class AssetsController {
   constructor(private readonly assets: AssetsService) {}
 
+  @Patch('assets/:id/incident-status')
+  @Permissions('asset.incident.resolve')
+  updateIncidentStatus(@Param('id') id: string, @Body('status') status: 'BROKEN' | 'OK', @Body('note') note: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assets.updateIncidentStatus(id, status, actor, note);
+  }
+
   @Post('assets')
   @Permissions('asset.create')
   create(@Body() dto: CreateAssetDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -31,8 +35,8 @@ export class AssetsController {
 
   @Get('assets')
   @Permissions('asset.read')
-  findAll(@CurrentUser() actor: AuthenticatedUser) {
-    return this.assets.findAll(actor);
+  findAll(@CurrentUser() actor: AuthenticatedUser, @Query('incidentTab') incidentTab?: string) {
+    return this.assets.findAll(actor, incidentTab);
   }
 
   @Get('assets/my')
@@ -71,17 +75,7 @@ export class AssetsController {
     return this.assets.revoke(id, dto, actor);
   }
 
-  @Post('assets/:id/incidents')
-  @Permissions('asset.incident.create')
-  reportIncident(@Param('id') id: string, @Body() dto: ReportIncidentDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.assets.reportIncident(id, dto, actor);
-  }
 
-  @Post('assets/:id/maintenance')
-  @Permissions('asset.maintenance.manage')
-  startMaintenance(@Param('id') id: string, @Body() dto: MaintenanceDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.assets.startMaintenance(id, dto, actor);
-  }
 }
 
 @ApiTags('Asset Assignments')
@@ -109,52 +103,4 @@ export class AssetAssignmentsController {
   }
 }
 
-@ApiTags('Asset Incidents')
-@ApiBearerAuth()
-@Controller('asset-incidents')
-export class AssetIncidentsController {
-  constructor(private readonly assets: AssetsService) {}
 
-  @Get()
-  @Permissions('asset.incident.read')
-  findAll() {
-    return this.assets.findIncidents();
-  }
-
-  @Get(':id')
-  @Permissions('asset.incident.read')
-  findOne(@Param('id') id: string) {
-    return this.assets.findIncident(id);
-  }
-
-  @Post(':id/investigate')
-  @Permissions('asset.incident.resolve')
-  investigate(@Param('id') id: string) {
-    return this.assets.investigateIncident(id);
-  }
-
-  @Post(':id/resolve')
-  @Permissions('asset.incident.resolve')
-  resolve(@Param('id') id: string, @Body() dto: ResolveIncidentDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.assets.resolveIncident(id, dto, actor);
-  }
-
-  @Post(':id/reject')
-  @Permissions('asset.incident.resolve')
-  reject(@Param('id') id: string, @Body() dto: ResolveIncidentDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.assets.rejectIncident(id, dto, actor);
-  }
-}
-
-@ApiTags('Asset Maintenance')
-@ApiBearerAuth()
-@Controller('asset-maintenance')
-export class AssetMaintenanceController {
-  constructor(private readonly assets: AssetsService) {}
-
-  @Post(':id/complete')
-  @Permissions('asset.maintenance.manage')
-  complete(@Param('id') id: string, @Body() dto: ReceiveReturnDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.assets.completeMaintenance(id, dto.conditionWhenReturned, actor);
-  }
-}

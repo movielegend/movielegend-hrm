@@ -135,8 +135,8 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
 
         {tasks.isLoading ? <LoadingState /> : null}
         {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
-        {!tasks.isLoading && !tasks.data?.items.length ? <EmptyState title="Chưa có công việc nào" /> : null}
-        {tasks.data?.items.map((task) => (
+        {!tasks.isLoading && !tasks.data?.items?.length ? <EmptyState title="Chưa có công việc nào" /> : null}
+        {tasks.data?.items?.map((task) => (
           <TaskCard key={task.id} task={task} onPress={() => router.push(`/${area}/tasks/${task.id}`)} />
         ))}
       </ScreenContainer>
@@ -773,7 +773,7 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
         <PageHeader title="Task Review" subtitle="Queue dung /task-assignments/review-queue va /task-extensions/pending." />
         {queue.isLoading ? <LoadingState /> : null}
         {queue.isError ? <ErrorState error={queue.error} onRetry={() => void queue.refetch()} /> : null}
-        {queue.data?.items.map((item) => (
+        {queue.data?.items?.map((item) => (
           <SectionCard key={item.assignmentId}>
             <Text style={styles.titleText}>{item.taskTitle}</Text>
             <Text style={styles.meta}>{item.taskCode} - {item.employee.fullName ?? item.employee.userCode}</Text>
@@ -787,11 +787,11 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
             <SecondaryButton onPress={() => router.push(`/${area}/tasks/${item.taskId}`)}>Mo task</SecondaryButton>
           </SectionCard>
         ))}
-        {!queue.data?.items.length ? <EmptyState title="Khong co task review" /> : null}
+        {!queue.data?.items?.length ? <EmptyState title="Khong co task review" /> : null}
         <SectionCard title="Extension Pending">
           {extensions.isLoading ? <LoadingState /> : null}
           {extensions.isError ? <ErrorState error={extensions.error} onRetry={() => void extensions.refetch()} /> : null}
-          {extensions.data?.items.map((item) => (
+          {extensions.data?.items?.map((item) => (
             <View key={item.id} style={styles.inlinePanel}>
               <Text style={styles.titleText}>{item.taskTitle}</Text>
               <Text style={styles.meta}>{item.employee.fullName ?? item.employee.userCode}</Text>
@@ -804,7 +804,7 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
               />
             </View>
           ))}
-          {!extensions.data?.items.length ? <Text style={styles.meta}>Khong co extension pending</Text> : null}
+          {!extensions.data?.items?.length ? <Text style={styles.meta}>Khong co extension pending</Text> : null}
         </SectionCard>
       </ScreenContainer>
     </Screen>
@@ -874,7 +874,7 @@ function AssigneeSelectorModal({
           </View>
 
           <ScrollView style={styles.assigneeList}>
-            {activeTab === 'USER' && users.data?.items.map(u => (
+            {activeTab === 'USER' && users.data?.items?.map(u => (
               <Pressable key={u.id} style={styles.assigneeRow} onPress={() => toggleTarget('USER', u.id, u.fullName ?? u.userCode)}>
                 <View style={styles.assigneeInfo}>
                   <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="account" size={20} color={colors.muted} /></View>
@@ -888,7 +888,7 @@ function AssigneeSelectorModal({
               </Pressable>
             ))}
 
-            {activeTab === 'DEPARTMENT' && departments.data?.items.map(d => (
+            {activeTab === 'DEPARTMENT' && departments.data?.items?.map(d => (
               <Pressable key={d.id} style={styles.assigneeRow} onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}>
                 <View style={styles.assigneeInfo}>
                   <View style={styles.assigneeAvatar}>

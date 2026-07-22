@@ -100,7 +100,7 @@ export function DepartmentListScreen() {
         
         {departments.isLoading ? <LoadingState /> : null}
         {departments.isError ? <ErrorState error={departments.error} onRetry={() => void departments.refetch()} /> : null}
-        {!departments.isLoading && !departments.data?.items.length ? <EmptyState title="Chưa có phòng ban" /> : null}
+        {!departments.isLoading && !departments.data?.items?.length ? <EmptyState title="Chưa có phòng ban" /> : null}
         
         <View style={styles.list}>
           {filteredItems?.map((department) => (
@@ -271,7 +271,7 @@ export function DepartmentDetailScreen() {
             {employees.isError ? <ErrorState error={employees.error} onRetry={() => void employees.refetch()} /> : null}
             
             <View style={{ gap: 8 }}>
-              {employees.data?.items.map((emp) => (
+              {employees.data?.items?.map((emp) => (
                 <View key={emp.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E6EEF3' }}>
                   <Avatar name={emp.profile?.fullName} uri={emp.profile?.avatarUrl} size={40} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
@@ -283,7 +283,7 @@ export function DepartmentDetailScreen() {
               ))}
             </View>
 
-            {!employees.isLoading && !employees.data?.items.length ? (
+            {!employees.isLoading && !employees.data?.items?.length ? (
               <Text style={{ color: '#98A0A8', fontStyle: 'italic', textAlign: 'center', marginVertical: 12 }}>Chưa có nhân viên nào thuộc phòng ban này.</Text>
             ) : null}
           </SectionCard>

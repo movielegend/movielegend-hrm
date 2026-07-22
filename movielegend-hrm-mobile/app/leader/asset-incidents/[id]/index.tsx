@@ -1,5 +1,7 @@
-import { IncidentDetailScreen } from '../../../../src/features/asset-incidents/IncidentScreens';
+import { useLocalSearchParams } from 'expo-router';
+import { IncidentDetailScreen } from '../../../../src/features/asset-incidents/IncidentDetailScreen';
 
-export default function LeaderAssetIncidentDetailRoute() {
-  return <IncidentDetailScreen />;
+export default function LeaderIncidentDetailRoute() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  return <IncidentDetailScreen id={id} area="leader" />;
 }

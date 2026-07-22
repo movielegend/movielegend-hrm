@@ -197,7 +197,7 @@ export function LeaderDashboard() {
 
           {activeTab === 'TASKS' ? (
             <View style={styles.tasksContainer}>
-              {myTasks?.items && myTasks.items.length > 0 ? (
+              {myTasks?.items && myTasks.items?.length > 0 ? (
                 [...myTasks.items]
                   .sort((a, b) => {
                     const isACompleted = a.status === 'COMPLETED' || a.status === 'CANCELLED';
@@ -224,7 +224,7 @@ export function LeaderDashboard() {
             </View>
           ) : (
             <View style={styles.tasksContainer}>
-              {delegatedTasks?.items && delegatedTasks.items.length > 0 ? (
+              {delegatedTasks?.items && delegatedTasks.items?.length > 0 ? (
                 [...delegatedTasks.items]
                   .sort((a, b) => {
                     const isACompleted = a.status === 'COMPLETED' || a.status === 'CANCELLED';

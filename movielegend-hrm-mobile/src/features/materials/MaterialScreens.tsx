@@ -60,7 +60,7 @@ export function MaterialListScreen({ area }: { area: 'warehouse' | 'admin' }) {
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm theo tên/mã" />
         <View style={styles.chipRow}>
           <FilterChip label="Tất cả nhóm" selected={categoryFilter === 'ALL'} onPress={() => setCategoryFilter('ALL')} />
-          {categories.data?.items.map((category) => (
+          {categories.data?.items?.map((category) => (
             <FilterChip
               key={category.id}
               label={category.name}
@@ -135,14 +135,14 @@ export function MaterialCategoriesScreen() {
         ) : null}
         {categories.isLoading ? <LoadingState /> : null}
         {categories.isError ? <ErrorState error={categories.error} onRetry={() => void categories.refetch()} /> : null}
-        {categories.data?.items.map((category) => (
+        {categories.data?.items?.map((category) => (
           <SectionCard key={category.id}>
             <Text style={styles.title}>{category.name}</Text>
             <Text style={styles.meta}>Mã: {category.code}</Text>
             {category.description ? <Text style={styles.meta}>{category.description}</Text> : null}
           </SectionCard>
         ))}
-        {categories.data && !categories.data.items.length ? <EmptyState title="Chưa có nhóm vật tư" /> : null}
+        {categories.data && !categories.data.items?.length ? <EmptyState title="Chưa có nhóm vật tư" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -184,7 +184,7 @@ export function MaterialCreateScreen() {
         <SectionCard>
           <Text style={styles.label}>Nhóm vật tư</Text>
           <View style={styles.chipRow}>
-            {categories.data?.items.map((category) => (
+            {categories.data?.items?.map((category) => (
               <FilterChip
                 key={category.id}
                 label={category.name}

@@ -46,10 +46,10 @@ export function WarehouseListScreen({ area }: { area: WarehouseArea }) {
         ) : null}
         {warehouses.isLoading ? <LoadingState /> : null}
         {warehouses.isError ? <ErrorState error={warehouses.error} onRetry={() => void warehouses.refetch()} /> : null}
-        {warehouses.data?.items.map((warehouse) => (
+        {warehouses.data?.items?.map((warehouse) => (
           <WarehouseCard key={warehouse.id} warehouse={warehouse} onPress={() => router.push(`${base}/${warehouse.id}` as never)} />
         ))}
-        {warehouses.data && !warehouses.data.items.length ? <EmptyState title="Không có kho trong scope của bạn" /> : null}
+        {warehouses.data && !warehouses.data.items?.length ? <EmptyState title="Không có kho trong scope của bạn" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -193,7 +193,7 @@ export function WarehouseCreateScreen() {
         <SectionCard>
           <Text style={styles.label}>Phòng ban gắn kho (đồng thời lấy companyId)</Text>
           <View style={styles.chipRow}>
-            {departments.data?.items.map((department) => (
+            {departments.data?.items?.map((department) => (
               <FilterChip
                 key={department.id}
                 label={department.name}

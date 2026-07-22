@@ -31,7 +31,7 @@ export function TaskGroupListScreen({ area }: { area: GroupArea }) {
         <PrimaryButton onPress={() => router.push(`/${area}/task-groups/create`)}>Tao group</PrimaryButton>
         {groups.isLoading ? <LoadingState /> : null}
         {groups.isError ? <ErrorState error={groups.error} onRetry={() => void groups.refetch()} /> : null}
-        {groups.data?.items.map((group) => (
+        {groups.data?.items?.map((group) => (
           <SectionCard key={group.id}>
             <Text style={styles.title}>{group.name}</Text>
             <Text style={styles.meta}>{group.department?.name ?? group.departmentId}</Text>
@@ -39,7 +39,7 @@ export function TaskGroupListScreen({ area }: { area: GroupArea }) {
             <SecondaryButton onPress={() => router.push(`/${area}/task-groups/${group.id}`)}>Chi tiet</SecondaryButton>
           </SectionCard>
         ))}
-        {!groups.data?.items.length ? <EmptyState title="Chua co task group" /> : null}
+        {!groups.data?.items?.length ? <EmptyState title="Chua co task group" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -70,7 +70,7 @@ export function CreateTaskGroupScreen() {
         <PageHeader title="Tao Task Group" subtitle="Leader/Admin tao group theo department scope backend." />
         <SectionCard>
           <FormField label="Department ID" value={departmentId} onChangeText={setDepartmentId} autoCapitalize="none" />
-          {departments.data?.items.map((department) => (
+          {departments.data?.items?.map((department) => (
             <SecondaryButton key={department.id} onPress={() => setDepartmentId(department.id)}>{department.name}</SecondaryButton>
           ))}
           <FormField label="Name" value={name} onChangeText={setName} />
@@ -136,7 +136,7 @@ export function TaskGroupDetailScreen({ area }: { area: GroupArea }) {
         <SectionCard title="Add Member">
           {area === 'leader' && !canReadUsers ? <Text style={styles.warning}>Backend chua expose scoped employee ID list cho Leader add member.</Text> : null}
           {canReadUsers
-            ? users.data?.items.map((employee) => (
+            ? users.data?.items?.map((employee) => (
                 <SecondaryButton key={employee.id} loading={addMember.isPending} onPress={() => void add(employee.id)}>
                   {employee.profile?.fullName ?? employee.userCode}
                 </SecondaryButton>

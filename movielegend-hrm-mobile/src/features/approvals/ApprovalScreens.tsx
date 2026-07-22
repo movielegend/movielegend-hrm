@@ -52,12 +52,12 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
         </View>
         {approvals.isLoading ? <LoadingState /> : null}
         {approvals.isError ? <ErrorState error={approvals.error} onRetry={() => void approvals.refetch()} /> : null}
-        {!approvals.isLoading && !approvals.data?.items.length ? <EmptyState title="Chưa có yêu cầu phù hợp" /> : null}
+        {!approvals.isLoading && !approvals.data?.items?.length ? <EmptyState title="Chưa có yêu cầu phù hợp" /> : null}
         <ScreenContainer
           style={styles.noPadding}
           refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
         >
-          {approvals.data?.items.map((approval) => (
+          {approvals.data?.items?.map((approval) => (
             <View key={approval.id} style={localStyles.card}>
               <View style={localStyles.cardHeader}>
                 <Avatar name={approval.user?.profile?.fullName} uri={approval.user?.profile?.avatarUrl} size={56} />

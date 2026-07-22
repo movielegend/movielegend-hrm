@@ -62,7 +62,7 @@ export function validateIssueDraft(input: {
   if (!input.warehouseId) return 'Chọn kho xuất';
   if (input.issueTargetType === 'USER' && !input.issuedToUserId) return 'Chọn nhân viên nhận';
   if (input.issueTargetType === 'DEPARTMENT' && !input.issuedToDepartmentId) return 'Chọn phòng ban nhận';
-  if (!input.items.length) return 'Thêm ít nhất một vật tư';
+  if (!input.items?.length) return 'Thêm ít nhất một vật tư';
   if (input.items.some((item) => !item.materialId || item.quantity <= 0)) return 'Số lượng từng dòng phải lớn hơn 0';
   return null;
 }
