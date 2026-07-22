@@ -47,10 +47,10 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
     try {
       // 1. Upload file
       const uploadedFile = await uploadFile({
-        purpose: 'contract_template',
+        purpose: 'CONTRACT_TEMPLATE',
         uri: file.uri,
         name: file.name,
-        type: file.mimeType || 'application/pdf',
+        mimeType: file.mimeType || 'application/pdf',
       });
 
       // 2. Create Template
@@ -60,8 +60,8 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
         name: name.trim(),
         contractType,
         description: description.trim() || undefined,
-        templateFileUrl: uploadedFile.url,
-        storageKey: uploadedFile.key,
+        templateFileUrl: uploadedFile.fileUrl,
+        storageKey: uploadedFile.fileId,
       });
 
       Alert.alert('Thành công', 'Tạo mẫu hợp đồng thành công');

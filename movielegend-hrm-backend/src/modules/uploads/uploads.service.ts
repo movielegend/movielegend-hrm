@@ -205,7 +205,7 @@ async function parseMultipartRequest(request: Request): Promise<ParsedMultipart>
     const disposition = /content-disposition:\s*form-data;\s*name="([^"]+)"(?:;\s*filename="([^"]*)")?/i.exec(rawHeaders);
     if (!disposition) continue;
     const name = disposition[1];
-    if (name !== 'file' && name !== 'purpose') throw badRequest('BAD_REQUEST', 'Unexpected multipart field');
+    if (name !== 'file' && name !== 'purpose') continue;
     if (/[.[\]]/.test(name)) throw badRequest('BAD_REQUEST', 'Nested multipart fields are not allowed');
     if (name === 'purpose') {
       parsed.purpose = content.toString('utf8').trim();
@@ -213,10 +213,19 @@ async function parseMultipartRequest(request: Request): Promise<ParsedMultipart>
     }
     fileCount += 1;
     if (fileCount > 1) throw badRequest('BAD_REQUEST', 'Only one file is allowed');
-    const contentTypeHeader = /content-type:\s*([^\r\n]+)/i.exec(rawHeaders);
+    const contentTypeHeader = /content-type:\s*([^\r\n;]+)/i.exec(rawHeaders);
+    let mimeType = contentTypeHeader?.[1]?.trim().toLowerCase() ?? 'application/octet-stream';
+    const fileName = disposition[2] ? path.basename(disposition[2]) : 'upload.bin';
+    if (mimeType === 'application/octet-stream' || !mimeType) {
+      const ext = path.extname(fileName).toLowerCase();
+      if (ext === '.pdf') mimeType = 'application/pdf';
+      else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+      else if (ext === '.png') mimeType = 'image/png';
+    }
     parsed.file = {
-      fileName: disposition[2] ? path.basename(disposition[2]) : 'upload.bin',
-      mimeType: contentTypeHeader?.[1]?.trim().toLowerCase() ?? 'application/octet-stream',
+      fileName,
+      mimeType,
       buffer: content,
     };
   }
