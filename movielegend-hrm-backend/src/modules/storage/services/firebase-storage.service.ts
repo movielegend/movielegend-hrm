@@ -24,7 +24,7 @@ export class FirebaseStorageService implements StorageService {
           const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
           admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`
+            storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.firebasestorage.app`
           });
           this.isInitialized = true;
           this.logger.log('Firebase Admin initialized for Storage');
