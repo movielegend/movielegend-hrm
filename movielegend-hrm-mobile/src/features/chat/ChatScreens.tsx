@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { Screen } from '../../components/Screen';
@@ -57,6 +58,95 @@ function timeAgo(dateStr: string): string {
 function getInitials(name: string): string {
   return name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
 }
+
+// ── Mock Stickers ──
+
+import axios from 'axios';
+
+const GIPHY_API_KEY = 'Gc7131jiJuvI7IdN0HZ1D7nh0ow5BU6g';
+
+const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: boolean, onClose: () => void, onSelectSticker: (url: string, type: string) => void }) => {
+  const [stickers, setStickers] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchStickers = async (query = '') => {
+    setLoading(true);
+    try {
+      const endpoint = query 
+        ? `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=30`
+        : `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=30`;
+      const response = await axios.get(endpoint);
+      setStickers(response.data.data);
+    } catch (e) {
+      console.error('Giphy Fetch Error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible && stickers.length === 0) fetchStickers();
+  }, [visible]);
+
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      fetchStickers(text);
+    }, 500);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <View style={{ backgroundColor: '#fff', height: '70%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, paddingBottom: 10 }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold' }}>Tìm kiếm Nhãn dán</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={{ color: '#3B82F6', fontWeight: 'bold' }}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Search Bar */}
+          <View style={{ paddingHorizontal: 15, paddingBottom: 10 }}>
+            <TextInput 
+              style={{ backgroundColor: '#F3F4F6', padding: 12, borderRadius: 10, fontSize: 15 }}
+              placeholder="Tìm kiếm (VD: Hello, Happy, Sad...)"
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+          </View>
+
+          {/* Sticker Grid */}
+          {loading && stickers.length === 0 ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#3B82F6" />
+            </View>
+          ) : (
+            <FlatList
+              data={stickers}
+              numColumns={3}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: 10 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={{ flex: 1, alignItems: 'center', margin: 5 }} 
+                  onPress={() => onSelectSticker(item.images.fixed_width.url, 'giphy')}
+                >
+                  <Image source={{ uri: item.images.fixed_width.url }} style={{ width: 100, height: 100 }} resizeMode="contain" />
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 // ── Chat Groups Screen ──
 
@@ -168,6 +258,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentions, setMentions] = useState<string[]>([]);
+  const [isStickerOpen, setIsStickerOpen] = useState(false);
 
   const messageItems = Array.isArray(messages.data)
     ? messages.data
@@ -183,6 +274,21 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   useEffect(() => {
     if (groupId) joinChatRoom(groupId);
   }, [groupId, joinChatRoom]);
+
+  async function handleSendSticker(stickerUrl: string, type: string) {
+    setIsStickerOpen(false);
+    try {
+      let prefix = type === 'lottie' ? 'LOTTIE_STICKER:' : 'STATIC_STICKER:';
+      if (type === 'giphy') prefix = 'GIPHY_STICKER:';
+      
+      await sendMessage.mutateAsync({
+        content: `${prefix}${stickerUrl}`,
+      });
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Lỗi', 'Không thể gửi nhãn dán');
+    }
+  }
 
   async function pickImage() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -310,9 +416,10 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 <View style={[
                   styles.messageBubble, 
                   isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
-                  msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {}
+                  msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {},
+                  msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
                 ]}>
-                  {!isMine && (
+                  {!isMine && !msg.content?.startsWith('LOTTIE_STICKER:') && !msg.content?.startsWith('STATIC_STICKER:') && !msg.content?.startsWith('GIPHY_STICKER:') && (
                     <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
                   )}
                   {msg.fileUrl && msg.fileType === 'IMAGE' && (
@@ -323,7 +430,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                       />
                     </Pressable>
                   )}
-                  {!!msg.content && (
+                  {!!msg.content && !msg.content.startsWith('LOTTIE_STICKER:') && !msg.content.startsWith('STATIC_STICKER:') && !msg.content.startsWith('GIPHY_STICKER:') && (
                     <Text style={[
                       styles.messageText, 
                       isMine && styles.messageTextMine,
@@ -332,10 +439,26 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                       {msg.content}
                     </Text>
                   )}
+                  {!!msg.content && msg.content.startsWith('LOTTIE_STICKER:') && (
+                    <LottieView
+                       autoPlay
+                       loop
+                       style={{ width: 120, height: 120 }}
+                       source={{ uri: msg.content.replace('LOTTIE_STICKER:', '') }}
+                    />
+                  )}
+                  {!!msg.content && (msg.content.startsWith('STATIC_STICKER:') || msg.content.startsWith('GIPHY_STICKER:')) && (
+                    <Image
+                       source={{ uri: msg.content.replace('STATIC_STICKER:', '').replace('GIPHY_STICKER:', '') }}
+                       style={{ width: 120, height: 120 }}
+                       resizeMode="contain"
+                    />
+                  )}
                   <Text style={[
                     styles.messageTime, 
                     isMine && styles.messageTimeMine,
-                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {}
+                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {},
+                    (msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:')) ? { color: colors.muted } : {}
                   ]}>
                     {timeAgo(msg.createdAt)}
                   </Text>
@@ -375,6 +498,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
         {/* Input */}
         <View style={[styles.chatInputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
+            <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
+          </Pressable>
           <Pressable onPress={pickImage} style={styles.attachBtn}>
             <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
           </Pressable>
@@ -424,6 +550,13 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )}
         </View>
       </Modal>
+
+      {/* Sticker Modal */}
+      <StickerPickerModal 
+         visible={isStickerOpen} 
+         onClose={() => setIsStickerOpen(false)} 
+         onSelectSticker={handleSendSticker} 
+      />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

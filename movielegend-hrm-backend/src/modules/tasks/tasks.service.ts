@@ -37,7 +37,7 @@ export class TasksService {
     private readonly scope: DepartmentScopeService,
     private readonly policy: TaskPolicyService,
     private readonly notifications: NotificationsService,
-  ) {}
+  ) { }
 
   async create(dto: CreateTaskDto, actor: AuthenticatedUser) {
     this.assertCanCreate(dto, actor);
@@ -420,7 +420,7 @@ export class TasksService {
   async deleteAttachment(taskId: string, attachmentId: string, actor: AuthenticatedUser) {
     const attachment = await this.prisma.taskAttachment.findUnique({ where: { id: attachmentId, taskId } });
     if (!attachment) throw notFound('ATTACHMENT_NOT_FOUND', 'Attachment not found');
-    
+
     if (attachment.uploadedByUserId !== actor.userId && !actor.roles.includes('ADMIN') && !this.has(actor, 'task.assign_any')) {
       const task = await this.prisma.task.findUnique({ where: { id: taskId } });
       if (task?.groupLeaderId !== actor.userId) {
@@ -432,7 +432,7 @@ export class TasksService {
       await tx.taskAttachment.delete({ where: { id: attachmentId } });
       // We could use TaskHistoryAction.UPDATED if DETACHED doesn't exist
       await tx.taskStatusHistory.create({
-        data: { taskId, actorUserId: actor.userId, action: TaskHistoryAction.UPDATED },
+        data: { taskId, actorUserId: actor.userId, action: TaskHistoryAction.PROGRESS_UPDATED },
       });
       return { success: true };
     });
@@ -494,14 +494,14 @@ export class TasksService {
         data: { taskId: updated.taskId, assignmentId, actorUserId: actor.userId, action, fromStatus: assignment.status, toStatus: status },
       });
       await this.syncTaskStatus(tx, updated.taskId);
-      
+
       if (status === TaskAssignmentStatus.WAITING_REVIEW || status === TaskAssignmentStatus.COMPLETED) {
         // Notify the creator / leader
         const notifyUsers = [updated.task.createdByUserId];
         if (updated.task.groupLeaderId && updated.task.groupLeaderId !== updated.task.createdByUserId) {
           notifyUsers.push(updated.task.groupLeaderId);
         }
-        
+
         const payload = await this.notifications.createForUsers(tx as any, notifyUsers, {
           type: 'TASK_REVIEW_REQUESTED' as NotificationType,
           title: 'Công việc cần duyệt/đã hoàn thành',
@@ -511,7 +511,7 @@ export class TasksService {
         });
         if (payload) this.notifications.emitCreated(payload);
       }
-      
+
       return updated;
     });
   }
@@ -525,7 +525,7 @@ export class TasksService {
   ) {
     const assignment = await this.prisma.taskAssignment.findUnique({ where: { id: assignmentId }, include: { task: true } });
     if (!assignment) throw notFound('TASK_ASSIGNMENT_NOT_FOUND', 'Assignment not found');
-    
+
     // Prevent self-review unless they created the assignment themselves
     if (assignment.userId === actor.userId && assignment.assignedByUserId !== actor.userId) {
       throw forbidden('CANNOT_REVIEW_OWN_ASSIGNMENT', 'Bạn không thể tự duyệt công việc do người khác giao cho mình');
@@ -685,12 +685,12 @@ export class TasksService {
       deletedAt: null,
       ...(query.search
         ? {
-            OR: [
-              { title: { contains: query.search, mode: 'insensitive' } },
-              { description: { contains: query.search, mode: 'insensitive' } },
-              { taskCode: { contains: query.search, mode: 'insensitive' } },
-            ],
-          }
+          OR: [
+            { title: { contains: query.search, mode: 'insensitive' } },
+            { description: { contains: query.search, mode: 'insensitive' } },
+            { taskCode: { contains: query.search, mode: 'insensitive' } },
+          ],
+        }
         : {}),
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.createdById ? { createdByUserId: query.createdById } : {}),
@@ -739,11 +739,11 @@ export class TasksService {
     if (this.has(actor, 'task.review_all') || this.has(actor, 'task.extension_review_all')) {
       return departmentId
         ? {
-            OR: [
-              { task: { departmentContextId: departmentId } },
-              { user: { departmentLinks: { some: { departmentId, leftAt: null } } } },
-            ],
-          }
+          OR: [
+            { task: { departmentContextId: departmentId } },
+            { user: { departmentLinks: { some: { departmentId, leftAt: null } } } },
+          ],
+        }
         : {};
     }
     if (departmentId) this.scope.assertDepartmentAccess(actor, departmentId);
