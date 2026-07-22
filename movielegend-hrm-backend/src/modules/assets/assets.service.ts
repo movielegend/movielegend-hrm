@@ -149,7 +149,7 @@ export class AssetsService {
       const notify = await this.notifications.createForUsers(tx, notifyUsers, {
         type: NotificationType.ASSET_ASSIGNED,
         title: 'Asset assigned',
-        body: asset.assetCode,
+        body: asset.name,
         metadata: { assetId: id, assignmentId: assignment.id },
       });
       return { assignment, notify };
