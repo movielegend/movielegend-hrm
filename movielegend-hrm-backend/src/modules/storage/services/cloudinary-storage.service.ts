@@ -9,15 +9,12 @@ import { FirebaseStorageService } from './firebase-storage.service';
 @Injectable()
 export class CloudinaryStorageService implements StorageService {
   private readonly logger = new Logger(CloudinaryStorageService.name);
-  private readonly firebaseFallback: FirebaseStorageService;
-
   constructor(configService: ConfigService) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
-    this.firebaseFallback = new FirebaseStorageService();
   }
 
   async upload(input: UploadInput): Promise<UploadResult> {
@@ -27,9 +24,9 @@ export class CloudinaryStorageService implements StorageService {
       else if (input.mimeType.startsWith('video/') || input.mimeType.startsWith('audio/')) resourceType = 'video';
       else resourceType = 'raw';
 
-      // Keep original file extension for raw files and PDFs so they have correct format when downloaded
+      // Keep original file extension for raw files so they have correct format when downloaded
       const publicId = input.storageKey 
-        ? ((resourceType === 'raw' || input.mimeType === 'application/pdf') ? input.storageKey : input.storageKey.split('.')[0])
+        ? ((resourceType === 'raw') ? input.storageKey : input.storageKey.split('.')[0])
         : undefined;
 
       const uploadStream = cloudinary.uploader.upload_stream(
