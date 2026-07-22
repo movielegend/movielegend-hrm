@@ -1,6 +1,7 @@
 import type { AuthUser } from '../../types/user.types';
 import type { AssetConditionStatus, AssetDto, AssetStatus } from '../../types/asset.types';
 import type { AssetAssignmentDto, AssetAssignmentStatus } from '../../types/asset-assignment.types';
+import type { AssetIncidentStatus, AssetIncidentType } from '../../types/asset-incident.types';
 import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
 
@@ -23,6 +24,14 @@ export const assetConditionLabels: Record<AssetConditionStatus, string> = {
   FAIR: 'Khá',
   POOR: 'Kém',
   DAMAGED: 'Hư hỏng',
+};
+
+export const incidentTypeLabels: Record<AssetIncidentType, string> = {
+  DAMAGED: 'Hư hỏng',
+  LOST: 'Thất lạc',
+  STOLEN: 'Mất cắp',
+  MALFUNCTION: 'Trục trặc',
+  OTHER: 'Khác',
 };
 
 export function assetStatusTone(status: AssetStatus): BadgeTone {

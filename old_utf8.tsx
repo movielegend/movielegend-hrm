@@ -1,13 +1,11 @@
-import * as DocumentPicker from 'expo-document-picker';
+﻿import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
-import { SearchInput } from '../../components/SearchInput';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FormField } from '../../components/FormField';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
@@ -49,7 +47,7 @@ export function IncidentReportScreen() {
   const [assetId, setAssetId] = useState(params.assetId ?? '');
   const [incidentType, setIncidentType] = useState<AssetIncidentType>('DAMAGED');
   const [description, setDescription] = useState('');
-  // Giữ file đã upload để retry nếu API incident fail — không upload lại, không fake URL.
+  // Giá»¯ file Ä‘Ă£ upload Ä‘á»ƒ retry náº¿u API incident fail â€” khĂ´ng upload láº¡i, khĂ´ng fake URL.
   const [evidence, setEvidence] = useState<UploadedFileDto | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -84,10 +82,10 @@ export function IncidentReportScreen() {
           ...(evidence ? { evidenceUrl: evidence.fileUrl } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã ghi nhận sự cố');
+      Alert.alert('ThĂ nh cĂ´ng', 'ÄĂ£ ghi nháº­n sá»± cá»‘');
       router.back();
     } catch (error) {
-      // evidence giữ nguyên trong state → user bấm gửi lại không cần upload lại (retry giữ fileId).
+      // evidence giá»¯ nguyĂªn trong state â†’ user báº¥m gá»­i láº¡i khĂ´ng cáº§n upload láº¡i (retry giá»¯ fileId).
       const mapped = mapWarehouseAssetError(error);
       Alert.alert(mapped.code, mapped.message);
     }
@@ -96,8 +94,8 @@ export function IncidentReportScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Báo sự cố tài sản" subtitle="Chỉ báo được tài sản đang cấp phát cho bạn — backend enforce." />
-        <SectionCard title="Tài sản">
+        <PageHeader title="BĂ¡o sá»± cá»‘ tĂ i sáº£n" subtitle="Chá»‰ bĂ¡o Ä‘Æ°á»£c tĂ i sáº£n Ä‘ang cáº¥p phĂ¡t cho báº¡n â€” backend enforce." />
+        <SectionCard title="TĂ i sáº£n">
           {myAssets.isLoading ? <LoadingState /> : null}
           {myAssets.data?.items.map((assignment) => (
             <FilterChip
@@ -107,25 +105,25 @@ export function IncidentReportScreen() {
               onPress={() => setAssetId(assignment.assetId)}
             />
           ))}
-          {myAssets.data && !myAssets.data.items.length ? <EmptyState title="Bạn chưa được cấp phát tài sản" /> : null}
+          {myAssets.data && !myAssets.data.items.length ? <EmptyState title="Báº¡n chÆ°a Ä‘Æ°á»£c cáº¥p phĂ¡t tĂ i sáº£n" /> : null}
         </SectionCard>
-        <SectionCard title="Sự cố">
+        <SectionCard title="Sá»± cá»‘">
           <View style={styles.chipRow}>
             {incidentTypes.map((type) => (
               <FilterChip key={type} label={incidentTypeLabels[type]} selected={incidentType === type} onPress={() => setIncidentType(type)} />
             ))}
           </View>
-          <FormField label="Mô tả" value={description} onChangeText={setDescription} multiline />
+          <FormField label="MĂ´ táº£" value={description} onChangeText={setDescription} multiline />
           <SecondaryButton loading={uploading} onPress={() => void pickEvidence()}>
-            {evidence ? 'Đổi minh chứng' : 'Đính kèm minh chứng (tùy chọn)'}
+            {evidence ? 'Äá»•i minh chá»©ng' : 'ÄĂ­nh kĂ¨m minh chá»©ng (tĂ¹y chá»n)'}
           </SecondaryButton>
-          {evidence ? <Text style={styles.meta}>Đã upload: {evidence.fileUrl}</Text> : null}
+          {evidence ? <Text style={styles.meta}>ÄĂ£ upload: {evidence.fileUrl}</Text> : null}
           <PrimaryButton
             loading={report.isPending}
             disabled={!assetId || description.trim().length < 3}
             onPress={() => void submit()}
           >
-            Gửi báo cáo
+            Gá»­i bĂ¡o cĂ¡o
           </PrimaryButton>
         </SectionCard>
       </ScrollView>
@@ -138,28 +136,25 @@ export function IncidentListScreen({ area }: { area: IncidentArea }) {
   const { user } = useAuth();
   const canRead = hasPermission(user, 'asset.incident.read');
   const incidents = useAssetIncidents(canRead);
-  const [statusFilter, setStatusFilter] = useState('OPEN');
-  const [search, setSearch] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
 
   const visible = useMemo(() => {
-    return (incidents.data?.items ?? []).filter((incident) => {
-      const matchStatus = statusFilter === 'ALL' || incident.status === statusFilter;
-      const matchSearch = search.trim() === '' || 
-        incident.asset?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        incident.asset?.assetCode?.toLowerCase().includes(search.toLowerCase());
-      return matchStatus && matchSearch;
-    });
-  }, [incidents.data, statusFilter, search]);
+    return (incidents.data?.items ?? []).filter(
+      (incident) =>
+        (statusFilter === 'ALL' || incident.status === statusFilter) &&
+        (typeFilter === 'ALL' || incident.incidentType === typeFilter),
+    );
+  }, [incidents.data, statusFilter, typeFilter]);
 
   if (!canRead) {
     return (
       <Screen>
         <ScreenContainer>
-          <PageHeader title="Sự cố tài sản" />
+          <PageHeader title="Sá»± cá»‘ tĂ i sáº£n" />
           <EmptyState
-            title="Không có quyền"
-            message="Bạn không có quyền xem sự cố tài sản."
+            title="KhĂ´ng cĂ³ quyá»n asset.incident.read"
+            message="Backend hiá»‡n chá»‰ cáº¥p quyá»n nĂ y cho Warehouse Manager/Admin vĂ  chÆ°a há»— trá»£ scope own/department (blocker B7)."
           />
         </ScreenContainer>
       </Screen>
@@ -170,38 +165,25 @@ export function IncidentListScreen({ area }: { area: IncidentArea }) {
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={incidents.isRefetching} onRefresh={() => void incidents.refetch()} />}>
         <PageHeader
-          title="Sự cố tài sản"
-          subtitle="Quản lý tài sản cần duyệt trạng thái"
+          title="Sá»± cá»‘ tĂ i sáº£n"
+          subtitle="Backend tráº£ toĂ n bá»™ list (khĂ´ng filter server-side â€” blocker B7); filter dÆ°á»›i Ä‘Ă¢y lĂ  client-side."
         />
-        
-        <View style={[styles.headerRow, { zIndex: 10, elevation: 10 }]}>
-          <View style={{ flex: 1 }}>
-            <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm tài sản..." />
-          </View>
-          <View style={{ zIndex: 10, elevation: 10 }}>
-            <Pressable style={styles.filterButton} onPress={() => setModalVisible(!modalVisible)}>
-              <MaterialCommunityIcons name="filter-variant" size={20} color={colors.primary} />
-              <Text style={styles.filterText}>{statusFilter === 'OPEN' ? 'Chờ xử lý' : statusFilter === 'RESOLVED' ? 'Đã xử lý' : 'Tất cả'}</Text>
-            </Pressable>
-            {modalVisible && (
-              <View style={styles.dropdown}>
-                <Pressable style={styles.dropdownItem} onPress={() => { setStatusFilter('OPEN'); setModalVisible(false); }}>
-                  <Text style={[styles.dropdownText, statusFilter === 'OPEN' && styles.dropdownTextActive]}>Chờ xử lý</Text>
-                </Pressable>
-                <Pressable style={styles.dropdownItem} onPress={() => { setStatusFilter('RESOLVED'); setModalVisible(false); }}>
-                  <Text style={[styles.dropdownText, statusFilter === 'RESOLVED' && styles.dropdownTextActive]}>Đã xử lý</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
+        <View style={styles.chipRow}>
+          {['ALL', 'OPEN', 'INVESTIGATING', 'RESOLVED', 'REJECTED'].map((status) => (
+            <FilterChip key={status} label={status} selected={statusFilter === status} onPress={() => setStatusFilter(status)} />
+          ))}
         </View>
-
+        <View style={styles.chipRow}>
+          {['ALL', ...incidentTypes].map((type) => (
+            <FilterChip key={type} label={type} selected={typeFilter === type} onPress={() => setTypeFilter(type)} />
+          ))}
+        </View>
         {incidents.isLoading ? <LoadingState /> : null}
         {incidents.isError ? <ErrorState error={incidents.error} onRetry={() => void incidents.refetch()} /> : null}
         {visible.map((incident) => (
           <IncidentCard key={incident.id} incident={incident} onPress={() => router.push(incidentDetailRoute(area, incident.id) as never)} />
         ))}
-        {incidents.data && !visible.length ? <EmptyState title="Không có sự cố" /> : null}
+        {incidents.data && !visible.length ? <EmptyState title="KhĂ´ng cĂ³ sá»± cá»‘" /> : null}
       </ScreenContainer>
     </Screen>
   );
@@ -213,19 +195,34 @@ export function IncidentDetailScreen() {
   const incident = useAssetIncident(id);
   const action = useAssetIncidentAction();
   const [resolutionNote, setResolutionNote] = useState('');
+  const [assetStatus, setAssetStatus] = useState<AssetStatus | ''>('');
 
-  async function run(status: AssetStatus) {
+  async function run(kind: 'investigate' | 'resolve' | 'reject') {
     if (!id) return;
+
     try {
-      await action.mutateAsync({
-        id,
-        action: 'resolve',
-        payload: {
-          assetStatus: status,
-          ...(resolutionNote.trim() ? { resolutionNote: resolutionNote.trim() } : {}),
-        },
-      });
-      Alert.alert('Thành công', 'Đã cập nhật trạng thái sự cố.');
+      if (kind === 'resolve') {
+        await action.mutateAsync({
+          id,
+          action: kind,
+          payload: {
+            ...(assetStatus ? { assetStatus } : {}),
+            ...(resolutionNote.trim()
+              ? { resolutionNote: resolutionNote.trim() }
+              : {}),
+          },
+        });
+      } else {
+        await action.mutateAsync({
+          id,
+          action: kind,
+        });
+      }
+
+      Alert.alert(
+        'ThĂ nh cĂ´ng',
+        'ÄĂ£ cáº­p nháº­t sá»± cá»‘ â€” tráº¡ng thĂ¡i tĂ i sáº£n do backend quyáº¿t Ä‘á»‹nh',
+      );
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
       Alert.alert(mapped.code, mapped.message);
@@ -234,7 +231,7 @@ export function IncidentDetailScreen() {
 
   if (incident.isLoading) return <LoadingState />;
   if (incident.isError) return <ErrorState error={incident.error} onRetry={() => void incident.refetch()} />;
-  if (!incident.data) return <EmptyState title="Không tìm thấy sự cố" />;
+  if (!incident.data) return <EmptyState title="KhĂ´ng tĂ¬m tháº¥y sá»± cá»‘" />;
 
   const item = incident.data;
   const canResolve = hasPermission(user, 'asset.incident.resolve');
@@ -243,37 +240,41 @@ export function IncidentDetailScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Chi tiết sự cố" subtitle="Thông tin tài sản và xử lý" />
-        
-        <SectionCard title="Thông tin vật tư">
-          <Text style={styles.label}>Tên tài sản: <Text style={styles.body}>{item.asset?.name}</Text></Text>
-          <Text style={styles.label}>Mã: <Text style={styles.body}>{item.asset?.assetCode}</Text></Text>
-          <Text style={styles.label}>Nhãn hiệu: <Text style={styles.body}>{item.asset?.metadata?.brand ?? 'N/A'}</Text></Text>
-          <Text style={styles.label}>Model: <Text style={styles.body}>{item.asset?.metadata?.model ?? 'N/A'}</Text></Text>
-          <Text style={styles.label}>Ngày cập nhật: <Text style={styles.body}>{formatDateTime(item.createdAt)}</Text></Text>
-          <Text style={styles.label}>Ghi chú: <Text style={styles.body}>{item.description}</Text></Text>
-          <StatusBadge label={incidentTypeLabels[item.incidentType] ?? item.incidentType} tone={incidentStatusTone(item.status)} />
+        <PageHeader title={item.asset?.name ?? 'Sá»± cá»‘ tĂ i sáº£n'} subtitle={item.asset?.assetCode ?? item.assetId} />
+        <SectionCard title="ThĂ´ng tin sá»± cá»‘">
+          <StatusBadge label={item.status} tone={incidentStatusTone(item.status)} />
+          <Text style={styles.meta}>Loáº¡i: {incidentTypeLabels[item.incidentType] ?? item.incidentType}</Text>
+          <Text style={styles.meta}>NgÆ°á»i bĂ¡o: {item.reportedById}</Text>
+          <Text style={styles.meta}>LĂºc: {formatDateTime(item.createdAt)}</Text>
+          <Text style={styles.body}>{item.description}</Text>
+          {item.evidenceUrl ? <Text style={styles.meta}>Minh chá»©ng: {item.evidenceUrl}</Text> : null}
         </SectionCard>
-
         {item.resolvedAt ? (
-          <SectionCard title="Kết quả xử lý">
-            <Text style={styles.meta}>Xử lý bởi: {item.resolvedById}</Text>
-            <Text style={styles.meta}>Lúc: {formatDateTime(item.resolvedAt)}</Text>
-            <Text style={styles.label}>Ghi chú xử lý: <Text style={styles.body}>{item.resolutionNote ?? 'Không có'}</Text></Text>
+          <SectionCard title="Káº¿t quáº£ xá»­ lĂ½">
+            <Text style={styles.meta}>Xá»­ lĂ½ bá»Ÿi: {item.resolvedById}</Text>
+            <Text style={styles.meta}>LĂºc: {formatDateTime(item.resolvedAt)}</Text>
+            {item.resolutionNote ? <Text style={styles.body}>{item.resolutionNote}</Text> : null}
           </SectionCard>
         ) : null}
-
         {canResolve && isOpenState ? (
-          <SectionCard title="Xử lý sự cố">
-            <FormField label="Ghi chú xử lý" value={resolutionNote} onChangeText={setResolutionNote} multiline placeholder="Nhập ghi chú xử lý (tùy chọn)..." />
-            <View style={styles.buttonRow}>
-              <View style={{ flex: 1 }}>
-                <SecondaryButton loading={action.isPending} onPress={() => void run('IN_STOCK')}>Chưa hỏng</SecondaryButton>
-              </View>
-              <View style={{ flex: 1 }}>
-                <PrimaryButton loading={action.isPending} onPress={() => void run('DAMAGED')}>Hỏng</PrimaryButton>
-              </View>
+          <SectionCard title="Xá»­ lĂ½">
+            {item.status === 'OPEN' ? (
+              <SecondaryButton loading={action.isPending} onPress={() => void run('investigate')}>Báº¯t Ä‘áº§u Ä‘iá»u tra</SecondaryButton>
+            ) : null}
+            <FormField label="Ghi chĂº xá»­ lĂ½" value={resolutionNote} onChangeText={setResolutionNote} multiline />
+            <Text style={styles.label}>Tráº¡ng thĂ¡i tĂ i sáº£n sau xá»­ lĂ½ (tĂ¹y chá»n â€” bá» trá»‘ng Ä‘á»ƒ backend tá»± quyáº¿t)</Text>
+            <View style={styles.chipRow}>
+              {resolveAssetStatuses.map((status) => (
+                <FilterChip
+                  key={status}
+                  label={status}
+                  selected={assetStatus === status}
+                  onPress={() => setAssetStatus(assetStatus === status ? '' : status)}
+                />
+              ))}
             </View>
+            <PrimaryButton loading={action.isPending} onPress={() => void run('resolve')}>Resolve</PrimaryButton>
+            <SecondaryButton loading={action.isPending} onPress={() => void run('reject')}>Reject</SecondaryButton>
           </SectionCard>
         ) : null}
       </ScrollView>
@@ -305,55 +306,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     lineHeight: 18,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-    zIndex: 10,
-    elevation: 10
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    gap: spacing.xs,
-  },
-  filterText: { color: colors.primary, fontSize: 14, fontWeight: '500' },
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: 4,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-    minWidth: 120,
-    zIndex: 100,
-  },
-  dropdownItem: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  dropdownText: { fontSize: 14, color: colors.text },
-  dropdownTextActive: { color: colors.primary, fontWeight: 'bold' },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
   },
 });

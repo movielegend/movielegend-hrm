@@ -1,7 +1,5 @@
-import { useLocalSearchParams } from 'expo-router';
-import { IncidentDetailScreen } from '../../../../src/features/asset-incidents/IncidentDetailScreen';
+import { IncidentDetailScreen } from '../../../../src/features/asset-incidents/IncidentScreens';
 
-export default function WarehouseIncidentDetailRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  return <IncidentDetailScreen id={id} area="warehouse-manager" />;
+export default function WarehouseManagerAssetIncidentDetailRoute() {
+  return <IncidentDetailScreen />;
 }

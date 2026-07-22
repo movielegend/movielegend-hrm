@@ -8,15 +8,9 @@ import type {
 } from '../types/asset.types';
 import type { MyAssetAssignmentDto } from '../types/asset-assignment.types';
 
-export async function getAssets(incidentTab?: string): Promise<PaginatedResult<AssetDto>> {
-  const params = incidentTab ? { incidentTab } : undefined;
-  const response = await apiClient.get<ApiResponse<AssetDto[]>>('/assets', { params });
+export async function getAssets(): Promise<PaginatedResult<AssetDto>> {
+  const response = await apiClient.get<ApiResponse<AssetDto[]>>('/assets');
   return normalizePagination(unwrapData(response));
-}
-
-export async function updateIncidentStatus(id: string, status: 'BROKEN' | 'OK', note?: string): Promise<AssetDto> {
-  const response = await apiClient.patch<ApiResponse<AssetDto>>(`/assets/${id}/incident-status`, { status, note });
-  return unwrapData(response);
 }
 
 export async function getMyAssets(): Promise<PaginatedResult<MyAssetAssignmentDto>> {

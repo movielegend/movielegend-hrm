@@ -3,6 +3,9 @@ import {
   AssetAssignmentAction,
   AssetAssignmentStatus,
   AssetConditionStatus,
+  AssetIncidentStatus,
+  AssetIncidentType,
+  AssetMaintenanceStatus,
   AssetStatus,
   NotificationType,
   Prisma,
@@ -19,6 +22,8 @@ import {
   CreateAssetDto,
   MaintenanceDto,
   ReceiveReturnDto,
+  ReportIncidentDto,
+  ResolveIncidentDto,
   TransferAssetDto,
   UpdateAssetDto,
   RevokeAssetDto,
@@ -46,31 +51,25 @@ export class AssetsService {
     });
   }
 
-  findAll(actor: AuthenticatedUser, incidentTab?: string) {
-    const whereCondition: any = { deletedAt: null };
-    if (incidentTab === 'PENDING') {
-      whereCondition.conditionStatus = 'PENDING';
-    } else if (incidentTab === 'APPROVE') {
-      whereCondition.conditionStatus = { in: ['BROKEN', 'OK'] };
-      whereCondition.lastIncidentResolvedAt = { not: null };
-    }
-
-    if (actor.roles.includes('ADMIN')) return this.prisma.asset.findMany({ where: whereCondition, include: { assignments: true, department: true } });
+  findAll(actor: AuthenticatedUser) {
+    if (actor.roles.includes('ADMIN')) return this.prisma.asset.findMany({ where: { deletedAt: null }, include: { assignments: true, department: true } });
     const departments = this.departments.visibleDepartmentIds(actor) ?? [];
-    whereCondition.OR = [
-      { departmentId: { in: departments } },
-      { assignments: { some: { assignedToUserId: actor.userId, status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.RETURN_REQUESTED] } } } },
-      { assignments: { some: { assignedToDepartmentId: { in: departments } } } },
-    ];
     return this.prisma.asset.findMany({
-      where: whereCondition,
+      where: {
+        deletedAt: null,
+        OR: [
+          { departmentId: { in: departments } },
+          { assignments: { some: { assignedToUserId: actor.userId, status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.RETURN_REQUESTED] } } } },
+          { assignments: { some: { assignedToDepartmentId: { in: departments } } } },
+        ],
+      },
       include: { assignments: true, department: true },
     });
   }
 
   myAssets(actor: AuthenticatedUser) {
     return this.prisma.assetAssignment.findMany({
-      where: { assignedToUserId: actor.userId, status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.RETURN_REQUESTED] }, asset: { conditionStatus: { not: 'BROKEN' } } },
+      where: { assignedToUserId: actor.userId, status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.RETURN_REQUESTED] } },
       include: {
         asset: {
           select: {
@@ -78,6 +77,7 @@ export class AssetsService {
             name: true,
             conditionStatus: true,
             assetStatus: true,
+            incidents: { where: { status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } } },
           },
         },
       },
@@ -86,7 +86,7 @@ export class AssetsService {
   }
 
   async findOne(id: string, actor: AuthenticatedUser) {
-    const asset = await this.prisma.asset.findUnique({ where: { id }, include: { assignments: true } });
+    const asset = await this.prisma.asset.findUnique({ where: { id }, include: { assignments: true, incidents: true } });
     if (!asset || asset.deletedAt) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
     await this.assertCanReadAsset(id, actor);
     return asset;
@@ -141,7 +141,7 @@ export class AssetsService {
           histories: { create: { action: AssetAssignmentAction.CREATED, performedById: actor.userId } },
         },
       });
-      await tx.asset.update({ where: { id }, data: { assetStatus: AssetStatus.OUT_OF_STOCK } });
+      await tx.asset.update({ where: { id }, data: { assetStatus: AssetStatus.ASSIGNED } });
       await tx.auditLog.create({
         data: { actorUserId: actor.userId, action: 'ASSET_ASSIGNED', entityType: 'AssetAssignment', entityId: assignment.id },
       });
@@ -210,7 +210,7 @@ export class AssetsService {
         where: { id },
         data: { status: AssetAssignmentStatus.ACTIVE, receiverConfirmedAt: new Date(), histories: { create: { action: AssetAssignmentAction.CONFIRMED, performedById: actor.userId } } },
       });
-      await tx.asset.update({ where: { id: assignment.assetId }, data: { assetStatus: AssetStatus.OUT_OF_STOCK } });
+      await tx.asset.update({ where: { id: assignment.assetId }, data: { assetStatus: AssetStatus.IN_USE } });
       return updated;
     });
     this.realtime.emitToUser(actor.userId, 'asset:assigned', payload);
@@ -236,7 +236,7 @@ export class AssetsService {
       if (assignment.status !== AssetAssignmentStatus.RETURN_REQUESTED && assignment.status !== AssetAssignmentStatus.ACTIVE) {
         throw conflict('ASSET_RETURN_NOT_ALLOWED', 'Asset return is not allowed now');
       }
-      const assetStatus = AssetStatus.IN_STOCK;
+      const assetStatus = dto.conditionWhenReturned === AssetConditionStatus.DAMAGED ? AssetStatus.MAINTENANCE : AssetStatus.IN_STOCK;
       const result = await tx.assetAssignment.update({
         where: { id },
         data: {
@@ -257,24 +257,88 @@ export class AssetsService {
     return updated;
   }
 
-  async updateIncidentStatus(id: string, status: 'BROKEN' | 'OK', actor: AuthenticatedUser, note?: string) {
-    const asset = await this.prisma.asset.findUnique({ where: { id } });
-    if (!asset) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
-    if (asset.conditionStatus !== 'PENDING' && (asset.conditionStatus as string) !== 'DAMAGED') throw badRequest('NOT_PENDING', 'Asset is not pending');
-
-    const data: any = { conditionStatus: status, lastIncidentResolvedAt: new Date() };
-    if (note) data.conditionNote = note;
-
-    const updated = await this.prisma.asset.update({
-      where: { id },
-      data
+  async reportIncident(assetId: string, dto: ReportIncidentDto, actor: AuthenticatedUser) {
+    await this.assertCanReportAsset(assetId, actor);
+    const payload = await this.prisma.$transaction(async (tx) => {
+      const incident = await tx.assetIncidentReport.create({
+        data: { assetId, reportedById: actor.userId, incidentType: dto.incidentType, description: dto.description, evidenceUrl: dto.evidenceUrl },
+      });
+      const lostIncidentTypes: AssetIncidentType[] = [AssetIncidentType.LOST, AssetIncidentType.STOLEN];
+      if (lostIncidentTypes.includes(dto.incidentType)) {
+        await tx.asset.update({ where: { id: assetId }, data: { assetStatus: AssetStatus.LOST } });
+      } else {
+        await tx.asset.update({ where: { id: assetId }, data: { assetStatus: AssetStatus.DAMAGED, conditionStatus: AssetConditionStatus.DAMAGED } });
+      }
+      return incident;
     });
+    this.realtime.emitToRoom('asset:incident-updated', 'asset:incident-updated', payload);
+    return payload;
+  }
 
-    await this.prisma.auditLog.create({
-      data: { actorUserId: actor.userId, action: 'ASSET_INCIDENT_RESOLVED', entityType: 'Asset', entityId: id },
+  findIncidents() {
+    return this.prisma.assetIncidentReport.findMany({ include: { asset: true }, orderBy: { createdAt: 'desc' } });
+  }
+
+  async findIncident(id: string) {
+    const incident = await this.prisma.assetIncidentReport.findUnique({ where: { id }, include: { asset: true } });
+    if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
+    return incident;
+  }
+
+  investigateIncident(id: string) {
+    return this.prisma.assetIncidentReport.update({ where: { id }, data: { status: AssetIncidentStatus.INVESTIGATING } });
+  }
+
+  async resolveIncident(id: string, dto: ResolveIncidentDto, actor: AuthenticatedUser) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const incident = await tx.assetIncidentReport.findUnique({ where: { id } });
+      if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
+      const assetStatus = dto.assetStatus ?? (incident.incidentType === AssetIncidentType.DAMAGED ? AssetStatus.MAINTENANCE : AssetStatus.LOST);
+      await tx.asset.update({ where: { id: incident.assetId }, data: { assetStatus } });
+      const result = await tx.assetIncidentReport.update({
+        where: { id },
+        data: { status: AssetIncidentStatus.RESOLVED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote },
+      });
+      await tx.auditLog.create({
+        data: { actorUserId: actor.userId, action: 'ASSET_INCIDENT_RESOLVED', entityType: 'AssetIncidentReport', entityId: id },
+      });
+      return result;
     });
-
+    this.realtime.emitToRoom('asset:incident-updated', 'asset:incident-updated', updated);
     return updated;
+  }
+
+  rejectIncident(id: string, dto: ResolveIncidentDto, actor: AuthenticatedUser) {
+    return this.prisma.assetIncidentReport.update({
+      where: { id },
+      data: { status: AssetIncidentStatus.REJECTED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote },
+    });
+  }
+
+  async startMaintenance(assetId: string, dto: MaintenanceDto, actor: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.findUnique({ where: { id: assetId } });
+      if (!asset) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
+      const maintainableStatuses: AssetStatus[] = [AssetStatus.IN_STOCK, AssetStatus.DAMAGED];
+      if (!maintainableStatuses.includes(asset.assetStatus)) throw badRequest('ASSET_MAINTENANCE_NOT_ALLOWED', 'Asset cannot enter maintenance');
+      await tx.asset.update({ where: { id: assetId }, data: { assetStatus: AssetStatus.MAINTENANCE } });
+      return tx.assetMaintenanceRecord.create({
+        data: { assetId, maintenanceType: dto.maintenanceType, vendorName: dto.vendorName, description: dto.description, startedAt: new Date(), createdById: actor.userId },
+      });
+    });
+  }
+
+  async completeMaintenance(id: string, conditionStatus: AssetConditionStatus, actor: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const record = await tx.assetMaintenanceRecord.findUnique({ where: { id } });
+      if (!record) throw notFound('ASSET_MAINTENANCE_NOT_FOUND', 'Maintenance record not found');
+      const assetStatus = conditionStatus === AssetConditionStatus.DAMAGED ? AssetStatus.DISPOSED : AssetStatus.IN_STOCK;
+      await tx.asset.update({ where: { id: record.assetId }, data: { assetStatus, conditionStatus } });
+      return tx.assetMaintenanceRecord.update({
+        where: { id },
+        data: { status: AssetMaintenanceStatus.COMPLETED, completedAt: new Date() },
+      });
+    });
   }
 
   private async assertCanReadAsset(assetId: string, actor: AuthenticatedUser): Promise<void> {

@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createAsset, getAsset, getAssets, getMyAssets, updateAsset, transferAsset, revokeAsset, updateIncidentStatus } from '../api/assets.api';
+import { createAsset, getAsset, getAssets, getMyAssets, updateAsset, transferAsset, revokeAsset } from '../api/assets.api';
 import { assignAsset, confirmAssetAssignment, receiveAssetReturn, requestAssetReturn } from '../api/asset-assignments.api';
 import { completeAssetMaintenance, startAssetMaintenance } from '../api/asset-maintenance.api';
 import { assetKeys, maintenanceKeys, queryKeys } from '../constants/queryKeys';
 import type { CreateAssetPayload, StartMaintenancePayload, UpdateAssetPayload, AssetMaintenanceDto } from '../types/asset.types';
 import type { AssignAssetPayload, ReceiveReturnPayload } from '../types/asset-assignment.types';
 
-export function useAssets(enabled = true, incidentTab?: string) {
-  return useQuery({ queryKey: [...assetKeys.list(), incidentTab], queryFn: () => getAssets(incidentTab), enabled });
+export function useAssets(enabled = true) {
+  return useQuery({ queryKey: assetKeys.list(), queryFn: getAssets, enabled });
 }
 
 export function useMyAssets(enabled = true) {
@@ -43,15 +43,7 @@ export function useUpdateAsset() {
   });
 }
 
-export function useUpdateIncidentStatus() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, status, note }: { id: string; status: 'BROKEN' | 'OK'; note?: string }) => updateIncidentStatus(id, status, note),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: assetKeys.all });
-    },
-  });
-}
+
 
 /** Assign: invalidate asset list/detail + my assets (bên nhận) + notifications. */
 export function useAssignAsset() {
