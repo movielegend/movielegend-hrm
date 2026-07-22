@@ -5,13 +5,17 @@ import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { colors } from '../../theme/colors';
 
+import { Linking, Alert } from 'react-native';
+import { resolveFileUrl } from '../../utils/url';
+
 interface Props {
   visible: boolean;
   onClose: () => void;
   onSave: (signatureBase64: string) => void;
+  pdfUrl?: string;
 }
 
-export function ContractSignatureModal({ visible, onClose, onSave }: Props) {
+export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Props) {
   const ref = useRef<any>();
 
   const handleSignature = (signature: string) => {
@@ -31,6 +35,21 @@ export function ContractSignatureModal({ visible, onClose, onSave }: Props) {
       <View style={styles.container}>
         <PageHeader title="Ký hợp đồng" subtitle="Vui lòng ký tên vào khung bên dưới" />
         
+        {pdfUrl ? (
+          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+            <SecondaryButton
+              title="📄 Xem file hợp đồng trước khi ký (PDF)"
+              onPress={() => {
+                const url = resolveFileUrl(pdfUrl);
+                if (url) {
+                  Linking.openURL(url).catch(() => Alert.alert('Lỗi', 'Không thể mở file PDF'));
+                } else {
+                  Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
+                }
+              }}
+            />
+          </View>
+        ) : null}
         <View style={styles.signatureContainer}>
           <SignatureScreen
             ref={ref}

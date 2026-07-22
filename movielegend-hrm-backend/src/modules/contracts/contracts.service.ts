@@ -221,15 +221,29 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   async signEmployee(id: string, dto: SignContractDto, actor: AuthenticatedUser) {
     const contract = await this.prisma.employeeContract.findUnique({ where: { id } });
     if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Contract not found');
-    if (contract.userId !== actor.userId) throw forbidden('CONTRACT_EMPLOYEE_SIGNATURE_DENIED', 'Employee can only sign own contract');
+    const isAdmin = actor.roles?.includes('ADMIN') || actor.roles?.includes('HR');
+    if (contract.userId !== actor.userId && !isAdmin) {
+      throw forbidden('CONTRACT_EMPLOYEE_SIGNATURE_DENIED', 'Employee can only sign own contract');
+    }
     
     let finalSignedFileUrl = dto.signedFileUrl;
     if (dto.signatureImageUrl) {
       const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, actor.profile?.fullName || 'Employee');
       if (generatedUrl) finalSignedFileUrl = generatedUrl;
     }
+
+    const allowedStatuses: ContractStatus[] = [
+      ContractStatus.WAITING_EMPLOYEE_SIGNATURE,
+      ContractStatus.APPROVED,
+      ContractStatus.DRAFT,
+      ContractStatus.PENDING_INTERNAL_APPROVAL,
+    ];
+
+    if (!allowedStatuses.includes(contract.status as ContractStatus)) {
+      throw badRequest('CONTRACT_SIGN_WRONG_STATE', 'Contract is not ready for this signature');
+    }
     
-    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.EMPLOYEE_SIGNED, 'CONTRACT_EMPLOYEE_SIGNED');
+    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.EMPLOYEE_SIGNED, 'CONTRACT_EMPLOYEE_SIGNED');
   }
 
   employeeReject(id: string, actor: AuthenticatedUser, dto: RejectContractDto) {

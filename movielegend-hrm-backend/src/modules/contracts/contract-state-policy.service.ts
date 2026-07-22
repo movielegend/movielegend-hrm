@@ -5,9 +5,9 @@ import { badRequest } from '../../common/utils/error.util';
 @Injectable()
 export class ContractStatePolicy {
   private readonly transitions: Record<ContractStatus, ContractStatus[]> = {
-    DRAFT: [ContractStatus.PENDING_INTERNAL_APPROVAL, ContractStatus.CANCELLED],
-    PENDING_INTERNAL_APPROVAL: [ContractStatus.APPROVED, ContractStatus.CANCELLED],
-    APPROVED: [ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.CANCELLED],
+    DRAFT: [ContractStatus.PENDING_INTERNAL_APPROVAL, ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.EMPLOYEE_SIGNED, ContractStatus.CANCELLED],
+    PENDING_INTERNAL_APPROVAL: [ContractStatus.APPROVED, ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.EMPLOYEE_SIGNED, ContractStatus.CANCELLED],
+    APPROVED: [ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.EMPLOYEE_SIGNED, ContractStatus.CANCELLED],
     WAITING_EMPLOYEE_SIGNATURE: [ContractStatus.EMPLOYEE_SIGNED, ContractStatus.CANCELLED, ContractStatus.REJECTED],
     EMPLOYEE_SIGNED: [ContractStatus.WAITING_COMPANY_SIGNATURE],
     WAITING_COMPANY_SIGNATURE: [ContractStatus.COMPLETED, ContractStatus.CANCELLED],

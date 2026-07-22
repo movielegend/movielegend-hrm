@@ -22,6 +22,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { resolveFileUrl } from '../../utils/url';
 import { normalizeApiError } from '../../utils/api-error';
 import { SelectModal } from '../../components/SelectModal';
 import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
@@ -48,19 +49,7 @@ import { apiUrl } from '../../constants/env';
 
 // ── Helpers ──
 
-function resolveFileUrl(uri?: string | null): string | null {
-  if (!uri) return null;
-  let url = uri;
-  if (!url.startsWith('http')) {
-    if (url.startsWith('/uploads')) {
-      const baseUrl = apiUrl.replace(/\/api\/v1\/?$/, '');
-      url = `${baseUrl}${url}`;
-    } else {
-      url = `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-    }
-  }
-  return url;
-}
+
 
 function getStatusTone(status: ContractStatus): 'success' | 'info' | 'neutral' | 'warning' {
   switch (status) {
@@ -370,6 +359,11 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
 
   const empName = data.user?.profile?.fullName ?? data.user?.userCode ?? '-';
   const status = data.status as ContractStatus;
+  const contractFileUrl =
+    data.signedFileUrl ||
+    data.draftFileUrl ||
+    data.contractTemplateVersion?.templateFileUrl ||
+    (data as any).contractTemplate?.templateFileUrl;
 
   async function handleAction(action: () => Promise<unknown>, label: string) {
     try {
@@ -444,6 +438,21 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
 
         {/* Actions */}
         <View style={styles.actionButtons}>
+          {contractFileUrl ? (
+            <SecondaryButton
+              onPress={() => {
+                const url = resolveFileUrl(contractFileUrl);
+                if (url) {
+                  Linking.openURL(url).catch(() => Alert.alert('Lỗi', 'Không thể mở file PDF'));
+                } else {
+                  Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
+                }
+              }}
+              style={{ marginBottom: 8 }}
+            >
+              📄 Xem file hợp đồng (PDF)
+            </SecondaryButton>
+          ) : null}
           {status === 'DRAFT' && (
             <PrimaryButton
               onPress={() => handleAction(() => submitApproval.mutateAsync(contractId), 'Đã gửi duyệt')}
@@ -482,6 +491,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
       <ContractSignatureModal
         visible={isSignatureVisible}
         onClose={() => setSignatureVisible(false)}
+        pdfUrl={contractFileUrl}
         onSave={(signature) => {
           setSignatureVisible(false);
           handleAction(() => signContract.mutateAsync({ signatureType: 'DRAWN', signatureImageUrl: signature }), 'Đã ký hợp đồng');
