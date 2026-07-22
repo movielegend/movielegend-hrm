@@ -33,7 +33,12 @@ function resolveFileUrl(uri?: string | null): string | null {
   if (!uri) return null;
   let url = uri;
   if (!url.startsWith('http')) {
-    url = `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    if (url.startsWith('/uploads')) {
+      const baseUrl = apiUrl.replace(/\/api\/v1\/?$/, '');
+      url = `${baseUrl}${url}`;
+    } else {
+      url = `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    }
   }
   return url;
 }
@@ -288,6 +293,7 @@ export function AttachmentList({ attachments }: { attachments?: TaskAttachmentDt
                   <style>body{margin:0;background:#525659;}canvas{display:block;margin:8px auto;box-shadow:0 2px 8px rgba(0,0,0,.4);}#loading{color:#fff;text-align:center;padding:40px;font-family:sans-serif;font-size:16px;}#error{color:#f88;text-align:center;padding:40px;font-family:sans-serif;}</style>
                 </head><body>
                   <div id="loading">Đang tải PDF...</div>
+                  <div id="error"></div>
                   <div id="container"></div>
                   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
                   <script>
