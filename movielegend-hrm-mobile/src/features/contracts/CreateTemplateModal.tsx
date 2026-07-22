@@ -55,7 +55,6 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
 
       // 2. Create Template
       await createTemplate.mutateAsync({
-        companyId: '', // Handled by backend if empty
         code: code.trim(),
         name: name.trim(),
         contractType,

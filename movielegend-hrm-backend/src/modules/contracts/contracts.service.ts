@@ -338,17 +338,31 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     
     if (!contract || !contract.contractTemplateVersion) return null;
     
-    const templateUrl = contract.contractTemplateVersion.templateFileUrl;
-    let templatePath = '';
+    const rawUrl = contract.contractTemplateVersion.templateFileUrl || '';
+    const storageKey = contract.contractTemplateVersion.storageKey || '';
     
-    if (templateUrl.startsWith('/')) {
-      templatePath = path.join(process.cwd(), 'storage', templateUrl);
-    } else {
-      templatePath = path.join(process.cwd(), 'storage', 'uploads', templateUrl.split('/').pop() || '');
+    let existingPdfBytes: Buffer | null = null;
+    
+    const candidatePaths = [
+      storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',
+      storageKey ? path.join(process.cwd(), 'storage', 'uploads', storageKey) : '',
+      rawUrl ? path.join(process.cwd(), 'storage', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
+      rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
+      rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).split(/[\/\\]/).pop() || '') : '',
+      rawUrl ? path.join(process.cwd(), 'storage', 'uploads', rawUrl.split(/[\/\\]/).pop() || '') : '',
+    ].filter(Boolean);
+
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        existingPdfBytes = fs.readFileSync(p);
+        break;
+      }
     }
-    
-    try {
-      const existingPdfBytes = fs.readFileSync(templatePath);
+
+    if (!existingPdfBytes) {
+      console.error('Error generating PDF: Could not find template file at paths:', candidatePaths);
+      return null;
+    }
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
       const mappingConfig = contract.contractTemplateVersion.mappingConfig as any;

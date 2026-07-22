@@ -114,20 +114,7 @@ export function ContractTemplatesScreen() {
         <View style={styles.list}>
           {templateItems.length > 0 ? (
             templateItems.map((tpl: any) => (
-              <Pressable
-                key={tpl.id}
-                style={styles.templateCard}
-                onPress={() => {
-                  const url = resolveFileUrl(tpl.templateFileUrl);
-                  if (url) {
-                    Linking.openURL(url).catch((err) => {
-                      Alert.alert('Lỗi', 'Không thể mở tệp PDF');
-                    });
-                  } else {
-                    Alert.alert('Lỗi', 'Không tìm thấy tệp đính kèm');
-                  }
-                }}
-              >
+              <View key={tpl.id} style={styles.templateCard}>
                 <View style={styles.templateHeader}>
                   <View style={styles.templateIcon}>
                     <MaterialCommunityIcons name="file-document-outline" size={24} color={colors.primary} />
@@ -156,7 +143,39 @@ export function ContractTemplatesScreen() {
                 {tpl.description ? (
                   <Text style={styles.templateDesc} numberOfLines={2}>{tpl.description}</Text>
                 ) : null}
-              </Pressable>
+
+                <View style={styles.templateActions}>
+                  <Pressable
+                    style={styles.templateActionBtnSecondary}
+                    onPress={() => {
+                      const url = resolveFileUrl(tpl.templateFileUrl);
+                      if (url) {
+                        Linking.openURL(url).catch(() => {
+                          Alert.alert('Lỗi', 'Không thể mở tệp PDF');
+                        });
+                      } else {
+                        Alert.alert('Lỗi', 'Không tìm thấy tệp đính kèm');
+                      }
+                    }}
+                  >
+                    <MaterialCommunityIcons name="file-eye-outline" size={18} color={colors.primary} />
+                    <Text style={styles.templateActionTextSecondary}>Xem PDF</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.templateActionBtnPrimary}
+                    onPress={() => {
+                      router.push({
+                        pathname: '/admin/contracts/create',
+                        params: { templateId: tpl.id },
+                      });
+                    }}
+                  >
+                    <MaterialCommunityIcons name="pencil-box-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.templateActionTextPrimary}>Tạo hợp đồng</Text>
+                  </Pressable>
+                </View>
+              </View>
             ))
           ) : !templates.isLoading ? (
             <EmptyState title="Chưa có mẫu hợp đồng" />
@@ -449,24 +468,13 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               Kích hoạt
             </PrimaryButton>
           )}
-          {status === 'WAITING_EMPLOYEE_SIGNATURE' && (
-            <>
-              <PrimaryButton
-                onPress={() => setSignatureVisible(true)}
-              >
-                Ký điện tử
-              </PrimaryButton>
-              <SecondaryButton
-                onPress={() => {
-                  Alert.prompt('Từ chối ký', 'Vui lòng nhập lý do từ chối', (reason) => {
-                    handleAction(() => rejectSignature.mutateAsync({ reason }), 'Đã từ chối hợp đồng');
-                  });
-                }}
-                loading={rejectSignature.isPending}
-              >
-                Từ chối
-              </SecondaryButton>
-            </>
+          {status !== 'ACTIVE' && status !== 'TERMINATED' && status !== 'CANCELLED' && (
+            <SecondaryButton
+              onPress={() => setSignatureVisible(true)}
+              style={{ marginTop: 8 }}
+            >
+              ✍️ Ký điện tử
+            </SecondaryButton>
           )}
         </View>
       </ScrollView>
@@ -497,10 +505,11 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
 
 export function CreateContractScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ templateId?: string }>();
   const templates = useContractTemplates();
   const createContract = useCreateContract();
   const [userId, setUserId] = useState('');
-  const [templateId, setTemplateId] = useState('');
+  const [templateId, setTemplateId] = useState(params.templateId || '');
   const [title, setTitle] = useState('');
   const [contractType, setContractType] = useState<ContractType>('FIXED_TERM');
   const [startDate, setStartDate] = useState('');
@@ -858,6 +867,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     lineHeight: 18,
+  },
+  templateActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  templateActionBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: '#F0F9FF',
+  },
+  templateActionTextSecondary: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  templateActionBtnPrimary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+  },
+  templateActionTextPrimary: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 
   // Contract card
