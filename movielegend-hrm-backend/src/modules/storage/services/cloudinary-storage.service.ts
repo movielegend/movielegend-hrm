@@ -4,7 +4,6 @@ import { v2 as cloudinary } from 'cloudinary';
 import * as streamifier from 'streamifier';
 
 import { ConfigService } from '@nestjs/config';
-import { FirebaseStorageService } from './firebase-storage.service';
 
 @Injectable()
 export class CloudinaryStorageService implements StorageService {
