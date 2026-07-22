@@ -56,12 +56,15 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type.startsWith('VIOLATION_') && violationId) return `${base}/violations/${violationId}`;
   if (notification.type.startsWith('NEWSFEED_POST_') && postId) {
     if (notification.type === 'NEWSFEED_POST_PENDING') {
-      return `${base}/newsfeed/pending/${postId}`;
+      const pendingBase = base === '/admin' ? '/admin' : '/leader';
+      return `${pendingBase}/newsfeed/pending/${postId}`;
     }
-    return `${base}/newsfeed`; // Could navigate to specific post in newsfeed if supported
+    const targetBase = base === '/warehouse-manager' ? '/employee' : base;
+    return `${targetBase}/newsfeed/${postId}`;
   }
   if (notification.type === 'SYSTEM' && postId) {
-    return `${base}/newsfeed`;
+    const targetBase = base === '/warehouse-manager' ? '/employee' : base;
+    return `${targetBase}/newsfeed/${postId}`;
   }
   if (notification.type === 'SYSTEM' && (notification.title === 'Phân ca mới' || notification.title === 'Phân ca làm việc mới')) {
     return `${base}/schedule`;

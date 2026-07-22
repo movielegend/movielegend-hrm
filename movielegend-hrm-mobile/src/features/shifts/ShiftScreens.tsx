@@ -109,8 +109,20 @@ export function EmployeeScheduleScreen() {
               </View>
               <View style={styles.statusBox}>
                 <StatusBadge 
-                  label={assignment.status === 'ACTIVE' ? 'Đã xếp ca' : assignment.status} 
-                  tone={assignment.status === 'ACTIVE' ? 'info' : 'neutral'} 
+                  label={
+                    assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                      ? 'Đã phân ca' 
+                      : assignment.status === 'CANCELLED' 
+                      ? 'Đã hủy' 
+                      : assignment.status
+                  } 
+                  tone={
+                    assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                      ? 'info' 
+                      : assignment.status === 'CANCELLED' 
+                      ? 'danger' 
+                      : 'neutral'
+                  } 
                 />
               </View>
             </View>

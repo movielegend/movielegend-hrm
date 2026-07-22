@@ -41,11 +41,11 @@ export function AdminFeedbackListScreen() {
               <Text style={styles.statLabel}>Tổng cộng</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#000' }]}>{statsQuery.data.byStatus.SEND || 0}</Text>
+              <Text style={[styles.statNumber, { color: '#3B82F6' }]}>{statsQuery.data.byStatus.SEND || 0}</Text>
               <Text style={styles.statLabel}>Chờ duyệt</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: '#4B5563' }]}>{statsQuery.data.byStatus.REVIEWED || 0}</Text>
+              <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{statsQuery.data.byStatus.REVIEWED || 0}</Text>
               <Text style={styles.statLabel}>Đang xem</Text>
             </View>
           </View>
@@ -60,15 +60,20 @@ export function AdminFeedbackListScreen() {
                   key={i}
                   onPress={() => setStatusFilter(opt.value)}
                   style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
                     borderRadius: 20,
-                    backgroundColor: isActive ? '#000' : '#FFF',
+                    backgroundColor: isActive ? '#111827' : '#F3F4F6',
                     borderWidth: 1,
-                    borderColor: isActive ? '#000' : '#E5E7EB',
+                    borderColor: isActive ? '#111827' : '#E5E7EB',
+                    shadowColor: isActive ? '#111827' : 'transparent',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: isActive ? 0.15 : 0,
+                    shadowRadius: 8,
+                    elevation: isActive ? 4 : 0,
                   }}
                 >
-                  <Text style={{ color: isActive ? '#FFF' : '#111827', fontWeight: '600' }}>
+                  <Text style={{ color: isActive ? '#FFF' : '#6B7280', fontWeight: '700', fontSize: 14 }}>
                     {opt.label}
                   </Text>
                 </Pressable>
@@ -227,101 +232,136 @@ export function AdminFeedbackDetailScreen() {
   );
 }
 
+const appleTheme = {
+  primary: '#111827',
+  card: '#FFFFFF',
+  text: '#111827',
+  textSecondary: '#6B7280',
+  border: '#E5E7EB',
+  surface: '#F9FAFB',
+};
+
 const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
+    backgroundColor: appleTheme.card,
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(17, 24, 39, 0.05)',
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 2,
   },
   statBox: {
     alignItems: 'center',
     flex: 1,
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
+    fontSize: 28,
+    fontWeight: '800',
+    color: appleTheme.primary,
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  detailCard: {
-    backgroundColor: colors.surface,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  detailTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    lineHeight: 28,
+    fontSize: 13,
+    color: appleTheme.textSecondary,
+    fontWeight: '500',
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: appleTheme.border,
     marginVertical: 16,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
+  detailCard: {
+    backgroundColor: appleTheme.card,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(17, 24, 39, 0.05)',
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  detailTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: appleTheme.primary,
+    letterSpacing: -0.5,
   },
   detailContent: {
-    fontSize: 15,
-    color: colors.text,
+    fontSize: 16,
     lineHeight: 24,
-    marginBottom: 16,
+    color: appleTheme.text,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: appleTheme.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   reasonBox: {
-    marginTop: 12,
-    backgroundColor: '#F3F4F6',
+    marginTop: 20,
+    backgroundColor: appleTheme.surface,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: appleTheme.border,
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   actionBtnText: {
     color: '#FFF',
-    fontWeight: '600',
-    fontSize: 13,
+    fontWeight: '700',
+    fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: colors.surface,
+    backgroundColor: appleTheme.card,
+    borderRadius: 24,
     padding: 24,
-    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 5,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '800',
+    color: appleTheme.primary,
+    marginBottom: 20,
   },
   input: {
-    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
+    borderColor: appleTheme.border,
+    borderRadius: 16,
+    padding: 16,
     fontSize: 15,
-  }
+    backgroundColor: appleTheme.surface,
+    color: appleTheme.text,
+  },
 });

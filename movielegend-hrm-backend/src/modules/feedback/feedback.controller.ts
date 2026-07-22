@@ -27,7 +27,6 @@ export class FeedbackController {
     // ─── User / Leader ──────────────────────────────────────────────────────────
 
     @Post()
-    @Permissions('feedback.create')
     @ApiOperation({ summary: 'Gửi góp ý mới (User/Leader, có thể ẩn danh)' })
     create(
         @Body() dto: CreateFeedbackDto,
@@ -37,7 +36,6 @@ export class FeedbackController {
     }
 
     @Get('me')
-    @Permissions('feedback.read_own')
     @ApiOperation({ summary: 'Xem danh sách góp ý của chính mình' })
     findMine(
         @Query() query: FeedbackQueryDto,
@@ -47,7 +45,6 @@ export class FeedbackController {
     }
 
     @Delete(':id')
-    @Permissions('feedback.read_own')
     @ApiOperation({ summary: 'Xóa góp ý của mình (chỉ khi trạng thái SEND)' })
     deleteMine(
         @Param('id') id: string,
@@ -76,7 +73,6 @@ export class FeedbackController {
     }
 
     @Get(':id')
-    @AnyPermissions('feedback.read_all', 'feedback.read_own')
     @ApiOperation({ summary: 'Chi tiết một góp ý (Management hoặc của chính mình)' })
     findOne(
         @Param('id') id: string,

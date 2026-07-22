@@ -328,6 +328,16 @@ describe('task phase state, error, and navigation logic', () => {
     expect(notificationRoute(target, user(['LEADER']))).toBe('/leader/cross-department/r1');
   });
 
+  it('deep links newsfeed and comment notifications to post detail screen', () => {
+    const commentTarget = notificationTarget({ type: 'SYSTEM', title: 'Bình luận mới về bài viết của bạn', metadata: { postId: 'post-123', action: 'COMMENT' } });
+    expect(notificationRoute(commentTarget, user(['EMPLOYEE']))).toBe('/employee/newsfeed/post-123');
+    expect(notificationRoute(commentTarget, user(['LEADER']))).toBe('/leader/newsfeed/post-123');
+    expect(notificationRoute(commentTarget, user(['ADMIN']))).toBe('/admin/newsfeed/post-123');
+
+    const postTarget = notificationTarget({ type: 'NEWSFEED_POST_APPROVED', metadata: { postId: 'post-123' } });
+    expect(notificationRoute(postTarget, user(['EMPLOYEE']))).toBe('/employee/newsfeed/post-123');
+  });
+
   it('falls back safely for unsupported modules', () => {
     const target = notificationTarget({ type: 'PAYSLIP_AVAILABLE', metadata: { payrollId: 'p1' } });
     expect(notificationRoute(target, user(['EMPLOYEE']))).toBeNull();
