@@ -206,6 +206,16 @@ export class AssetsService {
         data: { actorUserId: actor.userId, action: 'ASSET_REVOKED', entityType: 'Asset', entityId: id, metadata: { assignmentId: activeAssignment.id, note: dto.note } },
       });
 
+      if (activeAssignment.assignedToUserId && activeAssignment.assignedToUserId !== actor.userId) {
+        const notify = await this.notifications.createForUsers(tx, [activeAssignment.assignedToUserId], {
+          type: NotificationType.ASSET_RETURNED,
+          title: 'Thu hồi thiết bị',
+          body: `Thiết bị ${asset.name} (${asset.assetCode}) của bạn đã được quản lý thu hồi.`,
+          metadata: { assetId: id, assignmentId: activeAssignment.id },
+        });
+        this.notifications.emitCreated(notify);
+      }
+
       return updatedAsset;
     });
   }
@@ -315,6 +325,17 @@ export class AssetsService {
       await tx.auditLog.create({
         data: { actorUserId: actor.userId, action: 'ASSET_RETURNED', entityType: 'AssetAssignment', entityId: id },
       });
+
+      if (assignment.assignedToUserId && assignment.assignedToUserId !== actor.userId) {
+        const notify = await this.notifications.createForUsers(tx, [assignment.assignedToUserId], {
+          type: NotificationType.ASSET_RETURNED,
+          title: 'Hoàn tất thu hồi thiết bị',
+          body: `Yêu cầu trả thiết bị ${assignment.asset.name} (${assignment.asset.assetCode}) của bạn đã được tiếp nhận & thu hồi xong.`,
+          metadata: { assetId: assignment.assetId, assignmentId: id },
+        });
+        this.notifications.emitCreated(notify);
+      }
+
       return result;
     });
     this.realtime.emitToRoom('asset:return-updated', 'asset:return-updated', updated);
