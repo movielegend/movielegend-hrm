@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   assignShift,
+  assignShiftBatch,
   createShift,
   createShiftRegistration,
   createShiftSwap,
@@ -60,6 +61,17 @@ export function useAssignShift() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: AssignShiftPayload) => assignShift(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['shift-schedule'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useAssignShiftBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { userIds: string[]; departmentId: string; shiftId: string; dates: string[] }) => assignShiftBatch(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['shift-schedule'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });

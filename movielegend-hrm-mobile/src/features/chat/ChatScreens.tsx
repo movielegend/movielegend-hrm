@@ -176,8 +176,12 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
               const groupName = group.name ?? group.department?.name ?? 'Nhóm chat';
               const typeLabel = isDirect ? 'Cá nhân' : isCustom ? 'Tự do' : isCompany ? 'Công ty' : group.type === 'DEPARTMENT' ? 'Phòng ban' : 'Công việc';
               const lastMsg = group.latestMessage;
+              let contentPreview = lastMsg?.content ?? '';
+              if (contentPreview.startsWith('GIPHY_STICKER:') || contentPreview.startsWith('LOTTIE_STICKER:') || contentPreview.startsWith('STATIC_STICKER:')) {
+                contentPreview = '[Nhãn dán]';
+              }
               const lastMsgText = lastMsg
-                ? `${lastMsg.sender?.profile?.fullName ?? 'Ai đó'}: ${lastMsg.content}`
+                ? `${lastMsg.sender?.profile?.fullName ?? 'Ai đó'}: ${contentPreview}`
                 : `${group._count?.members ?? group.members?.length ?? 0} thành viên`;
               const unreadCount = group.unreadCount || 0;
 

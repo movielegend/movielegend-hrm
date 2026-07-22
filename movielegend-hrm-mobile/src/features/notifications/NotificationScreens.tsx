@@ -111,6 +111,10 @@ export function NotificationItem({ target, onPress }: { target: NotificationTarg
   const iconColor = getNotificationColor(item.type, item.title);
   const displayTitle = EN_TO_VI[item.title] || item.title;
 
+  const displayBody = (item.body?.startsWith('GIPHY_STICKER:') || item.body?.startsWith('LOTTIE_STICKER:') || item.body?.startsWith('STATIC_STICKER:'))
+    ? '[Nhãn dán]'
+    : item.body;
+
   return (
     <Pressable 
       style={[styles.card, isUnread && styles.cardUnread]} 
@@ -127,7 +131,7 @@ export function NotificationItem({ target, onPress }: { target: NotificationTarg
           </Text>
           {isUnread && <View style={styles.unreadBadge}><Text style={styles.unreadBadgeText}>Mới</Text></View>}
         </View>
-        <Text style={styles.body} numberOfLines={2}>{item.body}</Text>
+        <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
         <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
       </View>
     </Pressable>

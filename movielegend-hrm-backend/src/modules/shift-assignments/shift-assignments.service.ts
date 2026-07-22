@@ -4,7 +4,7 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { badRequest, conflict, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
-import { AssignShiftDto } from './dto/shift-assignment.dto';
+import { AssignShiftDto, BatchAssignShiftDto } from './dto/shift-assignment.dto';
 import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
@@ -83,6 +83,67 @@ export class ShiftAssignmentsService {
       if (notif) this.notifications.emitCreated(notif);
 
       return assignment;
+    });
+  }
+
+  async assignBatch(dto: BatchAssignShiftDto, actor: AuthenticatedUser) {
+    this.scope.assertDepartmentAccess(actor, dto.departmentId);
+    if (!dto.userIds || dto.userIds.length === 0 || !dto.dates || dto.dates.length === 0) {
+      throw badRequest('INVALID_BATCH', 'Vui lòng chọn nhân viên và ngày phân ca');
+    }
+
+    const shift = await this.prisma.shift.findUnique({ where: { id: dto.shiftId } });
+    if (!shift || !shift.isActive || shift.deletedAt) {
+      throw badRequest('SHIFT_INACTIVE', 'Ca làm không hợp lệ hoặc đã bị vô hiệu hóa');
+    }
+
+    const sortedDates = [...dto.dates].sort();
+    const minDateStr = new Date(sortedDates[0]).toLocaleDateString('vi-VN');
+    const maxDateStr = new Date(sortedDates[sortedDates.length - 1]).toLocaleDateString('vi-VN');
+
+    let bodyText = `Bạn đã được phân ca ${shift.name} vào ngày ${minDateStr}.`;
+    if (sortedDates.length > 1) {
+      if (minDateStr === maxDateStr) {
+        bodyText = `Bạn đã được phân ca ${shift.name} vào ngày ${minDateStr}.`;
+      } else {
+        bodyText = `Bạn đã được phân ca ${shift.name} từ ngày ${minDateStr} đến ngày ${maxDateStr}.`;
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const createdAssignments = [];
+      for (const userId of dto.userIds) {
+        await this.scope.assertUserInDepartment(userId, dto.departmentId);
+        
+        for (const dateStr of dto.dates) {
+          const workDate = new Date(dateStr);
+          const existing = await tx.shiftAssignment.findUnique({
+            where: { userId_workDate: { userId, workDate } }
+          });
+          if (existing) continue;
+
+          const assignment = await tx.shiftAssignment.create({
+            data: {
+              userId,
+              departmentId: dto.departmentId,
+              shiftId: dto.shiftId,
+              workDate,
+              assignedByUserId: actor.userId,
+            }
+          });
+          createdAssignments.push(assignment);
+        }
+
+        const notif = await this.notifications.createForUsers(tx as any, [userId], {
+          type: 'SYSTEM' as NotificationType,
+          title: 'Phân ca mới',
+          body: bodyText,
+          metadata: { shiftId: shift.id, totalDays: dto.dates.length },
+        });
+        if (notif) this.notifications.emitCreated(notif);
+      }
+
+      return { count: createdAssignments.length };
     });
   }
 

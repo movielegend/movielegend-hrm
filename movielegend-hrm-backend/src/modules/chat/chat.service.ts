@@ -74,13 +74,17 @@ export class ChatService {
       });
       if (members.length > 0) {
         await this.prisma.$transaction(async (tx) => {
+          const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
+            ? '[Nhãn dán]'
+            : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+
           const payload = await this.notifications.createForUsers(
             tx as any,
             members.map(m => m.userId),
             {
               type: 'CHAT_MESSAGE',
               title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode} (Nhóm: ${group.name || 'Chung'})`,
-              body: message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]'),
+              body: notificationBody,
               metadata: { groupId: group.id, messageId: message.id }
             }
           );
@@ -104,13 +108,17 @@ export class ChatService {
       if (otherMembers.length > 0) {
         try {
           await this.prisma.$transaction(async (tx) => {
+            const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
+              ? '[Nhãn dán]'
+              : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+
             const payload = await this.notifications.createForUsers(
               tx as any,
               otherMembers.map(m => m.userId),
               {
                 type: 'CHAT_MESSAGE',
                 title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode} (Nhóm: ${group.name || 'Cá nhân'})`,
-                body: message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]'),
+                body: notificationBody,
                 metadata: { groupId: group.id, messageId: message.id }
               }
             );
