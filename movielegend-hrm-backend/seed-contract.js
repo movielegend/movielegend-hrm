@@ -62,10 +62,10 @@ async function main() {
       userId: admin.id,
       contractTemplateId: template.id,
       contractTemplateVersionId: template.versions[0].id,
-      contractType: 'FULL_TIME',
+      contractType: 'FIXED_TERM',
       title: 'Hợp đồng lao động - Thử nghiệm Ký tên',
       startDate: new Date(),
-      status: 'CONTRACT_SIGNATURE_REQUIRED',
+      status: 'WAITING_EMPLOYEE_SIGNATURE',
       createdById: admin.id
     }
   });

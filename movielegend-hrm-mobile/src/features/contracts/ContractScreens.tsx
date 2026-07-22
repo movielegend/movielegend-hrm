@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  Linking,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ContractScannerModal } from './ContractScannerModal';
@@ -21,6 +22,9 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
+import { SelectModal } from '../../components/SelectModal';
+import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
+import { useEmployees } from '../../hooks/useEmployees';
 import {
   useContractTemplates,
   useContracts,
@@ -39,8 +43,23 @@ import {
   type ContractStatus,
   type ContractType,
 } from '../../types/contract.types';
+import { apiUrl } from '../../constants/env';
 
 // ── Helpers ──
+
+function resolveFileUrl(uri?: string | null): string | null {
+  if (!uri) return null;
+  let url = uri;
+  if (!url.startsWith('http')) {
+    if (url.startsWith('/uploads')) {
+      const baseUrl = apiUrl.replace(/\/api\/v1\/?$/, '');
+      url = `${baseUrl}${url}`;
+    } else {
+      url = `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    }
+  }
+  return url;
+}
 
 function getStatusTone(status: ContractStatus): 'success' | 'info' | 'neutral' | 'warning' {
   switch (status) {
@@ -88,7 +107,20 @@ export function ContractTemplatesScreen() {
         <View style={styles.list}>
           {templateItems.length > 0 ? (
             templateItems.map((tpl: any) => (
-              <View key={tpl.id} style={styles.templateCard}>
+              <Pressable
+                key={tpl.id}
+                style={styles.templateCard}
+                onPress={() => {
+                  const url = resolveFileUrl(tpl.templateFileUrl);
+                  if (url) {
+                    Linking.openURL(url).catch((err) => {
+                      Alert.alert('Lỗi', 'Không thể mở tệp PDF');
+                    });
+                  } else {
+                    Alert.alert('Lỗi', 'Không tìm thấy tệp đính kèm');
+                  }
+                }}
+              >
                 <View style={styles.templateHeader}>
                   <View style={styles.templateIcon}>
                     <MaterialCommunityIcons name="file-document-outline" size={24} color={colors.primary} />
@@ -117,7 +149,7 @@ export function ContractTemplatesScreen() {
                 {tpl.description ? (
                   <Text style={styles.templateDesc} numberOfLines={2}>{tpl.description}</Text>
                 ) : null}
-              </View>
+              </Pressable>
             ))
           ) : !templates.isLoading ? (
             <EmptyState title="Chưa có mẫu hợp đồng" />
@@ -462,6 +494,15 @@ export function CreateContractScreen() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isScannerVisible, setScannerVisible] = useState(false);
+  const [isEmployeeSelectVisible, setEmployeeSelectVisible] = useState(false);
+  const [datePickerState, setDatePickerState] = useState<'start' | 'end' | null>(null);
+  const employees = useEmployees({});
+  const employeeOptions = (employees.data?.items || employees.data?.data || [])?.map((e: any) => ({
+    id: e.id,
+    label: e.profile?.fullName ?? e.userCode,
+    subtitle: e.email
+  }));
+  const selectedEmployeeLabel = employeeOptions.find((o: any) => o.id === userId)?.label || 'Chọn nhân viên';
 
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
 
@@ -470,14 +511,33 @@ export function CreateContractScreen() {
       Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
       return;
     }
+
     try {
+      const tpl = templateItems.find((t: any) => t.id === templateId);
+      const versionId = tpl?.versions?.[0]?.id;
+
+      if (!versionId) {
+        Alert.alert('Lỗi', 'Mẫu hợp đồng này chưa có phiên bản nào hợp lệ.');
+        return;
+      }
+
+      const parseDate = (d: string) => {
+        if (!d) return undefined;
+        const parts = d.split('/');
+        if (parts.length === 3) {
+          return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00.000Z`).toISOString();
+        }
+        return new Date(d).toISOString();
+      };
+
       await createContract.mutateAsync({
         userId: userId.trim(),
         contractTemplateId: templateId,
+        contractTemplateVersionId: versionId,
         contractType,
         title: title.trim(),
-        startDate,
-        endDate: endDate || undefined,
+        startDate: parseDate(startDate)!,
+        endDate: parseDate(endDate),
       });
       Alert.alert('Thành công', 'Đã tạo hợp đồng mới');
       router.back();
@@ -501,14 +561,15 @@ export function CreateContractScreen() {
         />
 
         <View style={styles.formCard}>
-          <Field icon="account-circle-outline" label="ID Nhân viên">
-            <TextInput
+          <Field icon="account-circle-outline" label="Nhân viên">
+            <Pressable
               style={styles.input}
-              placeholder="Nhập User ID"
-              placeholderTextColor={colors.muted}
-              value={userId}
-              onChangeText={setUserId}
-            />
+              onPress={() => setEmployeeSelectVisible(true)}
+            >
+              <Text style={{ color: userId ? colors.text : colors.muted, fontSize: 15 }}>
+                {selectedEmployeeLabel}
+              </Text>
+            </Pressable>
           </Field>
 
           <Field icon="file-document-outline" label="Mẫu hợp đồng">
@@ -547,23 +608,25 @@ export function CreateContractScreen() {
           </Field>
 
           <Field icon="calendar-range" label="Ngày bắt đầu">
-            <TextInput
+            <Pressable
               style={styles.input}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.muted}
-              value={startDate}
-              onChangeText={setStartDate}
-            />
+              onPress={() => setDatePickerState('start')}
+            >
+              <Text style={{ color: startDate ? colors.text : colors.muted, fontSize: 15 }}>
+                {startDate || 'Chọn ngày'}
+              </Text>
+            </Pressable>
           </Field>
 
           <Field icon="calendar-end" label="Ngày kết thúc (Không bắt buộc)">
-            <TextInput
+            <Pressable
               style={styles.input}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.muted}
-              value={endDate}
-              onChangeText={setEndDate}
-            />
+              onPress={() => setDatePickerState('end')}
+            >
+              <Text style={{ color: endDate ? colors.text : colors.muted, fontSize: 15 }}>
+                {endDate || 'Chọn ngày'}
+              </Text>
+            </Pressable>
           </Field>
 
           <View style={{ marginTop: 12 }}>
@@ -583,6 +646,38 @@ export function CreateContractScreen() {
           if (data.contractType) setContractType(data.contractType as ContractType);
           if (data.startDate) setStartDate(data.startDate);
           if (data.endDate) setEndDate(data.endDate);
+        }}
+      />
+      <SelectModal
+        visible={isEmployeeSelectVisible}
+        title="Chọn nhân viên"
+        options={employeeOptions}
+        selectedValue={userId}
+        isLoading={employees.isLoading}
+        onClose={() => setEmployeeSelectVisible(false)}
+        onSelect={(opt) => {
+          setUserId(opt.id);
+          setEmployeeSelectVisible(false);
+        }}
+      />
+      <CustomDatePickerModal
+        visible={datePickerState !== null}
+        onClose={() => setDatePickerState(null)}
+        initialDate={
+          datePickerState === 'start' && startDate
+            ? new Date(startDate.includes('/') ? startDate.split('/').reverse().join('-') : startDate)
+            : datePickerState === 'end' && endDate
+            ? new Date(endDate.includes('/') ? endDate.split('/').reverse().join('-') : endDate)
+            : new Date()
+        }
+        onSelect={(date) => {
+          const formatted = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+          if (datePickerState === 'start') {
+            setStartDate(formatted);
+          } else {
+            setEndDate(formatted);
+          }
+          setDatePickerState(null);
         }}
       />
     </Screen>
