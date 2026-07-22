@@ -8,6 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
 import { SectionCard } from '../../components/SectionCard';
@@ -242,10 +243,24 @@ export function AttachmentList({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
   const [currentPdfUri, setCurrentPdfUri] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   if (!attachments?.length) return <EmptyState small icon="paperclip" title="Chưa có tệp đính kèm" message="Thêm tài liệu liên quan đến công việc này." />;
   return (
     <>
+    <ConfirmModal
+      visible={!!deletingId}
+      title="Xoá tài liệu"
+      message="Bạn có chắc chắn muốn xoá tài liệu này?"
+      confirmLabel="Xoá"
+      onCancel={() => setDeletingId(null)}
+      onConfirm={() => {
+        if (deletingId && onDeleteAttachment) {
+          onDeleteAttachment(deletingId);
+        }
+        setDeletingId(null);
+      }}
+    />
     {/* Modal xem PDF ngay trong App */}
     <Modal visible={!!pdfHtml} animationType="slide" onRequestClose={() => setPdfHtml(null)}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
@@ -327,10 +342,24 @@ export function AttachmentList({
                       for(let p=1;p<=pdf.numPages;p++){
                         pdf.getPage(p).then(function(page){
                           const vp=page.getViewport({scale:window.innerWidth/page.getViewport({scale:1}).width});
-                          const canvas=document.createElement('canvas');
-                          canvas.width=vp.width; canvas.height=vp.height;
+                          const pixelRatio = window.devicePixelRatio || 1;
+                          const canvas = document.createElement('canvas');
+                          const context = canvas.getContext('2d');
+                          
+                          canvas.width = Math.floor(vp.width * pixelRatio);
+                          canvas.height = Math.floor(vp.height * pixelRatio);
+                          canvas.style.width = Math.floor(vp.width) + 'px';
+                          canvas.style.height = Math.floor(vp.height) + 'px';
+                          
                           document.getElementById('container').appendChild(canvas);
-                          page.render({canvasContext:canvas.getContext('2d'),viewport:vp});
+                          
+                          const transform = pixelRatio !== 1 ? [pixelRatio, 0, 0, pixelRatio, 0, 0] : null;
+                          
+                          page.render({
+                            canvasContext: context,
+                            transform: transform,
+                            viewport: vp
+                          });
                         });
                       }
                     }).catch(function(e){
@@ -368,10 +397,7 @@ export function AttachmentList({
             <Pressable
               onPress={(e) => {
                 e.stopPropagation();
-                Alert.alert('Xoá tài liệu', 'Bạn có chắc chắn muốn xoá tài liệu này?', [
-                  { text: 'Huỷ', style: 'cancel' },
-                  { text: 'Xoá', style: 'destructive', onPress: () => void onDeleteAttachment(attachment.id) }
-                ]);
+                setDeletingId(attachment.id);
               }}
               style={{ padding: 8 }}
               hitSlop={10}

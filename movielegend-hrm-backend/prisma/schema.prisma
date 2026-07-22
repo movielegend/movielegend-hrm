@@ -2482,6 +2482,7 @@ model ContractTemplateVersion {
   templateFileUrl    String
   storageKey         String?
   contentHash        String?
+  mappingConfig      Json?
   createdById        String             @db.Uuid
   createdAt          DateTime           @default(now())
   contractTemplate   ContractTemplate   @relation(fields: [contractTemplateId], references: [id])

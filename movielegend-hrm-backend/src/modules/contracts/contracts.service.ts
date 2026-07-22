@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { PDFDocument } from 'pdf-lib';
+import * as fs from 'fs';
+import * as path from 'path';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ContractSignerRole, ContractStatus, NotificationType, Prisma } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -213,7 +216,14 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     const contract = await this.prisma.employeeContract.findUnique({ where: { id } });
     if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Contract not found');
     if (contract.userId !== actor.userId) throw forbidden('CONTRACT_EMPLOYEE_SIGNATURE_DENIED', 'Employee can only sign own contract');
-    return this.sign(id, dto, actor, ContractSignerRole.EMPLOYEE, ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.EMPLOYEE_SIGNED, 'CONTRACT_EMPLOYEE_SIGNED');
+    
+    let finalSignedFileUrl = dto.signedFileUrl;
+    if (dto.signatureImageUrl) {
+      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, actor.profile?.fullName || 'Employee');
+      if (generatedUrl) finalSignedFileUrl = generatedUrl;
+    }
+    
+    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, ContractStatus.WAITING_EMPLOYEE_SIGNATURE, ContractStatus.EMPLOYEE_SIGNED, 'CONTRACT_EMPLOYEE_SIGNED');
   }
 
   employeeReject(id: string, actor: AuthenticatedUser, dto: RejectContractDto) {
@@ -312,6 +322,66 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       status: to,
     });
     return payload.contract;
+  }
+
+  async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string) {
+    const contract = await this.prisma.employeeContract.findUnique({
+      where: { id: contractId },
+      include: { contractTemplateVersion: true }
+    });
+    
+    if (!contract || !contract.contractTemplateVersion) return null;
+    
+    const templateUrl = contract.contractTemplateVersion.templateFileUrl;
+    let templatePath = '';
+    
+    if (templateUrl.startsWith('/')) {
+      templatePath = path.join(process.cwd(), 'storage', templateUrl);
+    } else {
+      templatePath = path.join(process.cwd(), 'storage', 'uploads', templateUrl.split('/').pop() || '');
+    }
+    
+    try {
+      const existingPdfBytes = fs.readFileSync(templatePath);
+      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      
+      const mappingConfig = contract.contractTemplateVersion.mappingConfig as any;
+      if (Array.isArray(mappingConfig)) {
+        for (const field of mappingConfig) {
+          const page = pdfDoc.getPages()[field.page - 1];
+          if (!page) continue;
+          
+          if (field.type === 'text' && field.id === 'fullName') {
+            page.drawText(userFullName, { x: field.x, y: field.y, size: 12 });
+          } else if (field.type === 'signature' && field.id === 'signature') {
+            try {
+              const base64Data = base64Signature.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+              const signatureImage = await pdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
+              page.drawImage(signatureImage, {
+                x: field.x,
+                y: field.y,
+                width: 150,
+                height: 75,
+              });
+            } catch (e) {
+              console.error('Error embedding signature:', e);
+            }
+          }
+        }
+      }
+      
+      const pdfBytes = await pdfDoc.save();
+      const fileName = `signed_${contractId}.pdf`;
+      const outPath = path.join(process.cwd(), 'storage', 'uploads', fileName);
+      if (!fs.existsSync(path.dirname(outPath))) {
+        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      }
+      fs.writeFileSync(outPath, pdfBytes);
+      return '/uploads/' + fileName;
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      return null;
+    }
   }
 
   private async sign(id: string, dto: SignContractDto, actor: AuthenticatedUser, signerRole: ContractSignerRole, expected: ContractStatus, next: ContractStatus, auditAction: string) {
