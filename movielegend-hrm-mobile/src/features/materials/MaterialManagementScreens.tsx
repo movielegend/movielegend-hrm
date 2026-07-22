@@ -301,9 +301,11 @@ function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer }
   const requestReturn = useRequestAssetReturn();
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
 
-  const activeAssignment = asset.assignments?.find((a: any) => 
-    a.status === 'ACTIVE' || a.status === 'PENDING_CONFIRMATION'
-  );
+  const activeAssignment = asset.assetStatus === 'IN_STOCK'
+    ? null
+    : asset.assignments?.find((a: any) => 
+        a.status === 'ACTIVE' || a.status === 'PENDING_CONFIRMATION'
+      );
 
   const handleRevoke = async () => {
     if (!activeAssignment) return;
@@ -344,7 +346,7 @@ function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer }
             
             <View style={styles.assetDetailRow}>
               <MaterialCommunityIcons name="office-building" size={14} color="#64748B" />
-              <Text style={styles.assetDetailText}>Phòng: {activeAssignment ? assigneeName : 'Chưa giao'}</Text>
+              <Text style={styles.assetDetailText}>Người giữ: {activeAssignment ? assigneeName : 'Chưa giao (Trống)'}</Text>
             </View>
           </View>
         </View>

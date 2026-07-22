@@ -125,10 +125,17 @@ export class AssetsService {
       if (!asset || asset.deletedAt) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
       if (asset.assetStatus !== AssetStatus.IN_STOCK) throw badRequest('ASSET_NOT_ASSIGNABLE', 'Asset is not in stock');
       if (asset.warehouseId) this.warehouses.assertWarehouseAccess(actor, asset.warehouseId);
-      const active = await tx.assetAssignment.findFirst({
-        where: { assetId: id, status: { in: [AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.RETURN_REQUESTED] } },
+      // If asset is IN_STOCK, clean up any old stale active/pending assignments
+      await tx.assetAssignment.updateMany({
+        where: {
+          assetId: id,
+          status: { in: [AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.RETURN_REQUESTED] },
+        },
+        data: {
+          status: AssetAssignmentStatus.RETURNED,
+          returnedAt: new Date(),
+        },
       });
-      if (active) throw conflict('ASSET_ALREADY_ASSIGNED', 'Asset already has an active assignment');
       const assignment = await tx.assetAssignment.create({
         data: {
           assetId: id,
@@ -175,9 +182,12 @@ export class AssetsService {
     if (!activeAssignment) throw badRequest('ASSET_NOT_ASSIGNED', 'Asset is not currently assigned to anyone');
 
     return this.prisma.$transaction(async (tx) => {
-      // Mark assignment as returned
-      await tx.assetAssignment.update({
-        where: { id: activeAssignment.id },
+      // Mark all active/pending assignments as returned
+      await tx.assetAssignment.updateMany({
+        where: {
+          assetId: id,
+          status: { in: ['ACTIVE', 'PENDING_CONFIRMATION', 'RETURN_REQUESTED'] },
+        },
         data: {
           status: 'RETURNED',
           returnedAt: new Date(),
