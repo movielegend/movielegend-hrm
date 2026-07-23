@@ -27,6 +27,7 @@ import {
   TransferAssetDto,
   UpdateAssetDto,
   RevokeAssetDto,
+  RequestReturnDto,
 } from './dto/asset.dto';
 
 @Injectable()
@@ -195,12 +196,36 @@ export class AssetsService {
         },
       });
 
-      // Reset asset to IN_STOCK
+      // Reset asset to target status or IN_STOCK
+      const assetStatus = dto.targetAssetStatus || 'IN_STOCK';
       const updatedAsset = await tx.asset.update({
         where: { id },
-        data: { assetStatus: 'IN_STOCK' },
+        data: { assetStatus },
         include: { assignments: true, department: true },
       });
+
+      if (assetStatus === 'MAINTENANCE') {
+        await tx.assetMaintenanceRecord.create({
+          data: {
+            assetId: id,
+            maintenanceType: dto.maintenanceType || 'Sửa chữa đột xuất',
+            vendorName: dto.vendorName,
+            description: dto.note || 'Sửa chữa tài sản hỏng',
+            startedAt: dto.startedAt ? new Date(dto.startedAt) : new Date(),
+            createdById: actor.userId,
+          },
+        });
+      } else if (assetStatus === 'DISPOSED') {
+        await tx.auditLog.create({
+          data: { 
+            actorUserId: actor.userId, 
+            action: 'ASSET_DISPOSED', 
+            entityType: 'Asset', 
+            entityId: id, 
+            metadata: { reason: dto.note } 
+          },
+        });
+      }
 
       await tx.auditLog.create({
         data: { actorUserId: actor.userId, action: 'ASSET_REVOKED', entityType: 'Asset', entityId: id, metadata: { assignmentId: activeAssignment.id, note: dto.note } },
@@ -256,7 +281,7 @@ export class AssetsService {
       });
       await tx.asset.update({ where: { id: assignment.assetId }, data: { assetStatus: AssetStatus.IN_USE } });
 
-      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorProfile = await tx.user.findUnique({ where: { id: actor.userId }, include: { profile: true } }).then(u => u?.profile);
       const actorName = actorProfile?.fullName || 'Nhân sự';
 
       await this.notifyManagers(
@@ -274,7 +299,7 @@ export class AssetsService {
     return payload;
   }
 
-  async requestReturn(id: string, actor: AuthenticatedUser) {
+  async requestReturn(id: string, dto: RequestReturnDto, actor: AuthenticatedUser) {
     const payload = await this.prisma.$transaction(async (tx) => {
       const assignment = await tx.assetAssignment.findUnique({ where: { id }, include: { asset: true } });
       if (!assignment) throw notFound('ASSET_ASSIGNMENT_NOT_FOUND', 'Asset assignment not found');
@@ -282,10 +307,10 @@ export class AssetsService {
       if (assignment.status !== AssetAssignmentStatus.ACTIVE) throw conflict('ASSET_ASSIGNMENT_NOT_ACTIVE', 'Assignment is not active');
       const updated = await tx.assetAssignment.update({
         where: { id },
-        data: { status: AssetAssignmentStatus.RETURN_REQUESTED, histories: { create: { action: AssetAssignmentAction.RETURN_REQUESTED, performedById: actor.userId } } },
+        data: { status: AssetAssignmentStatus.RETURN_REQUESTED, histories: { create: { action: AssetAssignmentAction.RETURN_REQUESTED, performedById: actor.userId, note: dto.reason } } },
       });
 
-      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorProfile = await tx.user.findUnique({ where: { id: actor.userId }, include: { profile: true } }).then(u => u?.profile);
       const actorName = actorProfile?.fullName || 'Nhân sự';
 
       await this.notifyManagers(
@@ -351,14 +376,7 @@ export class AssetsService {
       const incident = await tx.assetIncidentReport.create({
         data: { assetId, reportedById: actor.userId, incidentType: dto.incidentType, description: dto.description, evidenceUrl: dto.evidenceUrl },
       });
-      const lostIncidentTypes: AssetIncidentType[] = [AssetIncidentType.LOST, AssetIncidentType.STOLEN];
-      if (lostIncidentTypes.includes(dto.incidentType)) {
-        await tx.asset.update({ where: { id: assetId }, data: { assetStatus: AssetStatus.LOST } });
-      } else {
-        await tx.asset.update({ where: { id: assetId }, data: { assetStatus: AssetStatus.DAMAGED, conditionStatus: AssetConditionStatus.DAMAGED } });
-      }
-
-      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorProfile = await tx.user.findUnique({ where: { id: actor.userId }, include: { profile: true } }).then(u => u?.profile);
       const actorName = actorProfile?.fullName || 'Nhân sự';
 
       await this.notifyManagers(
@@ -413,6 +431,29 @@ export class AssetsService {
       if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
       const assetStatus = dto.assetStatus ?? (incident.incidentType === AssetIncidentType.DAMAGED ? AssetStatus.MAINTENANCE : AssetStatus.LOST);
       await tx.asset.update({ where: { id: incident.assetId }, data: { assetStatus } });
+
+      if (assetStatus === AssetStatus.DAMAGED) {
+        const assignment = await tx.assetAssignment.findFirst({
+          where: {
+            assetId: incident.assetId,
+            status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.RETURN_REQUESTED] },
+          },
+        });
+        if (assignment) {
+          await tx.assetAssignment.update({
+            where: { id: assignment.id },
+            data: { status: AssetAssignmentStatus.RETURNED },
+          });
+          await tx.assetAssignmentHistory.create({
+            data: {
+              assetAssignmentId: assignment.id,
+              action: 'RETURNED',
+              performedById: actor.userId,
+              note: `Thu hồi do xử lý sự cố: Hỏng`,
+            },
+          });
+        }
+      }
       const result = await tx.assetIncidentReport.update({
         where: { id },
         data: { status: AssetIncidentStatus.RESOLVED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote },
@@ -479,7 +520,7 @@ export class AssetsService {
     return this.prisma.$transaction(async (tx) => {
       const record = await tx.assetMaintenanceRecord.findUnique({ where: { id } });
       if (!record) throw notFound('ASSET_MAINTENANCE_NOT_FOUND', 'Maintenance record not found');
-      const assetStatus = conditionStatus === AssetConditionStatus.DAMAGED ? AssetStatus.DISPOSED : AssetStatus.IN_STOCK;
+      const assetStatus = conditionStatus === AssetConditionStatus.DAMAGED ? AssetStatus.DAMAGED : AssetStatus.IN_STOCK;
       await tx.asset.update({ where: { id: record.assetId }, data: { assetStatus, conditionStatus } });
       return tx.assetMaintenanceRecord.update({
         where: { id },
@@ -503,6 +544,28 @@ export class AssetsService {
   }
 
   private async assertCanReportAsset(assetId: string, actor: AuthenticatedUser): Promise<void> {
-    await this.assertCanReadAsset(assetId, actor);
+    const asset = await this.prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
+    if (asset.assetStatus !== AssetStatus.IN_USE) throw forbidden('ASSET_NOT_IN_USE', 'Tài sản không ở trạng thái Đang sử dụng');
+
+    const assignment = await this.prisma.assetAssignment.findFirst({
+      where: {
+        assetId,
+        status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.RETURN_REQUESTED] },
+      },
+    });
+    if (!assignment || assignment.assignedToUserId !== actor.userId) {
+      throw forbidden('ASSET_FORBIDDEN', 'Bạn không phải là người đang giữ tài sản này');
+    }
+
+    const openIncident = await this.prisma.assetIncidentReport.findFirst({
+      where: {
+        assetId,
+        status: { notIn: [AssetIncidentStatus.RESOLVED, AssetIncidentStatus.REJECTED] }
+      }
+    });
+    if (openIncident) {
+      throw forbidden('ASSET_INCIDENT_EXISTS', 'Tài sản này đã có báo cáo sự cố đang được xử lý.');
+    }
   }
 }

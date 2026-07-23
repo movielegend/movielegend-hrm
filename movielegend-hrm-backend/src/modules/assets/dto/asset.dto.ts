@@ -166,6 +166,32 @@ export class RevokeAssetDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({ enum: AssetStatus })
+  @IsOptional()
+  @IsEnum(AssetStatus)
+  targetAssetStatus?: AssetStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  vendorName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  maintenanceType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  startedAt?: string;
+}
+
+export class RequestReturnDto {
+  @ApiProperty()
+  @IsString()
+  reason!: string;
 }
 
 export class MaintenanceDto {

@@ -11,6 +11,7 @@ import {
   MaintenanceDto,
   ReceiveReturnDto,
   ReportIncidentDto,
+  RequestReturnDto,
   ResolveIncidentDto,
   TransferAssetDto,
   UpdateAssetDto,
@@ -98,8 +99,8 @@ export class AssetAssignmentsController {
 
   @Post(':id/request-return')
   @Permissions('asset.return')
-  requestReturn(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.assets.requestReturn(id, actor);
+  requestReturn(@Param('id') id: string, @Body() dto: RequestReturnDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assets.requestReturn(id, dto, actor);
   }
 
   @Post(':id/receive-return')

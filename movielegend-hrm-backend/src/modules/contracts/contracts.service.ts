@@ -228,7 +228,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     
     let finalSignedFileUrl = dto.signedFileUrl;
     if (dto.signatureImageUrl) {
-      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, actor.profile?.fullName || 'Employee');
+      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Employee');
       if (generatedUrl) finalSignedFileUrl = generatedUrl;
     }
 
@@ -345,6 +345,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string) {
+    try {
     const contract = await this.prisma.employeeContract.findUnique({
       where: { id: contractId },
       include: { contractTemplateVersion: true }
@@ -379,7 +380,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     }
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
-      const mappingConfig = contract.contractTemplateVersion.mappingConfig as any;
+      const mappingConfig = (contract.contractTemplateVersion as any).mappingConfig as any;
       if (Array.isArray(mappingConfig)) {
         for (const field of mappingConfig) {
           const page = pdfDoc.getPages()[field.page - 1];
