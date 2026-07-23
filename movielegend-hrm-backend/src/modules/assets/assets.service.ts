@@ -54,12 +54,15 @@ export class AssetsService {
 
   async findAdminDepartments(search?: string) {
     const departments = await this.prisma.department.findMany({
-      where: search ? {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { code: { contains: search, mode: 'insensitive' } }
-        ]
-      } : undefined,
+      where: {
+        deletedAt: null,
+        ...(search ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { code: { contains: search, mode: 'insensitive' } }
+          ]
+        } : {})
+      },
       include: {
         assets: {
           where: { deletedAt: null },

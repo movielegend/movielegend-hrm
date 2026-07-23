@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 14, color: colors.text },
   assetActions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   actionBtn: { flex: 1, minWidth: '25%', paddingVertical: 8, flexDirection: 'row', justifyContent: 'center' },
-  container: { backgroundColor: '#F8FAFC', flex: 1 },
+  container: { backgroundColor: '#F8FAFC', flexGrow: 1 },
   header: { padding: spacing.lg, paddingBottom: 0, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   headerIcon: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
   headerTitle: { fontSize: 24, fontWeight: '800', color: colors.text },
