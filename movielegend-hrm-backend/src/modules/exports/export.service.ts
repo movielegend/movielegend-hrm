@@ -29,16 +29,23 @@ export class ExportService {
   exportExcel(filename: string, rows: Array<Record<string, unknown>>): ExportResult {
     this.assertLimit(rows.length);
     const headers = this.headers(rows);
-    const xmlRows = [
-      `<Row>${headers.map((header) => `<Cell><Data ss:Type="String">${this.xml(header)}</Data></Cell>`).join('')}</Row>`,
-      ...rows.map((row) => `<Row>${headers.map((header) => this.excelCell(row[header])).join('')}</Row>`),
-    ];
-    const content = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Report"><Table>${xmlRows.join('')}</Table></Worksheet></Workbook>`;
+    
+    const data: any[][] = [headers];
+    for (const row of rows) {
+      data.push(headers.map(h => row[h]));
+    }
+    
+    const xlsx = require('xlsx');
+    const ws = xlsx.utils.aoa_to_sheet(data);
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, 'Report');
+    const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
     return {
-      filename: this.safeFilename(filename, 'xls'),
-      mimeType: 'application/vnd.ms-excel',
-      encoding: 'utf8',
-      content,
+      filename: this.safeFilename(filename, 'xlsx'),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      encoding: 'base64',
+      content: buffer.toString('base64'),
     };
   }
 
@@ -47,60 +54,16 @@ export class ExportService {
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
     
-    // Define styles
-    const styles = `
-      <Styles>
-        <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/></Style>
-        <Style ss:ID="Title"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="14"/></Style>
-        <Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/><Interior ss:Color="#92D050" ss:Pattern="Solid"/></Style>
-        <Style ss:ID="HeaderYellow"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/><Interior ss:Color="#FFFF00" ss:Pattern="Solid"/></Style>
-        <Style ss:ID="Cell"><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-        <Style ss:ID="CellBold"><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/></Style>
-        <Style ss:ID="SummaryRow"><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/><Interior ss:Color="#FFFF00" ss:Pattern="Solid"/></Style>
-      </Styles>
-    `;
-
-    const cols = `
-      <Column ss:Width="60"/> <!-- Ma NV -->
-      <Column ss:Width="120"/> <!-- Ten NV -->
-      <Column ss:Width="100"/> <!-- Phong ban -->
-      <Column ss:Width="80"/> <!-- Chuc vu -->
-      <Column ss:Width="80"/> <!-- Ngay -->
-      <Column ss:Width="60"/> <!-- Thu -->
-      <Column ss:Width="50"/> <!-- Vao -->
-      <Column ss:Width="50"/> <!-- Ra -->
-      <Column ss:Width="50"/> <!-- Cong -->
-      <Column ss:Width="60"/> <!-- Tong gio -->
-      <Column ss:Width="60"/> <!-- OT 150 -->
-      <Column ss:Width="60"/> <!-- OT 200 -->
-      <Column ss:Width="60"/> <!-- Muon chieu -->
-      <Column ss:Width="60"/> <!-- Muon sang -->
-      <Column ss:Width="60"/> <!-- Tong muon -->
-      <Column ss:Width="60"/> <!-- Ve som -->
-      <Column ss:Width="80"/> <!-- Tong muon + som -->
-      <Column ss:Width="80"/> <!-- Tru di muon -->
-      <Column ss:Width="80"/> <!-- Ho tro dem -->
-    `;
-
     const headers = [
       'Mã NV', 'Tên nhân viên', 'Phòng ban', 'Chức vụ', 'Ngày', 'Thứ', 'Vào', 'Ra', 'Công',
       'Tổng Giờ', 'Tăng ca x150%', 'Tăng ca x200%', 'Đi muộn ca chiều', 'Đi muộn ca sáng',
       'Tổng đi muộn', 'Về sớm', 'Tổng đi muộn + về sớm', 'Trừ đi muộn/quên chấm công', 'Hỗ trợ làm đêm'
     ];
 
-    const xmlRows: string[] = [];
-    
-    // Title
-    xmlRows.push(`<Row ss:Height="25"><Cell ss:MergeAcross="18" ss:StyleID="Title"><Data ss:Type="String">Từ ngày ${startStr} đến ngày ${endStr}</Data></Cell></Row>`);
-    
-    // Header row
-    const headerCells = headers.map((h, i) => {
-      const style = (i >= 8 && i <= 10) ? 'Header' : 'HeaderYellow';
-      return `<Cell ss:StyleID="${style}"><Data ss:Type="String">${this.xml(h)}</Data></Cell>`;
-    }).join('');
-    xmlRows.push(`<Row ss:Height="30">${headerCells}</Row>`);
+    const data: any[][] = [];
+    data.push([`Từ ngày ${startStr} đến ngày ${endStr}`]);
+    data.push(headers);
 
-    // Data rows
     for (const group of userGroups) {
       if (group.length === 0) continue;
       const first = group[0];
@@ -122,79 +85,36 @@ export class ExportService {
         if (!mins) return '0:00:00';
         const h = Math.floor(mins / 60);
         const m = mins % 60;
-        return \`\${h}:\${m.toString().padStart(2, '0')}:00\`;
+        return `${h}:${m.toString().padStart(2, '0')}:00`;
       };
 
-      // Summary Row
-      xmlRows.push(\`
-        <Row>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${this.xml(first.employeeCode)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${this.xml(first.employeeName)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${this.xml(first.department)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="Number">\${sumCong}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${formatHrs(sumOt150)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${formatHrs(sumOt200)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String"></Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${formatHrs(sumMuon)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${formatHrs(sumSom)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="String">\${formatHrs(sumMuon + sumSom)}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="Number">\${sumTru}</Data></Cell>
-          <Cell ss:StyleID="SummaryRow"><Data ss:Type="Number">\${sumDem}</Data></Cell>
-        </Row>
-      \`);
+      data.push([
+        first.employeeCode, first.employeeName, first.department, '', '', '', '', '',
+        sumCong, '', formatHrs(sumOt150), formatHrs(sumOt200), '', '',
+        formatHrs(sumMuon), formatHrs(sumSom), formatHrs(sumMuon + sumSom), sumTru, sumDem
+      ]);
 
-      // Detail rows
       for (const row of group) {
-        xmlRows.push(\`
-          <Row>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.date)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.dayOfWeek)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.checkIn)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.checkOut)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="Number">\${row.attendance}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.totalHours)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.overtime150)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.overtime200)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.lateAfternoon)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.lateMorning)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.totalLate)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.earlyLeave)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="String">\${this.xml(row.totalLateAndEarly)}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="Number">\${row.lateDeduction}</Data></Cell>
-            <Cell ss:StyleID="Cell"><Data ss:Type="Number">\${row.nightAllowance}</Data></Cell>
-          </Row>
-        \`);
+        data.push([
+          '', '', '', '', row.date, row.dayOfWeek, row.checkIn, row.checkOut,
+          row.attendance, row.totalHours, row.overtime150, row.overtime200,
+          row.lateAfternoon, row.lateMorning, row.totalLate, row.earlyLeave,
+          row.totalLateAndEarly, row.lateDeduction, row.nightAllowance
+        ]);
       }
     }
 
-    const content = \`<?xml version="1.0"?>
-      <?mso-application progid="Excel.Sheet"?>
-      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-      \${styles}
-      <Worksheet ss:Name="Attendance">
-        <Table>
-          \${cols}
-          \${xmlRows.join('\\n')}
-        </Table>
-      </Worksheet>
-      </Workbook>\`;
-      
+    const xlsx = require('xlsx');
+    const ws = xlsx.utils.aoa_to_sheet(data);
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, 'Attendance');
+    const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
     return {
-      filename: this.safeFilename(filename, 'xls'),
-      mimeType: 'application/vnd.ms-excel',
-      encoding: 'utf8',
-      content,
+      filename: this.safeFilename(filename, 'xlsx'),
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      encoding: 'base64',
+      content: buffer.toString('base64'),
     };
   }
 
