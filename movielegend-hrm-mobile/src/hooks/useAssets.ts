@@ -95,7 +95,7 @@ export function useConfirmAssetAssignment() {
 export function useRequestAssetReturn() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (assignmentId: string) => requestAssetReturn(assignmentId),
+    mutationFn: ({ assignmentId, payload }: { assignmentId: string; payload: { reason: string } }) => requestAssetReturn(assignmentId, payload),
     onSuccess: (assignment) => {
       void queryClient.invalidateQueries({ queryKey: assetKeys.my() });
       void queryClient.invalidateQueries({ queryKey: assetKeys.detail(assignment.assetId) });

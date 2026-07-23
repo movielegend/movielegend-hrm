@@ -41,9 +41,8 @@ export function LeaderDashboard() {
     limit: 10 
   });
   
-  const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0 };
-  // Approximate checked in today:
-  const checkedInCount = Math.max(0, deptStats.activeEmployeeCount - deptStats.absentToday - deptStats.onLeaveToday);
+  const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0, checkedInCount: 0 };
+  const checkedInCount = deptStats.checkedInCount || 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

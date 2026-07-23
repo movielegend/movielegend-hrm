@@ -10,6 +10,7 @@ import type {
   RejectContractPayload,
   SignContractPayload,
   TerminateContractPayload,
+  UpdateTemplateMappingPayload,
 } from '../types/contract.types';
 
 // ── Contract Templates ──
@@ -31,6 +32,11 @@ export async function createContractTemplate(payload: CreateContractTemplatePayl
 
 export async function updateContractTemplate(id: string, payload: UpdateContractTemplatePayload): Promise<ContractTemplateDto> {
   const response = await apiClient.patch<ApiResponse<ContractTemplateDto>>(`/contract-templates/${id}`, payload);
+  return unwrapData(response);
+}
+
+export async function updateTemplateMapping(id: string, payload: UpdateTemplateMappingPayload): Promise<{ success: boolean }> {
+  const response = await apiClient.patch<ApiResponse<{ success: boolean }>>(`/contract-templates/${id}/mapping`, payload);
   return unwrapData(response);
 }
 

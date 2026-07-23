@@ -12,9 +12,9 @@ export async function confirmAssetAssignment(assignmentId: string): Promise<Asse
   return unwrapData(response);
 }
 
-// Backend không nhận body cho request-return (reason không có trong contract).
-export async function requestAssetReturn(assignmentId: string): Promise<AssetAssignmentDto> {
-  const response = await apiClient.post<ApiResponse<AssetAssignmentDto>>(`/asset-assignments/${assignmentId}/request-return`);
+// Backend yêu cầu reason qua RequestReturnPayload
+export async function requestAssetReturn(assignmentId: string, payload: { reason: string }): Promise<AssetAssignmentDto> {
+  const response = await apiClient.post<ApiResponse<AssetAssignmentDto>>(`/asset-assignments/${assignmentId}/request-return`, payload);
   return unwrapData(response);
 }
 

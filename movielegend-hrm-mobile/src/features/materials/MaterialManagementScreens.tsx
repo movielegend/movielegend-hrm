@@ -148,13 +148,25 @@ export function AssetDepartmentScreen() {
   const department = departments?.items.find((d) => d.id === departmentId);
   const { data: assetsData, isLoading, isError, error, refetch, isRefetching } = useAssets();
   
-  const [filter, setFilter] = useState<'ALL' | 'IN_STOCK' | 'PENDING' | 'ASSIGNED' | 'BROKEN'>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    keyword: '',
+    assigneeId: '',
+    assetStatus: '',
+    assignmentStatus: '',
+  });
   
   const [revokeModalVisible, setRevokeModalVisible] = useState(false);
   const [selectedAssetForRevoke, setSelectedAssetForRevoke] = useState<any | null>(null);
   const [revokeNote, setRevokeNote] = useState('');
   const revokeMutation = useRevokeAsset();
+
+  const [damagedModalVisible, setDamagedModalVisible] = useState(false);
+  const [selectedAssetForDamaged, setSelectedAssetForDamaged] = useState<any | null>(null);
+  const [damagedAction, setDamagedAction] = useState<'DAMAGED' | 'MAINTENANCE' | 'DISPOSED'>('DAMAGED');
+  const [damagedNote, setDamagedNote] = useState('');
+  const [damagedVendorName, setDamagedVendorName] = useState('');
+  const [damagedStartedAt, setDamagedStartedAt] = useState('');
 
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [selectedAssetForAssign, setSelectedAssetForAssign] = useState<any | null>(null);
@@ -173,15 +185,13 @@ export function AssetDepartmentScreen() {
   const assets = (assetsData?.items || []).filter((a: any) => a.departmentId === departmentId);
   
   const filteredAssets = assets.filter((asset: any) => {
-    if (filter === 'ALL') return true;
-    if (filter === 'IN_STOCK') return asset.assetStatus === 'IN_STOCK';
+    if (filters.keyword && !asset.name?.toLowerCase().includes(filters.keyword.toLowerCase()) && !asset.assetCode?.toLowerCase().includes(filters.keyword.toLowerCase())) return false;
+    if (filters.assetStatus && asset.assetStatus !== filters.assetStatus) return false;
     
-    const hasPending = asset.assignments?.some((a: any) => a.status === 'PENDING_CONFIRMATION');
-    if (filter === 'PENDING') return hasPending;
-    if (filter === 'ASSIGNED') return (asset.assetStatus === 'IN_USE' || asset.assetStatus === 'ASSIGNED') && !hasPending;
-    
-    if (filter === 'BROKEN') return asset.conditionStatus === 'DAMAGED' || asset.assetStatus === 'DAMAGED' || asset.assetStatus === 'LOST';
-    if (searchQuery && !asset.name?.toLowerCase().includes(searchQuery.toLowerCase()) && !asset.assetCode?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    const activeAssign = asset.assignments?.find((a: any) => ['ACTIVE', 'PENDING_CONFIRMATION', 'RETURN_REQUESTED'].includes(a.status));
+    if (filters.assigneeId && activeAssign?.assignedToUserId !== filters.assigneeId) return false;
+    if (filters.assignmentStatus && (!activeAssign || activeAssign.status !== filters.assignmentStatus)) return false;
+
     return true;
   });
 
@@ -197,23 +207,21 @@ export function AssetDepartmentScreen() {
           onBack={() => router.back()} 
         />
 
-        <Pressable 
-          style={styles.createAssetButton} 
-          onPress={() => router.push(`/admin/assets/create?departmentId=${departmentId}` as never)}
-        >
-          <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
-          <Text style={styles.createAssetButtonText}>Tạo vật tư mới</Text>
-        </Pressable>
-
-        <View style={styles.searchBarContainer}>
-           <MaterialCommunityIcons name="magnify" size={20} color="#98A0A8" />
-           <TextInput 
-             style={styles.searchInput} 
-             placeholder="Tìm kiếm theo tên hoặc mã..." 
-             placeholderTextColor="#98A0A8"
-             value={searchQuery}
-             onChangeText={setSearchQuery}
-           />
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          <Pressable 
+            style={[styles.createAssetButton, { flex: 1, marginBottom: 0 }]} 
+            onPress={() => router.push(`/admin/assets/create?departmentId=${departmentId}` as never)}
+          >
+            <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
+            <Text style={styles.createAssetButtonText}>Tạo vật tư mới</Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.createAssetButton, { flex: 0, paddingHorizontal: 16, backgroundColor: '#334155', marginBottom: 0 }]} 
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <MaterialCommunityIcons name="filter-variant" size={20} color="#FFF" />
+            <Text style={styles.createAssetButtonText}>Bộ lọc</Text>
+          </Pressable>
         </View>
 
         <Text style={styles.listHeader}>Danh sách ({filteredAssets.length} vật tư)</Text>
@@ -226,13 +234,55 @@ export function AssetDepartmentScreen() {
               employees={employees?.items || []}
               onPress={() => router.push(`/admin/assets/${asset.id}` as never)}
               onRevoke={() => { setSelectedAssetForRevoke(asset); setRevokeNote(''); setRevokeModalVisible(true); }}
+              onReportDamaged={() => { setSelectedAssetForDamaged(asset); setDamagedNote(''); setDamagedVendorName(''); setDamagedStartedAt(new Date().toISOString().split('T')[0]); setDamagedAction('DAMAGED'); setDamagedModalVisible(true); }}
               onAssign={() => { setSelectedAssetForAssign(asset); setAssignedUserId(null); setAssignModalVisible(true); }}
               onTransfer={() => { setSelectedAssetForTransfer(asset); setTargetDepartmentId(null); setTransferModalVisible(true); }}
             />
           ))}
-          {filteredAssets.length === 0 && <EmptyState title="Không có vật tư nào" />}
+          {filteredAssets.length === 0 && <EmptyState title="Không có vật tư nào khớp với bộ lọc" />}
         </View>
       </ScrollView>
+
+      <ConfirmModal
+        visible={filterModalVisible}
+        title="Lọc vật tư"
+        description="Điều chỉnh các tiêu chí bên dưới để tìm vật tư."
+        confirmText="Áp dụng"
+        confirmTone="primary"
+        isLoading={false}
+        onConfirm={() => setFilterModalVisible(false)}
+        onCancel={() => {
+          setFilters({ keyword: '', assigneeId: '', assetStatus: '', assignmentStatus: '' });
+          setFilterModalVisible(false);
+        }}
+      >
+        <FormField label="Từ khóa (Tên, Mã)" value={filters.keyword} onChangeText={(t) => setFilters(prev => ({ ...prev, keyword: t }))} />
+        
+        <Text style={{ marginBottom: 4, fontWeight: '600' }}>Trạng thái tài sản</Text>
+        <View style={[styles.pickerContainer, { marginBottom: 16 }]}>
+          <Picker selectedValue={filters.assetStatus} onValueChange={(v) => setFilters(prev => ({ ...prev, assetStatus: v }))}>
+            <Picker.Item label="Tất cả" value="" />
+            <Picker.Item label="Còn kho (IN_STOCK)" value="IN_STOCK" />
+            <Picker.Item label="Đã giao (ASSIGNED)" value="ASSIGNED" />
+            <Picker.Item label="Đang sử dụng (IN_USE)" value="IN_USE" />
+            <Picker.Item label="Bảo trì (MAINTENANCE)" value="MAINTENANCE" />
+            <Picker.Item label="Mất (LOST)" value="LOST" />
+            <Picker.Item label="Hỏng (DAMAGED)" value="DAMAGED" />
+            <Picker.Item label="Đã thanh lý (DISPOSED)" value="DISPOSED" />
+            <Picker.Item label="Chờ điều chuyển (TRANSFER_PENDING)" value="TRANSFER_PENDING" />
+          </Picker>
+        </View>
+
+        <Text style={{ marginBottom: 4, fontWeight: '600' }}>Trạng thái cấp phát</Text>
+        <View style={[styles.pickerContainer, { marginBottom: 16 }]}>
+          <Picker selectedValue={filters.assignmentStatus} onValueChange={(v) => setFilters(prev => ({ ...prev, assignmentStatus: v }))}>
+            <Picker.Item label="Tất cả" value="" />
+            <Picker.Item label="Chờ xác nhận (PENDING_CONFIRMATION)" value="PENDING_CONFIRMATION" />
+            <Picker.Item label="Đang hoạt động (ACTIVE)" value="ACTIVE" />
+            <Picker.Item label="Đã yêu cầu trả (RETURN_REQUESTED)" value="RETURN_REQUESTED" />
+          </Picker>
+        </View>
+      </ConfirmModal>
 
       <ConfirmModal
         visible={revokeModalVisible}
@@ -244,6 +294,7 @@ export function AssetDepartmentScreen() {
         onConfirm={async () => {
           if (selectedAssetForRevoke) {
             await revokeMutation.mutateAsync({ assetId: selectedAssetForRevoke.id, payload: { note: revokeNote } });
+            Alert.alert('Thành công', 'Đã thu hồi tài sản');
             setRevokeModalVisible(false);
           }
         }}
@@ -257,46 +308,133 @@ export function AssetDepartmentScreen() {
         />
       </ConfirmModal>
 
+      <ConfirmModal
+        visible={damagedModalVisible}
+        title="Xử lý tài sản hỏng"
+        description={`Chọn hành động xử lý cho tài sản ${selectedAssetForDamaged?.name}`}
+        confirmText="Xác nhận"
+        confirmTone="primary"
+        isLoading={revokeMutation.isPending}
+        onConfirm={async () => {
+          if (selectedAssetForDamaged) {
+            try {
+              await revokeMutation.mutateAsync({ assetId: selectedAssetForDamaged.id, payload: { note: damagedNote, targetAssetStatus: damagedAction, vendorName: damagedAction === 'MAINTENANCE' ? damagedVendorName : undefined, startedAt: damagedAction === 'MAINTENANCE' && damagedStartedAt ? new Date(damagedStartedAt).toISOString() : undefined } });
+              Alert.alert('Thành công', 'Đã xử lý tài sản hỏng');
+              setDamagedModalVisible(false);
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.response?.data?.message || 'Không thể xử lý');
+            }
+          }
+        }}
+        onCancel={() => setDamagedModalVisible(false)}
+      >
+        <View style={{ marginBottom: 16 }}>
+          <Pressable style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }} onPress={() => setDamagedAction('DAMAGED')}>
+            <MaterialCommunityIcons name={damagedAction === 'DAMAGED' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'DAMAGED' ? '#111827' : '#98A0A8'} />
+            <Text style={{ marginLeft: 8, fontSize: 16 }}>Thu hồi về kho</Text>
+          </Pressable>
+          <Pressable style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }} onPress={() => setDamagedAction('MAINTENANCE')}>
+            <MaterialCommunityIcons name={damagedAction === 'MAINTENANCE' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'MAINTENANCE' ? '#111827' : '#98A0A8'} />
+            <Text style={{ marginLeft: 8, fontSize: 16 }}>Chuyển đi sửa chữa</Text>
+          </Pressable>
+          <Pressable style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => setDamagedAction('DISPOSED')}>
+            <MaterialCommunityIcons name={damagedAction === 'DISPOSED' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'DISPOSED' ? '#111827' : '#98A0A8'} />
+            <Text style={{ marginLeft: 8, fontSize: 16 }}>Thanh lý</Text>
+          </Pressable>
+        </View>
+
+        {damagedAction === 'MAINTENANCE' ? (
+          <>
+            <FormField
+              label="Đơn vị sửa chữa"
+              value={damagedVendorName}
+              onChangeText={setDamagedVendorName}
+              placeholder="Tên đơn vị, nơi sửa chữa..."
+            />
+            <FormField
+              label="Ngày chuyển đi (YYYY-MM-DD)"
+              value={damagedStartedAt}
+              onChangeText={setDamagedStartedAt}
+              placeholder="2023-12-01"
+            />
+            <FormField
+              label="Ghi chú sửa chữa"
+              value={damagedNote}
+              onChangeText={setDamagedNote}
+              placeholder="Chi tiết tình trạng hỏng..."
+            />
+          </>
+        ) : damagedAction === 'DISPOSED' ? (
+          <FormField
+            label="Lý do thanh lý"
+            value={damagedNote}
+            onChangeText={setDamagedNote}
+            placeholder="Nhập lý do thanh lý..."
+          />
+        ) : (
+          <FormField
+            label="Lý do thu hồi"
+            value={damagedNote}
+            onChangeText={setDamagedNote}
+            placeholder="Nhập lý do thu hồi..."
+          />
+        )}
+      </ConfirmModal>
+
       <SelectModal
         visible={assignModalVisible}
         title="Chọn nhân viên để giao"
-        options={(employees?.items ?? []).map(e => ({ id: e.id, label: e.profile?.fullName ?? e.phone, subtitle: e.userCode }))}
-        selectedValue={assignedUserId}
+        options={(employees?.items ?? []).map((emp) => ({
+          id: emp.id,
+          label: emp.profile?.fullName ?? emp.phone,
+          subtitle: emp.userCode,
+        }))}
+        selectedValue={assignedUserId ?? ''}
         onSelect={async (option) => {
           setAssignedUserId(option.id);
           if (selectedAssetForAssign) {
             try {
-              await assignMutation.mutateAsync({ assetId: selectedAssetForAssign.id, payload: { assignedToUserId: option.id, conditionWhenAssigned: selectedAssetForAssign.conditionStatus } });
+              await assignMutation.mutateAsync({
+                assetId: selectedAssetForAssign.id,
+                payload: {
+                  assignedToUserId: option.id,
+                  conditionWhenAssigned: selectedAssetForAssign.conditionStatus,
+                },
+              });
+              Alert.alert('Thành công', 'Đã giao tài sản');
               setAssignModalVisible(false);
-            } catch (e: any) {}
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.response?.data?.message || 'Không thể giao');
+            }
           }
         }}
         onClose={() => setAssignModalVisible(false)}
-        isLoading={!employees}
       />
 
       <SelectModal
         visible={transferModalVisible}
         title="Chọn phòng ban điều chuyển"
-        options={(allDepartments.data?.items ?? []).filter(d => d.id !== departmentId).map(d => ({ id: d.id, label: d.name, subtitle: d.code }))}
-        selectedValue={targetDepartmentId}
+        options={(allDepartments?.data?.items ?? []).filter(d => d.id !== departmentId).map(d => ({ id: d.id, label: d.name, subtitle: d.code }))}
+        selectedValue={targetDepartmentId ?? ''}
         onSelect={async (option) => {
           setTargetDepartmentId(option.id);
           if (selectedAssetForTransfer) {
             try {
               await transferMutation.mutateAsync({ assetId: selectedAssetForTransfer.id, payload: { targetDepartmentId: option.id } });
+              Alert.alert('Thành công', 'Đã điều chuyển tài sản');
               setTransferModalVisible(false);
-            } catch (e: any) {}
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.response?.data?.message || 'Không thể điều chuyển');
+            }
           }
         }}
         onClose={() => setTransferModalVisible(false)}
-        isLoading={allDepartments.isLoading}
       />
     </Screen>
   );
 }
 
-function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer }: { asset: any, employees: any[], onPress: () => void, onRevoke: () => void, onAssign: () => void, onTransfer: () => void }) {
+function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer, onReportDamaged }: { asset: any, employees: any[], onPress: () => void, onRevoke: () => void, onAssign: () => void, onTransfer: () => void, onReportDamaged?: () => void }) {
   const router = useRouter();
   const requestReturn = useRequestAssetReturn();
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
@@ -368,10 +506,18 @@ function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer }
               </Pressable>
             </>
           ) : activeAssignment ? (
-            <Pressable style={[styles.actionBtnTeal, { borderColor: colors.danger }]} onPress={onRevoke}>
-              <MaterialCommunityIcons name="account-arrow-left-outline" size={18} color={colors.danger} />
-              <Text style={[styles.actionBtnTealText, { color: colors.danger }]}>Thu hồi</Text>
-            </Pressable>
+            <>
+              <Pressable style={[styles.actionBtnTeal, { borderColor: colors.danger }]} onPress={onRevoke}>
+                <MaterialCommunityIcons name="account-arrow-left-outline" size={18} color={colors.danger} />
+                <Text style={[styles.actionBtnTealText, { color: colors.danger }]}>Thu hồi</Text>
+              </Pressable>
+              {onReportDamaged && (
+                <Pressable style={[styles.actionBtnTeal, { borderColor: colors.warning }]} onPress={onReportDamaged}>
+                  <MaterialCommunityIcons name="alert-outline" size={18} color={colors.warning} />
+                  <Text style={[styles.actionBtnTealText, { color: colors.warning }]}>Hỏng</Text>
+                </Pressable>
+              )}
+            </>
           ) : null}
         </View>
       </SectionCard>

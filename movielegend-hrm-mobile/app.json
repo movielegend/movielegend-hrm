@@ -70,17 +70,18 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-document-picker"
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4a5152ea-87fd-4faf-829b-63e01ed4de9d"
+        "projectId": "347f4427-0ab1-4e84-94a8-6efbb1ea285c"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "owner": "movielegend6868"
+    "owner": "binhpthe1fpt"
   }
 }

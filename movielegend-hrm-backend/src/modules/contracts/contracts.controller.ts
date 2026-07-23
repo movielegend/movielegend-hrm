@@ -12,6 +12,7 @@ import {
   SignContractDto,
   TerminateContractDto,
   UpdateContractTemplateDto,
+  UpdateTemplateMappingDto,
   UpdateEmployeeContractDto,
   ScanContractDto,
 } from './dto/contract.dto';
@@ -45,6 +46,12 @@ export class ContractTemplatesController {
   @Permissions('contract_template.update')
   update(@Param('id') id: string, @Body() dto: UpdateContractTemplateDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contracts.updateTemplate(id, dto, actor);
+  }
+
+  @Patch(':id/mapping')
+  @Permissions('contract_template.update')
+  updateMapping(@Param('id') id: string, @Body() dto: UpdateTemplateMappingDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.contracts.updateTemplateMapping(id, dto, actor);
   }
 }
 

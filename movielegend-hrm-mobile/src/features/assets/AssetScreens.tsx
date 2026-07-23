@@ -66,6 +66,10 @@ export function MyAssetsScreen() {
   const confirm = useConfirmAssetAssignment();
   const requestReturn = useRequestAssetReturn();
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'ACTIVE'>('ALL');
+  
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
 
   async function runConfirm(assignmentId: string) {
     try {
@@ -77,10 +81,18 @@ export function MyAssetsScreen() {
     }
   }
 
-  async function runRequestReturn(assignmentId: string) {
+  async function runRequestReturn() {
+    if (!selectedAssignmentId) return;
+    if (!returnReason.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập lý do trả tài sản.');
+      return;
+    }
     try {
-      await requestReturn.mutateAsync(assignmentId);
+      await requestReturn.mutateAsync({ assignmentId: selectedAssignmentId, payload: { reason: returnReason.trim() } });
       Alert.alert('Thành công', 'Đã gửi yêu cầu trả tài sản');
+      setShowReturnModal(false);
+      setReturnReason('');
+      setSelectedAssignmentId(null);
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
       Alert.alert(mapped.code, mapped.message);
@@ -150,15 +162,21 @@ export function MyAssetsScreen() {
                 ) : null}
                 
                 {canRequestReturn(user, assignment) ? (
-                  <SecondaryButton style={{ flex: 1 }} loading={requestReturn.isPending} onPress={() => void runRequestReturn(assignment.id)}>
+                  <SecondaryButton style={{ flex: 1 }} onPress={() => { setSelectedAssignmentId(assignment.id); setShowReturnModal(true); }}>
                     Yêu cầu trả
                   </SecondaryButton>
                 ) : null}
 
                 {hasPermission(user, 'asset.incident.create') && assignment.status === 'ACTIVE' ? (
-                  <SecondaryButton style={{ flex: 1 }} onPress={() => router.push(`/employee/assets/incidents/create?assetId=${assignment.assetId}` as never)}>
-                    Báo lỗi
-                  </SecondaryButton>
+                  assignment.asset?.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED') ? (
+                    <Text style={[styles.meta, { color: colors.warning, flex: 1, textAlign: 'center', alignSelf: 'center' }]}>
+                      Tài sản này đã có báo cáo sự cố đang được xử lý.
+                    </Text>
+                  ) : (
+                    <SecondaryButton style={{ flex: 1 }} onPress={() => router.push(`/employee/assets/incidents/create?assetId=${assignment.assetId}` as never)}>
+                      Báo lỗi
+                    </SecondaryButton>
+                  )
                 ) : null}
               </View>
             </View>
@@ -171,6 +189,24 @@ export function MyAssetsScreen() {
           ) : null}
         </View>
       </ScrollView>
+
+      <ConfirmModal
+        visible={showReturnModal}
+        title="Yêu cầu trả tài sản"
+        description="Bạn có chắc chắn muốn yêu cầu trả tài sản này?"
+        confirmText="Gửi yêu cầu"
+        confirmTone="primary"
+        isLoading={requestReturn.isPending}
+        onConfirm={() => void runRequestReturn()}
+        onCancel={() => { setShowReturnModal(false); setSelectedAssignmentId(null); setReturnReason(''); }}
+      >
+        <FormField
+          label="Lý do trả hàng"
+          value={returnReason}
+          onChangeText={setReturnReason}
+          placeholder="Lý do cần trả..."
+        />
+      </ConfirmModal>
     </Screen>
   );
 }
@@ -222,6 +258,10 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
   const [returnCondition, setReturnCondition] = useState<AssetConditionStatus>('GOOD');
   const [returnNote, setReturnNote] = useState('');
   const [showConditionSelect, setShowConditionSelect] = useState(false);
+
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+
   const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
   if (asset.isLoading) return <LoadingState />;
@@ -238,6 +278,23 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
     try {
       await action();
       Alert.alert('Thành công', successMessage);
+    } catch (error) {
+      const mapped = mapWarehouseAssetError(error);
+      Alert.alert(mapped.code, mapped.message);
+    }
+  }
+
+  async function runRequestReturn() {
+    if (!assignment) return;
+    if (!returnReason.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập lý do trả tài sản.');
+      return;
+    }
+    try {
+      await requestReturn.mutateAsync({ assignmentId: assignment.id, payload: { reason: returnReason.trim() } });
+      Alert.alert('Thành công', 'Đã gửi yêu cầu trả tài sản');
+      setShowReturnModal(false);
+      setReturnReason('');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
       Alert.alert(mapped.code, mapped.message);
@@ -296,8 +353,7 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
             ) : null}
             {isOwner && canRequestReturn(user, assignment) ? (
               <SecondaryButton
-                loading={requestReturn.isPending}
-                onPress={() => void runAction(() => requestReturn.mutateAsync(assignment.id), 'Đã gửi yêu cầu trả')}
+                onPress={() => setShowReturnModal(true)}
               >
                 Yêu cầu trả tài sản
               </SecondaryButton>
@@ -331,20 +387,21 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
           </SectionCard>
         ) : null}
 
-
-        {hasPermission(user, 'asset.incident.create') ? (
+        {hasPermission(user, 'asset.incident.create') && area !== 'admin' ? (
           <SectionCard title="Sự cố">
-            <SecondaryButton
-              onPress={() =>
-                router.push(
-                  area === 'employee'
-                    ? (`/employee/assets/incidents/create?assetId=${item.id}` as never)
-                    : (`/admin/assets/incidents/create?assetId=${item.id}` as never),
-                )
-              }
-            >
-              Báo sự cố tài sản này
-            </SecondaryButton>
+            {item.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED') ? (
+              <Text style={[styles.meta, { color: colors.warning }]}>
+                Tài sản này đã có báo cáo sự cố đang được xử lý.
+              </Text>
+            ) : (
+              <SecondaryButton
+                onPress={() =>
+                  router.push(`/employee/assets/incidents/create?assetId=${item.id}` as never)
+                }
+              >
+                Báo sự cố tài sản này
+              </SecondaryButton>
+            )}
           </SectionCard>
         ) : null}
 
@@ -362,12 +419,32 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
           </SectionCard>
         ) : null}
       </ScrollView>
+      <ConfirmModal
+        visible={showReturnModal}
+        title="Yêu cầu trả tài sản"
+        description="Bạn có chắc chắn muốn yêu cầu trả tài sản này? Quá trình này sẽ cần admin xác nhận."
+        confirmText="Gửi yêu cầu"
+        confirmTone="primary"
+        isLoading={requestReturn.isPending}
+        onConfirm={() => void runRequestReturn()}
+        onCancel={() => setShowReturnModal(false)}
+      >
+        <FormField
+          label="Lý do trả hàng"
+          value={returnReason}
+          onChangeText={setReturnReason}
+          placeholder="Lý do cần trả..."
+        />
+      </ConfirmModal>
+
       <SelectModal
         visible={showConditionSelect}
-        title="Tình trạng nhận trả"
-        options={conditionOptions.map(c => ({ id: c, label: assetConditionLabels[c] }))}
-        selectedValue={returnCondition}
-        onSelect={(opt) => { setReturnCondition(opt.id as AssetConditionStatus); setShowConditionSelect(false); }}
+        title="Tình trạng nhận"
+        options={conditionOptions.map((c) => ({ id: c, label: assetConditionLabels[c] }))}
+        onSelect={(id) => {
+          setReturnCondition(id as AssetConditionStatus);
+          setShowConditionSelect(false);
+        }}
         onClose={() => setShowConditionSelect(false)}
       />
     </Screen>

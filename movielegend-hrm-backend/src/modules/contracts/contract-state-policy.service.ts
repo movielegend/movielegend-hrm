@@ -24,4 +24,10 @@ export class ContractStatePolicy {
       throw badRequest('CONTRACT_STATE_SKIP_DENIED', `Cannot transition contract from ${from} to ${to}`);
     }
   }
+
+  assertCanUpdate(actor: any): void {
+    if (!actor.roles?.includes('ADMIN') && !actor.roles?.includes('HR')) {
+      throw badRequest('CONTRACT_UPDATE_DENIED', 'Only HR or Admin can update contract templates');
+    }
+  }
 }

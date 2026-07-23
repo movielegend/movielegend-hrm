@@ -94,6 +94,28 @@ export class ContractsService {
     });
   }
 
+  async updateTemplateMapping(id: string, dto: { mappingConfig: any[] }, actor: AuthenticatedUser) {
+    this.policy.assertCanUpdate(actor);
+    const template = await this.prisma.contractTemplate.findUnique({
+      where: { id },
+      include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } },
+    });
+    if (!template) throw notFound('CONTRACT_TEMPLATE_NOT_FOUND', 'Contract template not found');
+    const latestVersion = template.versions[0];
+    if (!latestVersion) throw notFound('CONTRACT_TEMPLATE_VERSION_NOT_FOUND', 'Contract template version not found');
+
+    await this.prisma.contractTemplateVersion.update({
+      where: { id: latestVersion.id },
+      data: { mappingConfig: dto.mappingConfig },
+    });
+
+    await this.prisma.auditLog.create({
+      data: { actorUserId: actor.userId, action: 'CONTRACT_TEMPLATE_MAPPING_UPDATED', entityType: 'ContractTemplate', entityId: id, metadata: { versionNumber: latestVersion.versionNumber } },
+    });
+    
+    return { success: true };
+  }
+
   async createContract(dto: CreateEmployeeContractDto, actor: AuthenticatedUser) {
     const [target, version] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: dto.userId }, include: { profile: { include: { position: true } }, departmentLinks: { where: { leftAt: null }, include: { department: true } } } }),
@@ -107,6 +129,7 @@ export class ContractsService {
       const contract = await tx.employeeContract.create({
         data: {
           contractCode,
+          status: ContractStatus.WAITING_EMPLOYEE_SIGNATURE,
           userId: dto.userId,
           contractTemplateId: dto.contractTemplateId,
           contractTemplateVersionId: dto.contractTemplateVersionId,
@@ -116,6 +139,8 @@ export class ContractsService {
           endDate: dto.endDate ? new Date(dto.endDate) : undefined,
           draftFileUrl: dto.draftFileUrl,
           createdById: actor.userId,
+          approvedById: actor.userId,
+          approvedAt: new Date(),
           positionSnapshot: target.profile?.position ? { id: target.profile.position.id, name: target.profile.position.name } : undefined,
           departmentSnapshot: target.departmentLinks.map((link) => ({ id: link.departmentId, name: link.department.name, isPrimary: link.isPrimary })),
         },
@@ -243,7 +268,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       throw badRequest('CONTRACT_SIGN_WRONG_STATE', 'Contract is not ready for this signature');
     }
     
-    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.EMPLOYEE_SIGNED, 'CONTRACT_EMPLOYEE_SIGNED');
+    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.ACTIVE, 'CONTRACT_EMPLOYEE_SIGNED');
   }
 
   employeeReject(id: string, actor: AuthenticatedUser, dto: RejectContractDto) {
@@ -356,7 +381,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     const rawUrl = contract.contractTemplateVersion.templateFileUrl || '';
     const storageKey = contract.contractTemplateVersion.storageKey || '';
     
-    let existingPdfBytes: Buffer | null = null;
+    try {
+      let existingPdfBytes: Buffer | null = null;
     
     const candidatePaths = [
       storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',
@@ -447,13 +473,10 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
         where: { id, status: expected },
         data:
           signerRole === ContractSignerRole.EMPLOYEE
-            ? { status: next, employeeSignedAt: new Date() }
+            ? { status: next, employeeSignedAt: new Date(), signedFileUrl }
             : { status: next, companySignedAt: new Date(), signedFileUrl },
       });
       if (changed.count !== 1) throw conflict('CONTRACT_STATE_CONFLICT', 'Contract state already changed');
-      if (signerRole === ContractSignerRole.EMPLOYEE) {
-        await tx.employeeContract.update({ where: { id }, data: { status: ContractStatus.WAITING_COMPANY_SIGNATURE } });
-      }
       const updated = await tx.employeeContract.findUniqueOrThrow({ where: { id }, include: this.include() });
       await tx.auditLog.create({ data: { actorUserId: actor.userId, action: auditAction, entityType: 'EmployeeContract', entityId: id, metadata: { signerRole, signedDocumentHash } } });
       const notification = await this.notifications.createForUsers(tx, [updated.userId], {

@@ -48,3 +48,7 @@ export interface ReceiveReturnPayload {
   conditionWhenReturned: AssetConditionStatus;
   note?: string;
 }
+
+export interface RequestReturnPayload {
+  reason: string;
+}

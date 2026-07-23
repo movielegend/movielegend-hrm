@@ -251,26 +251,68 @@ export class LeaderDashboardService {
     const departmentIds = this.scope.visibleDepartmentIds(actor) ?? [];
     const { start, end } = new DashboardAggregationService(this.prisma).todayRange();
     const userIds = (await this.prisma.departmentMember.findMany({ where: { departmentId: { in: departmentIds }, leftAt: null }, select: { userId: true } })).map((item) => item.userId);
-    const [activeEmployeeCount, absentToday, lateToday, onLeaveToday, activeTasks, overdueTasks, waitingReview, completedThisPeriod, scheduledToday, pendingLeave, pendingAdjustments, pendingOt, pendingApproval, awaitingLeaderReview, assignedDepartmentAssets] =
-      await Promise.all([
-        this.prisma.user.count({ where: { id: { in: userIds }, accountStatus: AccountStatus.ACTIVE } }),
-        this.prisma.shiftAssignment.count({ where: { userId: { in: userIds }, workDate: { gte: start, lte: end } } }),
-        Promise.resolve(0),
-        this.prisma.leaveRequest.count({ where: { userId: { in: userIds }, status: LeaveRequestStatus.APPROVED, startDate: { lte: end }, endDate: { gte: start } } }),
-        this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, status: { notIn: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.CANCELLED] } } }),
-        this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, assignmentDueAt: { lt: end }, status: { notIn: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.CANCELLED] } } }),
-        this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, status: TaskAssignmentStatus.WAITING_REVIEW } }),
-        this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, status: TaskAssignmentStatus.COMPLETED, completedAt: { gte: start, lte: end } } }),
-        this.prisma.shiftAssignment.count({ where: { departmentId: { in: departmentIds }, workDate: { gte: start, lte: end } } }),
-        this.prisma.leaveRequest.count({ where: { departmentId: { in: departmentIds }, status: LeaveRequestStatus.PENDING } }),
-        this.prisma.attendanceAdjustment.count({ where: { departmentId: { in: departmentIds }, status: 'PENDING' } }),
-        this.prisma.overtimeRequest.count({ where: { departmentId: { in: departmentIds }, status: 'PENDING' } }),
-        this.prisma.userApprovalRequest.count({ where: { requestedDepartmentId: { in: departmentIds }, status: 'PENDING' } }),
-        this.prisma.employeeKpiAssignment.count({ where: { userId: { in: userIds }, status: EmployeeKpiAssignmentStatus.LEADER_REVIEW } }),
-        this.prisma.assetAssignment.count({ where: { assignedToDepartmentId: { in: departmentIds }, status: 'ACTIVE' } }),
-      ]);
+    const [
+      activeEmployeeCount, 
+      scheduledAssignments, 
+      attendanceToday, 
+      onLeaveToday, 
+      activeTasks, 
+      overdueTasks, 
+      waitingReview, 
+      completedThisPeriod, 
+      pendingLeave, 
+      pendingAdjustments, 
+      pendingOt, 
+      pendingApproval, 
+      awaitingLeaderReview, 
+      assignedDepartmentAssets
+    ] = await Promise.all([
+      this.prisma.user.count({ where: { id: { in: userIds }, accountStatus: AccountStatus.ACTIVE } }),
+      this.prisma.shiftAssignment.findMany({ 
+        where: { userId: { in: userIds }, workDate: { gte: start, lte: end } },
+        include: { shift: true }
+      }),
+      this.prisma.attendanceRecord.findMany({
+        where: { userId: { in: userIds }, workDate: { gte: start, lte: end } }
+      }),
+      this.prisma.leaveRequest.count({ where: { userId: { in: userIds }, status: LeaveRequestStatus.APPROVED, startDate: { lte: end }, endDate: { gte: start } } }),
+      this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, status: { notIn: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.CANCELLED] } } }),
+      this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, assignmentDueAt: { lt: end }, status: { notIn: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.CANCELLED] } } }),
+      this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, status: TaskAssignmentStatus.WAITING_REVIEW } }),
+      this.prisma.taskAssignment.count({ where: { userId: { in: userIds }, status: TaskAssignmentStatus.COMPLETED, completedAt: { gte: start, lte: end } } }),
+      this.prisma.leaveRequest.count({ where: { departmentId: { in: departmentIds }, status: LeaveRequestStatus.PENDING } }),
+      this.prisma.attendanceAdjustment.count({ where: { departmentId: { in: departmentIds }, status: 'PENDING' } }),
+      this.prisma.overtimeRequest.count({ where: { departmentId: { in: departmentIds }, status: 'PENDING' } }),
+      this.prisma.userApprovalRequest.count({ where: { requestedDepartmentId: { in: departmentIds }, status: 'PENDING' } }),
+      this.prisma.employeeKpiAssignment.count({ where: { userId: { in: userIds }, status: EmployeeKpiAssignmentStatus.LEADER_REVIEW } }),
+      this.prisma.assetAssignment.count({ where: { assignedToDepartmentId: { in: departmentIds }, status: 'ACTIVE' } }),
+    ]);
+
+    const scheduledToday = scheduledAssignments.length;
+    const checkedInCount = attendanceToday.length;
+    const absentToday = Math.max(0, scheduledToday - checkedInCount);
+    
+    // Calculate late today
+    let lateToday = 0;
+    attendanceToday.forEach(record => {
+      const assignment = scheduledAssignments.find(a => a.id === record.shiftAssignmentId);
+      if (assignment && assignment.shift && assignment.shift.startTime) {
+        // shift.startTime is likely HH:mm:ss format
+        const [hours, minutes] = assignment.shift.startTime.toString().split(':').map(Number);
+        const shiftStart = new Date(record.workDate);
+        shiftStart.setHours(hours, minutes, 0, 0);
+        
+        // Add 15 minutes grace period
+        shiftStart.setMinutes(shiftStart.getMinutes() + 15);
+        
+        if (record.checkInAt > shiftStart) {
+          lateToday++;
+        }
+      }
+    });
+
     return {
-      department: { activeEmployeeCount, absentToday, lateToday, onLeaveToday },
+      department: { activeEmployeeCount, absentToday, lateToday, onLeaveToday, checkedInCount },
       tasks: { active: activeTasks, overdue: overdueTasks, waitingReview, completedThisPeriod },
       shift: { scheduledToday, unassignedEmployees: Math.max(0, activeEmployeeCount - scheduledToday) },
       requests: { pendingLeave, pendingAttendanceAdjustment: pendingAdjustments, pendingOt, pendingAccountApproval: pendingApproval },
