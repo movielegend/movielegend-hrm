@@ -43,6 +43,13 @@ export const incidentTypeLabels: Record<AssetIncidentType, string> = {
   OTHER: 'Khác',
 };
 
+export const incidentStatusLabels: Record<AssetIncidentStatus, string> = {
+  OPEN: 'Mở',
+  INVESTIGATING: 'Đang xử lý',
+  RESOLVED: 'Đã giải quyết',
+  REJECTED: 'Đã từ chối',
+};
+
 export function assetStatusTone(status: AssetStatus): BadgeTone {
   if (status === 'IN_STOCK') return 'success';
   if (status === 'ASSIGNED' || status === 'TRANSFER_PENDING') return 'info';

@@ -48,79 +48,83 @@ export function AssetDepartmentListScreen() {
           }
         />
 
-
-        <Text style={styles.sectionLabelHeader}>Tìm phòng ban</Text>
-
-        <View style={styles.searchBarContainerDept}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#98A0A8" />
-          <TextInput
-            style={styles.searchInputDept}
-            placeholder="Nhập tên phòng ban..."
-            placeholderTextColor="#98A0A8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabelHeader}>Danh sách phòng ban</Text>
-          <View style={styles.countBadge}>
-            <MaterialCommunityIcons name="office-building" size={14} color="#111827" />
-            <Text style={styles.countBadgeText}>{filteredDepartments?.length || 0} Đơn vị</Text>
-          </View>
-        </View>
-
-        {isLoading ? <LoadingState /> : null}
-        {isError ? <ErrorState error={error} onRetry={() => void refetch()} /> : null}
-
-        {filteredDepartments?.map((dept) => (
-          <Pressable key={dept.id} onPress={() => router.push(`/admin/materials/department/${dept.id}` as never)}>
-            <View style={styles.popularDeptCard}>
-              <View style={styles.deptCardTop}>
-                <View style={styles.popularDeptIcon}>
-                  <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
-                </View>
-                <View style={styles.popularDeptInfo}>
-                  <Text style={styles.popularDeptName}>{dept.name}</Text>
-                  <Text style={styles.popularDeptDesc}>Quản lý vật tư thuộc bộ phận {dept.name.toLowerCase()}</Text>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
-              </View>
-
-              <View style={styles.deptStatsRow}>
-                <View style={styles.deptStatItem}>
-                  <MaterialCommunityIcons name="cube-outline" size={20} color="#4B5563" />
-                  <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>{dept.materialCount || 0}</Text>
-                    <Text style={styles.deptStatLabel}>Vật tư</Text>
-                  </View>
-                </View>
-                <View style={styles.deptStatDivider} />
-                <View style={styles.deptStatItem}>
-                  <MaterialCommunityIcons name="clipboard-text-outline" size={20} color="#4B5563" />
-                  <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>{dept.requestCount || 0}</Text>
-                    <Text style={styles.deptStatLabel}>Yêu cầu</Text>
-                  </View>
-                </View>
-                <View style={styles.deptStatDivider} />
-                <View style={styles.deptStatItem}>
-                  <MaterialCommunityIcons name="alert-outline" size={20} color="#4B5563" />
-                  <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>{dept.lowStockCount || 0}</Text>
-                    <Text style={styles.deptStatLabel}>Sắp hết</Text>
-                  </View>
-                </View>
-              </View>
+        <View style={{ gap: 16, marginTop: -8 }}>
+          <View style={{ gap: 8 }}>
+            <Text style={[styles.sectionLabelHeader, { marginTop: 0, marginBottom: 0 }]}>Tìm phòng ban</Text>
+            <View style={[styles.searchBarContainerDept, { marginBottom: 0 }]}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#98A0A8" />
+              <TextInput
+                style={styles.searchInputDept}
+                placeholder="Nhập tên phòng ban..."
+                placeholderTextColor="#98A0A8"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
             </View>
-          </Pressable>
-        ))}
+          </View>
 
-        {filteredDepartments && filteredDepartments.length === 0 && !isLoading ? (
-          <EmptyState title="Không tìm thấy phòng ban nào" />
-        ) : null}
+          <View style={[styles.sectionHeaderRow, { marginTop: 0, marginBottom: 0 }]}>
+            <Text style={[styles.sectionLabelHeader, { marginTop: 0, marginHorizontal: 0, marginBottom: 0 }]}>Danh sách phòng ban</Text>
+            <View style={styles.countBadge}>
+              <MaterialCommunityIcons name="office-building" size={14} color="#111827" />
+              <Text style={styles.countBadgeText}>{filteredDepartments?.length || 0} Đơn vị</Text>
+            </View>
+          </View>
 
-        <View style={styles.tipCard}>
+          {isLoading ? <LoadingState /> : null}
+          {isError ? <ErrorState error={error} onRetry={() => void refetch()} /> : null}
+
+          {filteredDepartments?.map((dept) => (
+            <Pressable key={dept.id} onPress={() => router.push(`/admin/materials/department/${dept.id}` as never)}>
+              <View style={[styles.popularDeptCard, { marginBottom: 0 }]}>
+                <View style={styles.deptCardTop}>
+                  <View style={styles.popularDeptIcon}>
+                    <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
+                  </View>
+                  <View style={styles.popularDeptInfo}>
+                    <Text style={styles.popularDeptName}>{dept.name}</Text>
+                    <Text style={styles.popularDeptDesc}>Quản lý vật tư thuộc bộ phận {dept.name.toLowerCase()}</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+                </View>
+
+                <View style={styles.deptStatsRow}>
+                  <View style={styles.deptStatItem}>
+                    <MaterialCommunityIcons name="cube-outline" size={20} color="#4B5563" />
+                    <View style={styles.deptStatTextCol}>
+                      <Text style={styles.deptStatValue}>{dept.materialCount || 0}</Text>
+                      <Text style={styles.deptStatLabel}>Vật tư</Text>
+                    </View>
+                  </View>
+                  <View style={styles.deptStatDivider} />
+                  <View style={styles.deptStatItem}>
+                    <MaterialCommunityIcons name="clipboard-text-outline" size={20} color="#4B5563" />
+                    <View style={styles.deptStatTextCol}>
+                      <Text style={styles.deptStatValue}>{dept.requestCount || 0}</Text>
+                      <Text style={styles.deptStatLabel}>Yêu cầu</Text>
+                    </View>
+                  </View>
+                  <View style={styles.deptStatDivider} />
+                  <View style={styles.deptStatItem}>
+                    <MaterialCommunityIcons name="alert-outline" size={20} color="#4B5563" />
+                    <View style={styles.deptStatTextCol}>
+                      <Text style={styles.deptStatValue}>{dept.lowStockCount || 0}</Text>
+                      <Text style={styles.deptStatLabel}>Sắp hết</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </Pressable>
+          ))}
+
+          {filteredDepartments && filteredDepartments.length === 0 && !isLoading ? (
+            <EmptyState title="Không tìm thấy phòng ban nào" />
+          ) : null}
+        </View>
+
+        <View style={{ flex: 1 }} />
+
+        <View style={[styles.tipCard, { marginBottom: 0, marginTop: 0 }]}>
           <MaterialCommunityIcons name="lightbulb-outline" size={20} color="#4B5563" />
           <View style={styles.tipTextContainer}>
             <Text style={styles.tipTitle}>Mẹo</Text>

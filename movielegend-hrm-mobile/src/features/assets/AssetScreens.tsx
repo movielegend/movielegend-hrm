@@ -46,8 +46,11 @@ import {
   canSeePurchasePrice,
   canStartMaintenance,
   incidentStatusTone,
+  incidentStatusLabels,
+  incidentTypeLabels,
   isAssignable,
   mapWarehouseAssetError,
+  assignmentStatusLabels,
 } from './asset.logic';
 import { AssetCard, AssetConditionBadge, AssetStatusBadge, MyAssetCard } from './AssetComponents';
 import { MaintenanceActionsSection } from '../asset-maintenance/MaintenanceScreens';
@@ -67,7 +70,7 @@ export function MyAssetsScreen() {
   const confirm = useConfirmAssetAssignment();
   const requestReturn = useRequestAssetReturn();
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'ACTIVE'>('ALL');
-  
+
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
@@ -113,12 +116,12 @@ export function MyAssetsScreen() {
   return (
     <Screen>
       <ScrollView refreshControl={<RefreshControl refreshing={myAssets.isRefetching} onRefresh={() => void myAssets.refetch()} />} contentContainerStyle={{ paddingBottom: 100 }}>
-        
+
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <Text style={styles.heroTitle}>Tài sản của tôi</Text>
           <Text style={styles.heroSubtitle}>Quản lý các thiết bị được công ty cấp phát</Text>
-          
+
           <View style={styles.heroStatsContainer}>
             <View style={styles.heroStatBox}>
               <Text style={styles.heroStatNumber}>{activeCount}</Text>
@@ -150,18 +153,18 @@ export function MyAssetsScreen() {
         <View style={styles.listContainer}>
           {myAssets.isLoading ? <LoadingState /> : null}
           {myAssets.isError ? <ErrorState error={myAssets.error} onRetry={() => void myAssets.refetch()} /> : null}
-          
+
           {visibleItems.map((assignment) => (
             <View key={assignment.id} style={styles.cardWrap}>
               <MyAssetCard assignment={assignment} onPress={() => router.push(`/employee/assets/${assignment.assetId}` as never)} />
-              
+
               <View style={styles.actionRow}>
                 {canConfirmAssignment(user, assignment) ? (
                   <PrimaryButton style={{ flex: 1 }} loading={confirm.isPending} onPress={() => void runConfirm(assignment.id)}>
                     Xác nhận
                   </PrimaryButton>
                 ) : null}
-                
+
                 {canRequestReturn(user, assignment) ? (
                   <SecondaryButton style={{ flex: 1 }} onPress={() => { setSelectedAssignmentId(assignment.id); setShowReturnModal(true); }}>
                     Yêu cầu trả
@@ -182,7 +185,7 @@ export function MyAssetsScreen() {
               </View>
             </View>
           ))}
-          
+
           {myAssets.data && !visibleItems.length ? (
             <View style={{ marginTop: spacing.xl }}>
               <EmptyState title={activeTab === 'PENDING' ? "Không có tài sản chờ xác nhận" : "Bạn chưa được cấp phát tài sản"} />
@@ -323,7 +326,7 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader title={item.name} subtitle={`Mã: ${item.assetCode}`} />
-        
+
         {item.imageUrl ? (
           <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md }}>
             <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: '#f3f4f6' }} resizeMode="cover" />
@@ -336,26 +339,26 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
             <AssetConditionBadge condition={item.conditionStatus} />
           </View>
           <View style={{ marginTop: spacing.md, gap: 8 }}>
-            <Text style={styles.meta}>Tên thiết bị: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.name}</Text></Text>
-            {item.brand ? <Text style={styles.meta}>Hãng: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.brand}</Text></Text> : null}
-            {item.model ? <Text style={styles.meta}>Dòng máy: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.model}</Text></Text> : null}
-            {item.serialNumber ? <Text style={styles.meta}>Serial: <Text style={{fontWeight: '600', color: '#1E293B'}}>{item.serialNumber}</Text></Text> : null}
-            {item.conditionNote ? <Text style={styles.meta}>Ghi chú tình trạng: <Text style={{color: '#1E293B'}}>{item.conditionNote}</Text></Text> : null}
+            <Text style={styles.meta}>Tên thiết bị: <Text style={{ fontWeight: '600', color: '#1E293B' }}>{item.name}</Text></Text>
+            {item.brand ? <Text style={styles.meta}>Hãng: <Text style={{ fontWeight: '600', color: '#1E293B' }}>{item.brand}</Text></Text> : null}
+            {item.model ? <Text style={styles.meta}>Dòng máy: <Text style={{ fontWeight: '600', color: '#1E293B' }}>{item.model}</Text></Text> : null}
+            {item.serialNumber ? <Text style={styles.meta}>Serial: <Text style={{ fontWeight: '600', color: '#1E293B' }}>{item.serialNumber}</Text></Text> : null}
+            {item.conditionNote ? <Text style={styles.meta}>Ghi chú tình trạng: <Text style={{ color: '#1E293B' }}>{item.conditionNote}</Text></Text> : null}
             {item.description ? <Text style={styles.body}>{item.description}</Text> : null}
-            
+
             {canSeePurchasePrice(user) && item.purchasePrice !== null && typeof item.purchasePrice !== 'undefined' ? (
-              <Text style={styles.meta}>Giá mua: <Text style={{color: '#1E293B'}}>{String(item.purchasePrice)}</Text></Text>
+              <Text style={styles.meta}>Giá mua: <Text style={{ color: '#1E293B' }}>{String(item.purchasePrice)}</Text></Text>
             ) : null}
             {canSeePurchasePrice(user) && item.warrantyEndDate ? (
-              <Text style={styles.meta}>Hết bảo hành: <Text style={{color: '#1E293B'}}>{formatDateTime(item.warrantyEndDate)}</Text></Text>
+              <Text style={styles.meta}>Hết bảo hành: <Text style={{ color: '#1E293B' }}>{formatDateTime(item.warrantyEndDate)}</Text></Text>
             ) : null}
-            {item.createdAt ? <Text style={styles.meta}>Ngày tạo: <Text style={{color: '#1E293B'}}>{formatDateTime(item.createdAt)}</Text></Text> : null}
+            {item.createdAt ? <Text style={styles.meta}>Ngày tạo: <Text style={{ color: '#1E293B' }}>{formatDateTime(item.createdAt)}</Text></Text> : null}
           </View>
         </SectionCard>
 
         {assignment ? (
           <SectionCard title="Cấp phát hiện tại">
-            <StatusBadge label={assignment.status} tone={assignmentStatusTone(assignment.status)} />
+            <StatusBadge label={assignmentStatusLabels[assignment.status] ?? assignment.status} tone={assignmentStatusTone(assignment.status)} />
             <Text style={styles.meta}>Cấp lúc: {formatDateTime(assignment.assignedAt)}</Text>
             {assignment.expectedReturnAt ? <Text style={styles.meta}>Hạn trả: {formatDateTime(assignment.expectedReturnAt)}</Text> : null}
             <Text style={styles.meta}>Tình trạng khi cấp: {assetConditionLabels[assignment.conditionWhenAssigned]}</Text>
@@ -365,26 +368,49 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
               <PrimaryButton
                 loading={confirm.isPending}
                 onPress={() => void runAction(() => confirm.mutateAsync(assignment.id), 'Đã xác nhận nhận tài sản')}
+                style={{ marginTop: 8 }}
               >
                 Xác nhận nhận tài sản
               </PrimaryButton>
             ) : null}
-            {isOwner && canRequestReturn(user, assignment) ? (
-              <SecondaryButton
-                onPress={() => setShowReturnModal(true)}
-              >
-                Yêu cầu trả tài sản
-              </SecondaryButton>
+
+            {(isOwner && canRequestReturn(user, assignment)) || (hasPermission(user, 'asset.incident.create') && area !== 'admin') ? (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                {isOwner && canRequestReturn(user, assignment) ? (
+                  <SecondaryButton
+                    style={{ flex: 1 }}
+                    onPress={() => setShowReturnModal(true)}
+                  >
+                    Yêu cầu trả
+                  </SecondaryButton>
+                ) : null}
+
+                {hasPermission(user, 'asset.incident.create') && area !== 'admin' ? (
+                  <SecondaryButton
+                    style={{ flex: 1 }}
+                    onPress={() => router.push(`/employee/assets/incidents/create?assetId=${item.id}` as never)}
+                    disabled={item.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED')}
+                  >
+                    Báo sự cố
+                  </SecondaryButton>
+                ) : null}
+              </View>
+            ) : null}
+
+            {item.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED') && hasPermission(user, 'asset.incident.create') && area !== 'admin' ? (
+              <Text style={[styles.meta, { color: colors.warning, marginTop: 8 }]}>
+                Tài sản này đã có báo cáo sự cố đang được xử lý.
+              </Text>
             ) : null}
 
             {canReceive ? (
               <View style={styles.receiveBox}>
-                <Text style={styles.sectionLabel}>Nhận trả tài sản (tình trạng do backend quyết định trạng thái cuối)</Text>
+                <Text style={styles.sectionLabel}>Thu hồi tài sản</Text>
                 <Pressable style={[styles.pickerContainer, { marginBottom: spacing.sm }]} onPress={() => setShowConditionSelect(true)}>
                   <Text style={styles.pickerText}>{assetConditionLabels[returnCondition]}</Text>
                   <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
                 </Pressable>
-                <FormField label="Ghi chú nhận trả" value={returnNote} onChangeText={setReturnNote} multiline />
+                <FormField label="Ghi chú thu hồi" value={returnNote} onChangeText={setReturnNote} multiline />
                 <PrimaryButton
                   loading={receiveReturn.isPending}
                   onPress={() =>
@@ -394,32 +420,14 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
                           assignmentId: assignment.id,
                           payload: { conditionWhenReturned: returnCondition, ...(returnNote.trim() ? { note: returnNote.trim() } : {}) },
                         }),
-                      'Đã nhận trả tài sản',
+                      'Đã thu hồi tài sản',
                     )
                   }
                 >
-                  Nhận trả
+                  Thu hồi
                 </PrimaryButton>
               </View>
             ) : null}
-          </SectionCard>
-        ) : null}
-
-        {hasPermission(user, 'asset.incident.create') && area !== 'admin' ? (
-          <SectionCard title="Sự cố">
-            {item.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED') ? (
-              <Text style={[styles.meta, { color: colors.warning }]}>
-                Tài sản này đã có báo cáo sự cố đang được xử lý.
-              </Text>
-            ) : (
-              <SecondaryButton
-                onPress={() =>
-                  router.push(`/employee/assets/incidents/create?assetId=${item.id}` as never)
-                }
-              >
-                Báo sự cố tài sản này
-              </SecondaryButton>
-            )}
           </SectionCard>
         ) : null}
 
@@ -427,9 +435,9 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
           <SectionCard title="Lịch sử sự cố">
             {item.incidents.map((incident) => (
               <View key={incident.id} style={styles.incidentRow}>
-                <StatusBadge label={incident.status} tone={incidentStatusTone(incident.status)} />
+                <StatusBadge label={incidentStatusLabels[incident.status] ?? incident.status} tone={incidentStatusTone(incident.status)} />
                 <Text style={styles.meta}>
-                  {incident.incidentType} — {formatDateTime(incident.createdAt)}
+                  {incidentTypeLabels[incident.incidentType] ?? incident.incidentType} — {formatDateTime(incident.createdAt)}
                 </Text>
                 <Text style={styles.body} numberOfLines={2}>{incident.description}</Text>
               </View>
@@ -479,7 +487,7 @@ export function AssetCreateScreen() {
   const [customModel, setCustomModel] = useState('');
   const [conditionNote, setConditionNote] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  
+
   const [showBrandSelect, setShowBrandSelect] = useState(false);
   const [showModelSelect, setShowModelSelect] = useState(false);
 
@@ -496,14 +504,14 @@ export function AssetCreateScreen() {
       .map(w => w[0]?.toUpperCase() || '')
       .join('')
       .substring(0, 3);
-    
+
     const now = new Date();
     const d = now.getDate().toString().padStart(2, '0');
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
     const y = now.getFullYear().toString().slice(-2);
     const h = now.getHours().toString().padStart(2, '0');
     const min = now.getMinutes().toString().padStart(2, '0');
-    
+
     return `${prefix || 'AST'}-${d}${m}${y}${h}${min}`;
   }
 
@@ -546,7 +554,7 @@ export function AssetCreateScreen() {
               onChangeText={setName}
             />
           </View>
-          
+
           <View style={styles.formGroup}>
             <Text style={styles.label}>Hãng / Thương hiệu</Text>
             <Pressable style={styles.pickerContainer} onPress={() => setShowBrandSelect(true)}>
@@ -580,7 +588,7 @@ export function AssetCreateScreen() {
               multiline
             />
           </View>
-          
+
           <View style={styles.formGroup}>
             <Text style={styles.label}>Ảnh thiết bị</Text>
             <View style={styles.imageUploaderRow}>
@@ -626,7 +634,7 @@ export function AssetCreateScreen() {
         onSelect={(opt) => { setBrand(opt.id); setShowBrandSelect(false); }}
         onClose={() => setShowBrandSelect(false)}
       />
-      
+
       <SelectModal
         visible={showModelSelect}
         title="Chọn dòng máy"
@@ -705,8 +713,8 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
             <View style={{ marginTop: spacing.md }}>
               <Pressable style={styles.pickerContainer} onPress={() => setShowEmployeeSelect(true)}>
                 <Text style={assignedToUserId ? styles.pickerText : styles.pickerPlaceholder}>
-                  {assignedToUserId 
-                    ? (employees.data?.items.find(e => e.id === assignedToUserId)?.fullName || employees.data?.items.find(e => e.id === assignedToUserId)?.userCode || 'Đã chọn nhân viên') 
+                  {assignedToUserId
+                    ? (employees.data?.items.find(e => e.id === assignedToUserId)?.fullName || employees.data?.items.find(e => e.id === assignedToUserId)?.userCode || 'Đã chọn nhân viên')
                     : 'Nhấn để chọn nhân viên...'}
                 </Text>
                 <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
@@ -716,8 +724,8 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
             <View style={{ marginTop: spacing.md }}>
               <Pressable style={styles.pickerContainer} onPress={() => setShowDepartmentSelect(true)}>
                 <Text style={assignedToDepartmentId ? styles.pickerText : styles.pickerPlaceholder}>
-                  {assignedToDepartmentId 
-                    ? (departments.data?.items.find(d => d.id === assignedToDepartmentId)?.name || 'Đã chọn phòng ban') 
+                  {assignedToDepartmentId
+                    ? (departments.data?.items.find(d => d.id === assignedToDepartmentId)?.name || 'Đã chọn phòng ban')
                     : 'Nhấn để chọn phòng ban...'}
                 </Text>
                 <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
@@ -752,7 +760,7 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
         onClose={() => setShowEmployeeSelect(false)}
         isLoading={employees.isLoading}
       />
-      
+
       <SelectModal
         visible={showDepartmentSelect}
         title="Chọn phòng ban"
