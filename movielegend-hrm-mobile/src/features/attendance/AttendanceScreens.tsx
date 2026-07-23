@@ -599,6 +599,17 @@ export function AdminAttendanceScreen() {
           </View>
         )}
 
+        <View style={{ flexDirection: 'row', gap: 16, marginBottom: 16 }}>
+          <Pressable onPress={() => router.push(`${basePath}/attendance/overtime-config` as any)} style={{ flex: 1, backgroundColor: '#111827', padding: 16, borderRadius: 16, alignItems: 'center' }}>
+            <Ionicons name="settings-outline" size={20} color="#FFFFFF" style={{ marginBottom: 4 }} />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>Cấu hình{'\n'}Tăng ca</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push(`${basePath}/attendance/report` as any)} style={{ flex: 1, backgroundColor: '#059669', padding: 16, borderRadius: 16, alignItems: 'center' }}>
+            <Ionicons name="document-text-outline" size={20} color="#FFFFFF" style={{ marginBottom: 4 }} />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>Báo cáo{'\n'}Xuất Excel</Text>
+          </Pressable>
+        </View>
+
         {/* Employee List Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <Text style={{ fontSize: 14, fontWeight: '800', color: '#111827' }}>Danh sách chấm công ({reportQuery.data?.pagination?.total ?? 0})</Text>

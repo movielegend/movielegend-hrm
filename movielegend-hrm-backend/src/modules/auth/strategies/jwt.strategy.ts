@@ -8,7 +8,17 @@ import { AuthenticatedUser } from '../../../common/interfaces/authenticated-user
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('token'),
+        (req: any) => {
+          let token = null;
+          if (req && req.query && req.query.token) {
+            token = req.query.token;
+          }
+          return token;
+        },
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('jwt.accessSecret'),
     });
