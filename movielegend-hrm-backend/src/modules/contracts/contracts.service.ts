@@ -268,7 +268,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       throw badRequest('CONTRACT_SIGN_WRONG_STATE', 'Contract is not ready for this signature');
     }
     
-    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.EMPLOYEE_SIGNED, 'CONTRACT_EMPLOYEE_SIGNED');
+    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.ACTIVE, 'CONTRACT_EMPLOYEE_SIGNED');
   }
 
   employeeReject(id: string, actor: AuthenticatedUser, dto: RejectContractDto) {
@@ -471,13 +471,10 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
         where: { id, status: expected },
         data:
           signerRole === ContractSignerRole.EMPLOYEE
-            ? { status: next, employeeSignedAt: new Date() }
+            ? { status: next, employeeSignedAt: new Date(), signedFileUrl }
             : { status: next, companySignedAt: new Date(), signedFileUrl },
       });
       if (changed.count !== 1) throw conflict('CONTRACT_STATE_CONFLICT', 'Contract state already changed');
-      if (signerRole === ContractSignerRole.EMPLOYEE) {
-        await tx.employeeContract.update({ where: { id }, data: { status: ContractStatus.WAITING_COMPANY_SIGNATURE } });
-      }
       const updated = await tx.employeeContract.findUniqueOrThrow({ where: { id }, include: this.include() });
       await tx.auditLog.create({ data: { actorUserId: actor.userId, action: auditAction, entityType: 'EmployeeContract', entityId: id, metadata: { signerRole, signedDocumentHash } } });
       const notification = await this.notifications.createForUsers(tx, [updated.userId], {

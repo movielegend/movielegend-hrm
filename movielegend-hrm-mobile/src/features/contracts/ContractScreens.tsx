@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
   Alert,
   Pressable,
@@ -84,6 +84,7 @@ function getInitials(name: string): string {
 // ── Contract Templates Screen ──
 
 export function ContractTemplatesScreen() {
+  const router = useRouter();
   const templates = useContractTemplates();
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
@@ -357,6 +358,9 @@ export function EmployeeContractListScreen() {
 // ── Contract Detail Screen ──
 
 export function ContractDetailScreen({ contractId }: { contractId: string }) {
+  const router = useRouter();
+  const { user } = useAuth();
+  
   const contract = useContract(contractId);
   const submitApproval = useSubmitContractApproval();
   const approve = useApproveContract();
@@ -468,22 +472,6 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               📄 Xem file hợp đồng (PDF)
             </SecondaryButton>
           ) : null}
-          {status === 'DRAFT' && (
-            <PrimaryButton
-              onPress={() => handleAction(() => submitApproval.mutateAsync(contractId), 'Đã gửi duyệt')}
-              loading={submitApproval.isPending}
-            >
-              Gửi duyệt
-            </PrimaryButton>
-          )}
-          {status === 'PENDING_INTERNAL_APPROVAL' && (
-            <PrimaryButton
-              onPress={() => handleAction(() => approve.mutateAsync(contractId), 'Đã duyệt hợp đồng')}
-              loading={approve.isPending}
-            >
-              Phê duyệt
-            </PrimaryButton>
-          )}
           {(status === 'COMPLETED' || status === 'APPROVED') && (
             <PrimaryButton
               onPress={() => handleAction(() => activate.mutateAsync(contractId), 'Đã kích hoạt hợp đồng')}
@@ -492,7 +480,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               Kích hoạt
             </PrimaryButton>
           )}
-          {status !== 'ACTIVE' && status !== 'TERMINATED' && status !== 'CANCELLED' && (
+          {status === 'WAITING_EMPLOYEE_SIGNATURE' && data?.userId === user?.id && (
             <SecondaryButton
               onPress={() => setSignatureVisible(true)}
               style={{ marginTop: 8 }}
@@ -533,7 +521,15 @@ export function CreateContractScreen() {
   const params = useLocalSearchParams();
   const templateId = typeof params.templateId === 'string' ? params.templateId : undefined;
   const { data: templates } = useContractTemplates();
-  const { data: employees } = useEmployees({});
+  const employeesQuery = useEmployees({});
+  const employeesData = Array.isArray(employeesQuery.data) 
+    ? employeesQuery.data 
+    : (employeesQuery.data?.items || employeesQuery.data?.data || []);
+  const employeeOptions = employeesData.map((e: any) => ({
+    id: e.id,
+    label: e.profile?.fullName ?? e.userCode ?? e.email,
+    subtitle: e.email
+  }));
 
   const [userIds, setUserIds] = useState<string[]>([]);
   const [contractType, setContractType] = useState<ContractType>('FIXED_TERM');
@@ -554,29 +550,48 @@ export function CreateContractScreen() {
   const [isEmployeeSelectVisible, setEmployeeSelectVisible] = useState(false);
   const [datePickerState, setDatePickerState] = useState<'start' | 'end' | null>(null);
 
-  const createContract = useMutation({
-    mutationFn: async () => {
-      if (userIds.length === 0 || !templateId || !title.trim() || !startDate) {
-        throw new Error('Vui lòng điền đầy đủ thông tin bắt buộc');
-      }
-      if (contractType !== 'INDEFINITE_TERM' && !endDate) {
-        throw new Error('Vui lòng chọn ngày kết thúc cho loại hợp đồng này');
-      }
-      if (contractType !== 'INDEFINITE_TERM' && endDate && new Date(endDate) < new Date(startDate)) {
-        throw new Error('Ngày kết thúc phải sau ngày bắt đầu');
-      }
+  const createContractMutation = useCreateContract();
+  
+  async function submit() {
+    if (userIds.length === 0 || !templateId || !title.trim() || !startDate) {
+      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+    if (contractType !== 'INDEFINITE_TERM' && !endDate) {
+      Alert.alert('Lỗi', 'Vui lòng chọn ngày kết thúc cho loại hợp đồng này');
+      return;
+    }
+    if (contractType !== 'INDEFINITE_TERM' && endDate && new Date(endDate) < new Date(startDate)) {
+      Alert.alert('Lỗi', 'Ngày kết thúc phải sau ngày bắt đầu');
+      return;
+    }
+
+    try {
+      const versionId = templates?.find((t: any) => t.id === templateId)?.versions?.[0]?.id;
+      if (!versionId) throw new Error('Mẫu hợp đồng này chưa có phiên bản hợp lệ');
 
       await Promise.all(userIds.map(async (userId) => {
-        // Implementation logic placeholder using existing hooks structure
-        return null;
+        return createContractMutation.mutateAsync({
+          userId,
+          contractTemplateId: templateId,
+          contractTemplateVersionId: versionId,
+          contractType,
+          title: title.trim(),
+          startDate,
+          endDate: contractType === 'INDEFINITE_TERM' ? undefined : endDate,
+        });
       }));
-    },
-    onSuccess: () => {
-      Alert.alert('Thành công', 'Đã tạo hợp đồng');
-      router.back();
-    },
-    onError: (err: any) => Alert.alert('Lỗi', normalizeApiError(err).message),
-  });
+
+      if (window && typeof window.alert === 'function') {
+        window.alert('Đã tạo hợp đồng thành công');
+      } else {
+        Alert.alert('Thành công', 'Đã tạo hợp đồng');
+      }
+      router.replace('/admin/contracts');
+    } catch (error: any) {
+      Alert.alert('Lỗi', normalizeApiError(error).message);
+    }
+  }
 
   return (
     <Screen>
@@ -620,7 +635,7 @@ export function CreateContractScreen() {
           )}
 
           <View style={{ marginTop: 12 }}>
-            <PrimaryButton onPress={() => createContract.mutate()} loading={createContract.isPending}>
+            <PrimaryButton onPress={submit} loading={createContractMutation.isPending}>
               Tạo hợp đồng
             </PrimaryButton>
           </View>
@@ -631,11 +646,11 @@ export function CreateContractScreen() {
         visible={isEmployeeSelectVisible}
         title="Chọn nhân viên"
         options={employeeOptions}
-        selectedValue={userId}
-        isLoading={employees.isLoading}
+        selectedValues={userIds}
+        isLoading={employeesQuery.isLoading}
         onClose={() => setEmployeeSelectVisible(false)}
-        onSelect={(opt) => {
-          setUserId(opt.id);
+        onSelect={(selectedIds) => {
+          setUserIds(selectedIds);
           setEmployeeSelectVisible(false);
         }}
       />
@@ -644,17 +659,17 @@ export function CreateContractScreen() {
         onClose={() => setDatePickerState(null)}
         initialDate={
           datePickerState === 'start' && startDate
-            ? new Date(startDate.includes('/') ? startDate.split('/').reverse().join('-') : startDate)
+            ? new Date(startDate)
             : datePickerState === 'end' && endDate
-            ? new Date(endDate.includes('/') ? endDate.split('/').reverse().join('-') : endDate)
+            ? new Date(endDate)
             : new Date()
         }
         onSelect={(date) => {
-          const formatted = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+          const iso = date.toISOString();
           if (datePickerState === 'start') {
-            setStartDate(formatted);
+            setStartDate(iso);
           } else {
-            setEndDate(formatted);
+            setEndDate(iso);
           }
           setDatePickerState(null);
         }}
