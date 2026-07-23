@@ -127,3 +127,8 @@ export async function terminateContract(id: string, payload: TerminateContractPa
   const response = await apiClient.post<ApiResponse<EmployeeContractDto>>(`/employee-contracts/${id}/terminate`, payload);
   return unwrapData(response);
 }
+
+export async function deleteContract(id: string): Promise<{ success: boolean }> {
+  const response = await apiClient.delete<ApiResponse<{ success: boolean }>>(`/employee-contracts/${id}`);
+  return unwrapData(response);
+}

@@ -492,6 +492,22 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     return payload.updated;
   }
 
+  async deleteContract(id: string, actor: AuthenticatedUser) {
+    const contract = await this.assertContractExists(id);
+    await this.assertCanManageContract(contract.userId, actor);
+    
+    if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE) {
+      throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Can only delete contracts waiting for employee signature');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.contractSignature.deleteMany({ where: { contractId: id } });
+      await tx.employeeContract.delete({ where: { id } });
+    });
+
+    return { success: true };
+  }
+
   private async assertCanReadContract(userId: string, actor: AuthenticatedUser) {
     if (userId === actor.userId && this.has(actor, 'contract.read_own')) return;
     if (this.has(actor, 'contract.read_all')) return;

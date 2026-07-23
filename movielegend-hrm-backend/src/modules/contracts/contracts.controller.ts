@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Ip, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Param, Patch, Post, Delete, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -166,5 +166,11 @@ export class EmployeeContractsController {
   @Permissions('contract.terminate')
   terminate(@Param('id') id: string, @Body() dto: TerminateContractDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contracts.terminate(id, actor, dto);
+  }
+
+  @Delete(':id')
+  @Permissions('contract.create')
+  delete(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.contracts.deleteContract(id, actor);
   }
 }

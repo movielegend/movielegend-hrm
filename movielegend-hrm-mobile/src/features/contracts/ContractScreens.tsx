@@ -9,6 +9,8 @@ import {
   TextInput,
   View,
   Linking,
+  Image,
+  Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ContractScannerModal } from './ContractScannerModal';
@@ -39,6 +41,7 @@ import {
   useActivateContract,
   useSignContractEmployee,
   useRejectContractSignature,
+  useDeleteContract,
 } from '../../hooks/useContracts';
 import {
   CONTRACT_TYPE_LABELS,
@@ -137,9 +140,9 @@ export function ContractTemplatesScreen() {
                   <Text style={styles.templateDesc} numberOfLines={2}>{tpl.description}</Text>
                 ) : null}
 
-                <View style={styles.templateActions}>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
                   <Pressable
-                    style={styles.templateActionBtnSecondary}
+                    style={({ pressed }) => [{ flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }, pressed && { backgroundColor: '#f9fafb' }]}
                     onPress={() => {
                       const url = resolveFileUrl(tpl.templateFileUrl);
                       if (url) {
@@ -151,12 +154,12 @@ export function ContractTemplatesScreen() {
                       }
                     }}
                   >
-                    <MaterialCommunityIcons name="file-eye-outline" size={18} color={colors.primary} />
-                    <Text style={styles.templateActionTextSecondary}>Xem PDF</Text>
+                    <MaterialCommunityIcons name="file-eye-outline" size={18} color="#374151" />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>Xem PDF</Text>
                   </Pressable>
 
                   <Pressable
-                    style={styles.templateActionBtnPrimary}
+                    style={({ pressed }) => [{ flex: 1, backgroundColor: '#111827', borderRadius: 8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }, pressed && { backgroundColor: '#1f2937' }]}
                     onPress={() => {
                       router.push({
                         pathname: '/admin/contracts/create',
@@ -164,19 +167,19 @@ export function ContractTemplatesScreen() {
                       });
                     }}
                   >
-                    <MaterialCommunityIcons name="pencil-box-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.templateActionTextPrimary}>Tạo hợp đồng</Text>
+                    <MaterialCommunityIcons name="pencil-box-outline" size={18} color="#ffffff" />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#ffffff' }}>Tạo HĐ</Text>
                   </Pressable>
                   
                   <Pressable
-                    style={styles.templateActionBtnSecondary}
+                    style={({ pressed }) => [{ flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }, pressed && { backgroundColor: '#f9fafb' }]}
                     onPress={() => {
                       setSelectedTemplate(tpl);
                       setSigConfigVisible(true);
                     }}
                   >
-                    <MaterialCommunityIcons name="draw-pen" size={18} color={colors.primary} />
-                    <Text style={styles.templateActionTextSecondary}>Tọa độ chữ ký</Text>
+                    <MaterialCommunityIcons name="draw-pen" size={18} color="#374151" />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>Tọa độ</Text>
                   </Pressable>
                 </View>
               </View>
@@ -367,8 +370,10 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const activate = useActivateContract();
   const signContract = useSignContractEmployee(contractId);
   const rejectSignature = useRejectContractSignature(contractId);
+  const deleteContract = useDeleteContract();
   
   const [isSignatureVisible, setSignatureVisible] = useState(false);
+  const [viewingSignatureUrl, setViewingSignatureUrl] = useState<string | null>(null);
 
   const data = contract.data;
   if (!data && !contract.isLoading) {
@@ -435,7 +440,15 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
           <View style={styles.signaturesCard}>
             <Text style={styles.sectionTitle}>Chữ ký</Text>
             {data.signatures.map((sig: any) => (
-              <View key={sig.id} style={styles.signatureRow}>
+              <Pressable
+                key={sig.id}
+                style={[styles.signatureRow, sig.signatureImageUrl && { opacity: 0.8 }]}
+                onPress={() => {
+                  if (sig.signatureImageUrl) {
+                    setViewingSignatureUrl(sig.signatureImageUrl);
+                  }
+                }}
+              >
                 <MaterialCommunityIcons
                   name="draw-pen"
                   size={16}
@@ -449,8 +462,13 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                     {sig.signerRole === 'EMPLOYEE' ? 'Nhân viên' : 'Công ty'} — {formatDate(sig.signedAt)}
                   </Text>
                 </View>
+                {sig.signatureImageUrl && (
+                  <Text style={{ fontSize: 12, color: colors.primary, marginRight: 8, fontStyle: 'italic' }}>
+                    Xem
+                  </Text>
+                )}
                 <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} />
-              </View>
+              </Pressable>
             ))}
           </View>
         )}
@@ -488,6 +506,38 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               ✍️ Ký điện tử
             </SecondaryButton>
           )}
+          {status === 'WAITING_EMPLOYEE_SIGNATURE' && (
+            <Pressable
+              style={{
+                backgroundColor: '#fee2e2',
+                paddingVertical: 12,
+                borderRadius: 8,
+                alignItems: 'center',
+                marginTop: 8,
+              }}
+              onPress={() => {
+                Alert.alert(
+                  'Xác nhận xóa',
+                  'Bạn có chắc chắn muốn xóa hợp đồng này không? Hành động này không thể hoàn tác.',
+                  [
+                    { text: 'Hủy', style: 'cancel' },
+                    { 
+                      text: 'Xóa', 
+                      style: 'destructive',
+                      onPress: () => {
+                        handleAction(async () => {
+                          await deleteContract.mutateAsync(contractId);
+                          router.back();
+                        }, 'Đã xóa hợp đồng thành công');
+                      }
+                    }
+                  ]
+                );
+              }}
+            >
+              <Text style={{ color: '#ef4444', fontWeight: '600' }}>🗑️ Xóa hợp đồng</Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
 
@@ -500,6 +550,29 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
           handleAction(() => signContract.mutateAsync({ signatureType: 'DRAWN', signatureImageUrl: signature }), 'Đã ký hợp đồng');
         }}
       />
+
+      <Modal visible={!!viewingSignatureUrl} transparent animationType="fade" onRequestClose={() => setViewingSignatureUrl(null)}>
+        <Pressable 
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }} 
+          onPress={() => setViewingSignatureUrl(null)}
+        >
+          <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 400, alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: '#111827' }}>Chữ ký</Text>
+            <View style={{ backgroundColor: '#f9fafb', padding: 16, borderRadius: 8, width: '100%', alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#e5e7eb' }}>
+              {viewingSignatureUrl && (
+                <Image
+                  source={{ uri: resolveFileUrl(viewingSignatureUrl) || '' }}
+                  style={{ width: '100%', height: 150 }}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+            <PrimaryButton onPress={() => setViewingSignatureUrl(null)} style={{ width: '100%' }}>
+              Đóng
+            </PrimaryButton>
+          </View>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }

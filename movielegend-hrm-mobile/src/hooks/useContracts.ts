@@ -19,6 +19,7 @@ import {
   scanContract,
   rejectContractSignature,
   signContractEmployee,
+  deleteContract,
 } from '../api/contracts.api';
 import { contractTemplateKeys, contractKeys } from '../constants/queryKeys';
 import type {
@@ -196,6 +197,16 @@ export function useTerminateContract() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: TerminateContractPayload }) =>
       terminateContract(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contractKeys.all });
+    },
+  });
+}
+
+export function useDeleteContract() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteContract(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contractKeys.all });
     },
