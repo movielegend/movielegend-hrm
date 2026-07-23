@@ -7,6 +7,7 @@ import { PrimaryButton } from '../../components/Buttons';
 import { useUpdateTemplateMapping } from '../../hooks/useContracts';
 import { router, useLocalSearchParams } from 'expo-router';
 import { resolveFileUrl } from '../../utils/url';
+import * as FileSystem from 'expo-file-system';
 
 export function SignaturePlacementScreen() {
   const params = useLocalSearchParams();
@@ -41,6 +42,41 @@ export function SignaturePlacementScreen() {
       } catch (e) {}
     }
   }, [initialConfigStr]);
+
+  // Load PDF as base64 in RN to avoid WebView CORS issues
+  useEffect(() => {
+    async function loadPdf() {
+      try {
+        const url = resolveFileUrl(pdfUrl);
+        if (!url) {
+          Alert.alert('Lỗi', 'Không tìm thấy đường dẫn PDF');
+          return;
+        }
+        
+        const fileUri = FileSystem.cacheDirectory + 'temp_signature_pdf.pdf';
+        const headers: Record<string, string> = {
+          'ngrok-skip-browser-warning': '69420'
+        };
+        
+        // Download the file
+        await FileSystem.downloadAsync(url, fileUri, { headers });
+        // Read as base64
+        const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+        
+        // Send base64 to webview
+        webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64 }));
+      } catch (e) {
+        console.log('Error downloading PDF', e);
+        Alert.alert('Lỗi', 'Không thể tải file PDF từ máy chủ');
+        setIsLoading(false);
+      }
+    }
+    
+    // Give WebView time to initialize
+    setTimeout(() => {
+      loadPdf();
+    }, 1000);
+  }, [pdfUrl]);
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -80,7 +116,6 @@ export function SignaturePlacementScreen() {
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        const url = '${resolveFileUrl(pdfUrl)}';
         const initPage = ${initPage.current};
         let initX = ${initX.current};
         let initY = ${initY.current};
@@ -148,18 +183,36 @@ export function SignaturePlacementScreen() {
             });
         }
 
-        pdfjsLib.getDocument({
-            url: url,
-            httpHeaders: {
-                'ngrok-skip-browser-warning': '69420'
+        function handleMessage(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'load_pdf') {
+                    const binary = atob(data.data);
+                    const array = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) {
+                        array[i] = binary.charCodeAt(i);
+                    }
+                    pdfjsLib.getDocument({ data: array }).promise.then(function(pdfDoc_) {
+                        pdfDoc = pdfDoc_;
+                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'init', totalPages: pdfDoc.numPages }));
+                        renderPage(pageNum);
+                    }).catch(err => {
+                        document.getElementById('loading').innerText = 'Lỗi render PDF: ' + err.message;
+                    });
+                } else if (data.type === 'prev_page' && pageNum > 1 && pdfDoc) {
+                    pageNum--;
+                    renderPage(pageNum);
+                } else if (data.type === 'next_page' && pdfDoc && pageNum < pdfDoc.numPages) {
+                    pageNum++;
+                    renderPage(pageNum);
+                }
+            } catch (e) {
+                // Ignore
             }
-        }).promise.then(function(pdfDoc_) {
-            pdfDoc = pdfDoc_;
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'init', totalPages: pdfDoc.numPages }));
-            renderPage(pageNum);
-        }).catch(err => {
-            document.getElementById('loading').innerText = 'Lỗi tải PDF: ' + err.message;
-        });
+        }
+
+        document.addEventListener('message', handleMessage);
+        window.addEventListener('message', handleMessage);
 
         let isDragging = false;
         let startX, startY, initialBoxX, initialBoxY;
@@ -214,27 +267,6 @@ export function SignaturePlacementScreen() {
                 y: Math.round(pdfY)
             }));
         }
-
-        document.addEventListener('message', function(event) {
-            const data = JSON.parse(event.data);
-            if (data.type === 'prev_page' && pageNum > 1) {
-                pageNum--;
-                renderPage(pageNum);
-            } else if (data.type === 'next_page' && pageNum < pdfDoc.numPages) {
-                pageNum++;
-                renderPage(pageNum);
-            }
-        });
-        window.addEventListener('message', function(event) {
-            const data = JSON.parse(event.data);
-            if (data.type === 'prev_page' && pageNum > 1) {
-                pageNum--;
-                renderPage(pageNum);
-            } else if (data.type === 'next_page' && pageNum < pdfDoc.numPages) {
-                pageNum++;
-                renderPage(pageNum);
-            }
-        });
     </script>
 </body>
 </html>
