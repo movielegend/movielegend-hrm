@@ -209,6 +209,7 @@ export function ContractTemplatesScreen() {
 export function ContractListScreen() {
   const router = useRouter();
   const contracts = useContracts();
+  const deleteContract = useDeleteContract();
   const contractItems = Array.isArray(contracts.data) ? contracts.data : [];
 
   return (
@@ -250,10 +251,37 @@ export function ContractListScreen() {
                       <Text style={styles.contractTitle}>{contract.title}</Text>
                       <Text style={styles.contractEmpName}>{empName}</Text>
                     </View>
-                    <StatusBadge
-                      label={CONTRACT_STATUS_LABELS[contract.status as ContractStatus] ?? contract.status}
-                      tone={getStatusTone(contract.status)}
-                    />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <StatusBadge
+                        label={CONTRACT_STATUS_LABELS[contract.status as ContractStatus] ?? contract.status}
+                        tone={getStatusTone(contract.status)}
+                      />
+                      {(contract.status === 'WAITING_EMPLOYEE_SIGNATURE' || contract.status === 'DRAFT') && (
+                        <Pressable 
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            Alert.alert('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa hợp đồng này không?', [
+                              { text: 'Hủy', style: 'cancel' },
+                              { 
+                                text: 'Xóa', 
+                                style: 'destructive',
+                                onPress: () => {
+                                  deleteContract.mutate(contract.id, {
+                                    onSuccess: () => {
+                                      Alert.alert('Thành công', 'Đã xóa hợp đồng');
+                                      contracts.refetch();
+                                    }
+                                  });
+                                }
+                              }
+                            ]);
+                          }}
+                          style={{ padding: 4 }}
+                        >
+                          <MaterialCommunityIcons name="delete-outline" size={20} color="#ef4444" />
+                        </Pressable>
+                      )}
+                    </View>
                   </View>
 
                   <View style={styles.contractDetails}>
@@ -453,7 +481,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.signatureName}>
-                    {sig.signer?.profile?.fullName ?? sig.signerRole}
+                    {sig.signer?.profile?.fullName ?? (sig.signerRole === 'EMPLOYEE' ? empName : sig.signerRole)}
                   </Text>
                   <Text style={styles.signatureDate}>
                     {sig.signerRole === 'EMPLOYEE' ? 'Nhân viên' : 'Công ty'} — {formatDate(sig.signedAt)}
@@ -503,7 +531,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               ✍️ Ký điện tử
             </SecondaryButton>
           )}
-          {status === 'WAITING_EMPLOYEE_SIGNATURE' && (
+          {status === 'WAITING_EMPLOYEE_SIGNATURE' && (user?.roles?.includes('ADMIN') || user?.roles?.includes('HR')) && (
             <Pressable
               style={{
                 backgroundColor: '#fee2e2',
