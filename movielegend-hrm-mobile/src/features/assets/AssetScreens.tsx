@@ -405,11 +405,6 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
 
             {canReceive ? (
               <View style={styles.receiveBox}>
-                <Text style={styles.sectionLabel}>Thu hồi tài sản</Text>
-                <Pressable style={[styles.pickerContainer, { marginBottom: spacing.sm }]} onPress={() => setShowConditionSelect(true)}>
-                  <Text style={styles.pickerText}>{assetConditionLabels[returnCondition]}</Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                </Pressable>
                 <FormField label="Ghi chú thu hồi" value={returnNote} onChangeText={setReturnNote} multiline />
                 <PrimaryButton
                   loading={receiveReturn.isPending}
