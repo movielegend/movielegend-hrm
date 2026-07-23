@@ -22,6 +22,7 @@ export interface AttendanceFaceVerificationResult {
 export class FaceVerificationService implements OnModuleInit {
   private readonly logger = new Logger(FaceVerificationService.name);
   private modelsLoaded = false;
+  private descriptorCache = new Map<string, { url: string, descriptor: Float32Array }>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -61,28 +62,34 @@ export class FaceVerificationService implements OnModuleInit {
     }
   }
 
-  private async getFaceDescriptor(imageBuffer: Buffer) {
+  /**
+   * Helper to decode image and run face detection
+   */
+  private async getFaceDescriptor(buffer: Buffer): Promise<Float32Array | undefined> {
+    const tensor = await this.bufferToTensor(buffer);
+    try {
+      const detection = await faceapi.detectSingleFace(tensor).withFaceLandmarks().withFaceDescriptor();
+      return detection?.descriptor;
+    } finally {
+      tensor.dispose();
+    }
+  }
+
+  private async bufferToTensor(buffer: Buffer) {
     // Decode and resize image using sharp (100x faster than Jimp)
     // Add failOn: 'none' to tolerate corrupt Android JPEGs
-    const { data, info } = await sharp(imageBuffer, { failOn: 'none' })
+    const { data, info } = await sharp(buffer, { failOn: 'none' })
       .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
       .removeAlpha() // Ensure 3 channels (RGB)
       .raw()
       .toBuffer({ resolveWithObject: true });
-    
-    // Convert to Tensor
-    const { width, height } = info;
+      
     const values = Int32Array.from(data);
-
-    const tensor = faceapi.tf.tensor3d(values, [height, width, 3], 'int32');
-    
-    // Detect
-    const detection = await faceapi.detectSingleFace(tensor).withFaceLandmarks().withFaceDescriptor();
-    
-    // Free memory
-    tensor.dispose();
-    
-    return detection?.descriptor;
+    return faceapi.tf.tensor3d(
+      values,
+      [info.height, info.width, 3],
+      'int32'
+    ) as faceapi.tf.Tensor3D;
   }
 
   async verifyAttendanceFace(
@@ -113,17 +120,31 @@ export class FaceVerificationService implements OnModuleInit {
       }
 
       const registeredImageUrl = profile.images[0].imageUrl;
-      let sourceBuffer: Buffer;
-      try {
-        if (registeredImageUrl.startsWith('http')) {
-          const response = await fetch(registeredImageUrl);
-          sourceBuffer = Buffer.from(await response.arrayBuffer());
-        } else {
-          sourceBuffer = await this.storage.read(registeredImageUrl);
+      let sourceDescriptor: Float32Array | undefined;
+      
+      const cached = this.descriptorCache.get(input.userId);
+      if (cached && cached.url === registeredImageUrl) {
+        sourceDescriptor = cached.descriptor;
+      } else {
+        let sourceBuffer: Buffer;
+        try {
+          if (registeredImageUrl.startsWith('http')) {
+            const response = await fetch(registeredImageUrl);
+            sourceBuffer = Buffer.from(await response.arrayBuffer());
+          } else {
+            sourceBuffer = await this.storage.read(registeredImageUrl);
+          }
+        } catch (e) {
+          this.logger.error('Failed to read registered face image', e);
+          return { matched: false, reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt.' };
         }
-      } catch (e) {
-        this.logger.error('Failed to read registered face image', e);
-        return { matched: false, reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt.' };
+        
+        const desc = await this.getFaceDescriptor(sourceBuffer);
+        if (!desc) {
+          return { matched: false, provider: 'local-face-api', reason: 'Không tìm thấy khuôn mặt rõ nét trong ảnh gốc đã đăng ký.' };
+        }
+        sourceDescriptor = desc;
+        this.descriptorCache.set(input.userId, { url: registeredImageUrl, descriptor: desc });
       }
 
       // 2. Get target face (attendance photo)
@@ -145,11 +166,6 @@ export class FaceVerificationService implements OnModuleInit {
       }
 
       // 3. Extract descriptors
-      const sourceDescriptor = await this.getFaceDescriptor(sourceBuffer);
-      if (!sourceDescriptor) {
-        return { matched: false, provider: 'local-face-api', reason: 'Không tìm thấy khuôn mặt rõ nét trong ảnh gốc đã đăng ký.' };
-      }
-
       const targetDescriptor = await this.getFaceDescriptor(targetBuffer);
       if (!targetDescriptor) {
         return { matched: false, provider: 'local-face-api', reason: 'Không tìm thấy khuôn mặt người trong ảnh điểm danh này.' };
