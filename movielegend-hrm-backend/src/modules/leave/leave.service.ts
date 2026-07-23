@@ -196,12 +196,23 @@ export class LeaveService {
     const startAt = new Date(dto.startAt);
     const endAt = new Date(dto.endAt);
     if (endAt <= startAt) throw badRequest('INVALID_OVERTIME_TIME_RANGE', 'Gio ket thuc tang ca phai sau gio bat dau');
+    
+    const workDate = this.businessTime.startOfBusinessDate(dto.workDate);
+    const workDateObj = new Date(workDate);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 3);
+    cutoffDate.setHours(0, 0, 0, 0);
+    
+    if (workDateObj < cutoffDate) {
+      throw badRequest('OVERTIME_REQUEST_TOO_LATE', 'Khong duoc nop don xin tang ca cho ngay da qua qua 3 ngay');
+    }
+
     await this.assertNoOvertimeOverlap(actor.userId, startAt, endAt);
     return this.prisma.overtimeRequest.create({
       data: {
         userId: actor.userId,
         departmentId,
-        workDate: this.businessTime.startOfBusinessDate(dto.workDate),
+        workDate,
         startAt,
         endAt,
         reason: dto.reason,

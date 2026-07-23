@@ -4,8 +4,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { DateRangeReportQueryDto, EmployeeReportQueryDto, KpiReportQueryDto } from '../reports/dto/report-query.dto';
-import { ReportsService } from '../reports/reports.service';
 import { ExportService } from './export.service';
+import { AttendanceReportService } from '../reports/attendance-report.service';
+import { ReportsService } from '../reports/reports.service';
 
 type ReportName = 'employees' | 'attendance' | 'tasks' | 'assets' | 'warehouse' | 'kpi' | 'payroll';
 
@@ -16,6 +17,7 @@ export class ExportsController {
   constructor(
     private readonly reports: ReportsService,
     private readonly exports: ExportService,
+    private readonly attendanceReport: AttendanceReportService
   ) {}
 
   @Get(':report/csv')
@@ -23,6 +25,13 @@ export class ExportsController {
   async csv(@Param('report') report: ReportName, @Query() query: DateRangeReportQueryDto, @CurrentUser() actor: AuthenticatedUser) {
     const rows = await this.rows(report, query, actor);
     return this.exports.exportCsv(`${report}-report-${new Date().toISOString().slice(0, 10)}`, rows);
+  }
+
+  @Get('attendance-detail/excel')
+  @Permissions('report.export.excel')
+  async attendanceDetailExcel(@Query() query: any) {
+    const reportData = await this.attendanceReport.getDetailedReport(query);
+    return this.exports.exportAttendanceDetailExcel(`Bang-cham-cong-${new Date().toISOString().slice(0, 10)}`, reportData);
   }
 
   @Get(':report/excel')
