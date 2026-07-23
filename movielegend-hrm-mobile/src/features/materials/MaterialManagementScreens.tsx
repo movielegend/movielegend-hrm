@@ -11,6 +11,7 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { SectionCard } from '../../components/SectionCard';
 import { useAssetDepartments } from '../../hooks/useAssets';
+import { useDepartments } from '../../hooks/useDepartments';
 import { useAssets, useAssignAsset, useTransferAsset, useRequestAssetReturn, useRevokeAsset } from '../../hooks/useAssets';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
@@ -30,7 +31,7 @@ export function AssetDepartmentListScreen() {
   // Here we'll just pass searchQuery directly since we want it real-time or handled by the hook
   const { data: departments, isLoading, isError, error, refetch, isRefetching } = useAssetDepartments({ search: searchQuery });
 
-  const filteredDepartments = departments?.data || [];
+  const filteredDepartments = departments?.items || [];
 
   return (
     <Screen>
@@ -199,20 +200,20 @@ export function AssetDepartmentScreen() {
           onBack={() => router.back()}
         />
 
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, paddingHorizontal: spacing.lg }}>
           <Pressable
-            style={[styles.createAssetButton, { flex: 1, marginBottom: 0 }]}
+            style={[styles.createAssetButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
             onPress={() => router.push(`/admin/assets/create?departmentId=${departmentId}` as never)}
           >
             <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
             <Text style={styles.createAssetButtonText}>Tạo vật tư mới</Text>
           </Pressable>
           <Pressable
-            style={[styles.createAssetButton, { flex: 0, paddingHorizontal: 16, backgroundColor: '#334155', marginBottom: 0 }]}
+            style={[styles.createAssetButton, { flexShrink: 0, marginHorizontal: 0, paddingHorizontal: 20, backgroundColor: '#334155', marginBottom: 0 }]}
             onPress={() => setFilterModalVisible(true)}
           >
             <MaterialCommunityIcons name="filter-variant" size={20} color="#FFF" />
-            <Text style={styles.createAssetButtonText}>Bộ lọc</Text>
+            <Text style={[styles.createAssetButtonText, { flexShrink: 0 }]} numberOfLines={1}>Bộ lọc</Text>
           </Pressable>
         </View>
 

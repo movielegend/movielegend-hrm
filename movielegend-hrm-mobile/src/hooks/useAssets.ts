@@ -161,7 +161,8 @@ export function useAssetDepartments(filters: { search?: string } = {}) {
     queryKey: ['asset-departments', filters],
     queryFn: async () => {
       const response = await apiClient.get<ApiResponse<any>>('/admin/assets/departments', { params: { search: filters.search } });
-      return normalizePagination(response);
+      const data = unwrapData(response);
+      return normalizePagination(data.data || data);
     }
   });
 }
