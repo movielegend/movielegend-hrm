@@ -370,7 +370,6 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string) {
-    try {
     const contract = await this.prisma.employeeContract.findUnique({
       where: { id: contractId },
       include: { contractTemplateVersion: true }
@@ -433,12 +432,12 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       
       const pdfBytes = await pdfDoc.save();
       const fileName = `signed_${contractId}.pdf`;
-      const outPath = path.join(process.cwd(), 'storage', 'uploads', fileName);
+      const outPath = path.join(process.cwd(), 'storage', 'contracts', fileName);
       if (!fs.existsSync(path.dirname(outPath))) {
         fs.mkdirSync(path.dirname(outPath), { recursive: true });
       }
       fs.writeFileSync(outPath, pdfBytes);
-      return '/uploads/' + fileName;
+      return `/uploads/contracts/${fileName}`;
     } catch (error) {
       console.error('Error generating PDF:', error);
       return null;
