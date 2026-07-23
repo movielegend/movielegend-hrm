@@ -253,7 +253,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     
     let finalSignedFileUrl = dto.signedFileUrl;
     if (dto.signatureImageUrl) {
-      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, actor.profile?.fullName || 'Employee');
+      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Employee');
       if (generatedUrl) finalSignedFileUrl = generatedUrl;
     }
 
@@ -380,7 +380,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     const rawUrl = contract.contractTemplateVersion.templateFileUrl || '';
     const storageKey = contract.contractTemplateVersion.storageKey || '';
     
-    let existingPdfBytes: Buffer | null = null;
+    try {
+      let existingPdfBytes: Buffer | null = null;
     
     const candidatePaths = [
       storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',

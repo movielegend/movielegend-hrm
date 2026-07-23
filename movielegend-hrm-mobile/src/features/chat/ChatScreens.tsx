@@ -471,7 +471,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             );
           }}
           ListEmptyComponent={
-            <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
+            <View style={styles.emptyChat}>
               <MaterialCommunityIcons name="chat-outline" size={48} color={colors.muted} />
               <Text style={styles.emptyChatText}>Chưa có tin nhắn nào</Text>
               <Text style={styles.emptyChatSub}>Hãy bắt đầu cuộc trò chuyện!</Text>

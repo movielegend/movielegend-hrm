@@ -256,7 +256,7 @@ export class AssetsService {
       });
       await tx.asset.update({ where: { id: assignment.assetId }, data: { assetStatus: AssetStatus.IN_USE } });
 
-      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
       const actorName = actorProfile?.fullName || 'Nhân sự';
 
       await this.notifyManagers(
@@ -285,7 +285,7 @@ export class AssetsService {
         data: { status: AssetAssignmentStatus.RETURN_REQUESTED, histories: { create: { action: AssetAssignmentAction.RETURN_REQUESTED, performedById: actor.userId } } },
       });
 
-      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
       const actorName = actorProfile?.fullName || 'Nhân sự';
 
       await this.notifyManagers(
@@ -358,7 +358,7 @@ export class AssetsService {
         await tx.asset.update({ where: { id: assetId }, data: { assetStatus: AssetStatus.DAMAGED, conditionStatus: AssetConditionStatus.DAMAGED } });
       }
 
-      const actorProfile = await tx.profile.findUnique({ where: { userId: actor.userId } });
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
       const actorName = actorProfile?.fullName || 'Nhân sự';
 
       await this.notifyManagers(

@@ -77,7 +77,13 @@ export function EmployeeScheduleScreen() {
               <Text style={styles.utilityText}>Đăng ký ca</Text>
             </Pressable>
             
-            <Pressable style={styles.utilityBtn} onPress={() => router.push(`${rolePrefix}/shift-swaps/create` as any)}>
+            <Pressable style={styles.utilityBtn} onPress={() => {
+              if (rolePrefix === '/leader') {
+                Alert.alert('Thông báo', 'Chức năng đang được phát triển');
+              } else {
+                router.push(`${rolePrefix}/shift-swaps/create` as any);
+              }
+            }}>
               <View style={[styles.utilityIconBox, { backgroundColor: '#FFFBEB' }]}>
                 <MaterialCommunityIcons name="calendar-sync" size={24} color="#F59E0B" />
               </View>
