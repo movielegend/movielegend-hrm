@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient, unwrapData } from '../api/client';\nimport { normalizePagination } from '../types/pagination.types';\nimport type { ApiResponse } from '../types/api.types';\nimport { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createAsset, getAsset, getAssets, getMyAssets, updateAsset, transferAsset, revokeAsset } from '../api/assets.api';
 import { assignAsset, confirmAssetAssignment, receiveAssetReturn, requestAssetReturn } from '../api/asset-assignments.api';
 import { completeAssetMaintenance, startAssetMaintenance } from '../api/asset-maintenance.api';
@@ -150,5 +150,15 @@ export function useCompleteAssetMaintenance() {
       void queryClient.invalidateQueries({ queryKey: assetKeys.all });
       void queryClient.invalidateQueries({ queryKey: assetKeys.detail(record.assetId) });
     },
+  });
+}
+\n
+export function useAssetDepartments(filters: { search?: string } = {}) {
+  return useQuery({
+    queryKey: ['asset-departments', filters],
+    queryFn: async () => {
+      const response = await apiClient.get<ApiResponse<any>>('/admin/assets/departments', { params: { search: filters.search } });
+      return normalizePagination(response);
+    }
   });
 }

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Image, TextInput, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
@@ -14,6 +14,7 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { SelectModal } from '../../components/SelectModal';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import {
   useAsset,
   useAssets,
@@ -264,8 +265,25 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
 
   const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
+  useEffect(() => {
+    if (asset.isError) {
+      const err = asset.error as any;
+      if (err?.response?.data?.code === 'ASSET_FORBIDDEN' || err?.response?.status === 403 || err?.message?.includes('403')) {
+        Alert.alert('Không có quyền', 'Vật tư bị thu hồi', [
+          { text: 'OK', onPress: () => router.replace('/employee/assets') }
+        ]);
+      }
+    }
+  }, [asset.isError, asset.error, router]);
+
   if (asset.isLoading) return <LoadingState />;
-  if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />;
+  if (asset.isError) {
+    const err = asset.error as any;
+    if (err?.response?.data?.code === 'ASSET_FORBIDDEN' || err?.response?.status === 403 || err?.message?.includes('403')) {
+      return <View style={{ flex: 1, backgroundColor: '#f8fafc' }} />;
+    }
+    return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />;
+  }
   if (!asset.data) return <EmptyState title="Không tìm thấy tài sản" />;
 
   const item = asset.data;

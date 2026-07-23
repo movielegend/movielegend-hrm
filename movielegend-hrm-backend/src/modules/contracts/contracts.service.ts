@@ -381,8 +381,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     const rawUrl = contract.contractTemplateVersion.templateFileUrl || '';
     const storageKey = contract.contractTemplateVersion.storageKey || '';
     
-    try {
-      let existingPdfBytes: Buffer | null = null;
+    let existingPdfBytes: Buffer | null = null;
     
     const candidatePaths = [
       storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',

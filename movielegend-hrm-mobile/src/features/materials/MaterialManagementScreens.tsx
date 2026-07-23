@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -10,7 +11,7 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { SectionCard } from '../../components/SectionCard';
 import { useDepartments } from '../../hooks/useDepartments';
-import { useAssets, useAssignAsset, useTransferAsset, useRequestAssetReturn, useRevokeAsset } from '../../hooks/useAssets';
+import { useAssets, useAssignAsset, useTransferAsset, useRequestAssetReturn, useRevokeAsset, useUpdateAsset, useAssetDepartments } from '../../hooks/useAssets';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -23,12 +24,17 @@ import { useEmployees } from '../../hooks/useEmployees';
 
 export function AssetDepartmentListScreen() {
   const router = useRouter();
-  const { data: departments, isLoading, isError, error, refetch, isRefetching } = useDepartments();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
-  const filteredDepartments = departments?.items.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const { data: departments, isLoading, isError, error, refetch, isRefetching } = useAssetDepartments({ search: debouncedSearch });
+
+  const filteredDepartments = departments?.data || [];
 
   return (
     <Screen>
@@ -45,16 +51,7 @@ export function AssetDepartmentListScreen() {
           }
         />
 
-        <View style={styles.bannerCard}>
-          <View style={styles.bannerIconBox}>
-            <MaterialCommunityIcons name="lightning-bolt" size={28} color="#FFF" />
-          </View>
-          <View style={styles.bannerTextContainer}>
-            <Text style={styles.bannerTitle}>Quản lý vật tư</Text>
-            <Text style={styles.bannerSubtitle}>Xem và quản lý vật tư theo phòng ban.</Text>
-          </View>
-          <MaterialCommunityIcons name="package-variant-closed" size={60} color="#E2E8F0" style={styles.bannerImage} />
-        </View>
+
 
         <Text style={styles.sectionLabelHeader}>Tìm phòng ban</Text>
         
@@ -73,7 +70,7 @@ export function AssetDepartmentListScreen() {
           <Text style={styles.sectionLabelHeader}>Danh sách phòng ban</Text>
           <View style={styles.countBadge}>
             <MaterialCommunityIcons name="office-building" size={14} color="#111827" />
-            <Text style={styles.countBadgeText}>{filteredDepartments?.length || 0} Đơn vị</Text>
+            <Text style={styles.countBadgeText}>{departments?.meta?.total || 0} Đơn vị</Text>
           </View>
         </View>
         
@@ -98,7 +95,7 @@ export function AssetDepartmentListScreen() {
                 <View style={styles.deptStatItem}>
                   <MaterialCommunityIcons name="cube-outline" size={20} color="#4B5563" />
                   <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>0</Text>
+                    <Text style={styles.deptStatValue}>{dept.materialCount || 0}</Text>
                     <Text style={styles.deptStatLabel}>Vật tư</Text>
                   </View>
                 </View>
@@ -106,7 +103,7 @@ export function AssetDepartmentListScreen() {
                 <View style={styles.deptStatItem}>
                   <MaterialCommunityIcons name="clipboard-text-outline" size={20} color="#4B5563" />
                   <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>0</Text>
+                    <Text style={styles.deptStatValue}>{dept.requestCount || 0}</Text>
                     <Text style={styles.deptStatLabel}>Yêu cầu</Text>
                   </View>
                 </View>
@@ -114,8 +111,8 @@ export function AssetDepartmentListScreen() {
                 <View style={styles.deptStatItem}>
                   <MaterialCommunityIcons name="alert-outline" size={20} color="#4B5563" />
                   <View style={styles.deptStatTextCol}>
-                    <Text style={styles.deptStatValue}>0</Text>
-                    <Text style={styles.deptStatLabel}>Sắp hết</Text>
+                    <Text style={styles.deptStatValue}>{dept.lowStockCount || 0}</Text>
+                    <Text style={styles.deptStatLabel}>Sắp hỏng</Text>
                   </View>
                 </View>
               </View>
@@ -160,6 +157,15 @@ export function AssetDepartmentScreen() {
   const [selectedAssetForRevoke, setSelectedAssetForRevoke] = useState<any | null>(null);
   const [revokeNote, setRevokeNote] = useState('');
   const revokeMutation = useRevokeAsset();
+  const updateMutation = useUpdateAsset();
+
+  const [fixOkModalVisible, setFixOkModalVisible] = useState(false);
+  const [selectedAssetForFixOk, setSelectedAssetForFixOk] = useState<any | null>(null);
+
+  const handleFixOk = (asset: any) => {
+    setSelectedAssetForFixOk(asset);
+    setFixOkModalVisible(true);
+  };
 
   const [damagedModalVisible, setDamagedModalVisible] = useState(false);
   const [selectedAssetForDamaged, setSelectedAssetForDamaged] = useState<any | null>(null);
@@ -207,20 +213,20 @@ export function AssetDepartmentScreen() {
           onBack={() => router.back()} 
         />
 
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, paddingHorizontal: 20 }}>
           <Pressable 
-            style={[styles.createAssetButton, { flex: 1, marginBottom: 0 }]} 
+            style={[styles.createAssetButton, { flex: 2, marginBottom: 0, marginHorizontal: 0 }]} 
             onPress={() => router.push(`/admin/assets/create?departmentId=${departmentId}` as never)}
           >
             <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
             <Text style={styles.createAssetButtonText}>Tạo vật tư mới</Text>
           </Pressable>
           <Pressable 
-            style={[styles.createAssetButton, { flex: 0, paddingHorizontal: 16, backgroundColor: '#334155', marginBottom: 0 }]} 
+            style={[styles.createAssetButton, { flex: 1, backgroundColor: '#334155', marginBottom: 0, marginHorizontal: 0 }]} 
             onPress={() => setFilterModalVisible(true)}
           >
             <MaterialCommunityIcons name="filter-variant" size={20} color="#FFF" />
-            <Text style={styles.createAssetButtonText}>Bộ lọc</Text>
+            <Text style={[styles.createAssetButtonText, { flexShrink: 0 }]}>Bộ lọc</Text>
           </Pressable>
         </View>
 
@@ -237,6 +243,7 @@ export function AssetDepartmentScreen() {
               onReportDamaged={() => { setSelectedAssetForDamaged(asset); setDamagedNote(''); setDamagedVendorName(''); setDamagedStartedAt(new Date().toISOString().split('T')[0]); setDamagedAction('DAMAGED'); setDamagedModalVisible(true); }}
               onAssign={() => { setSelectedAssetForAssign(asset); setAssignedUserId(null); setAssignModalVisible(true); }}
               onTransfer={() => { setSelectedAssetForTransfer(asset); setTargetDepartmentId(null); setTransferModalVisible(true); }}
+              onFixOk={() => handleFixOk(asset)}
             />
           ))}
           {filteredAssets.length === 0 && <EmptyState title="Không có vật tư nào khớp với bộ lọc" />}
@@ -430,11 +437,41 @@ export function AssetDepartmentScreen() {
         }}
         onClose={() => setTransferModalVisible(false)}
       />
+
+      <ConfirmModal
+        visible={fixOkModalVisible}
+        title="Xác nhận"
+        description={`Bạn có chắc muốn chuyển vật tư ${selectedAssetForFixOk?.name} sang trạng thái bình thường (Trong kho)?`}
+        confirmText="OK"
+        confirmTone="primary"
+        isLoading={updateMutation.isPending}
+        onConfirm={async () => {
+          if (selectedAssetForFixOk) {
+            try {
+              await updateMutation.mutateAsync({ id: selectedAssetForFixOk.id, payload: { assetStatus: 'IN_STOCK' } });
+              setFixOkModalVisible(false);
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.response?.data?.message || 'Không thể cập nhật trạng thái');
+              setFixOkModalVisible(false);
+            }
+          }
+        }}
+        onCancel={() => setFixOkModalVisible(false)}
+      />
     </Screen>
   );
 }
 
-function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer, onReportDamaged }: { asset: any, employees: any[], onPress: () => void, onRevoke: () => void, onAssign: () => void, onTransfer: () => void, onReportDamaged?: () => void }) {
+function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer, onReportDamaged, onFixOk }: { 
+  asset: any; 
+  employees: any[]; 
+  onPress: () => void; 
+  onRevoke?: () => void;
+  onAssign?: () => void;
+  onTransfer?: () => void;
+  onReportDamaged?: () => void;
+  onFixOk?: () => void;
+}) {
   const router = useRouter();
   const requestReturn = useRequestAssetReturn();
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
@@ -518,6 +555,11 @@ function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer, 
                 </Pressable>
               )}
             </>
+          ) : asset.assetStatus === 'DAMAGED' || asset.assetStatus === 'MAINTENANCE' ? (
+            <Pressable style={[styles.actionBtnTeal, { borderColor: '#10B981' }]} onPress={onFixOk}>
+              <MaterialCommunityIcons name="check-circle-outline" size={18} color="#10B981" />
+              <Text style={[styles.actionBtnTealText, { color: '#10B981' }]}>Đã OK</Text>
+            </Pressable>
           ) : null}
         </View>
       </SectionCard>
