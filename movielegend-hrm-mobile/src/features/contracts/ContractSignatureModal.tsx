@@ -31,14 +31,13 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Pro
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <View style={styles.container}>
         <PageHeader title="Ký hợp đồng" subtitle="Vui lòng ký tên vào khung bên dưới" />
         
         {pdfUrl ? (
           <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
             <SecondaryButton
-              title="📄 Xem file hợp đồng trước khi ký (PDF)"
               onPress={() => {
                 const url = resolveFileUrl(pdfUrl);
                 if (url) {
@@ -47,7 +46,9 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Pro
                   Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
                 }
               }}
-            />
+            >
+              📄 Xem file hợp đồng trước khi ký (PDF)
+            </SecondaryButton>
           </View>
         ) : null}
         <View style={styles.signatureContainer}>
@@ -60,14 +61,15 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Pro
             webStyle={`
               .m-signature-pad { box-shadow: none; border: none; }
               .m-signature-pad--body { border: 1px solid #e2e8f0; border-radius: 8px; }
+              .m-signature-pad--footer { display: none; margin: 0px; }
             `}
           />
         </View>
 
         <View style={styles.footer}>
-          <SecondaryButton title="Hủy" onPress={onClose} style={styles.button} />
-          <SecondaryButton title="Xóa ký lại" onPress={handleClear} style={styles.button} />
-          <PrimaryButton title="Xác nhận" onPress={handleConfirm} style={styles.button} />
+          <SecondaryButton onPress={onClose} style={styles.button}>Hủy</SecondaryButton>
+          <SecondaryButton onPress={handleClear} style={styles.button}>Xóa ký lại</SecondaryButton>
+          <PrimaryButton onPress={handleConfirm} style={styles.button}>Xác nhận</PrimaryButton>
         </View>
       </View>
     </Modal>

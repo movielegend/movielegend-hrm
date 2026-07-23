@@ -147,10 +147,17 @@ export class ContractsService {
         include: this.include(),
       });
       await tx.auditLog.create({ data: { actorUserId: actor.userId, action: 'CONTRACT_CREATED', entityType: 'EmployeeContract', entityId: contract.id, metadata: { contractCode } } });
-      return contract;
+      const notification = await this.notifications.createForUsers(tx, [contract.userId], {
+        type: NotificationType.CONTRACT_SIGNATURE_REQUIRED,
+        title: 'Yêu cầu ký hợp đồng',
+        body: `Bạn có một hợp đồng mới cần ký: ${contract.title}`,
+        metadata: { contractId: contract.id, status: contract.status },
+      });
+      return { contract, notification };
     });
-    this.realtime.emitToUser(dto.userId, 'contract:updated', { id: payload.id, status: payload.status });
-    return payload;
+    this.notifications.emitCreated(payload.notification);
+    this.realtime.emitToUser(dto.userId, 'contract:signature-required', { id: payload.contract.id, status: payload.contract.status });
+    return payload.contract;
   }
 
   async findAll(actor: AuthenticatedUser, departmentId?: string) {
@@ -496,8 +503,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Contract not found');
     await this.assertCanManageContract(contract.userId, actor);
     
-    if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE) {
-      throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Can only delete contracts waiting for employee signature');
+    if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE && contract.status !== ContractStatus.DRAFT) {
+      throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Can only delete draft contracts or contracts waiting for employee signature');
     }
 
     await this.prisma.$transaction(async (tx) => {
