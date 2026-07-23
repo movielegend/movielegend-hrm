@@ -4,6 +4,7 @@ import {
   getContractTemplate,
   createContractTemplate,
   updateContractTemplate,
+  updateTemplateMapping,
   getEmployeeContracts,
   getMyContracts,
   getEmployeeContract,
@@ -23,6 +24,7 @@ import { contractTemplateKeys, contractKeys } from '../constants/queryKeys';
 import type {
   CreateContractTemplatePayload,
   UpdateContractTemplatePayload,
+  UpdateTemplateMappingPayload,
   CreateEmployeeContractPayload,
   UpdateEmployeeContractPayload,
   RejectContractPayload,
@@ -60,6 +62,16 @@ export function useUpdateContractTemplate(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: UpdateContractTemplatePayload) => updateContractTemplate(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contractTemplateKeys.all });
+    },
+  });
+}
+
+export function useUpdateTemplateMapping(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateTemplateMappingPayload) => updateTemplateMapping(id, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contractTemplateKeys.all });
     },

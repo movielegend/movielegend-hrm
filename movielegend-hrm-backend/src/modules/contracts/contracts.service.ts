@@ -94,6 +94,28 @@ export class ContractsService {
     });
   }
 
+  async updateTemplateMapping(id: string, dto: { mappingConfig: any[] }, actor: AuthenticatedUser) {
+    this.policy.assertCanUpdate(actor);
+    const template = await this.prisma.contractTemplate.findUnique({
+      where: { id },
+      include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } },
+    });
+    if (!template) throw notFound('CONTRACT_TEMPLATE_NOT_FOUND', 'Contract template not found');
+    const latestVersion = template.versions[0];
+    if (!latestVersion) throw notFound('CONTRACT_TEMPLATE_VERSION_NOT_FOUND', 'Contract template version not found');
+
+    await this.prisma.contractTemplateVersion.update({
+      where: { id: latestVersion.id },
+      data: { mappingConfig: dto.mappingConfig },
+    });
+
+    await this.prisma.auditLog.create({
+      data: { actorUserId: actor.userId, action: 'CONTRACT_TEMPLATE_MAPPING_UPDATED', entityType: 'ContractTemplate', entityId: id, metadata: { versionNumber: latestVersion.versionNumber } },
+    });
+    
+    return { success: true };
+  }
+
   async createContract(dto: CreateEmployeeContractDto, actor: AuthenticatedUser) {
     const [target, version] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: dto.userId }, include: { profile: { include: { position: true } }, departmentLinks: { where: { leftAt: null }, include: { department: true } } } }),
@@ -107,6 +129,7 @@ export class ContractsService {
       const contract = await tx.employeeContract.create({
         data: {
           contractCode,
+          status: ContractStatus.WAITING_EMPLOYEE_SIGNATURE,
           userId: dto.userId,
           contractTemplateId: dto.contractTemplateId,
           contractTemplateVersionId: dto.contractTemplateVersionId,
@@ -116,6 +139,8 @@ export class ContractsService {
           endDate: dto.endDate ? new Date(dto.endDate) : undefined,
           draftFileUrl: dto.draftFileUrl,
           createdById: actor.userId,
+          approvedById: actor.userId,
+          approvedAt: new Date(),
           positionSnapshot: target.profile?.position ? { id: target.profile.position.id, name: target.profile.position.name } : undefined,
           departmentSnapshot: target.departmentLinks.map((link) => ({ id: link.departmentId, name: link.department.name, isPrimary: link.isPrimary })),
         },

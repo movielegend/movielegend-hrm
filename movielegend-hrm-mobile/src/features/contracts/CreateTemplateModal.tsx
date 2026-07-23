@@ -38,8 +38,8 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
   };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !code.trim() || !file) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên, mã và chọn tệp PDF');
+    if (!name.trim() || !file) {
+      Alert.alert('Lỗi', 'Vui lòng nhập tên và chọn tệp PDF');
       return;
     }
 
@@ -54,8 +54,12 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
       });
 
       // 2. Create Template
+      const initials = name.trim().split(' ').map(w => w[0]).join('').toUpperCase().replace(/[^A-Z]/g, '');
+      const timestamp = new Date().getTime().toString().slice(-4);
+      const generatedCode = `MHD-${initials ? initials + '-' : ''}${timestamp}`;
+
       await createTemplate.mutateAsync({
-        code: code.trim(),
+        code: generatedCode,
         name: name.trim(),
         contractType,
         description: description.trim() || undefined,
@@ -104,17 +108,7 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
               />
             </View>
 
-            <View style={styles.field}>
-              <Text style={styles.label}>Mã mẫu hợp đồng (*)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="VD: HDLD-001"
-                placeholderTextColor={colors.muted}
-                value={code}
-                onChangeText={setCode}
-                autoCapitalize="characters"
-              />
-            </View>
+
 
             <View style={styles.field}>
               <Text style={styles.label}>Loại hợp đồng</Text>

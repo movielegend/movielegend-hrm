@@ -108,6 +108,10 @@ export interface UpdateContractTemplatePayload {
   isActive?: boolean;
 }
 
+export interface UpdateTemplateMappingPayload {
+  mappingConfig: any[];
+}
+
 export interface CreateEmployeeContractPayload {
   userId: string;
   contractTemplateId: string;

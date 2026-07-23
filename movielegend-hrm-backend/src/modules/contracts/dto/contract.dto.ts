@@ -57,6 +57,11 @@ export class UpdateContractTemplateDto {
   storageKey?: string;
 }
 
+export class UpdateTemplateMappingDto {
+  @ApiProperty()
+  mappingConfig!: any[];
+}
+
 export class CreateEmployeeContractDto {
   @ApiProperty()
   @IsUUID()
