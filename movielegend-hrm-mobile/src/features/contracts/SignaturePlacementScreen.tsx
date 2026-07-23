@@ -148,7 +148,12 @@ export function SignaturePlacementScreen() {
             });
         }
 
-        pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+        pdfjsLib.getDocument({
+            url: url,
+            httpHeaders: {
+                'ngrok-skip-browser-warning': '69420'
+            }
+        }).promise.then(function(pdfDoc_) {
             pdfDoc = pdfDoc_;
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'init', totalPages: pdfDoc.numPages }));
             renderPage(pageNum);
@@ -312,7 +317,10 @@ export function SignaturePlacementScreen() {
         )}
         <WebView
           ref={webviewRef}
-          source={{ html: htmlContent }}
+          source={{ html: htmlContent, baseUrl: 'http://localhost' }}
+          originWhitelist={['*']}
+          allowFileAccess={true}
+          allowUniversalAccessFromFileURLs={true}
           onMessage={onMessage}
           style={styles.webview}
           scrollEnabled={false}
