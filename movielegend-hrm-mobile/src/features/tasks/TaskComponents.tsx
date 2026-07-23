@@ -318,7 +318,11 @@ export function AttachmentList({
                 const info = await FileSystem.getInfoAsync(localUri);
                 let fileUri = localUri;
                 if (!info.exists) {
-                  const { uri } = await FileSystem.downloadAsync(url, localUri);
+                  const { uri } = await FileSystem.downloadAsync(url, localUri, {
+                    headers: {
+                      'ngrok-skip-browser-warning': 'true'
+                    }
+                  });
                   fileUri = uri;
                 }
                 const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });

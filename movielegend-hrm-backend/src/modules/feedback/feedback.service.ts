@@ -9,6 +9,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { FeedbackQueryDto } from './dto/feedback-query.dto';
 import { UpdateFeedbackStatusDto } from './dto/update-feedback-status.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 
 type AuthenticatedUser = {
     userId: string;
@@ -19,7 +21,10 @@ type AuthenticatedUser = {
 
 @Injectable()
 export class FeedbackService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly notifications: NotificationsService
+    ) { }
 
     // ─── Create ────────────────────────────────────────────────────────────────
 
@@ -42,6 +47,24 @@ export class FeedbackService {
                 createdAt: true,
             },
         });
+
+        const admins = await this.prisma.userRole.findMany({
+            where: { role: { code: 'ADMIN' } },
+            select: { userId: true },
+        });
+
+        if (admins.length > 0) {
+            const adminUserIds = admins.map(a => a.userId);
+            const notifTitle = dto.isAnonymous ? 'Góp ý mới (Ẩn danh)' : 'Có góp ý mới từ nhân viên';
+            await this.prisma.$transaction(async (tx) => {
+                const notif = await this.notifications.createForUsers(tx as any, adminUserIds, {
+                    type: 'SYSTEM' as NotificationType,
+                    title: notifTitle,
+                    body: `Tiêu đề: ${dto.title}`,
+                });
+                if (notif) this.notifications.emitCreated(notif);
+            });
+        }
 
         return feedback;
     }
@@ -254,7 +277,7 @@ export class FeedbackService {
     ) {
         const exists = await this.prisma.feedback.findFirst({
             where: { id, deletedAt: null },
-            select: { id: true, status: true },
+            select: { id: true, status: true, senderUserId: true },
         });
 
         if (!exists) {
@@ -275,6 +298,22 @@ export class FeedbackService {
                 reason: true,
                 reviewedAt: true,
             },
+        });
+
+        const statusMap: Record<string, string> = {
+            'PROCESSING': 'Đang xử lý',
+            'APPROVED': 'Đã duyệt',
+            'REJECTED': 'Đã từ chối',
+        };
+        const statusText = statusMap[dto.status] || dto.status;
+
+        await this.prisma.$transaction(async (tx) => {
+            const notif = await this.notifications.createForUsers(tx as any, [exists.senderUserId], {
+                type: 'SYSTEM' as NotificationType,
+                title: 'Phản hồi góp ý',
+                body: `Góp ý của bạn đã được chuyển sang trạng thái: ${statusText}.`,
+            });
+            if (notif) this.notifications.emitCreated(notif);
         });
 
         return feedback;

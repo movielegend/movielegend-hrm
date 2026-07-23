@@ -76,6 +76,26 @@ export class NewsfeedService {
          });
       });
       if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+    } else if (status === 'APPROVED') {
+      // Notify all users if post is auto-approved
+      const activeUsers = await this.prisma.user.findMany({
+        where: { isActive: true, deletedAt: null },
+        select: { id: true }
+      });
+      if (activeUsers.length > 0) {
+        const userIds = activeUsers.map(u => u.id).filter(id => id !== user.userId);
+        if (userIds.length > 0) {
+          const notifPayload = await this.prisma.$transaction(async (tx) => {
+            return this.notificationsService.createForUsers(tx, userIds, {
+              type: 'SYSTEM' as NotificationType,
+              title: 'Bảng tin công ty',
+              body: `Có một bài đăng mới: ${post.title}`,
+              metadata: { postId: post.id }
+            });
+          });
+          if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+        }
+      }
     }
 
     return post;
@@ -180,6 +200,25 @@ export class NewsfeedService {
       });
     });
     if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+
+    if (dto.status === 'APPROVED') {
+      const activeUsers = await this.prisma.user.findMany({
+        where: { isActive: true, deletedAt: null },
+        select: { id: true }
+      });
+      const userIds = activeUsers.map(u => u.id).filter(id => id !== post.authorId && id !== user.userId);
+      if (userIds.length > 0) {
+        const broadCastPayload = await this.prisma.$transaction(async (tx) => {
+          return this.notificationsService.createForUsers(tx, userIds, {
+            type: 'SYSTEM' as NotificationType,
+            title: 'Bảng tin công ty',
+            body: `Có một bài đăng mới: ${post.title}`,
+            metadata: { postId: post.id }
+          });
+        });
+        if (broadCastPayload) this.notificationsService.emitCreated(broadCastPayload);
+      }
+    }
 
     return updated;
   }

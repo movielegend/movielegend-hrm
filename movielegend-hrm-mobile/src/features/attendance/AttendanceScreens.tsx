@@ -560,41 +560,37 @@ export function AdminAttendanceScreen() {
 
         {/* Stat Cards */}
         {statsQuery.isLoading ? <LoadingState /> : (
-          <View style={{ gap: 16, marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Ionicons name="people" size={14} color="#111827" />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{stats?.present ?? 0}/{stats?.totalUsers ?? 0}</Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Có mặt</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 16 }}>
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', alignItems: 'center' }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="people" size={12} color="#111827" />
               </View>
-
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Ionicons name="time-outline" size={14} color="#111827" />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{onTimePercentage}%</Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Đúng giờ</Text>
-              </View>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827', marginBottom: 2 }}>{stats?.present ?? 0}/{stats?.totalUsers ?? 0}</Text>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', textAlign: 'center' }}>Có mặt</Text>
             </View>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Ionicons name="time-outline" size={14} color="#111827" />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{stats?.late ?? 0}</Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Đi muộn</Text>
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', alignItems: 'center' }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="time-outline" size={12} color="#111827" />
               </View>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827', marginBottom: 2 }}>{onTimePercentage}%</Text>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', textAlign: 'center' }}>Đúng giờ</Text>
+            </View>
 
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F3F4F6' }}>
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Ionicons name="close-outline" size={16} color="#111827" />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{stats?.absent ?? 0}</Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Vắng mặt</Text>
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', alignItems: 'center' }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="time-outline" size={12} color="#111827" />
               </View>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827', marginBottom: 2 }}>{stats?.late ?? 0}</Text>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', textAlign: 'center' }}>Đi muộn</Text>
+            </View>
+
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', alignItems: 'center' }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="close-outline" size={14} color="#111827" />
+              </View>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827', marginBottom: 2 }}>{stats?.absent ?? 0}</Text>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', textAlign: 'center' }}>Vắng mặt</Text>
             </View>
           </View>
         )}

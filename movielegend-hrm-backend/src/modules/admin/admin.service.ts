@@ -9,10 +9,15 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService
+  ) {}
 
   assignRole(dto: AssignRoleDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
@@ -203,6 +208,14 @@ export class AdminService {
           metadata: { departmentId: dto.departmentId },
         },
       });
+
+      const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Bổ nhiệm quản lý',
+        body: `Bạn vừa được bổ nhiệm làm quản lý chi nhánh/phòng ban ${department.name || ''}.`,
+      });
+      if (notif) this.notifications.emitCreated(notif);
+
       return assignment;
     });
   }
@@ -225,6 +238,17 @@ export class AdminService {
           metadata: { userId: assignment.userId, departmentId: assignment.scopeId },
         },
       });
+
+      if (assignment.scopeId) {
+        const department = await tx.department.findUnique({ where: { id: assignment.scopeId } });
+        const notif = await this.notifications.createForUsers(tx as any, [assignment.userId], {
+          type: 'SYSTEM' as NotificationType,
+          title: 'Thu hồi chức vụ',
+          body: `Bạn đã được rút khỏi vai trò quản lý chi nhánh/phòng ban ${department?.name || ''}.`,
+        });
+        if (notif) this.notifications.emitCreated(notif);
+      }
+
       return { revoked: true };
     });
   }

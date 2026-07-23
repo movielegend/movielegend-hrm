@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ContractScannerModal } from './ContractScannerModal';
 import { ContractSignatureModal } from './ContractSignatureModal';
 import { CreateTemplateModal } from './CreateTemplateModal';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -91,6 +92,8 @@ export function ContractTemplatesScreen() {
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
   return (
     <Screen>
@@ -144,9 +147,8 @@ export function ContractTemplatesScreen() {
                     onPress={() => {
                       const url = resolveFileUrl(tpl.templateFileUrl);
                       if (url) {
-                        Linking.openURL(url).catch(() => {
-                          Alert.alert('Lỗi', 'Không thể mở tệp PDF');
-                        });
+                        setPdfViewerVisible(true);
+                        setPdfViewerUrl(url);
                       } else {
                         Alert.alert('Lỗi', 'Không tìm thấy tệp đính kèm');
                       }
@@ -200,6 +202,15 @@ export function ContractTemplatesScreen() {
         onClose={() => setCreateModalVisible(false)}
       />
 
+      <PdfViewerModal
+        visible={pdfViewerVisible}
+        url={pdfViewerUrl}
+        onClose={() => {
+          setPdfViewerVisible(false);
+          setPdfViewerUrl(null);
+        }}
+        title="Xem mẫu hợp đồng"
+      />
     </Screen>
   );
 }
@@ -397,6 +408,9 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const rejectSignature = useRejectContractSignature(contractId);
   const deleteContract = useDeleteContract();
   
+  const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
+
   const [isSignatureVisible, setSignatureVisible] = useState(false);
   const [viewingSignatureUrl, setViewingSignatureUrl] = useState<string | null>(null);
 
@@ -498,14 +512,15 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
           </View>
         )}
 
-        {/* Actions */}
+          {/* Actions */}
         <View style={styles.actionButtons}>
           {contractFileUrl ? (
             <SecondaryButton
               onPress={() => {
                 const url = resolveFileUrl(contractFileUrl);
                 if (url) {
-                  Linking.openURL(url).catch(() => Alert.alert('Lỗi', 'Không thể mở file PDF'));
+                  setPdfViewerVisible(true);
+                  setPdfViewerUrl(url);
                 } else {
                   Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
                 }
@@ -565,6 +580,16 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
           )}
         </View>
       </ScrollView>
+
+      <PdfViewerModal
+        visible={pdfViewerVisible}
+        url={pdfViewerUrl}
+        onClose={() => {
+          setPdfViewerVisible(false);
+          setPdfViewerUrl(null);
+        }}
+        title="Xem hợp đồng"
+      />
 
       <ContractSignatureModal
         visible={isSignatureVisible}

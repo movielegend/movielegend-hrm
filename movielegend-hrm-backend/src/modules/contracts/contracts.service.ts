@@ -343,9 +343,17 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           metadata: { ipAddress, note: dto.note },
         },
       });
-      return { updated };
+      const creatorNotif = contract.createdById ? await this.notifications.createForUsers(tx as any, [contract.createdById], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Phản hồi hợp đồng',
+        body: `Nhân viên đã ${dto.isAgreed ? 'đồng ý' : 'từ chối'} hợp đồng ${contract.title}`,
+        metadata: { contractId: id },
+      }) : null;
+
+      return { updated, creatorNotif };
     });
     
+    if (payload.creatorNotif) this.notifications.emitCreated(payload.creatorNotif);
     this.realtime.emitToUser(contract.userId, 'contract:acknowledged', { id, status: payload.updated.employeeAcknowledgementStatus });
     return payload.updated;
   }
@@ -491,9 +499,21 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
         body: updated.title,
         metadata: { contractId: id, signerRole },
       });
-      return { updated, notification };
+      
+      let creatorNotif = null;
+      if (signerRole === ContractSignerRole.EMPLOYEE && updated.createdById && updated.createdById !== actor.userId) {
+        creatorNotif = await this.notifications.createForUsers(tx, [updated.createdById], {
+          type: 'SYSTEM' as NotificationType,
+          title: 'Hợp đồng đã được ký',
+          body: `Nhân viên đã ký hợp đồng: ${updated.title}`,
+          metadata: { contractId: id },
+        });
+      }
+
+      return { updated, notification, creatorNotif };
     });
     this.notifications.emitCreated(payload.notification);
+    if (payload.creatorNotif) this.notifications.emitCreated(payload.creatorNotif);
     this.realtime.emitToUser(payload.updated.userId, 'contract:updated', { id, status: payload.updated.status });
     return payload.updated;
   }

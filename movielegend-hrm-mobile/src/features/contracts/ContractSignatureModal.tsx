@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Modal, StyleSheet, View, Text } from 'react-native';
 import SignatureScreen from '../../components/SignaturePad/SignaturePad';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { colors } from '../../theme/colors';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 
 import { Linking, Alert } from 'react-native';
 import { resolveFileUrl } from '../../utils/url';
@@ -17,6 +18,8 @@ interface Props {
 
 export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Props) {
   const ref = useRef<any>();
+  const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
   const handleSignature = (signature: string) => {
     onSave(signature);
@@ -41,7 +44,8 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Pro
               onPress={() => {
                 const url = resolveFileUrl(pdfUrl);
                 if (url) {
-                  Linking.openURL(url).catch(() => Alert.alert('Lỗi', 'Không thể mở file PDF'));
+                  setPdfViewerVisible(true);
+                  setPdfViewerUrl(url);
                 } else {
                   Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
                 }
@@ -49,6 +53,15 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Pro
             >
               📄 Xem file hợp đồng trước khi ký (PDF)
             </SecondaryButton>
+            <PdfViewerModal
+              visible={pdfViewerVisible}
+              url={pdfViewerUrl}
+              onClose={() => {
+                setPdfViewerVisible(false);
+                setPdfViewerUrl(null);
+              }}
+              title="Xem hợp đồng"
+            />
           </View>
         ) : null}
         <View style={styles.signatureContainer}>
