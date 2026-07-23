@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ContractType, SignatureType } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, IsArray } from 'class-validator';
 
 export class CreateContractTemplateDto {
   @ApiPropertyOptional()
@@ -59,6 +59,7 @@ export class UpdateContractTemplateDto {
 
 export class UpdateTemplateMappingDto {
   @ApiProperty()
+  @IsArray()
   mappingConfig!: any[];
 }
 

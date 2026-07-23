@@ -7,7 +7,7 @@ import { PrimaryButton } from '../../components/Buttons';
 import { useUpdateTemplateMapping } from '../../hooks/useContracts';
 import { router, useLocalSearchParams } from 'expo-router';
 import { resolveFileUrl } from '../../utils/url';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export function SignaturePlacementScreen() {
   const params = useLocalSearchParams();
@@ -46,11 +46,16 @@ export function SignaturePlacementScreen() {
   // Load PDF as base64 in RN to avoid WebView CORS issues
   useEffect(() => {
     async function loadPdf() {
+      const url = resolveFileUrl(pdfUrl);
       try {
-        const url = resolveFileUrl(pdfUrl);
         if (!url) {
           Alert.alert('Lỗi', 'Không tìm thấy đường dẫn PDF');
           return;
+        }
+        
+        let finalUrl = url;
+        if (finalUrl.startsWith('http://') && (finalUrl.includes('cloudinary') || finalUrl.includes('ngrok'))) {
+          finalUrl = finalUrl.replace('http://', 'https://');
         }
         
         const fileUri = FileSystem.cacheDirectory + 'temp_signature_pdf.pdf';
@@ -59,15 +64,15 @@ export function SignaturePlacementScreen() {
         };
         
         // Download the file
-        await FileSystem.downloadAsync(url, fileUri, { headers });
+        await FileSystem.downloadAsync(finalUrl, fileUri, { headers });
         // Read as base64
         const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
         
         // Send base64 to webview
         webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64 }));
-      } catch (e) {
+      } catch (e: any) {
         console.log('Error downloading PDF', e);
-        Alert.alert('Lỗi', 'Không thể tải file PDF từ máy chủ');
+        Alert.alert('Lỗi', `Không thể tải file PDF từ máy chủ.\nURL: ${url}\nLỗi: ${e?.message || JSON.stringify(e)}`);
         setIsLoading(false);
       }
     }
@@ -143,8 +148,11 @@ export function SignaturePlacementScreen() {
                 currentScale = window.innerWidth / unscaledViewport.width;
                 const viewport = page.getViewport({scale: currentScale});
 
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = viewport.width * dpr;
+                canvas.height = viewport.height * dpr;
+                canvas.style.width = viewport.width + 'px';
+                canvas.style.height = viewport.height + 'px';
 
                 container.style.width = viewport.width + 'px';
                 container.style.height = viewport.height + 'px';
@@ -166,7 +174,8 @@ export function SignaturePlacementScreen() {
 
                 const renderContext = {
                     canvasContext: ctx,
-                    viewport: viewport
+                    viewport: viewport,
+                    transform: [dpr, 0, 0, dpr, 0, 0]
                 };
                 const renderTask = page.render(renderContext);
 
