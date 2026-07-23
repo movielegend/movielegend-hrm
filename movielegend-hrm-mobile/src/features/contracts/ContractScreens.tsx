@@ -16,7 +16,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ContractScannerModal } from './ContractScannerModal';
 import { ContractSignatureModal } from './ContractSignatureModal';
 import { CreateTemplateModal } from './CreateTemplateModal';
-import { SignatureConfigModal } from './SignatureConfigModal';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -91,7 +90,6 @@ export function ContractTemplatesScreen() {
   const templates = useContractTemplates();
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
-  const [sigConfigVisible, setSigConfigVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
 
   return (
@@ -174,8 +172,15 @@ export function ContractTemplatesScreen() {
                   <Pressable
                     style={({ pressed }) => [{ flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }, pressed && { backgroundColor: '#f9fafb' }]}
                     onPress={() => {
-                      setSelectedTemplate(tpl);
-                      setSigConfigVisible(true);
+                      const url = resolveFileUrl(tpl.templateFileUrl) || '';
+                      router.push({
+                        pathname: '/admin/contracts/signature-placement',
+                        params: { 
+                          templateId: tpl.id,
+                          pdfUrl: url,
+                          initialConfig: JSON.stringify(tpl.versions?.[0]?.mappingConfig || [])
+                        }
+                      });
                     }}
                   >
                     <MaterialCommunityIcons name="draw-pen" size={18} color="#374151" />
@@ -195,14 +200,6 @@ export function ContractTemplatesScreen() {
         onClose={() => setCreateModalVisible(false)}
       />
 
-      {selectedTemplate && (
-        <SignatureConfigModal
-          visible={sigConfigVisible}
-          onClose={() => setSigConfigVisible(false)}
-          templateId={selectedTemplate.id}
-          initialConfig={selectedTemplate.versions?.[0]?.mappingConfig}
-        />
-      )}
     </Screen>
   );
 }
