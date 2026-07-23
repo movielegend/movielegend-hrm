@@ -937,7 +937,9 @@ model Department {
   attendanceRecords     AttendanceRecord[]
   attendanceAdjustments AttendanceAdjustment[]
   leaveRequests         LeaveRequest[]
-  overtimeRequests      OvertimeRequest[]
+  overtimeRequests        OvertimeRequest[]
+  overtimeConfig          DepartmentOvertimeConfig?
+  overtimeRateRules       OvertimeRateRule[]
   employeeRequests      EmployeeRequest[]
   tasks                 Task[]
   taskGroups            TaskGroup[]
@@ -2437,6 +2439,7 @@ model DisciplinaryAction {
 model OvertimeRateRule {
   id            String       @id @default(uuid()) @db.Uuid
   companyId     String       @db.Uuid
+  departmentId  String?      @db.Uuid
   overtimeType  OvertimeType
   multiplier    Decimal      @db.Decimal(6, 3)
   effectiveFrom DateTime     @db.Date
@@ -2445,9 +2448,47 @@ model OvertimeRateRule {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   company       Company      @relation(fields: [companyId], references: [id])
+  department    Department?  @relation(fields: [departmentId], references: [id])
 
   @@index([companyId, overtimeType, effectiveFrom, effectiveTo])
   @@map("overtime_rate_rules")
+}
+
+// Cấu hình tăng ca + phụ cấp theo phòng ban
+model DepartmentOvertimeConfig {
+  id                    String     @id @default(uuid()) @db.Uuid
+  departmentId          String     @unique @db.Uuid
+  department            Department @relation(fields: [departmentId], references: [id])
+
+  // Hệ số tăng ca (override OvertimeRateRule của company)
+  weekdayMultiplier     Decimal    @default(1.5) @db.Decimal(6, 3)
+  weekendMultiplier     Decimal    @default(2.0) @db.Decimal(6, 3)
+  holidayMultiplier     Decimal    @default(3.0) @db.Decimal(6, 3)
+
+  // Phụ cấp làm đêm
+  nightAllowanceAmount  Decimal    @default(50000) @db.Decimal(14, 2)
+  nightStartHour        Int        @default(21)
+
+  // Quy tắc trừ đi muộn
+  lateDeductionAmount   Decimal    @default(50000) @db.Decimal(14, 2)
+  lateThresholdMinutes  Int        @default(5)
+
+  isActive              Boolean    @default(true)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  @@map("department_overtime_configs")
+}
+
+// Bảng cấu hình ngày nghỉ lễ (Dùng tính tăng ca x300%)
+model CompanyHoliday {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  date        DateTime @db.Date
+  name        String
+  createdAt   DateTime @default(now())
+  
+  @@map("company_holidays")
 }
 
 model ContractTemplate {

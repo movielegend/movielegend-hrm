@@ -5,12 +5,16 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { DateRangeReportQueryDto, EmployeeReportQueryDto, KpiReportQueryDto } from './dto/report-query.dto';
 import { ReportsService } from './reports.service';
+import { AttendanceReportService } from './attendance-report.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reports: ReportsService) {}
+  constructor(
+    private readonly reports: ReportsService,
+    private readonly attendanceReport: AttendanceReportService
+  ) {}
 
   @Get('employees')
   @Permissions('report.employee.read')
@@ -22,6 +26,12 @@ export class ReportsController {
   @Permissions('report.attendance.read')
   attendance(@Query() query: DateRangeReportQueryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.reports.attendance(query, actor);
+  }
+
+  @Get('attendance/detail')
+  @Permissions('report.attendance.read')
+  attendanceDetail(@Query() query: any) {
+    return this.attendanceReport.getDetailedReport(query);
   }
 
   @Get('tasks')
