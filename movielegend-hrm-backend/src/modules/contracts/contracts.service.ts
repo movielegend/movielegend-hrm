@@ -106,7 +106,7 @@ export class ContractsService {
 
     await this.prisma.contractTemplateVersion.update({
       where: { id: latestVersion.id },
-      data: { mappingConfig: dto.mappingConfig },
+      data: { mappingConfig: dto.mappingConfig as Prisma.InputJsonValue },
     });
 
     await this.prisma.auditLog.create({
@@ -402,6 +402,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       console.error('Error generating PDF: Could not find template file at paths:', candidatePaths);
       return null;
     }
+    try {
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
       const mappingConfig = (contract.contractTemplateVersion as any).mappingConfig as any;
@@ -491,7 +492,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   async deleteContract(id: string, actor: AuthenticatedUser) {
-    const contract = await this.assertContractExists(id);
+    const contract = await this.prisma.employeeContract.findUnique({ where: { id } });
+    if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Contract not found');
     await this.assertCanManageContract(contract.userId, actor);
     
     if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE) {

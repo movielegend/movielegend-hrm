@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -28,6 +28,12 @@ export class AssetsController {
   @Permissions('asset.create')
   create(@Body() dto: CreateAssetDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.assets.create(dto, actor);
+  }
+
+  @Get('admin/assets/departments')
+  @Permissions('asset.read')
+  findAdminDepartments(@Query('search') search?: string) {
+    return this.assets.findAdminDepartments(search);
   }
 
   @Get('assets')

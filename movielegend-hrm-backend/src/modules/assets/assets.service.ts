@@ -52,6 +52,44 @@ export class AssetsService {
     });
   }
 
+  async findAdminDepartments(search?: string) {
+    const departments = await this.prisma.department.findMany({
+      where: search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } }
+        ]
+      } : undefined,
+      include: {
+        assets: {
+          where: { deletedAt: null },
+          include: {
+            assignments: {
+              where: {
+                status: { in: ['PENDING_CONFIRMATION', 'RETURN_REQUESTED'] }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return {
+      data: departments.map(dept => {
+        const materialCount = dept.assets.length;
+        const requestCount = dept.assets.reduce((sum, a) => sum + a.assignments.length, 0);
+        const lowStockCount = dept.assets.filter(a => ['DAMAGED', 'POOR', 'MAINTENANCE'].includes(a.conditionStatus)).length;
+        return {
+          id: dept.id,
+          name: dept.name,
+          code: dept.code,
+          materialCount,
+          requestCount,
+          lowStockCount
+        };
+      })
+    };
+  }
   findAll(actor: AuthenticatedUser) {
     if (actor.roles.includes('ADMIN')) return this.prisma.asset.findMany({ where: { deletedAt: null }, include: { assignments: true, department: true } });
     const departments = this.departments.visibleDepartmentIds(actor) ?? [];
