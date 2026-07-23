@@ -1,4 +1,4 @@
-import { client } from './client';
+import { apiClient, unwrapData } from './client';
 
 export interface DeptOvertimeConfig {
   id: string;
@@ -16,17 +16,17 @@ export interface DeptOvertimeConfig {
 
 export const deptOvertimeConfigApi = {
   findAll: async () => {
-    const res = await client.get<DeptOvertimeConfig[]>('/department-overtime-configs');
-    return res.data;
+    const res = await apiClient.get('/department-overtime-configs');
+    return unwrapData(res) as DeptOvertimeConfig[];
   },
   
   findByDepartment: async (departmentId: string) => {
-    const res = await client.get<DeptOvertimeConfig>(`/department-overtime-configs/department/${departmentId}`);
-    return res.data;
+    const res = await apiClient.get(`/department-overtime-configs/department/${departmentId}`);
+    return unwrapData(res) as DeptOvertimeConfig;
   },
 
   upsert: async (data: Partial<DeptOvertimeConfig>) => {
-    const res = await client.post<DeptOvertimeConfig>('/department-overtime-configs', data);
-    return res.data;
+    const res = await apiClient.post('/department-overtime-configs', data);
+    return unwrapData(res) as DeptOvertimeConfig;
   },
 };

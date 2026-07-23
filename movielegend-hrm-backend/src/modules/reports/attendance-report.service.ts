@@ -10,12 +10,19 @@ export class AttendanceReportService {
     const start = moment(query.startDate).startOf('day').toDate();
     const end = moment(query.endDate).endOf('day').toDate();
 
+    const parseArray = (val: any) => typeof val === 'string' ? val.split(',').filter(Boolean) : undefined;
+    const deptIds = parseArray(query.departmentId);
+    const uIds = parseArray(query.userId);
+
+    const deptFilter = deptIds && deptIds.length > 0 ? { in: deptIds } : undefined;
+    const userFilter = uIds && uIds.length > 0 ? { in: uIds } : undefined;
+
     // 1. Fetch data
     const records = await this.prisma.attendanceRecord.findMany({
       where: {
         workDate: { gte: start, lte: end },
-        ...(query.departmentId && { departmentId: query.departmentId }),
-        ...(query.userId && { userId: query.userId }),
+        ...(deptFilter && { departmentId: deptFilter }),
+        ...(userFilter && { userId: userFilter }),
       },
       include: {
         user: { include: { profile: true } },
