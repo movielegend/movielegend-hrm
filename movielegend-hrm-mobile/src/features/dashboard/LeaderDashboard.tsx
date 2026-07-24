@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
 import Toast from 'react-native-toast-message';
+
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
@@ -100,13 +101,7 @@ export function LeaderDashboard() {
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
@@ -729,5 +724,5 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: 12,
     color: '#6B7280',
-  }
+  },
 });
