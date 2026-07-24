@@ -461,7 +461,9 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
             if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback
             if (textValue) {
-              page.drawText(String(textValue), { x: field.x, y: field.y, size: 12 });
+              const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
+              const safeText = removeAccents(String(textValue));
+              page.drawText(safeText, { x: field.x, y: field.y, size: 12 });
             }
           } else if (field.type === 'checkbox') {
             const isChecked = filledFields[field.id] === true || filledFields[field.id] === 'true';

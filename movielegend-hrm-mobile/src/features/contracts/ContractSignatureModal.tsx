@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Modal, StyleSheet, View, Text, TextInput, Pressable } from 'react-native';
+import { Modal, StyleSheet, View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import SignatureScreen from '../../components/SignaturePad/SignaturePad';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -41,65 +41,68 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
       <View style={styles.container}>
         <PageHeader title="Ký hợp đồng" subtitle="Vui lòng ký tên vào khung bên dưới" />
         
-        {pdfUrl ? (
-          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-            <SecondaryButton
-              onPress={() => {
-                const url = resolveFileUrl(pdfUrl);
-                if (url) {
-                  setPdfViewerVisible(true);
-                  setPdfViewerUrl(url);
-                } else {
-                  Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
-                }
-              }}
-            >
-              📄 Xem file hợp đồng trước khi ký (PDF)
-            </SecondaryButton>
-            <PdfViewerModal
-              visible={pdfViewerVisible}
-              url={pdfViewerUrl}
-              onClose={() => {
-                setPdfViewerVisible(false);
-                setPdfViewerUrl(null);
-              }}
-              title="Xem hợp đồng"
-            />
-          </View>
-        ) : null}
-        
-        {fieldsToFill.length > 0 && (
-          <View style={styles.formContainer}>
-            <Text style={{fontWeight: 'bold', marginBottom: 8}}>Vui lòng điền các thông tin sau:</Text>
-            {fieldsToFill.map(field => {
-              if (field.type === 'text') {
-                return (
-                  <View key={field.id} style={{marginBottom: 12}}>
-                    <Text style={{marginBottom: 4}}>{field.label || field.id}</Text>
-                    <TextInput 
-                      style={{borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8}}
-                      value={filledValues[field.id] || ''}
-                      onChangeText={(val) => setFilledValues(prev => ({...prev, [field.id]: val}))}
-                    />
-                  </View>
-                );
-              }
-              if (field.type === 'checkbox') {
-                return (
-                  <Pressable key={field.id} style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}} onPress={() => setFilledValues(prev => ({...prev, [field.id]: !prev[field.id]}))}>
-                    <View style={{width: 24, height: 24, borderWidth: 1, borderColor: colors.border, borderRadius: 4, marginRight: 8, alignItems: 'center', justifyContent: 'center'}}>
-                      {filledValues[field.id] && <Text>✓</Text>}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 8 }}>
+          {pdfUrl ? (
+            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+              <SecondaryButton
+                onPress={() => {
+                  const url = resolveFileUrl(pdfUrl);
+                  if (url) {
+                    setPdfViewerVisible(true);
+                    setPdfViewerUrl(url);
+                  } else {
+                    Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
+                  }
+                }}
+              >
+                📄 Xem file hợp đồng trước khi ký (PDF)
+              </SecondaryButton>
+              <PdfViewerModal
+                visible={pdfViewerVisible}
+                url={pdfViewerUrl}
+                onClose={() => {
+                  setPdfViewerVisible(false);
+                  setPdfViewerUrl(null);
+                }}
+                title="Xem hợp đồng"
+              />
+            </View>
+          ) : null}
+          
+          {fieldsToFill.length > 0 && (
+            <View style={styles.formContainer}>
+              <Text style={{fontWeight: 'bold', marginBottom: 8}}>Vui lòng điền các thông tin sau:</Text>
+              {fieldsToFill.map(field => {
+                if (field.type === 'text') {
+                  return (
+                    <View key={field.id} style={{marginBottom: 12}}>
+                      <Text style={{marginBottom: 4}}>{field.label || field.id}</Text>
+                      <TextInput 
+                        style={{borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8}}
+                        value={filledValues[field.id] || ''}
+                        onChangeText={(val) => setFilledValues(prev => ({...prev, [field.id]: val}))}
+                      />
                     </View>
-                    <Text>{field.label || field.id}</Text>
-                  </Pressable>
-                );
-              }
-              return null;
-            })}
-          </View>
-        )}
+                  );
+                }
+                if (field.type === 'checkbox') {
+                  return (
+                    <Pressable key={field.id} style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}} onPress={() => setFilledValues(prev => ({...prev, [field.id]: !prev[field.id]}))}>
+                      <View style={{width: 24, height: 24, borderWidth: 1, borderColor: colors.border, borderRadius: 4, marginRight: 8, alignItems: 'center', justifyContent: 'center'}}>
+                        {filledValues[field.id] && <Text>✓</Text>}
+                      </View>
+                      <Text>{field.label || field.id}</Text>
+                    </Pressable>
+                  );
+                }
+                return null;
+              })}
+            </View>
+          )}
+        </ScrollView>
 
         <View style={styles.signatureContainer}>
+          <Text style={{fontWeight: 'bold', marginBottom: 8, color: colors.text}}>Ký tên xác nhận:</Text>
           <SignatureScreen
             ref={ref}
             onOK={handleSignature}
@@ -130,8 +133,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   signatureContainer: {
-    flex: 1,
+    height: 250,
     padding: 16,
+    paddingTop: 0,
   },
   footer: {
     flexDirection: 'row',
