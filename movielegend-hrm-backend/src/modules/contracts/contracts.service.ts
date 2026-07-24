@@ -444,9 +444,9 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
               const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
 
               if (isMatch(['hoten', 'hovaten', 'fullname', 'nguoilaodong', 'ten'])) textValue = profile.fullName;
-              else if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) textValue = profile.identityNumber;
-              else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) textValue = profile.phoneNumber;
-              else if (isMatch(['address', 'diachi', 'thuongtru', 'noio', 'tamtru'])) textValue = profile.address;
+              else if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) textValue = profile.idCardNumber;
+              else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) textValue = contract.user?.phone;
+              else if (isMatch(['address', 'diachi', 'thuongtru', 'noio', 'tamtru'])) textValue = profile.permanentAddress || profile.temporaryAddress || '';
               else if (isMatch(['dob', 'sinh', 'ngaysinh'])) textValue = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
               else if (isMatch(['email', 'thu', 'mail'])) textValue = contract.user?.email;
               else if (isMatch(['chucvu', 'vitri', 'position'])) {
