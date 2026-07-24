@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -10,6 +10,12 @@ import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { mapLoginError } from '../../utils/api-error';
 import { getHomeRouteForUser } from '../../utils/role-routing';
+import {
+  getRememberedAccounts,
+  rememberAccount,
+  removeRememberedAccount,
+  RememberedAccount,
+} from '../../storage/remembered-accounts.storage';
 
 const loginSchema = z.object({
   phone: z.string().min(8, 'Vui lòng nhập số điện thoại hoặc email'),
@@ -23,19 +29,59 @@ export function LoginScreen() {
   const { login } = useAuth();
   const [secureText, setSecureText] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberedAccounts, setRememberedAccounts] = useState<RememberedAccount[]>([]);
+  const [showAccountSuggestions, setShowAccountSuggestions] = useState(false);
+
   const {
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { phone: '', password: '' },
   });
 
+  const phoneValue = watch('phone');
+
+  useEffect(() => {
+    async function loadAccounts() {
+      const accounts = await getRememberedAccounts();
+      setRememberedAccounts(accounts);
+    }
+    void loadAccounts();
+  }, []);
+
+  const filteredAccounts = useMemo(() => {
+    const keyword = (phoneValue || '').trim();
+    if (!keyword) return rememberedAccounts;
+    return rememberedAccounts.filter((account) => account.phone.startsWith(keyword));
+  }, [phoneValue, rememberedAccounts]);
+
+  const handleSelectAccount = (account: RememberedAccount) => {
+    setValue('phone', account.phone, { shouldValidate: true });
+    setValue('password', account.password, { shouldValidate: true });
+    setRememberMe(true);
+    setShowAccountSuggestions(false);
+  };
+
+  const handleRemoveAccount = async (phoneToRemove: string) => {
+    await removeRememberedAccount(phoneToRemove);
+    setRememberedAccounts((prev) => prev.filter((a) => a.phone !== phoneToRemove));
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
       const user = await login(values);
+      if (rememberMe) {
+        await rememberAccount(values.phone, values.password);
+      } else {
+        await removeRememberedAccount(values.phone);
+      }
       router.replace(getHomeRouteForUser(user));
     } catch (error) {
       setFormError(mapLoginError(error));
@@ -45,8 +91,8 @@ export function LoginScreen() {
   return (
     <Screen>
       <View style={styles.container}>
-        <KeyboardAwareScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.scrollContent}
           enableOnAndroid={true}
           extraScrollHeight={20}
           keyboardShouldPersistTaps="handled"
@@ -55,10 +101,10 @@ export function LoginScreen() {
 
             {/* Header Branding */}
             <View style={styles.header}>
-              <Image 
-                source={require('../../../assets/logo-watermark.png')} 
-                style={styles.logoImage} 
-                resizeMode="contain" 
+              <Image
+                source={require('../../../assets/logo-watermark.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
               />
               <Text style={styles.subtitleText}>Sign in to continue to Movielegend</Text>
             </View>
@@ -66,7 +112,7 @@ export function LoginScreen() {
             {/* Login Form */}
             <View style={styles.formContainer}>
               {/* Phone/Email Field */}
-              <View style={[styles.inputWrapper, errors.phone && styles.inputError]}>
+              <View style={[styles.inputWrapper, errors.phone && styles.inputError, { zIndex: 10 }]}>
                 <Text style={styles.inputLabel}>Số điện thoại</Text>
                 <Controller
                   control={control}
@@ -74,8 +120,15 @@ export function LoginScreen() {
                   render={({ field: { onBlur, onChange, value } }) => (
                     <TextInput
                       autoCapitalize="none"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
+                      onBlur={() => {
+                        onBlur();
+                        setTimeout(() => setShowAccountSuggestions(false), 200);
+                      }}
+                      onFocus={() => setShowAccountSuggestions(true)}
+                      onChangeText={(val) => {
+                        onChange(val);
+                        setShowAccountSuggestions(true);
+                      }}
                       placeholder="0987654321"
                       placeholderTextColor="#9CA3AF"
                       keyboardType="phone-pad"
@@ -84,6 +137,27 @@ export function LoginScreen() {
                     />
                   )}
                 />
+
+                {showAccountSuggestions && filteredAccounts.length > 0 && (
+                  <View style={styles.suggestionsDropdown}>
+                    {filteredAccounts.map((account) => (
+                      <View key={account.phone} style={styles.suggestionItem}>
+                        <Pressable
+                          style={styles.suggestionPhoneBtn}
+                          onPress={() => handleSelectAccount(account)}
+                        >
+                          <Text style={styles.suggestionPhoneText}>{account.phone}</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.suggestionRemoveBtn}
+                          onPress={() => handleRemoveAccount(account.phone)}
+                        >
+                          <Ionicons name="close" size={18} color="#9CA3AF" />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
               {errors.phone ? <Text style={styles.errorText}>{errors.phone.message}</Text> : null}
 
@@ -117,6 +191,13 @@ export function LoginScreen() {
               <Pressable style={styles.forgotPassword}>
                 <Text style={styles.forgotPasswordText}>Forgot password?</Text>
               </Pressable>
+
+              <View style={styles.rememberMeRow}>
+                <Pressable onPress={() => setRememberMe(!rememberMe)} style={styles.checkboxPressable}>
+                  <Ionicons name={rememberMe ? 'checkbox' : 'square-outline'} size={20} color={rememberMe ? '#111827' : '#9CA3AF'} />
+                  <Text style={styles.rememberMeText}>Ghi nhớ tài khoản và mật khẩu</Text>
+                </Pressable>
+              </View>
 
               {formError ? (
                 <View style={styles.formErrorBox}>
@@ -328,5 +409,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
+  },
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: 64,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#ECEEF3',
+    borderRadius: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 20,
+  },
+  suggestionsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    marginBottom: 4,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  suggestionPhoneBtn: {
+    flex: 1,
+  },
+  suggestionPhoneText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  suggestionRemoveBtn: {
+    padding: 4,
+  },
+  rememberMeRow: {
+    marginBottom: 24,
+  },
+  checkboxPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  rememberMeText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4B5563',
   },
 });
