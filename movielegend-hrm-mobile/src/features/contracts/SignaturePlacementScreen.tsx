@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, Tex
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import { PrimaryButton, OutlineButton } from '../../components/Buttons';
+import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { useUpdateTemplateMapping } from '../../hooks/useContracts';
 import { router, useLocalSearchParams } from 'expo-router';
 import { resolveFileUrl } from '../../utils/url';
@@ -24,6 +24,9 @@ export function SignaturePlacementScreen() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [fields, setFields] = useState<any[]>([]);
+  const fieldsRef = useRef<any[]>([]);
+  useEffect(() => { fieldsRef.current = fields; }, [fields]);
+
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   
   const [showFieldModal, setShowFieldModal] = useState(false);
@@ -50,7 +53,7 @@ export function SignaturePlacementScreen() {
         const fileUri = FileSystem.cacheDirectory + 'temp_signature_pdf.pdf';
         await FileSystem.downloadAsync(finalUrl, fileUri, { headers: { 'ngrok-skip-browser-warning': '69420' } });
         const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
-        webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64, fields }));
+        webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64, fields: fieldsRef.current }));
       } catch (e: any) {
         Alert.alert('Lỗi', 'Không thể tải file PDF');
         setIsLoading(false);
@@ -109,10 +112,11 @@ export function SignaturePlacementScreen() {
         let ctx = canvas.getContext('2d');
         let container = document.getElementById('pdf-container');
         
-        const getBoxSize = (type) => {
-            if (type === 'signature') return { w: 150, h: 75 };
-            if (type === 'checkbox') return { w: 30, h: 30 };
-            return { w: 150, h: 30 }; // text
+        const getBoxSize = (field) => {
+            let defW = 150, defH = 30;
+            if (field.type === 'signature') { defW = 150; defH = 75; }
+            if (field.type === 'checkbox') { defW = 30; defH = 30; }
+            return { w: field.width || defW, h: field.height || defH };
         };
 
         function renderPage(num) {
@@ -138,29 +142,40 @@ export function SignaturePlacementScreen() {
         }
 
         function drawFields() {
-            // Remove old boxes
-            document.querySelectorAll('.field-box').forEach(e => e.remove());
-            
+            let existingIds = [];
             currentFields.forEach(field => {
                 if (field.page !== pageNum) return;
-                let el = document.createElement('div');
-                el.className = 'field-box' + (field.selected ? ' selected' : '');
-                el.id = 'box-' + field.id;
+                let boxId = 'box-' + field.id;
+                existingIds.push(boxId);
+                let el = document.getElementById(boxId);
+                let size = getBoxSize(field);
                 
-                let size = getBoxSize(field.type);
-                el.style.width = (size.w * currentScale) + 'px';
-                el.style.height = (size.h * currentScale) + 'px';
-                
-                // Convert PDF coords to screen coords
                 let screenX = field.x * currentScale;
                 let screenY = (pdfActualHeight - field.y - size.h) * currentScale;
-                el.style.left = screenX + 'px';
-                el.style.top = screenY + 'px';
-                
+
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = boxId;
+                    setupDragging(el, field.id, size);
+                    container.appendChild(el);
+                }
+
+                // If currently dragging this box, skip updating its position from state 
+                // so we don't interrupt the user's drag
+                if (activeBox !== el) {
+                    el.style.left = screenX + 'px';
+                    el.style.top = screenY + 'px';
+                }
+
+                el.className = 'field-box' + (field.selected ? ' selected' : '');
+                el.style.width = (size.w * currentScale) + 'px';
+                el.style.height = (size.h * currentScale) + 'px';
                 el.innerText = field.label || field.id;
-                
-                setupDragging(el, field.id, size);
-                container.appendChild(el);
+            });
+
+            // Remove old boxes
+            document.querySelectorAll('.field-box').forEach(e => {
+                if (!existingIds.includes(e.id)) e.remove();
             });
         }
 
@@ -199,7 +214,7 @@ export function SignaturePlacementScreen() {
             if (activeBox) {
                 let id = activeBox.id.replace('box-', '');
                 let field = currentFields.find(f => f.id === id);
-                let size = getBoxSize(field.type);
+                let size = getBoxSize(field);
                 
                 let left = parseFloat(activeBox.style.left) || 0;
                 let top = parseFloat(activeBox.style.top) || 0;
@@ -248,13 +263,29 @@ export function SignaturePlacementScreen() {
         setIsLoading(false);
       } else if (data.type === 'select_field') {
         setSelectedFieldId(data.id);
-        const updated = fields.map(f => ({ ...f, selected: f.id === data.id }));
-        setFields(updated);
+        setFields(prev => prev.map(f => ({ ...f, selected: f.id === data.id })));
       } else if (data.type === 'update_pos') {
-        const updated = fields.map(f => f.id === data.id ? { ...f, x: data.x, y: data.y } : f);
-        setFields(updated);
+        setFields(prev => prev.map(f => f.id === data.id ? { ...f, x: data.x, y: data.y } : f));
       }
     } catch (e) {}
+  };
+
+  const resizeSelectedField = (dw: number, dh: number) => {
+    if (!selectedFieldId) return;
+    setFields(prev => prev.map(f => {
+      if (f.id === selectedFieldId) {
+        const curW = f.width || getBoxSizeDefault(f.type).w;
+        const curH = f.height || getBoxSizeDefault(f.type).h;
+        return { ...f, width: Math.max(20, curW + dw), height: Math.max(20, curH + dh) };
+      }
+      return f;
+    }));
+  };
+
+  const getBoxSizeDefault = (type: string) => {
+    if (type === 'signature') return { w: 150, h: 75 };
+    if (type === 'checkbox') return { w: 30, h: 30 };
+    return { w: 150, h: 30 };
   };
 
   const handleAddField = () => {
@@ -271,18 +302,19 @@ export function SignaturePlacementScreen() {
   };
 
   const handleSaveField = () => {
-    const exists = fields.find(f => f.id === editingField.id);
-    if (exists) {
-      setFields(fields.map(f => f.id === editingField.id ? editingField : f));
-    } else {
-      setFields([...fields, editingField]);
-    }
+    setFields(prev => {
+      const exists = prev.find(f => f.id === editingField.id);
+      if (exists) {
+        return prev.map(f => f.id === editingField.id ? { ...editingField, selected: true } : { ...f, selected: false });
+      }
+      return [...prev.map(f => ({ ...f, selected: false })), { ...editingField, selected: true }];
+    });
     setShowFieldModal(false);
     setSelectedFieldId(editingField.id);
   };
 
   const handleDeleteField = () => {
-    setFields(fields.filter(f => f.id !== editingField.id));
+    setFields(prev => prev.filter(f => f.id !== editingField.id));
     setShowFieldModal(false);
   };
 
@@ -337,11 +369,25 @@ export function SignaturePlacementScreen() {
 
       {selectedFieldId && (
         <View style={styles.quickEdit}>
-          <Text style={{flex: 1}} numberOfLines={1}>Đang chọn: {fields.find(f => f.id === selectedFieldId)?.label}</Text>
-          <OutlineButton onPress={() => {
+          <Text style={{flex: 1, fontSize: 13, color: colors.text}} numberOfLines={2}>Đang chọn: {fields.find(f => f.id === selectedFieldId)?.label}</Text>
+          
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 8}}>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <Pressable onPress={() => resizeSelectedField(-10, 0)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={18} color={colors.text}/></Pressable>
+              <Text style={{fontSize: 11, fontWeight: '600', marginHorizontal: 2, minWidth: 32, textAlign: 'center'}}>Rộng</Text>
+              <Pressable onPress={() => resizeSelectedField(10, 0)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={18} color={colors.text}/></Pressable>
+            </View>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <Pressable onPress={() => resizeSelectedField(0, -10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={18} color={colors.text}/></Pressable>
+              <Text style={{fontSize: 11, fontWeight: '600', marginHorizontal: 2, minWidth: 26, textAlign: 'center'}}>Cao</Text>
+              <Pressable onPress={() => resizeSelectedField(0, 10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={18} color={colors.text}/></Pressable>
+            </View>
+          </View>
+
+          <SecondaryButton onPress={() => {
             setEditingField(fields.find(f => f.id === selectedFieldId));
             setShowFieldModal(true);
-          }}>Sửa</OutlineButton>
+          }} style={{minHeight: 40, paddingHorizontal: 12}}>Sửa</SecondaryButton>
         </View>
       )}
 
@@ -355,7 +401,7 @@ export function SignaturePlacementScreen() {
             <Text style={styles.modalTitle}>Thuộc tính Trường</Text>
             
             <Text style={styles.label}>Tên hiển thị (VD: Họ Tên)</Text>
-            <TextInput style={styles.input} value={editingField?.label} onChangeText={(text) => setEditingField({...editingField, label: text, id: editingField?.id?.startsWith('field_') ? text.replace(/\s+/g, '') : editingField?.id})} />
+            <TextInput style={styles.input} value={editingField?.label} onChangeText={(text) => setEditingField({...editingField, label: text})} />
 
             <Text style={styles.label}>Loại trường</Text>
             <View style={styles.pickerContainer}>
@@ -374,10 +420,29 @@ export function SignaturePlacementScreen() {
               </Picker>
             </View>
 
+            <View style={{flexDirection: 'row', gap: 16, marginTop: 12}}>
+              <View style={{flex: 1}}>
+                <Text style={styles.label}>Chiều rộng</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
+                  <Pressable onPress={() => setEditingField({...editingField, width: Math.max(20, (editingField?.width || getBoxSizeDefault(editingField?.type).w) - 10)})} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
+                  <Text style={{fontWeight: '600'}}>{editingField?.width || getBoxSizeDefault(editingField?.type || 'text').w}</Text>
+                  <Pressable onPress={() => setEditingField({...editingField, width: (editingField?.width || getBoxSizeDefault(editingField?.type).w) + 10})} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
+                </View>
+              </View>
+              <View style={{flex: 1}}>
+                <Text style={styles.label}>Chiều cao</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
+                  <Pressable onPress={() => setEditingField({...editingField, height: Math.max(20, (editingField?.height || getBoxSizeDefault(editingField?.type).h) - 10)})} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
+                  <Text style={{fontWeight: '600'}}>{editingField?.height || getBoxSizeDefault(editingField?.type || 'text').h}</Text>
+                  <Pressable onPress={() => setEditingField({...editingField, height: (editingField?.height || getBoxSizeDefault(editingField?.type).h) + 10})} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
+                </View>
+              </View>
+            </View>
+
             <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 24}}>
-              <OutlineButton onPress={handleDeleteField} style={{borderColor: colors.error}}>Xoá</OutlineButton>
+              <SecondaryButton onPress={handleDeleteField} style={{borderColor: colors.error}}>Xoá</SecondaryButton>
               <View style={{flexDirection: 'row', gap: 12}}>
-                <OutlineButton onPress={() => setShowFieldModal(false)}>Hủy</OutlineButton>
+                <SecondaryButton onPress={() => setShowFieldModal(false)}>Hủy</SecondaryButton>
                 <PrimaryButton onPress={handleSaveField}>Lưu</PrimaryButton>
               </View>
             </View>
@@ -401,6 +466,7 @@ const styles = StyleSheet.create({
   webview: { flex: 1, backgroundColor: 'transparent' },
   loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10 },
   quickEdit: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: colors.border },
+  nudgeBtn: { backgroundColor: '#f3f4f6', padding: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.border },
   footer: { padding: 16, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border },
   saveBtn: { width: '100%' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },

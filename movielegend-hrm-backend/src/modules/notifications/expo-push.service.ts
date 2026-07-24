@@ -44,8 +44,19 @@ export class ExpoPushService {
       try {
         const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
         this.logger.log(`Sent push notification chunk: ${JSON.stringify(ticketChunk)}`);
-      } catch (error) {
-        this.logger.error('Error sending push notifications', error);
+      } catch (error: any) {
+        if (error.code === 'PUSH_TOO_MANY_EXPERIENCE_IDS') {
+           this.logger.warn('Multiple experience IDs found, falling back to individual sending');
+           for (const msg of chunk) {
+              try {
+                await this.expo.sendPushNotificationsAsync([msg]);
+              } catch (e) {
+                this.logger.error(`Error sending individual push:`, e);
+              }
+           }
+        } else {
+           this.logger.error('Error sending push notifications', error);
+        }
       }
     }
   }

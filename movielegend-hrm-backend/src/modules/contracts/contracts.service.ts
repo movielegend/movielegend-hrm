@@ -387,7 +387,10 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string) {
     const contract = await this.prisma.employeeContract.findUnique({
       where: { id: contractId },
-      include: { contractTemplateVersion: true }
+      include: { 
+        contractTemplateVersion: true, 
+        user: { include: { profile: true, departmentLinks: { include: { department: true } } } } 
+      }
     });
     
     if (!contract || !contract.contractTemplateVersion) return null;
@@ -430,6 +433,20 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           
           if (field.type === 'text') {
             let textValue = filledFields[field.id];
+            
+            const profile = contract.user?.profile;
+            if (!textValue && profile) {
+              const fId = String(field.id || '').toLowerCase();
+              const fLabel = String(field.label || '').toLowerCase();
+              
+              if (fId.includes('fullname') || fId.includes('họ tên') || fLabel.includes('họ tên') || fLabel.includes('người lao động')) textValue = profile.fullName;
+              else if (fId.includes('cccd') || fId.includes('cmnd') || fLabel.includes('cccd') || fLabel.includes('cmnd')) textValue = profile.identityNumber;
+              else if (fId.includes('phone') || fId.includes('điện thoại') || fLabel.includes('sđt') || fLabel.includes('điện thoại')) textValue = profile.phoneNumber;
+              else if (fId.includes('address') || fId.includes('địa chỉ') || fLabel.includes('địa chỉ') || fId.includes('thường trú') || fLabel.includes('thường trú')) textValue = profile.address;
+              else if (fId.includes('dob') || fId.includes('sinh') || fLabel.includes('sinh') || fLabel.includes('ngày sinh')) textValue = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
+              else if (fId.includes('email') || fLabel.includes('email')) textValue = contract.user?.email;
+            }
+
             if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback
             if (textValue) {
               page.drawText(String(textValue), { x: field.x, y: field.y, size: 12 });
