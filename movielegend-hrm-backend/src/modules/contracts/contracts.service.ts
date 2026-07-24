@@ -260,7 +260,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     
     let finalSignedFileUrl = dto.signedFileUrl;
     if (dto.signatureImageUrl) {
-      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Employee');
+      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Employee', dto.filledFields || {});
       if (generatedUrl) finalSignedFileUrl = generatedUrl;
     }
 
@@ -384,7 +384,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     return payload.contract;
   }
 
-  async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string) {
+  async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string, dtoFilledFields: Record<string, any> = {}) {
     const contract = await this.prisma.employeeContract.findUnique({
       where: { id: contractId },
       include: { 
@@ -424,7 +424,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
       const mappingConfig = (contract.contractTemplateVersion as any).mappingConfig as any;
-      const filledFields = (contract.filledFields as any) || {};
+      const filledFields = { ...(contract.filledFields as any || {}), ...dtoFilledFields };
 
       if (Array.isArray(mappingConfig)) {
         for (const field of mappingConfig) {
@@ -443,20 +443,10 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
               const normLabel = fLabel.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
               const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
 
-              if (isMatch(['hoten', 'hovaten', 'fullname', 'nguoilaodong', 'ten'])) textValue = profile.fullName;
-              else if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) textValue = profile.idCardNumber;
+              if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) textValue = profile.idCardNumber;
               else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) textValue = contract.user?.phone;
-              else if (isMatch(['address', 'diachi', 'thuongtru', 'noio', 'tamtru'])) textValue = profile.permanentAddress || profile.temporaryAddress || '';
               else if (isMatch(['dob', 'sinh', 'ngaysinh'])) textValue = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
-              else if (isMatch(['email', 'thu', 'mail'])) textValue = contract.user?.email;
-              else if (isMatch(['chucvu', 'vitri', 'position'])) {
-                 const pos = contract.positionSnapshot as any;
-                 if (pos && pos.name) textValue = pos.name;
-              }
-              else if (isMatch(['phongban', 'department', 'bophan'])) {
-                 const depts = contract.departmentSnapshot as any[];
-                 if (depts && depts.length > 0) textValue = depts[0].name;
-              }
+              else if (isMatch(['date', 'ngay', 'homnay', 'today'])) textValue = new Date().toLocaleDateString('vi-VN');
             }
 
             if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback
@@ -471,7 +461,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
               // Draw a checkmark using text 'V' or similar, or draw lines. We'll use 'V' for simplicity.
               page.drawText('V', { x: field.x, y: field.y, size: 14 });
             }
-          } else if (field.type === 'signature' && field.id === 'signature') {
+          } else if (field.type === 'signature' && (!field.role || field.role === 'EMPLOYEE')) {
             // Check if this signature field belongs to the current signer...
             // Currently, we just stamp the provided base64Signature at the first 'signature' field.
             try {

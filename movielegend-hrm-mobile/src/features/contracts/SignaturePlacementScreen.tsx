@@ -400,8 +400,11 @@ export function SignaturePlacementScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Thuộc tính Trường</Text>
             
-            <Text style={styles.label}>Tên hiển thị (VD: Họ Tên)</Text>
+            <Text style={styles.label}>Tên ngắn gọn (hiển thị trên hộp)</Text>
             <TextInput style={styles.input} value={editingField?.label} onChangeText={(text) => setEditingField({...editingField, label: text})} />
+
+            <Text style={styles.label}>Mô tả chi tiết (hiển thị cho NV khi điền/tích)</Text>
+            <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} multiline numberOfLines={2} value={editingField?.description} onChangeText={(text) => setEditingField({...editingField, description: text})} placeholder="VD: Tích vào đây nếu bạn đồng ý trích nộp quỹ công đoàn..." />
 
             <Text style={styles.label}>Loại trường</Text>
             <View style={styles.pickerContainer}>

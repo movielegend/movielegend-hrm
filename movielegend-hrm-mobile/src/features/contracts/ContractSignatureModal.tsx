@@ -76,23 +76,27 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
                 if (field.type === 'text') {
                   return (
                     <View key={field.id} style={{marginBottom: 12}}>
-                      <Text style={{marginBottom: 4}}>{field.label || field.id}</Text>
-                      <TextInput 
-                        style={{borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8}}
-                        value={filledValues[field.id] || ''}
-                        onChangeText={(val) => setFilledValues(prev => ({...prev, [field.id]: val}))}
-                      />
-                    </View>
+                    <Text style={{marginBottom: 4, fontWeight: '500'}}>{field.label || field.id}</Text>
+                    {field.description ? <Text style={{fontSize: 12, color: colors.muted, marginBottom: 8}}>{field.description}</Text> : null}
+                    <TextInput 
+                      style={{borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8}}
+                      value={filledValues[field.id] || ''}
+                      onChangeText={(val) => setFilledValues(prev => ({...prev, [field.id]: val}))}
+                    />
+                  </View>
                   );
                 }
                 if (field.type === 'checkbox') {
                   return (
-                    <Pressable key={field.id} style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}} onPress={() => setFilledValues(prev => ({...prev, [field.id]: !prev[field.id]}))}>
+                    <View key={field.id} style={{marginBottom: 12}}>
+                    <Pressable style={{flexDirection: 'row', alignItems: 'center'}} onPress={() => setFilledValues(prev => ({...prev, [field.id]: !prev[field.id]}))}>
                       <View style={{width: 24, height: 24, borderWidth: 1, borderColor: colors.border, borderRadius: 4, marginRight: 8, alignItems: 'center', justifyContent: 'center'}}>
                         {filledValues[field.id] && <Text>✓</Text>}
                       </View>
-                      <Text>{field.label || field.id}</Text>
+                      <Text style={{fontWeight: '500'}}>{field.label || field.id}</Text>
                     </Pressable>
+                    {field.description ? <Text style={{fontSize: 12, color: colors.muted, marginTop: 4, marginLeft: 32}}>{field.description}</Text> : null}
+                  </View>
                   );
                 }
                 return null;
