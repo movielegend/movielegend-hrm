@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtSignOptions } from '@nestjs/jwt';
@@ -20,6 +20,9 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { LogoutDto, RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RequestOtpDto, VerifyOtpDto, ResetPasswordDto } from './dto/forgot-password.dto';
+import { HttpSmsService } from '../notifications/httpsms.service';
+import { randomUUID, randomInt, createHash } from 'crypto';
 
 interface RequestMeta {
   ipAddress?: string;
@@ -30,12 +33,15 @@ interface TokenPayload extends AuthenticatedUser {}
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly uploads: UploadsService,
     private readonly notifications: NotificationsService,
+    private readonly httpSms: HttpSmsService,
   ) {}
 
   async register(dto: RegisterDto, meta: RequestMeta) {
@@ -425,5 +431,153 @@ export class AuthService {
       approvalStatus: user.approvalStatus,
       isActive: user.isActive,
     };
+  }
+
+  async requestOtp(dto: RequestOtpDto, meta: RequestMeta) {
+    const user = await this.prisma.user.findUnique({
+      where: { phone: dto.phone },
+    });
+    // Check rate limits: 3 reqs / 15 mins, 5 reqs / 1 hr for this phone.
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const oneMinAgo = new Date(Date.now() - 60 * 1000);
+
+    const recentRequests = await this.prisma.otpToken.findMany({
+      where: { phone: dto.phone, createdAt: { gte: oneHourAgo } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (recentRequests.length >= 5) {
+      throw badRequest('RATE_LIMIT_EXCEEDED', 'Bạn đã yêu cầu quá số lần cho phép trong 1 giờ. Vui lòng thử lại sau.');
+    }
+    const recent15Mins = recentRequests.filter((r) => r.createdAt >= fifteenMinsAgo);
+    if (recent15Mins.length >= 3) {
+      throw badRequest('RATE_LIMIT_EXCEEDED', 'Bạn đã yêu cầu quá số lần cho phép trong 15 phút. Vui lòng thử lại sau.');
+    }
+    if (recentRequests.length > 0 && recentRequests[0].createdAt >= oneMinAgo) {
+      throw badRequest('RATE_LIMIT_EXCEEDED', 'Vui lòng đợi 60 giây trước khi yêu cầu lại.');
+    }
+
+    if (!user) {
+      // Simulate bcrypt delay and network delay to prevent timing attacks
+      await bcrypt.hash('dummy_otp', 12);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return { message: 'Nếu số điện thoại này được đăng ký trong hệ thống, mã OTP sẽ được gửi tới số điện thoại đó.' };
+    }
+
+    // Invalidate old OTPs and reset tokens for this phone
+    await this.prisma.otpToken.updateMany({
+      where: { 
+        phone: dto.phone, 
+        OR: [
+          { isUsed: false, expiresAt: { gt: new Date() } },
+          { resetExpireAt: { gt: new Date() } }
+        ]
+      },
+      data: { isUsed: true, resetToken: null, resetExpireAt: null },
+    });
+
+    const otpCode = randomInt(100000, 999999).toString();
+    const otpHash = await bcrypt.hash(otpCode, 12);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    await this.prisma.otpToken.create({
+      data: {
+        userId: user.id,
+        phone: dto.phone,
+        otpHash,
+        expiresAt,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      },
+    });
+
+    // Send SMS via HttpSmsService
+    const smsContent = `[MovieLegend HRM] Ma xac thuc cua ban la: ${otpCode}. Ma co hieu luc trong 5 phut. Khong chia se ma nay cho bat ky ai.`;
+    const smsSuccess = await this.httpSms.sendSms(dto.phone, smsContent);
+    
+    if (!smsSuccess) {
+      // Do not throw error to client to prevent account enumeration. Log internally instead.
+      this.logger.error(`Failed to send SMS to ${dto.phone} but returning generic success response.`);
+    }
+
+    return { message: 'Nếu số điện thoại này được đăng ký trong hệ thống, mã OTP sẽ được gửi tới số điện thoại đó.' };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto, meta: RequestMeta) {
+    const otpToken = await this.prisma.otpToken.findFirst({
+      where: { phone: dto.phone, isUsed: false, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otpToken) {
+      throw badRequest('INVALID_OTP', 'Mã xác thực không hợp lệ hoặc đã hết hạn.');
+    }
+    if (otpToken.attempts >= 5) {
+      await this.prisma.otpToken.update({ where: { id: otpToken.id }, data: { isUsed: true } });
+      throw badRequest('INVALID_OTP', 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.');
+    }
+
+    const isValid = await bcrypt.compare(dto.otp, otpToken.otpHash);
+    if (!isValid) {
+      await this.prisma.otpToken.update({
+        where: { id: otpToken.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw badRequest('INVALID_OTP', 'Mã xác thực không hợp lệ.');
+    }
+
+    // OTP is valid. Issue reset token.
+    const resetToken = randomUUID();
+    const resetTokenHash = createHash('sha256').update(resetToken).digest('hex');
+    const resetExpireAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    await this.prisma.otpToken.update({
+      where: { id: otpToken.id },
+      data: { isUsed: true, resetToken: resetTokenHash, resetExpireAt },
+    });
+
+    return { resetToken, message: 'Xác minh thành công. Vui lòng đặt lại mật khẩu.' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto, meta: RequestMeta) {
+    if (dto.newPassword.length < 6) {
+      throw badRequest('INVALID_PASSWORD', 'Mật khẩu phải có ít nhất 6 ký tự.');
+    }
+    const resetTokenHash = createHash('sha256').update(dto.resetToken).digest('hex');
+
+    const otpToken = await this.prisma.otpToken.findUnique({
+      where: { resetToken: resetTokenHash },
+    });
+
+    if (!otpToken || !otpToken.resetExpireAt || otpToken.resetExpireAt < new Date()) {
+      throw badRequest('INVALID_TOKEN', 'Phiên đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+
+    await this.prisma.$transaction(async (tx) => {
+      // ATOMIC CLAIM: Try to set resetToken to null ONLY IF it is still resetTokenHash
+      const updatedToken = await tx.otpToken.updateMany({
+        where: { id: otpToken.id, resetToken: resetTokenHash },
+        data: { resetToken: null, resetExpireAt: null },
+      });
+
+      if (updatedToken.count === 0) {
+        throw badRequest('INVALID_TOKEN', 'Phiên đặt lại mật khẩu không hợp lệ hoặc đã được sử dụng.');
+      }
+
+      await tx.user.update({
+        where: { id: otpToken.userId },
+        data: { passwordHash },
+      });
+      
+      // Revoke all refresh sessions
+      await tx.refreshSession.deleteMany({
+        where: { userId: otpToken.userId },
+      });
+    });
+
+    return { message: 'Đặt lại mật khẩu thành công.' };
   }
 }

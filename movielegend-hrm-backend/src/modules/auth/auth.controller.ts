@@ -8,6 +8,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { LogoutDto, RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RequestOtpDto, VerifyOtpDto, ResetPasswordDto } from './dto/forgot-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -48,5 +49,23 @@ export class AuthController {
   @Patch('change-password')
   changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthenticatedUser) {
     return this.authService.changePassword(user.userId, dto, user);
+  }
+
+  @Public()
+  @Post('forgot-password/request-otp')
+  requestOtp(@Body() dto: RequestOtpDto, @Ip() ipAddress: string, @Headers('user-agent') userAgent?: string) {
+    return this.authService.requestOtp(dto, { ipAddress, userAgent });
+  }
+
+  @Public()
+  @Post('forgot-password/verify-otp')
+  verifyOtp(@Body() dto: VerifyOtpDto, @Ip() ipAddress: string, @Headers('user-agent') userAgent?: string) {
+    return this.authService.verifyOtp(dto, { ipAddress, userAgent });
+  }
+
+  @Public()
+  @Post('forgot-password/reset')
+  resetPassword(@Body() dto: ResetPasswordDto, @Ip() ipAddress: string, @Headers('user-agent') userAgent?: string) {
+    return this.authService.resetPassword(dto, { ipAddress, userAgent });
   }
 }

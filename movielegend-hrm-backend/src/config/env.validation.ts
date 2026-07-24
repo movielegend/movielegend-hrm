@@ -1,7 +1,7 @@
 export function validateEnv(config: Record<string, unknown>) {
   const nodeEnv = String(config.NODE_ENV ?? 'development');
   const required = ['DATABASE_URL'];
-  if (nodeEnv === 'production') required.push('JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'CORS_ORIGINS');
+  if (nodeEnv === 'production') required.push('JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'CORS_ORIGINS', 'HTTPSMS_API_KEY', 'HTTPSMS_FROM_PHONE');
   for (const key of required) {
     if (!config[key]) throw new Error(`Missing required environment variable: ${key}`);
   }

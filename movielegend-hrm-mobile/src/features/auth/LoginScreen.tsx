@@ -188,7 +188,7 @@ export function LoginScreen() {
               </View>
               {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
 
-              <Pressable style={styles.forgotPassword}>
+              <Pressable style={styles.forgotPassword} onPress={() => router.push('/forgot-password')}>
                 <Text style={styles.forgotPasswordText}>Forgot password?</Text>
               </Pressable>
 
