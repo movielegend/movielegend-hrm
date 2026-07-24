@@ -60,9 +60,12 @@ export class ChatService {
         mentions: dto.mentions ?? []
       },
       include: {
-        sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+        sender: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
       }
     });
+
+    const isAdmin = message.sender?.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+    const senderName = isAdmin ? 'Admin' : (message.sender?.profile?.fullName ?? message.sender.userCode);
 
     // Phát tín hiệu qua WebSocket cho tất cả user
     if (group.departmentId) {
@@ -83,7 +86,7 @@ export class ChatService {
             members.map(m => m.userId),
             {
               type: 'CHAT_MESSAGE',
-              title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode} (Nhóm: ${group.name || 'Chung'})`,
+              title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
               body: notificationBody,
               metadata: { groupId: group.id, messageId: message.id }
             }
@@ -117,7 +120,7 @@ export class ChatService {
               otherMembers.map(m => m.userId),
               {
                 type: 'CHAT_MESSAGE',
-                title: `Tin nhắn mới từ ${message.sender?.profile?.fullName ?? message.sender.userCode} (Nhóm: ${group.name || 'Cá nhân'})`,
+                title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
                 body: notificationBody,
                 metadata: { groupId: group.id, messageId: message.id }
               }

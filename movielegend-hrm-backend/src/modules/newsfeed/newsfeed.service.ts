@@ -109,7 +109,7 @@ export class NewsfeedService {
       orderBy: { createdAt: 'desc' },
       include: {
         author: {
-          select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } }
+          select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } }
         },
         _count: { select: { comments: true, likes: true } },
         likes: {
@@ -227,16 +227,16 @@ export class NewsfeedService {
     const post = await this.prisma.newsfeedPost.findUnique({
       where: { id },
       include: {
-        author: { select: { id: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+        author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
         comments: {
           include: {
-            author: { select: { id: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+            author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
           },
           orderBy: { createdAt: 'desc' }
         },
         likes: { 
           include: { 
-            user: { select: { id: true, profile: { select: { fullName: true, avatarUrl: true } } } } 
+            user: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } } 
           } 
         },
         _count: { select: { comments: true, likes: true } }
@@ -263,15 +263,18 @@ export class NewsfeedService {
     });
     const liker = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true }
+      include: { profile: true, roles: { include: { role: true } } }
     });
     
-    if (post && post.authorId !== userId && liker?.profile) {
+    if (post && post.authorId !== userId && liker) {
+      const isAdmin = liker.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+      const likerName = isAdmin ? 'Admin' : (liker.profile?.fullName || liker.userCode || 'Người dùng');
+
       const notifPayload = await this.prisma.$transaction(async (tx) => {
         return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: NotificationType.SYSTEM,
+          type: 'SYSTEM' as any,
           title: 'Có người vừa thả tim bài viết của bạn',
-          body: `${liker?.profile?.fullName || 'Người dùng'} đã thích bài viết của bạn.`,
+          body: `${likerName} đã thích bài viết của bạn.`,
           metadata: { postId, action: 'LIKE' }
         });
       });
@@ -289,7 +292,7 @@ export class NewsfeedService {
         content: dto.content
       },
       include: {
-        author: { select: { id: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+        author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
       }
     });
 
@@ -298,12 +301,15 @@ export class NewsfeedService {
       select: { authorId: true }
     });
     
-    if (post && post.authorId !== userId && comment.author?.profile) {
+    if (post && post.authorId !== userId && comment.author) {
+      const isAdmin = comment.author.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+      const commenterName = isAdmin ? 'Admin' : (comment.author.profile?.fullName || comment.author.userCode || 'Người dùng');
+
       const notifPayload = await this.prisma.$transaction(async (tx) => {
         return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: NotificationType.SYSTEM,
+          type: 'SYSTEM' as any,
           title: 'Bình luận mới về bài viết của bạn',
-          body: `${comment.author?.profile?.fullName || 'Người dùng'} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
+          body: `${commenterName} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
           metadata: { postId, action: 'COMMENT' }
         });
       });

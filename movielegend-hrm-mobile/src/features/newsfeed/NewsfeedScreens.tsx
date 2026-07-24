@@ -58,6 +58,13 @@ function resolveImageUrl(uri?: string | null): string | null {
   return `${baseUrl}${uri.startsWith('/') ? uri : `/${uri}`}`;
 }
 
+function getUserDisplayName(user: any): string {
+  if (!user) return 'Ẩn danh';
+  const isAdmin = user.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+  if (isAdmin) return 'Admin';
+  return user.profile?.fullName || user.userCode || 'Ẩn danh';
+}
+
 function getInitials(name: string): string {
   return name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
 }
@@ -141,7 +148,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
         <View style={styles.postList}>
           {postItems.length > 0 ? (
             postItems.map((post: NewsfeedPostDto) => {
-              const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
+              const authorName = getUserDisplayName(post.author);
               const initials = getInitials(authorName);
               const likeCount = post._count?.likes ?? post.likes?.length ?? 0;
               const commentCount = post._count?.comments ?? post.comments?.length ?? 0;
@@ -301,9 +308,9 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
     );
   }
 
-  const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
+  const authorName = getUserDisplayName(post.author);
   const comments = post.comments ?? [];
-  const likedNames = post.likes?.map((l: PostLikeDto & { user?: { profile?: { fullName: string } } }) => l.user?.profile?.fullName ?? 'Ẩn danh').filter(Boolean) || [];
+  const likedNames = post.likes?.map((l: any) => getUserDisplayName(l.user)).filter(Boolean) || [];
 
   async function handleComment() {
     if (!commentText.trim()) return;
@@ -385,7 +392,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           </Text>
 
           {comments.map((c: PostCommentDto) => {
-            const cName = c.author?.profile?.fullName ?? 'Ẩn danh';
+            const cName = getUserDisplayName(c.author);
             return (
               <View key={c.id} style={styles.commentCard}>
                 <View style={styles.commentAvatar}>
@@ -583,7 +590,7 @@ export function PendingNewsfeedListScreen() {
         <View style={styles.postList}>
           {postItems.length > 0 ? (
             postItems.map((post: NewsfeedPostDto) => {
-              const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
+              const authorName = getUserDisplayName(post.author);
               const initials = getInitials(authorName);
 
               return (
@@ -695,7 +702,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
     );
   }
 
-  const authorName = post.author?.profile?.fullName ?? post.author?.userCode ?? 'Ẩn danh';
+  const authorName = getUserDisplayName(post.author);
 
   return (
     <Screen>

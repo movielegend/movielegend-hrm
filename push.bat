@@ -1,9 +1,5 @@
-cd d:\MovieLegend\movielegend-hrm-mobile
+cd d:\MovieLegend
 git add .
-git commit -m "feat: complete shift swap UI and navigation"
-git push
-
-cd d:\MovieLegend\movielegend-hrm-backend
-git add .
-git commit -m "feat: complete shift swap UI and navigation"
+git commit -m "Cập nhật logic thông báo và hiển thị tên người dùng trong Bảng tin"
+git pull --rebase
 git push
