@@ -69,6 +69,9 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type === 'SYSTEM' && (notification.title === 'Phân ca mới' || notification.title === 'Phân ca làm việc mới')) {
     return `${base}/schedule`;
   }
+  if (notification.type === 'SYSTEM' && contractId) {
+    return `${base}/contracts/${contractId}`;
+  }
   
   return null;
 }

@@ -63,6 +63,23 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('notification.created', (payload?: any) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
+        if (payload && payload.title) {
+          import('expo-notifications').then(Notifications => {
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: payload.title,
+                body: payload.body || '',
+                data: {
+                  notificationId: payload.id,
+                  type: payload.type,
+                  taskId: payload.taskId,
+                  metadata: payload.metadata,
+                },
+              },
+              trigger: null,
+            });
+          });
+        }
       });
       socket.on('chat:message', (message: any) => {
         void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
