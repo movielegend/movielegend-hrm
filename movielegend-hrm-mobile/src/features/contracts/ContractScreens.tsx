@@ -596,6 +596,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
         onClose={() => setSignatureVisible(false)}
         pdfUrl={contractFileUrl}
         fieldsToFill={contract?.data?.contractTemplateVersion?.mappingConfig?.filter((f: any) => f.role === (contract.data?.status === 'WAITING_COMPANY_SIGNATURE' ? 'COMPANY' : 'EMPLOYEE')) || []}
+        contractUser={contract?.data?.user}
         onSave={(signature, filledFields) => {
           setSignatureVisible(false);
           handleAction(() => signContract.mutateAsync({ 

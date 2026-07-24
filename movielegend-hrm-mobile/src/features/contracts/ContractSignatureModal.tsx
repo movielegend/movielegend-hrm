@@ -15,14 +15,42 @@ interface Props {
   onSave: (signatureBase64: string, filledFields: Record<string, any>) => void;
   pdfUrl?: string;
   fieldsToFill?: any[]; // Array of fields from mappingConfig
+  contractUser?: any;
 }
 
-export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, fieldsToFill = [] }: Props) {
+export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, fieldsToFill = [], contractUser }: Props) {
   const ref = useRef<any>();
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
   
   const [filledValues, setFilledValues] = useState<Record<string, any>>({});
+
+  React.useEffect(() => {
+    if (visible && fieldsToFill.length > 0) {
+      const initial: Record<string, any> = {};
+      const profile = contractUser?.profile;
+      
+      fieldsToFill.forEach(field => {
+        if (field.type === 'text') {
+          const fId = String(field.id || '').toLowerCase();
+          const fLabel = String(field.label || '').toLowerCase();
+          const normId = fId.replace(/[^a-z0-9]/g, '');
+          const normLabel = fLabel.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
+          const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
+
+          if (profile) {
+            if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) initial[field.id] = profile.idCardNumber || '';
+            else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) initial[field.id] = contractUser?.phone || '';
+            else if (isMatch(['dob', 'sinh', 'ngaysinh'])) initial[field.id] = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
+            else if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') initial[field.id] = new Date().toLocaleDateString('vi-VN');
+          } else {
+            if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') initial[field.id] = new Date().toLocaleDateString('vi-VN');
+          }
+        }
+      });
+      setFilledValues(initial);
+    }
+  }, [visible, fieldsToFill, contractUser]);
 
   const handleSignature = (signature: string) => {
     onSave(signature, filledValues);

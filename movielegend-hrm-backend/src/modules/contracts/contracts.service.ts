@@ -446,7 +446,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
               if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) textValue = profile.idCardNumber;
               else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) textValue = contract.user?.phone;
               else if (isMatch(['dob', 'sinh', 'ngaysinh'])) textValue = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
-              else if (isMatch(['date', 'ngay', 'homnay', 'today'])) textValue = new Date().toLocaleDateString('vi-VN');
+              else if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') textValue = new Date().toLocaleDateString('vi-VN');
             }
 
             if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback
