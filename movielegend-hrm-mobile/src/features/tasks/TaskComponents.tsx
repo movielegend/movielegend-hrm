@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -60,16 +61,16 @@ export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void
           <MaterialCommunityIcons name="dots-vertical" size={20} color={colors.text} />
         </View>
       </View>
-      <View style={[styles.rowWrap, { marginTop: 4, marginBottom: 8 }]}>
+      <View style={[styles.rowWrap, { marginTop: 2, marginBottom: 4 }]}>
         <StatusBadge label={translateStatus(task.status)} tone={toneForStatus(task.status)} />
         {overdue ? <StatusBadge label="Quá hạn" tone="danger" /> : null}
         {task.status === 'NEW' ? <StatusBadge label="Mới" tone="info" /> : null}
       </View>
       <DeadlineLabel dueAt={task.dueAt} />
-      <View style={{ marginVertical: 8 }}>
+      <View style={{ marginVertical: 6 }}>
         <ProgressBar value={averageProgress} />
       </View>
-      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 6 }} />
       <Text style={[styles.meta, { fontSize: 12 }]}>{targetSummary(task)} • {assignmentSummary(task)}</Text>
     </Pressable>
   );
@@ -140,8 +141,8 @@ export function CommentComposer({ onSubmit, pending }: { onSubmit: (content: str
   }
   return (
     <View style={styles.stack}>
-      <FormField label="Binh luan" value={content} onChangeText={setContent} multiline />
-      <PrimaryButton disabled={content.trim().length < 2} loading={pending} onPress={() => void submit()}>Gui binh luan</PrimaryButton>
+      <FormField label="Bình luận" value={content} onChangeText={setContent} multiline />
+      <PrimaryButton disabled={content.trim().length < 2} loading={pending} onPress={() => void submit()}>Gửi bình luận</PrimaryButton>
     </View>
   );
 }
@@ -219,12 +220,12 @@ export function AttachmentPicker({
 
   return (
     <View style={styles.stack}>
-      <SecondaryButton loading={uploading} onPress={() => void pickAndUpload()}>Chon file</SecondaryButton>
+      <SecondaryButton loading={uploading} onPress={() => void pickAndUpload()}>Chọn file</SecondaryButton>
       {staged ? (
         <View style={styles.inlinePanel}>
           <Text style={styles.titleSmall}>{staged.fileName}</Text>
-          <Text style={styles.meta}>Upload thanh cong, san sang attach. Neu attach fail, app giu lai file de retry.</Text>
-          <PrimaryButton loading={pending} onPress={() => void attach()}>Attach file</PrimaryButton>
+          <Text style={styles.meta}>Tải lên thành công, sẵn sàng đính kèm. Nếu đính kèm thất bại, ứng dụng sẽ giữ lại file để thử lại.</Text>
+          <PrimaryButton loading={pending} onPress={() => void attach()}>Đính kèm file</PrimaryButton>
         </View>
       ) : null}
     </View>
@@ -448,18 +449,72 @@ export function ExtensionRequestModal({
 }) {
   const [requestedDueAt, setRequestedDueAt] = useState(currentDueAt ?? '');
   const [reason, setReason] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  
+  const selectedDate = requestedDueAt ? new Date(requestedDueAt) : new Date();
   const invalidDate = Boolean(currentDueAt && requestedDueAt && new Date(requestedDueAt) <= new Date(currentDueAt));
+  
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (date) {
+      if (Platform.OS === 'android') {
+        const current = new Date(requestedDueAt || new Date());
+        current.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+        setRequestedDueAt(current.toISOString());
+        setShowTimePicker(true);
+      } else {
+        setRequestedDueAt(date.toISOString());
+      }
+    }
+  };
+
+  const handleTimeChange = (event: any, date?: Date) => {
+    setShowTimePicker(false);
+    if (date) {
+      const current = new Date(requestedDueAt || new Date());
+      current.setHours(date.getHours(), date.getMinutes());
+      setRequestedDueAt(current.toISOString());
+    }
+  };
+
   return (
     <View style={styles.stack}>
-      <FormField label="Requested dueAt ISO" value={requestedDueAt} onChangeText={setRequestedDueAt} autoCapitalize="none" />
-      <FormField label="Ly do" value={reason} onChangeText={setReason} multiline />
-      {invalidDate ? <Text style={styles.dangerText}>Ngay moi phai sau deadline hien tai.</Text> : null}
+      <Text style={[styles.meta, { marginBottom: -4 }]}>Hạn chót đề xuất</Text>
+      <Pressable
+        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.md, backgroundColor: colors.surface }}
+        onPress={() => setShowDatePicker(true)}
+      >
+        <Text style={{ color: requestedDueAt ? colors.text : colors.muted }}>
+          {requestedDueAt ? formatDateTime(requestedDueAt) : 'Chọn ngày & giờ'}
+        </Text>
+      </Pressable>
+      
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+        />
+      )}
+      {showTimePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="time"
+          display="default"
+          onChange={handleTimeChange}
+        />
+      )}
+
+      <FormField label="Lý do gia hạn" value={reason} onChangeText={setReason} multiline />
+      {invalidDate ? <Text style={styles.dangerText}>Ngày mới phải sau hạn chót hiện tại.</Text> : null}
       <SecondaryButton
         disabled={!requestedDueAt || reason.trim().length < 3 || invalidDate}
         loading={pending}
         onPress={() => void onSubmit(requestedDueAt, reason)}
       >
-        Gui gia han
+        Gửi gia hạn
       </SecondaryButton>
     </View>
   );
@@ -501,12 +556,25 @@ export function TargetPreview({ task }: { task: TaskDto }) {
         {targets.map((t) => {
           const type = t.targetType ?? t.type;
           let icon: keyof typeof MaterialCommunityIcons.glyphMap = 'account';
+          let label = type === 'USER' ? 'Cá nhân' : type === 'DEPARTMENT' ? 'Phòng ban' : 'Nhóm';
           if (type === 'DEPARTMENT') icon = 'domain';
           if (type === 'GROUP') icon = 'account-group';
+          
+          if (type === 'USER') {
+            const assignment = assignments.find((a: any) => (a.userId === t.targetId) || (a.user?.id === t.targetId));
+            if (assignment?.user?.profile?.fullName) {
+              label = assignment.user.profile.fullName;
+            } else if (assignment?.user?.fullName) {
+              label = assignment.user.fullName;
+            } else if (assignment?.user?.userCode) {
+              label = assignment.user.userCode;
+            }
+          }
+
           return (
             <View key={t.id} style={styles.targetChip}>
               <MaterialCommunityIcons name={icon} size={16} color={colors.primary} />
-              <Text style={styles.targetChipText}>{type}</Text>
+              <Text style={styles.targetChipText}>{label}</Text>
             </View>
           );
         })}
@@ -560,10 +628,16 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: spacing.sm,
-    padding: spacing.lg,
+    gap: 6,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   dangerText: {
     color: colors.danger,
@@ -690,3 +764,46 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+export function TaskStepper({ currentStatus }: { currentStatus: string }) {
+  const steps = [
+    { key: 'NEW', label: 'Mới giao' },
+    { key: 'ACCEPTED', label: 'Đã nhận' },
+    { key: 'IN_PROGRESS', label: 'Đang làm' },
+    { key: 'WAITING_REVIEW', label: 'Chờ duyệt' },
+    { key: 'COMPLETED', label: 'Hoàn thành' },
+  ];
+  
+  const currentIndex = steps.findIndex(s => s.key === currentStatus) || 0;
+  
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md, paddingHorizontal: spacing.sm }}>
+      {steps.map((step, index) => {
+        const isActive = index <= currentIndex;
+        const isCurrent = index === currentIndex;
+        return (
+          <View key={step.key} style={{ alignItems: 'center', flex: 1 }}>
+            <View style={{ 
+              width: 24, 
+              height: 24, 
+              borderRadius: 12, 
+              backgroundColor: isActive ? colors.primary : colors.border,
+              justifyContent: 'center', 
+              alignItems: 'center',
+              borderWidth: isCurrent ? 2 : 0,
+              borderColor: colors.primarySoft
+            }}>
+              {isActive && <MaterialCommunityIcons name="check" size={14} color="#fff" />}
+            </View>
+            <Text style={{ fontSize: 10, marginTop: 4, color: isActive ? colors.primary : colors.muted, fontWeight: isCurrent ? '700' : '400', textAlign: 'center' }}>
+              {step.label}
+            </Text>
+            {index < steps.length - 1 && (
+              <View style={{ position: 'absolute', right: '-50%', top: 11, width: '100%', height: 2, backgroundColor: isActive ? colors.primary : colors.border, zIndex: -1 }} />
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}

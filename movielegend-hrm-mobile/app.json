@@ -76,12 +76,11 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "347f4427-0ab1-4e84-94a8-6efbb1ea285c"
+        "projectId": "4a5152ea-87fd-4faf-829b-63e01ed4de9d"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
-    },
-    "owner": "binhpthe1fpt"
+    }
   }
 }

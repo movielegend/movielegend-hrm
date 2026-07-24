@@ -4,7 +4,7 @@ import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 export class CreateOrUpdateDeptOvertimeConfigDto {
   @ApiProperty()
   @IsString()
-  departmentId: string;
+  departmentId!: string;
 
   @ApiPropertyOptional()
   @IsNumber()

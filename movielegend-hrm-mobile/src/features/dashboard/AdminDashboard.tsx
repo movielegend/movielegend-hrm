@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient, unwrapData } from '../../api/client';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
@@ -31,6 +32,14 @@ export function AdminDashboard() {
   const unreadCount = unreadData?.count || 0;
 
   const { data: feedbackData, isLoading: isLoadingFeedbacks } = useFeedbacksForManagement({ limit: 5 });
+
+  const { data: dashboardData } = useQuery({
+    queryKey: ['admin-dashboard-summary'],
+    queryFn: async () => {
+      const response = await apiClient.get('/dashboard/admin');
+      return unwrapData(response) as any;
+    }
+  });
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -170,10 +179,22 @@ export function AdminDashboard() {
         {/* Tổng quan hôm nay */}
         <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan hôm nay</Text>
         <View style={styles.summaryGrid}>
-          <SummaryCard label="Chấm công" value="98%" />
-          <SummaryCard label="Công việc" value="4" />
-          <SummaryCard label="Cuộc họp" value="2" />
-          <SummaryCard label="Thông báo" value="3" />
+          <SummaryCard 
+            label="Chấm công" 
+            value={dashboardData?.attendanceToday?.scheduled ? `${Math.round((dashboardData.attendanceToday.checkedIn / dashboardData.attendanceToday.scheduled) * 100)}%` : '0%'} 
+          />
+          <SummaryCard 
+            label="Công việc" 
+            value={dashboardData?.tasks?.totalActive?.toString() || '0'} 
+          />
+          <SummaryCard 
+            label="Cuộc họp" 
+            value="0" 
+          />
+          <SummaryCard 
+            label="Thông báo" 
+            value={unreadCount.toString()} 
+          />
         </View>
 
         {/* Góp ý mới nhất */}
@@ -187,8 +208,8 @@ export function AdminDashboard() {
         <View style={{ gap: 12, marginBottom: 24 }}>
           {isLoadingFeedbacks ? (
             <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Đang tải...</Text>
-          ) : feedbackData?.data?.length ? (
-            feedbackData.data.map((fb) => (
+          ) : feedbackData?.items?.length ? (
+            feedbackData.items.map((fb) => (
               <FeedbackCard
                 key={fb.id}
                 feedback={fb}

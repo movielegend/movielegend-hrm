@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import * as moment from 'moment-timezone';
+import moment from 'moment-timezone';
 
 @Injectable()
 export class AttendanceReportService {
@@ -169,8 +169,8 @@ export class AttendanceReportService {
         }
 
         const row = {
-          employeeCode: user.profile?.code || '',
-          employeeName: user.profile?.fullName || user.username,
+          employeeCode: user.userCode || '',
+          employeeName: user.profile?.fullName || user.email || user.phone || user.userCode,
           department: deptName,
           position: '',
           date: currDate.format('DD/MM/YYYY'),

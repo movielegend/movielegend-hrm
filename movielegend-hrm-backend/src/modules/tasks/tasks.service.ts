@@ -397,6 +397,17 @@ export class TasksService {
 
   async attach(taskId: string, dto: CreateTaskAttachmentDto, actor: AuthenticatedUser) {
     await this.assertCanViewTask(taskId, actor);
+    
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignments: { where: { userId: actor.userId } } },
+    });
+    if (task && task.createdByUserId !== actor.userId && task.assignments.length > 0) {
+      if (task.assignments[0].status === 'NEW') {
+        throw forbidden('TASK_NOT_ACCEPTED', 'Vui lòng nhận việc trước khi đính kèm tài liệu');
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const attachment = await tx.taskAttachment.create({
         data: {
@@ -634,6 +645,12 @@ export class TasksService {
     for (const target of dto.targets ?? []) {
       if (target.targetType === TaskTargetType.USER) userIds.add(target.targetId);
       if (target.targetType === TaskTargetType.DEPARTMENT) {
+        const dept = await this.prisma.department.findUnique({
+          where: { id: target.targetId },
+          select: { leaderUserId: true },
+        });
+        if (dept?.leaderUserId) userIds.add(dept.leaderUserId);
+
         const members = await this.prisma.departmentMember.findMany({
           where: { departmentId: target.targetId, leftAt: null, user: { isActive: true, accountStatus: AccountStatus.ACTIVE } },
           select: { userId: true },

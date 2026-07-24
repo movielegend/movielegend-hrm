@@ -51,6 +51,7 @@
     "firebase-admin": "^14.2.0",
     "helmet": "^8.2.0",
     "jimp": "^0.22.10",
+    "moment-timezone": "^0.6.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdf-lib": "^1.17.1",

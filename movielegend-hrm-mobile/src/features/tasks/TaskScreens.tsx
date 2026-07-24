@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import { createTaskAttachment } from '../../api/tasks.api';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -49,6 +50,7 @@ import { hasAnyPermission, hasPermission } from '../../utils/permissions';
 import {
   AttachmentList,
   AttachmentPicker,
+  TaskStepper,
   CommentComposer,
   CommentList,
   ExtensionList,
@@ -174,6 +176,8 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (!task.data) return <EmptyState title="Khong tim thay task" />;
   const item = task.data;
   
+  const isUnacceptedAssignee = assignment?.status === 'NEW' && item.createdByUserId !== user?.id;
+  
   const isSelfAssigned = (entry: any) => entry.userId !== user?.id || entry.assignedByUserId === user?.id;
   
   const reviewAssignments = item.assignments?.filter((entry) => entry.status === 'WAITING_REVIEW' && isSelfAssigned(entry)) ?? [];
@@ -254,32 +258,64 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
 
         {assignment ? (
           <SectionCard title="Nhiệm vụ của tôi">
-            <TaskStatusBadge status={assignment.status} />
+            <TaskStepper currentStatus={assignment.status} />
             {!isReadOnlyStatus(item.status) ? (
               <>
-                {canAcceptAssignment(assignment.status) ? <PrimaryButton loading={accept.isPending} onPress={() => void run(() => accept.mutateAsync(assignment.id), 'Đã nhận việc')}>Nhận việc</PrimaryButton> : null}
-                {canStartAssignment(assignment.status) ? <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã bắt đầu làm')}>Bắt đầu làm</PrimaryButton> : null}
-                {canUpdateProgress(assignment.status) ? (
-                  <>
-                    <FormField label="Tiến độ (0-100%)" value={progress} onChangeText={setProgress} keyboardType="number-pad" />
-                    <SecondaryButton
-                      loading={updateProgress.isPending}
-                      onPress={() => void run(() => updateProgress.mutateAsync({ assignmentId: assignment.id, payload: { progressPercent: Number(progress) } }), 'Đã cập nhật tiến độ')}
-                    >
-                      Cập nhật tiến độ
-                    </SecondaryButton>
-                  </>
+                {canAcceptAssignment(assignment.status) ? (
+                  <View style={{ backgroundColor: colors.primarySoft, padding: spacing.md, borderRadius: 8, alignItems: 'center' }}>
+                    <Text style={{ textAlign: 'center', marginBottom: spacing.sm, color: colors.primary, fontWeight: '700' }}>
+                      Bạn vừa được phân công công việc này. Hãy xác nhận để bắt đầu!
+                    </Text>
+                    <PrimaryButton loading={accept.isPending} onPress={() => void run(() => accept.mutateAsync(assignment.id), 'Đã nhận việc')}>Nhận việc ngay</PrimaryButton>
+                  </View>
                 ) : null}
-                {canSubmitAssignment(assignment.status) ? (
-                  <>
-                    <FormField label="Ghi chú hoàn thành" value={completionNote} onChangeText={setCompletionNote} multiline />
-                    <PrimaryButton
-                      loading={submit.isPending}
-                      onPress={() => void run(() => submit.mutateAsync({ assignmentId: assignment.id, payload: { completionNote } }), 'Đã nộp công việc')}
-                    >
-                      Nộp công việc
-                    </PrimaryButton>
-                  </>
+                {canStartAssignment(assignment.status) ? (
+                  <View style={{ backgroundColor: '#EFF6FF', padding: spacing.md, borderRadius: 8, alignItems: 'center' }}>
+                    <Text style={{ textAlign: 'center', marginBottom: spacing.sm, color: colors.info, fontWeight: '700' }}>
+                      Tuyệt vời! Bạn đã nhận việc. Khi nào bắt tay vào làm, hãy bấm nút dưới đây.
+                    </Text>
+                    <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã bắt đầu làm')}>Bắt đầu làm</PrimaryButton>
+                  </View>
+                ) : null}
+                {(canUpdateProgress(assignment.status) || canSubmitAssignment(assignment.status)) ? (
+                  <View style={{ padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginTop: spacing.md }}>
+                    <Text style={{ fontWeight: '700', marginBottom: spacing.md, color: colors.text, fontSize: 16 }}>Không gian làm việc</Text>
+                    
+                    {canUpdateProgress(assignment.status) ? (
+                      <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={{ marginBottom: spacing.sm, fontWeight: '700', color: colors.text }}>Tiến độ: {progress}%</Text>
+                        <Slider
+                          style={{ width: '100%', height: 40 }}
+                          minimumValue={0}
+                          maximumValue={100}
+                          step={5}
+                          value={Number(progress)}
+                          onValueChange={(val) => setProgress(val.toString())}
+                          minimumTrackTintColor={colors.primary}
+                          maximumTrackTintColor={colors.border}
+                          thumbTintColor={colors.primary}
+                        />
+                        <SecondaryButton
+                          loading={updateProgress.isPending}
+                          onPress={() => void run(() => updateProgress.mutateAsync({ assignmentId: assignment.id, payload: { progressPercent: Number(progress) } }), 'Đã cập nhật tiến độ')}
+                        >
+                          Lưu tiến độ
+                        </SecondaryButton>
+                      </View>
+                    ) : null}
+                    
+                    {canSubmitAssignment(assignment.status) ? (
+                      <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md }}>
+                        <FormField label="Ghi chú hoàn thành" value={completionNote} onChangeText={setCompletionNote} multiline />
+                        <PrimaryButton
+                          loading={submit.isPending}
+                          onPress={() => void run(() => submit.mutateAsync({ assignmentId: assignment.id, payload: { completionNote } }), 'Đã nộp công việc')}
+                        >
+                          Nộp kết quả
+                        </PrimaryButton>
+                      </View>
+                    ) : null}
+                  </View>
                 ) : null}
                 <ExtensionRequestModal
                   currentDueAt={assignment.assignmentDueAt ?? item.dueAt}
@@ -321,7 +357,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
-        {canReview ? (
+        {canReview && (item.createdByUserId === user?.id || reviewAssignments.length > 0) ? (
           <SectionCard title="Xét duyệt công việc">
             {!reviewAssignments.length ? (
               <EmptyState small icon="check-all" title="Không có yêu cầu" message="Không có công việc nào đang chờ duyệt." />
@@ -340,7 +376,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
-        {canReviewExtension ? (
+        {canReviewExtension && (item.createdByUserId === user?.id || pendingExtensions.length > 0) ? (
           <SectionCard title="Xét duyệt gia hạn">
             {!pendingExtensions.length ? (
               <EmptyState small icon="calendar-check-outline" title="Không có yêu cầu" message="Không có yêu cầu gia hạn nào đang chờ duyệt." />
@@ -373,7 +409,13 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
             }}
             onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu')}
           />
-          <AttachmentPicker pending={attachment.isPending} onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)} />
+          {isUnacceptedAssignee ? (
+            <Text style={[styles.meta, { marginTop: spacing.md, fontStyle: 'italic', color: colors.warning }]}>
+              * Vui lòng bấm "Nhận việc" trước khi đính kèm tài liệu.
+            </Text>
+          ) : (
+            <AttachmentPicker pending={attachment.isPending} onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)} />
+          )}
         </SectionCard>
 
         <SectionCard title="Lịch sử hoạt động">

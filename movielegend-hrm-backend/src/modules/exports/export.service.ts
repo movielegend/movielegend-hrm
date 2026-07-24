@@ -146,7 +146,6 @@ export class ExportService {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
-
     return {
       filename: this.safeFilename(filename, 'xlsx'),
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

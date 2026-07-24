@@ -133,6 +133,11 @@ export function EmployeeDashboardScreen() {
           <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.gridContainer}>
             <GridItem
+              icon="history"
+              title="Lịch sử chấm công"
+              onPress={() => router.push('/employee/attendance/history' as any)}
+            />
+            <GridItem
               icon="calendar-clock"
               title="Ca làm việc"
               onPress={() => router.push('/employee/schedule')}

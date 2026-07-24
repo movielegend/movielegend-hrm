@@ -4,15 +4,15 @@ import { IsDateString, IsOptional, IsString } from 'class-validator';
 export class CreateCompanyHolidayDto {
   @ApiProperty()
   @IsString()
-  companyId: string;
+  companyId!: string;
 
   @ApiProperty()
   @IsDateString()
-  date: string;
+  date!: string;
 
   @ApiProperty()
   @IsString()
-  name: string;
+  name!: string;
 }
 
 export class UpdateCompanyHolidayDto {
