@@ -439,12 +439,24 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
               const fId = String(field.id || '').toLowerCase();
               const fLabel = String(field.label || '').toLowerCase();
               
-              if (fId.includes('fullname') || fId.includes('họ tên') || fLabel.includes('họ tên') || fLabel.includes('người lao động')) textValue = profile.fullName;
-              else if (fId.includes('cccd') || fId.includes('cmnd') || fLabel.includes('cccd') || fLabel.includes('cmnd')) textValue = profile.identityNumber;
-              else if (fId.includes('phone') || fId.includes('điện thoại') || fLabel.includes('sđt') || fLabel.includes('điện thoại')) textValue = profile.phoneNumber;
-              else if (fId.includes('address') || fId.includes('địa chỉ') || fLabel.includes('địa chỉ') || fId.includes('thường trú') || fLabel.includes('thường trú')) textValue = profile.address;
-              else if (fId.includes('dob') || fId.includes('sinh') || fLabel.includes('sinh') || fLabel.includes('ngày sinh')) textValue = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
-              else if (fId.includes('email') || fLabel.includes('email')) textValue = contract.user?.email;
+              const normId = fId.replace(/[^a-z0-9]/g, '');
+              const normLabel = fLabel.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
+              const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
+
+              if (isMatch(['hoten', 'hovaten', 'fullname', 'nguoilaodong', 'ten'])) textValue = profile.fullName;
+              else if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) textValue = profile.identityNumber;
+              else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) textValue = profile.phoneNumber;
+              else if (isMatch(['address', 'diachi', 'thuongtru', 'noio', 'tamtru'])) textValue = profile.address;
+              else if (isMatch(['dob', 'sinh', 'ngaysinh'])) textValue = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
+              else if (isMatch(['email', 'thu', 'mail'])) textValue = contract.user?.email;
+              else if (isMatch(['chucvu', 'vitri', 'position'])) {
+                 const pos = contract.positionSnapshot as any;
+                 if (pos && pos.name) textValue = pos.name;
+              }
+              else if (isMatch(['phongban', 'department', 'bophan'])) {
+                 const depts = contract.departmentSnapshot as any[];
+                 if (depts && depts.length > 0) textValue = depts[0].name;
+              }
             }
 
             if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback

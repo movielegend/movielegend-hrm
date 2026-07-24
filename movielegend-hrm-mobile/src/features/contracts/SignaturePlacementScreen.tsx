@@ -74,7 +74,7 @@ export function SignaturePlacementScreen() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; overflow: hidden; touch-action: none; }
+        body { margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; padding-bottom: 100px; }
         #pdf-container { position: relative; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         .field-box {
             position: absolute; 
@@ -362,7 +362,7 @@ export function SignaturePlacementScreen() {
           originWhitelist={['*']}
           onMessage={onMessage}
           style={styles.webview}
-          scrollEnabled={false}
+          scrollEnabled={true}
           bounces={false}
         />
       </View>
