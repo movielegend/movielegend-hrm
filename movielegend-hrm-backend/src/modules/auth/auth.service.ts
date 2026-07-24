@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import type { JwtSignOptions } from '@nestjs/jwt';
 import {
   AccountStatus,
@@ -43,6 +44,26 @@ export class AuthService {
     private readonly notifications: NotificationsService,
     private readonly httpSms: HttpSmsService,
   ) {}
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async cleanupOldOtpTokens() {
+    this.logger.log('Starting automated cleanup of OTP tokens older than 7 days...');
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const result = await this.prisma.otpToken.deleteMany({
+        where: {
+          createdAt: {
+            lt: sevenDaysAgo,
+          },
+        },
+      });
+      this.logger.log(`Successfully deleted ${result.count} old OTP tokens.`);
+    } catch (error) {
+      this.logger.error('Failed to cleanup old OTP tokens', error);
+    }
+  }
 
   async register(dto: RegisterDto, meta: RequestMeta) {
     this.assertRequiredFaceImages(dto.faceImages.map((image) => image.pose));
