@@ -595,9 +595,14 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
         visible={isSignatureVisible}
         onClose={() => setSignatureVisible(false)}
         pdfUrl={contractFileUrl}
-        onSave={(signature) => {
+        fieldsToFill={contract?.data?.contractTemplateVersion?.mappingConfig?.filter((f: any) => f.role === (contract.data?.status === 'WAITING_COMPANY_SIGNATURE' ? 'COMPANY' : 'EMPLOYEE')) || []}
+        onSave={(signature, filledFields) => {
           setSignatureVisible(false);
-          handleAction(() => signContract.mutateAsync({ signatureType: 'DRAWN', signatureImageUrl: signature }), 'Đã ký hợp đồng');
+          handleAction(() => signContract.mutateAsync({ 
+            signatureType: 'DRAWN', 
+            signatureImageUrl: signature,
+            filledFields: filledFields
+          }), 'Đã ký hợp đồng');
         }}
       />
 

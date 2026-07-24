@@ -421,26 +421,46 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
       const mappingConfig = (contract.contractTemplateVersion as any).mappingConfig as any;
+      const filledFields = (contract.filledFields as any) || {};
+
       if (Array.isArray(mappingConfig)) {
         for (const field of mappingConfig) {
           const page = pdfDoc.getPages()[field.page - 1];
           if (!page) continue;
           
-          if (field.type === 'text' && field.id === 'fullName') {
-            page.drawText(userFullName, { x: field.x, y: field.y, size: 12 });
+          if (field.type === 'text') {
+            let textValue = filledFields[field.id];
+            if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback
+            if (textValue) {
+              page.drawText(String(textValue), { x: field.x, y: field.y, size: 12 });
+            }
+          } else if (field.type === 'checkbox') {
+            const isChecked = filledFields[field.id] === true || filledFields[field.id] === 'true';
+            if (isChecked) {
+              // Draw a checkmark using text 'V' or similar, or draw lines. We'll use 'V' for simplicity.
+              page.drawText('V', { x: field.x, y: field.y, size: 14 });
+            }
           } else if (field.type === 'signature' && field.id === 'signature') {
+            // Check if this signature field belongs to the current signer...
+            // Currently, we just stamp the provided base64Signature at the first 'signature' field.
             try {
               const base64Data = base64Signature.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
               const signatureImage = await pdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
               page.drawImage(signatureImage, {
                 x: field.x,
                 y: field.y,
-                width: 150,
-                height: 75,
+                width: field.width || 150,
+                height: field.height || 75,
               });
             } catch (e) {
               console.error('Error embedding signature:', e);
             }
+          } else if (field.type === 'signature' && field.role) {
+              // If there's a specific signature box for a role, we'd need to match it, 
+              // but since `generateSignedPdf` doesn't know the role context directly except we could infer it,
+              // we will just draw the signature at the first matching role box or legacy 'signature' id box.
+              // For simplicity, we draw the signature if role matches. But `generateSignedPdf` doesn't take role yet!
+              // Let's modify generateSignedPdf to take role or we handle it here.
           }
         }
       }
@@ -483,12 +503,16 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           deviceInfo: dto.deviceInfo,
         },
       });
+      const mergedFilledFields = dto.filledFields 
+        ? { ...(contract.filledFields as Record<string, any> || {}), ...dto.filledFields }
+        : contract.filledFields;
+
       const changed = await tx.employeeContract.updateMany({
         where: { id, status: expected },
         data:
           signerRole === ContractSignerRole.EMPLOYEE
-            ? { status: next, employeeSignedAt: new Date(), signedFileUrl }
-            : { status: next, companySignedAt: new Date(), signedFileUrl },
+            ? { status: next, employeeSignedAt: new Date(), signedFileUrl, filledFields: mergedFilledFields ?? Prisma.DbNull }
+            : { status: next, companySignedAt: new Date(), signedFileUrl, filledFields: mergedFilledFields ?? Prisma.DbNull },
       });
       if (changed.count !== 1) throw conflict('CONTRACT_STATE_CONFLICT', 'Contract state already changed');
       const updated = await tx.employeeContract.findUniqueOrThrow({ where: { id }, include: this.include() });

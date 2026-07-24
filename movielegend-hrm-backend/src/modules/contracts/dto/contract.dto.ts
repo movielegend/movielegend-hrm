@@ -157,6 +157,10 @@ export class SignContractDto {
   @IsOptional()
   @IsString()
   deviceInfo?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  filledFields?: Record<string, any>;
 }
 
 export class TerminateContractDto {

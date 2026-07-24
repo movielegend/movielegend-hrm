@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Modal, StyleSheet, View, Text } from 'react-native';
+import { Modal, StyleSheet, View, Text, TextInput, Pressable } from 'react-native';
 import SignatureScreen from '../../components/SignaturePad/SignaturePad';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -12,17 +12,20 @@ import { resolveFileUrl } from '../../utils/url';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onSave: (signatureBase64: string) => void;
+  onSave: (signatureBase64: string, filledFields: Record<string, any>) => void;
   pdfUrl?: string;
+  fieldsToFill?: any[]; // Array of fields from mappingConfig
 }
 
-export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Props) {
+export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, fieldsToFill = [] }: Props) {
   const ref = useRef<any>();
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
+  
+  const [filledValues, setFilledValues] = useState<Record<string, any>>({});
 
   const handleSignature = (signature: string) => {
-    onSave(signature);
+    onSave(signature, filledValues);
   };
 
   const handleClear = () => {
@@ -64,6 +67,38 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl }: Pro
             />
           </View>
         ) : null}
+        
+        {fieldsToFill.length > 0 && (
+          <View style={styles.formContainer}>
+            <Text style={{fontWeight: 'bold', marginBottom: 8}}>Vui lòng điền các thông tin sau:</Text>
+            {fieldsToFill.map(field => {
+              if (field.type === 'text') {
+                return (
+                  <View key={field.id} style={{marginBottom: 12}}>
+                    <Text style={{marginBottom: 4}}>{field.label || field.id}</Text>
+                    <TextInput 
+                      style={{borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8}}
+                      value={filledValues[field.id] || ''}
+                      onChangeText={(val) => setFilledValues(prev => ({...prev, [field.id]: val}))}
+                    />
+                  </View>
+                );
+              }
+              if (field.type === 'checkbox') {
+                return (
+                  <Pressable key={field.id} style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}} onPress={() => setFilledValues(prev => ({...prev, [field.id]: !prev[field.id]}))}>
+                    <View style={{width: 24, height: 24, borderWidth: 1, borderColor: colors.border, borderRadius: 4, marginRight: 8, alignItems: 'center', justifyContent: 'center'}}>
+                      {filledValues[field.id] && <Text>✓</Text>}
+                    </View>
+                    <Text>{field.label || field.id}</Text>
+                  </Pressable>
+                );
+              }
+              return null;
+            })}
+          </View>
+        )}
+
         <View style={styles.signatureContainer}>
           <SignatureScreen
             ref={ref}
@@ -109,4 +144,8 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
   },
+  formContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  }
 });

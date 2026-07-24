@@ -2548,6 +2548,7 @@ model EmployeeContract {
   baseSalarySnapshot            Json?
   positionSnapshot              Json?
   departmentSnapshot            Json?
+  filledFields                  Json?
   draftFileUrl                  String?
   signedFileUrl                 String?
   scannedDocumentUrl            String?
