@@ -187,9 +187,8 @@ export function LeaderApprovalScreen() {
             onPress={handleReject}
             disabled={rejectMutation.isPending || approveMutation.isPending}
           >
-            {rejectMutation.isPending ? <ActivityIndicator color="#EF4444" /> : (
+            {rejectMutation.isPending ? <ActivityIndicator color="#111827" /> : (
               <>
-                <MaterialCommunityIcons name="close-circle-outline" size={20} color="#EF4444" style={{ marginRight: 6 }} />
                 <Text style={styles.rejectBtnText}>Từ chối</Text>
               </>
             )}
@@ -201,7 +200,6 @@ export function LeaderApprovalScreen() {
           >
             {approveMutation.isPending ? <ActivityIndicator color="#fff" /> : (
               <>
-                <MaterialCommunityIcons name="check-circle-outline" size={20} color="#fff" style={{ marginRight: 6 }} />
                 <Text style={styles.approveBtnText}>Phê duyệt</Text>
               </>
             )}
@@ -455,30 +453,30 @@ const styles = StyleSheet.create({
   rejectBtn: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: '#E5E7EB',
     paddingVertical: 14,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   rejectBtnText: {
-    color: '#EF4444',
+    color: '#111827',
     fontSize: 16,
     fontWeight: '700',
   },
   approveBtn: {
     flex: 2,
     flexDirection: 'row',
-    backgroundColor: '#10B981',
+    backgroundColor: '#111827',
     paddingVertical: 14,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#10B981',
+    shadowColor: '#111827',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
