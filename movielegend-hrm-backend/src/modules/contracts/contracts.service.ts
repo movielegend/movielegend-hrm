@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PDFDocument } from 'pdf-lib';
+import * as fontkit from '@pdf-lib/fontkit';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -422,6 +423,15 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     }
     try {
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      pdfDoc.registerFontkit(fontkit);
+      
+      let customFont: any = null;
+      try {
+        const fontBytes = fs.readFileSync(path.join(process.cwd(), 'src', 'assets', 'fonts', 'Roboto-Regular.ttf'));
+        customFont = await pdfDoc.embedFont(fontBytes);
+      } catch (fontErr) {
+        console.error('Could not load custom font, falling back to default:', fontErr);
+      }
       
       const mappingConfig = (contract.contractTemplateVersion as any).mappingConfig as any;
       const filledFields = { ...(contract.filledFields as any || {}), ...dtoFilledFields };
@@ -451,9 +461,13 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
             if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback
             if (textValue) {
-              const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
-              const safeText = removeAccents(String(textValue));
-              page.drawText(safeText, { x: field.x, y: field.y, size: 12 });
+              if (customFont) {
+                page.drawText(String(textValue), { x: field.x, y: field.y, size: 12, font: customFont });
+              } else {
+                const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
+                const safeText = removeAccents(String(textValue));
+                page.drawText(safeText, { x: field.x, y: field.y, size: 12 });
+              }
             }
           } else if (field.type === 'checkbox') {
             const isChecked = filledFields[field.id] === true || filledFields[field.id] === 'true';

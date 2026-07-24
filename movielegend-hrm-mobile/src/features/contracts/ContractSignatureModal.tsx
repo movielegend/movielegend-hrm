@@ -83,7 +83,7 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
                   }
                 }}
               >
-                📄 Xem file hợp đồng trước khi ký (PDF)
+                📄 Xem phôi hợp đồng (bản chưa điền)
               </SecondaryButton>
               <PdfViewerModal
                 visible={pdfViewerVisible}

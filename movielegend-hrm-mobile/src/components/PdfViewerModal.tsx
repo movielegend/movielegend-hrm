@@ -35,14 +35,23 @@ export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu
       const localUri = FileSystem.documentDirectory + cleanFileName;
       const info = await FileSystem.getInfoAsync(localUri);
       let fileUri = localUri;
-      if (!info.exists) {
-        const { uri } = await FileSystem.downloadAsync(pdfUrl, localUri, {
-          headers: {
-            'ngrok-skip-browser-warning': 'true'
-          }
-        });
-        fileUri = uri;
+      
+      // Always re-download to ensure we don't have a corrupt cached file (like a 500 HTML page)
+      if (info.exists) {
+        await FileSystem.deleteAsync(localUri, { idempotent: true });
       }
+      
+      const { uri, status } = await FileSystem.downloadAsync(pdfUrl, localUri, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      
+      if (status !== 200) {
+        throw new Error(`Failed to download PDF. Status: ${status}`);
+      }
+      
+      fileUri = uri;
       setCurrentPdfUri(fileUri);
       const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
       
