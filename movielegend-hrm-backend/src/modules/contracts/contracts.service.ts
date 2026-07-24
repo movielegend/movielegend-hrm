@@ -33,7 +33,7 @@ export class ContractsService {
     private readonly realtime: RealtimeEventsService,
     private readonly policy: ContractStatePolicy,
     private readonly integrity: DocumentIntegrityService,
-  ) {}
+  ) { }
 
   async createTemplate(dto: CreateContractTemplateDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
@@ -113,7 +113,7 @@ export class ContractsService {
     await this.prisma.auditLog.create({
       data: { actorUserId: actor.userId, action: 'CONTRACT_TEMPLATE_MAPPING_UPDATED', entityType: 'ContractTemplate', entityId: id, metadata: { versionNumber: latestVersion.versionNumber } },
     });
-    
+
     return { success: true };
   }
 
@@ -211,17 +211,17 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   "endDate": "YYYY-MM-DD",
   "contractType": "PROBATION | FIXED_TERM | INDEFINITE_TERM | SERVICE | CONFIDENTIALITY | COMMITMENT | OTHER"
 }`;
-      
+
       const result = await model.generateContent([
         prompt,
         { inlineData: { data: dto.imageUrl.split(',')[1], mimeType: 'image/jpeg' } }
       ]);
-      
+
       const text = result.response.text();
       if (!text) {
         throw new Error('No content generated');
       }
-      
+
       const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
       return JSON.parse(jsonStr);
     } catch (error) {
@@ -258,7 +258,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     if (contract.userId !== actor.userId && !isAdmin) {
       throw forbidden('CONTRACT_EMPLOYEE_SIGNATURE_DENIED', 'Employee can only sign own contract');
     }
-    
+
     let finalSignedFileUrl = dto.signedFileUrl;
     if (dto.signatureImageUrl) {
       const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Employee', dto.filledFields || {});
@@ -275,7 +275,6 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     if (!allowedStatuses.includes(contract.status as ContractStatus)) {
       throw badRequest('CONTRACT_SIGN_WRONG_STATE', 'Contract is not ready for this signature');
     }
-    
     return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.WAITING_COMPANY_SIGNATURE, 'CONTRACT_EMPLOYEE_SIGNED');
   }
 
@@ -353,7 +352,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
       return { updated, creatorNotif };
     });
-    
+
     if (payload.creatorNotif) this.notifications.emitCreated(payload.creatorNotif);
     this.realtime.emitToUser(contract.userId, 'contract:acknowledged', { id, status: payload.updated.employeeAcknowledgementStatus });
     return payload.updated;
@@ -388,19 +387,19 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string, dtoFilledFields: Record<string, any> = {}) {
     const contract = await this.prisma.employeeContract.findUnique({
       where: { id: contractId },
-      include: { 
-        contractTemplateVersion: true, 
-        user: { include: { profile: true, departmentLinks: { include: { department: true } } } } 
+      include: {
+        contractTemplateVersion: true,
+        user: { include: { profile: true, departmentLinks: { include: { department: true } } } }
       }
     });
-    
+
     if (!contract || !contract.contractTemplateVersion) return null;
-    
+
     const rawUrl = contract.contractTemplateVersion.templateFileUrl || '';
     const storageKey = contract.contractTemplateVersion.storageKey || '';
-    
+
     let existingPdfBytes: Buffer | null = null;
-    
+
     const candidatePaths = [
       storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',
       storageKey ? path.join(process.cwd(), 'storage', 'uploads', storageKey) : '',
@@ -424,7 +423,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     try {
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       pdfDoc.registerFontkit(fontkit);
-      
+
       let customFont: any = null;
       try {
         const fontBytes = fs.readFileSync(path.join(process.cwd(), 'src', 'assets', 'fonts', 'arial.ttf'));
@@ -432,7 +431,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       } catch (fontErr) {
         console.error('Could not load custom font, falling back to default:', fontErr);
       }
-      
+
       const mappingConfig = (contract.contractTemplateVersion as any).mappingConfig as any;
       const filledFields = { ...(contract.filledFields as any || {}), ...dtoFilledFields };
 
@@ -440,15 +439,15 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
         for (const field of mappingConfig) {
           const page = pdfDoc.getPages()[field.page - 1];
           if (!page) continue;
-          
+
           if (field.type === 'text') {
             let textValue = filledFields[field.id];
-            
+
             const profile = contract.user?.profile;
             if (!textValue && profile) {
               const fId = String(field.id || '').toLowerCase();
               const fLabel = String(field.label || '').toLowerCase();
-              
+
               const normId = fId.replace(/[^a-z0-9]/g, '');
               const normLabel = fLabel.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
               const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
@@ -491,15 +490,15 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
               console.error('Error embedding signature:', e);
             }
           } else if (field.type === 'signature' && field.role) {
-              // If there's a specific signature box for a role, we'd need to match it, 
-              // but since `generateSignedPdf` doesn't know the role context directly except we could infer it,
-              // we will just draw the signature at the first matching role box or legacy 'signature' id box.
-              // For simplicity, we draw the signature if role matches. But `generateSignedPdf` doesn't take role yet!
-              // Let's modify generateSignedPdf to take role or we handle it here.
+            // If there's a specific signature box for a role, we'd need to match it, 
+            // but since `generateSignedPdf` doesn't know the role context directly except we could infer it,
+            // we will just draw the signature at the first matching role box or legacy 'signature' id box.
+            // For simplicity, we draw the signature if role matches. But `generateSignedPdf` doesn't take role yet!
+            // Let's modify generateSignedPdf to take role or we handle it here.
           }
         }
       }
-      
+
       const pdfBytes = await pdfDoc.save();
       const fileName = `signed_${contractId}.pdf`;
       const outPath = path.join(process.cwd(), 'storage', 'contracts', fileName);
@@ -538,7 +537,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           deviceInfo: dto.deviceInfo,
         },
       });
-      const mergedFilledFields = dto.filledFields 
+      const mergedFilledFields = dto.filledFields
         ? { ...(contract.filledFields as Record<string, any> || {}), ...dto.filledFields }
         : contract.filledFields;
 
@@ -558,7 +557,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
         body: updated.title,
         metadata: { contractId: id, signerRole },
       });
-      
+
       let creatorNotif = null;
       if (signerRole === ContractSignerRole.EMPLOYEE && updated.createdById && updated.createdById !== actor.userId) {
         creatorNotif = await this.notifications.createForUsers(tx, [updated.createdById], {
@@ -581,7 +580,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     const contract = await this.prisma.employeeContract.findUnique({ where: { id } });
     if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Contract not found');
     await this.assertCanManageContract(contract.userId, actor);
-    
+
     if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE && contract.status !== ContractStatus.DRAFT) {
       throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Can only delete draft contracts or contracts waiting for employee signature');
     }
