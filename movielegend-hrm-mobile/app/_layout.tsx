@@ -4,6 +4,7 @@ import Toast from 'react-native-toast-message';
 import { AuthProvider } from '../src/providers/AuthProvider';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SocketProvider } from '../src/providers/SocketProvider';
+import { OnboardingProvider } from '../src/components/Onboarding/OnboardingProvider';
 import { LogBox, View, Text } from 'react-native';
 import { usePushNotificationSetup } from '../src/hooks/useNotifications';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -114,11 +115,13 @@ export default function RootLayout() {
     <QueryProvider>
       <AuthProvider>
         <SocketProvider>
-          <PushNotificationWrapper>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
-            <ToastWrapper />
-          </PushNotificationWrapper>
+          <OnboardingProvider>
+            <PushNotificationWrapper>
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }} />
+              <ToastWrapper />
+            </PushNotificationWrapper>
+          </OnboardingProvider>
         </SocketProvider>
       </AuthProvider>
     </QueryProvider>

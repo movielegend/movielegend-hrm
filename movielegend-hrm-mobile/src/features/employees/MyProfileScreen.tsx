@@ -4,12 +4,23 @@ import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
 import { useAuth } from '../../providers/AuthProvider';
+import { useOnboarding } from '../../components/Onboarding/OnboardingProvider';
+import type { DashboardRole } from '../../api/dashboard.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
 export function MyProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { showOnboarding } = useOnboarding();
+
+  const handleReplayOnboarding = () => {
+    let role: DashboardRole = 'EMPLOYEE';
+    if (user?.roles?.includes('ADMIN')) role = 'ADMIN';
+    else if (user?.roles?.includes('LEADER')) role = 'LEADER';
+    
+    showOnboarding(role);
+  };
 
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -54,6 +65,12 @@ export function MyProfileScreen() {
               value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
               valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
               onPress={() => router.push('/employee/update-face' as any)}
+            />
+            <InfoRow 
+              icon="information-outline" 
+              label="Hướng dẫn sử dụng" 
+              value="Xem lại" 
+              onPress={handleReplayOnboarding}
               isLast
             />
           </View>

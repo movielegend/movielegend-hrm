@@ -9,11 +9,13 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { useOnboarding } from '../../components/Onboarding/OnboardingProvider';
 
 export function EmployeeProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const { showOnboarding } = useOnboarding();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -86,6 +88,7 @@ export function EmployeeProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
+            <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={() => showOnboarding('EMPLOYEE')} />
             <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => {}} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
