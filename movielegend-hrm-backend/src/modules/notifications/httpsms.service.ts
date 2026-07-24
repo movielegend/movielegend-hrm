@@ -8,8 +8,8 @@ export class HttpSmsService {
   private readonly fromPhone: string;
 
   constructor(private configService: ConfigService) {
-    this.apiKey = (this.configService.get<string>('app.httpSmsApiKey') ?? '').trim();
-    this.fromPhone = (this.configService.get<string>('app.httpSmsFromPhone') ?? '').trim();
+    this.apiKey = (this.configService.get<string>('app.httpSmsApiKey') || process.env.HTTPSMS_API_KEY || '').trim();
+    this.fromPhone = (this.configService.get<string>('app.httpSmsFromPhone') || process.env.HTTPSMS_FROM_PHONE || '').trim();
   }
 
   async sendSms(to: string, content: string): Promise<boolean> {
