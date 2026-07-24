@@ -285,7 +285,12 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   async signCompany(id: string, dto: SignContractDto, actor: AuthenticatedUser) {
-    return this.sign(id, dto, actor, ContractSignerRole.COMPANY, ContractStatus.WAITING_COMPANY_SIGNATURE, ContractStatus.ACTIVE, 'CONTRACT_COMPANY_SIGNED');
+    let finalSignedFileUrl = dto.signedFileUrl;
+    if (dto.signatureImageUrl) {
+      const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Company', dto.filledFields || {}, ContractSignerRole.COMPANY);
+      if (generatedUrl) finalSignedFileUrl = generatedUrl;
+    }
+    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.COMPANY, ContractStatus.WAITING_COMPANY_SIGNATURE, ContractStatus.ACTIVE, 'CONTRACT_COMPANY_SIGNED');
   }
 
   activate(id: string, actor: AuthenticatedUser) {
@@ -384,7 +389,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     return payload.contract;
   }
 
-  async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string, dtoFilledFields: Record<string, any> = {}) {
+  async generateSignedPdf(contractId: string, base64Signature: string, userFullName: string, dtoFilledFields: Record<string, any> = {}, role: ContractSignerRole = ContractSignerRole.EMPLOYEE) {
     const contract = await this.prisma.employeeContract.findUnique({
       where: { id: contractId },
       include: {
@@ -395,8 +400,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
     if (!contract || !contract.contractTemplateVersion) return null;
 
-    const rawUrl = contract.contractTemplateVersion.templateFileUrl || '';
-    const storageKey = contract.contractTemplateVersion.storageKey || '';
+    const rawUrl = contract.signedFileUrl || contract.contractTemplateVersion.templateFileUrl || '';
+    const storageKey = contract.signedFileUrl ? '' : (contract.contractTemplateVersion.storageKey || '');
 
     let existingPdfBytes: Buffer | null = null;
 
@@ -471,12 +476,9 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           } else if (field.type === 'checkbox') {
             const isChecked = filledFields[field.id] === true || filledFields[field.id] === 'true';
             if (isChecked) {
-              // Draw a checkmark using text 'V' or similar, or draw lines. We'll use 'V' for simplicity.
               page.drawText('V', { x: field.x, y: field.y, size: 14 });
             }
-          } else if (field.type === 'signature' && (!field.role || field.role === 'EMPLOYEE')) {
-            // Check if this signature field belongs to the current signer...
-            // Currently, we just stamp the provided base64Signature at the first 'signature' field.
+          } else if (field.type === 'signature' && (!field.role || field.role === role)) {
             try {
               const base64Data = base64Signature.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
               const signatureImage = await pdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
@@ -489,12 +491,6 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
             } catch (e) {
               console.error('Error embedding signature:', e);
             }
-          } else if (field.type === 'signature' && field.role) {
-            // If there's a specific signature box for a role, we'd need to match it, 
-            // but since `generateSignedPdf` doesn't know the role context directly except we could infer it,
-            // we will just draw the signature at the first matching role box or legacy 'signature' id box.
-            // For simplicity, we draw the signature if role matches. But `generateSignedPdf` doesn't take role yet!
-            // Let's modify generateSignedPdf to take role or we handle it here.
           }
         }
       }
