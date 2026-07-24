@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "350363688227",
+    "project_id": "erpmvl",
+    "storage_bucket": "erpmvl.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:350363688227:android:83d0917eb69d39cce8c096",
+        "android_client_info": {
+          "package_name": "com.dinhhoc.movielegendhrmmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtj8rxlG2ZdPEEO8-T4T3ArXVeLUCkUfg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
