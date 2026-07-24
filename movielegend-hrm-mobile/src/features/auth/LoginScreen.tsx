@@ -285,9 +285,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#ECEEF3',
-    borderRadius: 20,
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginBottom: 16,
   },
   inputError: {
@@ -300,10 +300,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   inputText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
     color: '#111827',
-    height: 24,
+    height: 28,
     padding: 0,
   },
   passwordRow: {
@@ -345,8 +345,8 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#111827',
-    borderRadius: 20,
-    height: 56,
+    borderRadius: 12,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
@@ -382,8 +382,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#ECEEF3',
-    borderRadius: 20,
-    height: 52,
+    borderRadius: 12,
+    height: 56,
     marginBottom: 16,
   },
   socialIcon: {

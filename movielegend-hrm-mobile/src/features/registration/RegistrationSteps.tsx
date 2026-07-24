@@ -38,7 +38,7 @@ export function RegistrationIntroScreen() {
   const router = useRouter();
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
           <View style={{ alignItems: 'center', marginBottom: 40 }}>
             <Image 
@@ -50,21 +50,21 @@ export function RegistrationIntroScreen() {
             <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Tạo tài khoản mới cho Movielegend</Text>
           </View>
           
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5 }}>
+          <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>Quy trình đăng ký</Text>
-            <View style={{ gap: 16, marginBottom: 32 }}>
-              {['Thông tin tài khoản', 'Hồ sơ cá nhân', 'Chọn phòng ban', 'Chụp khuôn mặt', 'Kiểm tra và gửi'].map((item, index) => (
-                <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{index + 1}</Text>
+            <View style={{ gap: 20, marginBottom: 32 }}>
+              {['Thông tin tài khoản', 'Hồ sơ cá nhân', 'Chọn phòng ban', 'Kiểm tra và gửi'].map((item, index) => (
+                <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{index + 1}</Text>
                   </View>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#374151' }}>{item}</Text>
+                  <Text style={{ fontSize: 17, fontWeight: '600', color: '#374151' }}>{item}</Text>
                 </View>
               ))}
             </View>
             
-            <Pressable onPress={() => router.push('/register/profile')} style={{ backgroundColor: '#111827', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>BẮT ĐẦU</Text>
+            <Pressable onPress={() => router.push('/register/profile')} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>BẮT ĐẦU</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', marginTop: 24, justifyContent: 'center' }}>
               <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Đã có tài khoản? </Text>
@@ -92,7 +92,7 @@ export function RegistrationProfileScreen() {
   });
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
@@ -100,19 +100,19 @@ export function RegistrationProfileScreen() {
             </Pressable>
             <View>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Thông tin tài khoản</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 1/5</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 1/4</Text>
             </View>
           </View>
 
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5, gap: 16 }}>
+          <View style={{ gap: 20 }}>
             <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
             <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" label="Số điện thoại" value={field.value} onChangeText={field.onChange} error={errors.phone?.message} />} />
             <Controller control={control} name="email" render={({ field }) => <FormField autoCapitalize="none" keyboardType="email-address" label="Email (Tùy chọn)" value={field.value} onChangeText={field.onChange} error={errors.email?.message} />} />
-            <Controller control={control} name="password" render={({ field }) => <FormField secureTextEntry label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
-            <Controller control={control} name="confirmPassword" render={({ field }) => <FormField secureTextEntry label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
+            <Controller control={control} name="password" render={({ field }) => <FormField isPassword label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
+            <Controller control={control} name="confirmPassword" render={({ field }) => <FormField isPassword label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
             
-            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>TIẾP TỤC</Text>
+            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
           </View>
         </KeyboardAwareScrollView>
@@ -140,7 +140,7 @@ export function RegistrationPersonalScreen() {
 
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
@@ -148,18 +148,18 @@ export function RegistrationPersonalScreen() {
             </Pressable>
             <View>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Hồ sơ cá nhân</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 2/5</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 2/4</Text>
             </View>
           </View>
 
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5, gap: 16 }}>
+          <View style={{ gap: 20 }}>
             <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="Số CCCD" value={field.value} onChangeText={field.onChange} error={errors.idCardNumber?.message} keyboardType="numeric" />} />
             
             <View>
               <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
               <Pressable 
                 onPress={() => setShowDatePicker(true)}
-                style={{ height: 52, borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 20, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: '#FFFFFF' }}
+                style={{ height: 56, borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: '#FFFFFF' }}
               >
                 <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: '500' }}>
                   {dob ? dob.split('-').reverse().join('-') : 'Chọn ngày sinh'}
@@ -232,10 +232,10 @@ export function RegistrationPersonalScreen() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 6,
-                        height: 52, 
+                        height: 56, 
                         borderWidth: 1, 
                         borderColor: isSelected ? '#111827' : '#ECEEF3', 
-                        borderRadius: 20, 
+                        borderRadius: 12, 
                         backgroundColor: isSelected ? '#F9FAFB' : '#FFFFFF' 
                       }}
                     >
@@ -250,8 +250,8 @@ export function RegistrationPersonalScreen() {
               {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.gender.message}</Text> : null}
             </View>
             
-            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>TIẾP TỤC</Text>
+            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
           </View>
         </KeyboardAwareScrollView>
@@ -272,12 +272,12 @@ export function RegistrationDepartmentScreen() {
   const selectedId = watch('requestedDepartmentId');
   const submit = handleSubmit((data) => {
     update(data);
-    router.push('/register/face');
+    router.push('/register/review');
   });
   const activeDepartments = departments.data?.items.filter((department) => department.isActive) ?? [];
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
@@ -285,7 +285,7 @@ export function RegistrationDepartmentScreen() {
             </Pressable>
             <View>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Chọn phòng ban</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 3/5</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 3/4</Text>
             </View>
           </View>
 
@@ -306,8 +306,8 @@ export function RegistrationDepartmentScreen() {
         </KeyboardAwareScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
-           <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>TIẾP TỤC</Text>
+           <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
         </View>
       </View>
@@ -521,8 +521,7 @@ export function RegistrationReviewScreen() {
   const router = useRouter();
   const { values, reset } = useRegistration();
   const mutation = useMutation({ mutationFn: registerEmployee });
-  const faceOk = faceSchema.safeParse({ faceImages: values.faceImages }).success;
-  const canSubmit = accountSchema.safeParse(values).success && profileSchema.safeParse(values).success && departmentSchema.safeParse(values).success && faceOk;
+  const canSubmit = accountSchema.safeParse(values).success && profileSchema.safeParse(values).success && departmentSchema.safeParse(values).success;
   async function submit() {
     const payload: RegisterPayload = {
       fullName: values.fullName,
@@ -533,7 +532,6 @@ export function RegistrationReviewScreen() {
       ...(values.dateOfBirth ? { dateOfBirth: values.dateOfBirth } : {}),
       ...(values.gender ? { gender: values.gender } : {}),
       requestedDepartmentId: values.requestedDepartmentId,
-      faceImages: values.faceImages.map(({ pose, imageUrl, uploadedFileId }) => ({ pose, imageUrl, fileId: uploadedFileId })),
     };
     try {
       await mutation.mutateAsync(payload);
@@ -553,11 +551,11 @@ export function RegistrationReviewScreen() {
             </Pressable>
             <View>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Kiểm tra & Gửi</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 5/5</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 4/4</Text>
             </View>
           </View>
 
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5, marginBottom: 16 }}>
+          <View style={{ borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <Ionicons name="person-outline" size={20} color="#111827" />
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Tài khoản</Text>
@@ -567,14 +565,13 @@ export function RegistrationReviewScreen() {
             <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Email:</Text> {values.email || 'Không có email'}</Text>
           </View>
           
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5, marginBottom: 16 }}>
+          <View style={{ borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <Ionicons name="document-text-outline" size={20} color="#111827" />
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Hồ sơ</Text>
             </View>
             <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>CCCD:</Text> ********{values.idCardNumber.slice(-4)}</Text>
-            <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>Phòng ban ID:</Text> {values.requestedDepartmentId || 'Chưa chọn'}</Text>
-            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Khuôn mặt tải lên:</Text> {values.faceImages.filter((image) => image.uploadStatus === 'SUCCESS').length}/3</Text>
+            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ID:</Text> {values.requestedDepartmentId || 'Chưa chọn'}</Text>
           </View>
           
           {mutation.error ? (
@@ -586,8 +583,8 @@ export function RegistrationReviewScreen() {
         </KeyboardAwareScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
-           <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#9CA3AF' : '#111827', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>{mutation.isPending ? 'ĐANG GỬI...' : 'GỬI ĐĂNG KÝ'}</Text>
+           <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#9CA3AF' : '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>{mutation.isPending ? 'ĐANG GỬI...' : 'GỬI ĐĂNG KÝ'}</Text>
             </Pressable>
         </View>
       </View>
@@ -599,7 +596,7 @@ export function RegistrationSuccessScreen() {
   const router = useRouter();
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
           <View style={{ alignItems: 'center', marginBottom: 40 }}>
             <View style={{ width: 80, height: 80, backgroundColor: '#10B981', borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
@@ -609,8 +606,8 @@ export function RegistrationSuccessScreen() {
             <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 24, paddingHorizontal: 16 }}>Tài khoản của bạn đang chờ phê duyệt từ Ban quản lý. Vui lòng chờ thông báo.</Text>
           </View>
           
-          <Pressable onPress={() => router.replace('/login')} style={{ backgroundColor: '#111827', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>QUAY VỀ ĐĂNG NHẬP</Text>
+          <Pressable onPress={() => router.replace('/login')} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>QUAY VỀ ĐĂNG NHẬP</Text>
           </Pressable>
         </View>
       </View>
@@ -620,7 +617,7 @@ export function RegistrationSuccessScreen() {
 
 function DepartmentOption({ department, selected, onPress }: { department: Department; selected: boolean; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={{ backgroundColor: selected ? '#F9FAFB' : '#FFFFFF', borderColor: selected ? '#111827' : '#ECEEF3', borderRadius: 20, borderWidth: selected ? 2 : 1, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={{ backgroundColor: selected ? '#F9FAFB' : '#FFFFFF', borderColor: selected ? '#111827' : '#ECEEF3', borderRadius: 12, borderWidth: selected ? 2 : 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <View style={{ flex: 1 }}>
         <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700', marginBottom: 4 }}>{department.name}</Text>
         <Text style={{ color: '#6B7280', fontSize: 13 }}>{department.description ?? department.code}</Text>

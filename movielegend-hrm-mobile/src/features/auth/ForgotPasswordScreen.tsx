@@ -225,10 +225,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...(Platform.OS === 'web' && { outlineStyle: 'none' } as any),
   },
-  primaryBtn: {
+  submitButton: {
     backgroundColor: '#111827',
     borderRadius: 12,
-    paddingVertical: 16,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8

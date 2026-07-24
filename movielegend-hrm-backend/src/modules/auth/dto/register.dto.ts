@@ -82,11 +82,10 @@ export class RegisterDto {
   @IsString()
   avatarUrl?: string;
 
-  @ApiProperty({ type: [FaceImageDto] })
+  @ApiPropertyOptional({ type: [FaceImageDto] })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(3)
-  @ArrayMaxSize(3)
   @ValidateNested({ each: true })
   @Type(() => FaceImageDto)
-  faceImages!: FaceImageDto[];
+  faceImages?: FaceImageDto[];
 }

@@ -66,10 +66,13 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto, meta: RequestMeta) {
-    this.assertRequiredFaceImages(dto.faceImages.map((image) => image.pose));
-    const faceFileIds = dto.faceImages.map((image) => image.fileId).filter((id): id is string => Boolean(id));
-    if (faceFileIds.length > 0 && faceFileIds.length !== 3) {
-      throw badRequest('UPLOAD_FILE_REQUIRED', 'FACE_REGISTRATION requires uploaded references for all three poses');
+    let faceFileIds: string[] = [];
+    if (dto.faceImages && dto.faceImages.length > 0) {
+      this.assertRequiredFaceImages(dto.faceImages.map((image) => image.pose));
+      faceFileIds = dto.faceImages.map((image) => image.fileId).filter((id): id is string => Boolean(id));
+      if (faceFileIds.length > 0 && faceFileIds.length !== 3) {
+        throw badRequest('UPLOAD_FILE_REQUIRED', 'FACE_REGISTRATION requires uploaded references for all three poses');
+      }
     }
 
     const idCardFileIds = [dto.idCardFrontFileId, dto.idCardBackFileId].filter((id): id is string => Boolean(id));
@@ -134,7 +137,7 @@ export class AuthService {
                 },
               }
             : undefined,
-          faceProfile: {
+          faceProfile: (dto.faceImages && dto.faceImages.length > 0) ? {
             create: {
               images: {
                 createMany: {
@@ -145,7 +148,7 @@ export class AuthService {
                 },
               },
             },
-          },
+          } : undefined,
         },
       });
 
