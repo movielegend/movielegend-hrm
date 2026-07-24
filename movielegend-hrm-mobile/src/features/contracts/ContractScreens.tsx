@@ -40,6 +40,7 @@ import {
   useApproveContract,
   useActivateContract,
   useSignContractEmployee,
+  useSignContractCompany,
   useRejectContractSignature,
   useDeleteContract,
 } from '../../hooks/useContracts';
@@ -405,6 +406,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const approve = useApproveContract();
   const activate = useActivateContract();
   const signContract = useSignContractEmployee(contractId);
+  const signCompanyContract = useSignContractCompany(contractId);
   const rejectSignature = useRejectContractSignature(contractId);
   const deleteContract = useDeleteContract();
   
@@ -546,6 +548,14 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               ✍️ Ký điện tử
             </SecondaryButton>
           )}
+          {status === 'WAITING_COMPANY_SIGNATURE' && (user?.roles?.includes('ADMIN') || user?.roles?.includes('HR')) && (
+            <SecondaryButton
+              onPress={() => setSignatureVisible(true)}
+              style={{ marginTop: 8 }}
+            >
+              ✍️ Ký điện tử (Đại diện Công ty)
+            </SecondaryButton>
+          )}
           {status === 'WAITING_EMPLOYEE_SIGNATURE' && (user?.roles?.includes('ADMIN') || user?.roles?.includes('HR')) && (
             <Pressable
               style={{
@@ -599,11 +609,16 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
         contractUser={contract?.data?.user}
         onSave={(signature, filledFields) => {
           setSignatureVisible(false);
-          handleAction(() => signContract.mutateAsync({ 
-            signatureType: 'DRAWN', 
+          const payload = { 
+            signatureType: 'DRAWN' as const, 
             signatureImageUrl: signature,
             filledFields: filledFields
-          }), 'Đã ký hợp đồng');
+          };
+          if (contract.data?.status === 'WAITING_COMPANY_SIGNATURE') {
+            handleAction(() => signCompanyContract.mutateAsync(payload), 'Đã ký hợp đồng (Công ty)');
+          } else {
+            handleAction(() => signContract.mutateAsync(payload), 'Đã ký hợp đồng (Nhân viên)');
+          }
         }}
       />
 

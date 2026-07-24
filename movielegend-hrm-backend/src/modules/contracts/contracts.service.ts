@@ -276,7 +276,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       throw badRequest('CONTRACT_SIGN_WRONG_STATE', 'Contract is not ready for this signature');
     }
     
-    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.ACTIVE, 'CONTRACT_EMPLOYEE_SIGNED');
+    return this.sign(id, { ...dto, signedFileUrl: finalSignedFileUrl }, actor, ContractSignerRole.EMPLOYEE, contract.status as ContractStatus, ContractStatus.WAITING_COMPANY_SIGNATURE, 'CONTRACT_EMPLOYEE_SIGNED');
   }
 
   employeeReject(id: string, actor: AuthenticatedUser, dto: RejectContractDto) {
@@ -286,7 +286,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   async signCompany(id: string, dto: SignContractDto, actor: AuthenticatedUser) {
-    return this.sign(id, dto, actor, ContractSignerRole.COMPANY, ContractStatus.WAITING_COMPANY_SIGNATURE, ContractStatus.COMPLETED, 'CONTRACT_COMPANY_SIGNED');
+    return this.sign(id, dto, actor, ContractSignerRole.COMPANY, ContractStatus.WAITING_COMPANY_SIGNATURE, ContractStatus.ACTIVE, 'CONTRACT_COMPANY_SIGNED');
   }
 
   activate(id: string, actor: AuthenticatedUser) {
@@ -427,7 +427,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       
       let customFont: any = null;
       try {
-        const fontBytes = fs.readFileSync(path.join(process.cwd(), 'src', 'assets', 'fonts', 'Roboto-Regular.ttf'));
+        const fontBytes = fs.readFileSync(path.join(process.cwd(), 'src', 'assets', 'fonts', 'arial.ttf'));
         customFont = await pdfDoc.embedFont(fontBytes);
       } catch (fontErr) {
         console.error('Could not load custom font, falling back to default:', fontErr);
