@@ -391,6 +391,27 @@ export class TasksService {
       await tx.taskStatusHistory.create({
         data: { taskId, actorUserId: actor.userId, action: TaskHistoryAction.COMMENTED },
       });
+
+      const taskInfo = await tx.task.findUnique({ where: { id: taskId }, include: { assignments: true } });
+      if (taskInfo) {
+        const involvedUsers = new Set<string>();
+        if (taskInfo.createdByUserId !== actor.userId) involvedUsers.add(taskInfo.createdByUserId);
+        taskInfo.assignments.forEach(a => {
+          if (a.userId !== actor.userId) involvedUsers.add(a.userId);
+          if (a.assignedByUserId && a.assignedByUserId !== actor.userId) involvedUsers.add(a.assignedByUserId);
+        });
+        const targetIds = Array.from(involvedUsers);
+        if (targetIds.length > 0) {
+          const payload = await this.notifications.createForUsers(tx, targetIds, {
+            type: NotificationType.TASK_COMMENTED,
+            title: 'Bình luận công việc',
+            body: `Có bình luận mới trong công việc: ${taskInfo.title}`,
+            taskId,
+          });
+          if (payload) process.nextTick(() => this.notifications.emitCreated(payload));
+        }
+      }
+
       return comment;
     });
   }
@@ -560,6 +581,18 @@ export class TasksService {
         data: { taskId: updated.taskId, assignmentId, actorUserId: actor.userId, action, fromStatus: assignment.status, toStatus: status, note: dto.note },
       });
       await this.syncTaskStatus(tx, updated.taskId);
+
+      if (updated.userId !== actor.userId) {
+        const isApproved = status === TaskAssignmentStatus.COMPLETED;
+        const payload = await this.notifications.createForUsers(tx, [updated.userId], {
+          type: NotificationType.TASK_UPDATED,
+          title: isApproved ? 'Công việc đã được duyệt' : 'Công việc bị từ chối',
+          body: `Công việc "${updated.task.title}" của bạn ${isApproved ? 'đã được duyệt' : 'vừa bị từ chối'}.`,
+          taskId: updated.taskId,
+        });
+        if (payload) process.nextTick(() => this.notifications.emitCreated(payload));
+      }
+
       return updated;
     });
   }
