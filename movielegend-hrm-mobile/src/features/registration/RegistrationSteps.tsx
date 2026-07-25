@@ -38,38 +38,47 @@ export function RegistrationIntroScreen() {
   const router = useRouter();
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
-          <View style={{ alignItems: 'center', marginBottom: 40 }}>
+      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+        {/* Background ML Logo Watermark */}
+        <View style={{ position: 'absolute', top: 205, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', zIndex: 0 }} pointerEvents="none">
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={{ width: 380, height: 240, opacity: 0.15 }}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24, zIndex: 1 }}>
+          <View style={{ alignItems: 'center', marginBottom: 36 }}>
             <Image 
-              source={require('../../../assets/logo-watermark.png')} 
-              style={{ width: 200, height: 80, marginBottom: 24 }} 
+              source={require('../../../assets/ml-logo-only.png')} 
+              style={{ width: 140, height: 60, marginBottom: 16 }} 
               resizeMode="contain" 
             />
-            <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Đăng ký</Text>
+            <Text style={{ fontSize: 24, fontWeight: '700', color: '#111827', marginBottom: 6 }}>Đăng ký</Text>
             <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Tạo tài khoản mới cho Movielegend</Text>
           </View>
           
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>Quy trình đăng ký</Text>
-            <View style={{ gap: 20, marginBottom: 32 }}>
+            <View style={{ gap: 16, marginBottom: 32 }}>
               {['Thông tin tài khoản', 'Hồ sơ cá nhân', 'Chọn phòng ban', 'Kiểm tra và gửi'].map((item, index) => (
-                <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: 'rgba(255, 255, 255, 0.88)', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
                   <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }}>
                     <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{index + 1}</Text>
                   </View>
-                  <Text style={{ fontSize: 17, fontWeight: '600', color: '#374151' }}>{item}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#374151' }}>{item}</Text>
                 </View>
               ))}
             </View>
             
-            <Pressable onPress={() => router.push('/register/profile')} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>BẮT ĐẦU</Text>
+            <Pressable onPress={() => router.push('/register/profile')} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>BẮT ĐẦU</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', marginTop: 24, justifyContent: 'center' }}>
               <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Đã có tài khoản? </Text>
               <Pressable onPress={() => router.replace('/login')}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Đăng nhập</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Đăng nhập</Text>
               </Pressable>
             </View>
           </View>
@@ -92,8 +101,17 @@ export function RegistrationProfileScreen() {
   });
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
+      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+        {/* Background ML Logo Watermark */}
+        <View style={{ position: 'absolute', top: 205, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', zIndex: 0 }} pointerEvents="none">
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={{ width: 380, height: 240, opacity: 0.15 }}
+            resizeMode="contain"
+          />
+        </View>
+
+        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60, zIndex: 1 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
               <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -111,8 +129,8 @@ export function RegistrationProfileScreen() {
             <Controller control={control} name="password" render={({ field }) => <FormField isPassword label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
             <Controller control={control} name="confirmPassword" render={({ field }) => <FormField isPassword label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
             
-            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
+            <Pressable onPress={submit} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 16, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
           </View>
         </KeyboardAwareScrollView>

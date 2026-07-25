@@ -91,6 +91,15 @@ export function LoginScreen() {
   return (
     <Screen>
       <View style={styles.container}>
+        {/* Background ML Logo Watermark */}
+        <View style={styles.backgroundWatermarkWrapper} pointerEvents="none">
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={styles.backgroundWatermarkImage}
+            resizeMode="contain"
+          />
+        </View>
+
         <KeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
           enableOnAndroid={true}
@@ -102,7 +111,7 @@ export function LoginScreen() {
             {/* Header Branding */}
             <View style={styles.header}>
               <Image
-                source={require('../../../assets/logo-watermark.png')}
+                source={require('../../../assets/ml-logo-only.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -250,28 +259,43 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFBFC', // Lighter background
+    backgroundColor: '#FAFBFC',
+  },
+  backgroundWatermarkWrapper: {
+    position: 'absolute',
+    top: 205,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 0,
+  },
+  backgroundWatermarkImage: {
+    width: 380,
+    height: 240,
+    opacity: 0.15,
   },
   scrollContent: {
     flexGrow: 1,
+    zIndex: 1,
   },
   innerContent: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 50,
     paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 36,
     width: '100%',
   },
   logoImage: {
-    width: 200,
-    height: 80,
-    marginBottom: 24,
+    width: 140,
+    height: 60,
+    marginBottom: 16,
   },
   subtitleText: {
     fontSize: 14,
@@ -282,20 +306,25 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputWrapper: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
     borderWidth: 1,
     borderColor: '#ECEEF3',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 18,
     paddingVertical: 14,
     marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
   },
   inputError: {
     borderColor: '#EF4444',
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
     color: '#6B7280',
     marginBottom: 4,
   },
@@ -322,11 +351,11 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     alignSelf: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   forgotPasswordText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#6B7280',
   },
   formErrorBox: {
@@ -344,12 +373,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitButton: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    height: 60,
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   submitButtonDisabled: {
     opacity: 0.7,
@@ -362,7 +396,7 @@ const styles = StyleSheet.create({
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   dividerLine: {
     flex: 1,
@@ -379,11 +413,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderWidth: 1,
     borderColor: '#ECEEF3',
-    borderRadius: 12,
-    height: 56,
+    borderRadius: 14,
+    height: 54,
     marginBottom: 16,
   },
   socialIcon: {
@@ -469,4 +503,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#4B5563',
   },
-});
+});

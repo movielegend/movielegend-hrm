@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Platform, Image } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { Screen } from '../../components/Screen';
 import { requestOtpApi, verifyOtpApi, resetPasswordApi } from '../../api/auth.api';
@@ -94,6 +94,15 @@ export function ForgotPasswordScreen() {
   return (
     <Screen>
       <View style={styles.container}>
+        {/* Background ML Logo Watermark */}
+        <View style={styles.backgroundWatermarkWrapper} pointerEvents="none">
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={styles.backgroundWatermarkImage}
+            resizeMode="contain"
+          />
+        </View>
+
         <View style={styles.header}>
           <Pressable onPress={() => {
             if (step > 1) setStep((s) => (s - 1) as 1|2|3);
@@ -110,14 +119,17 @@ export function ForgotPasswordScreen() {
               <Text style={styles.description}>
                 Nhập số điện thoại của bạn để nhận mã OTP khôi phục mật khẩu.
               </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ví dụ: 0987654321"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-              />
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Số điện thoại</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ví dụ: 0987654321"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                />
+              </View>
               <Pressable
                 style={[styles.primaryBtn, isLoading && styles.disabledBtn]}
                 onPress={handleRequestOtp}
@@ -133,15 +145,18 @@ export function ForgotPasswordScreen() {
               <Text style={styles.description}>
                 Mã xác thực đã được gửi tới {maskPhone(phone)}. Mã có hiệu lực trong 5 phút.
               </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Nhập 6 số OTP"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="number-pad"
-                maxLength={6}
-                value={otp}
-                onChangeText={setOtp}
-              />
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Mã xác thực OTP</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nhập 6 số OTP"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otp}
+                  onChangeText={setOtp}
+                />
+              </View>
               <Pressable
                 style={[styles.primaryBtn, isLoading && styles.disabledBtn]}
                 onPress={handleVerifyOtp}
@@ -165,22 +180,28 @@ export function ForgotPasswordScreen() {
           {step === 3 && (
             <View style={styles.stepContainer}>
               <Text style={styles.description}>Nhập mật khẩu mới cho tài khoản của bạn.</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Mật khẩu mới"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry
-                value={newPassword}
-                onChangeText={setNewPassword}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Xác nhận mật khẩu"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Mật khẩu mới</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Mật khẩu mới"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Xác nhận mật khẩu</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Xác nhận mật khẩu"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+              </View>
               <Pressable
                 style={[styles.primaryBtn, isLoading && styles.disabledBtn]}
                 onPress={handleResetPassword}
@@ -198,44 +219,80 @@ export function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFBFC' },
+  backgroundWatermarkWrapper: {
+    position: 'absolute',
+    top: 180,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 0,
+  },
+  backgroundWatermarkImage: {
+    width: 380,
+    height: 240,
+    opacity: 0.15,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6'
+    borderBottomColor: '#ECEEF3',
+    zIndex: 1,
   },
   backBtn: { padding: 4, marginRight: 16 },
   title: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  content: { flex: 1, padding: 24 },
+  content: { flex: 1, padding: 24, zIndex: 1 },
   stepContainer: {},
   description: { fontSize: 14, color: '#4B5563', marginBottom: 24, lineHeight: 22 },
-  input: {
-    backgroundColor: '#FFFFFF',
+  inputWrapper: {
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#000000',
+    borderColor: '#ECEEF3',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  input: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+    padding: 0,
+    height: 28,
     ...(Platform.OS === 'web' && { outlineStyle: 'none' } as any),
   },
-  submitButton: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    height: 60,
+  primaryBtn: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8
+    marginTop: 8,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   disabledBtn: { opacity: 0.6 },
   resendBtn: { marginTop: 24, alignItems: 'center', padding: 8 },
-  resendText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
+  resendText: { color: '#2563EB', fontSize: 14, fontWeight: '600' },
   resendTextDisabled: { color: '#9CA3AF' }
 });
