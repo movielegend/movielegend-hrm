@@ -21,7 +21,7 @@ export function ForgotPasswordScreen() {
   const [countdown, setCountdown] = useState(0);
   
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (countdown > 0) {
       timer = setTimeout(() => setCountdown(countdown - 1), 1000);
     }
@@ -131,7 +131,7 @@ export function ForgotPasswordScreen() {
                 />
               </View>
               <Pressable
-                style={[styles.primaryBtn, isLoading && styles.disabledBtn]}
+                style={[styles.submitButton, isLoading && styles.disabledBtn]}
                 onPress={handleRequestOtp}
                 disabled={isLoading}
               >
@@ -158,7 +158,7 @@ export function ForgotPasswordScreen() {
                 />
               </View>
               <Pressable
-                style={[styles.primaryBtn, isLoading && styles.disabledBtn]}
+                style={[styles.submitButton, isLoading && styles.disabledBtn]}
                 onPress={handleVerifyOtp}
                 disabled={isLoading}
               >
@@ -203,7 +203,7 @@ export function ForgotPasswordScreen() {
                 />
               </View>
               <Pressable
-                style={[styles.primaryBtn, isLoading && styles.disabledBtn]}
+                style={[styles.submitButton, isLoading && styles.disabledBtn]}
                 onPress={handleResetPassword}
                 disabled={isLoading}
               >
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  primaryBtnText: { color: '#000000', fontSize: 16, fontWeight: '600' },
   disabledBtn: { opacity: 0.6 },
   resendBtn: { marginTop: 24, alignItems: 'center', padding: 8 },
   resendText: { color: '#2563EB', fontSize: 14, fontWeight: '600' },

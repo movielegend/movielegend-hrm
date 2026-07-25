@@ -374,19 +374,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(59, 130, 246, 0.05)',
   },
   heroDecoration1: {
-    position: 'absolute', right: -60, bottom: -60, width: 240, height: 240, borderRadius: 120, borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.15)',
+    position: 'absolute', right: -60, bottom: -60, width: 240, height: 240, borderRadius: 120, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.35)', backgroundColor: 'rgba(255, 0, 0, 0.05)',
   },
   heroDecoration2: {
-    position: 'absolute', right: -30, bottom: -30, width: 180, height: 180, borderRadius: 90, borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.15)',
+    position: 'absolute', right: -30, bottom: -30, width: 180, height: 180, borderRadius: 90, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.45)', backgroundColor: 'rgba(255, 0, 0, 0.12)',
   },
   heroDecoration3: {
-    position: 'absolute', right: -10, bottom: -10, width: 140, height: 140, borderRadius: 70, borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.15)',
+    position: 'absolute', right: -10, bottom: -10, width: 140, height: 140, borderRadius: 70, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.55)', backgroundColor: 'rgba(255, 0, 0, 0.22)',
   },
   heroDecoration4: {
-    position: 'absolute', right: 10, bottom: 10, width: 100, height: 100, borderRadius: 50, borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.15)',
+    position: 'absolute', right: 10, bottom: 10, width: 100, height: 100, borderRadius: 50, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.65)', backgroundColor: 'rgba(255, 0, 0, 0.35)',
   },
   heroDecoration5: {
-    position: 'absolute', right: 20, bottom: 20, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    position: 'absolute', right: 20, bottom: 20, width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.75)', backgroundColor: 'rgba(255, 0, 0, 0.55)',
   },
   heroTitle: {
     color: '#0A2540',

@@ -112,14 +112,14 @@ export function RegistrationProfileScreen() {
         </View>
 
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60, zIndex: 1 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </Pressable>
-            <View>
+          <View style={{ marginBottom: 24, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                <Ionicons name="arrow-back" size={24} color="#111827" />
+              </Pressable>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Thông tin tài khoản</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 1/4</Text>
             </View>
+            <StepBar currentStep={1} />
           </View>
 
           <View style={{ gap: 20 }}>
@@ -160,14 +160,14 @@ export function RegistrationPersonalScreen() {
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </Pressable>
-            <View>
+          <View style={{ marginBottom: 24, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                <Ionicons name="arrow-back" size={24} color="#111827" />
+              </Pressable>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Hồ sơ cá nhân</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 2/4</Text>
             </View>
+            <StepBar currentStep={2} />
           </View>
 
           <View style={{ gap: 20 }}>
@@ -297,14 +297,14 @@ export function RegistrationDepartmentScreen() {
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </Pressable>
-            <View>
+          <View style={{ marginBottom: 24, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                <Ionicons name="arrow-back" size={24} color="#111827" />
+              </Pressable>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Chọn phòng ban</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 3/4</Text>
             </View>
+            <StepBar currentStep={3} />
           </View>
 
           <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm phòng ban..." />
@@ -563,14 +563,14 @@ export function RegistrationReviewScreen() {
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </Pressable>
-            <View>
+          <View style={{ marginBottom: 24, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                <Ionicons name="arrow-back" size={24} color="#111827" />
+              </Pressable>
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Kiểm tra & Gửi</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280' }}>Bước 4/4</Text>
             </View>
+            <StepBar currentStep={4} />
           </View>
 
           <View style={{ borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
@@ -673,6 +673,29 @@ function uploadErrorMessage(error: unknown): string {
     UPLOAD_STORAGE_FAILED: 'Luu file that bai',
   };
   return map[normalized.code] ?? 'Upload failed';
+}
+
+function StepBar({ currentStep, totalSteps = 4 }: { currentStep: number; totalSteps?: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6, width: '100%' }}>
+      {Array.from({ length: totalSteps }).map((_, index) => {
+        const step = index + 1;
+        const isActive = step === currentStep;
+        const isCompleted = step < currentStep;
+        return (
+          <View 
+            key={step} 
+            style={{ 
+              flex: 1, 
+              height: 4, 
+              borderRadius: 2, 
+              backgroundColor: isActive || isCompleted ? '#111827' : '#E5E7EB' 
+            }} 
+          />
+        );
+      })}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

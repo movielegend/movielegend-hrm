@@ -227,18 +227,7 @@ export function LoginScreen() {
                 )}
               </Pressable>
 
-              {/* OR Divider */}
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
-              </View>
 
-              {/* Social Logins */}
-              <Pressable style={styles.socialButton}>
-                <Ionicons name="logo-google" size={20} color="#EA4335" style={styles.socialIcon} />
-                <Text style={styles.socialButtonText}>Continue with Google</Text>
-              </Pressable>
 
             </View>
 
@@ -393,41 +382,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ECEEF3',
-  },
-  dividerText: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '600',
-    paddingHorizontal: 16,
-  },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderWidth: 1,
-    borderColor: '#ECEEF3',
-    borderRadius: 14,
-    height: 54,
-    marginBottom: 16,
-  },
-  socialIcon: {
-    marginRight: 12,
-  },
-  socialButtonText: {
-    color: '#111827',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
