@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
@@ -110,11 +110,12 @@ export function EmployeeDashboardScreen() {
             }
           }}
         >
-          <View style={styles.heroDecoration1} />
-          <View style={styles.heroDecoration2} />
-          <View style={styles.heroDecoration3} />
-          <View style={styles.heroDecoration4} />
-          <View style={styles.heroDecoration5} />
+          {/* Decorative topographic wood grain background asset */}
+          <Image
+            source={require('../../../assets/topographic-contour-employee-v2.png')}
+            style={styles.heroTopographicBg}
+            resizeMode="cover"
+          />
           
 
           <View style={styles.statusBadge}>
@@ -346,20 +347,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFF6FF',
   },
-  heroDecoration1: {
-    position: 'absolute', right: -60, bottom: -60, width: 240, height: 240, borderRadius: 120, borderWidth: 1, borderColor: 'rgba(9, 124, 231, 0.15)', backgroundColor: 'rgba(9, 124, 231, 0.02)',
-  },
-  heroDecoration2: {
-    position: 'absolute', right: -30, bottom: -30, width: 180, height: 180, borderRadius: 90, borderWidth: 1, borderColor: 'rgba(9, 124, 231, 0.20)', backgroundColor: 'rgba(9, 124, 231, 0.05)',
-  },
-  heroDecoration3: {
-    position: 'absolute', right: -10, bottom: -10, width: 140, height: 140, borderRadius: 70, borderWidth: 1, borderColor: 'rgba(9, 124, 231, 0.30)', backgroundColor: 'rgba(9, 124, 231, 0.10)',
-  },
-  heroDecoration4: {
-    position: 'absolute', right: 10, bottom: 10, width: 100, height: 100, borderRadius: 50, borderWidth: 1, borderColor: 'rgba(9, 124, 231, 0.40)', backgroundColor: 'rgba(9, 124, 231, 0.15)',
-  },
-  heroDecoration5: {
-    position: 'absolute', right: 20, bottom: 20, width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: 'rgba(9, 124, 231, 0.50)', backgroundColor: 'rgba(9, 124, 231, 0.25)',
+  heroTopographicBg: {
+    position: 'absolute',
+    right: -10,
+    bottom: -10,
+    top: -10,
+    width: '65%',
+    height: '120%',
+    opacity: 0.85,
   },
   statusBadge: {
     flexDirection: 'row',

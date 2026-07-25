@@ -117,25 +117,25 @@ export function AdminDashboard() {
           style={styles.heroButton}
           onPress={() => router.navigate('/admin/attendance')}
         >
-          {/* Decorative background shapes mimicking topological lines */}
-          <View style={styles.heroDecoration1} />
-          <View style={styles.heroDecoration2} />
-          <View style={styles.heroDecoration3} />
-          <View style={styles.heroDecoration4} />
-          <View style={styles.heroDecoration5} />
+          {/* Decorative topographic wood grain background asset */}
+          <Image
+            source={require('../../../assets/topographic-contour-admin-v2.png')}
+            style={styles.heroTopographicBg}
+            resizeMode="cover"
+          />
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
             <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
               <MaterialCommunityIcons name="check" size={16} color="#FFF" />
             </View>
             <Text style={styles.heroTitle}>Đã chấm công</Text>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20, zIndex: 1 }}>
             <Text style={styles.heroSubtitle}>{timeString}</Text>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 }}>
             <MaterialCommunityIcons name="map-marker-outline" size={16} color={appleTheme.textSecondary} />
             <Text style={{ color: appleTheme.textSecondary, fontSize: 13 }}>Văn phòng Hà Nội</Text>
           </View>
@@ -143,9 +143,9 @@ export function AdminDashboard() {
 
         {/* Thao tác nhanh */}
         <Text style={styles.sectionTitleFolder}>Thao tác nhanh</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 16 }}
           style={{ marginHorizontal: -16 }}
         >
@@ -179,21 +179,21 @@ export function AdminDashboard() {
         {/* Tổng quan hôm nay */}
         <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan hôm nay</Text>
         <View style={styles.summaryGrid}>
-          <SummaryCard 
-            label="Chấm công" 
-            value={dashboardData?.attendanceToday?.scheduled ? `${Math.round((dashboardData.attendanceToday.checkedIn / dashboardData.attendanceToday.scheduled) * 100)}%` : '0%'} 
+          <SummaryCard
+            label="Chấm công"
+            value={dashboardData?.attendanceToday?.scheduled ? `${Math.round((dashboardData.attendanceToday.checkedIn / dashboardData.attendanceToday.scheduled) * 100)}%` : '0%'}
           />
-          <SummaryCard 
-            label="Công việc" 
-            value={dashboardData?.tasks?.totalActive?.toString() || '0'} 
+          <SummaryCard
+            label="Công việc"
+            value={dashboardData?.tasks?.totalActive?.toString() || '0'}
           />
-          <SummaryCard 
-            label="Cuộc họp" 
-            value="0" 
+          <SummaryCard
+            label="Cuộc họp"
+            value="0"
           />
-          <SummaryCard 
-            label="Thông báo" 
-            value={unreadCount.toString()} 
+          <SummaryCard
+            label="Thông báo"
+            value={unreadCount.toString()}
           />
         </View>
 
@@ -373,20 +373,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(59, 130, 246, 0.05)',
   },
-  heroDecoration1: {
-    position: 'absolute', right: -60, bottom: -60, width: 240, height: 240, borderRadius: 120, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.35)', backgroundColor: 'rgba(255, 0, 0, 0.05)',
-  },
-  heroDecoration2: {
-    position: 'absolute', right: -30, bottom: -30, width: 180, height: 180, borderRadius: 90, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.45)', backgroundColor: 'rgba(255, 0, 0, 0.12)',
-  },
-  heroDecoration3: {
-    position: 'absolute', right: -10, bottom: -10, width: 140, height: 140, borderRadius: 70, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.55)', backgroundColor: 'rgba(255, 0, 0, 0.22)',
-  },
-  heroDecoration4: {
-    position: 'absolute', right: 10, bottom: 10, width: 100, height: 100, borderRadius: 50, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.65)', backgroundColor: 'rgba(255, 0, 0, 0.35)',
-  },
-  heroDecoration5: {
-    position: 'absolute', right: 20, bottom: 20, width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: 'rgba(255, 0, 0, 0.75)', backgroundColor: 'rgba(255, 0, 0, 0.55)',
+
+  heroTopographicBg: {
+    position: 'absolute',
+    right: -10,
+    bottom: -10,
+    top: -10,
+    width: '65%',
+    height: '120%',
+    opacity: 0.85,
   },
   heroTitle: {
     color: '#0A2540',
