@@ -115,7 +115,7 @@ export function LoginScreen() {
                 style={styles.logoImage}
                 resizeMode="contain"
               />
-              <Text style={styles.subtitleText}>Sign in to continue to Movielegend</Text>
+              <Text style={styles.subtitleText}>Đăng nhập để tiếp tục vào hệ thống</Text>
             </View>
 
             {/* Login Form */}
@@ -143,6 +143,7 @@ export function LoginScreen() {
                       keyboardType="phone-pad"
                       style={styles.inputText}
                       value={value}
+                      underlineColorAndroid="transparent"
                     />
                   )}
                 />
@@ -172,7 +173,7 @@ export function LoginScreen() {
 
               {/* Password Field */}
               <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-                <Text style={styles.inputLabel}>Password</Text>
+                <Text style={styles.inputLabel}>Mật khẩu</Text>
                 <View style={styles.passwordRow}>
                   <Controller
                     control={control}
@@ -187,6 +188,7 @@ export function LoginScreen() {
                         secureTextEntry={secureText}
                         style={[styles.inputText, { flex: 1 }]}
                         value={value}
+                        underlineColorAndroid="transparent"
                       />
                     )}
                   />
@@ -198,7 +200,7 @@ export function LoginScreen() {
               {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
 
               <Pressable style={styles.forgotPassword} onPress={() => router.push('/forgot-password')}>
-                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
               </Pressable>
 
               <View style={styles.rememberMeRow}>
@@ -232,9 +234,9 @@ export function LoginScreen() {
             </View>
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Text style={styles.footerText}>Chưa có tài khoản? </Text>
               <Pressable onPress={() => router.push('/register')}>
-                <Text style={styles.footerLink}>Sign up</Text>
+                <Text style={styles.footerLink}>Đăng ký ngay</Text>
               </Pressable>
             </View>
 
@@ -271,7 +273,7 @@ const styles = StyleSheet.create({
   innerContent: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
@@ -295,18 +297,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderWidth: 1,
-    borderColor: '#ECEEF3',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 14,
     marginBottom: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
   },
   inputError: {
     borderColor: '#EF4444',
@@ -323,6 +320,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     height: 28,
     padding: 0,
+    backgroundColor: 'transparent',
   },
   passwordRow: {
     flexDirection: 'row',

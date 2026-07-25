@@ -128,6 +128,7 @@ export function ForgotPasswordScreen() {
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}
+                  underlineColorAndroid="transparent"
                 />
               </View>
               <Pressable
@@ -135,7 +136,7 @@ export function ForgotPasswordScreen() {
                 onPress={handleRequestOtp}
                 disabled={isLoading}
               >
-                {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Gửi mã OTP</Text>}
+                {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Gửi mã OTP</Text>}
               </Pressable>
             </View>
           )}
@@ -155,6 +156,7 @@ export function ForgotPasswordScreen() {
                   maxLength={6}
                   value={otp}
                   onChangeText={setOtp}
+                  underlineColorAndroid="transparent"
                 />
               </View>
               <Pressable
@@ -162,7 +164,7 @@ export function ForgotPasswordScreen() {
                 onPress={handleVerifyOtp}
                 disabled={isLoading}
               >
-                {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Xác nhận</Text>}
+                {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Xác nhận</Text>}
               </Pressable>
 
               <Pressable
@@ -189,6 +191,7 @@ export function ForgotPasswordScreen() {
                   secureTextEntry
                   value={newPassword}
                   onChangeText={setNewPassword}
+                  underlineColorAndroid="transparent"
                 />
               </View>
               <View style={styles.inputWrapper}>
@@ -200,6 +203,7 @@ export function ForgotPasswordScreen() {
                   secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
+                  underlineColorAndroid="transparent"
                 />
               </View>
               <Pressable
@@ -207,7 +211,7 @@ export function ForgotPasswordScreen() {
                 onPress={handleResetPassword}
                 disabled={isLoading}
               >
-                {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Đổi mật khẩu</Text>}
+                {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Đổi mật khẩu</Text>}
               </Pressable>
             </View>
           )}
@@ -239,9 +243,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ECEEF3',
+    backgroundColor: 'transparent',
     zIndex: 1,
   },
   backBtn: { padding: 4, marginRight: 16 },
@@ -250,18 +252,13 @@ const styles = StyleSheet.create({
   stepContainer: {},
   description: { fontSize: 14, color: '#4B5563', marginBottom: 24, lineHeight: 22 },
   inputWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderWidth: 1,
-    borderColor: '#ECEEF3',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 12,
     marginBottom: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
   },
   inputLabel: {
     fontSize: 13,
@@ -275,9 +272,10 @@ const styles = StyleSheet.create({
     color: '#111827',
     padding: 0,
     height: 28,
+    backgroundColor: 'transparent',
     ...(Platform.OS === 'web' && { outlineStyle: 'none' } as any),
   },
-  primaryBtn: {
+  submitButton: {
     backgroundColor: '#0F172A',
     borderRadius: 14,
     height: 56,
@@ -290,7 +288,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  primaryBtnText: { color: '#000000', fontSize: 16, fontWeight: '600' },
+  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   disabledBtn: { opacity: 0.6 },
   resendBtn: { marginTop: 24, alignItems: 'center', padding: 8 },
   resendText: { color: '#2563EB', fontSize: 14, fontWeight: '600' },

@@ -129,11 +129,13 @@ export function LeaderDashboard() {
           }}
         >
           {/* Decorative topographic wood grain background asset */}
-          <Image
-            source={require('../../../assets/topographic-contour-leader-v2.png')}
-            style={styles.heroTopographicBg}
-            resizeMode="cover"
-          />
+          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24, overflow: 'hidden' }}>
+            <Image
+              source={require('../../../assets/topographic-contour-leader-v2.png')}
+              style={styles.heroTopographicBg}
+              resizeMode="cover"
+            />
+          </View>
           
           <View style={styles.statusBadge}>
             <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#3B82F6'} />

@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Modal,
   Keyboard,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -161,7 +162,10 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={groups.isRefetching} onRefresh={() => void groups.refetch()} />}
+      >
         <PageHeader
           title="Nhóm Chat"
           subtitle={scope === 'all' ? 'Tất cả nhóm chat trong công ty' : 'Trao đổi nội bộ công ty'}
@@ -403,6 +407,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           data={sortedMessages}
           keyExtractor={(msg: any) => msg.id}
           inverted
+          refreshing={messages.isRefetching}
+          onRefresh={() => void messages.refetch()}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           renderItem={({ item: msg }) => {
             const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;

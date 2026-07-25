@@ -280,8 +280,8 @@ export default function CreateRequestScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
-        <View style={[styles.header, shadows.sm]}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+        <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Pressable onPress={() => router.back()} style={styles.iconBtn}>
               <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     zIndex: 10,
   },
   headerLeft: {

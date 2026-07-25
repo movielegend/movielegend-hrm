@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import {
   Alert,
   FlatList,
@@ -11,6 +11,7 @@ import {
   View,
   Image,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -37,6 +38,7 @@ import {
   useDeletePost,
 } from '../../hooks/useNewsfeed';
 import type { NewsfeedPostDto, PostLikeDto, PostCommentDto } from '../../types/newsfeed.types';
+import { useQueryClient } from '@tanstack/react-query';
 
 // ── Helpers ──
 
@@ -98,9 +100,20 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
   const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as { items?: NewsfeedPostDto[] })?.items ?? [];
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader
           title="Bảng tin công ty"
           subtitle="Tin tức và thông báo nội bộ"
@@ -579,9 +592,20 @@ export function PendingNewsfeedListScreen() {
   const { user } = useAuth();
   const isAdmin = user?.roles?.includes('ADMIN');
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader
           title="Bài đăng chờ duyệt"
           subtitle="Các bài đăng từ nhân viên"

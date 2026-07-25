@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, TextInput, Modal } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, TextInput, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
@@ -10,6 +10,7 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { colors } from '../../theme/colors';
 import { useFeedbacksForManagement, useFeedbackDetail, useUpdateFeedbackStatus, useFeedbackStats } from '../../hooks/useFeedback';
+import { useQueryClient } from '@tanstack/react-query';
 import { FeedbackCard } from './components/FeedbackCard';
 import { FeedbackStatusBadge } from './components/FeedbackStatusBadge';
 import { normalizeApiError } from '../../utils/api-error';
@@ -29,9 +30,21 @@ export function AdminFeedbackListScreen() {
     { label: 'Từ chối', value: 'REJECTED' },
   ];
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader title="Quản lý góp ý" subtitle="Xem và phản hồi ý kiến từ nhân viên" />
         
         {statsQuery.data && (

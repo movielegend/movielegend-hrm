@@ -1,5 +1,5 @@
-﻿import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
@@ -93,7 +93,11 @@ export function AdminAssetConditionScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />}
+      >
         <PageHeader title="Sự cố tài sản" subtitle="Quản lý tình trạng hỏng hóc" />
 
         <View style={styles.tabs}>

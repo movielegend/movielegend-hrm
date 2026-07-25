@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,6 +20,7 @@ import type { FeedbackStatus } from '../../types/feedback.types';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
 import { uploadFile } from '../../api/uploads.api';
+import { useQueryClient } from '@tanstack/react-query';
 
 // --- My Feedback List Screen ---
 export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: string }) {
@@ -35,9 +36,21 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
     { label: 'Từ chối', value: 'REJECTED' },
   ];
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader title="Góp ý" subtitle="Lịch sử các góp ý và phản hồi của bạn" />
 
         <View style={{ marginBottom: 24 }}>

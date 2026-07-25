@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
 import { PageHeader } from '../../components/PageHeader';
@@ -9,6 +9,7 @@ import { Screen } from '../../components/Screen';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { useApproveOvertimeRequest, useCreateOvertimeRequest, useMyOvertimeRequests, usePendingOvertimeRequests, useRejectOvertimeRequest } from '../../hooks/useOvertime';
+import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { OvertimeRequest } from '../../types/overtime.types';
@@ -18,9 +19,19 @@ import { normalizeApiError } from '../../utils/api-error';
 export function OvertimeHomeScreen() {
   const router = useRouter();
   const overtime = useMyOvertimeRequests({ page: 1, limit: 20 });
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader title="Tang ca" subtitle="Lich su cua toi tu /overtime/requests/my." />
         <PrimaryButton onPress={() => router.push('/employee/overtime/create')}>Tao don tang ca</PrimaryButton>
         <SectionCard title="Lich su tang ca">
@@ -94,9 +105,20 @@ export function LeaderOvertimeApprovalsScreen() {
     }
   }
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader title="Duyet tang ca" subtitle="Pending list tu /overtime/requests/pending." />
         <FormField label="Ly do tu choi" value={rejectReason} onChangeText={setRejectReason} />
         {(pending.data?.items ?? []).map((request) => (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +16,7 @@ export default function ShiftSwapsScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
-  const { data: shiftSwaps, isLoading } = useQuery({
+  const { data: shiftSwaps, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['shift-swaps-me'],
     queryFn: () => getMyShiftSwaps(),
   });
@@ -65,7 +65,7 @@ export default function ShiftSwapsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
-        <View style={[styles.header, shadows.sm]}>
+        <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Pressable onPress={() => router.back()} style={styles.iconBtn}>
               <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
@@ -99,7 +99,11 @@ export default function ShiftSwapsScreen() {
           <ActivityIndicator size="large" color="#111827" />
         </View>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.lg }}>
+        <ScrollView 
+          style={{ flex: 1 }} 
+          contentContainerStyle={{ padding: spacing.lg }}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
+        >
           {filteredSwaps.length === 0 ? (
             <Text style={{ textAlign: 'center', color: colors.muted, marginTop: spacing.xl }}>
               Chưa có đơn đổi ca nào

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Image, Pressable, ActivityIndicator } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View, Image, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
@@ -11,6 +11,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useApproveLeaveRequest, useCreateLeaveRequest, useLeaveRequests, useLeaveTypes, useRejectLeaveRequest } from '../../hooks/useLeave';
+import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { LeaveBalance, LeaveRequest } from '../../types/leave.types';
@@ -23,9 +24,21 @@ export function LeaveHomeScreen() {
   const requests = useLeaveRequests();
   const balances = ((dashboard.data?.leave as { leaveBalances?: LeaveBalance[] } | undefined)?.leaveBalances ?? []);
   
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader title="Nghỉ phép" subtitle="Quản lý ngày phép và lịch sử xin nghỉ của bạn" />
         
         <View style={{ marginBottom: 24 }}>
@@ -169,9 +182,22 @@ export function LeaveDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const requests = useLeaveRequests();
   const request = requests.data?.find((item) => item.id === id);
+
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <PageHeader title="Chi tiết đơn nghỉ" subtitle={`Mã đơn: ${id}`} />
         {request ? (
           <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E6EEF3' }}>
@@ -222,9 +248,21 @@ export function AdminLeaveApprovalScreen() {
     ]);
   }
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

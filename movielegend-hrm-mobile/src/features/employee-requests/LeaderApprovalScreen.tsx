@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import ImageView from '../../components/ImageViewer/ImageViewer';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest } from '../../hooks/useEmployeeRequests';
+import { useQueryClient } from '@tanstack/react-query';
 import { ActivityIndicator } from 'react-native';
 
 // Mock types
@@ -86,6 +87,13 @@ export function LeaderApprovalScreen() {
   const avatarUrl = request.user?.profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11';
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
 
   return (
     <KeyboardAvoidingView 
@@ -110,6 +118,7 @@ export function LeaderApprovalScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* 1. Header Card: Thông tin người nộp */}
         <View style={[styles.userCard, shadows.sm]}>

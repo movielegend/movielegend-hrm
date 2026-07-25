@@ -3,8 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, Modal } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { useMemo, useState, type ComponentType } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback } from 'react-native';
+import { useMemo, useState, useCallback, type ComponentType } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback, RefreshControl } from 'react-native';
 
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
@@ -58,10 +58,21 @@ const AttendanceMap = RawAttendanceMap as ComponentType<AttendanceMapProps>;
 
 export function AttendanceHomeScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
 
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
@@ -300,10 +311,21 @@ export function AttendanceCheckOutScreen() {
 export function AttendanceHistoryScreen() {
   const history = useAttendanceHistory({ page: 1, limit: 20 });
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
@@ -613,10 +635,22 @@ export function AdminAttendanceScreen() {
   const records = reportQuery.data?.items || [];
 
   const onTimePercentage = stats?.present ? Math.round(((stats.onTime || 0) / stats.present) * 100) : 0;
+  
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
 
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>

@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
@@ -18,6 +18,7 @@ import { normalizeApiError } from '../../utils/api-error';
 import { getHomeRouteForUser } from '../../utils/role-routing';
 import { findTodayShift } from '../attendance/attendance.logic';
 import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts } from '../../hooks/useShifts';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function EmployeeScheduleScreen() {
   const router = useRouter();
@@ -29,7 +30,10 @@ export function EmployeeScheduleScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={schedule.isRefetching} onRefresh={() => void schedule.refetch()} />}
+      >
         <PageHeader 
           title="Lịch làm việc cá nhân" 
           subtitle={`Hôm nay: ${businessDateToday()}`} 
@@ -170,7 +174,10 @@ export function AdminShiftsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void shifts.refetch()} />}
+      >
         <PageHeader
           title="Quản lý Ca làm việc"
           subtitle="Tất cả ca làm việc trong hệ thống"
@@ -402,7 +409,10 @@ export function LeaderShiftManagementScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void shifts.refetch()} />}
+      >
         <PageHeader title="Phan ca" subtitle="Backend se validate department scope cua Leader/Admin." />
         <SectionCard title="Ca co san">
           {(shifts.data ?? []).map((shift) => <Text key={shift.id} style={styles.text}>{shift.name}: {shift.id}</Text>)}

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert, Image } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert, Image, RefreshControl } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
@@ -18,6 +19,7 @@ const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3
 
 export function EmployeeDashboardScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: schedule } = useMySchedule();
@@ -59,11 +61,19 @@ export function EmployeeDashboardScreen() {
 
   const uncompletedTasksCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <Screen>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -111,11 +121,13 @@ export function EmployeeDashboardScreen() {
           }}
         >
           {/* Decorative topographic wood grain background asset */}
-          <Image
-            source={require('../../../assets/topographic-contour-employee-v2.png')}
-            style={styles.heroTopographicBg}
-            resizeMode="cover"
-          />
+          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24, overflow: 'hidden' }}>
+            <Image
+              source={require('../../../assets/topographic-contour-employee-v2.png')}
+              style={styles.heroTopographicBg}
+              resizeMode="cover"
+            />
+          </View>
           
 
           <View style={styles.statusBadge}>

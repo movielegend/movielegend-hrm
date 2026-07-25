@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { useMyEmployeeRequests, useEmployeeRequestById } from '../../hooks/useEmployeeRequests';
@@ -23,9 +24,20 @@ export function EmployeeRequestsHomeScreen() {
     }
   };
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
           <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
             <Ionicons name="arrow-back" size={24} color="#0B3B61" />

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, Alert, Platform, Modal } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Alert, Platform, Modal, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -57,6 +57,16 @@ export function AssignShiftScreen() {
       prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort()
     );
   };
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      allShiftsQuery.refetch(),
+      employeesQuery.refetch(),
+    ]);
+    setRefreshing(false);
+  }, [allShiftsQuery, employeesQuery]);
 
   // Mappers
   const employeeOptions: SelectOption[] = useMemo(() => {
@@ -175,7 +185,10 @@ export function AssignShiftScreen() {
         subtitle="Chọn nhân viên và ca làm việc tương ứng" 
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Thông tin phân ca</Text>
 

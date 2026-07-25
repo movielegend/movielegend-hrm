@@ -257,7 +257,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: '#fff',
+    paddingBottom: spacing.sm,
+    backgroundColor: 'transparent',
   },
   iconBtn: {
     padding: spacing.xs,

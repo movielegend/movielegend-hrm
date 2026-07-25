@@ -11,6 +11,7 @@ import {
   Linking,
   Image,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ContractScannerModal } from './ContractScannerModal';
@@ -98,7 +99,10 @@ export function ContractTemplatesScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={templates.isRefetching} onRefresh={() => void templates.refetch()} />}
+      >
         <PageHeader
           title="Mẫu hợp đồng"
           subtitle="Danh sách mẫu hợp đồng công ty"
@@ -226,7 +230,10 @@ export function ContractListScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={contracts.isRefetching} onRefresh={() => void contracts.refetch()} />}
+      >
         <PageHeader
           title="Hợp đồng"
           subtitle="Quản lý hợp đồng lao động"
@@ -337,7 +344,10 @@ export function EmployeeContractListScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={contracts.isRefetching} onRefresh={() => void contracts.refetch()} />}
+      >
         <PageHeader
           title="Hợp đồng của tôi"
           subtitle="Danh sách hợp đồng lao động"
@@ -1232,7 +1242,7 @@ export function LeaderContractListScreen() {
   const { user } = useAuth();
   
   const departmentId = user?.department?.id;
-  const { data: contracts } = useContracts(departmentId);
+  const { data: contracts, refetch, isRefetching } = useContracts(departmentId);
   const [activeTab, setActiveTab] = useState<'MY_CONTRACTS' | 'TEAM_CONTRACTS'>('MY_CONTRACTS');
   const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRING'>('ALL');
 
@@ -1298,7 +1308,10 @@ export function LeaderContractListScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
+      >
         {filteredContracts.length === 0 ? (
           <EmptyState title="Không có hợp đồng nào" />
         ) : (

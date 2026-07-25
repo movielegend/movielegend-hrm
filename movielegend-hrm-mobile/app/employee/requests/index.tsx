@@ -53,7 +53,7 @@ export default function RequestsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
-        <View style={[styles.header, shadows.sm]}>
+        <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Pressable onPress={() => router.back()} style={styles.iconBtn}>
               <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />

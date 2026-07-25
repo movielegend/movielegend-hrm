@@ -118,11 +118,13 @@ export function AdminDashboard() {
           onPress={() => router.navigate('/admin/attendance')}
         >
           {/* Decorative topographic wood grain background asset */}
-          <Image
-            source={require('../../../assets/topographic-contour-admin-v2.png')}
-            style={styles.heroTopographicBg}
-            resizeMode="cover"
-          />
+          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: appleTheme.radiusCard, overflow: 'hidden' }}>
+            <Image
+              source={require('../../../assets/topographic-contour-admin-v2.png')}
+              style={styles.heroTopographicBg}
+              resizeMode="cover"
+            />
+          </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
             <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>

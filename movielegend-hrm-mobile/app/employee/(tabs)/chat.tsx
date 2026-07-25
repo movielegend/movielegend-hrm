@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
@@ -26,6 +26,18 @@ export default function ChatListScreen() {
     void load();
   }, []);
 
+  const onRefresh = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchMyChatGroups();
+      setGroups(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderItem = ({ item }: { item: ChatGroup }) => (
     <Pressable style={styles.groupCard} onPress={() => router.push(`/employee/chat/${item.id}?departmentId=${item.departmentId}`)}>
       <View style={styles.avatar}>
@@ -48,6 +60,9 @@ export default function ChatListScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           !loading ? <Text style={styles.emptyText}>Bạn chưa tham gia nhóm chat nào.</Text> : null
+        }
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={onRefresh} />
         }
       />
     </Screen>
