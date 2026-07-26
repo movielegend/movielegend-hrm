@@ -29,7 +29,8 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
     if (visible && fieldsToFill.length > 0) {
       const initial: Record<string, any> = {};
       const profile = contractUser?.profile;
-      
+      const user = contractUser;
+
       fieldsToFill.forEach(field => {
         if (field.type === 'text') {
           const fId = String(field.id || '').toLowerCase();
@@ -38,13 +39,63 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
           const normLabel = fLabel.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
           const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
 
-          if (profile) {
-            if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) initial[field.id] = profile.idCardNumber || '';
-            else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) initial[field.id] = contractUser?.phone || '';
-            else if (isMatch(['dob', 'sinh', 'ngaysinh'])) initial[field.id] = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
-            else if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') initial[field.id] = new Date().toLocaleDateString('vi-VN');
-          } else {
-            if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') initial[field.id] = new Date().toLocaleDateString('vi-VN');
+          // 1. Full Name
+          if (
+            isMatch(['fullname', 'name', 'ten', 'hoten', 'nguoilaodong', 'partyb', 'benb', 'ongba', 'nhanvien', 'employee', 'full_name']) ||
+            normLabel.includes('hoten') || normLabel.includes('ten') || normLabel.includes('nguoiky') || normLabel.includes('benb')
+          ) {
+            initial[field.id] = profile?.fullName || user?.fullName || '';
+          }
+          // 2. Permanent Address
+          else if (
+            isMatch(['permanentaddress', 'thuongtru', 'diachithuongtru', 'noithuongtru', 'hokhau', 'diachihokhau']) ||
+            normLabel.includes('thuongtru') || normLabel.includes('hokhau') ||
+            (isMatch(['diachi', 'address']) && !isMatch(['tamtru', 'choo', 'temporary']))
+          ) {
+            initial[field.id] = profile?.permanentAddress || profile?.temporaryAddress || '';
+          }
+          // 3. Temporary Address
+          else if (
+            isMatch(['temporaryaddress', 'tamtru', 'diachitamtru', 'choo', 'choohientai', 'diachihientai']) ||
+            normLabel.includes('tamtru') || normLabel.includes('choohientai')
+          ) {
+            initial[field.id] = profile?.temporaryAddress || profile?.permanentAddress || '';
+          }
+          // 4. CCCD
+          else if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd', 'socmnd', 'idcard'])) {
+            initial[field.id] = profile?.idCardNumber || '';
+          }
+          // 5. CCCD Issue Date
+          else if (isMatch(['idcardissuedate', 'ngaycap', 'ngaycapcccd', 'issuedate']) || normLabel.includes('ngaycap')) {
+            initial[field.id] = profile?.idCardIssueDate ? new Date(profile.idCardIssueDate).toLocaleDateString('vi-VN') : '';
+          }
+          // 6. CCCD Issue Place
+          else if (isMatch(['idcardissueplace', 'noicap', 'noicapcccd', 'issueplace']) || normLabel.includes('noicap')) {
+            initial[field.id] = profile?.idCardIssuePlace || '';
+          }
+          // 7. Phone
+          else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai', 'mobile']) || normLabel.includes('dienthoai') || normLabel.includes('sdt')) {
+            initial[field.id] = user?.phone || '';
+          }
+          // 8. Email
+          else if (isMatch(['email', 'thudientu']) || normLabel.includes('email')) {
+            initial[field.id] = user?.email || '';
+          }
+          // 9. Date of Birth
+          else if (isMatch(['dob', 'sinh', 'ngaysinh', 'dateofbirth']) || normLabel.includes('ngaysinh')) {
+            initial[field.id] = profile?.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
+          }
+          // 10. Position
+          else if (isMatch(['position', 'chucvu', 'chucdanh']) || normLabel.includes('chucvu') || normLabel.includes('chucdanh')) {
+            initial[field.id] = profile?.position?.name || '';
+          }
+          // 11. Gender
+          else if (isMatch(['gender', 'gioitinh']) || normLabel.includes('gioitinh')) {
+            initial[field.id] = profile?.gender === 'MALE' ? 'Nam' : profile?.gender === 'FEMALE' ? 'Nữ' : '';
+          }
+          // 12. Signing Date
+          else if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') {
+            initial[field.id] = new Date().toLocaleDateString('vi-VN');
           }
         }
       });

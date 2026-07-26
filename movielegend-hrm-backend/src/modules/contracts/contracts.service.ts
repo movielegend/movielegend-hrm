@@ -431,8 +431,19 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
       let customFont: any = null;
       try {
-        const fontBytes = fs.readFileSync(path.join(process.cwd(), 'src', 'assets', 'fonts', 'arial.ttf'));
-        customFont = await pdfDoc.embedFont(fontBytes);
+        const fontCandidates = [
+          path.join(__dirname, '..', '..', 'assets', 'fonts', 'arial.ttf'),
+          path.join(process.cwd(), 'src', 'assets', 'fonts', 'arial.ttf'),
+          path.join(process.cwd(), 'movielegend-hrm-backend', 'src', 'assets', 'fonts', 'arial.ttf'),
+          path.join(process.cwd(), 'dist', 'assets', 'fonts', 'arial.ttf'),
+        ];
+        const fontPath = fontCandidates.find((p) => fs.existsSync(p));
+        if (fontPath) {
+          const fontBytes = fs.readFileSync(fontPath);
+          customFont = await pdfDoc.embedFont(fontBytes);
+        } else {
+          console.warn('Could not find arial.ttf at candidate paths:', fontCandidates);
+        }
       } catch (fontErr) {
         console.error('Could not load custom font, falling back to default:', fontErr);
       }
@@ -448,29 +459,19 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           if (field.type === 'text') {
             let textValue = filledFields[field.id];
 
-            const profile = contract.user?.profile;
-            if (!textValue && profile) {
-              const fId = String(field.id || '').toLowerCase();
-              const fLabel = String(field.label || '').toLowerCase();
-
-              const normId = fId.replace(/[^a-z0-9]/g, '');
-              const normLabel = fLabel.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
-              const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
-
-              if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd'])) textValue = profile.idCardNumber;
-              else if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai'])) textValue = contract.user?.phone;
-              else if (isMatch(['dob', 'sinh', 'ngaysinh'])) textValue = profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
-              else if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') textValue = new Date().toLocaleDateString('vi-VN');
+            if (!textValue) {
+              textValue = this.resolveAutoFilledValue(field, contract, userFullName);
             }
 
-            if (!textValue && field.id === 'fullName') textValue = userFullName; // Fallback
-            if (textValue) {
+            if (textValue !== undefined && textValue !== null && String(textValue).trim() !== '') {
+              const cleanText = String(textValue).replace(/[\r\n]+/g, ' ').trim();
+              const fontSize = field.fontSize || 11;
               if (customFont) {
-                page.drawText(String(textValue), { x: field.x, y: field.y, size: 12, font: customFont });
+                page.drawText(cleanText, { x: field.x, y: field.y, size: fontSize, font: customFont });
               } else {
                 const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
-                const safeText = removeAccents(String(textValue));
-                page.drawText(safeText, { x: field.x, y: field.y, size: 12 });
+                const safeText = removeAccents(cleanText);
+                page.drawText(safeText, { x: field.x, y: field.y, size: fontSize });
               }
             }
           } else if (field.type === 'checkbox') {
@@ -623,5 +624,91 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
   private has(actor: AuthenticatedUser, permission: string) {
     return actor.permissions.includes(permission);
+  }
+
+  private resolveAutoFilledValue(field: any, contract: any, userFullName: string): string | undefined {
+    const profile = contract.user?.profile;
+    const user = contract.user;
+
+    const fId = String(field.id || '').toLowerCase();
+    const fLabel = String(field.label || '').toLowerCase();
+
+    const normId = fId.replace(/[^a-z0-9]/g, '');
+    const normLabel = fLabel.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
+    const isMatch = (keywords: string[]) => keywords.some(k => normId.includes(k) || normLabel.includes(k));
+
+    // 1. Full Name / Họ tên
+    if (
+      isMatch(['fullname', 'name', 'ten', 'hoten', 'nguoilaodong', 'partyb', 'benb', 'ongba', 'nhanvien', 'employee', 'full_name']) ||
+      normLabel.includes('hoten') || normLabel.includes('ten') || normLabel.includes('nguoiky') || normLabel.includes('benb')
+    ) {
+      return profile?.fullName || userFullName || user?.fullName || '';
+    }
+
+    // 2. Permanent Address / Địa chỉ thường trú / Hộ khẩu
+    if (
+      isMatch(['permanentaddress', 'thuongtru', 'diachithuongtru', 'noithuongtru', 'hokhau', 'diachihokhau']) ||
+      normLabel.includes('thuongtru') || normLabel.includes('hokhau') ||
+      (isMatch(['diachi', 'address']) && !isMatch(['tamtru', 'choo', 'temporary']))
+    ) {
+      return profile?.permanentAddress || profile?.temporaryAddress || '';
+    }
+
+    // 3. Temporary Address / Địa chỉ tạm trú / Chỗ ở hiện tại
+    if (
+      isMatch(['temporaryaddress', 'tamtru', 'diachitamtru', 'choo', 'choohientai', 'diachihientai']) ||
+      normLabel.includes('tamtru') || normLabel.includes('choohientai')
+    ) {
+      return profile?.temporaryAddress || profile?.permanentAddress || '';
+    }
+
+    // 4. CCCD / CMND
+    if (isMatch(['cccd', 'cmnd', 'cancuoc', 'chungminh', 'socccd', 'socmnd', 'idcard'])) {
+      return profile?.idCardNumber || '';
+    }
+
+    // 5. CCCD Issue Date / Ngày cấp
+    if (isMatch(['idcardissuedate', 'ngaycap', 'ngaycapcccd', 'issuedate']) || normLabel.includes('ngaycap')) {
+      return profile?.idCardIssueDate ? new Date(profile.idCardIssueDate).toLocaleDateString('vi-VN') : '';
+    }
+
+    // 6. CCCD Issue Place / Nơi cấp
+    if (isMatch(['idcardissueplace', 'noicap', 'noicapcccd', 'issueplace']) || normLabel.includes('noicap')) {
+      return profile?.idCardIssuePlace || '';
+    }
+
+    // 7. Phone / Số điện thoại
+    if (isMatch(['phone', 'sdt', 'dienthoai', 'sodienthoai', 'mobile']) || normLabel.includes('dienthoai') || normLabel.includes('sdt')) {
+      return user?.phone || '';
+    }
+
+    // 8. Email
+    if (isMatch(['email', 'thudientu']) || normLabel.includes('email')) {
+      return user?.email || '';
+    }
+
+    // 9. Date of Birth / Ngày sinh
+    if (isMatch(['dob', 'sinh', 'ngaysinh', 'dateofbirth']) || normLabel.includes('ngaysinh')) {
+      return profile?.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
+    }
+
+    // 10. Position / Chức vụ / Chức danh
+    if (isMatch(['position', 'chucvu', 'chucdanh']) || normLabel.includes('chucvu') || normLabel.includes('chucdanh')) {
+      return profile?.position?.name || contract.positionSnapshot?.name || '';
+    }
+
+    // 11. Gender / Giới tính
+    if (isMatch(['gender', 'gioitinh']) || normLabel.includes('gioitinh')) {
+      return profile?.gender === 'MALE' ? 'Nam' : profile?.gender === 'FEMALE' ? 'Nữ' : '';
+    }
+
+    // 12. Signing Date / Ngày ký / Hôm nay
+    if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') {
+      return new Date().toLocaleDateString('vi-VN');
+    }
+
+    if (field.id === 'fullName') return userFullName;
+
+    return undefined;
   }
 }
