@@ -14,6 +14,8 @@ export function AdminProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  
+  const isHR = user?.roles?.includes('HR');
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -57,7 +59,17 @@ export function AdminProfileScreen() {
             <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
-            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} isLast />
+            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} isLast={!isHR} />
+            {isHR && (
+              <InfoRow 
+                icon="face-recognition" 
+                label="Dữ liệu khuôn mặt" 
+                value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
+                valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
+                onPress={() => router.push('/employee/update-face' as any)}
+                isLast
+              />
+            )}
           </View>
         </View>
 
@@ -65,14 +77,14 @@ export function AdminProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tính năng Nhân sự</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="domain" title="Cơ cấu Tổ chức" onPress={() => router.push('/admin/branches')} />
+            {!isHR && <ActionRow icon="domain" title="Cơ cấu Tổ chức" onPress={() => router.push('/admin/branches')} />}
             <ActionRow icon="clock-check-outline" title="Dữ liệu Chấm công" onPress={() => router.push('/admin/attendance')} />
-            <ActionRow icon="calendar-clock" title="Ca làm việc" onPress={() => router.push('/admin/shifts')} />
+            {!isHR && <ActionRow icon="calendar-clock" title="Ca làm việc" onPress={() => router.push('/admin/shifts')} />}
             <ActionRow icon="clipboard-check-outline" title="Duyệt đơn" onPress={() => router.push('/leader/employee-requests')} />
             <ActionRow icon="account-check-outline" title="Duyệt tài khoản" onPress={() => router.push('/admin/approvals')} />
             <ActionRow icon="swap-horizontal" title="Luân chuyển PB" onPress={() => router.push('/admin/cross-department')} />
-            <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} />
-            <ActionRow icon="message-draw" title="Quản lý Góp ý" onPress={() => router.push('/admin/feedbacks' as any)} isLast />
+            <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} isLast={isHR} />
+            {!isHR && <ActionRow icon="message-draw" title="Quản lý Góp ý" onPress={() => router.push('/admin/feedbacks' as any)} isLast />}
           </View>
         </View>
 
@@ -121,18 +133,24 @@ export function AdminProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, isLast }: any) {
-  return (
+function InfoRow({ icon, label, value, isLast, onPress, valueColor }: any) {
+  const rowContent = (
     <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
       <View style={styles.infoIconBg}>
         <MaterialCommunityIcons name={icon} size={20} color="#111827" />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
+        <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
       </View>
+      {onPress && <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />}
     </View>
   );
+
+  if (onPress) {
+    return <Pressable onPress={onPress}>{rowContent}</Pressable>;
+  }
+  return rowContent;
 }
 
 function ActionRow({ icon, title, onPress, isLast }: any) {

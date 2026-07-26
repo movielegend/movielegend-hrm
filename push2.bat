@@ -1,9 +1,4 @@
 cd d:\MovieLegend\movielegend-hrm-mobile
 git add .
-git commit -m "fix: target user id checking and notification name"
-git push
-
-cd d:\MovieLegend\movielegend-hrm-backend
-git add .
-git commit -m "fix: notification uses requester name"
+git commit -m "feat: add pull-to-refresh to contracts, shifts, and chat screens; make headers transparent in create forms"
 git push

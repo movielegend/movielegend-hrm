@@ -883,6 +883,16 @@ function AssigneeSelectorModal({
   const departmentId = departmentIdFromUser(user);
   const users = useScopedEmployees({ page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) }, hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department']));
 
+  const isHR = user?.roles?.includes('HR');
+
+  const filteredUsers = useMemo(() => {
+    if (!users.data?.items) return [];
+    if (isHR) {
+      return users.data.items.filter(u => u.roles?.some(r => r.role?.code === 'LEADER'));
+    }
+    return users.data.items;
+  }, [users.data?.items, isHR]);
+
   const isSelected = (type: TaskTargetType, id: string) => {
     return targets.some(t => t.targetType === type && t.targetId === id);
   };
@@ -925,7 +935,7 @@ function AssigneeSelectorModal({
           </View>
 
           <ScrollView style={styles.assigneeList}>
-            {activeTab === 'USER' && users.data?.items?.map(u => (
+            {activeTab === 'USER' && filteredUsers.map(u => (
               <Pressable key={u.id} style={styles.assigneeRow} onPress={() => toggleTarget('USER', u.id, u.fullName ?? u.userCode)}>
                 <View style={styles.assigneeInfo}>
                   <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="account" size={20} color={colors.muted} /></View>

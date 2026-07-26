@@ -174,8 +174,8 @@ export class FaceVerificationService implements OnModuleInit {
       // 4. Calculate Distance
       const distance = faceapi.euclideanDistance(sourceDescriptor, targetDescriptor);
       
-      // Usually distance < 0.6 is a match. Use 0.85 for looser matching (as requested).
-      if (distance < 0.85) {
+      // Usually distance < 0.6 is a match. Use 0.75 for looser matching.
+      if (distance < 0.75) {
         return {
           matched: true,
           confidence: 1 - distance,
