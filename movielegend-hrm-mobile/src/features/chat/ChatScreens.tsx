@@ -35,6 +35,7 @@ import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
 import { useSocketStatus } from '../../providers/SocketProvider';
+import { useVoiceCall } from '../voice-call/VoiceCallProvider';
 
 // ── Helpers ──
 
@@ -267,6 +268,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentions, setMentions] = useState<string[]>([]);
   const [isStickerOpen, setIsStickerOpen] = useState(false);
+  const [isCallModalVisible, setIsCallModalVisible] = useState(false);
+  
+  const { initiateCall } = useVoiceCall();
 
   const messageItems = Array.isArray(messages.data)
     ? messages.data
@@ -398,6 +402,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               {messageItems.length} tin nhắn
             </Text>
           </View>
+          <TouchableOpacity onPress={() => setIsCallModalVisible(true)} style={{ padding: 8 }}>
+            <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
+          </TouchableOpacity>
         </View>
 
         {/* Messages */}
@@ -567,6 +574,43 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
          onClose={() => setIsStickerOpen(false)} 
          onSelectSticker={handleSendSticker} 
       />
+
+      {/* Call User Selection Modal */}
+      <Modal visible={isCallModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsCallModalVisible(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Chọn người để gọi</Text>
+              <TouchableOpacity onPress={() => setIsCallModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={employees.data?.items ?? []}
+              keyExtractor={(item: any) => item.id}
+              renderItem={({ item }) => {
+                if (item.id === user?.id) return null; // Don't call yourself
+                return (
+                  <TouchableOpacity 
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                    onPress={() => {
+                      setIsCallModalVisible(false);
+                      initiateCall(item.id, item.profile?.fullName ?? item.userCode);
+                    }}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(item.profile?.fullName ?? item.userCode)}</Text>
+                    </View>
+                    <Text style={{ fontSize: 16, flex: 1 }}>{item.profile?.fullName ?? item.userCode}</Text>
+                    <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -63,42 +63,48 @@ export function usePushNotificationSetup() {
   const router = useRouter();
 
   useEffect(() => {
-    // Setup Android notification channel
-    setupNotificationChannel();
+    try {
+      // Setup Android notification channel
+      setupNotificationChannel();
 
-    if (user) {
-      registerDevice.mutateAsync().catch(console.error);
-    }
-
-    // Lắng nghe sự kiện người dùng bấm vào thông báo
-    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      console.log('--- Người dùng bấm vào thông báo. Data:', data);
-      
-      if (data && data.type) {
-        // Tạo một object giả lập NotificationTargetDto để dùng lại hàm notificationRoute
-        const mockTarget = {
-          notification: {
-            id: data.notificationId,
-            type: data.type,
-            taskId: data.taskId,
-            metadata: data.metadata,
-          }
-        };
-        const route = require('../utils/notification-routing').notificationRoute(mockTarget, user);
-        if (route) {
-          router.push(route as any);
-          return;
-        }
+      if (user) {
+        registerDevice.mutateAsync().catch(console.error);
       }
-      
-      // Fallback
-      router.push('/(tabs)/notifications');
-    });
 
-    return () => {
-      responseListener.remove();
-    };
+      // Lắng nghe sự kiện người dùng bấm vào thông báo
+      const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+        try {
+          const data = response.notification.request.content.data;
+          console.log('--- Người dùng bấm vào thông báo. Data:', data);
+          
+          if (data && data.type) {
+            const mockTarget = {
+              notification: {
+                id: data.notificationId,
+                type: data.type,
+                taskId: data.taskId,
+                metadata: data.metadata,
+              }
+            };
+            const route = require('../utils/notification-routing').notificationRoute(mockTarget, user);
+            if (route) {
+              router.push(route as any);
+              return;
+            }
+          }
+          
+          router.push('/(tabs)/notifications');
+        } catch (e) {
+          console.warn('Error handling notification click:', e);
+        }
+      });
+
+      return () => {
+        responseListener.remove();
+      };
+    } catch (e) {
+      console.warn('Failed notification setup:', e);
+    }
   }, [user?.id]); // Only run when user logs in or changes
 }
 

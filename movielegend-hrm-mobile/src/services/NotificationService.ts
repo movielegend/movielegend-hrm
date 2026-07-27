@@ -2,16 +2,20 @@ import * as Notifications from 'expo-notifications';
 import type { ShiftAssignment } from '../types/shift.types';
 import type { TaskDto } from '../types/task.types';
 
-// Cấu hình cách hiển thị thông báo khi app đang mở
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Cấu hình cách hiển thị thông báo khi app đang mở (Bọc try-catch an toàn cho bản build Sideload)
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (e) {
+  console.warn('Notification handler init skipped:', e);
+}
 
 import { Platform } from 'react-native';
 

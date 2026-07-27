@@ -24,12 +24,14 @@ interface SocketContextValue {
   isConnected: boolean;
   joinWarehouseRoom: (warehouseId: string) => void;
   joinChatRoom: (groupId: string) => void;
+  getSocket: () => Socket | null;
 }
 
 const SocketContext = createContext<SocketContextValue>({ 
   isConnected: false, 
   joinWarehouseRoom: () => undefined,
   joinChatRoom: () => undefined,
+  getSocket: () => null,
 });
 
 export function SocketProvider({ children }: PropsWithChildren) {
@@ -143,6 +145,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
         joinedChatGroupIds.current.add(groupId);
         socketRef.current?.emit('chat:join', { groupId });
       },
+      getSocket: () => socketRef.current,
     }),
     [isConnected],
   );

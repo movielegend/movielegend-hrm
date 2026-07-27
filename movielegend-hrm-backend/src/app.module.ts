@@ -60,6 +60,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { ShiftSwapsModule } from './modules/shift-swaps/shift-swaps.module';
+import { VoiceCallModule } from './modules/voice-call/voice-call.module';
 
 @Module({
   imports: [
@@ -132,6 +133,7 @@ import { ShiftSwapsModule } from './modules/shift-swaps/shift-swaps.module';
     ChatModule,
     AiAssistantModule,
     FeedbackModule,
+    VoiceCallModule,
   ],
 })
 export class AppModule implements NestModule {

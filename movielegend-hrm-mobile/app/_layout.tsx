@@ -110,18 +110,22 @@ function PushNotificationWrapper({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import { VoiceCallProvider } from '../src/features/voice-call/VoiceCallProvider';
+
 export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
         <SocketProvider>
-          <OnboardingProvider>
-            <PushNotificationWrapper>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false }} />
-              <ToastWrapper />
-            </PushNotificationWrapper>
-          </OnboardingProvider>
+          <VoiceCallProvider>
+            <OnboardingProvider>
+              <PushNotificationWrapper>
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false }} />
+                <ToastWrapper />
+              </PushNotificationWrapper>
+            </OnboardingProvider>
+          </VoiceCallProvider>
         </SocketProvider>
       </AuthProvider>
     </QueryProvider>

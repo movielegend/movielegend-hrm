@@ -1,0 +1,11 @@
+movielegend-hrm-backend/
+movielegend-hrm-backend/**
+recent_commits.txt
+**/node_modules/
+**/.expo/
+**/dist/
+**/web-build/
+**/*.apk
+**/*.ipa
+**/*.tar.gz
+**/*.zip
