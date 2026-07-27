@@ -7,8 +7,10 @@ export function stringMeta(metadata: Record<string, unknown> | null | undefined,
   return typeof value === 'string' ? value : null;
 }
 
-export function roleBase(user: AuthUser | null): '/admin' | '/leader' | '/employee' | '/warehouse-manager' {
-  if (user?.roles.includes('ADMIN') || user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT')) return '/admin';
+export function roleBase(user: AuthUser | null): '/admin' | '/hr' | '/leader' | '/employee' | '/warehouse-manager' {
+  if (user?.roles.includes('ADMIN')) return '/admin';
+  if (user?.roles.includes('HR')) return '/hr';
+  if (user?.roles.includes('ACCOUNTANT')) return '/admin';
   if (user?.roles.includes('WAREHOUSE_MANAGER')) return '/warehouse-manager';
   if (user?.roles.includes('LEADER')) return '/leader';
   return '/employee';
@@ -34,6 +36,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
   if (requestId) {
     if (base === '/admin') return `/admin/requests/${requestId}`;
+    if (base === '/hr') return `/hr/requests/${requestId}`;
     if (base === '/leader') return `/leader/employee-requests/${requestId}`;
     if (base === '/employee') return `/employee/requests/${requestId}`;
   }

@@ -28,6 +28,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { resolveFileUrl } from '../../utils/url';
 import { normalizeApiError } from '../../utils/api-error';
+import { roleBase } from '../../utils/notification-routing';
 import { MultiSelectModal } from '../../components/MultiSelectModal';
 import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 import { useEmployees } from '../../hooks/useEmployees';
@@ -90,6 +91,7 @@ function getInitials(name: string): string {
 
 export function ContractTemplatesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const templates = useContractTemplates();
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
@@ -167,7 +169,7 @@ export function ContractTemplatesScreen() {
                     style={({ pressed }) => [{ flex: 1, backgroundColor: '#111827', borderRadius: 8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }, pressed && { backgroundColor: '#1f2937' }]}
                     onPress={() => {
                       router.push({
-                        pathname: '/admin/contracts/create',
+                        pathname: `${roleBase(user)}/contracts/create` as any,
                         params: { templateId: tpl.id },
                       });
                     }}
@@ -181,7 +183,7 @@ export function ContractTemplatesScreen() {
                     onPress={() => {
                       const url = resolveFileUrl(tpl.templateFileUrl) || '';
                       router.push({
-                        pathname: '/admin/contracts/signature-placement',
+                        pathname: `${roleBase(user)}/contracts/signature-placement` as any,
                         params: { 
                           templateId: tpl.id,
                           pdfUrl: url,
@@ -224,6 +226,7 @@ export function ContractTemplatesScreen() {
 
 export function ContractListScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const contracts = useContracts();
   const deleteContract = useDeleteContract();
   const contractItems = Array.isArray(contracts.data) ? contracts.data : [];
@@ -241,7 +244,7 @@ export function ContractListScreen() {
             <View style={styles.headerActions}>
               <Pressable
                 style={styles.headerBtn}
-                onPress={() => router.push('/admin/contracts/templates')}
+                onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
               >
                 <MaterialCommunityIcons name="file-cog-outline" size={18} color="#111827" />
                 <Text style={styles.headerBtnText}>Mẫu HĐ</Text>
@@ -260,7 +263,7 @@ export function ContractListScreen() {
                 <Pressable
                   key={contract.id}
                   style={styles.contractCard}
-                  onPress={() => router.push(`/admin/contracts/${contract.id}`)}
+                  onPress={() => router.push(`${roleBase(user)}/contracts/${contract.id}` as any)}
                 >
                   <View style={styles.contractHeader}>
                     <View style={styles.contractAvatar}>
@@ -672,6 +675,7 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
 
 export function CreateContractScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams();
   const templateId = typeof params.templateId === 'string' ? params.templateId : undefined;
   const { data: templates } = useContractTemplates();
@@ -741,7 +745,7 @@ export function CreateContractScreen() {
       } else {
         Alert.alert('Thành công', 'Đã tạo hợp đồng');
       }
-      router.replace('/admin/contracts');
+      router.replace(`${roleBase(user)}/contracts` as any);
     } catch (error: any) {
       Alert.alert('Lỗi', normalizeApiError(error).message);
     }

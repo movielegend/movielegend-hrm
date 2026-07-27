@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
 import { useAuth } from '../../providers/AuthProvider';
+import { roleBase } from '../../utils/notification-routing';
 
 export function ApprovalMenuScreen() {
   const router = useRouter();
@@ -28,14 +29,14 @@ export function ApprovalMenuScreen() {
             icon="text-box-multiple-outline" 
             iconBg="#FCE7F3" 
             iconColor="#E11D48" 
-            onPress={() => router.push('/leader/employee-requests' as any)} 
+            onPress={() => router.push(`${roleBase(user)}/employee-requests` as any)} 
           />
           <MenuRow 
             title="Duyệt tài khoản" 
             icon="account-check" 
             iconBg="#FEF3C7" 
             iconColor="#D97706" 
-            onPress={() => router.push('/leader/approvals/account' as any)} 
+            onPress={() => router.push(`${roleBase(user)}/approvals/account` as any)} 
           />
           {!isAdmin && (
             <>
@@ -44,14 +45,14 @@ export function ApprovalMenuScreen() {
                 icon="help" 
                 iconBg="#FDF2F8" 
                 iconColor="#DB2777" 
-                onPress={() => router.push('/leader/material-issues' as any)} 
+                onPress={() => router.push(`${roleBase(user)}/material-issues` as any)} 
               />
               <MenuRow 
                 title="Liên phòng ban" 
                 icon="transit-connection-variant" 
                 iconBg="#E0F2FE" 
                 iconColor="#2563EB" 
-                onPress={() => router.push('/leader/cross-department' as any)} 
+                onPress={() => router.push(`${roleBase(user)}/cross-department` as any)} 
               />
             </>
           )}

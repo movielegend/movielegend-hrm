@@ -63,8 +63,11 @@ export function LeaderTasksScreen() {
   );
 }
 
+import { roleBase } from '../../utils/notification-routing';
+
 function AssigneeView() {
   const router = useRouter();
+  const { user } = useAuth();
   const { data: myTasks, isLoading, refetch } = useMyTasks();
   const tasks = myTasks?.items || [];
 
@@ -78,7 +81,7 @@ function AssigneeView() {
           <TaskCard 
             key={task.id} 
             task={task as any} 
-            onPress={() => router.push(`/leader/tasks/${task.id}`)} 
+            onPress={() => router.push(`${roleBase(user)}/tasks/${task.id}` as any)} 
           />
         ))
       ) : (
@@ -102,7 +105,7 @@ function AssignerView() {
       <View style={styles.actionRow}>
         <Pressable 
           style={styles.createBtn}
-          onPress={() => router.push('/leader/tasks/create')}
+          onPress={() => router.push(`${roleBase(user)}/tasks/create` as any)}
         >
           <MaterialCommunityIcons name="plus" size={20} color="#fff" />
           <Text style={styles.createBtnText}>Giao việc mới</Text>
@@ -114,7 +117,7 @@ function AssignerView() {
           <TaskCard 
             key={task.id} 
             task={task as any} 
-            onPress={() => router.push(`/leader/tasks/${task.id}`)} 
+            onPress={() => router.push(`${roleBase(user)}/tasks/${task.id}` as any)} 
           />
         ))
       ) : (

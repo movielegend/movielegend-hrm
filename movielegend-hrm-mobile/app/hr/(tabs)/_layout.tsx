@@ -51,7 +51,7 @@ export default function HRTabsLayout() {
       <Tabs.Screen
         name="tasks"
         options={{
-          title: 'Duyệt đơn',
+          title: 'Công việc',
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="clipboard-check-outline" size={26} color={color} />
           ),

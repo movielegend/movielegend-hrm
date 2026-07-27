@@ -27,6 +27,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
+import { roleBase } from '../../utils/notification-routing';
 import {
   useNewsfeedPosts,
   usePendingNewsfeedPosts,
@@ -119,12 +120,11 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           subtitle="Tin tức và thông báo nội bộ"
           right={
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              {(user?.roles?.includes('ADMIN') || user?.roles?.includes('LEADER')) && (
+              {(user?.roles?.includes('ADMIN') || user?.roles?.includes('LEADER') || user?.roles?.includes('HR')) && (
                 <Pressable
                   style={[styles.addBtn, { backgroundColor: colors.warning }]}
                   onPress={() => {
-                    const isAdmin = user?.roles?.includes('ADMIN');
-                    router.push(isAdmin ? '/admin/newsfeed/pending' : '/leader/newsfeed/pending' as any);
+                    router.push(`${roleBase(user)}/newsfeed/pending` as any);
                   }}
                 >
                   <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
@@ -134,10 +134,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
               <Pressable
                 style={styles.addBtn}
                 onPress={() => {
-                  const isAdmin = user?.roles?.includes('ADMIN');
-                  const isLeader = user?.roles?.includes('LEADER');
-                  const basePath = isAdmin ? '/admin/newsfeed' : isLeader ? '/leader/newsfeed' : '/employee/newsfeed';
-                  router.push(`${basePath}/create` as never);
+                  router.push(`${roleBase(user)}/newsfeed/create` as any);
                 }}
               >
                 <MaterialCommunityIcons name="plus" size={20} color="#fff" />
@@ -622,8 +619,7 @@ export function PendingNewsfeedListScreen() {
                   key={post.id}
                   style={styles.postCard}
                   onPress={() => {
-                    const basePath = isAdmin ? '/admin/newsfeed/pending' : '/leader/newsfeed/pending';
-                    router.push(`${basePath}/${post.id}` as never);
+                    router.push(`${roleBase(user)}/newsfeed/pending/${post.id}` as any);
                   }}
                 >
                   <View style={styles.authorRow}>

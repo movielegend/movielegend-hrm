@@ -104,7 +104,7 @@ export function HRDashboard() {
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/admin/notifications')}>
+            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/(tabs)/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
               {unreadCount > 0 && (
                 <View style={styles.notificationBadge}>
@@ -185,6 +185,7 @@ export function HRDashboard() {
             icon="history"
             onPress={() => router.navigate('/hr/attendance/history' as any)}
           />
+
           <GridCard
             title="QL Chấm công"
             icon="calendar-account-outline"
@@ -196,9 +197,9 @@ export function HRDashboard() {
             onPress={() => router.navigate('/hr/requests' as any)}
           />
           <GridCard
-            title="Giao việc"
-            icon="calendar-check-outline"
-            onPress={() => router.navigate('/hr/delegated-tasks' as any)}
+            title="Công việc"
+            icon="clipboard-text-outline"
+            onPress={() => router.navigate('/hr/(tabs)/tasks' as any)}
           />
           <GridCard
             title="Hợp đồng"
@@ -220,6 +221,11 @@ export function HRDashboard() {
             icon="newspaper-variant-outline"
             onPress={() => router.navigate('/hr/(tabs)/newsfeed' as any)}
           />
+          <GridCard
+            title="Nhóm chat"
+            icon="chat-processing-outline"
+            onPress={() => router.navigate('/hr/chat' as any)}
+          />
         </ScrollView>
 
         {/* Tổng quan HR */}
@@ -229,6 +235,7 @@ export function HRDashboard() {
             label="Chấm công"
             value={currentAttendance?.state === 'CHECKED_IN' ? 'Đang làm' : 'Chưa ca'}
           />
+
           <SummaryCard
             label="Việc tôi làm"
             value={(myTasks?.items?.length || 0).toString()}

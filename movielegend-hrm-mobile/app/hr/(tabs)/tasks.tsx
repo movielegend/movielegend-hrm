@@ -1,5 +1,5 @@
-import { ApprovalMenuScreen } from '../../../src/features/approvals/ApprovalMenuScreen';
+import { LeaderTasksScreen } from '../../../src/features/tasks/LeaderTasksScreen';
 
 export default function HRTasksTab() {
-  return <ApprovalMenuScreen />;
+  return <LeaderTasksScreen />;
 }

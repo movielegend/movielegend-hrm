@@ -532,7 +532,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   
-  const [departmentContextId, setDepartmentContextId] = useState(user?.department?.id ?? '');
+  const [departmentContextId, setDepartmentContextId] = useState(departmentIdFromUser(user) ?? '');
   const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
   const [targetModalVisible, setTargetModalVisible] = useState(false);
@@ -542,7 +542,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [leaderId, setLeaderId] = useState<string>('');
   const [memberModalVisible, setMemberModalVisible] = useState(false);
   
-  const departmentId = departmentContextId || user?.department?.id;
+  const departmentId = departmentContextId || departmentIdFromUser(user);
   const usersQuery = useScopedEmployees(
     { page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) },
     hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department'])
@@ -980,6 +980,7 @@ function AssigneeSelectorModal({
 }
 
 function departmentIdFromUser(user: ReturnType<typeof useAuth>['user']): string | undefined {
+  if (user?.roles?.includes('ADMIN') || user?.roles?.includes('HR')) return undefined;
   return user?.department?.id;
 }
 

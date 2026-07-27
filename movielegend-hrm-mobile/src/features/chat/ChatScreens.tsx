@@ -195,9 +195,10 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                   key={group.id}
                   style={styles.groupCard}
                   onPress={() => {
-                    const isAdmin = user?.roles?.includes('ADMIN');
-                    const isLeader = user?.roles?.includes('LEADER');
-                    const basePath = isAdmin ? '/admin/chat' : isLeader ? '/leader/chat' : '/employee/chat';
+                    const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' : 
+                                     user?.roles?.includes('HR') ? '/hr/chat' :
+                                     user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
+                    
                     
                     if (unreadCount > 0) {
                       markAsRead.mutateAsync(group.id).catch(console.error);

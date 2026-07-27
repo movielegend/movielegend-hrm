@@ -615,7 +615,7 @@ export function AttendanceAdjustmentScreen() {
 export function AdminAttendanceScreen() {
   const router = useRouter();
   const segments = useSegments();
-  const basePath = segments[0] === 'leader' ? '/leader' : '/admin';
+  const basePath = segments[0] === 'leader' ? '/leader' : segments[0] === 'hr' ? '/hr' : '/admin';
   const isLeader = segments[0] === 'leader';
   const [currentDate, setCurrentDate] = useState<string>(formatDateYYYYMMDD()); // YYYY-MM-DD
   const [showPicker, setShowPicker] = useState(false);

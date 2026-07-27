@@ -14,7 +14,7 @@ export class NewsfeedService {
 
   async createPost(user: AuthenticatedUser, dto: CreateNewsfeedPostDto) {
     let status: 'PENDING' | 'APPROVED' = 'PENDING';
-    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN');
+    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN') || user.roles.includes('HR');
     let isLeader = false;
     let departmentLeaderId: string | null = null;
     let actualDepartmentId = dto.departmentId;
@@ -120,7 +120,7 @@ export class NewsfeedService {
   }
 
   async getPendingPosts(user: AuthenticatedUser, departmentId?: string) {
-    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN');
+    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN') || user.roles.includes('HR');
     
     // If not admin, they can only see pending posts for departments they lead
     const leaderDepartments = await this.prisma.department.findMany({

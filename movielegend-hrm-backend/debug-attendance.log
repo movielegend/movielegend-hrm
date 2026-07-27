@@ -126,3 +126,15 @@
 [2026-07-26T09:35:37.177Z] assertIpAllowed - rawIp: 127.0.0.1, roles: EMPLOYEE
 [2026-07-26T09:35:37.177Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
 [2026-07-26T09:35:37.179Z] assertWifiAllowed - active configs: 0, passed ssid: undefined
+[2026-07-27T03:37:45.161Z] assertIpAllowed - rawIp: 127.0.0.1, roles: EMPLOYEE,LEADER
+[2026-07-27T03:37:45.161Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
+[2026-07-27T03:37:45.163Z] assertWifiAllowed - active configs: 0, passed ssid: undefined
+[2026-07-27T04:14:51.772Z] assertIpAllowed - rawIp: 127.0.0.1, roles: EMPLOYEE,LEADER,HR
+[2026-07-27T04:14:51.772Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
+[2026-07-27T04:14:51.774Z] assertWifiAllowed - active configs: 0, passed ssid: undefined
+[2026-07-27T04:16:00.506Z] assertIpAllowed - rawIp: 127.0.0.1, roles: EMPLOYEE,LEADER,HR
+[2026-07-27T04:16:00.506Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
+[2026-07-27T04:16:00.507Z] assertWifiAllowed - active configs: 0, passed ssid: undefined
+[2026-07-27T04:17:13.592Z] assertIpAllowed - rawIp: 127.0.0.1, roles: EMPLOYEE,LEADER,HR
+[2026-07-27T04:17:13.593Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
+[2026-07-27T04:17:13.595Z] assertWifiAllowed - active configs: 0, passed ssid: undefined

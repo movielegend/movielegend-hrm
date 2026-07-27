@@ -76,9 +76,9 @@ export function HRProfileScreen() {
               onPress={() => router.push('/hr/requests' as any)} 
             />
             <ActionRow 
-              icon="calendar-check-outline" 
-              title="Giao việc cho Leader" 
-              onPress={() => router.push('/hr/delegated-tasks' as any)} 
+              icon="clipboard-text-outline" 
+              title="Quản lý công việc" 
+              onPress={() => router.push('/hr/(tabs)/tasks' as any)} 
             />
             <ActionRow 
               icon="text-box-check-outline" 
@@ -89,6 +89,11 @@ export function HRProfileScreen() {
               icon="laptop" 
               title="Vật tư & Cấp phát thiết bị" 
               onPress={() => router.push('/hr/assets' as any)} 
+            />
+            <ActionRow 
+              icon="chat-processing-outline" 
+              title="Tin nhắn & Nhóm chat" 
+              onPress={() => router.push('/hr/chat' as any)} 
             />
             <ActionRow 
               icon="message-draw" 
