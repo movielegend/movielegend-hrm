@@ -38,7 +38,7 @@ import { useMySchedule } from '../../hooks/useShifts';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { AttendanceDetail, AttendanceRecord } from '../../types/attendance.types';
-import { businessDateToday, formatDate, formatDateTime, formatDurationMinutes, formatShiftRange, minutesBetween } from '../../utils/date-time';
+import { businessDateToday, formatDate, formatDateTime, formatDurationMinutes, formatShiftRange, minutesBetween, formatDateYYYYMMDD, parseDateYYYYMMDD } from '../../utils/date-time';
 import { normalizeApiError } from '../../utils/api-error';
 import { AttendanceMap as RawAttendanceMap } from '../location/AttendanceMap';
 import { LocationStatusCard } from '../location/LocationStatusCard';
@@ -617,14 +617,16 @@ export function AdminAttendanceScreen() {
   const segments = useSegments();
   const basePath = segments[0] === 'leader' ? '/leader' : '/admin';
   const isLeader = segments[0] === 'leader';
-  const [currentDate, setCurrentDate] = useState<string>(new Date().toISOString().split('T')[0] || ''); // YYYY-MM-DD
+  const [currentDate, setCurrentDate] = useState<string>(formatDateYYYYMMDD()); // YYYY-MM-DD
   const [showPicker, setShowPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
+  const dateObj = parseDateYYYYMMDD(currentDate);
+
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowPicker(false);
     if (selectedDate) {
-      setCurrentDate(selectedDate.toISOString().split('T')[0] || '');
+      setCurrentDate(formatDateYYYYMMDD(selectedDate));
     }
   };
   
@@ -644,8 +646,15 @@ export function AdminAttendanceScreen() {
     setRefreshing(false);
   }, [queryClient]);
 
+  const formattedDateTitle = dateObj.toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
       <ScrollView 
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
@@ -653,35 +662,59 @@ export function AdminAttendanceScreen() {
       >
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingTop: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
+            <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}>
               <Ionicons name="chevron-back" size={24} color="#111827" />
             </Pressable>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>{isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}</Text>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#111827' }}>{isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}</Text>
           </View>
         </View>
 
-        {/* Date Selector */}
+        {/* Date Selector (Card đẹp mắt hơn) */}
         <Pressable 
           onPress={() => setShowPicker(true)}
-          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#E6EEF3' }}
+          style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            backgroundColor: '#FFFFFF', 
+            padding: 16, 
+            borderRadius: 20, 
+            marginBottom: 20, 
+            borderWidth: 1, 
+            borderColor: '#F3F4F6',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.04,
+            shadowRadius: 10,
+            elevation: 2,
+          }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="calendar-outline" size={20} color="#111827" />
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{new Date(currentDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name="calendar" size={22} color="#111827" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', marginBottom: 2 }}>Ngày đang xem</Text>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }} numberOfLines={1}>
+                {formattedDateTitle.charAt(0).toUpperCase() + formattedDateTitle.slice(1)}
+              </Text>
+            </View>
           </View>
-          <Ionicons name="chevron-down" size={20} color="#111827" />
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F9FAFB', justifyContent: 'center', alignItems: 'center', marginLeft: 8 }}>
+            <Ionicons name="chevron-down" size={18} color="#4B5563" />
+          </View>
         </Pressable>
 
         {showPicker && (
           <CustomDatePickerModal
             visible={showPicker}
-            initialDate={new Date(currentDate)}
+            initialDate={dateObj}
             onClose={() => setShowPicker(false)}
             onSelect={(date) => {
               setShowPicker(false);
-              setCurrentDate(date.toISOString().split('T')[0]);
+              setCurrentDate(formatDateYYYYMMDD(date));
             }}
           />
         )}

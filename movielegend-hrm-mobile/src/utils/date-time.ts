@@ -103,3 +103,23 @@ export function timeAgo(value: DateInput): string {
   
   return 'Vừa xong';
 }
+
+export function formatDateYYYYMMDD(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function parseDateYYYYMMDD(str?: string | null): Date {
+  if (!str) return new Date();
+  const cleanStr = str.split('T')[0];
+  const parts = cleanStr.split('-');
+  if (parts.length === 3) {
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    return new Date(year, month, day);
+  }
+  return new Date(str);
+}

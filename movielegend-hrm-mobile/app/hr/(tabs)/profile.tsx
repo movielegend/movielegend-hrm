@@ -1,5 +1,5 @@
-import { AdminProfileScreen } from '../../../src/features/employees/AdminProfileScreen';
+import { HRProfileScreen } from '../../../src/features/profile/HRProfileScreen';
 
 export default function HRProfileRoute() {
-  return <AdminProfileScreen />;
+  return <HRProfileScreen />;
 }

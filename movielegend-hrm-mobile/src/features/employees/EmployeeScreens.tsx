@@ -72,7 +72,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const deleteEmployee = useDeleteEmployee();
   const assignLeader = useAssignLeader();
   const revokeLeader = useRevokeLeader();
-  const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'appoint' | 'revoke' | 'error_inactive', employeeId?: string, employeeName?: string, leaderRoleId?: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'appoint' | 'revoke' | 'error_inactive', employeeId?: string, employeeName?: string, leaderRoleId?: string, isHrDept?: boolean } | null>(null);
 
   if (scope === 'admin') {
     return (
@@ -167,7 +167,13 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                                     setConfirmAction({ type: 'error_inactive' });
                                     return;
                                   }
-                                  setConfirmAction({ type: 'appoint', employeeId: employee.id, employeeName: employee.profile?.fullName || 'N/A' });
+                                  const isHrDept = employee.department?.code === 'HCNS' || employee.department?.code === 'HR' || employee.department?.name?.toLowerCase().includes('nhân sự');
+                                  setConfirmAction({ 
+                                    type: 'appoint', 
+                                    employeeId: employee.id, 
+                                    employeeName: employee.profile?.fullName || 'N/A',
+                                    isHrDept,
+                                  });
                                 }}
                               >
                                 <MaterialCommunityIcons name="account-star-outline" size={18} color="#111827" />
@@ -187,12 +193,16 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             visible={!!confirmAction}
             title={
               confirmAction?.type === 'delete' ? 'Xác nhận xóa nhân viên' :
-                confirmAction?.type === 'appoint' ? 'Xác nhận bổ nhiệm' :
+                confirmAction?.type === 'appoint' ? (confirmAction?.isHrDept ? 'Bổ nhiệm Trưởng phòng HR' : 'Xác nhận bổ nhiệm') :
                   confirmAction?.type === 'error_inactive' ? 'Không thể bổ nhiệm' : 'Xác nhận thu hồi'
             }
             message={
               confirmAction?.type === 'delete' ? `Bạn có chắc chắn muốn xóa nhân viên ${confirmAction?.employeeName}? Mọi dữ liệu liên quan sẽ bị vô hiệu hóa.` :
-                confirmAction?.type === 'appoint' ? `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?` :
+                confirmAction?.type === 'appoint' ? (
+                  confirmAction?.isHrDept 
+                    ? `Bạn có chắc chắn muốn bổ nhiệm ${confirmAction?.employeeName} làm Trưởng phòng Nhân sự? Tài khoản này sẽ tự động được cấp quyền Quản trị HR toàn công ty.`
+                    : `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?`
+                ) :
                   confirmAction?.type === 'error_inactive' ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.' :
                     `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
             }

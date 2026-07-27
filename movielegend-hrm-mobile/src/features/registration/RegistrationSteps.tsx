@@ -101,12 +101,12 @@ export function RegistrationProfileScreen() {
   });
   return (
     <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
         {/* Background ML Logo Watermark */}
         <View style={{ position: 'absolute', top: 205, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', zIndex: 0 }} pointerEvents="none">
           <Image
             source={require('../../../assets/ml-logo-only.png')}
-            style={{ width: 380, height: 240, opacity: 0.15 }}
+            style={{ width: 380, height: 240, opacity: 0.18 }}
             resizeMode="contain"
           />
         </View>
@@ -200,13 +200,19 @@ export function RegistrationPersonalScreen() {
                       </Pressable>
                     </View>
                     <DateTimePicker
-                      value={dob ? new Date(dob) : new Date(2000, 0, 1)}
+                      value={dob ? (() => {
+                        const [y, m, d] = dob.split('-').map(Number);
+                        return (y && m && d) ? new Date(y, m - 1, d) : new Date(2000, 0, 1);
+                      })() : new Date(2000, 0, 1)}
                       mode="date"
                       display="spinner"
                       maximumDate={new Date()}
                       onChange={(event, selectedDate) => {
                         if (selectedDate) {
-                          setValue('dateOfBirth', selectedDate.toISOString().split('T')[0]);
+                          const y = selectedDate.getFullYear();
+                          const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                          const d = String(selectedDate.getDate()).padStart(2, '0');
+                          setValue('dateOfBirth', `${y}-${m}-${d}`);
                         }
                       }}
                       style={{ height: 200, marginTop: 10 }}
@@ -218,14 +224,20 @@ export function RegistrationPersonalScreen() {
 
             {showDatePicker && Platform.OS === 'android' && (
               <DateTimePicker
-                value={dob ? new Date(dob) : new Date(2000, 0, 1)}
+                value={dob ? (() => {
+                  const [y, m, d] = dob.split('-').map(Number);
+                  return (y && m && d) ? new Date(y, m - 1, d) : new Date(2000, 0, 1);
+                })() : new Date(2000, 0, 1)}
                 mode="date"
                 display="default"
                 maximumDate={new Date()}
                 onChange={(event, selectedDate) => {
                   setShowDatePicker(false);
                   if (event.type === 'set' && selectedDate) {
-                    setValue('dateOfBirth', selectedDate.toISOString().split('T')[0]);
+                    const y = selectedDate.getFullYear();
+                    const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const d = String(selectedDate.getDate()).padStart(2, '0');
+                    setValue('dateOfBirth', `${y}-${m}-${d}`);
                   }
                 }}
               />

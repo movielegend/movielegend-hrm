@@ -32,9 +32,11 @@ export class ShiftAssignmentsService {
       }
       
       if (actor.roles.includes('ADMIN')) {
-        const isLeader = user.roles.some((r: any) => r.role?.code === 'LEADER' || r.role?.code === 'admin');
-        if (!isLeader) {
-          throw badRequest('FORBIDDEN', 'Admin chỉ có thể phân ca cho Leader');
+        const isAllowedUser = user.roles.some(
+          (r: any) => r.role?.code === 'LEADER' || r.role?.code === 'HR' || r.role?.code === 'ADMIN' || r.role?.code === 'admin'
+        );
+        if (!isAllowedUser) {
+          throw badRequest('FORBIDDEN', 'Admin chỉ có thể phân ca cho Leader và HR');
         }
       }
 

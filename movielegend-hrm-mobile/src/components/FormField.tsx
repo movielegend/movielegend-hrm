@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   inputWrapper: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     borderWidth: 1,
     borderColor: '#ECEEF3',
     borderRadius: 12,

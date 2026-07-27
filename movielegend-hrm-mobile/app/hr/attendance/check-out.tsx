@@ -1,5 +1,5 @@
 import { CheckOutScreen } from '../../../src/features/attendance/CheckOutScreen';
 
-export default function EmployeeCheckOutRoute() {
+export default function HRCheckOutRoute() {
   return <CheckOutScreen />;
 }

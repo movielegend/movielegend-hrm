@@ -126,9 +126,9 @@ export function HRDashboard() {
           onPress={async () => {
             try {
               if (currentAttendance?.state === 'CHECKED_IN') {
-                router.push('/employee/attendance/check-out');
+                router.push('/hr/attendance/check-out');
               } else {
-                router.push('/employee/attendance/check-in');
+                router.push('/hr/attendance/check-in');
               }
             } catch (error) {
               Toast.show({
@@ -176,29 +176,44 @@ export function HRDashboard() {
           style={{ marginHorizontal: -16 }}
         >
           <GridCard
+            title="Điểm danh"
+            icon="clock-check-outline"
+            onPress={() => router.navigate(currentAttendance?.state === 'CHECKED_IN' ? '/hr/attendance/check-out' : '/hr/attendance/check-in' as any)}
+          />
+          <GridCard
             title="Lịch sử cá nhân"
             icon="history"
-            onPress={() => router.navigate('/employee/attendance/history' as any)}
+            onPress={() => router.navigate('/hr/attendance/history' as any)}
+          />
+          <GridCard
+            title="QL Chấm công"
+            icon="calendar-account-outline"
+            onPress={() => router.navigate('/hr/attendance-management' as any)}
+          />
+          <GridCard
+            title="Duyệt đơn"
+            icon="file-document-check-outline"
+            onPress={() => router.navigate('/hr/requests' as any)}
           />
           <GridCard
             title="Giao việc"
             icon="calendar-check-outline"
-            onPress={() => router.navigate('/leader/tasks' as any)}
-          />
-          <GridCard
-            title="Vật tư"
-            icon="laptop"
-            onPress={() => router.navigate('/employee/assets' as any)}
-          />
-          <GridCard
-            title="Góp ý"
-            icon="message-draw"
-            onPress={() => router.navigate('/employee/feedbacks' as any)}
+            onPress={() => router.navigate('/hr/delegated-tasks' as any)}
           />
           <GridCard
             title="Hợp đồng"
             icon="text-box-check-outline"
             onPress={() => router.navigate('/hr/contracts' as any)}
+          />
+          <GridCard
+            title="Vật tư"
+            icon="laptop"
+            onPress={() => router.navigate('/hr/assets' as any)}
+          />
+          <GridCard
+            title="Góp ý"
+            icon="message-draw"
+            onPress={() => router.navigate('/hr/feedbacks' as any)}
           />
           <GridCard
             title="Bảng tin"
@@ -207,20 +222,20 @@ export function HRDashboard() {
           />
         </ScrollView>
 
-        {/* Tổng quan hôm nay */}
-        <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan hôm nay</Text>
+        {/* Tổng quan HR */}
+        <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan công việc HR</Text>
         <View style={styles.summaryGrid}>
           <SummaryCard
             label="Chấm công"
-            value={dashboardData?.attendanceToday?.scheduled ? `${Math.round((dashboardData.attendanceToday.checkedIn / dashboardData.attendanceToday.scheduled) * 100)}%` : '0%'}
+            value={currentAttendance?.state === 'CHECKED_IN' ? 'Đang làm' : 'Chưa ca'}
           />
           <SummaryCard
-            label="Công việc"
-            value={dashboardData?.tasks?.totalActive?.toString() || '0'}
+            label="Việc tôi làm"
+            value={(myTasks?.items?.length || 0).toString()}
           />
           <SummaryCard
-            label="Cuộc họp"
-            value="0"
+            label="Việc tôi giao"
+            value={(delegatedTasks?.items?.length || 0).toString()}
           />
           <SummaryCard
             label="Thông báo"
@@ -264,7 +279,7 @@ export function HRDashboard() {
                     priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
                     priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
                     dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
-                    onPress={() => router.push(`/employee/tasks/${task.id}` as any)}
+                    onPress={() => router.push(`/hr/my-tasks/${task.id}` as any)}
                     isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
                   />
                 ))
@@ -291,7 +306,7 @@ export function HRDashboard() {
                     priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
                     priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
                     dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
-                    onPress={() => router.push(`/leader/tasks/${task.id}` as any)}
+                    onPress={() => router.push(`/hr/delegated-tasks/${task.id}` as any)}
                     isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
                   />
                 ))

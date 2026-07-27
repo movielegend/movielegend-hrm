@@ -153,16 +153,23 @@ export class AdminService {
 
   assignLeader(dto: LeaderAssignmentDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
-      const [user, department, leaderRole] = await Promise.all([
+      const [user, department, leaderRole, hrRole] = await Promise.all([
         tx.user.findUnique({ where: { id: dto.userId } }),
         tx.department.findFirst({ where: { id: dto.departmentId, deletedAt: null, isActive: true } }),
         tx.role.findUnique({ where: { code: 'LEADER' } }),
+        tx.role.findUnique({ where: { code: 'HR' } }),
       ]);
       if (!user || user.accountStatus !== AccountStatus.ACTIVE || !user.isActive) {
         throw badRequest('USER_NOT_ACTIVE', 'User chưa active');
       }
       if (!department) throw notFound('DEPARTMENT_NOT_FOUND', 'Không tìm thấy phòng ban');
       if (!leaderRole) throw notFound('ROLE_NOT_FOUND', 'Không tìm thấy role LEADER');
+
+      const isHrDept = 
+        department.code?.toUpperCase() === 'HCNS' || 
+        department.code?.toUpperCase() === 'HR' || 
+        department.name?.toLowerCase().includes('nhân sự') || 
+        department.name?.toLowerCase().includes('human resources');
 
       const assignment = await tx.userRole.upsert({
         where: {
@@ -181,8 +188,21 @@ export class AdminService {
         },
         update: {},
       });
+
+      // Tự động gán quyền HR cấp hệ thống nếu là Phòng Nhân sự
+      if (isHrDept && hrRole) {
+        const existingHrRole = await tx.userRole.findFirst({
+          where: { userId: dto.userId, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
+        });
+        if (!existingHrRole) {
+          await tx.userRole.create({
+            data: { userId: dto.userId, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
+          });
+        }
+      }
+
       if (dto.primary ?? true) {
-        // If there was an old leader and it's different from the new one, revoke their leader role for this department
+        // Nếu có Trưởng phòng cũ khác với người mới, gỡ vai trò Leader & HR của Trưởng phòng cũ
         if (department.leaderUserId && department.leaderUserId !== dto.userId) {
           await tx.userRole.deleteMany({
             where: {
@@ -192,6 +212,16 @@ export class AdminService {
               scopeId: dto.departmentId,
             }
           });
+
+          if (isHrDept && hrRole) {
+            await tx.userRole.deleteMany({
+              where: {
+                userId: department.leaderUserId,
+                roleId: hrRole.id,
+                scopeType: RoleScopeType.GLOBAL,
+              },
+            });
+          }
         }
 
         await tx.department.update({
@@ -199,20 +229,25 @@ export class AdminService {
           data: { leaderUserId: dto.userId },
         });
       }
+
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
           action: 'admin.leader.assign',
           entityType: 'UserRole',
           entityId: assignment.id,
-          metadata: { departmentId: dto.departmentId },
+          metadata: { departmentId: dto.departmentId, isHrDept },
         },
       });
+
+      const bodyMsg = isHrDept
+        ? `Bạn vừa được bổ nhiệm làm Trưởng phòng Nhân sự và tự động cấp quyền Quản trị HR toàn công ty.`
+        : `Bạn vừa được bổ nhiệm làm quản lý chi nhánh/phòng ban ${department.name || ''}.`;
 
       const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
         type: 'SYSTEM' as NotificationType,
         title: 'Bổ nhiệm quản lý',
-        body: `Bạn vừa được bổ nhiệm làm quản lý chi nhánh/phòng ban ${department.name || ''}.`,
+        body: bodyMsg,
       });
       if (notif) this.notifications.emitCreated(notif);
 
@@ -224,6 +259,21 @@ export class AdminService {
     return this.prisma.$transaction(async (tx) => {
       const assignment = await tx.userRole.delete({ where: { id } });
       if (assignment.scopeId) {
+        const dept = await tx.department.findUnique({ where: { id: assignment.scopeId } });
+        const isHrDept = 
+          dept?.code?.toUpperCase() === 'HCNS' || 
+          dept?.code?.toUpperCase() === 'HR' || 
+          dept?.name?.toLowerCase().includes('nhân sự');
+
+        if (isHrDept) {
+          const hrRole = await tx.role.findUnique({ where: { code: 'HR' } });
+          if (hrRole) {
+            await tx.userRole.deleteMany({
+              where: { userId: assignment.userId, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
+            });
+          }
+        }
+
         await tx.department.updateMany({
           where: { id: assignment.scopeId, leaderUserId: assignment.userId },
           data: { leaderUserId: null },

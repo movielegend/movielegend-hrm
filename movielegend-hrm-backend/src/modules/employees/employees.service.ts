@@ -58,12 +58,25 @@ export class EmployeesService {
             ],
           }
         : {}),
-      departmentLinks: {
-        some: {
-          leftAt: null,
-          ...(query.departmentId ? { departmentId: query.departmentId } : visibleDepartmentIds ? { departmentId: { in: visibleDepartmentIds } } : {}),
-        },
-      },
+      ...(query.departmentId
+        ? {
+            departmentLinks: {
+              some: {
+                leftAt: null,
+                departmentId: query.departmentId,
+              },
+            },
+          }
+        : visibleDepartmentIds && visibleDepartmentIds.length > 0
+        ? {
+            departmentLinks: {
+              some: {
+                leftAt: null,
+                departmentId: { in: visibleDepartmentIds },
+              },
+            },
+          }
+        : {}),
     };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({

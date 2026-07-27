@@ -567,62 +567,14 @@ async function main() {
     });
   }
 
-  // --- Tạo Role HR và user HR ---
-  const hrRole = await prisma.role.upsert({
+  // Tạo Role HR phục vụ phân quyền nếu chưa có
+  await prisma.role.upsert({
     where: { code: 'HR' },
     update: {},
     create: { code: 'HR', name: 'Nhân sự (HR)' },
   });
 
-  const hrPhone = '0900000001';
-  const hrPassword = 'hr123456';
-  const hrPasswordHash = await bcrypt.hash(hrPassword, 12);
-  const hrUserCode = `NV${rows[0].nextval.toString().padStart(6, '0')}1`; // Đảm bảo không trùng với ADMIN
-
-  const hrUser = await prisma.user.upsert({
-    where: { phone: hrPhone },
-    update: {
-      passwordHash: hrPasswordHash,
-      accountStatus: AccountStatus.ACTIVE,
-      approvalStatus: ApprovalStatus.APPROVED,
-      isActive: true,
-    },
-    create: {
-      userCode: hrUserCode,
-      phone: hrPhone,
-      passwordHash: hrPasswordHash,
-      accountStatus: AccountStatus.ACTIVE,
-      approvalStatus: ApprovalStatus.APPROVED,
-      isActive: true,
-      profile: {
-        create: {
-          fullName: 'HR Manager',
-          idCardNumber: `HR-${Date.now()}`,
-          employmentStatus: EmploymentStatus.OFFICIAL,
-        },
-      },
-    },
-  });
-
-  // Assign HR role
-  const existingHrRole = await prisma.userRole.findFirst({
-    where: { userId: hrUser.id, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL, scopeId: null },
-  });
-  if (!existingHrRole) {
-    await prisma.userRole.create({
-      data: { userId: hrUser.id, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
-    });
-  }
-
-  // Kế thừa các chức năng ADMIN bằng cách thêm Role ADMIN cho user HR
-  const hrAdminRole = await prisma.userRole.findFirst({
-    where: { userId: hrUser.id, roleId: admin.id, scopeType: RoleScopeType.GLOBAL, scopeId: null },
-  });
-  if (!hrAdminRole) {
-    await prisma.userRole.create({
-      data: { userId: hrUser.id, roleId: admin.id, scopeType: RoleScopeType.GLOBAL },
-    });
-  }
+  console.log('Seeding completed. System retains only Admin user (0900000000).');
 }
 
 main()
@@ -635,3 +587,4 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
+

@@ -74,8 +74,8 @@ export function AssignShiftScreen() {
     let items = employeesQuery.data.items;
 
     if (isAdmin) {
-      // Admin chỉ gán cho Leader
-      items = items.filter((emp: any) => emp.roles?.some((r: any) => r.role?.code === 'LEADER' || r.role?.code === 'admin'));
+      // Admin gán cho Leader và HR
+      items = items.filter((emp: any) => emp.roles?.some((r: any) => r.role?.code === 'LEADER' || r.role?.code === 'HR' || r.role?.code === 'admin' || r.role?.code === 'ADMIN'));
     } else {
       // Leader gán cho nhân viên (không bao gồm chính họ nếu cần, nhưng tạm thời cứ lấy hết trong scope của họ)
     }

@@ -58,9 +58,9 @@ export default function HRTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="attendance-management"
+        name="attendance"
         options={{
-          title: 'QL Chấm công',
+          title: 'Chấm công',
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="clock-outline" size={26} color={color} />
           ),
@@ -82,6 +82,24 @@ export default function HRTabsLayout() {
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="account-circle-outline" size={26} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="elearning"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="attendance-management"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
