@@ -413,7 +413,16 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               {messageItems.length} tin nhắn
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setIsCallModalVisible(true)} style={{ padding: 8 }}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (currentGroup?.type === 'DIRECT' && currentGroup?.otherUserId) {
+                initiateCall(currentGroup.otherUserId, currentGroup.name, currentGroup.otherUserAvatar);
+              } else {
+                setIsCallModalVisible(true);
+              }
+            }} 
+            style={{ padding: 8 }}
+          >
             <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
           </TouchableOpacity>
         </View>

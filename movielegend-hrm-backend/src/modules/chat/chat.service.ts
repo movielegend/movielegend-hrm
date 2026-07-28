@@ -192,20 +192,27 @@ export class ChatService {
       });
 
       let finalName = group.name;
+      let otherUserId: string | undefined;
+      let otherUserAvatar: string | undefined;
+
       if (group.type === 'DIRECT') {
         // Find the other member to use as group name
         const otherMember = await this.prisma.chatGroupMember.findFirst({
           where: { groupId: group.id, userId: { not: userId } },
-          include: { user: { select: { profile: { select: { fullName: true } } } } }
+          include: { user: { select: { profile: { select: { fullName: true, avatarUrl: true } } } } }
         });
         if (otherMember?.user?.profile?.fullName) {
           finalName = otherMember.user.profile.fullName;
+          otherUserId = otherMember.userId;
+          otherUserAvatar = otherMember.user.profile.avatarUrl ?? undefined;
         }
       }
 
       resultGroups.push({
         ...group,
         name: finalName,
+        otherUserId,
+        otherUserAvatar,
         latestMessage,
         unreadCount: unreadCountByGroup[group.id] || 0
       });
@@ -272,7 +279,7 @@ export class ChatService {
   }
 
   async getAllGroups(search?: string) {
-    return this.prisma.chatGroup.findMany({
+    const groups = await this.prisma.chatGroup.findMany({
       where: search ? {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -283,8 +290,25 @@ export class ChatService {
         department: { select: { name: true } },
         task: { select: { title: true } },
         _count: { select: { members: true, messages: true } },
+        members: {
+          include: { user: { select: { profile: { select: { fullName: true } } } } }
+        }
       },
       orderBy: { createdAt: 'desc' }
+    });
+
+    return groups.map(group => {
+      let finalName = group.name;
+      if (group.type === 'DIRECT' && group.members?.length === 2) {
+        const name1 = group.members[0].user?.profile?.fullName || 'User';
+        const name2 = group.members[1].user?.profile?.fullName || 'User';
+        finalName = `${name1} - ${name2}`;
+      }
+      return {
+        ...group,
+        name: finalName,
+        members: undefined // Don't expose all member data if not needed
+      };
     });
   }
 
