@@ -338,5 +338,32 @@ export class ChatService {
     }
     return { success: true, markedCount: targetIdsToUpdate.length };
   }
+
+  async deleteGroup(groupId: string, userId: string, isAdmin: boolean) {
+    const group = await this.prisma.chatGroup.findUnique({
+      where: { id: groupId },
+      include: { members: true }
+    });
+    
+    if (!group) throw new NotFoundException('Chat group not found');
+
+    const isMember = group.members.some(m => m.userId === userId);
+
+    if (!isAdmin && !isMember) {
+      throw new require('@nestjs/common').ForbiddenException('You do not have permission to delete this group');
+    }
+
+    if (!isAdmin && group.type !== 'DIRECT') {
+      throw new require('@nestjs/common').ForbiddenException('Only admin can delete non-direct chat groups');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+       await tx.chatMessage.deleteMany({ where: { groupId } });
+       await tx.chatGroupMember.deleteMany({ where: { groupId } });
+       await tx.chatGroup.delete({ where: { id: groupId } });
+    });
+
+    return { success: true };
+  }
 }
 
