@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { OnboardingModal } from './OnboardingModal';
 import { ONBOARDING_DATA } from '../../constants/onboardingData';
 import { useAuth } from '../../providers/AuthProvider';
@@ -37,7 +38,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     const checkOnboarding = async () => {
       try {
         const key = `hasSeenOnboarding_${role}_${user.id}`;
-        const hasSeen = await SecureStore.getItemAsync(key);
+        let hasSeen = null;
+        if (Platform.OS === 'web') {
+          hasSeen = localStorage.getItem(key);
+        } else {
+          hasSeen = await SecureStore.getItemAsync(key);
+        }
+        
         if (!hasSeen) {
           setCurrentRole(role);
           setVisible(true);
@@ -55,12 +62,17 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     
     try {
       const key = `hasSeenOnboarding_${currentRole}_${user.id}`;
-      await SecureStore.setItemAsync(key, 'true');
+      if (Platform.OS === 'web') {
+        localStorage.setItem(key, 'true');
+      } else {
+        await SecureStore.setItemAsync(key, 'true');
+      }
     } catch (error) {
       console.error('Error saving onboarding status:', error);
-    } finally {
-      setVisible(false);
     }
+    
+    setVisible(false);
+    setCurrentRole(null);
   };
 
   const showOnboarding = (role: DashboardRole) => {
@@ -72,7 +84,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     if (!user) return;
     try {
       const key = `hasSeenOnboarding_${role}_${user.id}`;
-      await SecureStore.deleteItemAsync(key);
+      if (Platform.OS === 'web') {
+        localStorage.removeItem(key);
+      } else {
+        await SecureStore.deleteItemAsync(key);
+      }
       showOnboarding(role);
     } catch (error) {
       console.error('Error resetting onboarding status:', error);
