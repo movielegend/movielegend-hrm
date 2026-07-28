@@ -62,6 +62,11 @@ export class VoiceCallGateway {
           callerName: callerInfo.fullName,
           callerAvatar: callerInfo.avatarUrl,
         },
+        {
+          categoryId: 'INCOMING_CALL',
+          priority: 'high',
+          channelId: 'incoming_calls',
+        }
       ).catch(e => console.error('Failed to send call push notification', e));
 
       return { ok: true };

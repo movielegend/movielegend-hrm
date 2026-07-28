@@ -21,6 +21,24 @@ export async function setupCallNotificationChannel() {
       enableVibrate: true,
     });
   }
+
+  await Notifications.setNotificationCategoryAsync('INCOMING_CALL', [
+    {
+      identifier: 'ACCEPT',
+      buttonTitle: 'Nghe',
+      options: {
+        opensAppToForeground: true,
+      },
+    },
+    {
+      identifier: 'REJECT',
+      buttonTitle: 'Từ chối',
+      options: {
+        isDestructive: true,
+        opensAppToForeground: true,
+      },
+    },
+  ]);
 }
 
 /**
@@ -37,6 +55,7 @@ export async function showIncomingCallNotification(callerName: string, callerId:
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority.MAX,
         sticky: true,
+        categoryIdentifier: 'INCOMING_CALL',
         data: {
           type: 'VOICE_CALL_INCOMING',
           callerId,

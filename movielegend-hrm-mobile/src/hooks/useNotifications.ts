@@ -75,17 +75,19 @@ export function usePushNotificationSetup() {
       const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
         try {
           const data = response.notification.request.content.data;
-          console.log('--- Người dùng bấm vào thông báo. Data:', data);
+          const actionId = response.actionIdentifier;
+          console.log('--- Người dùng bấm vào thông báo. Data:', data, 'Action:', actionId);
           
           // Handle voice call notification tap
           if (data && data.type === 'VOICE_CALL_INCOMING') {
-            try {
-              const { useVoiceCall } = require('../features/voice-call/VoiceCallProvider');
-              // We can't use hooks here, so we use a global event approach
-              // The VoiceCallProvider will pick this up via socket reconnection
-              console.log('--- Voice call notification tapped. callerId:', data.callerId);
-            } catch (e) {
-              console.warn('Failed to handle voice call notification:', e);
+            const { DeviceEventEmitter } = require('react-native');
+            if (actionId === 'ACCEPT') {
+              DeviceEventEmitter.emit('voice_call:action_accept', data.callerId);
+            } else if (actionId === 'REJECT') {
+              DeviceEventEmitter.emit('voice_call:action_reject', data.callerId);
+            } else {
+              // Just opened the notification
+              DeviceEventEmitter.emit('voice_call:action_open', data);
             }
             return;
           }

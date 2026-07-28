@@ -39,6 +39,7 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
           shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
         });
 
         const { sound: newSound } = await Audio.Sound.createAsync(

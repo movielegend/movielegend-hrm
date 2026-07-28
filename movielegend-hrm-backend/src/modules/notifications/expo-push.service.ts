@@ -9,7 +9,7 @@ export class ExpoPushService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async sendPushNotification(userIds: string[], title: string, body: string, data: any = {}) {
+  async sendPushNotification(userIds: string[], title: string, body: string, data: any = {}, options?: { categoryId?: string; priority?: 'default' | 'normal' | 'high'; channelId?: string }) {
     if (!userIds || userIds.length === 0) return;
 
     const devices = await this.prisma.deviceToken.findMany({
@@ -35,6 +35,9 @@ export class ExpoPushService {
         title,
         body,
         data,
+        categoryId: options?.categoryId,
+        priority: options?.priority,
+        channelId: options?.channelId,
       });
     }
 
