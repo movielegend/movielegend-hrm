@@ -26,7 +26,8 @@ export class ChatController {
     @Query('skip') skip?: number,
     @Query('take') take?: number
   ) {
-    return this.chatService.getMessages(groupId, user.userId, skip ? Number(skip) : 0, take ? Number(take) : 50);
+    const isAdmin = user.roles?.some(r => r.toUpperCase().includes('ADMIN'));
+    return this.chatService.getMessages(groupId, user.userId, !!isAdmin, skip ? Number(skip) : 0, take ? Number(take) : 50);
   }
 
   @ApiOperation({ summary: 'Xóa lịch sử trò chuyện' })

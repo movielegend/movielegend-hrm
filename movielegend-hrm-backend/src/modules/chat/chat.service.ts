@@ -33,7 +33,7 @@ export class ChatService {
     return group;
   }
 
-  async getMessages(groupId: string, userId: string, skip: number = 0, take: number = 50) {
+  async getMessages(groupId: string, userId: string, isAdmin: boolean = false, skip: number = 0, take: number = 50) {
     const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Chat group not found');
 
@@ -43,15 +43,21 @@ export class ChatService {
     });
 
     if (!member) {
-      if (group.type === 'DIRECT' || group.type === 'CUSTOM' || group.type === 'TASK') {
-        throw new ForbiddenException('You do not have permission to read this chat');
+      if (group.type === 'DIRECT') {
+        throw new ForbiddenException('You do not have permission to read this direct chat');
       }
-      if (group.type === 'DEPARTMENT' && group.departmentId) {
-        const deptMember = await this.prisma.departmentMember.findUnique({
-          where: { departmentId_userId: { userId, departmentId: group.departmentId } }
-        });
-        if (!deptMember || deptMember.leftAt) {
+      
+      if (!isAdmin) {
+        if (group.type === 'CUSTOM' || group.type === 'TASK') {
           throw new ForbiddenException('You do not have permission to read this chat');
+        }
+        if (group.type === 'DEPARTMENT' && group.departmentId) {
+          const deptMember = await this.prisma.departmentMember.findUnique({
+            where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+          });
+          if (!deptMember || deptMember.leftAt) {
+            throw new ForbiddenException('You do not have permission to read this chat');
+          }
         }
       }
     }
@@ -337,7 +343,7 @@ export class ChatService {
           } : {},
           {
             OR: [
-              { type: { in: ['DEPARTMENT', 'TASK'] } },
+              { type: { in: ['DEPARTMENT', 'TASK', 'CUSTOM'] } },
               { members: { some: { userId } } }
             ]
           }
@@ -348,25 +354,41 @@ export class ChatService {
         task: { select: { title: true } },
         _count: { select: { members: true, messages: true } },
         members: {
-          include: { user: { select: { profile: { select: { fullName: true } } } } }
+          include: { user: { select: { profile: { select: { fullName: true, avatarUrl: true } } } } }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { updatedAt: 'desc' }
     });
 
-    return groups.map(group => {
+    const resultGroups = [];
+    for (const group of groups) {
+      // Lấy tin nhắn mới nhất cho mỗi nhóm
+      const latestMessage = await this.prisma.chatMessage.findFirst({
+        where: { groupId: group.id },
+        orderBy: { createdAt: 'desc' },
+        include: { sender: { select: { profile: { select: { fullName: true } } } } }
+      });
+
       let finalName = group.name;
       if (group.type === 'DIRECT' && group.members?.length === 2) {
         const name1 = group.members[0].user?.profile?.fullName || 'User';
         const name2 = group.members[1].user?.profile?.fullName || 'User';
         finalName = `${name1} - ${name2}`;
+      } else if (group.type === 'DEPARTMENT' && group.department?.name) {
+        finalName = group.department.name;
+      } else if (group.type === 'TASK' && group.task?.title) {
+        finalName = group.task.title;
       }
-      return {
+
+      resultGroups.push({
         ...group,
         name: finalName,
-        members: undefined // Don't expose all member data if not needed
-      };
-    });
+        latestMessage,
+        members: undefined
+      });
+    }
+
+    return resultGroups;
   }
 
   async markGroupAsRead(groupId: string, userId: string) {
