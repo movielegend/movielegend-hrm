@@ -9,7 +9,7 @@ const CALL_NOTIFICATION_ID = 'incoming_voice_call';
  */
 export async function setupCallNotificationChannel() {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('incoming_calls', {
+    await Notifications.setNotificationChannelAsync('incoming_calls_v2', {
       name: 'Cuộc gọi đến',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 500, 200, 500, 200, 500],

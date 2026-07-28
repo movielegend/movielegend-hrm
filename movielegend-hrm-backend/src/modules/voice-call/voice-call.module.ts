@@ -5,9 +5,10 @@ import { VoiceCallController } from './voice-call.controller';
 import { VoiceCallGateway } from './voice-call.gateway';
 import { DatabaseModule } from '../../database/database.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
-  imports: [JwtModule.register({}), DatabaseModule, NotificationsModule],
+  imports: [JwtModule.register({}), DatabaseModule, NotificationsModule, ChatModule],
   providers: [VoiceCallService, VoiceCallGateway],
   controllers: [VoiceCallController]
 })

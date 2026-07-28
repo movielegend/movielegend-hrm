@@ -19,7 +19,7 @@ interface ActiveCallScreenProps {
   isSpeaker: boolean;
   onToggleMute: () => void;
   onToggleSpeaker: () => void;
-  onEndCall: () => void;
+  onEndCall: (duration?: number) => void;
   connectionState?: string;
 }
 
@@ -180,7 +180,7 @@ export function ActiveCallScreen({
         <View style={styles.endCallSection}>
           <TouchableOpacity
             style={styles.endCallBtn}
-            onPress={onEndCall}
+            onPress={() => onEndCall(elapsed)}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="phone-hangup" size={32} color="#fff" />
