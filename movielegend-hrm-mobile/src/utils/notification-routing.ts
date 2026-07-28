@@ -35,7 +35,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
   if (requestId) {
-    if (base === '/admin') return `/admin/requests/${requestId}`;
+    if (base === '/admin') return `/admin/employee-requests/${requestId}`;
     if (base === '/hr') return `/hr/employee-requests/${requestId}`;
     if (base === '/leader') return `/leader/employee-requests/${requestId}`;
     if (base === '/employee') return `/employee/requests/${requestId}`;

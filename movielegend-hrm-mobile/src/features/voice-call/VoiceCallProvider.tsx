@@ -185,21 +185,46 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── Accept call ──
-  const acceptCall = async () => {
-    if (!socket || !callerId) return;
+  const acceptCall = async (overrideCallerId?: string) => {
+    const cid = overrideCallerId || callerId;
+    if (!socket || !cid) return;
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
 
     dismissCallNotification();
-    socket.emit('voice_call:accept', { callerId });
+    socket.emit('voice_call:accept', { callerId: cid });
   };
 
   // ── Reject call ──
-  const rejectCall = () => {
-    if (!socket || !callerId) return;
-    socket.emit('voice_call:reject', { callerId });
+  const rejectCall = (overrideCallerId?: string) => {
+    const cid = overrideCallerId || callerId;
+    if (!socket || !cid) return;
+    socket.emit('voice_call:reject', { callerId: cid });
     resetCall();
   };
+
+  // ── Listen for Push Notification Actions ──
+  useEffect(() => {
+    const { DeviceEventEmitter } = require('react-native');
+    
+    const subAccept = DeviceEventEmitter.addListener('voice_call:action_accept', (cid: string) => {
+      acceptCall(cid);
+    });
+    
+    const subReject = DeviceEventEmitter.addListener('voice_call:action_reject', (cid: string) => {
+      rejectCall(cid);
+    });
+    
+    const subOpen = DeviceEventEmitter.addListener('voice_call:action_open', (data: any) => {
+      handleIncomingCallFromNotification(data);
+    });
+
+    return () => {
+      subAccept.remove();
+      subReject.remove();
+      subOpen.remove();
+    };
+  }, [socket, callerId]);
 
   // ── End call ──
   const endCall = () => {
@@ -213,26 +238,32 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 
   // ── Toggle mute ──
   const toggleMute = useCallback(() => {
-    setIsMuted(prev => {
-      const newVal = !prev;
-      try {
-        if (roomRef.current?.localParticipant) {
-          roomRef.current.localParticipant.setMicrophoneEnabled(!newVal);
-        }
-      } catch (e) {
-        console.warn('Failed to toggle mute:', e);
-      }
-      return newVal;
-    });
+    setIsMuted(prev => !prev);
   }, []);
+
+  // Sync mute state with LiveKit room
+  useEffect(() => {
+    try {
+      if (roomRef.current?.localParticipant) {
+        roomRef.current.localParticipant.setMicrophoneEnabled(!isMuted);
+      }
+    } catch (e) {
+      console.warn('Failed to sync mute state:', e);
+    }
+  }, [isMuted, callState]);
 
   // ── Toggle speaker ──
   const toggleSpeaker = useCallback(async () => {
     setIsSpeaker(prev => {
       const newVal = !prev;
       try {
-        if (AudioSession) {
-          // AudioSession API for switching output
+        if (Platform.OS === 'android') {
+          const { Audio } = require('expo-av');
+          Audio.setAudioModeAsync({
+            playThroughEarpieceAndroid: !newVal
+          }).catch(console.warn);
+        } else if (AudioSession) {
+          // AudioSession API for switching output on iOS
           AudioSession.showAudioRoutePicker?.();
         }
       } catch (e) {
