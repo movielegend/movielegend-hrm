@@ -115,7 +115,7 @@ export function CallingScreen({ targetName, targetAvatar, onEndCall }: CallingSc
         <View style={styles.actionItem}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.endBtn]}
-            onPress={onEndCall}
+            onPress={() => onEndCall()}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="phone-hangup" size={32} color="#fff" />

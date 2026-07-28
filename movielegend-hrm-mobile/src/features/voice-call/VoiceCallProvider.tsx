@@ -251,11 +251,14 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   }, [socket, pendingAction]);
 
   // ── End call ──
-  const endCall = (duration?: number) => {
+  const endCall = (duration?: number | any) => {
     if (!socket) return;
     const peerId = targetId || callerId;
+    
+    const validDuration = typeof duration === 'number' ? duration : undefined;
+    
     if (peerId) {
-      socket.emit('voice_call:end', { targetUserId: peerId, duration });
+      socket.emit('voice_call:end', { targetUserId: peerId, duration: validDuration });
     }
     resetCall();
   };

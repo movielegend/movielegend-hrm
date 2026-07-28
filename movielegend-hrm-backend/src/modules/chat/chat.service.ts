@@ -120,7 +120,9 @@ export class ChatService {
               otherMembers.map(m => m.userId),
               {
                 type: 'CHAT_MESSAGE',
-                title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
+                title: group.type === 'DIRECT' 
+                  ? `Tin nhắn mới từ ${senderName}` 
+                  : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
                 body: notificationBody,
                 metadata: { groupId: group.id, messageId: message.id }
               }
@@ -190,20 +192,27 @@ export class ChatService {
       });
 
       let finalName = group.name;
+      let otherUserId: string | undefined;
+      let otherUserAvatar: string | undefined;
+
       if (group.type === 'DIRECT') {
         // Find the other member to use as group name
         const otherMember = await this.prisma.chatGroupMember.findFirst({
           where: { groupId: group.id, userId: { not: userId } },
-          include: { user: { select: { profile: { select: { fullName: true } } } } }
+          include: { user: { select: { profile: { select: { fullName: true, avatarUrl: true } } } } }
         });
         if (otherMember?.user?.profile?.fullName) {
           finalName = otherMember.user.profile.fullName;
+          otherUserId = otherMember.userId;
+          otherUserAvatar = otherMember.user.profile.avatarUrl ?? undefined;
         }
       }
 
       resultGroups.push({
         ...group,
         name: finalName,
+        otherUserId,
+        otherUserAvatar,
         latestMessage,
         unreadCount: unreadCountByGroup[group.id] || 0
       });
@@ -270,7 +279,7 @@ export class ChatService {
   }
 
   async getAllGroups(search?: string) {
-    return this.prisma.chatGroup.findMany({
+    const groups = await this.prisma.chatGroup.findMany({
       where: search ? {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -281,8 +290,25 @@ export class ChatService {
         department: { select: { name: true } },
         task: { select: { title: true } },
         _count: { select: { members: true, messages: true } },
+        members: {
+          include: { user: { select: { profile: { select: { fullName: true } } } } }
+        }
       },
       orderBy: { createdAt: 'desc' }
+    });
+
+    return groups.map(group => {
+      let finalName = group.name;
+      if (group.type === 'DIRECT' && group.members?.length === 2) {
+        const name1 = group.members[0].user?.profile?.fullName || 'User';
+        const name2 = group.members[1].user?.profile?.fullName || 'User';
+        finalName = `${name1} - ${name2}`;
+      }
+      return {
+        ...group,
+        name: finalName,
+        members: undefined // Don't expose all member data if not needed
+      };
     });
   }
 
@@ -311,6 +337,33 @@ export class ChatService {
       });
     }
     return { success: true, markedCount: targetIdsToUpdate.length };
+  }
+
+  async deleteGroup(groupId: string, userId: string, isAdmin: boolean) {
+    const group = await this.prisma.chatGroup.findUnique({
+      where: { id: groupId },
+      include: { members: true }
+    });
+    
+    if (!group) throw new NotFoundException('Chat group not found');
+
+    const isMember = group.members.some(m => m.userId === userId);
+
+    if (!isAdmin && !isMember) {
+      throw new require('@nestjs/common').ForbiddenException('You do not have permission to delete this group');
+    }
+
+    if (!isAdmin && group.type !== 'DIRECT') {
+      throw new require('@nestjs/common').ForbiddenException('Only admin can delete non-direct chat groups');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+       await tx.chatMessage.deleteMany({ where: { groupId } });
+       await tx.chatGroupMember.deleteMany({ where: { groupId } });
+       await tx.chatGroup.delete({ where: { id: groupId } });
+    });
+
+    return { success: true };
   }
 }
 

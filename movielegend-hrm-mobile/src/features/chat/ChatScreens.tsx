@@ -413,9 +413,40 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               {messageItems.length} tin nhắn
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setIsCallModalVisible(true)} style={{ padding: 8 }}>
-            <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity 
+              onPress={() => {
+                if (currentGroup?.type === 'DIRECT' && currentGroup?.otherUserId) {
+                  initiateCall(currentGroup.otherUserId, currentGroup.name, currentGroup.otherUserAvatar);
+                } else {
+                  setIsCallModalVisible(true);
+                }
+              }} 
+              style={{ padding: 8 }}
+            >
+              <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
+            </TouchableOpacity>
+            {(currentGroup?.type === 'DIRECT' || user?.roles?.includes('ADMIN')) && (
+              <TouchableOpacity 
+                onPress={() => {
+                  Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn xóa nhóm chat này không? Mọi tin nhắn sẽ bị xóa vĩnh viễn.', [
+                    { text: 'Hủy', style: 'cancel' },
+                    { text: 'Xóa', style: 'destructive', onPress: async () => {
+                      try {
+                        await require('../../utils/api').api.delete(`/chat/groups/${groupId}`);
+                        router.back();
+                      } catch (error) {
+                        Alert.alert('Lỗi', 'Không thể xóa nhóm chat');
+                      }
+                    }}
+                  ]);
+                }} 
+                style={{ padding: 8 }}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={24} color="#EF4444" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Messages */}

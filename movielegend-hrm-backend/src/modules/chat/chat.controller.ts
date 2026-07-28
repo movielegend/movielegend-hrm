@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Delete } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
@@ -73,6 +73,16 @@ export class ChatController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.chatService.markGroupAsRead(groupId, user.userId);
+  }
+
+  @ApiOperation({ summary: 'Xóa nhóm chat' })
+  @Delete('groups/:groupId')
+  deleteGroup(
+    @Param('groupId') groupId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    const isAdmin = user.roles?.some(r => r.role?.code?.toUpperCase().includes('ADMIN'));
+    return this.chatService.deleteGroup(groupId, user.userId, !!isAdmin);
   }
 }
 
