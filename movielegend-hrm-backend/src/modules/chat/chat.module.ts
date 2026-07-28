@@ -8,6 +8,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
   imports: [DatabaseModule, RealtimeModule, NotificationsModule],
   controllers: [ChatController],
-  providers: [ChatService]
+  providers: [ChatService],
+  exports: [ChatService]
 })
 export class ChatModule {}

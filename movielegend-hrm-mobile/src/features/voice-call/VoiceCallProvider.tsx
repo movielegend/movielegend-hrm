@@ -9,12 +9,14 @@ import { showIncomingCallNotification, dismissCallNotification } from '../../ser
 // ── Conditional LiveKit imports (unavailable in Expo Go) ──
 let LiveKitRoom: any = ({ children }: any) => <>{children}</>;
 let useRoomContext: any = () => ({ state: 'connected' });
+let useLocalParticipant: any = () => ({ localParticipant: null });
 let AudioSession: any = null;
 
 try {
   const livekit = require('@livekit/react-native');
   if (livekit?.LiveKitRoom) LiveKitRoom = livekit.LiveKitRoom;
   if (livekit?.useRoomContext) useRoomContext = livekit.useRoomContext;
+  if (livekit?.useLocalParticipant) useLocalParticipant = livekit.useLocalParticipant;
   if (livekit?.AudioSession) AudioSession = livekit.AudioSession;
 } catch (e) {
   console.warn('LiveKit native module fallback active:', e);
@@ -249,11 +251,11 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   }, [socket, pendingAction]);
 
   // ── End call ──
-  const endCall = () => {
+  const endCall = (duration?: number) => {
     if (!socket) return;
     const peerId = targetId || callerId;
     if (peerId) {
-      socket.emit('voice_call:end', { targetUserId: peerId });
+      socket.emit('voice_call:end', { targetUserId: peerId, duration });
     }
     resetCall();
   };
@@ -262,17 +264,6 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   const toggleMute = useCallback(() => {
     setIsMuted(prev => !prev);
   }, []);
-
-  // Sync mute state with LiveKit room
-  useEffect(() => {
-    try {
-      if (roomRef.current?.localParticipant) {
-        roomRef.current.localParticipant.setMicrophoneEnabled(!isMuted);
-      }
-    } catch (e) {
-      console.warn('Failed to sync mute state:', e);
-    }
-  }, [isMuted, callState]);
 
   // ── Toggle speaker ──
   const toggleSpeaker = useCallback(async () => {
@@ -371,16 +362,28 @@ function ActiveCallInner({
   isSpeaker: boolean;
   onToggleMute: () => void;
   onToggleSpeaker: () => void;
-  onEndCall: () => void;
+  onEndCall: (duration?: number) => void;
   roomRef: React.MutableRefObject<any>;
 }) {
   const room = useRoomContext();
+  const { localParticipant } = useLocalParticipant();
 
   useEffect(() => {
     if (room) {
       roomRef.current = room;
     }
   }, [room, roomRef]);
+
+  // Sync mute state with LiveKit local participant
+  useEffect(() => {
+    try {
+      if (localParticipant) {
+        localParticipant.setMicrophoneEnabled(!isMuted);
+      }
+    } catch (e) {
+      console.warn('Failed to sync mute state:', e);
+    }
+  }, [localParticipant, isMuted]);
 
   return (
     <ActiveCallScreen

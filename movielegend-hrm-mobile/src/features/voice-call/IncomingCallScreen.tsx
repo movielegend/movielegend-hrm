@@ -50,6 +50,7 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
         if (isMounted) {
           currentSound = newSound;
           setSound(newSound);
+          await newSound.setVolumeAsync(1.0);
           await newSound.playAsync();
         } else {
           // If unmounted before loading finished

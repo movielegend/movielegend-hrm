@@ -4,6 +4,7 @@ import { VoiceCallService } from './voice-call.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ExpoPushService } from '../notifications/expo-push.service';
+import { ChatService } from '../chat/chat.service';
 
 @WebSocketGateway({ cors: { origin: true, credentials: true }, namespace: '/hrm' })
 export class VoiceCallGateway {
@@ -15,6 +16,7 @@ export class VoiceCallGateway {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly expoPush: ExpoPushService,
+    private readonly chatService: ChatService,
   ) {}
 
   private extractUserId(client: Socket): string | undefined {
@@ -65,7 +67,7 @@ export class VoiceCallGateway {
         {
           categoryId: 'INCOMING_CALL',
           priority: 'high',
-          channelId: 'incoming_calls',
+          channelId: 'incoming_calls_v2',
         }
       ).catch(e => console.error('Failed to send call push notification', e));
 
@@ -101,20 +103,52 @@ export class VoiceCallGateway {
   }
 
   @SubscribeMessage('voice_call:reject')
-  handleCallReject(@ConnectedSocket() client: Socket, @MessageBody() payload: { callerId: string }) {
+  async handleCallReject(@ConnectedSocket() client: Socket, @MessageBody() payload: { callerId: string }) {
     const receiverId = this.extractUserId(client);
     if (!receiverId || !payload.callerId) return { ok: false };
     
     this.server.to(`user:${payload.callerId}`).emit('voice_call:rejected', { receiverId });
+
+    // Log missed call history to chat
+    try {
+      const group = await this.chatService.createDirectChat(payload.callerId, receiverId);
+      await this.chatService.sendMessage(payload.callerId, group.id, {
+        content: '📞 Cuộc gọi thoại nhỡ',
+      });
+    } catch (e) {
+      console.error('Failed to log missed call to chat', e);
+    }
+
     return { ok: true };
   }
 
   @SubscribeMessage('voice_call:end')
-  handleCallEnd(@ConnectedSocket() client: Socket, @MessageBody() payload: { targetUserId: string }) {
+  async handleCallEnd(@ConnectedSocket() client: Socket, @MessageBody() payload: { targetUserId: string, duration?: number }) {
     const userId = this.extractUserId(client);
     if (!userId || !payload.targetUserId) return { ok: false };
     
     this.server.to(`user:${payload.targetUserId}`).emit('voice_call:ended', { userId });
+
+    // Log call duration to chat
+    try {
+      const group = await this.chatService.createDirectChat(userId, payload.targetUserId);
+      let content = '📞 Cuộc gọi thoại';
+      if (payload.duration !== undefined) {
+        const m = Math.floor(payload.duration / 60);
+        const s = payload.duration % 60;
+        const formatted = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        content = `📞 Cuộc gọi thoại (${formatted})`;
+      } else {
+         content = '📞 Cuộc gọi thoại nhỡ';
+      }
+      
+      await this.chatService.sendMessage(userId, group.id, {
+        content,
+      });
+    } catch (e) {
+      console.error('Failed to log call duration to chat', e);
+    }
+
     return { ok: true };
   }
 }
