@@ -1,1 +1,5 @@
-export { default } from '../../admin/tasks/review';
+import { ReviewTaskScreen } from '../../../src/features/tasks/TaskScreens';
+
+export default function HRTaskReviewRoute() {
+  return <ReviewTaskScreen area="admin" />;
+}

@@ -114,8 +114,8 @@ export function HRDashboard() {
                 </View>
               )}
             </Pressable>
-            <Pressable style={styles.iconBtn}>
-              <MaterialCommunityIcons name="format-list-bulleted" size={24} color="#111827" />
+            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/chat' as any)}>
+              <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>
@@ -175,11 +175,7 @@ export function HRDashboard() {
           contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 16 }}
           style={{ marginHorizontal: -16 }}
         >
-          <GridCard
-            title="Điểm danh"
-            icon="clock-check-outline"
-            onPress={() => router.navigate(currentAttendance?.state === 'CHECKED_IN' ? '/hr/attendance/check-out' : '/hr/attendance/check-in' as any)}
-          />
+
           <GridCard
             title="Lịch sử cá nhân"
             icon="history"
@@ -192,9 +188,14 @@ export function HRDashboard() {
             onPress={() => router.navigate('/hr/attendance-management' as any)}
           />
           <GridCard
+            title="Lịch làm việc"
+            icon="calendar-clock-outline"
+            onPress={() => router.navigate('/hr/schedule' as any)}
+          />
+          <GridCard
             title="Duyệt đơn"
             icon="file-document-check-outline"
-            onPress={() => router.navigate('/hr/requests' as any)}
+            onPress={() => router.navigate('/hr/employee-requests' as any)}
           />
           <GridCard
             title="Công việc"
@@ -232,21 +233,20 @@ export function HRDashboard() {
         <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan công việc HR</Text>
         <View style={styles.summaryGrid}>
           <SummaryCard
-            label="Chấm công"
-            value={currentAttendance?.state === 'CHECKED_IN' ? 'Đang làm' : 'Chưa ca'}
-          />
-
-          <SummaryCard
-            label="Việc tôi làm"
-            value={(myTasks?.items?.length || 0).toString()}
+            label="Tổng nhân sự"
+            value={dashboardData?.employees?.active?.toString() || '0'}
           />
           <SummaryCard
-            label="Việc tôi giao"
-            value={(delegatedTasks?.items?.length || 0).toString()}
+            label="Đi làm hôm nay"
+            value={dashboardData?.attendanceToday?.checkedIn?.toString() || '0'}
           />
           <SummaryCard
-            label="Thông báo"
-            value={unreadCount.toString()}
+            label="Đơn chờ duyệt"
+            value={dashboardData?.leave?.pending?.toString() || '0'}
+          />
+          <SummaryCard
+            label="Hợp đồng sắp hết"
+            value={dashboardData?.contracts?.expiringSoon?.toString() || '0'}
           />
         </View>
 

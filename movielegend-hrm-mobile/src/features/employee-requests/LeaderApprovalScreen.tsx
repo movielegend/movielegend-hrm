@@ -29,7 +29,7 @@ export function LeaderApprovalScreen() {
   const getTypeConfig = (type: string) => {
     switch (type) {
       case 'LEAVE': return { label: 'Nghỉ phép', color: '#10B981', icon: 'beach' };
-      case 'ATTENDANCE_ADJUSTMENT': return { label: 'Giải trình công', color: '#3B82F6', icon: 'file-clock-outline' };
+      case 'ATTENDANCE_ADJUSTMENT': return { label: 'Giải trình công', color: '#3B82F6', icon: 'clock-edit-outline' };
       case 'LATE_ARRIVAL': return { label: 'Đi muộn', color: '#F59E0B', icon: 'clock-in' };
       case 'EARLY_LEAVE': return { label: 'Về sớm', color: '#EF4444', icon: 'clock-out' };
       case 'OVERTIME': return { label: 'Làm thêm giờ', color: '#8B5CF6', icon: 'briefcase-clock' };
@@ -63,6 +63,14 @@ export function LeaderApprovalScreen() {
     });
   };
 
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
   if (isLoading) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
@@ -86,14 +94,6 @@ export function LeaderApprovalScreen() {
   const userPos = request.user?.profile?.position?.name || 'Nhân viên';
   const avatarUrl = request.user?.profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11';
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
-
-  const queryClient = useQueryClient();
-  const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries();
-    setRefreshing(false);
-  }, [queryClient]);
 
   return (
     <KeyboardAvoidingView 

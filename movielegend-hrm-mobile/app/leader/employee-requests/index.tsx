@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Refre
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../../src/providers/AuthProvider';
+import { getHomeRouteForUser } from '../../../src/utils/role-routing';
 import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
@@ -23,6 +25,8 @@ const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: k
 
 export default function LeaderRequestsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const rolePrefix = getHomeRouteForUser(user);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
@@ -163,7 +167,7 @@ export default function LeaderRequestsScreen() {
               <Pressable 
                 key={item.id} 
                 style={styles.card}
-                onPress={() => router.push(`/leader/employee-requests/${item.id}` as any)}
+                onPress={() => router.push(`${rolePrefix}/employee-requests/${item.id}` as any)}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardIconBox}>

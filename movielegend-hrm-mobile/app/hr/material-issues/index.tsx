@@ -1,1 +1,5 @@
-export { default } from '../../leader/material-issues/index';
+import { MaterialIssueListScreen } from '../../../src/features/stock-operations/StockOperationScreens';
+
+export default function HRMaterialIssueListRoute() {
+  return <MaterialIssueListScreen area="leader" />;
+}

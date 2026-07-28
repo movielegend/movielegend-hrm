@@ -36,7 +36,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
   if (requestId) {
     if (base === '/admin') return `/admin/requests/${requestId}`;
-    if (base === '/hr') return `/hr/requests/${requestId}`;
+    if (base === '/hr') return `/hr/employee-requests/${requestId}`;
     if (base === '/leader') return `/leader/employee-requests/${requestId}`;
     if (base === '/employee') return `/employee/requests/${requestId}`;
   }
@@ -69,8 +69,17 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     const targetBase = base === '/warehouse-manager' ? '/employee' : base;
     return `${targetBase}/newsfeed/${postId}`;
   }
-  if (notification.type === 'SYSTEM' && (notification.title === 'Phân ca mới' || notification.title === 'Phân ca làm việc mới')) {
-    return `${base}/schedule`;
+  if (notification.type === 'SYSTEM') {
+    const t = notification.title?.toLowerCase() || '';
+    if (t.includes('phân ca mới') || t.includes('phân ca làm việc mới')) {
+      return `${base}/schedule`;
+    }
+    if (t.includes('check in') || t.includes('check out') || t.includes('chấm công') || t.includes('giờ làm việc') || t.includes('ca làm việc')) {
+      return `${base}/attendance/check-in`;
+    }
+    if ((t.includes('công việc') || t.includes('nhiệm vụ') || t.includes('task')) && taskId) {
+      return `${base}/tasks/${taskId}`;
+    }
   }
   if (notification.type === 'SYSTEM' && contractId) {
     return `${base}/contracts/${contractId}`;

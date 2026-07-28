@@ -1,1 +1,5 @@
-export { default } from '../../leader/approvals/account';
+import { ApprovalListScreen } from '../../../src/features/approvals/ApprovalScreens';
+
+export default function HRAccountApprovalsRoute() {
+  return <ApprovalListScreen title="Duyệt tài khoản mới" />;
+}

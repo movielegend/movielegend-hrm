@@ -257,7 +257,17 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const { user } = useAuth();
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
-  const employees = useScopedEmployees({ limit: 100 });
+  const myGroups = useChatGroups();
+  const allGroups = useAllChatGroups();
+  
+  const myList = Array.isArray(myGroups.data) ? myGroups.data : [];
+  const allList = Array.isArray(allGroups.data) ? allGroups.data : [];
+  const currentGroup = myList.find((g: any) => g.id === groupId) || allList.find((g: any) => g.id === groupId);
+
+  const employees = useScopedEmployees({ 
+    limit: 100,
+    departmentId: currentGroup?.departmentId || undefined
+  });
   const insets = useSafeAreaInsets();
 
   const [text, setText] = useState('');

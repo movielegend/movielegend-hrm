@@ -11,7 +11,7 @@ interface VoiceCallContextType {
 }
 
 const VoiceCallContext = createContext<VoiceCallContextType>({
-  initiateCall: () => {},
+  initiateCall: () => { },
 });
 
 export const useVoiceCall = () => useContext(VoiceCallContext);
@@ -27,8 +27,8 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   const [targetName, setTargetName] = useState<string>('Unknown');
   const [token, setToken] = useState<string | null>(null);
   const [roomName, setRoomName] = useState<string | null>(null);
-  
-  const liveKitUrl = 'wss://livekit.example.com'; 
+
+  const liveKitUrl = 'wss://mvl-2pvg5pqv.livekit.cloud';
 
   useEffect(() => {
     if (!socket) return;
@@ -160,12 +160,12 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 
 function ActiveCallView({ peerName, onEndCall }: { peerName: string, onEndCall: () => void }) {
   const room = useRoomContext();
-  
+
   return (
     <View style={styles.content}>
       <Text style={styles.title}>Đang đàm thoại</Text>
       <Text style={styles.name}>{peerName}</Text>
-      <Text style={{color: '#fff', marginTop: 10}}>{room?.state}</Text>
+      <Text style={{ color: '#fff', marginTop: 10 }}>{room?.state}</Text>
       <TouchableOpacity style={[styles.btn, styles.btnReject, { marginTop: 40 }]} onPress={onEndCall}>
         <Text style={styles.btnText}>Kết thúc</Text>
       </TouchableOpacity>
