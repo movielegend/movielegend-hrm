@@ -17,39 +17,58 @@ export class VoiceCallGateway {
     private readonly expoPush: ExpoPushService,
   ) {}
 
-  private extractUserId(client: Socket): string {
-    return client.data?.userId;
+  private extractUserId(client: Socket): string | undefined {
+    if (client.data?.userId) return client.data.userId;
+    try {
+      const authToken = client.handshake.auth?.token || client.handshake.headers.authorization;
+      if (typeof authToken === 'string' && authToken) {
+        const token = authToken.replace(/^Bearer\s+/i, '');
+        const payload = this.jwt.decode(token) as any;
+        return payload?.sub;
+      }
+    } catch (e) {
+      console.warn('Failed to extract token in VoiceCallGateway', e);
+    }
+    return undefined;
   }
 
   @SubscribeMessage('voice_call:request')
   async handleCallRequest(@ConnectedSocket() client: Socket, @MessageBody() payload: { targetUserId: string }) {
-    const callerId = this.extractUserId(client);
-    if (!callerId || !payload.targetUserId) return { ok: false, code: 'INVALID_PARAMETERS' };
-    
-    // Get caller info (name + avatar) from DB
-    const callerInfo = await this.voiceCallService.getCallerInfo(callerId);
+    try {
+      const callerId = this.extractUserId(client);
+      if (!callerId || !payload.targetUserId) {
+        console.log('VoiceCall request rejected: missing callerId or targetUserId', { callerId, targetUserId: payload.targetUserId });
+        return { ok: false, code: 'INVALID_PARAMETERS' };
+      }
+      
+      // Get caller info (name + avatar) from DB
+      const callerInfo = await this.voiceCallService.getCallerInfo(callerId);
 
-    // Notify target user via socket
-    this.server.to(`user:${payload.targetUserId}`).emit('voice_call:incoming', {
-      callerId,
-      callerName: callerInfo.fullName,
-      callerAvatar: callerInfo.avatarUrl,
-    });
-
-    // Also send push notification (for when app is killed/backgrounded)
-    this.expoPush.sendPushNotification(
-      [payload.targetUserId],
-      'Cuộc gọi đến',
-      `${callerInfo.fullName} đang gọi cho bạn`,
-      {
-        type: 'VOICE_CALL_INCOMING',
+      // Notify target user via socket
+      this.server.to(`user:${payload.targetUserId}`).emit('voice_call:incoming', {
         callerId,
         callerName: callerInfo.fullName,
         callerAvatar: callerInfo.avatarUrl,
-      },
-    ).catch(e => console.error('Failed to send call push notification', e));
+      });
 
-    return { ok: true };
+      // Also send push notification (for when app is killed/backgrounded)
+      this.expoPush.sendPushNotification(
+        [payload.targetUserId],
+        'Cuộc gọi đến',
+        `${callerInfo.fullName} đang gọi cho bạn`,
+        {
+          type: 'VOICE_CALL_INCOMING',
+          callerId,
+          callerName: callerInfo.fullName,
+          callerAvatar: callerInfo.avatarUrl,
+        },
+      ).catch(e => console.error('Failed to send call push notification', e));
+
+      return { ok: true };
+    } catch (e) {
+      console.error('Error in handleCallRequest:', e);
+      return { ok: false, code: 'INTERNAL_ERROR' };
+    }
   }
 
   @SubscribeMessage('voice_call:accept')
