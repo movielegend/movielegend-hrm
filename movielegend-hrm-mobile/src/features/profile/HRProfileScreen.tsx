@@ -5,12 +5,14 @@ import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
+import { useUserGuide } from '../../components/UserGuideManager';
 import { ConfirmModal } from '../../components/ConfirmModal';
 
 export function HRProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const { showGuideManual } = useUserGuide();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const getInitials = (name?: string) => {
@@ -113,6 +115,11 @@ export function HRProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt & Tài khoản</Text>
           <View style={styles.infoCard}>
+            <ActionRow 
+              icon="information-outline" 
+              title="Hướng dẫn sử dụng" 
+              onPress={showGuideManual} 
+            />
             <ActionRow 
               icon="lock-reset" 
               title="Đổi mật khẩu" 

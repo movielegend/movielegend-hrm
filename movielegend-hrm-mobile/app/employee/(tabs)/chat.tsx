@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, RefreshControl } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View, RefreshControl, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
-import { fetchMyChatGroups, type ChatGroup } from '../../../src/api/chat.api';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchMyChatGroups, clearChatHistory, type ChatGroup } from '../../../src/api/chat.api';
+import { chatKeys } from '../../../src/constants/queryKeys';
+import Toast from 'react-native-toast-message';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 
 export default function ChatListScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,8 +42,49 @@ export default function ChatListScreen() {
     }
   };
 
+  const handleLongPress = (item: ChatGroup) => {
+    Alert.alert(
+      'Xóa lịch sử trò chuyện',
+      `Bạn có chắc chắn muốn xóa toàn bộ tin nhắn trong cuộc trò chuyện "${item.name || 'này'}" ở phía bạn không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Xóa', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearChatHistory(item.id);
+              Toast.show({
+                type: 'success',
+                text1: 'Đã xóa lịch sử trò chuyện'
+              });
+              
+              // Xóa cache của tin nhắn trong React Query
+              if (queryClient) {
+                queryClient.invalidateQueries({ queryKey: chatKeys.messages(item.id) });
+              }
+
+              // Refresh the list to reflect any changes if needed
+              onRefresh();
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'Lỗi khi xóa lịch sử trò chuyện'
+              });
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderItem = ({ item }: { item: ChatGroup }) => (
-    <Pressable style={styles.groupCard} onPress={() => router.push(`/employee/chat/${item.id}?departmentId=${item.departmentId}`)}>
+    <Pressable 
+      style={styles.groupCard} 
+      onPress={() => router.push(`/employee/chat/${item.id}?departmentId=${item.departmentId}`)}
+      onLongPress={() => handleLongPress(item)}
+      delayLongPress={500}
+    >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{(item.name || 'Nhóm chat').charAt(0)}</Text>
       </View>

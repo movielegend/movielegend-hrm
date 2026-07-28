@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
+import { useUserGuide } from '../../components/UserGuideManager';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -13,6 +14,7 @@ import { ConfirmModal } from '../../components/ConfirmModal';
 export function AdminProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showGuideManual } = useUserGuide();
   const insets = useSafeAreaInsets();
   
   const isHR = user?.roles?.includes('HR');
@@ -104,6 +106,7 @@ export function AdminProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
+            <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={showGuideManual} />
             <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => {}} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: colors.dangerSoft }]}>

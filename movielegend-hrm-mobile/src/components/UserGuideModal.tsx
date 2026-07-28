@@ -30,7 +30,7 @@ export const GUIDE_FILES: Record<GuideRoleKey, GuideItem> = {
     label: 'Hướng dẫn cho Nhân viên',
     title: 'Cẩm nang Hướng dẫn Sử dụng cho Nhân viên',
     fileName: 'Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf',
-    url: `${BASE_SERVER_URL}/uploads/employee_document%2F2026-07-28%2F10fabed1-8f7e-4c2b-9f98-f7e93a240791.pdf`,
+    url: `${BASE_SERVER_URL}/uploads/Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf`,
   },
   admin: {
     id: '2',
@@ -38,7 +38,7 @@ export const GUIDE_FILES: Record<GuideRoleKey, GuideItem> = {
     label: 'Hướng dẫn cho Admin (Chuyên Nghiệp)',
     title: 'MovieLegend App Guide Chuyên Nghiệp (Admin)',
     fileName: 'MovieLegend_App_Guide_Chuyen_Nghiep.pdf',
-    url: `${BASE_SERVER_URL}/uploads/employee_document%2F2026-07-28%2F2ac12c7d-ca9b-484f-8a11-dbf8a05abd2a.pdf`,
+    url: `${BASE_SERVER_URL}/uploads/MovieLegend_App_Guide_Chuyen_Nghiep.pdf`,
   },
   leader: {
     id: '3',
@@ -46,7 +46,7 @@ export const GUIDE_FILES: Record<GuideRoleKey, GuideItem> = {
     label: 'Hướng dẫn cho Leader (Quản lý)',
     title: 'Cẩm nang Hướng dẫn Sử dụng Role Leader',
     fileName: 'Cam_nang_huong_dan_su_dung_Role_Leader.pdf',
-    url: `${BASE_SERVER_URL}/uploads/employee_document%2F2026-07-28%2F800c6748-9c25-4337-9a9d-8fbbc3193f23.pdf`,
+    url: `${BASE_SERVER_URL}/uploads/Cam_nang_huong_dan_su_dung_Role_Leader.pdf`,
   },
 };
 
