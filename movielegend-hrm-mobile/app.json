@@ -85,7 +85,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-document-picker"
+      "expo-document-picker",
+      "./withWebRTCExclude.js"
     ],
     "extra": {
       "router": {},
