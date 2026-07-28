@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { VoiceCallService } from './voice-call.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { ExpoPushService } from '../notifications/expo-push.service';
 
 @WebSocketGateway({ cors: { origin: true, credentials: true }, namespace: '/hrm' })
 export class VoiceCallGateway {
@@ -13,6 +14,7 @@ export class VoiceCallGateway {
     private readonly voiceCallService: VoiceCallService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly expoPush: ExpoPushService,
   ) {}
 
   private extractUserId(client: Socket): string {
@@ -24,8 +26,29 @@ export class VoiceCallGateway {
     const callerId = this.extractUserId(client);
     if (!callerId || !payload.targetUserId) return { ok: false, code: 'INVALID_PARAMETERS' };
     
-    // Notify target user
-    this.server.to(`user:${payload.targetUserId}`).emit('voice_call:incoming', { callerId });
+    // Get caller info (name + avatar) from DB
+    const callerInfo = await this.voiceCallService.getCallerInfo(callerId);
+
+    // Notify target user via socket
+    this.server.to(`user:${payload.targetUserId}`).emit('voice_call:incoming', {
+      callerId,
+      callerName: callerInfo.fullName,
+      callerAvatar: callerInfo.avatarUrl,
+    });
+
+    // Also send push notification (for when app is killed/backgrounded)
+    this.expoPush.sendPushNotification(
+      [payload.targetUserId],
+      'Cuộc gọi đến',
+      `${callerInfo.fullName} đang gọi cho bạn`,
+      {
+        type: 'VOICE_CALL_INCOMING',
+        callerId,
+        callerName: callerInfo.fullName,
+        callerAvatar: callerInfo.avatarUrl,
+      },
+    ).catch(e => console.error('Failed to send call push notification', e));
+
     return { ok: true };
   }
 

@@ -28,6 +28,13 @@ export async function setupNotificationChannel() {
       lightColor: '#3B82F6',
     });
   }
+  // Also setup the incoming calls channel
+  try {
+    const { setupCallNotificationChannel } = require('./call-notification');
+    await setupCallNotificationChannel();
+  } catch (e) {
+    console.warn('Failed to setup call notification channel:', e);
+  }
 }
 
 export async function requestNotificationPermissions() {

@@ -78,6 +78,9 @@
                 "**/libc++_shared.so"
               ]
             }
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ],
@@ -90,6 +93,7 @@
         "projectId": "4a5152ea-87fd-4faf-829b-63e01ed4de9d"
       }
     },
-    "runtimeVersion": "1.0.0"
+    "runtimeVersion": "1.0.0",
+    "owner": "binh19112003"
   }
 }
