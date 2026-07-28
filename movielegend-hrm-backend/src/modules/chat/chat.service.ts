@@ -120,7 +120,9 @@ export class ChatService {
               otherMembers.map(m => m.userId),
               {
                 type: 'CHAT_MESSAGE',
-                title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
+                title: group.type === 'DIRECT' 
+                  ? `Tin nhắn mới từ ${senderName}` 
+                  : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
                 body: notificationBody,
                 metadata: { groupId: group.id, messageId: message.id }
               }
