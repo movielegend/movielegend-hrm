@@ -77,6 +77,19 @@ export function usePushNotificationSetup() {
           const data = response.notification.request.content.data;
           console.log('--- Người dùng bấm vào thông báo. Data:', data);
           
+          // Handle voice call notification tap
+          if (data && data.type === 'VOICE_CALL_INCOMING') {
+            try {
+              const { useVoiceCall } = require('../features/voice-call/VoiceCallProvider');
+              // We can't use hooks here, so we use a global event approach
+              // The VoiceCallProvider will pick this up via socket reconnection
+              console.log('--- Voice call notification tapped. callerId:', data.callerId);
+            } catch (e) {
+              console.warn('Failed to handle voice call notification:', e);
+            }
+            return;
+          }
+          
           if (data && data.type) {
             const mockTarget = {
               notification: {

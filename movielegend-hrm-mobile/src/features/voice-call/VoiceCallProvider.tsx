@@ -1,54 +1,128 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-// Fallback mock component cho LiveKit nếu chưa cài thư viện native LiveKit
-const LiveKitRoom = ({ children }: any) => <>{children}</>;
-const useRoomContext = () => ({ state: 'connected' });
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { Modal, Platform } from 'react-native';
 import { useSocketStatus } from '../../providers/SocketProvider';
-import { useAuth } from '../../providers/AuthProvider';
+import { IncomingCallScreen } from './IncomingCallScreen';
+import { CallingScreen } from './CallingScreen';
+import { ActiveCallScreen } from './ActiveCallScreen';
+import { showIncomingCallNotification, dismissCallNotification } from '../../services/call-notification';
 
+// ── Conditional LiveKit imports (unavailable in Expo Go) ──
+let LiveKitRoom: any = ({ children }: any) => <>{children}</>;
+let useRoomContext: any = () => ({ state: 'connected' });
+let AudioSession: any = null;
+
+try {
+  const livekit = require('@livekit/react-native');
+  if (livekit?.LiveKitRoom) LiveKitRoom = livekit.LiveKitRoom;
+  if (livekit?.useRoomContext) useRoomContext = livekit.useRoomContext;
+  if (livekit?.AudioSession) AudioSession = livekit.AudioSession;
+} catch (e) {
+  console.warn('LiveKit native module fallback active:', e);
+}
+
+// ── Types ──
 interface VoiceCallContextType {
-  initiateCall: (targetUserId: string, targetName: string) => void;
+  initiateCall: (targetUserId: string, targetName: string, targetAvatar?: string | null) => void;
+  handleIncomingCallFromNotification: (data: {
+    callerId: string;
+    callerName: string;
+    callerAvatar?: string | null;
+  }) => void;
 }
 
 const VoiceCallContext = createContext<VoiceCallContextType>({
-  initiateCall: () => { },
+  initiateCall: () => {},
+  handleIncomingCallFromNotification: () => {},
 });
 
 export const useVoiceCall = () => useContext(VoiceCallContext);
 
+// ── Call timeout (40s) ──
+const CALL_TIMEOUT_MS = 40_000;
+
+// ── Provider ──
 export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   const { getSocket } = useSocketStatus();
   const socket = getSocket();
 
+  // Call state
   const [callState, setCallState] = useState<'IDLE' | 'CALLING' | 'INCOMING' | 'ACTIVE'>('IDLE');
   const [callerId, setCallerId] = useState<string | null>(null);
-  const [callerName, setCallerName] = useState<string>('Unknown');
+  const [callerName, setCallerName] = useState<string>('Người dùng');
+  const [callerAvatar, setCallerAvatar] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
-  const [targetName, setTargetName] = useState<string>('Unknown');
+  const [targetName, setTargetName] = useState<string>('Người dùng');
+  const [targetAvatar, setTargetAvatar] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [roomName, setRoomName] = useState<string | null>(null);
 
+
+  // Audio controls
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaker, setIsSpeaker] = useState(false);
+
+  // Refs
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roomRef = useRef<any>(null);
+
   const liveKitUrl = 'wss://mvl-2pvg5pqv.livekit.cloud';
 
+  // ── Cleanup timeout ──
+  const clearCallTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  // ── Reset call ──
+  const resetCall = useCallback(() => {
+    setCallState('IDLE');
+    setCallerId(null);
+    setCallerName('Người dùng');
+    setCallerAvatar(null);
+    setTargetId(null);
+    setTargetName('Người dùng');
+    setTargetAvatar(null);
+    setToken(null);
+    setRoomName(null);
+    setIsMuted(false);
+    setIsSpeaker(false);
+    clearCallTimeout();
+    dismissCallNotification();
+  }, [clearCallTimeout]);
+
+  // ── Socket event listeners ──
   useEffect(() => {
     if (!socket) return;
 
-    const onIncoming = (data: { callerId: string, callerName?: string }) => {
+    const onIncoming = (data: { callerId: string; callerName?: string; callerAvatar?: string | null }) => {
       setCallerId(data.callerId);
       setCallerName(data.callerName || 'Người dùng');
+      setCallerAvatar(data.callerAvatar || null);
       setCallState('INCOMING');
+
+      // Also show local notification (useful if app is in background but socket still connected)
+      showIncomingCallNotification(
+        data.callerName || 'Người dùng',
+        data.callerId,
+        data.callerAvatar,
+      );
     };
 
-    const onAccepted = (data: { token: string, roomName: string, receiverId: string }) => {
+    const onAccepted = (data: { token: string; roomName: string; receiverId: string }) => {
+      clearCallTimeout();
       setToken(data.token);
       setRoomName(data.roomName);
       setCallState('ACTIVE');
     };
 
-    const onToken = (data: { token: string, roomName: string }) => {
+    const onToken = (data: { token: string; roomName: string }) => {
+      clearCallTimeout();
       setToken(data.token);
       setRoomName(data.roomName);
       setCallState('ACTIVE');
+      dismissCallNotification();
     };
 
     const onRejected = () => {
@@ -72,27 +146,62 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       socket.off('voice_call:rejected', onRejected);
       socket.off('voice_call:ended', onEnded);
     };
-  }, [socket]);
+  }, [socket, resetCall, clearCallTimeout]);
 
-  const initiateCall = (targetUserId: string, tName: string) => {
-    if (!socket) return;
-    setTargetId(targetUserId);
-    setTargetName(tName);
-    setCallState('CALLING');
-    socket.emit('voice_call:request', { targetUserId });
+  // ── Permissions ──
+  const ensurePermissions = async (): Promise<boolean> => {
+    try {
+      const { Camera } = require('expo-camera');
+      if (Camera) {
+        const { status } = await Camera.requestMicrophonePermissionsAsync();
+        return status === 'granted';
+      }
+      return true;
+    } catch (e) {
+      console.warn('Failed to request microphone permission', e);
+      return true;
+    }
   };
 
-  const acceptCall = () => {
+  // ── Initiate a call ──
+  const initiateCall = async (userId: string, name: string, avatar?: string | null) => {
+    if (!socket) return;
+    const hasPermission = await ensurePermissions();
+    if (!hasPermission) return;
+
+    setTargetId(userId);
+    setTargetName(name);
+    setTargetAvatar(avatar || null);
+    setCallState('CALLING');
+    socket.emit('voice_call:request', { targetUserId: userId });
+
+    // Auto-cancel after timeout
+    timeoutRef.current = setTimeout(() => {
+      if (socket) {
+        socket.emit('voice_call:end', { targetUserId: userId });
+      }
+      resetCall();
+    }, CALL_TIMEOUT_MS);
+  };
+
+  // ── Accept call ──
+  const acceptCall = async () => {
     if (!socket || !callerId) return;
+    const hasPermission = await ensurePermissions();
+    if (!hasPermission) return;
+
+    dismissCallNotification();
     socket.emit('voice_call:accept', { callerId });
   };
 
+  // ── Reject call ──
   const rejectCall = () => {
     if (!socket || !callerId) return;
     socket.emit('voice_call:reject', { callerId });
     resetCall();
   };
 
+  // ── End call ──
   const endCall = () => {
     if (!socket) return;
     const peerId = targetId || callerId;
@@ -102,117 +211,134 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     resetCall();
   };
 
-  const resetCall = () => {
-    setCallState('IDLE');
-    setCallerId(null);
-    setTargetId(null);
-    setToken(null);
-    setRoomName(null);
-  };
+  // ── Toggle mute ──
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => {
+      const newVal = !prev;
+      try {
+        if (roomRef.current?.localParticipant) {
+          roomRef.current.localParticipant.setMicrophoneEnabled(!newVal);
+        }
+      } catch (e) {
+        console.warn('Failed to toggle mute:', e);
+      }
+      return newVal;
+    });
+  }, []);
+
+  // ── Toggle speaker ──
+  const toggleSpeaker = useCallback(async () => {
+    setIsSpeaker(prev => {
+      const newVal = !prev;
+      try {
+        if (AudioSession) {
+          // AudioSession API for switching output
+          AudioSession.showAudioRoutePicker?.();
+        }
+      } catch (e) {
+        console.warn('Failed to toggle speaker:', e);
+      }
+      return newVal;
+    });
+  }, []);
+
+  // ── Handle call from push notification tap ──
+  const handleIncomingCallFromNotification = useCallback((data: {
+    callerId: string;
+    callerName: string;
+    callerAvatar?: string | null;
+  }) => {
+    setCallerId(data.callerId);
+    setCallerName(data.callerName);
+    setCallerAvatar(data.callerAvatar || null);
+    setCallState('INCOMING');
+  }, []);
 
   return (
-    <VoiceCallContext.Provider value={{ initiateCall }}>
+    <VoiceCallContext.Provider value={{ initiateCall, handleIncomingCallFromNotification }}>
       {children}
-      <Modal visible={callState !== 'IDLE'} animationType="slide" transparent>
-        <View style={styles.modalContainer}>
-          {callState === 'INCOMING' && (
-            <View style={styles.content}>
-              <Text style={styles.title}>Cuộc gọi đến</Text>
-              <Text style={styles.name}>{callerName}</Text>
-              <View style={styles.actions}>
-                <TouchableOpacity style={[styles.btn, styles.btnReject]} onPress={rejectCall}>
-                  <Text style={styles.btnText}>Từ chối</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.btn, styles.btnAccept]} onPress={acceptCall}>
-                  <Text style={styles.btnText}>Nghe</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
+      <Modal visible={callState !== 'IDLE'} animationType="slide" statusBarTranslucent>
+        {callState === 'INCOMING' && (
+          <IncomingCallScreen
+            callerName={callerName}
+            callerAvatar={callerAvatar}
+            onAccept={acceptCall}
+            onReject={rejectCall}
+          />
+        )}
 
-          {callState === 'CALLING' && (
-            <View style={styles.content}>
-              <Text style={styles.title}>Đang gọi...</Text>
-              <Text style={styles.name}>{targetName}</Text>
-              <ActivityIndicator size="large" color="#fff" style={{ marginVertical: 20 }} />
-              <TouchableOpacity style={[styles.btn, styles.btnReject]} onPress={endCall}>
-                <Text style={styles.btnText}>Kết thúc</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        {callState === 'CALLING' && (
+          <CallingScreen
+            targetName={targetName}
+            targetAvatar={targetAvatar}
+            onEndCall={endCall}
+          />
+        )}
 
-          {callState === 'ACTIVE' && token && (
-            <LiveKitRoom
-              serverUrl={liveKitUrl}
-              token={token}
-              connect={true}
-              audio={true}
-              video={false}
-            >
-              <ActiveCallView peerName={callerId ? callerName : targetName} onEndCall={endCall} />
-            </LiveKitRoom>
-          )}
-        </View>
+        {callState === 'ACTIVE' && token && (
+          <LiveKitRoom
+            serverUrl={liveKitUrl}
+            token={token}
+            connect={true}
+            audio={true}
+            video={false}
+            onConnected={(room: any) => { roomRef.current = room; }}
+          >
+            <ActiveCallInner
+              peerName={callerId ? callerName : targetName}
+              peerAvatar={callerId ? callerAvatar : targetAvatar}
+              isMuted={isMuted}
+              isSpeaker={isSpeaker}
+              onToggleMute={toggleMute}
+              onToggleSpeaker={toggleSpeaker}
+              onEndCall={endCall}
+              roomRef={roomRef}
+            />
+          </LiveKitRoom>
+        )}
       </Modal>
     </VoiceCallContext.Provider>
   );
 }
 
-function ActiveCallView({ peerName, onEndCall }: { peerName: string, onEndCall: () => void }) {
+// ── Active call wrapper to access room context ──
+function ActiveCallInner({
+  peerName,
+  peerAvatar,
+  isMuted,
+  isSpeaker,
+  onToggleMute,
+  onToggleSpeaker,
+  onEndCall,
+  roomRef,
+}: {
+  peerName: string;
+  peerAvatar?: string | null;
+  isMuted: boolean;
+  isSpeaker: boolean;
+  onToggleMute: () => void;
+  onToggleSpeaker: () => void;
+  onEndCall: () => void;
+  roomRef: React.MutableRefObject<any>;
+}) {
   const room = useRoomContext();
 
+  useEffect(() => {
+    if (room) {
+      roomRef.current = room;
+    }
+  }, [room, roomRef]);
+
   return (
-    <View style={styles.content}>
-      <Text style={styles.title}>Đang đàm thoại</Text>
-      <Text style={styles.name}>{peerName}</Text>
-      <Text style={{ color: '#fff', marginTop: 10 }}>{room?.state}</Text>
-      <TouchableOpacity style={[styles.btn, styles.btnReject, { marginTop: 40 }]} onPress={onEndCall}>
-        <Text style={styles.btnText}>Kết thúc</Text>
-      </TouchableOpacity>
-    </View>
+    <ActiveCallScreen
+      peerName={peerName}
+      peerAvatar={peerAvatar}
+      isMuted={isMuted}
+      isSpeaker={isSpeaker}
+      onToggleMute={onToggleMute}
+      onToggleSpeaker={onToggleSpeaker}
+      onEndCall={onEndCall}
+      connectionState={room?.state}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    alignItems: 'center',
-  },
-  title: {
-    color: '#ccc',
-    fontSize: 18,
-    marginBottom: 10,
-  },
-  name: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 40,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 30,
-  },
-  btn: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  btnAccept: {
-    backgroundColor: '#22c55e',
-  },
-  btnReject: {
-    backgroundColor: '#ef4444',
-  },
-  btnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  }
-});

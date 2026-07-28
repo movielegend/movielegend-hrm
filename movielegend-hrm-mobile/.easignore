@@ -12,3 +12,7 @@ recent_commits.txt
 *.ipa
 *.tar.gz
 *.zip
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/

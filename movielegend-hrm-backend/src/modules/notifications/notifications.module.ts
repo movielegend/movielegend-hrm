@@ -12,6 +12,6 @@ import { HttpSmsService } from './httpsms.service';
   imports: [DatabaseModule, RealtimeModule],
   controllers: [NotificationsController],
   providers: [NotificationsService, ExpoPushService, ShiftReminderService, HttpSmsService],
-  exports: [NotificationsService, HttpSmsService],
+  exports: [NotificationsService, HttpSmsService, ExpoPushService],
 })
 export class NotificationsModule {}

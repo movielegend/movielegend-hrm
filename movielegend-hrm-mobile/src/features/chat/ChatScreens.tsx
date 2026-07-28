@@ -606,7 +606,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
                     onPress={() => {
                       setIsCallModalVisible(false);
-                      initiateCall(item.id, item.profile?.fullName ?? item.userCode);
+                      initiateCall(item.id, item.profile?.fullName ?? item.userCode, item.profile?.avatarUrl);
                     }}
                   >
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
