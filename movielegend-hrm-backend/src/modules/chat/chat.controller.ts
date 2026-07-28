@@ -22,10 +22,20 @@ export class ChatController {
   @Get('groups/:groupId/messages')
   getMessages(
     @Param('groupId') groupId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('skip') skip?: number,
     @Query('take') take?: number
   ) {
-    return this.chatService.getMessages(groupId, skip ? Number(skip) : 0, take ? Number(take) : 50);
+    return this.chatService.getMessages(groupId, user.userId, skip ? Number(skip) : 0, take ? Number(take) : 50);
+  }
+
+  @ApiOperation({ summary: 'Xóa lịch sử trò chuyện' })
+  @Post('groups/:groupId/clear-history')
+  clearHistory(
+    @Param('groupId') groupId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.chatService.clearChatHistory(groupId, user.userId);
   }
 
   // Not strictly needed if using websockets exclusively for sending,
@@ -41,10 +51,13 @@ export class ChatController {
   }
 
   @ApiOperation({ summary: 'Lấy tất cả nhóm chat (Admin)' })
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Get('admin/groups')
-  getAllGroups(@Query('search') search?: string) {
-    return this.chatService.getAllGroups(search);
+  getAllGroups(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('search') search?: string
+  ) {
+    return this.chatService.getAllGroups(user.userId, search);
   }
 
   @ApiOperation({ summary: 'Tạo chat 1-1' })
@@ -81,7 +94,7 @@ export class ChatController {
     @Param('groupId') groupId: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    const isAdmin = user.roles?.some(r => r.role?.code?.toUpperCase().includes('ADMIN'));
+    const isAdmin = user.roles?.some(r => r.toUpperCase().includes('ADMIN'));
     return this.chatService.deleteGroup(groupId, user.userId, !!isAdmin);
   }
 }

@@ -76,3 +76,8 @@ export async function markGroupAsRead(groupId: string) {
   const response = await apiClient.post<ApiResponse<any>>(`/chat/groups/${groupId}/read`);
   return unwrapData(response);
 }
+
+export async function clearChatHistory(groupId: string) {
+  const response = await apiClient.post<ApiResponse<any>>(`/chat/groups/${groupId}/clear-history`);
+  return unwrapData(response);
+}

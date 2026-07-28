@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -33,9 +33,41 @@ export class ChatService {
     return group;
   }
 
-  async getMessages(groupId: string, skip: number = 0, take: number = 50) {
+  async getMessages(groupId: string, userId: string, skip: number = 0, take: number = 50) {
+    const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
+    if (!group) throw new NotFoundException('Chat group not found');
+
+    const member = await this.prisma.chatGroupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } },
+      select: { clearedAt: true, joinedAt: true }
+    });
+
+    if (!member) {
+      if (group.type === 'DIRECT' || group.type === 'CUSTOM' || group.type === 'TASK') {
+        throw new ForbiddenException('You do not have permission to read this chat');
+      }
+      if (group.type === 'DEPARTMENT' && group.departmentId) {
+        const deptMember = await this.prisma.departmentMember.findUnique({
+          where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+        });
+        if (!deptMember || deptMember.leftAt) {
+          throw new ForbiddenException('You do not have permission to read this chat');
+        }
+      }
+    }
+
+    const whereClause: any = { groupId };
+    
+    if (member) {
+      if (member.clearedAt) {
+        whereClause.createdAt = { gt: member.clearedAt };
+      } else {
+        whereClause.createdAt = { gte: member.joinedAt };
+      }
+    }
+
     return this.prisma.chatMessage.findMany({
-      where: { groupId },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       skip,
       take,
@@ -43,6 +75,21 @@ export class ChatService {
         sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
       }
     });
+  }
+
+  async clearChatHistory(groupId: string, userId: string) {
+    const member = await this.prisma.chatGroupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } }
+    });
+
+    if (!member) throw new NotFoundException('You are not a member of this chat group');
+
+    await this.prisma.chatGroupMember.update({
+      where: { groupId_userId: { groupId, userId } },
+      data: { clearedAt: new Date() }
+    });
+
+    return { success: true };
   }
 
   async sendMessage(userId: string, groupId: string, dto: CreateChatMessageDto) {
@@ -278,14 +325,24 @@ export class ChatService {
     });
   }
 
-  async getAllGroups(search?: string) {
+  async getAllGroups(userId: string, search?: string) {
     const groups = await this.prisma.chatGroup.findMany({
-      where: search ? {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { department: { name: { contains: search, mode: 'insensitive' } } }
+      where: {
+        AND: [
+          search ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { department: { name: { contains: search, mode: 'insensitive' } } }
+            ]
+          } : {},
+          {
+            OR: [
+              { type: { in: ['DEPARTMENT', 'TASK'] } },
+              { members: { some: { userId } } }
+            ]
+          }
         ]
-      } : {},
+      },
       include: {
         department: { select: { name: true } },
         task: { select: { title: true } },
@@ -350,11 +407,11 @@ export class ChatService {
     const isMember = group.members.some(m => m.userId === userId);
 
     if (!isAdmin && !isMember) {
-      throw new require('@nestjs/common').ForbiddenException('You do not have permission to delete this group');
+      throw new ForbiddenException('You do not have permission to delete this group');
     }
 
     if (!isAdmin && group.type !== 'DIRECT') {
-      throw new require('@nestjs/common').ForbiddenException('Only admin can delete non-direct chat groups');
+      throw new ForbiddenException('Only admin can delete non-direct chat groups');
     }
 
     await this.prisma.$transaction(async (tx) => {

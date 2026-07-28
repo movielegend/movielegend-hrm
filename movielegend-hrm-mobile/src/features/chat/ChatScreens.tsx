@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   FlatList,
@@ -259,6 +260,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const sendMessage = useSendMessage(groupId);
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
+  const queryClient = useQueryClient();
   
   const myList = Array.isArray(myGroups.data) ? myGroups.data : [];
   const allList = Array.isArray(allGroups.data) ? allGroups.data : [];
@@ -434,6 +436,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     { text: 'Xóa', style: 'destructive', onPress: async () => {
                       try {
                         await require('../../utils/api').api.delete(`/chat/groups/${groupId}`);
+                        queryClient.invalidateQueries({ queryKey: ['chat', 'groups'] });
+                        queryClient.invalidateQueries({ queryKey: ['chat', 'allGroups'] });
                         router.back();
                       } catch (error) {
                         Alert.alert('Lỗi', 'Không thể xóa nhóm chat');

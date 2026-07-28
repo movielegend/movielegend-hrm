@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
 import { useAuth } from '../../providers/AuthProvider';
-import { useOnboarding } from '../../components/Onboarding/OnboardingProvider';
+import { useUserGuide } from '../../components/UserGuideManager';
 import type { DashboardRole } from '../../api/dashboard.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -12,14 +12,10 @@ import { spacing } from '../../theme/spacing';
 export function MyProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { showOnboarding } = useOnboarding();
+  const { showGuideManual } = useUserGuide();
 
   const handleReplayOnboarding = () => {
-    let role: DashboardRole = 'EMPLOYEE';
-    if (user?.roles?.includes('ADMIN')) role = 'ADMIN';
-    else if (user?.roles?.includes('LEADER')) role = 'LEADER';
-    
-    showOnboarding(role);
+    showGuideManual();
   };
 
   const getInitials = (name?: string) => {

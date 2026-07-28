@@ -2941,6 +2941,7 @@ model ChatGroupMember {
   groupId  String   @db.Uuid
   userId   String   @db.Uuid
   joinedAt DateTime @default(now())
+  clearedAt DateTime?
 
   group ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
