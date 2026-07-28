@@ -185,8 +185,8 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── Accept call ──
-  const acceptCall = async (overrideCallerId?: string) => {
-    const cid = overrideCallerId || callerId;
+  const acceptCall = async (overrideCallerId?: string | any) => {
+    const cid = typeof overrideCallerId === 'string' ? overrideCallerId : callerId;
     if (!socket || !cid) return;
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
@@ -196,23 +196,33 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ── Reject call ──
-  const rejectCall = (overrideCallerId?: string) => {
-    const cid = overrideCallerId || callerId;
+  const rejectCall = (overrideCallerId?: string | any) => {
+    const cid = typeof overrideCallerId === 'string' ? overrideCallerId : callerId;
     if (!socket || !cid) return;
     socket.emit('voice_call:reject', { callerId: cid });
     resetCall();
   };
+
+  const [pendingAction, setPendingAction] = useState<{ type: 'accept' | 'reject', callerId: string } | null>(null);
 
   // ── Listen for Push Notification Actions ──
   useEffect(() => {
     const { DeviceEventEmitter } = require('react-native');
     
     const subAccept = DeviceEventEmitter.addListener('voice_call:action_accept', (cid: string) => {
-      acceptCall(cid);
+      if (!socket) {
+        setPendingAction({ type: 'accept', callerId: cid });
+      } else {
+        acceptCall(cid);
+      }
     });
     
     const subReject = DeviceEventEmitter.addListener('voice_call:action_reject', (cid: string) => {
-      rejectCall(cid);
+      if (!socket) {
+        setPendingAction({ type: 'reject', callerId: cid });
+      } else {
+        rejectCall(cid);
+      }
     });
     
     const subOpen = DeviceEventEmitter.addListener('voice_call:action_open', (data: any) => {
@@ -225,6 +235,18 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       subOpen.remove();
     };
   }, [socket, callerId]);
+
+  // Execute pending action when socket connects
+  useEffect(() => {
+    if (socket && pendingAction) {
+      if (pendingAction.type === 'accept') {
+        acceptCall(pendingAction.callerId);
+      } else if (pendingAction.type === 'reject') {
+        rejectCall(pendingAction.callerId);
+      }
+      setPendingAction(null);
+    }
+  }, [socket, pendingAction]);
 
   // ── End call ──
   const endCall = () => {
