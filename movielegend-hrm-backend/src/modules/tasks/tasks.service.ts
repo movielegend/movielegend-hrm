@@ -13,6 +13,7 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import {
   CreateTaskAttachmentDto,
@@ -37,6 +38,7 @@ export class TasksService {
     private readonly scope: DepartmentScopeService,
     private readonly policy: TaskPolicyService,
     private readonly notifications: NotificationsService,
+    private readonly storageService: StorageService,
   ) { }
 
   async create(dto: CreateTaskDto, actor: AuthenticatedUser) {
@@ -462,6 +464,14 @@ export class TasksService {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.taskAttachment.delete({ where: { id: attachmentId } });
+      
+      // Bổ sung xóa file vật lý
+      if (attachment.storageKey) {
+        await this.storageService.delete(attachment.storageKey).catch(e => {
+          console.error(`Failed to delete file from storage: ${attachment.storageKey}`, e);
+        });
+      }
+      
       // We could use TaskHistoryAction.UPDATED if DETACHED doesn't exist
       await tx.taskStatusHistory.create({
         data: { taskId, actorUserId: actor.userId, action: TaskHistoryAction.PROGRESS_UPDATED },
