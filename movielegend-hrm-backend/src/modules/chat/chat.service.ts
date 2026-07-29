@@ -25,7 +25,8 @@ export class ChatService {
       group = await this.prisma.chatGroup.create({
         data: {
           departmentId,
-          name: `Nhóm ${dept.name}`
+          name: `Nhóm ${dept.name}`,
+          type: 'DEPARTMENT'
         }
       });
     }
@@ -101,6 +102,30 @@ export class ChatService {
   async sendMessage(userId: string, groupId: string, dto: CreateChatMessageDto) {
     const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Chat group not found');
+
+    const senderUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roles: { include: { role: true } } }
+    });
+    const isAdminUser = senderUser?.roles?.some(r => r.role?.code?.toUpperCase().includes('ADMIN'));
+
+    const member = await this.prisma.chatGroupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } }
+    });
+
+    if (!member && !isAdminUser) {
+      if (group.type === 'DIRECT' || group.type === 'CUSTOM' || group.type === 'TASK') {
+        throw new ForbiddenException('You do not have permission to send messages to this chat');
+      }
+      if (group.type === 'DEPARTMENT' && group.departmentId) {
+        const deptMember = await this.prisma.departmentMember.findUnique({
+          where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+        });
+        if (!deptMember || deptMember.leftAt) {
+          throw new ForbiddenException('You do not have permission to send messages to this chat');
+        }
+      }
+    }
 
     const message = await this.prisma.chatMessage.create({
       data: {
