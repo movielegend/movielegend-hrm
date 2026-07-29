@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { notFound, forbidden } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { StorageService } from '../storage/storage.service';
 import { ScopedEmployeeQueryDto } from './dto/scoped-employee-query.dto';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class EmployeesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,
+    private readonly storage: StorageService,
   ) {}
 
   async findOne(id: string) {
@@ -151,9 +153,15 @@ export class EmployeesService {
   async remove(id: string, actorUserId: string) {
     const profile = await this.prisma.employeeProfile.findUnique({
       where: { id },
-      select: { userId: true },
+      select: { userId: true, avatarUrl: true },
     });
     if (!profile) throw notFound('EMPLOYEE_NOT_FOUND', 'Không tìm thấy hồ sơ nhân viên');
+
+    // Tìm các ảnh khuôn mặt trước khi xóa DB
+    const faceProfile = await this.prisma.faceProfile.findUnique({
+      where: { userId: profile.userId },
+      include: { images: true }
+    });
 
     await this.prisma.$transaction(async (tx) => {
       // Xóa cứng user (tự động xóa cascade profile, departmentMember, faceProfile, etc.)
@@ -172,6 +180,23 @@ export class EmployeesService {
         },
       });
     });
+
+    // Sau khi xóa DB thành công, thực hiện xóa file vật lý
+    if (profile.avatarUrl) {
+      const avatarKey = this.storage.extractKeyFromUrl(profile.avatarUrl);
+      if (avatarKey) {
+        await this.storage.delete(avatarKey).catch(e => console.error(`Lỗi xóa avatar cũ: ${avatarKey}`, e));
+      }
+    }
+
+    if (faceProfile?.images?.length) {
+      for (const img of faceProfile.images) {
+        const faceKey = this.storage.extractKeyFromUrl(img.imageUrl);
+        if (faceKey) {
+          await this.storage.delete(faceKey).catch(e => console.error(`Lỗi xóa ảnh khuôn mặt: ${faceKey}`, e));
+        }
+      }
+    }
 
     return { success: true };
   }

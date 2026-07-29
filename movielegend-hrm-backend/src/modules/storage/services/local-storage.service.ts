@@ -57,6 +57,13 @@ export class LocalStorageService extends StorageService {
     }
     return target;
   }
+
+  extractKeyFromUrl(url: string): string | null {
+    if (!url) return null;
+    const match = url.match(/\/uploads\/(.*)$/);
+    if (match) return decodeURIComponent(match[1]);
+    return null;
+  }
 }
 
 function sanitizeStorageKey(value: string): string {

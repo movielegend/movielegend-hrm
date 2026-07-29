@@ -3,6 +3,7 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
+import { StorageService } from '../storage/storage.service';
 import { UpdateFaceDto, UpdateMeDto } from './dto/update-me.dto';
 import { FacePoseType, UploadPurpose } from '@prisma/client';
 import { badRequest } from '../../common/utils/error.util';
@@ -12,12 +13,24 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
+    private readonly storage: StorageService,
   ) { }
 
   async updateMe(dto: UpdateMeDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: actor.userId } });
+      const user = await tx.user.findUnique({ 
+        where: { id: actor.userId },
+        include: { profile: true }
+      });
       if (!user) throw notFound('USER_NOT_FOUND', 'Người dùng không tồn tại');
+
+      // Nếu có cập nhật Avatar mới và Avatar cũ tồn tại, thì trích xuất key và xóa rác
+      if (dto.avatarUrl !== undefined && user.profile?.avatarUrl && dto.avatarUrl !== user.profile.avatarUrl) {
+        const oldKey = this.storage.extractKeyFromUrl(user.profile.avatarUrl);
+        if (oldKey) {
+          await this.storage.delete(oldKey).catch(e => console.error(`Failed to delete old avatar ${oldKey}`, e));
+        }
+      }
 
       const updatedUser = await tx.user.update({
         where: { id: actor.userId },
@@ -68,7 +81,16 @@ export class UsersService {
       let faceProfileId = user.faceProfile?.id;
 
       if (faceProfileId) {
-        // Delete old images
+        // Delete old physical images
+        const oldImages = await tx.faceRegistrationImage.findMany({ where: { faceProfileId } });
+        for (const img of oldImages) {
+          const oldKey = this.storage.extractKeyFromUrl(img.imageUrl);
+          if (oldKey) {
+            await this.storage.delete(oldKey).catch(e => console.error(`Failed to delete old face image ${oldKey}`, e));
+          }
+        }
+
+        // Delete old images from DB
         await tx.faceRegistrationImage.deleteMany({
           where: { faceProfileId },
         });

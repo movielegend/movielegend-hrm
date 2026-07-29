@@ -112,4 +112,30 @@ export class CloudinaryStorageService implements StorageService {
     }
     return Buffer.from(await response.arrayBuffer());
   }
+
+  extractKeyFromUrl(url: string): string | null {
+    if (!url) return null;
+    
+    // Nếu là PDF thì nó đang trỏ về LocalStorage (fallback)
+    if (url.includes('/uploads/')) {
+      return this.localStorageFallback.extractKeyFromUrl(url);
+    }
+
+    // Cloudinary url format: https://res.cloudinary.com/.../upload/v1234/hrm/filename.jpg
+    const match = url.match(/\/upload\/(?:v\d+\/)?(hrm\/.*)$/);
+    if (match) {
+      let key = decodeURIComponent(match[1]);
+      // Cloudinary delete method (destroy) doesn't use extension for images
+      // But wait! This extractKeyFromUrl returns the key that will be passed to `delete()`
+      // Our delete method in cloudinary-storage.service.ts does: 
+      // await cloudinary.uploader.destroy(key);
+      // Wait, cloudinary needs the extension REMOVED.
+      if (!key.toLowerCase().endsWith('.pdf')) {
+         key = key.split('.')[0];
+      }
+      return key;
+    }
+    
+    return null;
+  }
 }

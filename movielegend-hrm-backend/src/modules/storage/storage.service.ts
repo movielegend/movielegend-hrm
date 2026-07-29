@@ -16,4 +16,5 @@ export abstract class StorageService {
   abstract exists(key: string): Promise<boolean>;
   abstract getPublicUrl(key: string): string;
   abstract read(key: string): Promise<Buffer>;
+  abstract extractKeyFromUrl(url: string): string | null;
 }
