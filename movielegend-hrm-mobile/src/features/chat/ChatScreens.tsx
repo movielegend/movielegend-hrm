@@ -31,7 +31,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
@@ -77,7 +77,7 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
   const fetchStickers = async (query = '') => {
     setLoading(true);
     try {
-      const endpoint = query 
+      const endpoint = query
         ? `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=30`
         : `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=30`;
       const response = await axios.get(endpoint);
@@ -112,10 +112,10 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
               <Text style={{ color: '#3B82F6', fontWeight: 'bold' }}>Đóng</Text>
             </TouchableOpacity>
           </View>
-          
+
           {/* Search Bar */}
           <View style={{ paddingHorizontal: 15, paddingBottom: 10 }}>
-            <TextInput 
+            <TextInput
               style={{ backgroundColor: '#F3F4F6', padding: 12, borderRadius: 10, fontSize: 15 }}
               placeholder="Tìm kiếm (VD: Hello, Happy, Sad...)"
               placeholderTextColor="#9CA3AF"
@@ -136,8 +136,8 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ padding: 10 }}
               renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={{ flex: 1, alignItems: 'center', margin: 5 }} 
+                <TouchableOpacity
+                  style={{ flex: 1, alignItems: 'center', margin: 5 }}
                   onPress={() => onSelectSticker(item.images.fixed_width.url, 'giphy')}
                 >
                   <Image source={{ uri: item.images.fixed_width.url }} style={{ width: 100, height: 100 }} resizeMode="contain" />
@@ -164,7 +164,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
   return (
     <Screen>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={groups.isRefetching} onRefresh={() => void groups.refetch()} />}
       >
@@ -209,15 +209,15 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                   key={group.id}
                   style={styles.groupCard}
                   onPress={() => {
-                    const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' : 
-                                     user?.roles?.includes('HR') ? '/hr/chat' :
-                                     user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
-                    
-                    
+                    const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' :
+                      user?.roles?.includes('HR') ? '/hr/chat' :
+                        user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
+
+
                     if (unreadCount > 0) {
                       markAsRead.mutateAsync(group.id).catch(console.error);
                     }
-                    
+
                     router.push(`${basePath}/${group.id}?name=${encodeURIComponent(groupName)}` as any);
                   }}
                 >
@@ -269,17 +269,18 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupName?: string }) {
   const router = useRouter();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
+  const deleteMessage = useDeleteMessage(groupId);
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
-  const queryClient = useQueryClient();
-  
+
   const myList = Array.isArray(myGroups.data) ? myGroups.data : [];
   const allList = Array.isArray(allGroups.data) ? allGroups.data : [];
   const currentGroup = myList.find((g: any) => g.id === groupId) || allList.find((g: any) => g.id === groupId);
 
-  const employees = useScopedEmployees({ 
+  const employees = useScopedEmployees({
     limit: 100,
     departmentId: currentGroup?.departmentId || undefined
   });
@@ -295,7 +296,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [mentions, setMentions] = useState<string[]>([]);
   const [isStickerOpen, setIsStickerOpen] = useState(false);
   const [isCallModalVisible, setIsCallModalVisible] = useState(false);
-  
+
   const { initiateCall } = useVoiceCall();
 
   const messageItems = Array.isArray(messages.data)
@@ -318,7 +319,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     try {
       let prefix = type === 'lottie' ? 'LOTTIE_STICKER:' : 'STATIC_STICKER:';
       if (type === 'giphy') prefix = 'GIPHY_STICKER:';
-      
+
       await sendMessage.mutateAsync({
         content: `${prefix}${stickerUrl}`,
       });
@@ -414,274 +415,291 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         keyboardVerticalOffset={insets.bottom}
       >
         <View style={styles.chatContainer}>
-        {/* Header */}
-        <View style={styles.chatHeader}>
-          <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
-          </Pressable>
-          <View style={styles.chatHeaderIcon}>
-            <MaterialCommunityIcons name="account-group" size={20} color="#111827" />
-          </View>
-          <View style={styles.chatHeaderInfo}>
-            <Text style={styles.chatHeaderName}>{decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat'}</Text>
-            <Text style={styles.chatHeaderMeta}>
-              {messageItems.length} tin nhắn
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity 
-              onPress={() => {
-                if (!currentGroup) {
-                  Alert.alert('Vui lòng đợi', 'Đang tải thông tin nhóm chat...');
-                  return;
-                }
-                const targetUserId = currentGroup?.otherUserId || (currentGroup?.type === 'DIRECT' ? currentGroup?.members?.find((m: any) => m.userId !== user?.id)?.userId : undefined);
-                if (currentGroup?.type === 'DIRECT' && targetUserId) {
-                  initiateCall(targetUserId, currentGroup.name || 'Người dùng', currentGroup.otherUserAvatar);
-                } else if (currentGroup?.members && currentGroup.members.length === 2) {
-                  const otherMember = currentGroup.members.find((m: any) => m.userId !== user?.id);
-                  if (otherMember) {
-                    const u = otherMember.user;
-                    initiateCall(otherMember.userId, u?.profile?.fullName || u?.username || u?.userCode || 'Người dùng', u?.profile?.avatarUrl);
+          {/* Header */}
+          <View style={styles.chatHeader}>
+            <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
+            </Pressable>
+            <View style={styles.chatHeaderIcon}>
+              <MaterialCommunityIcons name="account-group" size={20} color="#111827" />
+            </View>
+            <View style={styles.chatHeaderInfo}>
+              <Text style={styles.chatHeaderName}>{decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat'}</Text>
+              <Text style={styles.chatHeaderMeta}>
+                {messageItems.length} tin nhắn
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (!currentGroup) {
+                    Alert.alert('Vui lòng đợi', 'Đang tải thông tin nhóm chat...');
+                    return;
+                  }
+                  const targetUserId = currentGroup?.otherUserId || (currentGroup?.type === 'DIRECT' ? currentGroup?.members?.find((m: any) => m.userId !== user?.id)?.userId : undefined);
+                  if (currentGroup?.type === 'DIRECT' && targetUserId) {
+                    initiateCall(targetUserId, currentGroup.name || 'Người dùng', currentGroup.otherUserAvatar);
+                  } else if (currentGroup?.members && currentGroup.members.length === 2) {
+                    const otherMember = currentGroup.members.find((m: any) => m.userId !== user?.id);
+                    if (otherMember) {
+                      const u = otherMember.user;
+                      initiateCall(otherMember.userId, u?.profile?.fullName || u?.username || u?.userCode || 'Người dùng', u?.profile?.avatarUrl);
+                    } else {
+                      setIsCallModalVisible(true);
+                    }
                   } else {
                     setIsCallModalVisible(true);
                   }
-                } else {
-                  setIsCallModalVisible(true);
-                }
-              }}  
-              style={{ padding: 8 }}
-            >
-              <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
-            </TouchableOpacity>
-            {(currentGroup?.type === 'DIRECT' || user?.roles?.includes('ADMIN')) && (
-              <TouchableOpacity 
-                onPress={() => {
-                  Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn xóa nhóm chat này không? Mọi tin nhắn sẽ bị xóa vĩnh viễn.', [
-                    { text: 'Hủy', style: 'cancel' },
-                    { text: 'Xóa', style: 'destructive', onPress: async () => {
-                      try {
-                        await require('../../utils/api').api.delete(`/chat/groups/${groupId}`);
-                        queryClient.invalidateQueries({ queryKey: ['chat', 'groups'] });
-                        queryClient.invalidateQueries({ queryKey: ['chat', 'allGroups'] });
-                        router.back();
-                      } catch (error) {
-                        Alert.alert('Lỗi', 'Không thể xóa nhóm chat');
-                      }
-                    }}
-                  ]);
-                }} 
+                }}
                 style={{ padding: 8 }}
               >
-                <MaterialCommunityIcons name="trash-can-outline" size={24} color="#EF4444" />
+                <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
               </TouchableOpacity>
-            )}
+              {(currentGroup?.type === 'DIRECT' || user?.roles?.includes('ADMIN')) && (
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn xóa nhóm chat này không? Mọi tin nhắn sẽ bị xóa vĩnh viễn.', [
+                      { text: 'Hủy', style: 'cancel' },
+                      {
+                        text: 'Xóa', style: 'destructive', onPress: async () => {
+                          try {
+                            await require('../../utils/api').api.delete(`/chat/groups/${groupId}`);
+                            queryClient.invalidateQueries({ queryKey: ['chat', 'groups'] });
+                            queryClient.invalidateQueries({ queryKey: ['chat', 'allGroups'] });
+                            router.back();
+                          } catch (error) {
+                            Alert.alert('Lỗi', 'Không thể xóa nhóm chat');
+                          }
+                        }
+                      }
+                    ]);
+                  }}
+                  style={{ padding: 8 }}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={24} color="#EF4444" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
 
-        {/* Messages */}
-        <FlatList
-          style={styles.messageList}
-          contentContainerStyle={styles.messageListContent}
-          data={sortedMessages}
-          keyExtractor={(msg: any) => msg.id}
-          inverted
-          refreshing={messages.isRefetching}
-          onRefresh={() => void messages.refetch()}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          renderItem={({ item: msg }) => {
-            const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
-            const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
+          {/* Messages */}
+          <FlatList
+            style={styles.messageList}
+            contentContainerStyle={styles.messageListContent}
+            data={sortedMessages}
+            keyExtractor={(msg: any) => msg.id}
+            inverted
+            refreshing={messages.isRefetching}
+            onRefresh={() => void messages.refetch()}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            renderItem={({ item: msg }) => {
+              const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
+              const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
 
-            return (
-              <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
-                {!isMine && (
-                  <View style={styles.messageBubbleAvatar}>
-                    <Text style={styles.messageBubbleAvatarText}>
-                      {getInitials(senderName)}
+              return (
+                <Pressable
+                  onLongPress={() => {
+                    if (isMine) {
+                      Alert.alert('Thu hồi tin nhắn', 'Bạn có chắc chắn muốn thu hồi tin nhắn này?', [
+                        { text: 'Hủy', style: 'cancel' },
+                        { 
+                          text: 'Thu hồi', 
+                          style: 'destructive', 
+                          onPress: () => deleteMessage.mutate(msg.id) 
+                        }
+                      ]);
+                    }
+                  }}
+                >
+                  <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
+                    {!isMine && (
+                      <View style={styles.messageBubbleAvatar}>
+                        <Text style={styles.messageBubbleAvatarText}>
+                          {getInitials(senderName)}
+                        </Text>
+                      </View>
+                    )}
+                  <View style={[
+                    styles.messageBubble,
+                    isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
+                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {},
+                    msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
+                  ]}>
+                    {!isMine && !msg.content?.startsWith('LOTTIE_STICKER:') && !msg.content?.startsWith('STATIC_STICKER:') && !msg.content?.startsWith('GIPHY_STICKER:') && (
+                      <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
+                    )}
+                    {msg.fileUrl && msg.fileType === 'IMAGE' && (
+                      <Pressable onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}>
+                        <Image
+                          source={{ uri: resolveImageUrl(msg.fileUrl) || '' }}
+                          style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]}
+                        />
+                      </Pressable>
+                    )}
+                    {!!msg.content && !msg.content.startsWith('LOTTIE_STICKER:') && !msg.content.startsWith('STATIC_STICKER:') && !msg.content.startsWith('GIPHY_STICKER:') && (
+                      <Text style={[
+                        styles.messageText,
+                        isMine && styles.messageTextMine,
+                        msg.fileUrl && msg.fileType === 'IMAGE' ? { marginTop: 8 } : {}
+                      ]}>
+                        {msg.content}
+                      </Text>
+                    )}
+                    {!!msg.content && msg.content.startsWith('LOTTIE_STICKER:') && (
+                      <LottieView
+                        autoPlay
+                        loop
+                        style={{ width: 120, height: 120 }}
+                        source={{ uri: msg.content.replace('LOTTIE_STICKER:', '') }}
+                      />
+                    )}
+                    {!!msg.content && (msg.content.startsWith('STATIC_STICKER:') || msg.content.startsWith('GIPHY_STICKER:')) && (
+                      <Image
+                        source={{ uri: msg.content.replace('STATIC_STICKER:', '').replace('GIPHY_STICKER:', '') }}
+                        style={{ width: 120, height: 120 }}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text style={[
+                      styles.messageTime,
+                      isMine && styles.messageTimeMine,
+                      msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {},
+                      (msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:')) ? { color: colors.muted } : {}
+                    ]}>
+                      {timeAgo(msg.createdAt)}
                     </Text>
                   </View>
-                )}
-                <View style={[
-                  styles.messageBubble, 
-                  isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
-                  msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {},
-                  msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
-                ]}>
-                  {!isMine && !msg.content?.startsWith('LOTTIE_STICKER:') && !msg.content?.startsWith('STATIC_STICKER:') && !msg.content?.startsWith('GIPHY_STICKER:') && (
-                    <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
-                  )}
-                  {msg.fileUrl && msg.fileType === 'IMAGE' && (
-                    <Pressable onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}>
-                      <Image 
-                        source={{ uri: resolveImageUrl(msg.fileUrl) || '' }} 
-                        style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]} 
-                      />
-                    </Pressable>
-                  )}
-                  {!!msg.content && !msg.content.startsWith('LOTTIE_STICKER:') && !msg.content.startsWith('STATIC_STICKER:') && !msg.content.startsWith('GIPHY_STICKER:') && (
-                    <Text style={[
-                      styles.messageText, 
-                      isMine && styles.messageTextMine,
-                      msg.fileUrl && msg.fileType === 'IMAGE' ? { marginTop: 8 } : {}
-                    ]}>
-                      {msg.content}
-                    </Text>
-                  )}
-                  {!!msg.content && msg.content.startsWith('LOTTIE_STICKER:') && (
-                    <LottieView
-                       autoPlay
-                       loop
-                       style={{ width: 120, height: 120 }}
-                       source={{ uri: msg.content.replace('LOTTIE_STICKER:', '') }}
-                    />
-                  )}
-                  {!!msg.content && (msg.content.startsWith('STATIC_STICKER:') || msg.content.startsWith('GIPHY_STICKER:')) && (
-                    <Image
-                       source={{ uri: msg.content.replace('STATIC_STICKER:', '').replace('GIPHY_STICKER:', '') }}
-                       style={{ width: 120, height: 120 }}
-                       resizeMode="contain"
-                    />
-                  )}
-                  <Text style={[
-                    styles.messageTime, 
-                    isMine && styles.messageTimeMine,
-                    msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {},
-                    (msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:')) ? { color: colors.muted } : {}
-                  ]}>
-                    {timeAgo(msg.createdAt)}
-                  </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           }}
           ListEmptyComponent={
-            <View style={styles.emptyChat}>
-              <MaterialCommunityIcons name="chat-outline" size={48} color={colors.muted} />
-              <Text style={styles.emptyChatText}>Chưa có tin nhắn nào</Text>
-              <Text style={styles.emptyChatSub}>Hãy bắt đầu cuộc trò chuyện!</Text>
+              <View style={styles.emptyChat}>
+                <MaterialCommunityIcons name="chat-outline" size={48} color={colors.muted} />
+                <Text style={styles.emptyChatText}>Chưa có tin nhắn nào</Text>
+                <Text style={styles.emptyChatSub}>Hãy bắt đầu cuộc trò chuyện!</Text>
+              </View>
+            }
+          />
+
+          {/* Mentions Popup */}
+          {showMentions && (
+            <View style={styles.mentionListContainer}>
+              <FlatList
+                data={Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []).filter((e: any) =>
+                  (e.fullName ?? e.userCode).toLowerCase().includes(mentionQuery)
+                )}
+                keyExtractor={(e) => e.id}
+                renderItem={({ item }) => (
+                  <Pressable style={styles.mentionItem} onPress={() => handleSelectMention(item)}>
+                    <View style={styles.mentionAvatar}>
+                      <Text style={styles.mentionAvatarText}>{getInitials(item.fullName ?? item.userCode)}</Text>
+                    </View>
+                    <Text style={styles.mentionName}>{item.fullName ?? item.userCode}</Text>
+                  </Pressable>
+                )}
+                keyboardShouldPersistTaps="handled"
+              />
             </View>
-          }
+          )}
+
+          {/* Input */}
+          <View style={[styles.chatInputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
+              <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
+            </Pressable>
+            <Pressable onPress={pickImage} style={styles.attachBtn}>
+              <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              {selectedImage && (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+                  <Pressable style={styles.removeImageBtn} onPress={() => setSelectedImage(null)}>
+                    <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                  </Pressable>
+                </View>
+              )}
+              <TextInput
+                style={styles.chatInput}
+                placeholder="Nhập tin nhắn..."
+                placeholderTextColor={colors.muted}
+                value={text}
+                onChangeText={handleTextChange}
+                multiline
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+                blurOnSubmit={false}
+              />
+            </View>
+            <Pressable
+              style={[styles.chatSendBtn, (!text.trim() && !selectedImage) && styles.chatSendBtnDisabled]}
+              onPress={handleSend}
+              disabled={(!text.trim() && !selectedImage) || sendMessage.isPending || isUploading}
+            >
+              <MaterialCommunityIcons name={isUploading ? 'loading' : 'send'} size={20} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Image Viewer Modal */}
+        <Modal visible={!!viewingImage} transparent={true} animationType="fade" onRequestClose={() => setViewingImage(null)}>
+          <View style={styles.imageViewerContainer}>
+            <Pressable style={styles.imageViewerCloseBtn} onPress={() => setViewingImage(null)}>
+              <MaterialCommunityIcons name="close" size={32} color="#fff" />
+            </Pressable>
+            {viewingImage && (
+              <Image
+                source={{ uri: viewingImage }}
+                style={styles.imageViewerImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </Modal>
+
+        {/* Sticker Modal */}
+        <StickerPickerModal
+          visible={isStickerOpen}
+          onClose={() => setIsStickerOpen(false)}
+          onSelectSticker={handleSendSticker}
         />
 
-        {/* Mentions Popup */}
-        {showMentions && (
-          <View style={styles.mentionListContainer}>
-            <FlatList
-              data={Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []).filter((e: any) => 
-                (e.fullName ?? e.userCode).toLowerCase().includes(mentionQuery)
-              )}
-              keyExtractor={(e) => e.id}
-              renderItem={({ item }) => (
-                <Pressable style={styles.mentionItem} onPress={() => handleSelectMention(item)}>
-                  <View style={styles.mentionAvatar}>
-                    <Text style={styles.mentionAvatarText}>{getInitials(item.fullName ?? item.userCode)}</Text>
-                  </View>
-                  <Text style={styles.mentionName}>{item.fullName ?? item.userCode}</Text>
-                </Pressable>
-              )}
-              keyboardShouldPersistTaps="handled"
-            />
-          </View>
-        )}
-
-        {/* Input */}
-        <View style={[styles.chatInputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-          <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
-            <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
-          </Pressable>
-          <Pressable onPress={pickImage} style={styles.attachBtn}>
-            <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            {selectedImage && (
-              <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
-                <Pressable style={styles.removeImageBtn} onPress={() => setSelectedImage(null)}>
-                  <MaterialCommunityIcons name="close" size={16} color="#fff" />
-                </Pressable>
+        {/* Call User Selection Modal */}
+        <Modal visible={isCallModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsCallModalVisible(false)}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Chọn người để gọi</Text>
+                <TouchableOpacity onPress={() => setIsCallModalVisible(false)}>
+                  <MaterialCommunityIcons name="close" size={24} color="#666" />
+                </TouchableOpacity>
               </View>
-            )}
-            <TextInput
-              style={styles.chatInput}
-              placeholder="Nhập tin nhắn..."
-              placeholderTextColor={colors.muted}
-              value={text}
-              onChangeText={handleTextChange}
-              multiline
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-              blurOnSubmit={false}
-            />
-          </View>
-          <Pressable
-            style={[styles.chatSendBtn, (!text.trim() && !selectedImage) && styles.chatSendBtnDisabled]}
-            onPress={handleSend}
-            disabled={(!text.trim() && !selectedImage) || sendMessage.isPending || isUploading}
-          >
-            <MaterialCommunityIcons name={isUploading ? 'loading' : 'send'} size={20} color="#fff" />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Image Viewer Modal */}
-      <Modal visible={!!viewingImage} transparent={true} animationType="fade" onRequestClose={() => setViewingImage(null)}>
-        <View style={styles.imageViewerContainer}>
-          <Pressable style={styles.imageViewerCloseBtn} onPress={() => setViewingImage(null)}>
-            <MaterialCommunityIcons name="close" size={32} color="#fff" />
-          </Pressable>
-          {viewingImage && (
-            <Image
-              source={{ uri: viewingImage }}
-              style={styles.imageViewerImage}
-              resizeMode="contain"
-            />
-          )}
-        </View>
-      </Modal>
-
-      {/* Sticker Modal */}
-      <StickerPickerModal 
-         visible={isStickerOpen} 
-         onClose={() => setIsStickerOpen(false)} 
-         onSelectSticker={handleSendSticker} 
-      />
-
-      {/* Call User Selection Modal */}
-      <Modal visible={isCallModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsCallModalVisible(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Chọn người để gọi</Text>
-              <TouchableOpacity onPress={() => setIsCallModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+              <FlatList
+                data={currentGroup?.members?.length > 0 ? currentGroup.members.map((m: any) => ({ ...m.user, id: m.userId, fullName: m.user?.profile?.fullName, avatarUrl: m.user?.profile?.avatarUrl })) : (employees.data?.items ?? [])}
+                keyExtractor={(item: any) => item.id}
+                renderItem={({ item }) => {
+                  if (item.id === user?.id) return null; // Don't call yourself
+                  return (
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                      onPress={() => {
+                        setIsCallModalVisible(false);
+                        initiateCall(item.id, item.fullName ?? item.userCode, item.avatarUrl);
+                      }}
+                    >
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(item.fullName ?? item.userCode)}</Text>
+                      </View>
+                      <Text style={{ fontSize: 16, flex: 1 }}>{item.fullName ?? item.userCode}</Text>
+                      <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
+                    </TouchableOpacity>
+                  );
+                }}
+              />
             </View>
-            <FlatList
-              data={currentGroup?.members?.length > 0 ? currentGroup.members.map((m: any) => ({ ...m.user, id: m.userId, fullName: m.user?.profile?.fullName, avatarUrl: m.user?.profile?.avatarUrl })) : (employees.data?.items ?? [])}
-              keyExtractor={(item: any) => item.id}
-              renderItem={({ item }) => {
-                if (item.id === user?.id) return null; // Don't call yourself
-                return (
-                  <TouchableOpacity 
-                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
-                    onPress={() => {
-                      setIsCallModalVisible(false);
-                      initiateCall(item.id, item.fullName ?? item.userCode, item.avatarUrl);
-                    }}
-                  >
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(item.fullName ?? item.userCode)}</Text>
-                    </View>
-                    <Text style={{ fontSize: 16, flex: 1 }}>{item.fullName ?? item.userCode}</Text>
-                    <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
-                  </TouchableOpacity>
-                );
-              }}
-            />
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
       </KeyboardAvoidingView>
     </SafeAreaView>
