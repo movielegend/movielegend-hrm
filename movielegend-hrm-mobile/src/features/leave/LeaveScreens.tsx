@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View, Image, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
@@ -33,7 +34,7 @@ export function LeaveHomeScreen() {
   }, [queryClient]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
       <ScrollView 
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
@@ -89,7 +90,7 @@ export function LeaveHomeScreen() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -112,7 +113,7 @@ export function CreateLeaveRequestScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <PageHeader title="Tạo đơn nghỉ phép" subtitle="Vui lòng điền đầy đủ thông tin để xin nghỉ" />
         
@@ -174,7 +175,7 @@ export function CreateLeaveRequestScreen() {
           </Pressable>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -192,7 +193,7 @@ export function LeaveDetailScreen() {
   }, [queryClient]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
       <ScrollView 
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
@@ -207,7 +208,7 @@ export function LeaveDetailScreen() {
           <EmptyState title="Không tìm thấy đơn" message="Đơn nghỉ phép này không tồn tại hoặc đã bị xóa." />
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -257,7 +258,7 @@ export function AdminLeaveApprovalScreen() {
   }, [queryClient]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
       <ScrollView 
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
@@ -309,7 +310,7 @@ export function AdminLeaveApprovalScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -1,25 +1,32 @@
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+let Notifications: any = null;
+if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+  Notifications = require('expo-notifications');
+}
 import type { ShiftAssignment } from '../types/shift.types';
 import type { TaskDto } from '../types/task.types';
 
 // Cấu hình cách hiển thị thông báo khi app đang mở (Bọc try-catch an toàn cho bản build Sideload)
-try {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-} catch (e) {
-  console.warn('Notification handler init skipped:', e);
+if (Notifications) {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {
+    console.warn('Notification handler init skipped:', e);
+  }
 }
 
 import { Platform } from 'react-native';
 
 export async function setupNotificationChannel() {
+  if (!Notifications) return;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Thông báo chung',
@@ -38,6 +45,7 @@ export async function setupNotificationChannel() {
 }
 
 export async function requestNotificationPermissions() {
+  if (!Notifications) return false;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
   if (existingStatus !== 'granted') {
@@ -48,12 +56,13 @@ export async function requestNotificationPermissions() {
 }
 
 export async function scheduleShiftNotifications(schedule: ShiftAssignment[]) {
+  if (!Notifications) return;
   const granted = await requestNotificationPermissions();
   if (!granted) return;
 
   // Chỉ xóa các lịch báo thuộc về ca làm việc (bắt đầu bằng shift_)
   const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const shiftNotifs = allScheduled.filter((n) => n.identifier.startsWith('shift_'));
+  const shiftNotifs = allScheduled.filter((n: any) => n.identifier.startsWith('shift_'));
   for (const n of shiftNotifs) {
     await Notifications.cancelScheduledNotificationAsync(n.identifier);
   }
@@ -108,12 +117,13 @@ export async function scheduleShiftNotifications(schedule: ShiftAssignment[]) {
 }
 
 export async function scheduleTaskNotifications(tasks: TaskDto[]) {
+  if (!Notifications) return;
   const granted = await requestNotificationPermissions();
   if (!granted) return;
 
   // Chỉ xóa các lịch báo thuộc về Task (bắt đầu bằng task_)
   const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const taskNotifs = allScheduled.filter((n) => n.identifier.startsWith('task_'));
+  const taskNotifs = allScheduled.filter((n: any) => n.identifier.startsWith('task_'));
   for (const n of taskNotifs) {
     await Notifications.cancelScheduledNotificationAsync(n.identifier);
   }

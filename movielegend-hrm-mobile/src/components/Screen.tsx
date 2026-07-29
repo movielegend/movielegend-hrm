@@ -1,13 +1,21 @@
 import { PropsWithChildren } from 'react';
-import { StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, KeyboardAvoidingView, Platform, View, StatusBar as RNStatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 
 import { StatusBar } from 'expo-status-bar';
 
 export function Screen({ children }: PropsWithChildren) {
+  const insets = useSafeAreaInsets();
+  
+  // On Android, useSafeAreaInsets can sometimes return 0 due to bugs with translucent status bar.
+  // Using RNStatusBar.currentHeight is a bulletproof fallback.
+  const topPadding = Platform.OS === 'android' 
+    ? (RNStatusBar.currentHeight || insets.top) 
+    : insets.top;
+  
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { paddingTop: topPadding, paddingBottom: insets.bottom }]}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
@@ -16,7 +24,7 @@ export function Screen({ children }: PropsWithChildren) {
       >
         {children}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

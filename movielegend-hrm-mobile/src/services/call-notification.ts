@@ -1,4 +1,8 @@
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+let Notifications: any = null;
+if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+  Notifications = require('expo-notifications');
+}
 import { Platform } from 'react-native';
 
 const CALL_NOTIFICATION_ID = 'incoming_voice_call';
@@ -8,6 +12,7 @@ const CALL_NOTIFICATION_ID = 'incoming_voice_call';
  * with maximum importance, custom vibration pattern, and lights.
  */
 export async function setupCallNotificationChannel() {
+  if (!Notifications) return;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('incoming_calls_v3', {
       name: 'Cuộc gọi đến',
@@ -46,6 +51,7 @@ export async function setupCallNotificationChannel() {
  * Auto-dismissed after 40 seconds if not interacted with.
  */
 export async function showIncomingCallNotification(callerName: string, callerId: string, callerAvatar?: string | null) {
+  if (!Notifications) return;
   try {
     await Notifications.scheduleNotificationAsync({
       identifier: CALL_NOTIFICATION_ID,
@@ -80,6 +86,7 @@ export async function showIncomingCallNotification(callerName: string, callerId:
  * Dismiss the incoming call notification.
  */
 export async function dismissCallNotification() {
+  if (!Notifications) return;
   try {
     await Notifications.dismissNotificationAsync(CALL_NOTIFICATION_ID);
   } catch (e) {

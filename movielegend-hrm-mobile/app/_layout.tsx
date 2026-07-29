@@ -7,7 +7,7 @@ import { SocketProvider } from '../src/providers/SocketProvider';
 import { LogBox, View, Text } from 'react-native';
 import { usePushNotificationSetup } from '../src/hooks/useNotifications';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 // Conditionally register LiveKit globals — native WebRTC module is
 // unavailable in Expo Go, so we guard with try/catch.
 try {
@@ -123,11 +123,12 @@ import { Provider as PaperProvider } from 'react-native-paper';
 
 export default function RootLayout() {
   return (
-    <PaperProvider>
-      <QueryProvider>
-        <AuthProvider>
-          <SocketProvider>
-            <VoiceCallProvider>
+    <SafeAreaProvider>
+      <PaperProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <VoiceCallProvider>
                 <UserGuideManager>
                   <PushNotificationWrapper>
                     <StatusBar style="dark" />
@@ -135,10 +136,11 @@ export default function RootLayout() {
                     <ToastWrapper />
                   </PushNotificationWrapper>
                 </UserGuideManager>
-            </VoiceCallProvider>
-          </SocketProvider>
-        </AuthProvider>
-      </QueryProvider>
-    </PaperProvider>
+              </VoiceCallProvider>
+            </SocketProvider>
+          </AuthProvider>
+        </QueryProvider>
+      </PaperProvider>
+    </SafeAreaProvider>
   );
 }

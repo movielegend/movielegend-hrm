@@ -118,31 +118,30 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
         <PageHeader
           title="Bảng tin công ty"
           subtitle="Tin tức và thông báo nội bộ"
-          right={
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              {(user?.roles?.includes('ADMIN') || user?.roles?.includes('LEADER') || user?.roles?.includes('HR')) && (
-                <Pressable
-                  style={[styles.addBtn, { backgroundColor: colors.warning }]}
-                  onPress={() => {
-                    router.push(`${roleBase(user)}/newsfeed/pending` as any);
-                  }}
-                >
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
-                  <Text style={styles.addBtnText}>Chờ duyệt</Text>
-                </Pressable>
-              )}
-              <Pressable
-                style={styles.addBtn}
-                onPress={() => {
-                  router.push(`${roleBase(user)}/newsfeed/create` as any);
-                }}
-              >
-                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-                <Text style={styles.addBtnText}>Đăng bài</Text>
-              </Pressable>
-            </View>
-          }
         />
+
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
+          {(user?.roles?.includes('ADMIN') || user?.roles?.includes('LEADER') || user?.roles?.includes('HR')) && (
+            <Pressable
+              style={[styles.addBtn, { backgroundColor: colors.warning, flex: 1, justifyContent: 'center' }]}
+              onPress={() => {
+                router.push(`${roleBase(user)}/newsfeed/pending` as any);
+              }}
+            >
+              <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
+              <Text style={styles.addBtnText}>Chờ duyệt</Text>
+            </Pressable>
+          )}
+          <Pressable
+            style={[styles.addBtn, { flex: 1, justifyContent: 'center' }]}
+            onPress={() => {
+              router.push(`${roleBase(user)}/newsfeed/create` as any);
+            }}
+          >
+            <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+            <Text style={styles.addBtnText}>Đăng bài</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.filterRow}>
           <Pressable style={[styles.filterBtn, styles.filterBtnActive]}>
