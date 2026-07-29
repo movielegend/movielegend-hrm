@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LocalStorageService } from './services/local-storage.service';
-import { CloudinaryStorageService } from './services/cloudinary-storage.service';
+import { FirebaseStorageService } from './services/firebase-storage.service';
 import { StorageService } from './storage.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Module({
   imports: [ConfigModule],
@@ -10,8 +12,9 @@ import { StorageService } from './storage.service';
     {
       provide: StorageService,
       useFactory: (config: ConfigService) => {
-        if (process.env.CLOUDINARY_CLOUD_NAME) {
-          return new CloudinaryStorageService(config);
+        const serviceAccountPath = path.resolve(process.cwd(), 'firebase-service-account.json');
+        if (fs.existsSync(serviceAccountPath)) {
+          return new FirebaseStorageService();
         }
         return new LocalStorageService(config);
       },
