@@ -64,23 +64,23 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
                 <View style={localStyles.cardHeaderText}>
                   <Text style={localStyles.cardTitle}>{approval.user?.profile?.fullName ?? 'Chưa có tên'}</Text>
                   <Text style={localStyles.cardSubtitle}>Mã: {approval.user?.userCode ?? '-'}</Text>
-                  
+
                   <View style={localStyles.infoRow}>
                     <MaterialCommunityIcons name="phone-outline" size={16} color="#6B7280" />
                     <Text style={localStyles.infoText}>SĐT: {maskPhone(approval.user?.phone)}</Text>
                   </View>
-                  
+
                   <View style={localStyles.infoRow}>
                     <MaterialCommunityIcons name="office-building-outline" size={16} color="#6B7280" />
                     <Text style={localStyles.infoText}>Phòng ban: {approval.requestedDepartment?.name ?? '-'}</Text>
                   </View>
-                  
+
                   <View style={{ alignSelf: 'flex-start', marginTop: 8 }}>
                     <StatusBadge label={statusLabels[approval.status] || approval.status} tone={toneForStatus(approval.status)} />
                   </View>
                 </View>
               </View>
-              
+
               <Pressable style={localStyles.actionBtn} onPress={() => {
                 if (detailRoute) {
                   router.push(detailRoute(approval.id) as any);
@@ -106,7 +106,7 @@ export function ApprovalDetailScreen() {
   const approval = useApproval(id);
   const approve = useApproveAccount();
   const reject = useRejectAccount();
-  
+
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [confirmApprove, setConfirmApprove] = useState(false);
   const { control, handleSubmit, reset, formState: { errors } } = useForm<{ reason: string }>({ resolver: zodResolver(rejectSchema), defaultValues: { reason: '' } });
@@ -116,7 +116,7 @@ export function ApprovalDetailScreen() {
   if (approval.isLoading) return <LoadingState />;
   if (approval.isError) return <ErrorState error={approval.error} onRetry={() => void approval.refetch()} />;
   if (!item) return <EmptyState title="Không tìm thấy yêu cầu" />;
-  
+
   const createdAt = item.user?.createdAt ? new Date(item.user.createdAt) : null;
   const createdDate = createdAt ? createdAt.toLocaleDateString('vi-VN') : '-';
   const createdTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '-';
@@ -144,7 +144,7 @@ export function ApprovalDetailScreen() {
               <StatusBadge label={statusLabels[item.status] || item.status} tone={toneForStatus(item.status)} />
             </View>
           </View>
-          
+
           <View style={localStyles.detailList}>
             <View style={localStyles.infoRow}>
               <MaterialCommunityIcons name="phone-outline" size={18} color="#6B7280" />
@@ -170,28 +170,6 @@ export function ApprovalDetailScreen() {
 
           <View style={localStyles.divider} />
 
-          <View style={localStyles.imagesSection}>
-            <Text style={localStyles.imagesTitle}>Ảnh khuôn mặt đăng ký</Text>
-            <View style={localStyles.imagesGrid}>
-              {['FRONT', 'LEFT', 'RIGHT'].map((pose) => {
-                const img = faceImages.find((i) => i.pose === pose);
-                return (
-                  <View key={pose} style={localStyles.faceImageWrapper}>
-                    {img ? (
-                      <TouchableOpacity style={{ width: '100%' }} onPress={() => setViewingImage(getAbsoluteImageUrl(img.imageUrl) ?? null)}>
-                        <Image source={{ uri: getAbsoluteImageUrl(img.imageUrl) }} style={localStyles.faceImage} resizeMode="cover" />
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={localStyles.faceImagePlaceholder}>
-                        <MaterialCommunityIcons name="account" size={40} color="#D1D5DB" />
-                      </View>
-                    )}
-                    <Text style={localStyles.poseText}>{pose}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
         </SectionCard>
         {approve.error || reject.error ? <Text style={styles.error}>{normalizeApiError(approve.error ?? reject.error).message}</Text> : null}
         {canApprove ? <PrimaryButton onPress={() => setConfirmApprove(true)} loading={approve.isPending}>Duyệt tài khoản</PrimaryButton> : null}
@@ -216,7 +194,7 @@ export function ApprovalDetailScreen() {
             }
           }}
         />
-        
+
         <Modal visible={!!viewingImage} transparent={true} animationType="fade" onRequestClose={() => setViewingImage(null)}>
           <View style={styles.imageViewerContainer}>
             <SafeAreaView style={styles.imageViewerSafeArea}>

@@ -84,7 +84,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               subtitle="Danh sách toàn bộ nhân sự công ty"
               right={
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable style={styles.addBtn} onPress={() => router.push('/admin/employees/create')}>
+                  <Pressable style={styles.addBtn} onPress={() => router.push(departmentId ? `/admin/employees/create?departmentId=${departmentId}` : '/admin/employees/create')}>
                     <MaterialCommunityIcons name="plus" size={18} color="#fff" />
                     <Text style={styles.addBtnText}>Thêm mới</Text>
                   </Pressable>
@@ -475,10 +475,11 @@ export function CreateEmployeeScreen() {
   const router = useRouter();
   const createEmployee = useCreateEmployee();
   const queryClient = useQueryClient();
+  const { departmentId: fixedDepartmentId } = useLocalSearchParams<{ departmentId?: string }>();
 
   const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<EmployeeCreateValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { fullName: '', phone: '', email: '', password: '', departmentId: '' },
+    defaultValues: { fullName: '', phone: '', email: '', password: '', departmentId: fixedDepartmentId || '' },
   });
 
   const selectedDepartmentId = watch('departmentId');
@@ -502,6 +503,8 @@ export function CreateEmployeeScreen() {
     }
   });
 
+  const fixedDeptName = fixedDepartmentId && departments.data?.items?.find(d => d.id === fixedDepartmentId)?.name;
+
   return (
     <Screen>
       <ScreenContainer>
@@ -513,14 +516,22 @@ export function CreateEmployeeScreen() {
           <Controller control={control} name="password" render={({ field }) => <FormField label="Mật khẩu khởi tạo" value={field.value} onChangeText={field.onChange} error={errors.password?.message} secureTextEntry />} />
 
           <View style={{ marginTop: 16 }}>
-            <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban (Tùy chọn)</Text>
+            <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban {fixedDepartmentId ? '(Cố định)' : '(Tùy chọn)'}</Text>
             {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
-            {departments.data?.items?.map((dept) => (
-              <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
-                <Text style={styles.titleText}>{dept.name}</Text>
-                <Text style={styles.meta}>{dept.code}</Text>
-              </Pressable>
-            ))}
+            
+            {fixedDepartmentId ? (
+              <View style={[styles.positionOption, styles.positionOptionSelected, { backgroundColor: '#F3F4F6' }]}>
+                <Text style={styles.titleText}>{fixedDeptName || 'Đang tải...'}</Text>
+                <Text style={styles.meta}>Đã khóa theo lựa chọn</Text>
+              </View>
+            ) : (
+              departments.data?.items?.map((dept) => (
+                <Pressable key={dept.id} accessibilityRole="button" onPress={() => { setValue('departmentId', dept.id, { shouldValidate: true }); }} style={[styles.positionOption, selectedDepartmentId === dept.id && styles.positionOptionSelected]}>
+                  <Text style={styles.titleText}>{dept.name}</Text>
+                  <Text style={styles.meta}>{dept.code}</Text>
+                </Pressable>
+              ))
+            )}
             {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
           </View>
 

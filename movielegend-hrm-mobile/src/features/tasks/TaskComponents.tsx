@@ -429,10 +429,10 @@ export function ReviewActionSheet({
   const [note, setNote] = useState('');
   return (
     <View style={styles.stack}>
-      <FormField label="Review note" value={note} onChangeText={setNote} multiline />
+      <FormField label="Ghi chú duyệt" value={note} onChangeText={setNote} multiline />
       <View style={styles.actions}>
-        <PrimaryButton loading={pending} onPress={() => void onApprove(note || undefined)}>Duyet</PrimaryButton>
-        <SecondaryButton disabled={note.trim().length < 3} loading={pending} onPress={() => void onReject(note)}>Tu choi</SecondaryButton>
+        <PrimaryButton loading={pending} onPress={() => void onApprove(note || undefined)}>Duyệt</PrimaryButton>
+        <SecondaryButton disabled={note.trim().length < 3} loading={pending} onPress={() => void onReject(note)}>Từ chối</SecondaryButton>
       </View>
     </View>
   );

@@ -812,7 +812,7 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
   async function run(action: () => Promise<unknown>, success: string) {
     try {
       await action();
-      Alert.alert('Thanh cong', success);
+      Alert.alert('Thành công', success);
     } catch (error) {
       const normalized = normalizeApiError(error);
       Alert.alert(normalized.code, mapTaskError(normalized.code, normalized.message));
@@ -821,7 +821,7 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
   return (
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={queue.isRefetching || extensions.isRefetching} onRefresh={() => { void queue.refetch(); void extensions.refetch(); }} />}>
-        <PageHeader title="Task Review" subtitle="Queue dung /task-assignments/review-queue va /task-extensions/pending." />
+        <PageHeader title="Duyệt công việc" subtitle="Danh sách các công việc và yêu cầu gia hạn đang chờ duyệt." />
         {queue.isLoading ? <LoadingState /> : null}
         {queue.isError ? <ErrorState error={queue.error} onRetry={() => void queue.refetch()} /> : null}
         {queue.data?.items?.map((item) => (
@@ -829,33 +829,33 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
             <Text style={styles.titleText}>{item.taskTitle}</Text>
             <Text style={styles.meta}>{item.taskCode} - {item.employee.fullName ?? item.employee.userCode}</Text>
             <ProgressBar value={item.progressPercent} />
-            <Text style={styles.meta}>{item.completionNote ?? 'No completion note'}</Text>
+            <Text style={styles.meta}>{item.completionNote ?? 'Không có ghi chú hoàn thành'}</Text>
             <ReviewActionSheet
               pending={review.isPending}
-              onApprove={(note) => run(() => review.mutateAsync({ assignmentId: item.assignmentId, action: 'approve', payload: note ? { note } : {} }), 'Da duyet task')}
-              onReject={(note) => run(() => review.mutateAsync({ assignmentId: item.assignmentId, action: 'reject', payload: { note } }), 'Da tu choi task')}
+              onApprove={(note) => run(() => review.mutateAsync({ assignmentId: item.assignmentId, action: 'approve', payload: note ? { note } : {} }), 'Đã duyệt công việc')}
+              onReject={(note) => run(() => review.mutateAsync({ assignmentId: item.assignmentId, action: 'reject', payload: { note } }), 'Đã từ chối công việc')}
             />
-            <SecondaryButton onPress={() => router.push(`/${area}/tasks/${item.taskId}`)}>Mo task</SecondaryButton>
+            <SecondaryButton onPress={() => router.push(`/${area}/tasks/${item.taskId}`)}>Mở công việc</SecondaryButton>
           </SectionCard>
         ))}
-        {!queue.data?.items?.length ? <EmptyState title="Khong co task review" /> : null}
-        <SectionCard title="Extension Pending">
+        {!queue.data?.items?.length ? <EmptyState title="Không có công việc cần duyệt" /> : null}
+        <SectionCard title="Gia hạn đang chờ duyệt">
           {extensions.isLoading ? <LoadingState /> : null}
           {extensions.isError ? <ErrorState error={extensions.error} onRetry={() => void extensions.refetch()} /> : null}
           {extensions.data?.items?.map((item) => (
             <View key={item.id} style={styles.inlinePanel}>
               <Text style={styles.titleText}>{item.taskTitle}</Text>
               <Text style={styles.meta}>{item.employee.fullName ?? item.employee.userCode}</Text>
-              <Text style={styles.meta}>Requested: {formatDateTime(item.requestedDueAt)}</Text>
+              <Text style={styles.meta}>Đã yêu cầu: {formatDateTime(item.requestedDueAt)}</Text>
               <Text style={styles.body}>{item.reason}</Text>
               <ReviewActionSheet
                 pending={extensionReview.isPending}
-                onApprove={() => run(() => extensionReview.mutateAsync({ id: item.id, action: 'approve' }), 'Da duyet gia han')}
-                onReject={(note) => run(() => extensionReview.mutateAsync({ id: item.id, action: 'reject', payload: { note } }), 'Da tu choi gia han')}
+                onApprove={() => run(() => extensionReview.mutateAsync({ id: item.id, action: 'approve' }), 'Đã duyệt gia hạn')}
+                onReject={(note) => run(() => extensionReview.mutateAsync({ id: item.id, action: 'reject', payload: { note } }), 'Đã từ chối gia hạn')}
               />
             </View>
           ))}
-          {!extensions.data?.items?.length ? <Text style={styles.meta}>Khong co extension pending</Text> : null}
+          {!extensions.data?.items?.length ? <Text style={styles.meta}>Không có gia hạn nào đang chờ</Text> : null}
         </SectionCard>
       </ScreenContainer>
     </Screen>

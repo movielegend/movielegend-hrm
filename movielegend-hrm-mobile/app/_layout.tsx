@@ -126,13 +126,13 @@ export default function RootLayout() {
       <AuthProvider>
         <SocketProvider>
           <VoiceCallProvider>
-              <UserGuideManager>
-                <PushNotificationWrapper>
-                  <StatusBar style="dark" />
-                  <Stack screenOptions={{ headerShown: false }} />
-                  <ToastWrapper />
-                </PushNotificationWrapper>
-              </UserGuideManager>
+            <UserGuideManager>
+              <PushNotificationWrapper>
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false }} />
+                <ToastWrapper />
+              </PushNotificationWrapper>
+            </UserGuideManager>
           </VoiceCallProvider>
         </SocketProvider>
       </AuthProvider>

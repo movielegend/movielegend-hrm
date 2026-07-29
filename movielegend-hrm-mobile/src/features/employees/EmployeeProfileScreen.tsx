@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -38,7 +38,7 @@ export function EmployeeProfileScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
         {/* Background Header */}
         <View style={[styles.headerBg, { height: 160 + insets.top }]} />
-        
+
         {/* Profile Card */}
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
           <View style={styles.avatarContainer}>
@@ -60,10 +60,10 @@ export function EmployeeProfileScreen() {
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
-            <InfoRow 
-              icon="face-recognition" 
-              label="Dữ liệu khuôn mặt" 
-              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
+            <InfoRow
+              icon="face-recognition"
+              label="Dữ liệu khuôn mặt"
+              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'}
               valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
               onPress={() => router.push('/employee/update-face' as any)}
               isLast
@@ -88,8 +88,8 @@ export function EmployeeProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={showGuideManual} />
-            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => {}} />
+            <ActionRow icon="file-document-outline" title="Cẩm nang PDF" onPress={showGuideManual} />
+            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => { }} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialCommunityIcons name="logout" size={20} color="#DC2626" />

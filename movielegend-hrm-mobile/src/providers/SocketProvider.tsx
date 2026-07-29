@@ -1,5 +1,5 @@
 import { PropsWithChildren, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 import { createHrmSocket } from '../api/socket';
@@ -65,7 +65,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('notification.created', (payload?: any) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
-        if (payload && payload.title) {
+        if (payload && payload.title && Platform.OS !== 'web') {
           import('expo-notifications').then(Notifications => {
             Notifications.scheduleNotificationAsync({
               content: {

@@ -77,6 +77,13 @@ import { VoiceCallModule } from './modules/voice-call/voice-call.module';
           {
             rootPath: require('path').resolve(rootPath),
             serveRoot: '/uploads',
+            serveStaticOptions: {
+              setHeaders: (res: any) => {
+                res.set('Access-Control-Allow-Origin', '*');
+                res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+                res.set('Access-Control-Allow-Headers', '*');
+              },
+            },
           },
         ];
       },

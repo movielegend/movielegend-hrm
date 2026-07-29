@@ -179,15 +179,23 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
               const isCompany = !group.departmentId && !group.taskId && group.type !== 'DIRECT' && group.type !== 'CUSTOM';
               const isDirect = group.type === 'DIRECT';
               const isCustom = group.type === 'CUSTOM';
-              const groupName = group.name ?? group.department?.name ?? 'Nhóm chat';
+              let groupName = group.name ?? group.department?.name ?? 'Nhóm chat';
+              if (isDirect && group.name && user?.fullName) {
+                const parts = group.name.split(' - ');
+                if (parts.length === 2) {
+                  groupName = parts[0] === user.fullName ? parts[1] : (parts[1] === user.fullName ? parts[0] : groupName);
+                }
+              }
               const typeLabel = isDirect ? 'Cá nhân' : isCustom ? 'Tự do' : isCompany ? 'Công ty' : group.type === 'DEPARTMENT' ? 'Phòng ban' : 'Công việc';
               const lastMsg = group.latestMessage;
               let contentPreview = lastMsg?.content ?? '';
               if (contentPreview.startsWith('GIPHY_STICKER:') || contentPreview.startsWith('LOTTIE_STICKER:') || contentPreview.startsWith('STATIC_STICKER:')) {
                 contentPreview = '[Nhãn dán]';
               }
+              const isMine = lastMsg?.sender?.id === user?.id || lastMsg?.senderId === user?.id;
+              const senderName = isMine ? 'Bạn' : (lastMsg?.sender?.profile?.fullName ?? 'Ai đó');
               const lastMsgText = lastMsg
-                ? `${lastMsg.sender?.profile?.fullName ?? 'Ai đó'}: ${contentPreview}`
+                ? `${senderName}: ${contentPreview}`
                 : `${group._count?.members ?? group.members?.length ?? 0} thành viên`;
               const unreadCount = group.unreadCount || 0;
 
@@ -641,13 +649,13 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
                     onPress={() => {
                       setIsCallModalVisible(false);
-                      initiateCall(item.id, item.profile?.fullName ?? item.userCode, item.profile?.avatarUrl);
+                      initiateCall(item.id, item.fullName ?? item.userCode, item.avatarUrl);
                     }}
                   >
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(item.profile?.fullName ?? item.userCode)}</Text>
+                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(item.fullName ?? item.userCode)}</Text>
                     </View>
-                    <Text style={{ fontSize: 16, flex: 1 }}>{item.profile?.fullName ?? item.userCode}</Text>
+                    <Text style={{ fontSize: 16, flex: 1 }}>{item.fullName ?? item.userCode}</Text>
                     <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
                   </TouchableOpacity>
                 );

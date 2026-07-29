@@ -25,16 +25,14 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  if (process.env.NODE_ENV === 'production') {
-    app.use(helmet());
-  } else {
-    app.use(
-      helmet({
-        contentSecurityPolicy: false,
-        crossOriginOpenerPolicy: false,
-      }),
-    );
-  }
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
+      xFrameOptions: false,
+    }),
+  );
 
   const corsOriginsStr = process.env.CORS_ORIGINS ?? '*';
   let originConfig: any = true; // Default to reflect origin (allow all)

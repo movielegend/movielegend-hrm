@@ -31,7 +31,7 @@ export function MyProfileScreen() {
     <Screen>
       <PageHeader title="Hồ sơ cá nhân" subtitle="Thông tin tài khoản của bạn" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
-        
+
         {/* Background Header - to flow from PageHeader */}
         <View style={styles.headerBg} />
 
@@ -55,18 +55,18 @@ export function MyProfileScreen() {
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
-            <InfoRow 
-              icon="face-recognition" 
-              label="Dữ liệu khuôn mặt" 
-              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
+            <InfoRow
+              icon="face-recognition"
+              label="Dữ liệu khuôn mặt"
+              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'}
               valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
               onPress={() => router.push('/employee/update-face' as any)}
             />
-            <InfoRow 
-              icon="information-outline" 
-              label="Hướng dẫn sử dụng" 
-              value="Xem lại" 
-              onPress={handleReplayOnboarding}
+            <InfoRow
+              icon="file-document-outline"
+              label="Cẩm nang PDF"
+              value="Xem chi tiết"
+              onPress={showGuideManual}
               isLast
             />
           </View>
