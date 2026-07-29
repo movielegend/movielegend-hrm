@@ -203,7 +203,7 @@ export function EmployeeRequestDetailScreen() {
                   <Image 
                     source={{ uri: request.attachmentMetadata.image }} 
                     style={styles.evidenceImage} 
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
               </View>

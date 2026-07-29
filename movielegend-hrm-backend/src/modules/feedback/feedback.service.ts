@@ -61,6 +61,7 @@ export class FeedbackService {
                     type: 'SYSTEM' as NotificationType,
                     title: notifTitle,
                     body: `Tiêu đề: ${dto.title}`,
+                    metadata: { feedbackId: feedback.id },
                 });
                 if (notif) this.notifications.emitCreated(notif);
             });
@@ -312,6 +313,7 @@ export class FeedbackService {
                 type: 'SYSTEM' as NotificationType,
                 title: 'Phản hồi góp ý',
                 body: `Góp ý của bạn đã được chuyển sang trạng thái: ${statusText}.`,
+                metadata: { feedbackId: feedback.id },
             });
             if (notif) this.notifications.emitCreated(notif);
         });

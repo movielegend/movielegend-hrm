@@ -207,10 +207,38 @@ export default function CreateRequestScreen() {
         Alert.alert('Lỗi', 'Vui lòng nhập Giờ kết thúc.');
         return;
       }
+      
+      if (selectedType === 'LATE_ARRIVAL' && fromDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const lateDate = new Date(fromDate);
+        lateDate.setHours(0, 0, 0, 0);
+        
+        const diffTime = today.getTime() - lateDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 2) {
+          Alert.alert('Lỗi', 'Chỉ được phép tạo đơn đi muộn trong vòng 2 ngày kể từ ngày vi phạm. Đơn của bạn đã quá hạn.');
+          return;
+        }
+      }
     }
     if (isOvertime) {
       if (!fromDate || !startTime || !endTime) {
         Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Ngày làm thêm, Từ giờ, Đến giờ');
+        return;
+      }
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const otDate = new Date(fromDate);
+      otDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = today.getTime() - otDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays > 3) {
+        Alert.alert('Lỗi', 'Chỉ được phép tạo đơn làm thêm giờ (OT) trong vòng 3 ngày kể từ ngày OT. Đơn của bạn đã quá hạn.');
         return;
       }
     }

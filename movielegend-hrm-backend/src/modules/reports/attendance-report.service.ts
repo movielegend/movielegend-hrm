@@ -51,13 +51,52 @@ export class AttendanceReportService {
       },
     });
 
-    const overtimes = await this.prisma.overtimeRequest.findMany({
+    const overtimesRaw = await this.prisma.employeeRequest.findMany({
       where: {
+        type: 'OVERTIME',
         status: 'APPROVED',
         userId: { in: userIds },
-        workDate: { gte: start, lte: end },
       },
     });
+
+    const overtimes = overtimesRaw.filter(o => {
+      if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
+      const meta: any = o.attachmentMetadata;
+      if (!meta.fromDate) return false;
+      const otDate = moment(meta.fromDate);
+      return otDate.isBetween(start, end, 'day', '[]');
+    }).map(o => {
+      const meta: any = o.attachmentMetadata;
+      return {
+        userId: o.userId,
+        workDate: new Date(meta.fromDate),
+        startAt: new Date(meta.startTime),
+        endAt: new Date(meta.endTime),
+      };
+    });
+
+    const lateRequestsRaw = await this.prisma.employeeRequest.findMany({
+      where: {
+        type: 'LATE_ARRIVAL',
+        status: 'APPROVED',
+        userId: { in: userIds },
+      },
+    });
+
+    const lateRequests = lateRequestsRaw.filter(o => {
+      if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
+      const meta: any = o.attachmentMetadata;
+      if (!meta.fromDate) return false;
+      const rDate = moment(meta.fromDate);
+      return rDate.isBetween(start, end, 'day', '[]');
+    }).map(o => {
+      const meta: any = o.attachmentMetadata;
+      return {
+        userId: o.userId,
+        workDate: new Date(meta.fromDate),
+      };
+    });
+
 
     const configs = await this.prisma.departmentOvertimeConfig.findMany();
     const configMap = new Map(configs.map(c => [c.departmentId, c]));
@@ -102,6 +141,8 @@ export class AttendanceReportService {
         const record = userRecords.find(r => moment(r.workDate).format('YYYY-MM-DD') === dateStr);
         const otRequest = overtimes.find(o => o.userId === user.id && moment(o.workDate).format('YYYY-MM-DD') === dateStr);
 
+        const lateRequest = lateRequests.find(o => o.userId === user.id && moment(o.workDate).format('YYYY-MM-DD') === dateStr);
+
         let checkIn = record?.checkInAt ? moment(record.checkInAt) : null;
         let checkOut = record?.checkOutAt ? moment(record.checkOutAt) : null;
         
@@ -135,7 +176,11 @@ export class AttendanceReportService {
           // Late
           if (checkIn && checkIn.isAfter(shiftStart.clone().add(Number(config.lateThresholdMinutes), 'minutes'))) {
             lateMins = checkIn.diff(shiftStart, 'minutes');
-            lateDeduction = Number(config.lateDeductionAmount);
+            if (lateRequest) {
+              lateDeduction = 0;
+            } else {
+              lateDeduction = Number(config.lateDeductionAmount);
+            }
           }
           // Early leave (if no overtime)
           if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {

@@ -72,7 +72,7 @@ export class ReportsService {
     const [scheduledDays, records, overtime, paidLeave, unpaidLeave] = await Promise.all([
       this.prisma.shiftAssignment.count({ where: { userId: userIds ? { in: userIds } : query.userId, workDate: range } }),
       this.prisma.attendanceRecord.findMany({ where: { userId: userIds ? { in: userIds } : query.userId, workDate: range } }),
-      this.prisma.overtimeRequest.findMany({ where: { userId: userIds ? { in: userIds } : query.userId, status: 'APPROVED' }, select: { startAt: true, endAt: true } }),
+      this.prisma.employeeRequest.findMany({ where: { userId: userIds ? { in: userIds } : query.userId, status: 'APPROVED', type: 'OVERTIME' } }),
       this.prisma.leaveRequest.count({ where: { userId: userIds ? { in: userIds } : query.userId, status: 'APPROVED', leaveType: { isPaid: true } } }),
       this.prisma.leaveRequest.count({ where: { userId: userIds ? { in: userIds } : query.userId, status: 'APPROVED', leaveType: { isPaid: false } } }),
     ]);
@@ -86,7 +86,14 @@ export class ReportsService {
       earlyLeaveCount: 0,
       earlyLeaveMinutes: 0,
       workedMinutes: records.reduce((sum, record) => sum + (record.checkOutAt ? Math.max(0, Math.floor((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 60_000)) : 0), 0),
-      approvedOvertimeMinutes: overtime.reduce((sum, item) => sum + Math.max(0, Math.floor((item.endAt.getTime() - item.startAt.getTime()) / 60_000)), 0),
+      approvedOvertimeMinutes: overtime.reduce((sum, item) => {
+        const meta = item.attachmentMetadata as any;
+        if (!meta || !meta.startTime || !meta.endTime || !meta.fromDate) return sum;
+        const fromDateObj = new Date(meta.fromDate);
+        if (range.gte && fromDateObj < range.gte) return sum;
+        if (range.lte && fromDateObj > range.lte) return sum;
+        return sum + Math.max(0, Math.floor((new Date(meta.endTime).getTime() - new Date(meta.startTime).getTime()) / 60_000));
+      }, 0),
       paidLeaveDays: paidLeave,
       unpaidLeaveDays: unpaidLeave,
     }];

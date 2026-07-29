@@ -30,6 +30,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const violationId = stringMeta(notification.metadata, 'violationId');
   const postId = stringMeta(notification.metadata, 'postId');
   const swapId = stringMeta(notification.metadata, 'swapId');
+  const feedbackId = stringMeta(notification.metadata, 'feedbackId');
   
   const base = roleBase(user);
   
@@ -43,6 +44,10 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (swapId) {
     if (base === '/leader') return `/leader/shift-swaps`;
     return `/employee/shift-swaps`;
+  }
+  if (feedbackId) {
+    if (base === '/admin' || base === '/hr') return `/admin/feedbacks/${feedbackId}`;
+    return `${base}/feedbacks/${feedbackId}`;
   }
   if (notification.type === 'SYSTEM' && (notification.title === 'Yêu cầu đổi ca làm việc' || notification.title === 'Kết quả đơn đổi ca' || notification.title === 'Yêu cầu duyệt đổi ca')) {
     if (base === '/leader') return `/leader/shift-swaps`;

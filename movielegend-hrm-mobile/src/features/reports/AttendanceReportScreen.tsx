@@ -19,13 +19,20 @@ const getFormattedDate = (date: Date) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const getDisplayDate = (date: Date) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 export function AttendanceReportScreen() {
-  const [startDate, setStartDate] = useState(() => {
+  const [startDate, setStartDate] = useState<Date>(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    return getFormattedDate(d);
+    return d;
   });
-  const [endDate, setEndDate] = useState(() => getFormattedDate(new Date()));
+  const [endDate, setEndDate] = useState<Date>(() => new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   
@@ -68,9 +75,11 @@ export function AttendanceReportScreen() {
     }
     try {
       setExporting(true);
+      const startStr = getFormattedDate(startDate);
+      const endStr = getFormattedDate(endDate);
       const url = await reportsApi.getAttendanceDetailExcelUrl({ 
-        startDate, 
-        endDate, 
+        startDate: startStr, 
+        endDate: endStr, 
         departmentId: selectedDepts, 
         userId: selectedUsers 
       });
@@ -78,7 +87,7 @@ export function AttendanceReportScreen() {
       if (Platform.OS === 'web') {
         window.open(url, '_blank');
       } else {
-        const fileUri = `${FileSystem.documentDirectory}bang-cham-cong-${startDate}.xlsx`;
+        const fileUri = `${FileSystem.documentDirectory}bang-cham-cong-${getFormattedDate(startDate)}.xlsx`;
         const { uri, status } = await FileSystem.downloadAsync(url, fileUri, {
           headers: {
             'ngrok-skip-browser-warning': 'true'
@@ -175,7 +184,7 @@ export function AttendanceReportScreen() {
                   theme={inputTheme} 
                   mode="outlined" 
                   label="Từ ngày" 
-                  value={startDate} 
+                  value={getDisplayDate(startDate)} 
                   outlineColor="#e5e5e5" 
                   activeOutlineColor="#000000" 
                   right={<TextInput.Icon icon="calendar" color="#666666" />}
@@ -192,7 +201,7 @@ export function AttendanceReportScreen() {
                   theme={inputTheme} 
                   mode="outlined" 
                   label="Đến ngày" 
-                  value={endDate} 
+                  value={getDisplayDate(endDate)} 
                   outlineColor="#e5e5e5" 
                   activeOutlineColor="#000000" 
                   right={<TextInput.Icon icon="calendar" color="#666666" />}
@@ -207,11 +216,11 @@ export function AttendanceReportScreen() {
               <Modal visible={showStartPicker} onDismiss={() => setShowStartPicker(false)} contentContainerStyle={styles.modalContent}>
                 <Text variant="titleMedium" style={styles.modalTitle}>Chọn Từ ngày</Text>
                 <DateTimePicker
-                  value={new Date(startDate)}
+                  value={startDate}
                   mode="date"
                   display="inline"
                   onChange={(event: any, date?: Date) => {
-                    if (date) setStartDate(getFormattedDate(date));
+                    if (date) setStartDate(date);
                   }}
                   style={{ alignSelf: 'center' }}
                 />
@@ -220,12 +229,12 @@ export function AttendanceReportScreen() {
             </Portal>
           ) : showStartPicker && Platform.OS === 'android' ? (
             <DateTimePicker
-              value={new Date(startDate)}
+              value={startDate}
               mode="date"
               display="default"
               onChange={(event: any, date?: Date) => {
                 setShowStartPicker(false);
-                if (date) setStartDate(getFormattedDate(date));
+                if (date) setStartDate(date);
               }}
             />
           ) : null}
@@ -235,11 +244,11 @@ export function AttendanceReportScreen() {
               <Modal visible={showEndPicker} onDismiss={() => setShowEndPicker(false)} contentContainerStyle={styles.modalContent}>
                 <Text variant="titleMedium" style={styles.modalTitle}>Chọn Đến ngày</Text>
                 <DateTimePicker
-                  value={new Date(endDate)}
+                  value={endDate}
                   mode="date"
                   display="inline"
                   onChange={(event: any, date?: Date) => {
-                    if (date) setEndDate(getFormattedDate(date));
+                    if (date) setEndDate(date);
                   }}
                   style={{ alignSelf: 'center' }}
                 />
@@ -248,16 +257,16 @@ export function AttendanceReportScreen() {
             </Portal>
           ) : showEndPicker && Platform.OS === 'android' ? (
             <DateTimePicker
-              value={new Date(endDate)}
+              value={endDate}
               mode="date"
               display="default"
               onChange={(event: any, date?: Date) => {
                 setShowEndPicker(false);
-                if (date) setEndDate(getFormattedDate(date));
+                if (date) setEndDate(date);
               }}
             />
           ) : null}
-          <Text style={styles.hint}>Định dạng ngày: YYYY-MM-DD</Text>
+          <Text style={styles.hint}>Định dạng ngày: DD/MM/YYYY</Text>
         </Surface>
 
         <Surface style={styles.card} elevation={0}>

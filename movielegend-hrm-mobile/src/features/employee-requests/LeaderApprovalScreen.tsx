@@ -166,7 +166,7 @@ export function LeaderApprovalScreen() {
                   <Image 
                     source={{ uri: request.attachmentMetadata.image }} 
                     style={{ width: '100%', height: 250, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6' }} 
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 </TouchableOpacity>
               </View>

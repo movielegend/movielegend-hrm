@@ -36,7 +36,7 @@ export function ApprovalMenuScreen() {
             icon="account-check" 
             iconBg="#FEF3C7" 
             iconColor="#D97706" 
-            onPress={() => router.push(`${roleBase(user)}/approvals/account` as any)} 
+            onPress={() => router.push(isAdmin ? '/admin/approvals' : `${roleBase(user)}/approvals/account` as any)}
           />
           {!isAdmin && (
             <>
