@@ -5,12 +5,23 @@ import { CreateChatMessageDto } from './dto/chat.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { PrismaService } from '../../database/prisma.service';
 
 @ApiTags('chat')
 @ApiBearerAuth()
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(private readonly chatService: ChatService, private readonly prisma: PrismaService) {}
+
+  @ApiOperation({ summary: 'FIX: Cập nhật type DEPARTMENT cho các nhóm lỗi' })
+  @Get('fix-groups')
+  async fixGroups() {
+    const result = await this.prisma.chatGroup.updateMany({
+      where: { departmentId: { not: null }, type: 'CUSTOM' },
+      data: { type: 'DEPARTMENT' }
+    });
+    return { success: true, message: `Đã sửa ${result.count} nhóm chat bị lỗi thành DEPARTMENT.` };
+  }
 
   @ApiOperation({ summary: 'Lấy danh sách nhóm chat của tôi' })
   @Get('my-groups')
