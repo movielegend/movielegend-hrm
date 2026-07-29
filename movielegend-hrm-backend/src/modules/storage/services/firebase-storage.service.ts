@@ -114,4 +114,17 @@ export class FirebaseStorageService implements StorageService {
       throw error;
     }
   }
+
+  extractKeyFromUrl(url: string): string | null {
+    if (!url) return null;
+    try {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.hostname === 'storage.googleapis.com' && this.bucket?.name) {
+        return decodeURIComponent(parsedUrl.pathname.replace(`/${this.bucket.name}/`, ''));
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 }
