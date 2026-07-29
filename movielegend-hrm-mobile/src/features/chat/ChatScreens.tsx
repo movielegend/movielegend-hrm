@@ -529,7 +529,21 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                       <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
                     )}
                     {msg.fileUrl && msg.fileType === 'IMAGE' && (
-                      <Pressable onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}>
+                      <Pressable 
+                        onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}
+                        onLongPress={() => {
+                          if (isMine) {
+                            Alert.alert('Thu hồi tin nhắn', 'Bạn có chắc chắn muốn thu hồi tin nhắn ảnh này?', [
+                              { text: 'Hủy', style: 'cancel' },
+                              { 
+                                text: 'Thu hồi', 
+                                style: 'destructive', 
+                                onPress: () => deleteMessage.mutate(msg.id) 
+                              }
+                            ]);
+                          }
+                        }}
+                      >
                         <Image
                           source={{ uri: resolveImageUrl(msg.fileUrl) || '' }}
                           style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]}
