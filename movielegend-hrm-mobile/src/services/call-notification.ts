@@ -9,12 +9,12 @@ const CALL_NOTIFICATION_ID = 'incoming_voice_call';
  */
 export async function setupCallNotificationChannel() {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('incoming_calls_v2', {
+    await Notifications.setNotificationChannelAsync('incoming_calls_v3', {
       name: 'Cuộc gọi đến',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 500, 200, 500, 200, 500],
       lightColor: '#22c55e',
-      sound: 'default',
+      sound: 'ringtone.wav',
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       bypassDnd: true,
       enableLights: true,
@@ -22,7 +22,7 @@ export async function setupCallNotificationChannel() {
     });
   }
 
-  await Notifications.setNotificationCategoryAsync('INCOMING_CALL', [
+  await Notifications.setNotificationCategoryAsync('VOICE_CALL_INCOMING', [
     {
       identifier: 'ACCEPT',
       buttonTitle: 'Nghe',
@@ -52,17 +52,17 @@ export async function showIncomingCallNotification(callerName: string, callerId:
       content: {
         title: '📞 Cuộc gọi đến',
         body: `${callerName} đang gọi cho bạn`,
-        sound: 'default',
+        sound: 'ringtone.wav',
         priority: Notifications.AndroidNotificationPriority.MAX,
         sticky: true,
-        categoryIdentifier: 'INCOMING_CALL',
+        categoryIdentifier: 'VOICE_CALL_INCOMING',
         data: {
           type: 'VOICE_CALL_INCOMING',
           callerId,
           callerName,
           callerAvatar: callerAvatar || null,
         },
-        ...(Platform.OS === 'android' ? { channelId: 'incoming_calls' } : {}),
+        ...(Platform.OS === 'android' ? { channelId: 'incoming_calls_v3' } : {}),
       },
       trigger: null, // Show immediately
     });

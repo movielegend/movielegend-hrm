@@ -65,9 +65,10 @@ export class VoiceCallGateway {
           callerAvatar: callerInfo.avatarUrl,
         },
         {
-          categoryId: 'INCOMING_CALL',
+          categoryId: 'VOICE_CALL_INCOMING',
           priority: 'high',
-          channelId: 'incoming_calls_v2',
+          channelId: 'incoming_calls_v3',
+          sound: 'ringtone.wav',
         }
       ).catch(e => console.error('Failed to send call push notification', e));
 
@@ -93,6 +94,9 @@ export class VoiceCallGateway {
       // Send token back to receiver (who accepted)
       client.emit('voice_call:token', { token: receiverToken, roomName });
 
+      // Notify other devices of receiver to stop ringing
+      client.broadcast.to(`user:${receiverId}`).emit('voice_call:handled_elsewhere', { callerId: payload.callerId });
+
       // Send token to caller
       this.server.to(`user:${payload.callerId}`).emit('voice_call:accepted', { token: callerToken, roomName, receiverId });
       return { ok: true };
@@ -108,6 +112,9 @@ export class VoiceCallGateway {
     if (!receiverId || !payload.callerId) return { ok: false };
     
     this.server.to(`user:${payload.callerId}`).emit('voice_call:rejected', { receiverId });
+
+    // Notify other devices of receiver to stop ringing
+    client.broadcast.to(`user:${receiverId}`).emit('voice_call:handled_elsewhere', { callerId: payload.callerId });
 
     // Log missed call history to chat
     try {

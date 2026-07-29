@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { Modal, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { IncomingCallScreen } from './IncomingCallScreen';
 import { CallingScreen } from './CallingScreen';
@@ -49,7 +50,12 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 
   // Call state
   const [callState, setCallState] = useState<'IDLE' | 'CALLING' | 'INCOMING' | 'ACTIVE'>('IDLE');
+  const callStateRef = useRef(callState);
+  useEffect(() => { callStateRef.current = callState; }, [callState]);
+
   const [callerId, setCallerId] = useState<string | null>(null);
+  const callerIdRef = useRef(callerId);
+  useEffect(() => { callerIdRef.current = callerId; }, [callerId]);
   const [callerName, setCallerName] = useState<string>('Người dùng');
   const [callerAvatar, setCallerAvatar] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
@@ -99,6 +105,12 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     if (!socket) return;
 
     const onIncoming = (data: { callerId: string; callerName?: string; callerAvatar?: string | null }) => {
+      if (callStateRef.current !== 'IDLE') {
+        // Automatically reject if busy
+        socket.emit('voice_call:reject', { callerId: data.callerId, reason: 'BUSY' });
+        return;
+      }
+      
       setCallerId(data.callerId);
       setCallerName(data.callerName || 'Người dùng');
       setCallerAvatar(data.callerAvatar || null);
@@ -135,11 +147,18 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       resetCall();
     };
 
+    const onHandledElsewhere = (data: { callerId: string }) => {
+      if (callStateRef.current === 'INCOMING' && callerIdRef.current === data.callerId) {
+        resetCall();
+      }
+    };
+
     socket.on('voice_call:incoming', onIncoming);
     socket.on('voice_call:accepted', onAccepted);
     socket.on('voice_call:token', onToken);
     socket.on('voice_call:rejected', onRejected);
     socket.on('voice_call:ended', onEnded);
+    socket.on('voice_call:handled_elsewhere', onHandledElsewhere);
 
     return () => {
       socket.off('voice_call:incoming', onIncoming);
@@ -147,6 +166,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       socket.off('voice_call:token', onToken);
       socket.off('voice_call:rejected', onRejected);
       socket.off('voice_call:ended', onEnded);
+      socket.off('voice_call:handled_elsewhere', onHandledElsewhere);
     };
   }, [socket, resetCall, clearCallTimeout]);
 
@@ -249,6 +269,29 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       setPendingAction(null);
     }
   }, [socket, pendingAction]);
+
+  // ── Handle cold start tap from push notification ──
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (
+      lastNotificationResponse &&
+      lastNotificationResponse.notification.request.content.data &&
+      lastNotificationResponse.notification.request.content.data.type === 'VOICE_CALL_INCOMING'
+    ) {
+      const actionId = lastNotificationResponse.actionIdentifier;
+      const data = lastNotificationResponse.notification.request.content.data as any;
+      
+      if (actionId === 'ACCEPT') {
+        if (socket) acceptCall(data.callerId);
+        else setPendingAction({ type: 'accept', callerId: data.callerId });
+      } else if (actionId === 'REJECT') {
+        if (socket) rejectCall(data.callerId);
+        else setPendingAction({ type: 'reject', callerId: data.callerId });
+      } else {
+        handleIncomingCallFromNotification(data);
+      }
+    }
+  }, [lastNotificationResponse, socket, handleIncomingCallFromNotification]);
 
   // ── End call ──
   const endCall = (duration?: number | any) => {
