@@ -168,10 +168,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
                   key={post.id}
                   style={styles.postCard}
                   onPress={() => {
-                    const isAdmin = user?.roles?.includes('ADMIN');
-                    const isLeader = user?.roles?.includes('LEADER');
-                    const basePath = isAdmin ? '/admin/newsfeed' : isLeader ? '/leader/newsfeed' : '/employee/newsfeed';
-                    router.push(`${basePath}/${post.id}` as never);
+                    router.push(`${roleBase(user)}/newsfeed/${post.id}` as never);
                   }}
                 >
                   {/* Author row */}
