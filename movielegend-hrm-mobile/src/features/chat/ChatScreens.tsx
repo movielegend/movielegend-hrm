@@ -180,10 +180,15 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
               const isDirect = group.type === 'DIRECT';
               const isCustom = group.type === 'CUSTOM';
               let groupName = group.name ?? group.department?.name ?? 'Nhóm chat';
-              if (isDirect && group.name && user?.fullName) {
+              if (isDirect && group.name) {
                 const parts = group.name.split(' - ');
                 if (parts.length === 2) {
-                  groupName = parts[0] === user.fullName ? parts[1] : (parts[1] === user.fullName ? parts[0] : groupName);
+                  const myName = user?.fullName || user?.userCode;
+                  if (parts[0] === myName || parts[0] === 'User') {
+                    groupName = parts[1];
+                  } else if (parts[1] === myName || parts[1] === 'User') {
+                    groupName = parts[0];
+                  }
                 }
               }
               const typeLabel = isDirect ? 'Cá nhân' : isCustom ? 'Tự do' : isCompany ? 'Công ty' : group.type === 'DEPARTMENT' ? 'Phòng ban' : 'Công việc';
