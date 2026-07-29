@@ -112,5 +112,16 @@ export class ChatController {
     const isAdmin = user.roles?.some(r => r.toUpperCase().includes('ADMIN'));
     return this.chatService.deleteGroup(groupId, user.userId, !!isAdmin);
   }
+
+  @ApiOperation({ summary: 'Thu hồi tin nhắn' })
+  @Delete('groups/:groupId/messages/:messageId')
+  deleteMessage(
+    @Param('groupId') groupId: string,
+    @Param('messageId') messageId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    const isAdmin = user.roles?.some(r => r.toUpperCase().includes('ADMIN'));
+    return this.chatService.deleteMessage(user.userId, groupId, messageId, !!isAdmin);
+  }
 }
 

@@ -3,13 +3,15 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEventsService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly storage: StorageService
   ) {}
 
   // Get or Create group for a department
@@ -471,12 +473,52 @@ export class ChatService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-       await tx.chatMessage.deleteMany({ where: { groupId } });
-       await tx.chatGroupMember.deleteMany({ where: { groupId } });
-       await tx.chatGroup.delete({ where: { id: groupId } });
+      if (isAdmin) {
+        await tx.chatGroup.delete({ where: { id: groupId } });
+      } else {
+        await tx.chatGroupMember.delete({ where: { groupId_userId: { groupId, userId } } });
+        const remaining = await tx.chatGroupMember.count({ where: { groupId } });
+        if (remaining === 0) {
+          await tx.chatGroup.delete({ where: { id: groupId } });
+        }
+      }
     });
 
     return { success: true };
   }
-}
 
+  async deleteMessage(userId: string, groupId: string, messageId: string, isAdmin: boolean) {
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId }
+    });
+
+    if (!message) throw new NotFoundException('Message not found');
+    if (message.groupId !== groupId) throw new ForbiddenException('Message does not belong to this group');
+
+    if (message.senderId !== userId && !isAdmin) {
+      throw new ForbiddenException('You can only recall your own messages');
+    }
+
+    // Nếu có file đính kèm, cần xóa trên storage
+    if (message.fileUrl && !message.content?.startsWith('LOTTIE_STICKER:') && !message.content?.startsWith('STATIC_STICKER:') && !message.content?.startsWith('GIPHY_STICKER:')) {
+      const storageKey = this.storage.extractKeyFromUrl(message.fileUrl);
+      if (storageKey) {
+        await this.storage.delete(storageKey);
+      }
+    }
+
+    await this.prisma.chatMessage.delete({ where: { id: messageId } });
+
+    // Phát tín hiệu websocket bằng payload ảo để ứng dụng di động tự fetch lại tin nhắn mới nhất
+    const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
+    if (group) {
+      if (group.departmentId) {
+        this.realtime.emitToDepartment(group.departmentId, 'chat:message', { groupId });
+      } else {
+        this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', { groupId });
+      }
+    }
+
+    return { success: true };
+  }
+}
