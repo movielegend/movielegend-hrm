@@ -7,12 +7,15 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { PrismaService } from '../../database/prisma.service';
 
+import { Public } from '../../common/decorators/public.decorator';
+
 @ApiTags('chat')
 @ApiBearerAuth()
 @Controller('chat')
 export class ChatController {
   constructor(private readonly chatService: ChatService, private readonly prisma: PrismaService) {}
 
+  @Public()
   @ApiOperation({ summary: 'FIX: Cập nhật type DEPARTMENT cho các nhóm lỗi' })
   @Get('fix-groups')
   async fixGroups() {
