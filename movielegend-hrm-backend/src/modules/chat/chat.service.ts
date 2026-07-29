@@ -211,7 +211,15 @@ export class ChatService {
     // Get ad-hoc chat groups (e.g., tasks) where user is a member
     const customMemberships = await this.prisma.chatGroupMember.findMany({
       where: { userId },
-      select: { group: true }
+      select: { 
+        group: {
+          include: {
+            members: {
+              include: { user: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
+            }
+          }
+        } 
+      }
     });
     for (const m of customMemberships) {
       groups.push(m.group);
@@ -252,12 +260,12 @@ export class ChatService {
         // Find the other member to use as group name
         const otherMember = await this.prisma.chatGroupMember.findFirst({
           where: { groupId: group.id, userId: { not: userId } },
-          include: { user: { select: { profile: { select: { fullName: true, avatarUrl: true } } } } }
+          include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
         });
-        if (otherMember?.user?.profile?.fullName) {
-          finalName = otherMember.user.profile.fullName;
+        if (otherMember?.user) {
+          finalName = otherMember.user.profile?.fullName || otherMember.user.userCode || 'Người dùng';
           otherUserId = otherMember.userId;
-          otherUserAvatar = otherMember.user.profile.avatarUrl ?? undefined;
+          otherUserAvatar = otherMember.user.profile?.avatarUrl ?? undefined;
         }
       }
 
@@ -354,7 +362,7 @@ export class ChatService {
         task: { select: { title: true } },
         _count: { select: { members: true, messages: true } },
         members: {
-          include: { user: { select: { profile: { select: { fullName: true, avatarUrl: true } } } } }
+          include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
         }
       },
       orderBy: { updatedAt: 'desc' }
@@ -371,8 +379,10 @@ export class ChatService {
 
       let finalName = group.name;
       if (group.type === 'DIRECT' && group.members?.length === 2) {
-        const name1 = group.members[0].user?.profile?.fullName || 'User';
-        const name2 = group.members[1].user?.profile?.fullName || 'User';
+        const u1 = group.members[0].user;
+        const name1 = u1?.profile?.fullName || u1?.userCode || 'Người dùng';
+        const u2 = group.members[1].user;
+        const name2 = u2?.profile?.fullName || u2?.userCode || 'Người dùng';
         finalName = `${name1} - ${name2}`;
       } else if (group.type === 'DEPARTMENT' && group.department?.name) {
         finalName = group.department.name;
@@ -384,7 +394,6 @@ export class ChatService {
         ...group,
         name: finalName,
         latestMessage,
-        members: undefined
       });
     }
 

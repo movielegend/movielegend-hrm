@@ -423,7 +423,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             <MaterialCommunityIcons name="account-group" size={20} color="#111827" />
           </View>
           <View style={styles.chatHeaderInfo}>
-            <Text style={styles.chatHeaderName}>{groupName ?? 'Nhóm chat'}</Text>
+            <Text style={styles.chatHeaderName}>{decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat'}</Text>
             <Text style={styles.chatHeaderMeta}>
               {messageItems.length} tin nhắn
             </Text>
@@ -431,12 +431,25 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity 
               onPress={() => {
-                if (currentGroup?.type === 'DIRECT' && currentGroup?.otherUserId) {
-                  initiateCall(currentGroup.otherUserId, currentGroup.name, currentGroup.otherUserAvatar);
+                if (!currentGroup) {
+                  Alert.alert('Vui lòng đợi', 'Đang tải thông tin nhóm chat...');
+                  return;
+                }
+                const targetUserId = currentGroup?.otherUserId || (currentGroup?.type === 'DIRECT' ? currentGroup?.members?.find((m: any) => m.userId !== user?.id)?.userId : undefined);
+                if (currentGroup?.type === 'DIRECT' && targetUserId) {
+                  initiateCall(targetUserId, currentGroup.name || 'Người dùng', currentGroup.otherUserAvatar);
+                } else if (currentGroup?.members && currentGroup.members.length === 2) {
+                  const otherMember = currentGroup.members.find((m: any) => m.userId !== user?.id);
+                  if (otherMember) {
+                    const u = otherMember.user;
+                    initiateCall(otherMember.userId, u?.profile?.fullName || u?.username || u?.userCode || 'Người dùng', u?.profile?.avatarUrl);
+                  } else {
+                    setIsCallModalVisible(true);
+                  }
                 } else {
                   setIsCallModalVisible(true);
                 }
-              }} 
+              }}  
               style={{ padding: 8 }}
             >
               <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
@@ -481,7 +494,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
 
             return (
-              <View style={[styles.messageRow, isMine && styles.messageRowMine]}>
+              <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
                 {!isMine && (
                   <View style={styles.messageBubbleAvatar}>
                     <Text style={styles.messageBubbleAvatarText}>
@@ -645,7 +658,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               </TouchableOpacity>
             </View>
             <FlatList
-              data={employees.data?.items ?? []}
+              data={currentGroup?.members?.length > 0 ? currentGroup.members.map((m: any) => ({ ...m.user, id: m.userId, fullName: m.user?.profile?.fullName, avatarUrl: m.user?.profile?.avatarUrl })) : (employees.data?.items ?? [])}
               keyExtractor={(item: any) => item.id}
               renderItem={({ item }) => {
                 if (item.id === user?.id) return null; // Don't call yourself

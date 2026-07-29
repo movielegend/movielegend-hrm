@@ -1,11 +1,17 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { Modal, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { IncomingCallScreen } from './IncomingCallScreen';
 import { CallingScreen } from './CallingScreen';
 import { ActiveCallScreen } from './ActiveCallScreen';
 import { showIncomingCallNotification, dismissCallNotification } from '../../services/call-notification';
+
+let useLastNotificationResponse = (): any => null;
+if (Platform.OS !== 'web' && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+  const Notifications = require('expo-notifications');
+  useLastNotificationResponse = Notifications.useLastNotificationResponse;
+}
 
 // ── Conditional LiveKit imports (unavailable in Expo Go) ──
 let LiveKitRoom: any = ({ children }: any) => <>{children}</>;
@@ -227,6 +233,18 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 
   const [pendingAction, setPendingAction] = useState<{ type: 'accept' | 'reject', callerId: string } | null>(null);
 
+  // ── Handle call from push notification tap ──
+  const handleIncomingCallFromNotification = useCallback((data: {
+    callerId: string;
+    callerName: string;
+    callerAvatar?: string | null;
+  }) => {
+    setCallerId(data.callerId);
+    setCallerName(data.callerName);
+    setCallerAvatar(data.callerAvatar || null);
+    setCallState('INCOMING');
+  }, []);
+
   // ── Listen for Push Notification Actions ──
   useEffect(() => {
     const { DeviceEventEmitter } = require('react-native');
@@ -271,7 +289,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   }, [socket, pendingAction]);
 
   // ── Handle cold start tap from push notification ──
-  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  const lastNotificationResponse = useLastNotificationResponse();
   useEffect(() => {
     if (
       lastNotificationResponse &&
@@ -332,17 +350,6 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ── Handle call from push notification tap ──
-  const handleIncomingCallFromNotification = useCallback((data: {
-    callerId: string;
-    callerName: string;
-    callerAvatar?: string | null;
-  }) => {
-    setCallerId(data.callerId);
-    setCallerName(data.callerName);
-    setCallerAvatar(data.callerAvatar || null);
-    setCallState('INCOMING');
-  }, []);
 
   return (
     <VoiceCallContext.Provider value={{ initiateCall, handleIncomingCallFromNotification }}>
