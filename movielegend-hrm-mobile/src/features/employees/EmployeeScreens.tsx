@@ -473,7 +473,6 @@ export function EmployeeDetailScreen() {
 
 export function CreateEmployeeScreen() {
   const router = useRouter();
-  const { departmentId } = useLocalSearchParams<{ departmentId?: string }>();
   const createEmployee = useCreateEmployee();
   const queryClient = useQueryClient();
   const { departmentId: fixedDepartmentId } = useLocalSearchParams<{ departmentId?: string }>();
@@ -533,6 +532,7 @@ export function CreateEmployeeScreen() {
                 </Pressable>
               ))
             )}
+
             {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
           </View>
 

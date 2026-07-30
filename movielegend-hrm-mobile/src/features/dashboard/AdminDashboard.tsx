@@ -8,6 +8,7 @@ import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
+import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 
@@ -32,7 +33,7 @@ export function AdminDashboard() {
   const { data: unreadData } = useUnreadNotificationCount();
   const unreadCount = unreadData?.count || 0;
 
-  const { data: feedbackData, isLoading: isLoadingFeedbacks } = useFeedbacksForManagement({ limit: 5 });
+  const { data: feedbackData, isLoading: isLoadingFeedbacks } = useFeedbacksForManagement({ limit: 5, status: 'SEND' });
 
   const { data: dashboardData } = useQuery({
     queryKey: ['admin-dashboard-summary'],
@@ -41,6 +42,9 @@ export function AdminDashboard() {
       return unwrapData(response) as any;
     }
   });
+
+  const currentDateStr = new Date().toISOString().split('T')[0];
+  const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -172,19 +176,11 @@ export function AdminDashboard() {
         <View style={styles.summaryGrid}>
           <SummaryCard
             label="Chấm công"
-            value={dashboardData?.attendanceToday?.scheduled ? `${Math.round((dashboardData.attendanceToday.checkedIn / dashboardData.attendanceToday.scheduled) * 100)}%` : '0%'}
+            value={attStats?.totalUsers && attStats.totalUsers > 0 ? `${Math.round(((attStats?.present || 0) / attStats.totalUsers) * 100)}%` : '0%'}
           />
           <SummaryCard
             label="Công việc"
             value={dashboardData?.tasks?.totalActive?.toString() || '0'}
-          />
-          <SummaryCard
-            label="Cuộc họp"
-            value="0"
-          />
-          <SummaryCard
-            label="Thông báo"
-            value={unreadCount.toString()}
           />
         </View>
 
@@ -437,7 +433,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   summaryCard: {
-    width: '23%',
+    width: '48%',
     backgroundColor: appleTheme.card,
     borderRadius: 16,
     paddingVertical: 16,

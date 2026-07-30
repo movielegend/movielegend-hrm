@@ -372,6 +372,28 @@ export class AttendanceService {
     };
   }
 
+  async cleanupTodayAttendance() {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+
+    const deletedRecords = await this.prisma.attendanceRecord.deleteMany({
+      where: { workDate: { gte: start, lte: end } }
+    });
+
+    const deletedShifts = await this.prisma.shiftAssignment.deleteMany({
+      where: { workDate: { gte: start, lte: end } }
+    });
+
+    return {
+      message: 'Cleaned up mock attendance for today',
+      deletedRecords: deletedRecords.count,
+      deletedShifts: deletedShifts.count,
+    };
+  }
+
   async myHistory(actor: AuthenticatedUser, query: AttendanceQueryDto) {
     const where: Prisma.AttendanceRecordWhereInput = {
       userId: actor.userId,
