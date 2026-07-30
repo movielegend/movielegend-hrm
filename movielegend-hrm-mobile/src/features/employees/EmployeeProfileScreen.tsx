@@ -1,5 +1,9 @@
 import { useState } from 'react';
+<<<<<<< Updated upstream
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+=======
+import { Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
+>>>>>>> Stashed changes
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';

@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -214,7 +214,7 @@ export function IncidentDetailScreen() {
   const action = useAssetIncidentAction();
   const [resolutionNote, setResolutionNote] = useState('');
 
-  async function run(status: AssetStatus) {
+  async function runResolve(status: AssetStatus) {
     if (!id) return;
     try {
       await action.mutateAsync({
@@ -226,6 +226,23 @@ export function IncidentDetailScreen() {
         },
       });
       Alert.alert('Thành công', 'Đã cập nhật trạng thái sự cố.');
+    } catch (error) {
+      const mapped = mapWarehouseAssetError(error);
+      Alert.alert(mapped.code, mapped.message);
+    }
+  }
+
+  async function runReject() {
+    if (!id) return;
+    try {
+      await action.mutateAsync({
+        id,
+        action: 'reject',
+        payload: {
+          ...(resolutionNote.trim() ? { resolutionNote: resolutionNote.trim() } : {}),
+        },
+      });
+      Alert.alert('Thành công', 'Đã từ chối sự cố.');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
       Alert.alert(mapped.code, mapped.message);
@@ -253,6 +270,20 @@ export function IncidentDetailScreen() {
           <Text style={styles.label}>Ngày cập nhật: <Text style={styles.body}>{formatDateTime(item.createdAt)}</Text></Text>
           <Text style={styles.label}>Ghi chú: <Text style={styles.body}>{item.description}</Text></Text>
           <StatusBadge label={incidentTypeLabels[item.incidentType] ?? item.incidentType} tone={incidentStatusTone(item.status)} />
+          {item.evidenceUrl ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={styles.label}>Minh chứng sự cố:</Text>
+              <Pressable onPress={() => { if (item.evidenceUrl) void Linking.openURL(item.evidenceUrl); }}>
+                <Image
+                  source={{ uri: item.evidenceUrl }}
+                  style={{ width: '100%', height: 200, borderRadius: 8, marginTop: spacing.sm, backgroundColor: colors.surface }}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={[styles.label, { marginTop: spacing.md }]}>Minh chứng sự cố: <Text style={styles.body}>Không có</Text></Text>
+          )}
         </SectionCard>
 
         {item.resolvedAt ? (
@@ -268,10 +299,10 @@ export function IncidentDetailScreen() {
             <FormField label="Ghi chú xử lý" value={resolutionNote} onChangeText={setResolutionNote} multiline placeholder="Nhập ghi chú xử lý (tùy chọn)..." />
             <View style={styles.buttonRow}>
               <View style={{ flex: 1 }}>
-                <SecondaryButton loading={action.isPending} onPress={() => void run('IN_STOCK')}>Chưa hỏng</SecondaryButton>
+                <SecondaryButton loading={action.isPending} onPress={() => void runReject()}>Chưa hỏng</SecondaryButton>
               </View>
               <View style={{ flex: 1 }}>
-                <PrimaryButton loading={action.isPending} onPress={() => void run('DAMAGED')}>Hỏng</PrimaryButton>
+                <PrimaryButton loading={action.isPending} onPress={() => void runResolve('DAMAGED')}>Hỏng</PrimaryButton>
               </View>
             </View>
           </SectionCard>

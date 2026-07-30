@@ -473,13 +473,18 @@ export function EmployeeDetailScreen() {
 
 export function CreateEmployeeScreen() {
   const router = useRouter();
+  const { departmentId } = useLocalSearchParams<{ departmentId?: string }>();
   const createEmployee = useCreateEmployee();
   const queryClient = useQueryClient();
   const { departmentId: fixedDepartmentId } = useLocalSearchParams<{ departmentId?: string }>();
 
   const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<EmployeeCreateValues>({
     resolver: zodResolver(createSchema),
+<<<<<<< Updated upstream
     defaultValues: { fullName: '', phone: '', email: '', password: '', departmentId: fixedDepartmentId || '' },
+=======
+    defaultValues: { fullName: '', phone: '', email: '', password: '', departmentId: departmentId ?? '' },
+>>>>>>> Stashed changes
   });
 
   const selectedDepartmentId = watch('departmentId');
@@ -516,6 +521,7 @@ export function CreateEmployeeScreen() {
           <Controller control={control} name="password" render={({ field }) => <FormField label="Mật khẩu khởi tạo" value={field.value} onChangeText={field.onChange} error={errors.password?.message} secureTextEntry />} />
 
           <View style={{ marginTop: 16 }}>
+<<<<<<< Updated upstream
             <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban {fixedDepartmentId ? '(Cố định)' : '(Tùy chọn)'}</Text>
             {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
             
@@ -532,6 +538,25 @@ export function CreateEmployeeScreen() {
                 </Pressable>
               ))
             )}
+=======
+            <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Phòng ban {departmentId ? '(Cố định)' : '(Tùy chọn)'}</Text>
+            {departments.isLoading ? <LoadingState label="Đang tải phòng ban" /> : null}
+            {departments.data?.items?.filter(dept => departmentId ? dept.id === departmentId : true).map((dept) => (
+              <Pressable 
+                key={dept.id} 
+                accessibilityRole="button" 
+                onPress={() => { if (!departmentId) setValue('departmentId', dept.id, { shouldValidate: true }); }} 
+                style={[
+                  styles.positionOption, 
+                  selectedDepartmentId === dept.id && styles.positionOptionSelected,
+                  departmentId ? { opacity: 0.8, backgroundColor: '#F9FAFB' } : {}
+                ]}
+              >
+                <Text style={styles.titleText}>{dept.name}</Text>
+                <Text style={styles.meta}>{dept.code}</Text>
+              </Pressable>
+            ))}
+>>>>>>> Stashed changes
             {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
           </View>
 

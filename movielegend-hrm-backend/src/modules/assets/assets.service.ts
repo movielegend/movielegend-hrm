@@ -245,6 +245,11 @@ export class AssetsService {
         include: { assignments: true, department: true },
       });
 
+      // Auto-delete any open incidents since the asset is revoked
+      await tx.assetIncidentReport.deleteMany({
+        where: { assetId: id, status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } },
+      });
+
       if (assetStatus === 'MAINTENANCE') {
         await tx.assetMaintenanceRecord.create({
           data: {
@@ -388,6 +393,12 @@ export class AssetsService {
         },
       });
       await tx.asset.update({ where: { id: assignment.assetId }, data: { assetStatus, conditionStatus: dto.conditionWhenReturned } });
+      
+      // Auto-delete any open incidents since the asset is returned
+      await tx.assetIncidentReport.deleteMany({
+        where: { assetId: assignment.assetId, status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } },
+      });
+
       await tx.auditLog.create({
         data: { actorUserId: actor.userId, action: 'ASSET_RETURNED', entityType: 'AssetAssignment', entityId: id },
       });
