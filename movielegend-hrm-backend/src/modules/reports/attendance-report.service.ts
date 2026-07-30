@@ -29,6 +29,13 @@ export class AttendanceReportService {
             }
           }
         }),
+        roles: {
+          none: {
+            role: {
+              code: 'ADMIN'
+            }
+          }
+        }
       },
       include: {
         profile: true,

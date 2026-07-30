@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateShiftDto, UpdateShiftDto } from './dto/create-shift.dto';
 
@@ -6,8 +6,33 @@ import { CreateShiftDto, UpdateShiftDto } from './dto/create-shift.dto';
 export class ShiftsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateShiftDto) {
-    return this.prisma.shift.create({ data: dto });
+  async create(dto: CreateShiftDto) {
+    const existingCode = await this.prisma.shift.findUnique({
+      where: { code: dto.code },
+    });
+    if (existingCode) {
+      throw new ConflictException('Mã ca làm việc này đã tồn tại trong hệ thống!');
+    }
+
+    const existingTime = await this.prisma.shift.findFirst({
+      where: {
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+        deletedAt: null,
+      },
+    });
+    if (existingTime) {
+      throw new ConflictException('Khung giờ này đã có ca làm việc tồn tại!');
+    }
+
+    try {
+      return await this.prisma.shift.create({ data: dto });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException('Mã ca làm việc này đã tồn tại trong hệ thống!');
+      }
+      throw error;
+    }
   }
 
   findAll() {

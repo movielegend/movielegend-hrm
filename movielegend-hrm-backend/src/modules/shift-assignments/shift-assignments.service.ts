@@ -186,4 +186,25 @@ export class ShiftAssignmentsService {
       },
     });
   }
+
+  async revokeAssignment(id: string, actor: AuthenticatedUser) {
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id },
+    });
+    if (!assignment) {
+      throw notFound('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy ca phân công');
+    }
+    
+    // Admin có thể xóa thoải mái, Leader thì kiểm tra phạm vi phòng ban
+    if (!actor.roles.includes('ADMIN')) {
+      this.scope.assertDepartmentAccess(actor, assignment.departmentId);
+    }
+
+    if (assignment.status !== ShiftAssignmentStatus.ASSIGNED) {
+      throw badRequest('INVALID_STATUS', 'Chỉ có thể thu hồi ca đang ở trạng thái phân công (ASSIGNED)');
+    }
+
+    await this.prisma.shiftAssignment.delete({ where: { id } });
+    return { success: true };
+  }
 }

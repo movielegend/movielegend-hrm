@@ -16,11 +16,19 @@ import {
   UpdateAttendanceLocationDto,
 } from './dto/attendance.dto';
 
+import { Public } from '../../common/decorators/public.decorator';
+
 @ApiTags('Attendance')
 @ApiBearerAuth()
 @Controller('attendance')
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
+
+  @Public()
+  @Get('mock-today')
+  async mockToday() {
+    return this.attendanceService.mockTodayAttendance();
+  }
 
   @Permissions('attendance.checkin')
   @Post('check-in')

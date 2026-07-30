@@ -1,7 +1,8 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl, Platform, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
 import { PageHeader } from '../../components/PageHeader';
@@ -17,8 +18,71 @@ import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
 import { getHomeRouteForUser } from '../../utils/role-routing';
 import { findTodayShift } from '../attendance/attendance.logic';
-import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts } from '../../hooks/useShifts';
+import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts, useRevokeShiftAssignment } from '../../hooks/useShifts';
 import { useQueryClient } from '@tanstack/react-query';
+
+function TimePickerField({ label, value, onChange }: { label: string; value: string; onChange: (val: string) => void }) {
+  const [show, setShow] = useState(false);
+  const date = useMemo(() => {
+    const d = new Date();
+    const [h, m] = value.split(':');
+    if (h && m) {
+      d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+    }
+    return d;
+  }, [value]);
+
+  const handleChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') setShow(false);
+    if (selectedDate) {
+      const h = selectedDate.getHours().toString().padStart(2, '0');
+      const m = selectedDate.getMinutes().toString().padStart(2, '0');
+      onChange(`${h}:${m}`);
+    }
+  };
+
+  return (
+    <View style={{ marginBottom: spacing.md }}>
+      <Text style={styles.timePickerLabel}>{label}</Text>
+      <Pressable style={styles.timePickerSelector} onPress={() => setShow(true)}>
+        <Text style={styles.timePickerSelectorText}>{value || '--:--'}</Text>
+      </Pressable>
+      {show && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={date}
+          mode="time"
+          is24Hour={true}
+          display="default"
+          onChange={handleChange}
+        />
+      )}
+      {Platform.OS === 'ios' && (
+        <Modal visible={show} transparent animationType="slide">
+          <View style={styles.datePickerModalContainer}>
+            <View style={styles.datePickerModalContent}>
+              <View style={styles.datePickerHeader}>
+                <Pressable onPress={() => setShow(false)}>
+                  <Text style={styles.datePickerCancelText}>Hủy</Text>
+                </Pressable>
+                <Pressable onPress={() => setShow(false)}>
+                  <Text style={styles.datePickerDoneText}>Xong</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={date}
+                mode="time"
+                is24Hour={true}
+                display="spinner"
+                onChange={handleChange}
+                style={styles.iosDatePicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+    </View>
+  );
+}
 
 export function EmployeeScheduleScreen() {
   const router = useRouter();
@@ -148,6 +212,30 @@ export function AdminShiftsScreen() {
   const { user } = useAuth();
   const shifts = useShifts();
   const deleteShift = useDeleteShift();
+  const revokeAssignment = useRevokeShiftAssignment();
+
+  const handleRevoke = (id: string, name: string) => {
+    Alert.alert(
+      'Thu hồi ca làm',
+      `Bạn có chắc chắn muốn thu hồi ca phân công của "${name}"?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Thu hồi',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await revokeAssignment.mutateAsync(id);
+              Alert.alert('Thành công', 'Đã thu hồi ca làm');
+            } catch (error) {
+              const normalized = normalizeApiError(error);
+              Alert.alert('Lỗi', normalized.message);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleDelete = (id: string, name: string) => {
     Alert.alert(
@@ -228,32 +316,34 @@ export function AdminShiftsScreen() {
                 const uniqueAssignments = shift.assignments.filter(
                   (a, index, self) => index === self.findIndex((t) => t.userId === a.userId)
                 );
-                const leaderAssignments = uniqueAssignments.filter(a => 
-                  a.user?.roles?.some(r => r.role?.code === 'LEADER')
-                );
                 
-                if (leaderAssignments.length === 0) return null;
+                if (uniqueAssignments.length === 0) return null;
 
                 return (
                   <View style={styles.assignmentSection}>
                     <View style={styles.assignmentHeader}>
                       <MaterialCommunityIcons name="account-group-outline" size={16} color="#111827" />
-                      <Text style={styles.assignmentLabel}>Leaders đã phân ca</Text>
+                      <Text style={styles.assignmentLabel}>Nhân sự đã phân ca</Text>
                       <View style={styles.assignmentCount}>
-                        <Text style={styles.assignmentCountText}>{leaderAssignments.length}</Text>
+                        <Text style={styles.assignmentCountText}>{uniqueAssignments.length}</Text>
                       </View>
                     </View>
                     <View style={styles.assignmentList}>
-                      {leaderAssignments.map(a => {
+                      {uniqueAssignments.map(a => {
                         const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
                         const initials = name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
                         return (
-                          <View key={a.id} style={styles.assignmentChip}>
+                          <Pressable 
+                            key={a.id} 
+                            style={styles.assignmentChip}
+                            onLongPress={() => handleRevoke(a.id, name)}
+                            delayLongPress={300}
+                          >
                             <View style={styles.assignmentAvatar}>
                               <Text style={styles.assignmentAvatarText}>{initials}</Text>
                             </View>
                             <Text style={styles.assignmentName}>{name}</Text>
-                          </View>
+                          </Pressable>
                         );
                       })}
                     </View>
@@ -315,8 +405,8 @@ export function CreateShiftScreen() {
         <SectionCard>
           <FormField label="Mã ca (VD: CA1)" value={code} onChangeText={setCode} autoCapitalize="characters" />
           <FormField label="Tên ca (VD: Ca Sáng)" value={name} onChangeText={setName} />
-          <FormField label="Giờ bắt đầu (HH:mm)" value={startTime} onChangeText={setStartTime} />
-          <FormField label="Giờ kết thúc (HH:mm)" value={endTime} onChangeText={setEndTime} />
+          <TimePickerField label="Giờ bắt đầu" value={startTime} onChange={setStartTime} />
+          <TimePickerField label="Giờ kết thúc" value={endTime} onChange={setEndTime} />
           <View style={{ marginTop: spacing.md }}>
             <PrimaryButton loading={createShift.isPending} disabled={!code || !name} onPress={() => void submit()}>
               Tạo Ca Mới
@@ -374,10 +464,10 @@ export function EditShiftScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader title="Cập nhật Ca làm việc" subtitle={`Đang sửa: ${shift.name}`} />
         <SectionCard>
-          <FormField label="Mã ca" value={code} onChangeText={setCode} autoCapitalize="characters" />
-          <FormField label="Tên ca" value={name} onChangeText={setName} />
-          <FormField label="Giờ bắt đầu (HH:mm)" value={startTime} onChangeText={setStartTime} />
-          <FormField label="Giờ kết thúc (HH:mm)" value={endTime} onChangeText={setEndTime} />
+          <FormField label="Mã ca (VD: CA1)" value={code} onChangeText={setCode} autoCapitalize="characters" />
+          <FormField label="Tên ca (VD: Ca Sáng)" value={name} onChangeText={setName} />
+          <TimePickerField label="Giờ bắt đầu" value={startTime} onChange={setStartTime} />
+          <TimePickerField label="Giờ kết thúc" value={endTime} onChange={setEndTime} />
           <View style={{ marginTop: spacing.md }}>
             <PrimaryButton loading={updateShift.isPending} disabled={!code || !name} onPress={() => void submit()}>
               Lưu Thay Đổi
@@ -743,5 +833,51 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: colors.text,
+  },
+  timePickerLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  timePickerSelector: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+  },
+  timePickerSelectorText: {
+    fontSize: 15,
+    color: colors.text,
+  },
+  datePickerModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  datePickerModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  datePickerCancelText: {
+    color: colors.muted,
+    fontSize: 16,
+  },
+  datePickerDoneText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  iosDatePicker: {
+    height: 200,
   },
 });
