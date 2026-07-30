@@ -900,10 +900,18 @@ function AssigneeSelectorModal({
   };
 
   const toggleTarget = (type: TaskTargetType, id: string, name?: string) => {
-    if (isSelected(type, id)) {
-      onChange(targets.filter(t => t.targetType !== type || t.targetId !== id));
+    if (type === 'USER') {
+      if (isSelected(type, id)) {
+        onChange(targets.filter(t => t.targetType !== type || t.targetId !== id));
+      } else {
+        onChange([{ targetType: type, targetId: id, targetName: name } as any]);
+      }
     } else {
-      onChange([...targets, { targetType: type, targetId: id, targetName: name } as any]);
+      if (isSelected(type, id)) {
+        onChange(targets.filter(t => t.targetType !== type || t.targetId !== id));
+      } else {
+        onChange([...targets.filter(t => t.targetType !== 'USER'), { targetType: type, targetId: id, targetName: name } as any]);
+      }
     }
   };
 
@@ -944,7 +952,7 @@ function AssigneeSelectorModal({
                   <Text style={styles.assigneeName}>{u.fullName ?? u.userCode}</Text>
                 </View>
                 <MaterialCommunityIcons 
-                  name={isSelected('USER', u.id) ? 'check-circle' : 'circle-outline'} 
+                  name={isSelected('USER', u.id) ? 'radiobox-marked' : 'radiobox-blank'} 
                   size={24} 
                   color={isSelected('USER', u.id) ? colors.primary : colors.border} 
                 />

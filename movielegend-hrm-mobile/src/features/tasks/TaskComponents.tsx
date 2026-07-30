@@ -3,8 +3,8 @@ import { Alert, Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking,
 import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
+import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { uploadFile } from '../../api/uploads.api';
@@ -207,6 +207,42 @@ export function AttachmentPicker({
     }
   }
 
+  async function pickImageAndUpload() {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Cần quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên.');
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (picked.canceled || !picked.assets?.[0]) return;
+    const asset = picked.assets[0];
+    setUploading(true);
+    try {
+      const fileName = asset.fileName ?? asset.uri.split('/').pop() ?? 'image.jpg';
+      const upload = await uploadFile({
+        uri: asset.uri,
+        name: fileName,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+        purpose: 'TASK_ATTACHMENT',
+      });
+      setStaged({
+        fileName: fileName,
+        fileUrl: upload.fileUrl,
+        mimeType: upload.mimeType,
+        sizeBytes: upload.size,
+        type: 'IMAGE',
+      });
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      Alert.alert(normalized.code, normalized.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function attach() {
     if (!staged) return;
     try {
@@ -220,7 +256,14 @@ export function AttachmentPicker({
 
   return (
     <View style={styles.stack}>
-      <SecondaryButton loading={uploading} onPress={() => void pickAndUpload()}>Chọn file</SecondaryButton>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <SecondaryButton loading={uploading} onPress={() => void pickAndUpload()}>Chọn file</SecondaryButton>
+        </View>
+        <View style={{ flex: 1 }}>
+          <SecondaryButton loading={uploading} onPress={() => void pickImageAndUpload()}>Chọn ảnh</SecondaryButton>
+        </View>
+      </View>
       {staged ? (
         <View style={styles.inlinePanel}>
           <Text style={styles.titleSmall}>{staged.fileName}</Text>
@@ -432,7 +475,18 @@ export function ReviewActionSheet({
       <FormField label="Ghi chú duyệt" value={note} onChangeText={setNote} multiline />
       <View style={styles.actions}>
         <PrimaryButton loading={pending} onPress={() => void onApprove(note || undefined)}>Duyệt</PrimaryButton>
-        <SecondaryButton disabled={note.trim().length < 3} loading={pending} onPress={() => void onReject(note)}>Từ chối</SecondaryButton>
+        <SecondaryButton 
+          loading={pending} 
+          onPress={() => {
+            if (note.trim().length < 3) {
+              Alert.alert('Thiếu thông tin', 'Vui lòng nhập ghi chú duyệt để từ chối (ít nhất 3 ký tự)');
+              return;
+            }
+            void onReject(note);
+          }}
+        >
+          Từ chối
+        </SecondaryButton>
       </View>
     </View>
   );

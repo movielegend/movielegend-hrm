@@ -1,5 +1,5 @@
-import { ContractListScreen } from '../../../src/features/contracts/ContractScreens';
+import { HRContractListScreen } from '../../../src/features/contracts/ContractScreens';
 
 export default function HRContractsRoute() {
-  return <ContractListScreen />;
+  return <HRContractListScreen />;
 }

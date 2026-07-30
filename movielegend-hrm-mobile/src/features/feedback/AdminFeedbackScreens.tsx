@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, TextInput, Modal, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import ImageView from 'react-native-image-viewing';
 import Toast from 'react-native-toast-message';
 import { apiUrl } from '../../constants/env';
 
@@ -126,6 +127,7 @@ export function AdminFeedbackDetailScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>('REVIEWED');
   const [reason, setReason] = useState('');
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   if (isLoading) {
     return (
@@ -186,14 +188,16 @@ export function AdminFeedbackDetailScreen() {
           {feedback.img && (
             <View style={{ marginTop: 12 }}>
               <Text style={styles.label}>Ảnh đính kèm:</Text>
-              <Image 
-                source={{ 
-                  uri: feedback.img.startsWith('http') 
-                    ? feedback.img 
-                    : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}` 
-                }} 
-                style={{ width: '100%', height: 220, borderRadius: 12, marginTop: 6, resizeMode: 'cover' }} 
-              />
+              <Pressable onPress={() => setViewerVisible(true)}>
+                <Image 
+                  source={{ 
+                    uri: feedback.img.startsWith('http') 
+                      ? feedback.img 
+                      : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}` 
+                  }} 
+                  style={{ width: '100%', height: 220, borderRadius: 12, marginTop: 6, resizeMode: 'cover' }} 
+                />
+              </Pressable>
             </View>
           )}
 
@@ -205,20 +209,19 @@ export function AdminFeedbackDetailScreen() {
           )}
         </View>
         
-        <View style={{ marginTop: 24, gap: 12 }}>
-          <Text style={styles.label}>Cập nhật trạng thái:</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Pressable style={[styles.actionBtn, { backgroundColor: '#4B5563' }]} onPress={() => openModal('REVIEWED')}>
-              <Text style={styles.actionBtnText}>Đang xem</Text>
-            </Pressable>
-            <Pressable style={[styles.actionBtn, { backgroundColor: '#000' }]} onPress={() => openModal('RESOLVED')}>
-              <Text style={styles.actionBtnText}>Đã xử lý</Text>
-            </Pressable>
-            <Pressable style={[styles.actionBtn, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#000' }]} onPress={() => openModal('REJECTED')}>
-              <Text style={[styles.actionBtnText, { color: '#000' }]}>Từ chối</Text>
-            </Pressable>
+        {(feedback.status === 'SEND' || feedback.status === 'REVIEWED') ? (
+          <View style={{ marginTop: 24, gap: 12 }}>
+            <Text style={styles.label}>Cập nhật trạng thái:</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable style={[styles.actionBtn, { backgroundColor: '#000' }]} onPress={() => openModal('RESOLVED')}>
+                <Text style={styles.actionBtnText}>Xử lý</Text>
+              </Pressable>
+              <Pressable style={[styles.actionBtn, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#000' }]} onPress={() => openModal('REJECTED')}>
+                <Text style={[styles.actionBtnText, { color: '#000' }]}>Từ chối</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        ) : null}
       </ScrollView>
 
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -249,6 +252,18 @@ export function AdminFeedbackDetailScreen() {
           </View>
         </View>
       </Modal>
+      <ImageView
+        images={feedback?.img ? [{ 
+          uri: feedback.img.startsWith('http') 
+            ? feedback.img 
+            : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}` 
+        }] : []}
+        imageIndex={0}
+        visible={viewerVisible}
+        onRequestClose={() => setViewerVisible(false)}
+        animationType="fade"
+        swipeToCloseEnabled={false}
+      />
     </Screen>
   );
 }

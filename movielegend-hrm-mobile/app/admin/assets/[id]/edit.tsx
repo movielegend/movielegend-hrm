@@ -1,12 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import { normalizeApiError } from '../../../../src/utils/api-error';
 import { PageHeader } from '../../../../src/components/PageHeader';
 import { Screen } from '../../../../src/components/Screen';
 import { ScreenContainer } from '../../../../src/components/ScreenContainer';
 import { FormField } from '../../../../src/components/FormField';
-import { PrimaryButton } from '../../../../src/components/Buttons';
 import { useAsset, useUpdateAsset } from '../../../../src/hooks/useAssets';
 import { LoadingState } from '../../../../src/components/LoadingState';
 import { ErrorState } from '../../../../src/components/ErrorState';
@@ -15,6 +14,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { assetStatusLabels, assetConditionLabels } from '../../../../src/features/assets/asset.logic';
 import type { AssetStatus, AssetConditionStatus } from '../../../../src/types/asset.types';
 import { SelectModal } from '../../../../src/components/SelectModal';
+import { SectionCard } from '../../../../src/components/SectionCard';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../../../src/api/uploads.api';
 
 export default function AssetEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,7 +28,10 @@ export default function AssetEditScreen() {
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [conditionNote, setConditionNote] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
   const [assetStatus, setAssetStatus] = useState<AssetStatus>('IN_STOCK');
   const [conditionStatus, setConditionStatus] = useState<AssetConditionStatus>('GOOD');
 
@@ -54,11 +59,83 @@ export default function AssetEditScreen() {
       else if (_model) { setModel('Khác'); setCustomModel(_model); }
 
       setConditionNote(assetQuery.data.conditionNote || '');
-      setImageUrl(assetQuery.data.imageUrl || '');
+      
+      const imgs = assetQuery.data.imageUrl ? assetQuery.data.imageUrl.split(',').map(s => s.trim()).filter(Boolean) : [];
+      setImageUrls(imgs);
+      
       setAssetStatus(assetQuery.data.assetStatus || 'IN_STOCK');
       setConditionStatus(assetQuery.data.conditionStatus || 'GOOD');
     }
   }, [assetQuery.data]);
+
+  const uploadSelectedImage = async (uri: string) => {
+    try {
+      setIsUploading(true);
+      const fileType = uri.substring(uri.lastIndexOf('.') + 1);
+      const uploaded = await uploadFile({
+        uri,
+        name: `asset_${Date.now()}.${fileType}`,
+        mimeType: `image/${fileType}`,
+        purpose: 'ASSET_INCIDENT'
+      });
+      setIsUploading(false);
+
+      const cdnUrl = uploaded.fileUrl || (uploaded as any).url;
+      if (cdnUrl) {
+        setImageUrls(prev => [...prev, cdnUrl]);
+      }
+    } catch (error: any) {
+      setIsUploading(false);
+      Alert.alert('Lỗi tải ảnh', error.message || 'Không thể tải ảnh lên');
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadSelectedImage(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh thiết bị.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadSelectedImage(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', 'Không thể mở Camera');
+    }
+  };
+
+  const handleSelectImage = () => {
+    Alert.alert(
+      'Ảnh thiết bị',
+      'Bạn muốn chọn ảnh từ đâu?',
+      [
+        { text: 'Chụp ảnh mới', onPress: takePhoto },
+        { text: 'Chọn từ thư viện', onPress: pickImage },
+        { text: 'Hủy', style: 'cancel' }
+      ]
+    );
+  };
 
   if (assetQuery.isLoading) return <LoadingState />;
   if (assetQuery.isError) return <ErrorState error={assetQuery.error} />;
@@ -77,9 +154,10 @@ export default function AssetEditScreen() {
           ...(finalBrand.trim() ? { brand: finalBrand.trim() } : {}), 
           ...(finalModel.trim() ? { model: finalModel.trim() } : {}), 
           ...(conditionNote.trim() ? { conditionNote: conditionNote.trim() } : {}),
-          ...(imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
+          imageUrl: imageUrls.length > 0 ? imageUrls.join(',') : '',
         }
       });
+      Alert.alert('Thành công', 'Đã lưu thay đổi thiết bị');
       router.back();
     } catch (e) {
       console.error(e);
@@ -92,7 +170,7 @@ export default function AssetEditScreen() {
     <Screen>
       <ScreenContainer style={styles.content} disableGlobalRefresh={true}>
         <PageHeader title="Sửa tài sản" subtitle={`Mã: ${assetQuery.data?.assetCode}`} onBack={() => router.back()} />
-        <View style={{ backgroundColor: '#FFF', borderRadius: 12, padding: spacing.md }}>
+        <SectionCard>
           <View style={styles.formGroup}>
             <Text style={styles.label}>Tên thiết bị</Text>
             <TextInput
@@ -112,9 +190,7 @@ export default function AssetEditScreen() {
             </Pressable>
           </View>
           {brand === 'Khác' && (
-            <View style={styles.formGroup}>
-               <TextInput style={styles.inputRounded} placeholder="Nhập tên hãng" value={customBrand} onChangeText={setCustomBrand} />
-            </View>
+            <FormField label="Nhập tên hãng" value={customBrand} onChangeText={setCustomBrand} />
           )}
 
           <View style={styles.formGroup}>
@@ -125,9 +201,7 @@ export default function AssetEditScreen() {
             </Pressable>
           </View>
           {model === 'Khác' && (
-            <View style={styles.formGroup}>
-               <TextInput style={styles.inputRounded} placeholder="Nhập dòng máy" value={customModel} onChangeText={setCustomModel} />
-            </View>
+            <FormField label="Nhập dòng máy" value={customModel} onChangeText={setCustomModel} />
           )}
 
           <View style={styles.formGroup}>
@@ -159,27 +233,40 @@ export default function AssetEditScreen() {
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Ảnh thiết bị</Text>
-            <View style={styles.imageUploaderRow}>
-              {imageUrl ? (
-                <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
-              ) : (
-                <View style={styles.imageUploaderBox}>
-                  <MaterialCommunityIcons name="plus" size={24} color="#98A0A8" />
+            <Text style={[styles.label, { marginBottom: 8 }]}>Ảnh thiết bị (tối đa 5 ảnh)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+              {imageUrls.map((uri, index) => (
+                <View key={index} style={{ position: 'relative', width: 120, height: 120 }}>
+                  <Image source={{ uri }} style={{ width: 120, height: 120, borderRadius: 12 }} />
+                  <Pressable
+                    style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#EF4444', borderRadius: 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
+                    onPress={() => setImageUrls(prev => prev.filter((_, i) => i !== index))}
+                  >
+                    <MaterialCommunityIcons name="close" size={16} color="#FFF" />
+                  </Pressable>
                 </View>
+              ))}
+              
+              {imageUrls.length < 5 && (
+                <Pressable
+                  style={[
+                    { width: 120, height: 120, borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+                    isUploading && { opacity: 0.5 },
+                  ]}
+                  onPress={handleSelectImage}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <ActivityIndicator size="small" color="#36C59E" />
+                  ) : (
+                    <View style={{ alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="camera-plus" size={32} color="#98A0A8" />
+                      <Text style={{ fontSize: 12, color: '#98A0A8' }}>Thêm ảnh</Text>
+                    </View>
+                  )}
+                </Pressable>
               )}
-              <View style={styles.imageUploaderTexts}>
-                {/* <Text style={styles.imageUploaderError}>Ảnh quá lớn {'>'}5MB</Text> */}
-                <TextInput
-                  style={styles.inputRoundedUrl}
-                  placeholder="URL ảnh (VD: https://picsum.photos/200)"
-                  placeholderTextColor="#98A0A8"
-                  value={imageUrl}
-                  onChangeText={setImageUrl}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
+            </ScrollView>
           </View>
 
           <View style={styles.bottomButtonsRow}>
@@ -190,7 +277,7 @@ export default function AssetEditScreen() {
               <Text style={styles.submitBtnText}>{updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}</Text>
             </Pressable>
           </View>
-        </View>
+        </SectionCard>
       </ScreenContainer>
 
       <SelectModal
@@ -201,7 +288,7 @@ export default function AssetEditScreen() {
         onSelect={(opt) => { setBrand(opt.id); setShowBrandSelect(false); }}
         onClose={() => setShowBrandSelect(false)}
       />
-      
+
       <SelectModal
         visible={showModelSelect}
         title="Chọn dòng máy"
@@ -210,20 +297,20 @@ export default function AssetEditScreen() {
         onSelect={(opt) => { setModel(opt.id); setShowModelSelect(false); }}
         onClose={() => setShowModelSelect(false)}
       />
-      
+
       <SelectModal
         visible={showStatusSelect}
         title="Chọn trạng thái sử dụng"
-        options={(Object.keys(assetStatusLabels) as AssetStatus[]).map(k => ({ id: k, label: assetStatusLabels[k] }))}
+        options={Object.entries(assetStatusLabels).map(([id, label]) => ({ id, label }))}
         selectedValue={assetStatus}
         onSelect={(opt) => { setAssetStatus(opt.id as AssetStatus); setShowStatusSelect(false); }}
         onClose={() => setShowStatusSelect(false)}
       />
-      
+
       <SelectModal
         visible={showConditionSelect}
         title="Chọn tình trạng hiện tại"
-        options={(Object.keys(assetConditionLabels) as AssetConditionStatus[]).map(k => ({ id: k, label: assetConditionLabels[k] }))}
+        options={Object.entries(assetConditionLabels).map(([id, label]) => ({ id, label }))}
         selectedValue={conditionStatus}
         onSelect={(opt) => { setConditionStatus(opt.id as AssetConditionStatus); setShowConditionSelect(false); }}
         onClose={() => setShowConditionSelect(false)}
@@ -233,27 +320,77 @@ export default function AssetEditScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  formGroup: { marginBottom: spacing.md },
-  label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8 },
-  inputRounded: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: '#334155', backgroundColor: '#FFF' },
-  inputRoundedUrl: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 12, color: '#334155', backgroundColor: '#FFF', marginTop: 8 },
-  pill: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#FFF' },
-  pillSelected: { borderColor: '#36C59E', backgroundColor: '#F0FDF4' },
-  pillText: { fontSize: 14, color: '#64748B' },
-  pillTextSelected: { color: '#36C59E', fontWeight: '600' },
-  pickerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF' },
-  pickerText: { fontSize: 14, color: '#334155' },
-  pickerPlaceholder: { color: '#98A0A8' },
-  imageUploaderRow: { flexDirection: 'row', alignItems: 'center' },
-  imageUploaderBox: { width: 60, height: 60, borderWidth: 1, borderColor: '#98A0A8', borderStyle: 'dashed', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12, backgroundColor: '#F8FAFC' },
-  imagePreview: { width: 60, height: 60, borderRadius: 8, marginRight: 12 },
-  imageUploaderTexts: { flex: 1 },
-  imageUploaderError: { color: '#EF4444', fontSize: 12 },
-  bottomButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xl },
-  cancelBtn: { paddingVertical: 12, paddingHorizontal: 24 },
-  cancelBtnText: { color: '#64748B', fontSize: 16, fontWeight: '600' },
-  submitBtn: { backgroundColor: '#36C59E', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 32, alignItems: 'center', flex: 1, marginLeft: 16 },
-  submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  content: {
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  inputRounded: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  pickerText: {
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  pickerPlaceholder: {
+    color: '#98A0A8',
+  },
+  bottomButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  submitBtn: {
+    flex: 2,
+    backgroundColor: '#36C59E',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
 });

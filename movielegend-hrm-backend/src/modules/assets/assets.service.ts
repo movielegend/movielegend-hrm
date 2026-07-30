@@ -497,7 +497,13 @@ export class AssetsService {
       const incident = await tx.assetIncidentReport.findUnique({ where: { id }, include: { asset: true } });
       if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
       const assetStatus = dto.assetStatus ?? (incident.incidentType === AssetIncidentType.DAMAGED ? AssetStatus.MAINTENANCE : AssetStatus.LOST);
-      await tx.asset.update({ where: { id: incident.assetId }, data: { assetStatus } });
+      
+      const updateData: any = { assetStatus };
+      if (assetStatus === AssetStatus.DAMAGED) {
+        updateData.conditionStatus = AssetConditionStatus.DAMAGED;
+      }
+      
+      await tx.asset.update({ where: { id: incident.assetId }, data: updateData });
 
       if (assetStatus === AssetStatus.DAMAGED) {
         const assignment = await tx.assetAssignment.findFirst({

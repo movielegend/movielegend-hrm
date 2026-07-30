@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, View, Pressable, FlatList, SafeAreaView } from 'react-native';
+import { Modal, StyleSheet, Text, View, Pressable, FlatList, SafeAreaView, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -30,12 +30,19 @@ export function MultiSelectModal({
   isLoading = false,
 }: MultiSelectModalProps) {
   const [localSelected, setLocalSelected] = React.useState<Set<string>>(new Set(selectedValues));
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   React.useEffect(() => {
     if (visible) {
       setLocalSelected(new Set(selectedValues));
+      setSearchQuery('');
     }
   }, [visible, selectedValues]);
+
+  const filteredOptions = options.filter(o => 
+    o.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (o.subtitle && o.subtitle.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const toggleSelect = (id: string) => {
     const next = new Set(localSelected);
@@ -63,17 +70,29 @@ export function MultiSelectModal({
             </Pressable>
           </View>
 
+          <View style={styles.searchContainer}>
+            <MaterialCommunityIcons name="magnify" size={20} color={colors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm kiếm..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
           {isLoading ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Đang tải dữ liệu...</Text>
             </View>
-          ) : options.length === 0 ? (
+          ) : filteredOptions.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Không có dữ liệu</Text>
             </View>
           ) : (
             <FlatList
-              data={options}
+              data={filteredOptions}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.listContainer}
               renderItem={({ item }) => {
@@ -130,13 +149,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 15,
+    color: colors.text,
+  },
   title: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.text,
   },
   closeBtn: {

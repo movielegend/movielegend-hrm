@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import ImageView from 'react-native-image-viewing';
 import { Video, ResizeMode } from 'expo-av';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
@@ -324,6 +325,7 @@ export function IncidentDetailScreen() {
   const incident = useAssetIncident(id);
   const action = useAssetIncidentAction();
   const [resolutionNote, setResolutionNote] = useState('');
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   async function runResolve(status: AssetStatus) {
     if (!id) return;
@@ -392,7 +394,7 @@ export function IncidentDetailScreen() {
                   resizeMode={ResizeMode.CONTAIN}
                 />
               ) : (
-                <Pressable onPress={() => { if (item.evidenceUrl) void Linking.openURL(item.evidenceUrl); }}>
+                <Pressable onPress={() => setViewerVisible(true)}>
                   <Image
                     source={{ uri: item.evidenceUrl }}
                     style={{ width: '100%', height: 200, borderRadius: 8, marginTop: spacing.sm, backgroundColor: colors.surface }}
@@ -428,6 +430,14 @@ export function IncidentDetailScreen() {
           </SectionCard>
         ) : null}
       </ScrollView>
+      <ImageView
+        images={item?.evidenceUrl && !item.evidenceUrl.match(/\.(mp4|mov|webm)$/i) ? [{ uri: item.evidenceUrl }] : []}
+        imageIndex={0}
+        visible={viewerVisible}
+        onRequestClose={() => setViewerVisible(false)}
+        animationType="fade"
+        swipeToCloseEnabled={false}
+      />
     </Screen>
   );
 }

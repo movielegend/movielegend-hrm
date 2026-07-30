@@ -15,6 +15,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import {
   CreateTaskAttachmentDto,
   CreateTaskCommentDto,
@@ -39,6 +40,7 @@ export class TasksService {
     private readonly policy: TaskPolicyService,
     private readonly notifications: NotificationsService,
     private readonly storageService: StorageService,
+    private readonly realtime: RealtimeEventsService,
   ) { }
 
   async create(dto: CreateTaskDto, actor: AuthenticatedUser) {
@@ -119,6 +121,9 @@ export class TasksService {
       return { task, notification };
     }, { maxWait: 15000, timeout: 30000 });
     this.notifications.emitCreated(payload.notification);
+    for (const assigneeId of assigneeIds) {
+      this.realtime.emitToUser(assigneeId, 'task:assigned', { taskId: payload.task.id });
+    }
     return payload.task;
   }
 
@@ -410,7 +415,12 @@ export class TasksService {
             body: `Có bình luận mới trong công việc: ${taskInfo.title}`,
             taskId,
           });
-          if (payload) process.nextTick(() => this.notifications.emitCreated(payload));
+          if (payload) process.nextTick(() => {
+            this.notifications.emitCreated(payload);
+            for (const targetId of targetIds) {
+              this.realtime.emitToUser(targetId, 'task:commented', { taskId });
+            }
+          });
         }
       }
 
@@ -552,6 +562,9 @@ export class TasksService {
           taskId: updated.taskId
         });
         if (payload) this.notifications.emitCreated(payload);
+        for (const notifyUserId of notifyUsers) {
+          this.realtime.emitToUser(notifyUserId, 'task:submitted', { taskId: updated.taskId });
+        }
       }
 
       return updated;
@@ -600,7 +613,10 @@ export class TasksService {
           body: `Công việc "${updated.task.title}" của bạn ${isApproved ? 'đã được duyệt' : 'vừa bị từ chối'}.`,
           taskId: updated.taskId,
         });
-        if (payload) process.nextTick(() => this.notifications.emitCreated(payload));
+        if (payload) process.nextTick(() => {
+          this.notifications.emitCreated(payload);
+          this.realtime.emitToUser(updated.userId, 'task:reviewed', { taskId: updated.taskId });
+        });
       }
 
       return updated;
@@ -693,12 +709,6 @@ export class TasksService {
           select: { leaderUserId: true },
         });
         if (dept?.leaderUserId) userIds.add(dept.leaderUserId);
-
-        const members = await this.prisma.departmentMember.findMany({
-          where: { departmentId: target.targetId, leftAt: null, user: { isActive: true, accountStatus: AccountStatus.ACTIVE } },
-          select: { userId: true },
-        });
-        members.forEach((member) => userIds.add(member.userId));
       }
       if (target.targetType === TaskTargetType.GROUP) {
         const members = await this.prisma.taskGroupMember.findMany({
