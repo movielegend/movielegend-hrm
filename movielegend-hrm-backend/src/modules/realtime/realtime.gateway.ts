@@ -7,7 +7,12 @@ import { Server, Socket } from 'socket.io';
 import { RealtimeEventsService } from './realtime-events.service';
 
 @Injectable()
-@WebSocketGateway({ cors: { origin: true, credentials: true }, namespace: '/hrm' })
+@WebSocketGateway({ 
+  cors: { origin: true, credentials: true }, 
+  namespace: '/hrm',
+  pingTimeout: 60000,
+  pingInterval: 25000,
+})
 export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   server!: Server;

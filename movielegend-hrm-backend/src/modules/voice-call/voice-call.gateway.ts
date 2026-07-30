@@ -6,7 +6,12 @@ import { ConfigService } from '@nestjs/config';
 import { ExpoPushService } from '../notifications/expo-push.service';
 import { ChatService } from '../chat/chat.service';
 
-@WebSocketGateway({ cors: { origin: true, credentials: true }, namespace: '/hrm' })
+@WebSocketGateway({ 
+  cors: { origin: true, credentials: true }, 
+  namespace: '/hrm',
+  pingTimeout: 60000,
+  pingInterval: 25000,
+})
 export class VoiceCallGateway {
   @WebSocketServer()
   server!: Server;
