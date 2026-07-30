@@ -24,8 +24,8 @@ export default function HRTabsLayout() {
         tabBarStyle: {
           borderTopWidth: 0,
           backgroundColor: '#fff',
-          height: Platform.OS === 'android' ? 60 : 85,
-          paddingBottom: Platform.OS === 'android' ? 5 : 25,
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(Platform.OS === 'android' ? 5 : 20, insets.bottom),
           paddingTop: 5,
           elevation: 10,
           shadowColor: '#000',
