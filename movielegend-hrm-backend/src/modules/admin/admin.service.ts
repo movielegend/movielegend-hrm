@@ -11,12 +11,14 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
+import { RealtimeEventsService } from '../realtime/realtime-events.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   assignRole(dto: AssignRoleDto, actor: AuthenticatedUser) {
@@ -251,6 +253,8 @@ export class AdminService {
       });
       if (notif) this.notifications.emitCreated(notif);
 
+      this.realtimeEvents.emitToRoom('company', 'department:updated', { departmentId: dto.departmentId });
+
       return assignment;
     });
   }
@@ -297,6 +301,7 @@ export class AdminService {
           body: `Bạn đã được rút khỏi vai trò quản lý chi nhánh/phòng ban ${department?.name || ''}.`,
         });
         if (notif) this.notifications.emitCreated(notif);
+        this.realtimeEvents.emitToRoom('company', 'department:updated', { departmentId: assignment.scopeId });
       }
 
       return { revoked: true };

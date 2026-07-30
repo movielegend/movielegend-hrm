@@ -94,6 +94,12 @@ export function SocketProvider({ children }: PropsWithChildren) {
         void queryClient.invalidateQueries({ queryKey: ['cross-department-requests'] });
         if (payload.requestId) void queryClient.invalidateQueries({ queryKey: queryKeys.crossDepartmentRequest(payload.requestId) });
       });
+      socket.on('department:updated', (payload: any) => {
+        void queryClient.invalidateQueries({ queryKey: ['departments'] });
+        if (payload?.departmentId) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.department(payload.departmentId) });
+        }
+      });
       socket.on('warehouse:stock-updated', (payload: WarehouseSocketPayload) => invalidateForStockUpdated(queryClient, payload));
       socket.on('material:issue-updated', (payload: MaterialIssueSocketPayload) => invalidateForIssueUpdated(queryClient, payload));
       socket.on('inventory:updated', (payload: WarehouseSocketPayload) => invalidateForInventoryUpdated(queryClient, payload));

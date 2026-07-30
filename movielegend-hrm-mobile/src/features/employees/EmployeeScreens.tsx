@@ -418,25 +418,35 @@ export function EmployeeDetailScreen() {
             <Controller
               control={control}
               name="accountStatus"
-              render={({ field }) => (
-                <View style={{ marginTop: 16 }}>
-                  <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Trạng thái tài khoản</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Pressable
-                      onPress={() => field.onChange('ACTIVE')}
-                      style={[styles.positionOption, field.value === 'ACTIVE' && styles.positionOptionSelected, { flex: 1, alignItems: 'center' }]}
-                    >
-                      <Text style={{ color: field.value === 'ACTIVE' ? colors.primary : colors.text, fontWeight: '600' }}>HOẠT ĐỘNG</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => field.onChange('SUSPENDED')}
-                      style={[styles.positionOption, field.value === 'SUSPENDED' && { borderColor: colors.danger, borderWidth: 2 }, { flex: 1, alignItems: 'center' }]}
-                    >
-                      <Text style={{ color: field.value === 'SUSPENDED' ? colors.danger : colors.text, fontWeight: '600' }}>TẠM KHÓA</Text>
-                    </Pressable>
+              render={({ field }) => {
+                const isLeader = item.roles?.some(r => r.role.code === 'LEADER');
+                return (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Trạng thái tài khoản</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Pressable
+                        onPress={() => field.onChange('ACTIVE')}
+                        style={[styles.positionOption, field.value === 'ACTIVE' && styles.positionOptionSelected, { flex: 1, alignItems: 'center' }]}
+                      >
+                        <Text style={{ color: field.value === 'ACTIVE' ? colors.primary : colors.text, fontWeight: '600' }}>HOẠT ĐỘNG</Text>
+                      </Pressable>
+                      {!isLeader ? (
+                        <Pressable
+                          onPress={() => field.onChange('SUSPENDED')}
+                          style={[styles.positionOption, field.value === 'SUSPENDED' && { borderColor: colors.danger, borderWidth: 2 }, { flex: 1, alignItems: 'center' }]}
+                        >
+                          <Text style={{ color: field.value === 'SUSPENDED' ? colors.danger : colors.text, fontWeight: '600' }}>TẠM KHÓA</Text>
+                        </Pressable>
+                      ) : (
+                        <View style={[styles.positionOption, { flex: 1, alignItems: 'center', opacity: 0.5, backgroundColor: '#F3F4F6' }]}>
+                          <Text style={{ color: colors.muted, fontWeight: '600' }}>TẠM KHÓA</Text>
+                        </View>
+                      )}
+                    </View>
+                    {isLeader && <Text style={{ color: colors.muted, fontSize: 13, marginTop: 4 }}>Không thể khóa tài khoản của quản lý (LEADER).</Text>}
                   </View>
-                </View>
-              )}
+                );
+              }}
             />
             <PrimaryButton onPress={() => void submit()} loading={updateEmployee.isPending} style={{ marginTop: 24 }}>
               Lưu thay đổi
