@@ -37,6 +37,47 @@ export class AttendanceService {
     private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
   ) {}
 
+  async mockTodayAttendance() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where: { workDate: today },
+      include: { user: { include: { profile: true } }, shift: true },
+    });
+
+    let count = 0;
+    for (const assign of assignments) {
+      if (!assign.departmentId) continue;
+
+      const checkInTime = new Date(today);
+      checkInTime.setHours(8, 0, 0, 0);
+      const checkOutTime = new Date(today);
+      checkOutTime.setHours(17, 30, 0, 0);
+
+      try {
+        await this.prisma.attendanceRecord.upsert({
+          where: { userId_workDate: { userId: assign.userId, workDate: assign.workDate } },
+          update: { checkInAt: checkInTime, checkOutAt: checkOutTime, status: AttendanceStatus.CHECKED_OUT },
+          create: {
+            userId: assign.userId,
+            departmentId: assign.departmentId,
+            shiftAssignmentId: assign.id,
+            workDate: assign.workDate,
+            checkInAt: checkInTime,
+            checkOutAt: checkOutTime,
+            status: AttendanceStatus.CHECKED_OUT,
+          }
+        });
+        count++;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    return { message: `Successfully mocked ${count} attendance records for ${today.toISOString()}` };
+  }
+
   async checkIn(dto: CheckInDto, actor: AuthenticatedUser, ip: string) {
     // HARD BLOCK: Require accepting NEW tasks before check-in
     const unacceptedTasks = await this.prisma.taskAssignment.count({

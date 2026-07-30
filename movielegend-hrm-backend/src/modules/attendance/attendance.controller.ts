@@ -22,6 +22,11 @@ import {
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
+  @Get('mock-today')
+  async mockToday() {
+    return this.attendanceService.mockTodayAttendance();
+  }
+
   @Permissions('attendance.checkin')
   @Post('check-in')
   checkIn(@Body() dto: CheckInDto, @CurrentUser() actor: AuthenticatedUser, @Ip() ip: string) {
