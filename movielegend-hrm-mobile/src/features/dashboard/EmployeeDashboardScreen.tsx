@@ -69,7 +69,7 @@ export function EmployeeDashboardScreen() {
   }, [queryClient]);
 
   return (
-    <Screen>
+    <Screen backgroundColor="#FAFAFA">
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}

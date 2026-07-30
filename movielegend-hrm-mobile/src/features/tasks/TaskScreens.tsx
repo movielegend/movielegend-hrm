@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { createTaskAttachment } from '../../api/tasks.api';
 import { EmptyState } from '../../components/EmptyState';
@@ -96,10 +97,11 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
 
   const title = area === 'employee' ? 'Công việc của tôi' : area === 'leader' ? 'Công việc phòng ban' : 'Tất cả Công việc';
+  const insets = useSafeAreaInsets();
 
   return (
     <Screen>
-      <ScreenContainer refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
+      <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
         <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" />
         
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />

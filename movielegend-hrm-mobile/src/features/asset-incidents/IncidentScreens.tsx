@@ -1,7 +1,8 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
@@ -50,30 +51,77 @@ export function IncidentReportScreen() {
   const [assetId, setAssetId] = useState(params.assetId ?? '');
   const [incidentType, setIncidentType] = useState<AssetIncidentType>('DAMAGED');
   const [description, setDescription] = useState('');
-  // Giữ file đã upload để retry nếu API incident fail — không upload lại, không fake URL.
   const [evidence, setEvidence] = useState<UploadedFileDto | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showAssetSelect, setShowAssetSelect] = useState(false);
+  const [showTypeSelect, setShowTypeSelect] = useState(false);
 
-  async function pickEvidence() {
-    const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, type: ['image/*', 'video/*'] });
-    if (picked.canceled || !picked.assets?.[0]) return;
-    const file = picked.assets[0];
-    setUploading(true);
+  const uploadSelectedFile = async (sourceUri: string, mimeType: string) => {
     try {
+      setUploading(true);
+      const ext = mimeType === 'video/mp4' ? '.mp4' : '.jpg';
       const uploaded = await uploadFile({
-        uri: file.uri,
-        name: file.name,
-        mimeType: file.mimeType ?? 'application/octet-stream',
+        uri: sourceUri,
+        name: `incident-${Date.now()}${ext}`,
+        mimeType: mimeType,
         purpose: 'ASSET_INCIDENT',
       });
-      setEvidence(uploaded);
-    } catch (error) {
-      const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
-    } finally {
       setUploading(false);
+      setEvidence(uploaded);
+    } catch (error: any) {
+      setUploading(false);
+      Alert.alert('Lỗi tải file', error.message || 'Không thể tải file lên');
     }
-  }
+  };
+
+  const pickFile = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        await uploadSelectedFile(file.uri, file.type === 'video' ? 'video/mp4' : 'image/jpeg');
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', 'Không thể mở thư viện');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        await uploadSelectedFile(file.uri, 'image/jpeg');
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', 'Không thể mở Camera');
+    }
+  };
+
+  const handleSelectEvidence = () => {
+    Alert.alert(
+      'Minh chứng sự cố',
+      'Bạn muốn cung cấp hình ảnh/video từ đâu?',
+      [
+        { text: 'Chụp ảnh mới', onPress: takePhoto },
+        { text: 'Chọn từ thư viện', onPress: pickFile },
+        { text: 'Hủy', style: 'cancel' }
+      ]
+    );
+  };
 
   async function submit() {
     try {
@@ -88,48 +136,110 @@ export function IncidentReportScreen() {
       Alert.alert('Thành công', 'Đã ghi nhận sự cố');
       router.back();
     } catch (error) {
-      // evidence giữ nguyên trong state → user bấm gửi lại không cần upload lại (retry giữ fileId).
       const mapped = mapWarehouseAssetError(error);
       Alert.alert(mapped.code, mapped.message);
     }
   }
 
+  const selectedAsset = myAssets.data?.items.find(a => a.assetId === assetId);
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Báo sự cố tài sản" subtitle="Chỉ báo được tài sản đang cấp phát cho bạn — backend enforce." />
-        <SectionCard title="Tài sản">
-          {myAssets.isLoading ? <LoadingState /> : null}
-          {myAssets.data?.items.map((assignment) => (
-            <FilterChip
-              key={assignment.assetId}
-              label={`${assignment.asset.assetCode} ${assignment.asset.name}`}
-              selected={assetId === assignment.assetId}
-              onPress={() => setAssetId(assignment.assetId)}
-            />
-          ))}
-          {myAssets.data && !myAssets.data.items.length ? <EmptyState title="Bạn chưa được cấp phát tài sản" /> : null}
-        </SectionCard>
-        <SectionCard title="Sự cố">
-          <View style={styles.chipRow}>
-            {incidentTypes.map((type) => (
-              <FilterChip key={type} label={incidentTypeLabels[type]} selected={incidentType === type} onPress={() => setIncidentType(type)} />
-            ))}
+      <ScreenContainer style={styles.content} disableGlobalRefresh={true}>
+        <PageHeader title="Báo sự cố tài sản" subtitle="Ghi nhận lỗi hỏng hóc hoặc mất mát tài sản." onBack={() => router.back()} />
+        <SectionCard>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Tài sản gặp sự cố</Text>
+            {myAssets.isLoading ? <LoadingState /> : null}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
+              {myAssets.data?.items.map((assignment) => (
+                <FilterChip
+                  key={assignment.assetId}
+                  label={`${assignment.asset.assetCode} - ${assignment.asset.name}`}
+                  selected={assetId === assignment.assetId}
+                  onPress={() => setAssetId(assignment.assetId)}
+                />
+              ))}
+            </ScrollView>
+            {myAssets.data && !myAssets.data.items.length ? <EmptyState title="Bạn chưa được cấp phát tài sản" /> : null}
           </View>
-          <FormField label="Mô tả" value={description} onChangeText={setDescription} multiline />
-          <SecondaryButton loading={uploading} onPress={() => void pickEvidence()}>
-            {evidence ? 'Đổi minh chứng' : 'Đính kèm minh chứng (tùy chọn)'}
-          </SecondaryButton>
-          {evidence ? <Text style={styles.meta}>Đã upload: {evidence.fileUrl}</Text> : null}
-          <PrimaryButton
-            loading={report.isPending}
-            disabled={!assetId || description.trim().length < 3}
-            onPress={() => void submit()}
-          >
-            Gửi báo cáo
-          </PrimaryButton>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Loại sự cố</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
+              {incidentTypes.map((type) => (
+                <FilterChip key={type} label={incidentTypeLabels[type]} selected={incidentType === type} onPress={() => setIncidentType(type)} />
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Mô tả chi tiết</Text>
+            <TextInput
+              style={[styles.inputRounded, { height: 100, textAlignVertical: 'top' }]}
+              placeholder="Nhập chi tiết về tình trạng hư hỏng hoặc nguyên nhân..."
+              placeholderTextColor="#98A0A8"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { marginBottom: 8 }]}>Minh chứng (Tối đa 1 ảnh/video)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {evidence ? (
+                <View style={{ position: 'relative', width: 120, height: 120 }}>
+                  {evidence.fileUrl.match(/\.(mp4|mov|webm)$/i) ? (
+                    <View style={{ width: 120, height: 120, borderRadius: 12, backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="video" size={32} color="#64748B" />
+                    </View>
+                  ) : (
+                    <Image source={{ uri: evidence.fileUrl }} style={{ width: 120, height: 120, borderRadius: 12 }} />
+                  )}
+                  <Pressable
+                    style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#EF4444', borderRadius: 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
+                    onPress={() => setEvidence(null)}
+                  >
+                    <MaterialCommunityIcons name="close" size={16} color="#FFF" />
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  style={[
+                    { width: 120, height: 120, borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+                    uploading && { opacity: 0.5 },
+                  ]}
+                  onPress={handleSelectEvidence}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator size="small" color="#36C59E" />
+                  ) : (
+                    <View style={{ alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="camera-plus" size={32} color="#98A0A8" />
+                      <Text style={{ fontSize: 12, color: '#98A0A8', textAlign: 'center' }}>Thêm ảnh{'\n'}hoặc video</Text>
+                    </View>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+            <Pressable style={{ flex: 1, backgroundColor: '#F1F5F9', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }} onPress={() => router.back()}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>Hủy</Text>
+            </Pressable>
+            <Pressable 
+              style={[{ flex: 1, backgroundColor: '#111827', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }, (!assetId || description.trim().length < 3) && { opacity: 0.5 }]} 
+              onPress={submit} 
+              disabled={!assetId || description.trim().length < 3 || report.isPending}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>{report.isPending ? 'Đang gửi...' : 'Gửi báo cáo'}</Text>
+            </Pressable>
+          </View>
         </SectionCard>
-      </ScrollView>
+      </ScreenContainer>
     </Screen>
   );
 }
@@ -396,5 +506,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
+  },
+  formGroup: {
+    marginBottom: spacing.md,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#09090B',
+    marginBottom: spacing.xs,
+  },
+  inputRounded: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#09090B',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
 });

@@ -13,6 +13,7 @@ import {
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -38,6 +39,7 @@ export class AssetsService {
     private readonly warehouses: WarehouseScopeService,
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeEventsService,
+    private readonly storage: StorageService,
   ) {}
 
   create(dto: CreateAssetDto, actor: AuthenticatedUser) {
@@ -247,6 +249,12 @@ export class AssetsService {
       });
 
       // Auto-delete any open incidents since the asset is revoked
+      const incidentsToDelete = await tx.assetIncidentReport.findMany({
+        where: { assetId: id, status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } },
+      });
+      for (const inc of incidentsToDelete) {
+        await this.deleteIncidentEvidence(tx, inc.evidenceUrl);
+      }
       await tx.assetIncidentReport.deleteMany({
         where: { assetId: id, status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } },
       });
@@ -396,6 +404,12 @@ export class AssetsService {
       await tx.asset.update({ where: { id: assignment.assetId }, data: { assetStatus, conditionStatus: dto.conditionWhenReturned } });
       
       // Auto-delete any open incidents since the asset is returned
+      const incidentsToDelete2 = await tx.assetIncidentReport.findMany({
+        where: { assetId: assignment.assetId, status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } },
+      });
+      for (const inc of incidentsToDelete2) {
+        await this.deleteIncidentEvidence(tx, inc.evidenceUrl);
+      }
       await tx.assetIncidentReport.deleteMany({
         where: { assetId: assignment.assetId, status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } },
       });
@@ -535,6 +549,9 @@ export class AssetsService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const incident = await tx.assetIncidentReport.findUnique({ where: { id }, include: { asset: true } });
       if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
+      if (incident.evidenceUrl) {
+        await this.deleteIncidentEvidence(tx, incident.evidenceUrl);
+      }
       const result = await tx.assetIncidentReport.update({
         where: { id },
         data: { status: AssetIncidentStatus.REJECTED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote, evidenceUrl: null },
@@ -619,6 +636,15 @@ export class AssetsService {
     });
     if (openIncident) {
       throw forbidden('ASSET_INCIDENT_EXISTS', 'Tài sản này đã có báo cáo sự cố đang được xử lý.');
+    }
+  }
+
+  private async deleteIncidentEvidence(tx: Prisma.TransactionClient, evidenceUrl: string | null | undefined) {
+    if (!evidenceUrl) return;
+    const fileRecord = await tx.uploadedFile.findFirst({ where: { fileUrl: evidenceUrl } });
+    if (fileRecord && fileRecord.storageKey) {
+      this.storage.delete(fileRecord.storageKey).catch(e => console.error(e));
+      await tx.uploadedFile.update({ where: { id: fileRecord.id }, data: { status: 'DELETED', deletedAt: new Date() } });
     }
   }
 }

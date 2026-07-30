@@ -7,8 +7,10 @@ import { WarehouseModule } from '../warehouse/warehouse.module';
 import { AssetAssignmentsController, AssetIncidentsController, AssetsController } from './assets.controller';
 import { AssetsService } from './assets.service';
 
+import { StorageModule } from '../storage/storage.module';
+
 @Module({
-  imports: [DatabaseModule, Phase2PolicyModule, WarehouseModule, NotificationsModule, RealtimeModule],
+  imports: [DatabaseModule, Phase2PolicyModule, WarehouseModule, NotificationsModule, RealtimeModule, StorageModule],
   controllers: [AssetsController, AssetAssignmentsController, AssetIncidentsController],
   providers: [AssetsService],
 })

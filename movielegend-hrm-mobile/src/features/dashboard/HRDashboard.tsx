@@ -74,7 +74,7 @@ export function HRDashboard() {
   };
 
   return (
-    <Screen>
+    <Screen backgroundColor="#FAFAFA">
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}

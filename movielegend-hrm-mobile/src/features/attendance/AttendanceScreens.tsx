@@ -4,6 +4,7 @@ import { Image, Pressable, Modal } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useMemo, useState, useCallback, type ComponentType } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Alert, ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback, RefreshControl } from 'react-native';
 
 import { uploadFile } from '../../api/uploads.api';
@@ -654,7 +655,7 @@ export function AdminAttendanceScreen() {
   });
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
       <ScrollView 
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
@@ -826,7 +827,7 @@ export function AdminAttendanceScreen() {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
