@@ -36,6 +36,11 @@ export class AssetsController {
     return this.assets.findAdminDepartments(search);
   }
 
+  @Get('assets/debug/:id')
+  debugAsset(@Param('id') id: string) {
+    return this.assets.findOne(id, { roles: ['ADMIN'] } as any);
+  }
+
   @Get('assets')
   @Permissions('asset.read')
   findAll(@CurrentUser() actor: AuthenticatedUser) {

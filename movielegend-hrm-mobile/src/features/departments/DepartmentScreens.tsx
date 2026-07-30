@@ -344,16 +344,18 @@ export function DepartmentDetailScreen() {
                         Thu hồi
                       </SecondaryButton>
                     )}
-                    <SecondaryButton
-                      style={{ flex: 1, paddingVertical: 8 }}
-                      onPress={() => {
-                        setSelectedAssetForTransfer(asset);
-                        setSelectedDepartments(null);
-                        setTransferModalVisible(true);
-                      }}
-                    >
-                      Điều chuyển
-                    </SecondaryButton>
+                    {asset.assetStatus === 'IN_STOCK' && (
+                      <SecondaryButton
+                        style={{ flex: 1, paddingVertical: 8 }}
+                        onPress={() => {
+                          setSelectedAssetForTransfer(asset);
+                          setSelectedDepartments(null);
+                          setTransferModalVisible(true);
+                        }}
+                      >
+                        Điều chuyển
+                      </SecondaryButton>
+                    )}
                   </View>
                 </Pressable>
               ))}

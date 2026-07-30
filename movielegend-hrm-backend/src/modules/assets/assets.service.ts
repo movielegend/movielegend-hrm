@@ -144,6 +144,7 @@ export class AssetsService {
   async transfer(id: string, dto: TransferAssetDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
       const asset = await tx.asset.findUnique({ where: { id } });
+      console.log('--- TRANSFER ASSET STATE ---', asset);
       if (!asset || asset.deletedAt) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
       if (asset.assetStatus !== AssetStatus.IN_STOCK) throw badRequest('ASSET_NOT_TRANSFERABLE', 'Asset must be in stock to transfer');
       if (asset.departmentId && !actor.roles.includes('ADMIN')) this.departments.assertDepartmentAccess(actor, asset.departmentId);
