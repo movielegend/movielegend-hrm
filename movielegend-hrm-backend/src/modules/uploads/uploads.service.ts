@@ -166,6 +166,11 @@ function signatureMatches(buffer: Buffer, mimeType: string): boolean {
   if (mimeType === 'image/webp') return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
   if (mimeType === 'application/pdf') return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
   if (mimeType.includes('officedocument')) return buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+  if (mimeType.startsWith('video/')) {
+    if (buffer.length < 12) return false;
+    const ftyp = buffer.subarray(4, 8).toString('ascii');
+    return ftyp === 'ftyp' || ftyp === 'qt  ' || ftyp === 'moov' || ftyp === 'mdat' || ftyp === 'wide' || ftyp === 'free' || buffer.subarray(0, 4).readUInt32BE(0) > 0;
+  }
   return false;
 }
 
@@ -177,6 +182,8 @@ function extensionFor(fileName: string, mimeType: string): string {
     'image/png': '.png',
     'image/webp': '.webp',
     'application/pdf': '.pdf',
+    'video/mp4': '.mp4',
+    'video/quicktime': '.mov',
   };
   return fallback[mimeType] ?? '.bin';
 }

@@ -700,18 +700,20 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 keyExtractor={(item: any) => item.id}
                 renderItem={({ item }) => {
                   if (item.id === user?.id) return null; // Don't call yourself
+                  const displayName = item.fullName ?? item.profile?.fullName ?? item.userCode;
+                  const avatar = item.avatarUrl ?? item.profile?.avatarUrl;
                   return (
                     <TouchableOpacity
                       style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
                       onPress={() => {
                         setIsCallModalVisible(false);
-                        initiateCall(item.id, item.fullName ?? item.userCode, item.avatarUrl);
+                        initiateCall(item.id, displayName, avatar);
                       }}
                     >
                       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(item.fullName ?? item.userCode)}</Text>
+                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(displayName)}</Text>
                       </View>
-                      <Text style={{ fontSize: 16, flex: 1 }}>{item.fullName ?? item.userCode}</Text>
+                      <Text style={{ fontSize: 16, flex: 1 }}>{displayName}</Text>
                       <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
                     </TouchableOpacity>
                   );
