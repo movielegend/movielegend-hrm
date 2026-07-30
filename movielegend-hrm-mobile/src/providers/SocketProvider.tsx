@@ -106,13 +106,6 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('asset:assigned', (payload: AssetSocketPayload) => invalidateForAssetAssigned(queryClient, payload));
       socket.on('asset:return-updated', (payload: AssetSocketPayload) => invalidateForAssetReturnUpdated(queryClient, payload));
       socket.on('asset:incident-updated', (payload: IncidentSocketPayload) => invalidateForIncidentUpdated(queryClient, payload));
-      socket.on('chat:message', (payload: any) => {
-        if (payload?.groupId) {
-          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.groupId) });
-          void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
-          void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
-        }
-      });
       socket.connect();
     }
 

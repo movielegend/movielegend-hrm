@@ -146,10 +146,15 @@ export class ChatService {
       this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
       
       const members = await this.prisma.departmentMember.findMany({
-        where: { departmentId: group.departmentId, leftAt: null, userId: { not: userId } },
+        where: { departmentId: group.departmentId, leftAt: null },
         select: { userId: true }
       });
-      if (members.length > 0) {
+      for (const m of members) {
+        this.realtime.emitToUser(m.userId, 'chat:message', message);
+      }
+
+      const notifyMembers = members.filter(m => m.userId !== userId);
+      if (notifyMembers.length > 0) {
         await this.prisma.$transaction(async (tx) => {
           const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
             ? '[Nhãn dán]'
@@ -157,7 +162,7 @@ export class ChatService {
 
           const payload = await this.notifications.createForUsers(
             tx as any,
-            members.map(m => m.userId),
+            notifyMembers.map(m => m.userId),
             {
               type: 'CHAT_MESSAGE',
               title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
@@ -517,8 +522,21 @@ export class ChatService {
     if (group) {
       if (group.departmentId) {
         this.realtime.emitToDepartment(group.departmentId, 'chat:message', { groupId });
+        const members = await this.prisma.departmentMember.findMany({
+          where: { departmentId: group.departmentId, leftAt: null },
+          select: { userId: true }
+        });
+        for (const m of members) {
+          this.realtime.emitToUser(m.userId, 'chat:message', { groupId });
+        }
       } else {
         this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', { groupId });
+        const members = await this.prisma.chatGroupMember.findMany({
+          where: { groupId }
+        });
+        for (const m of members) {
+          this.realtime.emitToUser(m.userId, 'chat:message', { groupId });
+        }
       }
     }
 

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import {
   Alert,
   FlatList,
@@ -21,6 +21,7 @@ import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton } from '../../components/Buttons';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { Screen } from '../../components/Screen';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
@@ -77,6 +78,10 @@ function getInitials(name: string): string {
 export function NewsfeedListScreen({ canModerate = false }: { canModerate?: boolean }) {
   const router = useRouter();
   const { user } = useAuth();
+  
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+
   const posts = useNewsfeedPosts();
   const likePost = useLikePost();
   const removePost = useDeletePost();
@@ -197,7 +202,13 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
                   {/* Images */}
                   {post.images && post.images.length > 0 ? (
-                    <Image source={{ uri: resolveImageUrl(post.images[0]) || '' }} style={styles.postImage} resizeMode="cover" />
+                    <Pressable onPress={(e) => {
+                      e.stopPropagation?.();
+                      setViewerImages(post.images.map(img => ({ uri: resolveImageUrl(img) || '' })));
+                      setViewerVisible(true);
+                    }}>
+                      <Image source={{ uri: resolveImageUrl(post.images[0]) || '' }} style={styles.postImage} resizeMode="cover" />
+                    </Pressable>
                   ) : null}
 
                   {/* Divider */}
@@ -259,6 +270,13 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           ) : null}
         </View>
       </ScrollView>
+
+      <ImageView
+        images={viewerImages}
+        imageIndex={0}
+        visible={viewerVisible}
+        onRequestClose={() => setViewerVisible(false)}
+      />
     </Screen>
   );
 }
@@ -267,6 +285,8 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
 export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: string; canModerate?: boolean }) {
   const router = useRouter();
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const postQuery = useNewsfeedPost(postId);
   const likePostMutation = useLikePost();
   const addComment = useAddComment();
@@ -359,11 +379,16 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           <Text style={styles.postContentFull}>{post.content}</Text>
 
           {post.images && post.images.length > 0 ? (
-            <Image 
-              source={{ uri: resolveImageUrl(post.images[0]) || '' }} 
-              style={styles.postImage} 
-              resizeMode="cover" 
-            />
+            <Pressable onPress={() => {
+              setViewerImages(post.images.map(img => ({ uri: resolveImageUrl(img) || '' })));
+              setViewerVisible(true);
+            }}>
+              <Image 
+                source={{ uri: resolveImageUrl(post.images[0]) || '' }} 
+                style={styles.postImage} 
+                resizeMode="cover" 
+              />
+            </Pressable>
           ) : null}
 
           <View style={styles.postDivider} />
@@ -437,6 +462,13 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           </Pressable>
         </View>
       </ScrollView>
+
+      <ImageView
+        images={viewerImages}
+        imageIndex={0}
+        visible={viewerVisible}
+        onRequestClose={() => setViewerVisible(false)}
+      />
     </Screen>
   );
 }
@@ -658,8 +690,19 @@ export function PendingNewsfeedListScreen() {
 
 export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   const router = useRouter();
+  
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+
   const postQuery = useNewsfeedPost(postId);
   const approvePost = useApprovePost();
+
+  // If already approved, redirect to normal detail view
+  useEffect(() => {
+    if (postQuery.data && postQuery.data.status === 'APPROVED') {
+      router.replace(`/leader/newsfeed/${postId}` as any);
+    }
+  }, [postQuery.data?.status, postId, router]);
 
   function handleApprove() {
     Alert.alert('Duyệt bài', 'Cho phép hiển thị bài đăng này trên bảng tin?', [
@@ -669,7 +712,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
         style: 'default',
         onPress: () => {
           approvePost.mutate({ postId, status: 'APPROVED' }, {
-            onSuccess: () => router.back(),
+            onSuccess: () => router.replace(`/leader/newsfeed/${postId}` as any),
             onError: (error) => {
               Alert.alert('Lỗi', normalizeApiError(error).message);
             }
@@ -685,7 +728,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
       {
         text: 'Từ chối',
         style: 'destructive',
-        onPress: (reason) => {
+        onPress: (reason?: string) => {
           approvePost.mutate({ postId, status: 'REJECTED', rejectionReason: reason }, {
             onSuccess: () => router.back(),
             onError: (error) => {
@@ -734,28 +777,42 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
               <Text style={styles.authorName}>{authorName}</Text>
               <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
             </View>
-            <StatusBadge label={post.status === 'PENDING' ? 'Chờ duyệt' : post.status} tone="warning" />
+            <StatusBadge label={post.status || 'Chờ duyệt'} tone="warning" />
           </View>
 
           {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
           <Text style={styles.postContentFull}>{post.content}</Text>
 
-          {post.images && post.images.length > 0 ? (
-            <Image 
-              source={{ uri: resolveImageUrl(post.images[0]) || '' }} 
-              style={styles.postImage} 
-              resizeMode="cover" 
-            />
+          {(post as any).images && (post as any).images.length > 0 ? (
+            <Pressable onPress={() => {
+              setViewerImages((post as any).images.map((img: string) => ({ uri: resolveImageUrl(img) || '' })));
+              setViewerVisible(true);
+            }}>
+              <Image 
+                source={{ uri: resolveImageUrl((post as any).images[0]) || '' }} 
+                style={styles.postImage} 
+                resizeMode="cover" 
+              />
+            </Pressable>
           ) : null}
 
           <View style={styles.postDivider} />
           
-          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
-             <PrimaryButton onPress={handleReject} style={{ flex: 1, backgroundColor: colors.danger }}>Từ chối</PrimaryButton>
-             <PrimaryButton onPress={handleApprove} style={{ flex: 1, backgroundColor: colors.success }}>Duyệt bài</PrimaryButton>
-          </View>
+          {post.status === 'PENDING' && (
+            <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
+               <PrimaryButton onPress={handleReject} style={{ flex: 1, backgroundColor: colors.danger }}>Từ chối</PrimaryButton>
+               <PrimaryButton onPress={handleApprove} style={{ flex: 1, backgroundColor: colors.success }}>Duyệt bài</PrimaryButton>
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      <ImageView
+        images={viewerImages}
+        imageIndex={0}
+        visible={viewerVisible}
+        onRequestClose={() => setViewerVisible(false)}
+      />
     </Screen>
   );
 }
