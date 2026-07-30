@@ -133,7 +133,7 @@ export function HRDashboard() {
           {/* Decorative topographic wood grain background asset */}
           <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: appleTheme.radiusCard, overflow: 'hidden' }}>
             <Image
-              source={require('../../../assets/topographic-contour-hr.png')}
+              source={require('../../../assets/topographic-contour-lines.png')}
               style={styles.heroTopographicBg}
               resizeMode="cover"
             />
