@@ -294,6 +294,7 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
                 </View>
               ) : pdfHtml ? (
                 <WebView
+                  key={`webview-${activeGuideKey}`}
                   source={{ html: pdfHtml, baseUrl: '' }}
                   style={styles.webview}
                   originWhitelist={['*']}

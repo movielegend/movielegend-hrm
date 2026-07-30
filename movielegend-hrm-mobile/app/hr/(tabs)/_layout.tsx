@@ -1,6 +1,6 @@
 import { Tabs, Redirect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { View, Text } from 'react-native';
+import { View, Text, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingState } from '../../../src/components/LoadingState';
 import { useAuth } from '../../../src/providers/AuthProvider';
@@ -24,9 +24,9 @@ export default function HRTabsLayout() {
         tabBarStyle: {
           borderTopWidth: 0,
           backgroundColor: '#fff',
-          height: 65 + insets.bottom,
-          paddingBottom: 10 + insets.bottom,
-          paddingTop: 10,
+          height: Platform.OS === 'android' ? 60 : 85,
+          paddingBottom: Platform.OS === 'android' ? 5 : 25,
+          paddingTop: 5,
           elevation: 10,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },

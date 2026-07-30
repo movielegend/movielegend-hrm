@@ -20,8 +20,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  app.use(json({ limit: '5mb' }));
+  app.use(urlencoded({ extended: true, limit: '5mb' }));
 
   app.enableShutdownHooks();
 
@@ -30,7 +30,7 @@ async function bootstrap() {
       contentSecurityPolicy: false,
       crossOriginOpenerPolicy: false,
       crossOriginResourcePolicy: false,
-      xFrameOptions: false,
+      xFrameOptions: { action: 'deny' },
     }),
   );
 

@@ -27,11 +27,8 @@ export class LeaveService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,
-    private readonly notifications: NotificationsService = {
-      createForUsers: async () => null,
-      emitCreated: () => undefined,
-    } as unknown as NotificationsService,
-    private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
+    private readonly notifications: NotificationsService,
+    private readonly businessTime: BusinessTimeService,
   ) {}
 
   createLeaveType(dto: CreateLeaveTypeDto) {

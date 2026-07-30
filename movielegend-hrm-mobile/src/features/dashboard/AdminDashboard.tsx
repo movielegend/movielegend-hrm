@@ -9,6 +9,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
+import { LiveClock } from '../../components/LiveClock';
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -41,7 +42,6 @@ export function AdminDashboard() {
     }
   });
 
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -50,18 +50,7 @@ export function AdminDashboard() {
     setRefreshing(false);
   }, [queryClient]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const timeString = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  const dateString = currentTime.toLocaleDateString('vi-VN', {
+  const dateString = new Date().toLocaleDateString('vi-VN', {
     weekday: 'long',
     day: '2-digit',
     month: 'short',
@@ -134,7 +123,7 @@ export function AdminDashboard() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20, zIndex: 1 }}>
-            <Text style={styles.heroSubtitle}>{timeString}</Text>
+            <LiveClock style={styles.heroSubtitle} />
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 }}>

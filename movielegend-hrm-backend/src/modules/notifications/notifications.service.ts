@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { NotificationType, Prisma } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -10,6 +10,8 @@ import { ExpoPushService } from './expo-push.service';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEventsService,
@@ -56,14 +58,16 @@ export class NotificationsService {
         metadata: payload.notification.metadata
       },
       { priority: 'high' }
-    ).catch(e => console.error('Failed to send push notification', e));
+    ).catch(e => this.logger.error('Failed to send push notification', e));
   }
 
-  findMine(actor: AuthenticatedUser) {
+  findMine(actor: AuthenticatedUser, skip = 0, take = 20) {
     return this.prisma.notificationTarget.findMany({
       where: { userId: actor.userId },
       include: { notification: true },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take,
     });
   }
 

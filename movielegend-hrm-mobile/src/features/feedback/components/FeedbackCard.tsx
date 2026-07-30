@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
 import type { Feedback } from '../../../types/feedback.types';
 import { FeedbackStatusBadge } from './FeedbackStatusBadge';
@@ -26,6 +27,13 @@ export function FeedbackCard({ feedback, onPress, isAdmin }: Props) {
       <Text style={styles.content} numberOfLines={2}>
         {feedback.content}
       </Text>
+
+      {feedback.img && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}>
+          <Ionicons name="image-outline" size={15} color="#3B82F6" />
+          <Text style={{ fontSize: 13, color: '#3B82F6', fontWeight: '500' }}>Có ảnh đính kèm</Text>
+        </View>
+      )}
       
       <View style={styles.footer}>
         <Text style={styles.date}>{dateStr}</Text>

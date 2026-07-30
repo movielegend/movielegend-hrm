@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Image, TextInput, Pressable } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Image, TextInput, Pressable, Switch, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
@@ -481,10 +483,78 @@ export function AssetCreateScreen() {
   const [model, setModel] = useState('XPS');
   const [customModel, setCustomModel] = useState('');
   const [conditionNote, setConditionNote] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [showBrandSelect, setShowBrandSelect] = useState(false);
   const [showModelSelect, setShowModelSelect] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const uploadSelectedImage = async (sourceUri: string) => {
+    try {
+      setIsUploading(true);
+      const uploaded = await uploadFile({
+        uri: sourceUri,
+        name: `asset-${Date.now()}.jpg`,
+        mimeType: 'image/jpeg',
+        purpose: 'ASSET_INCIDENT',
+      });
+      setIsUploading(false);
+
+      const cdnUrl = uploaded.fileUrl || (uploaded as any).url;
+      if (cdnUrl) {
+        setImageUrls(prev => [...prev, cdnUrl]);
+      }
+    } catch (error: any) {
+      setIsUploading(false);
+      Alert.alert('Lỗi tải ảnh', error.message || 'Không thể tải ảnh lên');
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadSelectedImage(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh thiết bị.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadSelectedImage(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', 'Không thể mở Camera');
+    }
+  };
+
+  const handleSelectImage = () => {
+    Alert.alert(
+      'Ảnh thiết bị',
+      'Bạn muốn chọn ảnh từ đâu?',
+      [
+        { text: 'Chụp ảnh mới', onPress: takePhoto },
+        { text: 'Chọn từ thư viện', onPress: pickImage },
+        { text: 'Hủy', style: 'cancel' }
+      ]
+    );
+  };
 
   const brandOptions = ['Dell', 'HP', 'Apple', 'Lenovo', 'Asus', 'Acer', 'Khác'];
   const modelOptions = ['XPS', 'ThinkPad', 'MacBook Pro', 'MacBook Air', 'EliteBook', 'Khác'];
@@ -520,7 +590,7 @@ export function AssetCreateScreen() {
         ...(model === 'Khác' ? (customModel.trim() ? { model: customModel.trim() } : {}) : { model }),
         ...(departmentId ? { departmentId } : {}),
         ...(conditionNote.trim() ? { conditionNote: conditionNote.trim() } : {}),
-        ...(imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
+        ...(imageUrls.length > 0 ? { imageUrl: imageUrls.join(',') } : {}),
       });
       Alert.alert('Thành công', `Đã tạo tài sản ${asset.assetCode}`);
       router.back();
@@ -585,27 +655,40 @@ export function AssetCreateScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Ảnh thiết bị</Text>
-            <View style={styles.imageUploaderRow}>
-              {imageUrl ? (
-                <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
-              ) : (
-                <View style={styles.imageUploaderBox}>
-                  <MaterialCommunityIcons name="plus" size={24} color="#98A0A8" />
+            <Text style={[styles.label, { marginBottom: 8 }]}>Ảnh thiết bị (tối đa 5 ảnh)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+              {imageUrls.map((uri, index) => (
+                <View key={index} style={{ position: 'relative', width: 120, height: 120 }}>
+                  <Image source={{ uri }} style={{ width: 120, height: 120, borderRadius: 12 }} />
+                  <Pressable
+                    style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#EF4444', borderRadius: 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
+                    onPress={() => setImageUrls(prev => prev.filter((_, i) => i !== index))}
+                  >
+                    <MaterialCommunityIcons name="close" size={16} color="#FFF" />
+                  </Pressable>
                 </View>
+              ))}
+              
+              {imageUrls.length < 5 && (
+                <Pressable
+                  style={[
+                    { width: 120, height: 120, borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+                    isUploading && { opacity: 0.5 },
+                  ]}
+                  onPress={handleSelectImage}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <ActivityIndicator size="small" color="#36C59E" />
+                  ) : (
+                    <View style={{ alignItems: 'center', gap: 4 }}>
+                      <MaterialCommunityIcons name="camera-plus" size={32} color="#98A0A8" />
+                      <Text style={{ fontSize: 12, color: '#98A0A8' }}>Thêm ảnh</Text>
+                    </View>
+                  )}
+                </Pressable>
               )}
-              <View style={styles.imageUploaderTexts}>
-                {/* <Text style={styles.imageUploaderError}>Ảnh quá lớn {'>'}5MB</Text> */}
-                <TextInput
-                  style={styles.inputRoundedUrl}
-                  placeholder="URL ảnh (VD: https://picsum.photos/200)"
-                  placeholderTextColor="#98A0A8"
-                  value={imageUrl}
-                  onChangeText={setImageUrl}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
+            </ScrollView>
           </View>
 
           <View style={styles.bottomButtonsRow}>

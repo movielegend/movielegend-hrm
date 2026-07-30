@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
 import { uploadFile } from '../../api/uploads.api';
 import { useQueryClient } from '@tanstack/react-query';
+import { apiUrl } from '../../constants/env';
 
 // --- My Feedback List Screen ---
 export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: string }) {
@@ -145,7 +146,7 @@ export function CreateFeedbackScreen() {
           mimeType: 'image/jpeg',
           purpose: 'ASSET_INCIDENT',
         });
-        imgUrl = uploaded.url;
+        imgUrl = uploaded.fileUrl || (uploaded as any).url;
       }
       setIsUploading(false);
 
@@ -309,7 +310,14 @@ export function FeedbackDetailScreen() {
           {feedback.img && (
             <View style={{ marginTop: 12 }}>
               <Text style={styles.label}>Ảnh đính kèm:</Text>
-              <Image source={{ uri: feedback.img }} style={{ width: '100%', height: 200, borderRadius: 8, marginTop: 4, resizeMode: 'cover' }} />
+              <Image 
+                source={{ 
+                  uri: feedback.img.startsWith('http') 
+                    ? feedback.img 
+                    : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}` 
+                }} 
+                style={{ width: '100%', height: 220, borderRadius: 12, marginTop: 6, resizeMode: 'cover' }} 
+              />
             </View>
           )}
 

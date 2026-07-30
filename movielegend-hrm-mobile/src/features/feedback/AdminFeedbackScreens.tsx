@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, TextInput, Modal, RefreshControl } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, TextInput, Modal, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { apiUrl } from '../../constants/env';
 
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
@@ -185,7 +186,14 @@ export function AdminFeedbackDetailScreen() {
           {feedback.img && (
             <View style={{ marginTop: 12 }}>
               <Text style={styles.label}>Ảnh đính kèm:</Text>
-              <Image source={{ uri: feedback.img }} style={{ width: '100%', height: 200, borderRadius: 8, marginTop: 4, resizeMode: 'cover' }} />
+              <Image 
+                source={{ 
+                  uri: feedback.img.startsWith('http') 
+                    ? feedback.img 
+                    : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}` 
+                }} 
+                style={{ width: '100%', height: 220, borderRadius: 12, marginTop: 6, resizeMode: 'cover' }} 
+              />
             </View>
           )}
 

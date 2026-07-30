@@ -678,8 +678,10 @@ model OtpToken {
   userAgent     String?
   createdAt     DateTime  @default(now())
 
-  user          User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
   @@index([phone])
+  @@index([userId])
 }
 
 model User {
@@ -928,23 +930,23 @@ model Branch {
 }
 
 model Department {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  companyId             String                   @db.Uuid
-  branchId              String?                  @db.Uuid
-  parentId              String?                  @db.Uuid
+  id                    String                    @id @default(uuid()) @db.Uuid
+  companyId             String                    @db.Uuid
+  branchId              String?                   @db.Uuid
+  parentId              String?                   @db.Uuid
   code                  String
   name                  String
   description           String?
-  leaderUserId          String?                  @db.Uuid
-  isActive              Boolean                  @default(true)
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
+  leaderUserId          String?                   @db.Uuid
+  isActive              Boolean                   @default(true)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
   deletedAt             DateTime?
-  company               Company                  @relation(fields: [companyId], references: [id])
-  branch                Branch?                  @relation(fields: [branchId], references: [id])
-  parent                Department?              @relation("DepartmentTree", fields: [parentId], references: [id])
-  children              Department[]             @relation("DepartmentTree")
-  leader                User?                    @relation("DepartmentLeader", fields: [leaderUserId], references: [id])
+  company               Company                   @relation(fields: [companyId], references: [id])
+  branch                Branch?                   @relation(fields: [branchId], references: [id])
+  parent                Department?               @relation("DepartmentTree", fields: [parentId], references: [id])
+  children              Department[]              @relation("DepartmentTree")
+  leader                User?                     @relation("DepartmentLeader", fields: [leaderUserId], references: [id])
   members               DepartmentMember[]
   positions             Position[]
   requests              UserApprovalRequest[]
@@ -952,28 +954,31 @@ model Department {
   shiftRegistrations    ShiftRegistration[]
   shiftSwaps            ShiftSwap[]
   wifiConfigs           WifiConfig[]
-  attendanceLocations   AttendanceLocation[]     @relation("AttendanceLocationDepartments")
+  attendanceLocations   AttendanceLocation[]      @relation("AttendanceLocationDepartments")
   attendanceRecords     AttendanceRecord[]
   attendanceAdjustments AttendanceAdjustment[]
   leaveRequests         LeaveRequest[]
-  overtimeRequests        OvertimeRequest[]
-  overtimeConfig          DepartmentOvertimeConfig?
-  overtimeRateRules       OvertimeRateRule[]
+  overtimeRequests      OvertimeRequest[]
+  overtimeConfig        DepartmentOvertimeConfig?
+  overtimeRateRules     OvertimeRateRule[]
   employeeRequests      EmployeeRequest[]
   tasks                 Task[]
   taskGroups            TaskGroup[]
-  crossRequestsSource   CrossDepartmentRequest[] @relation("CrossRequestSourceDepartment")
-  crossRequestsTarget   CrossDepartmentRequest[] @relation("CrossRequestTargetDepartment")
+  crossRequestsSource   CrossDepartmentRequest[]  @relation("CrossRequestSourceDepartment")
+  crossRequestsTarget   CrossDepartmentRequest[]  @relation("CrossRequestTargetDepartment")
   warehouses            Warehouse[]
-  materialIssueTargets  MaterialIssue[]          @relation("MaterialIssueDepartmentTarget")
-  materialReturns       MaterialReturn[]         @relation("MaterialReturnDepartment")
-  assetAssignments      AssetAssignment[]        @relation("AssetAssignmentDepartmentTarget")
+  materialIssueTargets  MaterialIssue[]           @relation("MaterialIssueDepartmentTarget")
+  materialReturns       MaterialReturn[]          @relation("MaterialReturnDepartment")
+  assetAssignments      AssetAssignment[]         @relation("AssetAssignmentDepartmentTarget")
   kpiTemplates          KpiTemplate[]
   newsfeedPosts         NewsfeedPost[]
   chatGroup             ChatGroup?
   assets                Asset[]
 
   @@unique([companyId, code])
+  @@index([branchId])
+  @@index([parentId])
+  @@index([leaderUserId])
   @@map("departments")
 }
 
@@ -1010,6 +1015,8 @@ model DepartmentMember {
   position     Position?  @relation(fields: [positionId], references: [id])
 
   @@unique([departmentId, userId])
+  @@index([userId])
+  @@index([positionId])
   @@map("department_members")
 }
 
@@ -1035,7 +1042,7 @@ model EmployeeProfile {
   positionId            String?               @db.Uuid
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
-  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   position              Position?             @relation(fields: [positionId], references: [id])
   bankAccounts          EmployeeBankAccount[]
   documents             EmployeeDocument[]
@@ -1107,7 +1114,7 @@ model EmployeeDocument {
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
   deletedAt             DateTime?
-  employee              EmployeeProfile       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee              EmployeeProfile       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   user                  User?                 @relation("EmployeeDocumentUser", fields: [userId], references: [id])
   documentType          DocumentType?         @relation(fields: [documentTypeId], references: [id])
   verifiedBy            User?                 @relation("EmployeeDocumentVerifier", fields: [verifiedById], references: [id])
@@ -1115,6 +1122,8 @@ model EmployeeDocument {
   @@index([userId, status])
   @@index([documentTypeId])
   @@index([expiryDate, status])
+  @@index([employeeId])
+  @@index([verifiedById])
   @@map("employee_documents")
 }
 
@@ -1132,6 +1141,8 @@ model UserApprovalRequest {
   requestedDepartment   Department        @relation(fields: [requestedDepartmentId], references: [id])
   histories             ApprovalHistory[]
 
+  @@index([userId])
+  @@index([requestedDepartmentId, status])
   @@map("user_approval_requests")
 }
 
@@ -1202,6 +1213,9 @@ model AuditLog {
   createdAt   DateTime @default(now())
   actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id])
 
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -1266,6 +1280,8 @@ model ShiftRegistration {
   shift           Shift                   @relation(fields: [shiftId], references: [id])
 
   @@index([departmentId, status])
+  @@index([userId])
+  @@index([workDate])
   @@map("shift_registrations")
 }
 
@@ -1291,6 +1307,8 @@ model ShiftSwap {
   toShift         Shift           @relation("ShiftSwapTo", fields: [toShiftId], references: [id])
 
   @@index([departmentId, status])
+  @@index([requesterUserId])
+  @@index([targetUserId])
   @@map("shift_swaps")
 }
 
@@ -1344,10 +1362,10 @@ model AttendanceRecord {
   status              AttendanceStatus         @default(CHECKED_IN)
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
-  user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
   department          Department               @relation(fields: [departmentId], references: [id])
   shiftAssignment     ShiftAssignment          @relation(fields: [shiftAssignmentId], references: [id])
-  photoFile           UploadedFile?            @relation("AttendancePhotoFile", fields: [photoFileId], references: [id], onDelete: SetNull)
+  photoFile           UploadedFile?            @relation("AttendancePhotoFile", fields: [photoFileId], references: [id], onDelete: Restrict)
   checkOutPhotoFile   UploadedFile?            @relation("AttendanceCheckOutPhotoFile", fields: [checkOutPhotoFileId], references: [id], onDelete: SetNull)
   verifications       AttendanceVerification[]
   adjustments         AttendanceAdjustment[]
@@ -1392,6 +1410,8 @@ model AttendanceAdjustment {
   attendanceRecord    AttendanceRecord?          @relation(fields: [attendanceRecordId], references: [id])
 
   @@index([departmentId, status])
+  @@index([userId])
+  @@index([attendanceRecordId])
   @@map("attendance_adjustments")
 }
 
@@ -1455,11 +1475,12 @@ model LeaveRequest {
   rejectionReason String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   department      Department         @relation(fields: [departmentId], references: [id])
   leaveType       LeaveType          @relation(fields: [leaveTypeId], references: [id])
 
   @@index([departmentId, status])
+  @@index([userId])
   @@map("leave_requests")
 }
 
@@ -1477,10 +1498,11 @@ model OvertimeRequest {
   rejectionReason String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
-  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   department      Department            @relation(fields: [departmentId], references: [id])
 
   @@index([departmentId, status])
+  @@index([userId])
   @@map("overtime_requests")
 }
 
@@ -1930,6 +1952,8 @@ model StockReceiptItem {
   receipt    StockReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
   material   Material     @relation(fields: [materialId], references: [id])
 
+  @@index([receiptId])
+  @@index([materialId])
   @@map("stock_receipt_items")
 }
 
@@ -1973,6 +1997,8 @@ model MaterialIssueItem {
   materialIssue     MaterialIssue @relation(fields: [materialIssueId], references: [id], onDelete: Cascade)
   material          Material      @relation(fields: [materialId], references: [id])
 
+  @@index([materialIssueId])
+  @@index([materialId])
   @@map("material_issue_items")
 }
 
@@ -2007,6 +2033,8 @@ model MaterialReturnItem {
   materialReturn   MaterialReturn @relation(fields: [materialReturnId], references: [id], onDelete: Cascade)
   material         Material       @relation(fields: [materialId], references: [id])
 
+  @@index([materialReturnId])
+  @@index([materialId])
   @@map("material_return_items")
 }
 
@@ -2046,6 +2074,8 @@ model StockTransferItem {
   transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   material   Material      @relation(fields: [materialId], references: [id])
 
+  @@index([transferId])
+  @@index([materialId])
   @@map("stock_transfer_items")
 }
 
@@ -2113,6 +2143,7 @@ model AssetAssignmentHistory {
   assetAssignment   AssetAssignment       @relation(fields: [assetAssignmentId], references: [id], onDelete: Cascade)
   performedBy       User                  @relation("AssetAssignmentHistoryActor", fields: [performedById], references: [id])
 
+  @@index([assetAssignmentId])
   @@map("asset_assignment_histories")
 }
 
@@ -2475,38 +2506,39 @@ model OvertimeRateRule {
 
 // Cấu hình tăng ca + phụ cấp theo phòng ban
 model DepartmentOvertimeConfig {
-  id                    String     @id @default(uuid()) @db.Uuid
-  departmentId          String     @unique @db.Uuid
-  department            Department @relation(fields: [departmentId], references: [id])
+  id           String     @id @default(uuid()) @db.Uuid
+  departmentId String     @unique @db.Uuid
+  department   Department @relation(fields: [departmentId], references: [id])
 
   // Hệ số tăng ca (override OvertimeRateRule của company)
-  weekdayMultiplier     Decimal    @default(1.5) @db.Decimal(6, 3)
-  weekendMultiplier     Decimal    @default(2.0) @db.Decimal(6, 3)
-  holidayMultiplier     Decimal    @default(3.0) @db.Decimal(6, 3)
+  weekdayMultiplier Decimal @default(1.5) @db.Decimal(6, 3)
+  weekendMultiplier Decimal @default(2.0) @db.Decimal(6, 3)
+  holidayMultiplier Decimal @default(3.0) @db.Decimal(6, 3)
 
   // Phụ cấp làm đêm
-  nightAllowanceAmount  Decimal    @default(50000) @db.Decimal(14, 2)
-  nightStartHour        Int        @default(21)
+  nightAllowanceAmount Decimal @default(50000) @db.Decimal(14, 2)
+  nightStartHour       Int     @default(21)
 
   // Quy tắc trừ đi muộn
-  lateDeductionAmount   Decimal    @default(50000) @db.Decimal(14, 2)
-  lateThresholdMinutes  Int        @default(5)
+  lateDeductionAmount  Decimal @default(50000) @db.Decimal(14, 2)
+  lateThresholdMinutes Int     @default(5)
 
-  isActive              Boolean    @default(true)
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("department_overtime_configs")
 }
 
 // Bảng cấu hình ngày nghỉ lễ (Dùng tính tăng ca x300%)
 model CompanyHoliday {
-  id          String   @id @default(uuid()) @db.Uuid
-  companyId   String   @db.Uuid
-  date        DateTime @db.Date
-  name        String
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  date      DateTime @db.Date
+  name      String
+  createdAt DateTime @default(now())
+
+  @@index([companyId, date])
   @@map("company_holidays")
 }
 
@@ -2618,6 +2650,7 @@ model ContractSignature {
 
   @@unique([contractId, signerUserId, signerRole])
   @@index([contractId, signerRole])
+  @@index([signerUserId])
   @@map("contract_signatures")
 }
 
@@ -2661,7 +2694,7 @@ model KpiCriteria {
   isRequired    Boolean             @default(true)
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
-  kpiTemplate   KpiTemplate         @relation(fields: [kpiTemplateId], references: [id], onDelete: Cascade)
+  kpiTemplate   KpiTemplate         @relation(fields: [kpiTemplateId], references: [id], onDelete: Restrict)
   results       EmployeeKpiResult[]
 
   @@unique([kpiTemplateId, code])
@@ -2711,10 +2744,11 @@ model EmployeeKpiResult {
   evidenceUrl             String?
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
-  assignment              EmployeeKpiAssignment @relation(fields: [employeeKpiAssignmentId], references: [id], onDelete: Cascade)
+  assignment              EmployeeKpiAssignment @relation(fields: [employeeKpiAssignmentId], references: [id], onDelete: Restrict)
   criteria                KpiCriteria           @relation(fields: [criteriaId], references: [id])
 
   @@unique([employeeKpiAssignmentId, criteriaId])
+  @@index([criteriaId])
   @@map("employee_kpi_results")
 }
 
@@ -2874,7 +2908,7 @@ model NewsfeedPost {
   updatedAt       DateTime           @updatedAt
 
   author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  department Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  department Department?   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   approvedBy User?         @relation("PostApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   comments   PostComment[]
   likes      PostLike[]
@@ -2895,6 +2929,7 @@ model PostComment {
   post   NewsfeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   author User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
+  @@index([postId])
   @@map("post_comments")
 }
 
@@ -2937,16 +2972,17 @@ model ChatGroup {
 }
 
 model ChatGroupMember {
-  id       String   @id @default(uuid()) @db.Uuid
-  groupId  String   @db.Uuid
-  userId   String   @db.Uuid
-  joinedAt DateTime @default(now())
+  id        String    @id @default(uuid()) @db.Uuid
+  groupId   String    @db.Uuid
+  userId    String    @db.Uuid
+  joinedAt  DateTime  @default(now())
   clearedAt DateTime?
 
   group ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
+  @@index([userId])
   @@map("chat_group_members")
 }
 
@@ -2965,6 +3001,8 @@ model ChatMessage {
   group  ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sender User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
+  @@index([groupId, createdAt])
+  @@index([senderId])
   @@map("chat_messages")
 }
 
@@ -2976,9 +3014,9 @@ model Feedback {
   isAnonymous  Boolean        @default(false)
   status       FeedbackStatus @default(SEND)
 
-  reason       String?
-  reviewedAt   DateTime?
-  img          String?
+  reason     String?
+  reviewedAt DateTime?
+  img        String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

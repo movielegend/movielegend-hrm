@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
@@ -14,8 +14,12 @@ export class NotificationsController {
 
   @Get('me')
   @Permissions('notification.read')
-  findMine(@CurrentUser() actor: AuthenticatedUser) {
-    return this.notifications.findMine(actor);
+  findMine(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip: number,
+    @Query('take', new DefaultValuePipe(20), ParseIntPipe) take: number,
+  ) {
+    return this.notifications.findMine(actor, skip, take);
   }
 
   @Get('unread-count')

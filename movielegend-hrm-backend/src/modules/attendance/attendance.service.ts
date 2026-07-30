@@ -723,8 +723,6 @@ export class AttendanceService {
         OR: [{ departmentId }, { departmentId: null }],
       },
     });
-    const fs = require('fs');
-    fs.appendFileSync('debug-attendance.log', `[${new Date().toISOString()}] assertWifiAllowed - active configs: ${configs.length}, passed ssid: ${ssid}\n`);
     if (!configs.length) return;
     if (!ssid) throw badRequest('INVALID_WIFI', 'Thieu thong tin WiFi');
     const matched = configs.some((config) => {
@@ -735,19 +733,19 @@ export class AttendanceService {
   }
 
   private isWithinCheckInWindow(workDate: Date, startTime: string, earlyMinutes: number, lateMinutes: number): boolean {
-    // Tạm thời mở giới hạn check-in cho mục đích test (luôn trả về true).
-    // Ở hệ thống thực tế thì sẽ dùng: return now >= ... && now <= ...
-    return true;
+    const shiftStart = this.shiftDateTime(workDate, startTime);
+    const windowOpen = new Date(shiftStart.getTime() - earlyMinutes * 60_000);
+    const windowClose = new Date(shiftStart.getTime() + lateMinutes * 60_000);
+    const now = new Date();
+    return now >= windowOpen && now <= windowClose;
   }
 
   private shiftDateTime(workDate: Date, time: string): Date {
     const [hour = 0, minute = 0] = time.split(':').map(Number);
     const date = new Date(workDate);
-    // workDate is UTC 00:00:00 of the given date.
-    // time is in Vietnam Time (UTC+7).
-    // Subtract 7 to get the correct absolute UTC time.
-    date.setUTCHours(hour - 7, minute, 0, 0);
-    return date;
+    date.setUTCHours(0, 0, 0, 0);
+    const totalMinutes = hour * 60 + minute - 420;
+    return new Date(date.getTime() + totalMinutes * 60_000);
   }
 
   private shiftEndDateTime(workDate: Date, startTime: string, endTime: string): Date {

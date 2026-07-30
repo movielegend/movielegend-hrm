@@ -16,24 +16,18 @@ export class ChatService {
 
   // Get or Create group for a department
   async getGroupForDepartment(departmentId: string) {
-    let group = await this.prisma.chatGroup.findUnique({
-      where: { departmentId }
+    const dept = await this.prisma.department.findUnique({ where: { id: departmentId } });
+    if (!dept) throw new NotFoundException('Department not found');
+
+    return this.prisma.chatGroup.upsert({
+      where: { departmentId },
+      create: {
+        departmentId,
+        name: `Nhóm ${dept.name}`,
+        type: 'DEPARTMENT'
+      },
+      update: {}
     });
-
-    if (!group) {
-      const dept = await this.prisma.department.findUnique({ where: { id: departmentId } });
-      if (!dept) throw new NotFoundException('Department not found');
-
-      group = await this.prisma.chatGroup.create({
-        data: {
-          departmentId,
-          name: `Nhóm ${dept.name}`,
-          type: 'DEPARTMENT'
-        }
-      });
-    }
-
-    return group;
   }
 
   async getMessages(groupId: string, userId: string, isAdmin: boolean = false, skip: number = 0, take: number = 50) {
@@ -270,25 +264,34 @@ export class ChatService {
       }
     }
 
+    // 1. Batch fetch latest messages for all groups
+    const groupIds = groups.map(g => g.id);
+    const latestMessages = await this.prisma.chatMessage.findMany({
+      where: { groupId: { in: groupIds } },
+      orderBy: [{ groupId: 'asc' }, { createdAt: 'desc' }],
+      distinct: ['groupId'],
+      include: { sender: { select: { profile: { select: { fullName: true } } } } }
+    });
+    const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
+
+    // 2. Batch fetch direct group other members
+    const directGroupIds = groups.filter(g => g.type === 'DIRECT').map(g => g.id);
+    const directMembers = await this.prisma.chatGroupMember.findMany({
+      where: { groupId: { in: directGroupIds }, userId: { not: userId } },
+      include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
+    });
+    const directMemberMap = Object.fromEntries(directMembers.map(m => [m.groupId, m]));
+
     const resultGroups = [];
     for (const group of groups) {
-      // Fetch latest message
-      const latestMessage = await this.prisma.chatMessage.findFirst({
-        where: { groupId: group.id },
-        orderBy: { createdAt: 'desc' },
-        include: { sender: { select: { profile: { select: { fullName: true } } } } }
-      });
+      const latestMessage = latestMessageMap[group.id];
 
       let finalName = group.name;
       let otherUserId: string | undefined;
       let otherUserAvatar: string | undefined;
 
       if (group.type === 'DIRECT') {
-        // Find the other member to use as group name
-        const otherMember = await this.prisma.chatGroupMember.findFirst({
-          where: { groupId: group.id, userId: { not: userId } },
-          include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
-        });
+        const otherMember = directMemberMap[group.id];
         if (otherMember?.user) {
           finalName = otherMember.user.profile?.fullName || otherMember.user.userCode || 'Người dùng';
           otherUserId = otherMember.userId;

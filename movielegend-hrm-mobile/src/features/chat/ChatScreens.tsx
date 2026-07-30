@@ -66,7 +66,7 @@ function getInitials(name: string): string {
 
 import axios from 'axios';
 
-const GIPHY_API_KEY = 'Gc7131jiJuvI7IdN0HZ1D7nh0ow5BU6g';
+const GIPHY_API_KEY = process.env.EXPO_PUBLIC_GIPHY_API_KEY || '';
 
 const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: boolean, onClose: () => void, onSelectSticker: (url: string, type: string) => void }) => {
   const [stickers, setStickers] = useState<any[]>([]);
@@ -92,6 +92,12 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
   useEffect(() => {
     if (visible && stickers.length === 0) fetchStickers();
   }, [visible]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    };
+  }, []);
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);

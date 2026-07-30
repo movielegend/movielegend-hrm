@@ -10,6 +10,7 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import Toast from 'react-native-toast-message';
+import { LiveClock } from '../../components/LiveClock';
 
 const appleTheme = {
   bg: '#FFFFFF',
@@ -30,12 +31,11 @@ export function HRDashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: unreadData } = useUnreadNotificationCount();
-  const unreadCount = unreadData?.count || 0;
-  
+  const unreadCount = typeof unreadData === 'number' ? unreadData : (unreadData as any)?.count || 0;
   const { data: currentAttendance } = useCurrentAttendance();
   const [activeTab, setActiveTab] = useState<'TASKS' | 'ACTIVITY'>('TASKS');
   
-  const { data: myTasks } = useMyTasks({ limit: 10 });
+  const { data: myTasks = [] } = useMyTasks({ limit: 10 });
   const { data: delegatedTasks } = useTasks({ 
     createdById: user?.id,
     limit: 10 
@@ -49,7 +49,6 @@ export function HRDashboard() {
     }
   });
 
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -58,18 +57,7 @@ export function HRDashboard() {
     setRefreshing(false);
   }, [queryClient]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const timeString = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  const dateString = currentTime.toLocaleDateString('vi-VN', {
+  const dateString = new Date().toLocaleDateString('vi-VN', {
     weekday: 'long',
     day: '2-digit',
     month: 'short',
@@ -158,7 +146,7 @@ export function HRDashboard() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20, zIndex: 1 }}>
-            <Text style={[styles.heroSubtitle, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>{timeString}</Text>
+            <LiveClock style={[styles.heroSubtitle, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]} />
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 }}>

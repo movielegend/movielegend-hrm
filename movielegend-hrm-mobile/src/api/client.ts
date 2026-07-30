@@ -80,8 +80,8 @@ apiClient.interceptors.response.use(
 );
 
 export function unwrapData<T>(response: AxiosResponse<ApiResponse<T>>): T {
-  if (response.data.success) return response.data.data;
-  throw new Error(response.data.error.message);
+  if (response?.data?.success) return response.data.data;
+  throw new Error(response?.data?.error?.message || 'Có lỗi xảy ra, vui lòng thử lại');
 }
 
 async function refreshTokensWithSingleFlight(): Promise<string | null> {

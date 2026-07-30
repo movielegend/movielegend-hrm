@@ -15,7 +15,7 @@ export function Screen({ children }: PropsWithChildren) {
     : insets.top;
   
   return (
-    <View style={[styles.container, { paddingTop: topPadding, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: topPadding, paddingBottom: 0 }]}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
