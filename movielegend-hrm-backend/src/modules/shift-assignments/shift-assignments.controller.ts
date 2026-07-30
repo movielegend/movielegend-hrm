@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Delete, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
@@ -41,5 +41,11 @@ export class ShiftAssignmentsController {
   @Post('swaps')
   swap(@Body() dto: ShiftSwapDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.shiftAssignmentsService.requestSwap(dto, actor);
+  }
+
+  @Permissions('shift.assign')
+  @Delete(':id')
+  revokeAssignment(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.shiftAssignmentsService.revokeAssignment(id, actor);
   }
 }

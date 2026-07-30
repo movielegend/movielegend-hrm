@@ -9,6 +9,7 @@ import {
   getMySchedule,
   getShifts,
   updateShift,
+  revokeShiftAssignment,
 } from '../api/shifts.api';
 import { queryKeys } from '../constants/queryKeys';
 import type {
@@ -92,5 +93,16 @@ export function useCreateShiftSwap() {
   return useMutation({
     mutationFn: (payload: ShiftSwapPayload) => createShiftSwap(payload),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['shift-schedule'] }),
+  });
+}
+
+export function useRevokeShiftAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => revokeShiftAssignment(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['shifts'] });
+      void queryClient.invalidateQueries({ queryKey: ['shift-schedule'] });
+    },
   });
 }

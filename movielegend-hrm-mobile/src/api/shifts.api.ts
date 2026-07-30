@@ -41,6 +41,11 @@ export async function assignShiftBatch(payload: { userIds: string[]; departmentI
   return unwrapData(response);
 }
 
+export async function revokeShiftAssignment(id: string): Promise<unknown> {
+  const response = await apiClient.delete<ApiResponse<unknown>>(`/shift-assignments/${id}`);
+  return unwrapData(response);
+}
+
 export async function getMySchedule(): Promise<ShiftAssignment[]> {
   const response = await apiClient.get<ApiResponse<ShiftAssignment[]>>('/shift-assignments/me');
   return unwrapData(response);
