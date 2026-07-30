@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
 import Toast from 'react-native-toast-message';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
@@ -13,11 +14,27 @@ import { spacing } from '../../theme/spacing';
 import { getDashboardByRole, getLeaderActivities } from '../../api/dashboard.api';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { FeedbackCard } from '../feedback/components/FeedbackCard';
+import { LiveClock } from '../../components/LiveClock';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
+
+const appleTheme = {
+  bg: '#FFFFFF',
+  card: '#FFFFFF',
+  primary: '#111827',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  hint: '#9CA3AF',
+  divider: '#ECEEF3',
+  blueAccent: '#3B82F6',
+  iconBg: '#F5F7FA',
+  radiusCard: 24,
+  radiusBtn: 16,
+};
 
 export function LeaderDashboard() {
   const router = useRouter();
@@ -51,19 +68,15 @@ export function LeaderDashboard() {
     setRefreshing(false);
   }, [queryClient]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const timeString = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
+  const dateString = new Date().toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
   });
 
   const getInitials = (name?: string) => {
-    if (!name) return 'AD';
+    if (!name) return 'LD';
     const words = name.trim().split(' ').filter(Boolean);
     if (words.length >= 2) {
       return (words[0][0] + words[words.length - 1][0]).toUpperCase();
@@ -71,13 +84,9 @@ export function LeaderDashboard() {
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Date format for the header
-  const headerDate = currentTime.toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  const handleCreateTask = () => {
+    router.push('/leader/tasks/create');
+  };
 
   return (
     <Screen backgroundColor="#FAFAFA">

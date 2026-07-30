@@ -40,6 +40,8 @@ const styles = StyleSheet.create({
   content: {
     backgroundColor: colors.background,
     gap: spacing.lg,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    paddingTop: 8, // Just a tiny gap instead of 16 so it doesn't double-pad with SafeAreaView
   },
 });

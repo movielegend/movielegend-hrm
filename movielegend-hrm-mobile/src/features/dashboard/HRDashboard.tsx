@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
-import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
@@ -48,6 +48,9 @@ export function HRDashboard() {
       return unwrapData(response) as any;
     }
   });
+
+  const currentDateStr = new Date().toISOString().split('T')[0];
+  const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
 
   const [refreshing, setRefreshing] = useState(false);
 
