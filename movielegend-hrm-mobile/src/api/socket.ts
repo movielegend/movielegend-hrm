@@ -7,6 +7,11 @@ export async function createHrmSocket(): Promise<Socket> {
   const options: Partial<ManagerOptions & SocketOptions> = {
     transports: ['websocket'],
     autoConnect: false,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
     ...(token ? { auth: { token } } : {}),
   };
   return io(`${assertSocketUrl()}/hrm`, options);
