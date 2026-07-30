@@ -67,14 +67,24 @@ export class ReportsService {
   }
 
   async attendance(query: DateRangeReportQueryDto, actor: AuthenticatedUser) {
-    const userIds = await this.scope.scopedUserIds(actor, query.departmentId);
+    const scopeUserIds = await this.scope.scopedUserIds(actor, query.departmentId);
+    const nonAdminUsers = await this.prisma.user.findMany({
+      where: {
+        roles: { none: { role: { code: 'ADMIN' } } },
+        ...(scopeUserIds ? { id: { in: scopeUserIds } } : {}),
+        ...(query.userId ? { id: query.userId } : {}),
+      },
+      select: { id: true }
+    });
+    const userIds = nonAdminUsers.map(u => u.id);
+
     const range = this.range(query);
     const [scheduledDays, records, overtime, paidLeave, unpaidLeave] = await Promise.all([
-      this.prisma.shiftAssignment.count({ where: { userId: userIds ? { in: userIds } : query.userId, workDate: range } }),
-      this.prisma.attendanceRecord.findMany({ where: { userId: userIds ? { in: userIds } : query.userId, workDate: range } }),
-      this.prisma.employeeRequest.findMany({ where: { userId: userIds ? { in: userIds } : query.userId, status: 'APPROVED', type: 'OVERTIME' } }),
-      this.prisma.leaveRequest.count({ where: { userId: userIds ? { in: userIds } : query.userId, status: 'APPROVED', leaveType: { isPaid: true } } }),
-      this.prisma.leaveRequest.count({ where: { userId: userIds ? { in: userIds } : query.userId, status: 'APPROVED', leaveType: { isPaid: false } } }),
+      this.prisma.shiftAssignment.count({ where: { userId: { in: userIds }, workDate: range } }),
+      this.prisma.attendanceRecord.findMany({ where: { userId: { in: userIds }, workDate: range } }),
+      this.prisma.employeeRequest.findMany({ where: { userId: { in: userIds }, status: 'APPROVED', type: 'OVERTIME' } }),
+      this.prisma.leaveRequest.count({ where: { userId: { in: userIds }, status: 'APPROVED', leaveType: { isPaid: true } } }),
+      this.prisma.leaveRequest.count({ where: { userId: { in: userIds }, status: 'APPROVED', leaveType: { isPaid: false } } }),
     ]);
     const worked = records.filter((record) => record.checkInAt).length;
     return [{
