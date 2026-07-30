@@ -65,7 +65,7 @@ function assetBase(area: AssetArea): string {
   return area === 'warehouse' ? '/warehouse-manager/assets' : `/${area}/assets`;
 }
 
-export function MyAssetsScreen() {
+export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
   const router = useRouter();
   const { user } = useAuth();
   const myAssets = useMyAssets();
@@ -158,7 +158,7 @@ export function MyAssetsScreen() {
 
           {visibleItems.map((assignment) => (
             <View key={assignment.id} style={styles.cardWrap}>
-              <MyAssetCard assignment={assignment} onPress={() => router.push(`/employee/assets/${assignment.assetId}` as never)} />
+              <MyAssetCard assignment={assignment} onPress={() => router.push(`/${area}/assets/${assignment.assetId}` as never)} />
 
               <View style={styles.actionRow}>
                 {canConfirmAssignment(user, assignment) ? (
@@ -179,7 +179,7 @@ export function MyAssetsScreen() {
                       Tài sản này đã có báo cáo sự cố đang được xử lý.
                     </Text>
                   ) : (
-                    <SecondaryButton style={{ flex: 1 }} onPress={() => router.push(`/employee/assets/incidents/create?assetId=${assignment.assetId}` as never)}>
+                    <SecondaryButton style={{ flex: 1 }} onPress={() => router.push(`/${area}/assets/incidents/create?assetId=${assignment.assetId}` as never)}>
                       Báo lỗi
                     </SecondaryButton>
                   )
@@ -275,7 +275,7 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
       const err = asset.error as any;
       if (err?.response?.data?.code === 'ASSET_FORBIDDEN' || err?.response?.status === 403 || err?.message?.includes('403')) {
         Alert.alert('Không có quyền', 'Vật tư bị thu hồi', [
-          { text: 'OK', onPress: () => router.replace('/employee/assets') }
+          { text: 'OK', onPress: () => router.replace(`/${area}/assets` as never) }
         ]);
       }
     }
@@ -390,7 +390,7 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
                 {hasPermission(user, 'asset.incident.create') && area !== 'admin' ? (
                   <SecondaryButton
                     style={{ flex: 1 }}
-                    onPress={() => router.push(`/employee/assets/incidents/create?assetId=${item.id}` as never)}
+                    onPress={() => router.push(`/${area}/assets/incidents/create?assetId=${item.id}` as never)}
                     disabled={item.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED')}
                   >
                     Báo sự cố

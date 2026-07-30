@@ -1227,7 +1227,7 @@ model Shift {
   endTime              String
   breakMinutes         Int                 @default(0)
   checkInEarlyMinutes  Int                 @default(15)
-  checkInLateMinutes   Int                 @default(10)
+  checkInLateMinutes   Int                 @default(60)
   checkOutEarlyMinutes Int                 @default(0)
   checkOutLateMinutes  Int                 @default(30)
   isNightShift         Boolean             @default(false)
