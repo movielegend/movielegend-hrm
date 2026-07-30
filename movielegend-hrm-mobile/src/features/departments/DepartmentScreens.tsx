@@ -451,6 +451,7 @@ export function DepartmentDetailScreen() {
               }
             }
           }}
+          onClose={() => setTransferModalVisible(false)}
         />
         </ScreenContainer>
     </Screen>

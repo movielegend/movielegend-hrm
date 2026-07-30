@@ -417,6 +417,22 @@ export class AdminService {
             });
           }
 
+          const oldDepts = await tx.department.findMany({ where: { id: { in: oldDepartmentIds } } });
+          const wasHrLeader = oldDepts.some(dept => 
+            dept.code?.toUpperCase() === 'HCNS' || 
+            dept.code?.toUpperCase() === 'HR' || 
+            dept.name?.toLowerCase().includes('nhân sự')
+          );
+          
+          if (wasHrLeader) {
+            const hrRole = await tx.role.findUnique({ where: { code: 'HR' } });
+            if (hrRole) {
+              await tx.userRole.deleteMany({
+                where: { userId: id, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
+              });
+            }
+          }
+
           // Nullify leaderUserId in the Department records
           await tx.department.updateMany({
             where: { id: { in: oldDepartmentIds }, leaderUserId: id },
