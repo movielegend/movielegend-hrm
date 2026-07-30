@@ -49,6 +49,17 @@ export function LeaderDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const timeString = currentTime.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
   const { data: dashboardData } = useQuery({
     queryKey: ['dashboard', 'LEADER'],
     queryFn: () => getDashboardByRole('LEADER'),
@@ -104,7 +115,7 @@ export function LeaderDashboard() {
             <View style={styles.greetingInfo}>
               <Text style={styles.greetingText}>Xin chào 👋</Text>
               <Text style={styles.userName}>{user?.fullName || 'Quản lý'}</Text>
-              <Text style={styles.dateText}>{headerDate}</Text>
+              <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
           <View style={styles.headerRight}>
