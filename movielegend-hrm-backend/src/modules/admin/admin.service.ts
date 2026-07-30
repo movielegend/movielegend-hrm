@@ -422,6 +422,11 @@ export class AdminService {
             where: { id: { in: oldDepartmentIds }, leaderUserId: id },
             data: { leaderUserId: null },
           });
+
+          // Emit real-time events for old departments
+          for (const deptId of oldDepartmentIds) {
+            this.realtimeEvents.emitToRoom('company', 'department:updated', { departmentId: deptId });
+          }
         }
 
         await tx.departmentMember.upsert({
