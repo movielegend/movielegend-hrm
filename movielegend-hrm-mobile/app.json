@@ -88,7 +88,8 @@
       ],
       "expo-web-browser",
       "expo-document-picker",
-      "./withWebRTCExclude.js"
+      "./withWebRTCExclude.js",
+      "@livekit/react-native-expo-plugin"
     ],
     "extra": {
       "router": {
