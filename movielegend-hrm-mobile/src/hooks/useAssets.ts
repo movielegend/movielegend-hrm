@@ -55,6 +55,7 @@ export function useAssignAsset() {
     mutationFn: ({ assetId, payload }: { assetId: string; payload: AssignAssetPayload }) => assignAsset(assetId, payload),
     onSuccess: (assignment) => {
       void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['department'] });
       void queryClient.invalidateQueries({ queryKey: assetKeys.detail(assignment.assetId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
@@ -68,6 +69,7 @@ export function useTransferAsset() {
     mutationFn: ({ assetId, payload }: { assetId: string; payload: { targetDepartmentId: string; note?: string } }) => transferAsset(assetId, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['department'] });
     },
   });
 }
@@ -78,6 +80,7 @@ export function useRevokeAsset() {
     mutationFn: ({ assetId, payload }: { assetId: string; payload: { note?: string } }) => revokeAsset(assetId, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['department'] });
     },
   });
 }

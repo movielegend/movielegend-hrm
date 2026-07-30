@@ -447,7 +447,8 @@ export function DepartmentDetailScreen() {
                 Alert.alert('Thành công', 'Đã điều chuyển tài sản');
                 setTransferModalVisible(false);
               } catch (e: any) {
-                Alert.alert('Lỗi', e.response?.data?.message || 'Không thể điều chuyển');
+                console.error('Transfer Error:', JSON.stringify(e.response?.data, null, 2));
+                Alert.alert('Lỗi', e.response?.data?.error?.message || e.response?.data?.message || 'Không thể điều chuyển');
               }
             }
           }}
