@@ -54,7 +54,7 @@ export function IncidentReportScreen() {
   const [uploading, setUploading] = useState(false);
 
   async function pickEvidence() {
-    const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+    const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, type: ['image/*', 'video/*'] });
     if (picked.canceled || !picked.assets?.[0]) return;
     const file = picked.assets[0];
     setUploading(true);

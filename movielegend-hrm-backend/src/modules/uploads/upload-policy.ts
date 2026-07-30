@@ -62,9 +62,9 @@ export const uploadPolicies: Record<UploadPurpose, UploadPolicy> = {
   },
   ASSET_INCIDENT: {
     purpose: UploadPurpose.ASSET_INCIDENT,
-    maxSize: 10 * 1024 * 1024,
-    mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
-    extensions: ['.jpg', '.jpeg', '.png', '.webp', '.pdf'],
+    maxSize: 50 * 1024 * 1024,
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'video/quicktime'],
+    extensions: ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.mp4', '.mov'],
   },
 };
 

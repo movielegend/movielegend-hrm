@@ -536,7 +536,7 @@ export class AssetsService {
       if (!incident) throw notFound('ASSET_INCIDENT_NOT_FOUND', 'Incident not found');
       const result = await tx.assetIncidentReport.update({
         where: { id },
-        data: { status: AssetIncidentStatus.REJECTED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote },
+        data: { status: AssetIncidentStatus.REJECTED, resolvedById: actor.userId, resolvedAt: new Date(), resolutionNote: dto.resolutionNote, evidenceUrl: null },
       });
 
       if (incident.reportedById && incident.reportedById !== actor.userId) {
