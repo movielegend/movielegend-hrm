@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -265,21 +266,30 @@ export function IncidentDetailScreen() {
         <SectionCard title="Thông tin vật tư">
           <Text style={styles.label}>Tên tài sản: <Text style={styles.body}>{item.asset?.name}</Text></Text>
           <Text style={styles.label}>Mã: <Text style={styles.body}>{item.asset?.assetCode}</Text></Text>
-          <Text style={styles.label}>Nhãn hiệu: <Text style={styles.body}>{item.asset?.metadata?.brand ?? 'N/A'}</Text></Text>
-          <Text style={styles.label}>Model: <Text style={styles.body}>{item.asset?.metadata?.model ?? 'N/A'}</Text></Text>
+          <Text style={styles.label}>Nhãn hiệu: <Text style={styles.body}>{item.asset?.brand ?? 'N/A'}</Text></Text>
+          <Text style={styles.label}>Model: <Text style={styles.body}>{item.asset?.model ?? 'N/A'}</Text></Text>
           <Text style={styles.label}>Ngày cập nhật: <Text style={styles.body}>{formatDateTime(item.createdAt)}</Text></Text>
           <Text style={styles.label}>Ghi chú: <Text style={styles.body}>{item.description}</Text></Text>
           <StatusBadge label={incidentTypeLabels[item.incidentType] ?? item.incidentType} tone={incidentStatusTone(item.status)} />
           {item.evidenceUrl ? (
             <View style={{ marginTop: spacing.md }}>
               <Text style={styles.label}>Minh chứng sự cố:</Text>
-              <Pressable onPress={() => { if (item.evidenceUrl) void Linking.openURL(item.evidenceUrl); }}>
-                <Image
+              {item.evidenceUrl.match(/\.(mp4|mov|webm)$/i) ? (
+                <Video
                   source={{ uri: item.evidenceUrl }}
-                  style={{ width: '100%', height: 200, borderRadius: 8, marginTop: spacing.sm, backgroundColor: colors.surface }}
-                  resizeMode="cover"
+                  style={{ width: '100%', height: 250, borderRadius: 8, marginTop: spacing.sm, backgroundColor: colors.surface }}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
                 />
-              </Pressable>
+              ) : (
+                <Pressable onPress={() => { if (item.evidenceUrl) void Linking.openURL(item.evidenceUrl); }}>
+                  <Image
+                    source={{ uri: item.evidenceUrl }}
+                    style={{ width: '100%', height: 200, borderRadius: 8, marginTop: spacing.sm, backgroundColor: colors.surface }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              )}
             </View>
           ) : (
             <Text style={[styles.label, { marginTop: spacing.md }]}>Minh chứng sự cố: <Text style={styles.body}>Không có</Text></Text>
