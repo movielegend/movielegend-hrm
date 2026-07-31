@@ -7,13 +7,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { CloudinaryStorageService } from './services/cloudinary-storage.service';
-
+import { S3StorageService } from './services/s3-storage.service';
 @Module({
   imports: [ConfigModule],
   providers: [
     {
       provide: StorageService,
       useFactory: (config: ConfigService) => {
+        // Ưu tiên sử dụng S3/R2 nếu có cấu hình
+        if (config.get('S3_ENDPOINT') && config.get('S3_ACCESS_KEY_ID')) {
+          return new S3StorageService(config);
+        }
+
         // Ưu tiên sử dụng Cloudinary nếu có cấu hình
         if (process.env.CLOUDINARY_CLOUD_NAME) {
           return new CloudinaryStorageService(config);

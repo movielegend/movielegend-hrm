@@ -13,6 +13,7 @@ import { DepartmentScopeService } from '../phase2-policy/department-scope.servic
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { ContractStatePolicy } from './contract-state-policy.service';
 import { DocumentIntegrityService } from './document-integrity.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CreateContractTemplateDto,
   CreateEmployeeContractDto,
@@ -33,6 +34,7 @@ export class ContractsService {
     private readonly realtime: RealtimeEventsService,
     private readonly policy: ContractStatePolicy,
     private readonly integrity: DocumentIntegrityService,
+    private readonly storageService: StorageService,
   ) { }
 
   async createTemplate(dto: CreateContractTemplateDto, actor: AuthenticatedUser) {
@@ -404,25 +406,45 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     const storageKey = contract.signedFileUrl ? '' : (contract.contractTemplateVersion.storageKey || '');
 
     let existingPdfBytes: Buffer | null = null;
+    let keyToRead = storageKey || this.storageService.extractKeyFromUrl(rawUrl) || (rawUrl ? decodeURIComponent(rawUrl).replace(/^\/uploads\//, '') : '');
+    
+    try {
+      if (keyToRead) {
+        if (await this.storageService.exists(keyToRead)) {
+          existingPdfBytes = await this.storageService.read(keyToRead);
+        } else {
+           // Fallback cho local uploads folder format cũ
+           const prefixedKey = `uploads/${keyToRead.split(/[\/\\]/).pop()}`;
+           if (await this.storageService.exists(prefixedKey)) {
+               existingPdfBytes = await this.storageService.read(prefixedKey);
+           }
+        }
+      }
+    } catch (err) {
+      console.warn('Could not read PDF template from StorageService:', err);
+    }
+    
+    // Fallback: Nếu không tìm thấy trên StorageService, đọc trực tiếp từ Local FS (Để tương thích ngược với các file đã lưu cũ)
+    if (!existingPdfBytes) {
+      const candidatePaths = [
+        storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',
+        storageKey ? path.join(process.cwd(), 'storage', 'uploads', storageKey) : '',
+        rawUrl ? path.join(process.cwd(), 'storage', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
+        rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
+        rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).split(/[\/\\]/).pop() || '') : '',
+        rawUrl ? path.join(process.cwd(), 'storage', 'uploads', rawUrl.split(/[\/\\]/).pop() || '') : '',
+      ].filter(Boolean);
 
-    const candidatePaths = [
-      storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',
-      storageKey ? path.join(process.cwd(), 'storage', 'uploads', storageKey) : '',
-      rawUrl ? path.join(process.cwd(), 'storage', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
-      rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
-      rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).split(/[\/\\]/).pop() || '') : '',
-      rawUrl ? path.join(process.cwd(), 'storage', 'uploads', rawUrl.split(/[\/\\]/).pop() || '') : '',
-    ].filter(Boolean);
-
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p)) {
-        existingPdfBytes = fs.readFileSync(p);
-        break;
+      for (const p of candidatePaths) {
+        if (fs.existsSync(p)) {
+          existingPdfBytes = fs.readFileSync(p);
+          break;
+        }
       }
     }
 
     if (!existingPdfBytes) {
-      console.error('Error generating PDF: Could not find template file at paths:', candidatePaths);
+      console.error('Error generating PDF: Could not find template file for contract', contractId);
       return null;
     }
     try {
@@ -504,12 +526,15 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
       const pdfBytes = await pdfDoc.save();
       const fileName = `signed_${contractId}.pdf`;
-      const outPath = path.join(process.cwd(), 'storage', 'contracts', fileName);
-      if (!fs.existsSync(path.dirname(outPath))) {
-        fs.mkdirSync(path.dirname(outPath), { recursive: true });
-      }
-      fs.writeFileSync(outPath, pdfBytes);
-      return `/uploads/contracts/${fileName}`;
+      
+      const uploadResult = await this.storageService.upload({
+        buffer: Buffer.from(pdfBytes),
+        fileName,
+        mimeType: 'application/pdf',
+        storageKey: `contracts/${fileName}`,
+      });
+      
+      return uploadResult.fileUrl;
     } catch (error) {
       console.error('Error generating PDF:', error);
       return null;
