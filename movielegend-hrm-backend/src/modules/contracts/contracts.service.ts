@@ -406,34 +406,39 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     const storageKey = contract.signedFileUrl ? '' : (contract.contractTemplateVersion.storageKey || '');
 
     let existingPdfBytes: Buffer | null = null;
-    let keyToRead = storageKey || this.storageService.extractKeyFromUrl(rawUrl) || (rawUrl ? decodeURIComponent(rawUrl).replace(/^\/uploads\//, '') : '');
     
-    try {
-      if (keyToRead) {
-        if (await this.storageService.exists(keyToRead)) {
-          existingPdfBytes = await this.storageService.read(keyToRead);
-        } else {
-           // Fallback cho local uploads folder format cũ
-           const prefixedKey = `uploads/${keyToRead.split(/[\/\\]/).pop()}`;
-           if (await this.storageService.exists(prefixedKey)) {
-               existingPdfBytes = await this.storageService.read(prefixedKey);
+    const candidates = [
+      this.storageService.extractKeyFromUrl(rawUrl),
+      rawUrl ? decodeURIComponent(rawUrl).replace(/^\/uploads\//, '') : null,
+      storageKey,
+      storageKey ? `uploads/${storageKey.split(/[\/\\]/).pop()}` : null
+    ].filter(Boolean) as string[];
+
+    // Thử đọc từ StorageService (S3 hoặc Local)
+    for (const key of candidates) {
+      try {
+        if (await this.storageService.exists(key)) {
+          existingPdfBytes = await this.storageService.read(key);
+          break;
+        }
+      } catch (err) {
+        // Bỏ qua lỗi và thử key tiếp theo
+      }
+    }
+
+    // Fallback: Đọc trực tiếp từ Local FS (Để tương thích ngược với các file đã lưu cũ)
+    if (!existingPdfBytes) {
+      const candidatePaths = [];
+      for (const key of candidates) {
+        candidatePaths.push(path.join(process.cwd(), 'storage', key));
+        candidatePaths.push(path.join(process.cwd(), 'storage', 'uploads', key));
+        if (rawUrl) {
+           const fileStr = rawUrl.split(/[\/\\]/).pop();
+           if (fileStr) {
+               candidatePaths.push(path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(fileStr)));
            }
         }
       }
-    } catch (err) {
-      console.warn('Could not read PDF template from StorageService:', err);
-    }
-    
-    // Fallback: Nếu không tìm thấy trên StorageService, đọc trực tiếp từ Local FS (Để tương thích ngược với các file đã lưu cũ)
-    if (!existingPdfBytes) {
-      const candidatePaths = [
-        storageKey ? path.join(process.cwd(), 'storage', storageKey) : '',
-        storageKey ? path.join(process.cwd(), 'storage', 'uploads', storageKey) : '',
-        rawUrl ? path.join(process.cwd(), 'storage', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
-        rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).replace(/^\/uploads\//, '')) : '',
-        rawUrl ? path.join(process.cwd(), 'storage', 'uploads', decodeURIComponent(rawUrl).split(/[\/\\]/).pop() || '') : '',
-        rawUrl ? path.join(process.cwd(), 'storage', 'uploads', rawUrl.split(/[\/\\]/).pop() || '') : '',
-      ].filter(Boolean);
 
       for (const p of candidatePaths) {
         if (fs.existsSync(p)) {
@@ -444,14 +449,6 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     }
 
     if (!existingPdfBytes) {
-      console.error('DEBUG PDF GEN:', {
-        contractId,
-        rawUrl,
-        storageKey,
-        keyToRead,
-        extractedKey: this.storageService.extractKeyFromUrl(rawUrl),
-        publicDomain: (this.storageService as any).publicDomain
-      });
       console.error('Error generating PDF: Could not find template file for contract', contractId);
       return null;
     }
