@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Pressable, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { apiClient } from '../../../api/client';
+import { useAuth } from '../../../providers/AuthProvider';
 
 export function EditProfileModal({ visible, onClose, initialPhone = '', initialEmail = '' }: any) {
   const [editForm, setEditForm] = useState({ phone: '', email: '' });
   const [isSaving, setIsSaving] = useState(false);
+  const { reloadProfile } = useAuth();
 
   useEffect(() => {
     if (visible) {
@@ -16,7 +18,8 @@ export function EditProfileModal({ visible, onClose, initialPhone = '', initialE
     try {
       setIsSaving(true);
       await apiClient.patch('/users/me', { phone: editForm.phone, email: editForm.email });
-      Alert.alert('Thành công', 'Cập nhật thông tin thành công. Vui lòng đăng nhập lại bằng số điện thoại mới.', [
+      await reloadProfile();
+      Alert.alert('Thành công', 'Cập nhật thông tin thành công.', [
         { text: 'OK', onPress: () => {
            onClose();
         }}

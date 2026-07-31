@@ -7,6 +7,7 @@ import { StorageService } from '../storage/storage.service';
 import { UpdateFaceDto, UpdateMeDto } from './dto/update-me.dto';
 import { FacePoseType, UploadPurpose } from '@prisma/client';
 import { badRequest } from '../../common/utils/error.util';
+import { RealtimeEventsService } from '../realtime/realtime-events.service';
 
 @Injectable()
 export class UsersService {
@@ -14,6 +15,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
     private readonly storage: StorageService,
+    private readonly realtime: RealtimeEventsService,
   ) { }
 
   async updateMe(dto: UpdateMeDto, actor: AuthenticatedUser) {
@@ -69,6 +71,10 @@ export class UsersService {
       });
 
       const { passwordHash: _hash, ...safeUser } = updatedUser;
+
+      // Phát sự kiện realtime để app nhận biết cập nhật (nếu đang online)
+      this.realtime.emitToUser(actor.userId, 'user.profile.updated', safeUser);
+
       return safeUser;
     });
   }
