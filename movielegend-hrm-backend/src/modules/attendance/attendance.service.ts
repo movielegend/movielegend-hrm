@@ -747,9 +747,6 @@ export class AttendanceService {
   }
 
   private async assertIpAllowed(actor: AuthenticatedUser, location: any, rawIp: string, wifiSsid?: string): Promise<void> {
-    const fs = require('fs');
-    fs.appendFileSync('debug-attendance.log', `[${new Date().toISOString()}] assertIpAllowed - rawIp: ${rawIp}, roles: ${actor.roles}\n`);
-    fs.appendFileSync('debug-attendance.log', `[${new Date().toISOString()}] assertIpAllowed - allowedIps: ${JSON.stringify(location?.allowedIps)}\n`);
     if (actor.roles.includes('ADMIN')) return;
     
     // Clean IPv4 prefix if present (e.g. ::ffff:192.168.1.55 -> 192.168.1.55)
