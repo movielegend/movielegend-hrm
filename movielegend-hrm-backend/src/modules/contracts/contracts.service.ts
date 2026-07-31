@@ -668,6 +668,21 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       await tx.employeeContract.delete({ where: { id } });
     });
 
+    // Delete files from cloud storage
+    const filesToDelete = [contract.signedFileUrl, contract.draftFileUrl].filter(Boolean);
+    for (const url of filesToDelete) {
+      if (url) {
+        const key = this.storageService.extractKeyFromUrl(url);
+        if (key) {
+          try {
+            await this.storageService.delete(key);
+          } catch (err) {
+            console.warn(`Could not delete file ${key} from storage:`, err);
+          }
+        }
+      }
+    }
+
     return { success: true };
   }
 
