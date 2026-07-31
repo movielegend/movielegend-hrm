@@ -175,3 +175,7 @@
 [2026-07-30T03:42:08.968Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
 [2026-07-30T03:49:43.309Z] assertIpAllowed - rawIp: 127.0.0.1, roles: EMPLOYEE
 [2026-07-30T03:49:43.310Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
+[2026-07-31T02:48:59.112Z] assertIpAllowed - rawIp: 127.0.0.1, roles: LEADER,EMPLOYEE
+[2026-07-31T02:48:59.112Z] assertIpAllowed - allowedIps: ["1.55.131.119"]
+[2026-07-31T03:28:01.273Z] assertIpAllowed - rawIp: 127.0.0.1, roles: LEADER,HR,EMPLOYEE
+[2026-07-31T03:28:01.273Z] assertIpAllowed - allowedIps: ["1.55.131.119"]

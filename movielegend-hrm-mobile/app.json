@@ -44,19 +44,19 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
+          "cameraPermission": "Ứng dụng cần quyền truy cập camera để chụp ảnh xác thực khuôn mặt khi nhân viên chấm công."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app accesses your photos to let you share them with your friends."
+          "photosPermission": "Ứng dụng cần quyền truy cập thư viện ảnh để bạn có thể tải lên biên bản, hoá đơn hoặc giấy tờ liên quan."
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+          "locationAlwaysAndWhenInUsePermission": "Ứng dụng cần quyền truy cập vị trí để xác minh bạn đang đứng tại văn phòng công ty khi chấm công."
         }
       ],
       "expo-local-authentication",
@@ -97,9 +97,10 @@
         "origin": false
       },
       "eas": {
-        "projectId": "480760f5-17c0-48dd-8172-da7fca0f2daa"
+        "projectId": "4a5152ea-87fd-4faf-829b-63e01ed4de9d"
       }
     },
     "runtimeVersion": "1.0.0",
+    "owner": "movielegend6868"
   }
 }
