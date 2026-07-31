@@ -18,11 +18,11 @@ export class S3StorageService implements StorageService {
 
   constructor(private configService: ConfigService) {
     const endpoint = this.configService.get<string>('S3_ENDPOINT');
-    const accessKeyId = this.configService.get<string>('S3_ACCESS_KEY_ID');
-    const secretAccessKey = this.configService.get<string>('S3_SECRET_ACCESS_KEY');
+    const accessKeyId = this.configService.get<string>('S3_ACCESS_KEY_ID')!;
+    const secretAccessKey = this.configService.get<string>('S3_SECRET_ACCESS_KEY')!;
     const region = this.configService.get<string>('S3_REGION') || 'auto';
-    this.bucketName = this.configService.get<string>('S3_BUCKET_NAME');
-    this.publicDomain = this.configService.get<string>('S3_PUBLIC_DOMAIN');
+    this.bucketName = this.configService.get<string>('S3_BUCKET_NAME')!;
+    this.publicDomain = this.configService.get<string>('S3_PUBLIC_DOMAIN')!;
 
     this.s3Client = new S3Client({
       region,

@@ -5,14 +5,21 @@ import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUserGuide } from '../../components/UserGuideManager';
+import { EditProfileModal } from './components/EditProfileModal';
 import type { DashboardRole } from '../../api/dashboard.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { apiClient } from '../../api/client';
 
 export function MyProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { showGuideManual } = useUserGuide();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ phone: '', email: '' });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const openEdit = () => setIsEditing(true);
 
   const handleReplayOnboarding = () => {
     showGuideManual();
@@ -52,8 +59,8 @@ export function MyProfileScreen() {
           <Text style={styles.sectionTitle}>Thông tin liên hệ & Công việc</Text>
           <View style={styles.infoCard}>
             <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
-            <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
-            <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
+            <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
+            <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
             <InfoRow
               icon="face-recognition"
@@ -72,6 +79,13 @@ export function MyProfileScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <EditProfileModal 
+        visible={isEditing} 
+        onClose={() => setIsEditing(false)} 
+        initialPhone={user?.phone || ''} 
+        initialEmail={user?.email || ''} 
+      />
     </Screen>
   );
 }

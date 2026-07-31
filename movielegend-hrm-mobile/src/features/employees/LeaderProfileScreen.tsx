@@ -10,14 +10,17 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { useUserGuide } from '../../components/UserGuideManager';
+import { EditProfileModal } from './components/EditProfileModal';
 
 export function LeaderProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
   const { showGuideManual } = useUserGuide();
-
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const openEdit = () => setIsEditing(true);
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -58,8 +61,8 @@ export function LeaderProfileScreen() {
           <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
           <View style={styles.infoCard}>
             <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
-            <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
-            <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} />
+            <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
+            <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
             <InfoRow
               icon="face-recognition"
@@ -127,6 +130,13 @@ export function LeaderProfileScreen() {
           setShowLogoutConfirm(false);
           void logout();
         }}
+      />
+
+      <EditProfileModal 
+        visible={isEditing} 
+        onClose={() => setIsEditing(false)} 
+        initialPhone={user?.phone || ''} 
+        initialEmail={user?.email || ''} 
       />
     </View>
   );

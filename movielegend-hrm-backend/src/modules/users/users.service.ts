@@ -24,6 +24,16 @@ export class UsersService {
       });
       if (!user) throw notFound('USER_NOT_FOUND', 'Người dùng không tồn tại');
 
+      if (dto.phone && dto.phone !== user.phone) {
+        const existingPhone = await tx.user.findUnique({ where: { phone: dto.phone } });
+        if (existingPhone) throw badRequest('PHONE_ALREADY_EXISTS', 'Số điện thoại này đã được sử dụng bởi tài khoản khác');
+      }
+
+      if (dto.email && dto.email !== user.email) {
+        const existingEmail = await tx.user.findUnique({ where: { email: dto.email } });
+        if (existingEmail) throw badRequest('EMAIL_ALREADY_EXISTS', 'Email này đã được sử dụng bởi tài khoản khác');
+      }
+
       // Nếu có cập nhật Avatar mới và Avatar cũ tồn tại, thì trích xuất key và xóa rác
       if (dto.avatarUrl !== undefined && user.profile?.avatarUrl && dto.avatarUrl !== user.profile.avatarUrl) {
         const oldKey = this.storage.extractKeyFromUrl(user.profile.avatarUrl);
