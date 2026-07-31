@@ -733,6 +733,10 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
     data.contractTemplateVersion?.templateFileUrl ||
     (data as any).contractTemplate?.templateFileUrl;
 
+  const hasCompanyAction = Array.isArray(data.contractTemplateVersion?.mappingConfig)
+    ? data.contractTemplateVersion.mappingConfig.some((f: any) => f.role === "COMPANY")
+    : false;
+
   async function handleAction(action: () => Promise<unknown>, label: string) {
     try {
       await action();
@@ -922,14 +926,31 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
               </SecondaryButton>
             )}
           {status === "WAITING_COMPANY_SIGNATURE" &&
-            user?.roles?.includes("ADMIN") && (
+            user?.roles?.includes("ADMIN") &&
+            (hasCompanyAction ? (
               <SecondaryButton
                 onPress={() => setSignatureVisible(true)}
                 style={{ marginTop: 8 }}
               >
                 ✍️ Ký điện tử (Đại diện Công ty)
               </SecondaryButton>
-            )}
+            ) : (
+              <PrimaryButton
+                onPress={() =>
+                  handleAction(
+                    () =>
+                      signCompanyContract.mutateAsync({
+                        signatureType: "DRAWN",
+                      } as any),
+                    "Đã xác nhận hoàn thành hợp đồng"
+                  )
+                }
+                loading={signCompanyContract.isPending}
+                style={{ marginTop: 8 }}
+              >
+                Xác nhận hoàn thành
+              </PrimaryButton>
+            ))}
           {((status === "WAITING_EMPLOYEE_SIGNATURE" &&
             (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
             (status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
