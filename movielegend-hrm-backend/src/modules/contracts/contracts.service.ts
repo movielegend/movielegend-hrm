@@ -466,18 +466,25 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
             if (textValue !== undefined && textValue !== null && String(textValue).trim() !== '') {
               const cleanText = String(textValue).replace(/[\r\n]+/g, ' ').trim();
               const fontSize = field.fontSize || 11;
+              
+              // Tính toán lại Y để đường baseline của chữ nằm vào khoảng giữa khung
+              const boxHeight = field.height || 30;
+              const textY = field.y + (boxHeight / 2) - (fontSize / 2.5);
+
               if (customFont) {
-                page.drawText(cleanText, { x: field.x, y: field.y, size: fontSize, font: customFont });
+                page.drawText(cleanText, { x: field.x + 5, y: textY, size: fontSize, font: customFont });
               } else {
                 const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
                 const safeText = removeAccents(cleanText);
-                page.drawText(safeText, { x: field.x, y: field.y, size: fontSize });
+                page.drawText(safeText, { x: field.x + 5, y: textY, size: fontSize });
               }
             }
           } else if (field.type === 'checkbox') {
             const isChecked = filledFields[field.id] === true || filledFields[field.id] === 'true';
             if (isChecked) {
-              page.drawText('V', { x: field.x, y: field.y, size: 14 });
+              const boxHeight = field.height || 30;
+              const checkY = field.y + (boxHeight / 2) - (14 / 2.5);
+              page.drawText('V', { x: field.x + 5, y: checkY, size: 14 });
             }
           } else if (field.type === 'signature' && (!field.role || field.role === role)) {
             try {

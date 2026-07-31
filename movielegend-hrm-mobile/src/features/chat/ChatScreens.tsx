@@ -273,6 +273,17 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 // ── Chat Room Screen ──
 
 export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupName?: string }) {
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -417,8 +428,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior="padding"
-        keyboardVerticalOffset={insets.bottom}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={0}
+        enabled={Platform.OS === 'ios' ? true : isKeyboardVisible}
       >
         <View style={styles.chatContainer}>
           {/* Header */}
@@ -624,7 +636,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )}
 
           {/* Input */}
-          <View style={[styles.chatInputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <View style={[styles.chatInputRow, { paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, 10) }]}>
             <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
               <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
             </Pressable>
