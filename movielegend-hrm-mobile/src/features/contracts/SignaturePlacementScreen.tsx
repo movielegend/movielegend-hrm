@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, TextInput, ScrollView } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -9,6 +9,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { resolveFileUrl } from '../../utils/url';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Picker } from '@react-native-picker/picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function SignaturePlacementScreen() {
   const params = useLocalSearchParams();
@@ -31,6 +32,9 @@ export function SignaturePlacementScreen() {
   
   const [showFieldModal, setShowFieldModal] = useState(false);
   const [editingField, setEditingField] = useState<any>(null);
+  
+  const [showFontSizeModal, setShowFontSizeModal] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (initialConfigStr) {
@@ -170,6 +174,19 @@ export function SignaturePlacementScreen() {
                 el.className = 'field-box' + (field.selected ? ' selected' : '');
                 el.style.width = (size.w * currentScale) + 'px';
                 el.style.height = (size.h * currentScale) + 'px';
+                if (field.type === 'text') {
+                    el.style.fontSize = (field.fontSize || 12) * currentScale + 'px';
+                    el.style.justifyContent = 'flex-start';
+                    el.style.alignItems = 'flex-end';
+                    el.style.paddingLeft = (5 * currentScale) + 'px';
+                    el.style.paddingBottom = (2 * currentScale) + 'px';
+                } else {
+                    el.style.fontSize = (12 * currentScale) + 'px';
+                    el.style.justifyContent = 'center';
+                    el.style.alignItems = 'center';
+                    el.style.paddingLeft = '0px';
+                    el.style.paddingBottom = '0px';
+                }
                 el.innerText = field.label || field.id;
             });
 
@@ -270,13 +287,40 @@ export function SignaturePlacementScreen() {
     } catch (e) {}
   };
 
+  const getMaxFontSize = (w: number, h: number, label?: string) => {
+    const textLen = Math.max(1, (label || '').length);
+    const maxByWidth = Math.floor(w / (textLen * 0.6));
+    return Math.max(8, Math.min(h, maxByWidth));
+  };
+
   const resizeSelectedField = (dw: number, dh: number) => {
     if (!selectedFieldId) return;
     setFields(prev => prev.map(f => {
       if (f.id === selectedFieldId) {
         const curW = f.width || getBoxSizeDefault(f.type).w;
         const curH = f.height || getBoxSizeDefault(f.type).h;
-        return { ...f, width: Math.max(20, curW + dw), height: Math.max(20, curH + dh) };
+        const newW = Math.max(20, curW + dw);
+        const newH = Math.max(20, curH + dh);
+        let newFontSize = f.fontSize || 12;
+        if (f.type === 'text') {
+            const maxFS = getMaxFontSize(newW, newH, f.label || f.id);
+            newFontSize = Math.min(newFontSize, maxFS);
+        }
+        return { ...f, width: newW, height: newH, fontSize: newFontSize };
+      }
+      return f;
+    }));
+  };
+
+  const updateSelectedFieldFontSize = (newSize: number) => {
+    if (!selectedFieldId) return;
+    setFields(prev => prev.map(f => {
+      if (f.id === selectedFieldId && f.type === 'text') {
+        const curW = f.width || getBoxSizeDefault(f.type).w;
+        const curH = f.height || getBoxSizeDefault(f.type).h;
+        const maxFS = getMaxFontSize(curW, curH, f.label || f.id);
+        const clampedSize = Math.max(8, Math.min(newSize, maxFS));
+        return { ...f, fontSize: clampedSize };
       }
       return f;
     }));
@@ -297,6 +341,7 @@ export function SignaturePlacementScreen() {
       page: currentPage,
       x: 100,
       y: 100,
+      fontSize: 12,
     });
     setShowFieldModal(true);
   };
@@ -332,8 +377,44 @@ export function SignaturePlacementScreen() {
     }
   };
 
+  const updateFieldWidth = (dw: number) => {
+    if (!editingField) return;
+    const curW = editingField.width || getBoxSizeDefault(editingField.type).w;
+    const curH = editingField.height || getBoxSizeDefault(editingField.type).h;
+    const newW = Math.max(20, curW + dw);
+    let newFontSize = editingField.fontSize || 12;
+    if (editingField.type === 'text') {
+        const maxFS = getMaxFontSize(newW, curH, editingField.label);
+        newFontSize = Math.min(newFontSize, maxFS);
+    }
+    setEditingField({ ...editingField, width: newW, fontSize: newFontSize });
+  };
+
+  const updateFieldHeight = (dh: number) => {
+    if (!editingField) return;
+    const curW = editingField.width || getBoxSizeDefault(editingField.type).w;
+    const curH = editingField.height || getBoxSizeDefault(editingField.type).h;
+    const newH = Math.max(20, curH + dh);
+    let newFontSize = editingField.fontSize || 12;
+    if (editingField.type === 'text') {
+        const maxFS = getMaxFontSize(curW, newH, editingField.label);
+        newFontSize = Math.min(newFontSize, maxFS);
+    }
+    setEditingField({ ...editingField, height: newH, fontSize: newFontSize });
+  };
+
+  const updateFieldFontSize = (df: number) => {
+    if (!editingField || editingField.type !== 'text') return;
+    const curW = editingField.width || getBoxSizeDefault(editingField.type).w;
+    const curH = editingField.height || getBoxSizeDefault(editingField.type).h;
+    const curFontSize = editingField.fontSize || 12;
+    const maxFS = getMaxFontSize(curW, curH, editingField.label);
+    const newFontSize = Math.max(8, Math.min(curFontSize + df, maxFS));
+    setEditingField({ ...editingField, fontSize: newFontSize });
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
@@ -382,6 +463,18 @@ export function SignaturePlacementScreen() {
               <Text style={{fontSize: 11, fontWeight: '600', marginHorizontal: 2, minWidth: 26, textAlign: 'center'}}>Cao</Text>
               <Pressable onPress={() => resizeSelectedField(0, 10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={18} color={colors.text}/></Pressable>
             </View>
+            
+            {fields.find(f => f.id === selectedFieldId)?.type === 'text' && (
+              <View style={{flexDirection: 'row', alignItems: 'center', marginLeft: 4}}>
+                <Text style={{fontSize: 11, fontWeight: '600', marginRight: 4}}>Cỡ chữ</Text>
+                <Pressable 
+                  onPress={() => setShowFontSizeModal(true)}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, height: 26, width: 50, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}
+                >
+                  <Text style={{fontSize: 12}}>{fields.find(f => f.id === selectedFieldId)?.fontSize || 12}</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
 
           <SecondaryButton onPress={() => {
@@ -395,13 +488,47 @@ export function SignaturePlacementScreen() {
         <PrimaryButton onPress={handleSaveAll} loading={updateMapping.isPending} style={styles.saveBtn}>Lưu cấu hình</PrimaryButton>
       </View>
 
+      <Modal visible={showFontSizeModal} transparent animationType="fade" onRequestClose={() => setShowFontSizeModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowFontSizeModal(false)}>
+          <View style={[styles.modalContent, { width: 200, padding: 0, maxHeight: 300 }]}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', textAlign: 'center' }}>Chọn cỡ chữ</Text>
+            </View>
+            <ScrollView bounces={false}>
+              {[8, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(size => (
+                <Pressable 
+                  key={size}
+                  style={({pressed}) => [{ paddingVertical: 12, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }, pressed && { backgroundColor: '#f9fafb' }]}
+                  onPress={() => {
+                    updateSelectedFieldFontSize(size);
+                    setShowFontSizeModal(false);
+                  }}
+                >
+                  <Text style={{ fontSize: 16, textAlign: 'center' }}>{size}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
+
       <Modal visible={showFieldModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Thuộc tính Trường</Text>
             
             <Text style={styles.label}>Tên ngắn gọn (hiển thị trên hộp)</Text>
-            <TextInput style={styles.input} value={editingField?.label} onChangeText={(text) => setEditingField({...editingField, label: text})} />
+            <TextInput style={styles.input} value={editingField?.label} onChangeText={(text) => {
+              if (editingField?.type === 'text') {
+                const curW = editingField.width || getBoxSizeDefault(editingField.type).w;
+                const curH = editingField.height || getBoxSizeDefault(editingField.type).h;
+                const maxFS = getMaxFontSize(curW, curH, text);
+                const newFontSize = Math.min(editingField.fontSize || 12, maxFS);
+                setEditingField({...editingField, label: text, fontSize: newFontSize});
+              } else {
+                setEditingField({...editingField, label: text});
+              }
+            }} />
 
             <Text style={styles.label}>Mô tả chi tiết (hiển thị cho NV khi điền/tích)</Text>
             <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} multiline numberOfLines={2} value={editingField?.description} onChangeText={(text) => setEditingField({...editingField, description: text})} placeholder="VD: Tích vào đây nếu bạn đồng ý trích nộp quỹ công đoàn..." />
@@ -427,20 +554,31 @@ export function SignaturePlacementScreen() {
               <View style={{flex: 1}}>
                 <Text style={styles.label}>Chiều rộng</Text>
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
-                  <Pressable onPress={() => setEditingField({...editingField, width: Math.max(20, (editingField?.width || getBoxSizeDefault(editingField?.type).w) - 10)})} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
+                  <Pressable onPress={() => updateFieldWidth(-10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
                   <Text style={{fontWeight: '600'}}>{editingField?.width || getBoxSizeDefault(editingField?.type || 'text').w}</Text>
-                  <Pressable onPress={() => setEditingField({...editingField, width: (editingField?.width || getBoxSizeDefault(editingField?.type).w) + 10})} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
+                  <Pressable onPress={() => updateFieldWidth(10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
                 </View>
               </View>
               <View style={{flex: 1}}>
                 <Text style={styles.label}>Chiều cao</Text>
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
-                  <Pressable onPress={() => setEditingField({...editingField, height: Math.max(20, (editingField?.height || getBoxSizeDefault(editingField?.type).h) - 10)})} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
+                  <Pressable onPress={() => updateFieldHeight(-10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
                   <Text style={{fontWeight: '600'}}>{editingField?.height || getBoxSizeDefault(editingField?.type || 'text').h}</Text>
-                  <Pressable onPress={() => setEditingField({...editingField, height: (editingField?.height || getBoxSizeDefault(editingField?.type).h) + 10})} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
+                  <Pressable onPress={() => updateFieldHeight(10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
                 </View>
               </View>
             </View>
+
+            {editingField?.type === 'text' && (
+              <View style={{marginTop: 12, width: '48%'}}>
+                <Text style={styles.label}>Cỡ chữ</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
+                  <Pressable onPress={() => updateFieldFontSize(-1)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
+                  <Text style={{fontWeight: '600'}}>{editingField?.fontSize || 12}</Text>
+                  <Pressable onPress={() => updateFieldFontSize(1)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
+                </View>
+              </View>
+            )}
 
             <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 24}}>
               <SecondaryButton onPress={handleDeleteField} style={{borderColor: colors.error}}>Xoá</SecondaryButton>
