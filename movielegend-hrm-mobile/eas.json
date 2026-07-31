@@ -8,8 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "image": "ubuntu-22.04"
+        "buildType": "apk"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://glimmer-icky-status.ngrok-free.dev/api/v1",
@@ -19,8 +18,7 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "image": "ubuntu-22.04"
+        "buildType": "apk"
       },
       "ios": {
         "simulator": true
@@ -35,8 +33,7 @@
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "apk",
-        "image": "ubuntu-22.04"
+        "buildType": "apk"
       },
       "ios": {
         "enterpriseProvisioning": "adhoc"

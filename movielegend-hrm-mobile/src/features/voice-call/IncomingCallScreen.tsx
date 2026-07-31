@@ -43,7 +43,7 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
         });
 
         const { sound: newSound } = await Audio.Sound.createAsync(
-          require('../../../../assets/nhac_chuong_Dai_ca_oi_co_dien_thoai_ban_goc_ngan-www_tiengdong_com.mp3'),
+          require('../../../../assets/sounds/ringtone.wav'),
           { isLooping: true }
         );
         

@@ -14,7 +14,7 @@ const CALL_NOTIFICATION_ID = 'incoming_voice_call';
 export async function setupCallNotificationChannel() {
   if (!Notifications) return;
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('incoming_calls_v3', {
+    await Notifications.setNotificationChannelAsync('incoming_calls_v4', {
       name: 'Cuộc gọi đến',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 500, 200, 500, 200, 500],
@@ -68,7 +68,7 @@ export async function showIncomingCallNotification(callerName: string, callerId:
           callerName,
           callerAvatar: callerAvatar || null,
         },
-        ...(Platform.OS === 'android' ? { channelId: 'incoming_calls_v3' } : {}),
+        ...(Platform.OS === 'android' ? { channelId: 'incoming_calls_v4' } : {}),
       },
       trigger: null, // Show immediately
     });
