@@ -175,6 +175,7 @@ export class AttendanceService {
           checkInAt: now,
           checkInLatitude: dto.latitude,
           checkInLongitude: dto.longitude,
+          checkInIp: ip,
           verifications: {
             create: [
               {
@@ -285,6 +286,7 @@ export class AttendanceService {
           checkOutLatitude: dto.latitude,
           checkOutLongitude: dto.longitude,
           checkOutPhotoFileId: photo?.id,
+          checkOutIp: ip,
           status: AttendanceStatus.CHECKED_OUT,
         },
       });

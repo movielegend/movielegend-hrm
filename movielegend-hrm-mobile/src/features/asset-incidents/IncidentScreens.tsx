@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import ImageView from 'react-native-image-viewing';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { Video, ResizeMode } from 'expo-av';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
