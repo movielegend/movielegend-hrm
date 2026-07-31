@@ -444,6 +444,14 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     }
 
     if (!existingPdfBytes) {
+      console.error('DEBUG PDF GEN:', {
+        contractId,
+        rawUrl,
+        storageKey,
+        keyToRead,
+        extractedKey: this.storageService.extractKeyFromUrl(rawUrl),
+        publicDomain: (this.storageService as any).publicDomain
+      });
       console.error('Error generating PDF: Could not find template file for contract', contractId);
       return null;
     }
