@@ -426,7 +426,8 @@ export function ContractListScreen() {
                         tone={getStatusTone(contract.status)}
                       />
                       {(contract.status === "WAITING_EMPLOYEE_SIGNATURE" ||
-                        contract.status === "DRAFT") && (
+                        contract.status === "DRAFT" ||
+                        (contract.status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation();
@@ -844,8 +845,9 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                 ✍️ Ký điện tử (Đại diện Công ty)
               </SecondaryButton>
             )}
-          {status === "WAITING_EMPLOYEE_SIGNATURE" &&
-            (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR")) && (
+          {((status === "WAITING_EMPLOYEE_SIGNATURE" &&
+            (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
+            (status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
               <Pressable
                 style={{
                   backgroundColor: "#fee2e2",
@@ -2191,7 +2193,8 @@ export function HRContractListScreen() {
                           tone={getStatusTone(contract.status)}
                         />
                         {(contract.status === "WAITING_EMPLOYEE_SIGNATURE" ||
-                          contract.status === "DRAFT") && (
+                          contract.status === "DRAFT" ||
+                          (contract.status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
                           <Pressable
                             onPress={(e) => {
                               e.stopPropagation();

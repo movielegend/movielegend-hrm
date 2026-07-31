@@ -585,7 +585,11 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     await this.assertCanManageContract(contract.userId, actor);
 
     if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE && contract.status !== ContractStatus.DRAFT) {
-      throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Can only delete draft contracts or contracts waiting for employee signature');
+      if (contract.status === ContractStatus.WAITING_COMPANY_SIGNATURE && actor.roles?.includes('ADMIN')) {
+        // Allow ADMIN to delete waiting company signature contracts
+      } else {
+        throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Can only delete draft contracts or contracts waiting for signature');
+      }
     }
 
     await this.prisma.$transaction(async (tx) => {
