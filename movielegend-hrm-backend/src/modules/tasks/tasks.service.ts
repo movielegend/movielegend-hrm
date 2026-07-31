@@ -14,6 +14,7 @@ import { badRequest, conflict, forbidden, notFound } from '../../common/utils/er
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
+import { MediaStorageService } from '../storage/media-storage.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import {
@@ -40,6 +41,7 @@ export class TasksService {
     private readonly policy: TaskPolicyService,
     private readonly notifications: NotificationsService,
     private readonly storageService: StorageService,
+    private readonly mediaStorageService: MediaStorageService,
     private readonly realtime: RealtimeEventsService,
   ) { }
 
@@ -477,7 +479,7 @@ export class TasksService {
       
       // Bổ sung xóa file vật lý
       if (attachment.storageKey) {
-        await this.storageService.delete(attachment.storageKey).catch(e => {
+        await this.mediaStorageService.delete(attachment.storageKey).catch(e => {
           console.error(`Failed to delete file from storage: ${attachment.storageKey}`, e);
         });
       }

@@ -5,6 +5,7 @@ import { notFound, forbidden } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { StorageService } from '../storage/storage.service';
+import { MediaStorageService } from '../storage/media-storage.service';
 import { ScopedEmployeeQueryDto } from './dto/scoped-employee-query.dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class EmployeesService {
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,
     private readonly storage: StorageService,
+    private readonly mediaStorage: MediaStorageService,
   ) {}
 
   async findOne(id: string) {
@@ -183,9 +185,9 @@ export class EmployeesService {
 
     // Sau khi xóa DB thành công, thực hiện xóa file vật lý
     if (profile.avatarUrl) {
-      const avatarKey = this.storage.extractKeyFromUrl(profile.avatarUrl);
+      const avatarKey = this.mediaStorage.extractKeyFromUrl(profile.avatarUrl);
       if (avatarKey) {
-        await this.storage.delete(avatarKey).catch(e => console.error(`Lỗi xóa avatar cũ: ${avatarKey}`, e));
+        await this.mediaStorage.delete(avatarKey).catch(e => console.error(`Lỗi xóa avatar cũ: ${avatarKey}`, e));
       }
     }
 

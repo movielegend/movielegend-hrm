@@ -7,6 +7,7 @@ import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.in
 import { badRequest, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { MediaStorageService } from '../storage/media-storage.service';
 import { maxUploadSize, uploadPolicies } from './upload-policy';
 
 interface ParsedFile {
@@ -25,7 +26,14 @@ export class UploadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly mediaStorage: MediaStorageService,
   ) {}
+
+  private getStorageEngine(purpose: UploadPurpose): StorageService {
+    return [UploadPurpose.FACE_REGISTRATION, UploadPurpose.ATTENDANCE].includes(purpose as any)
+      ? this.storage
+      : this.mediaStorage;
+  }
 
   async uploadFromRequest(request: Request, actor?: AuthenticatedUser) {
     const parsed = await parseMultipartRequest(request);
@@ -41,7 +49,9 @@ export class UploadsService {
     const extension = extensionFor(parsed.file.fileName, parsed.file.mimeType);
     const storageKey = `${purpose.toLowerCase()}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${extension}`;
     const checksum = createHash('sha256').update(parsed.file.buffer).digest('hex');
-    const stored = await this.storage
+    const storageEngine = this.getStorageEngine(purpose);
+    
+    const stored = await storageEngine
       .upload({
         buffer: parsed.file.buffer,
         fileName: parsed.file.fileName,
@@ -67,7 +77,7 @@ export class UploadsService {
       });
       return toDto(record);
     } catch (error) {
-      await this.storage.delete(stored.storageKey);
+      await storageEngine.delete(stored.storageKey);
       throw error;
     }
   }
@@ -111,7 +121,8 @@ export class UploadsService {
       },
     });
     for (const file of files) {
-      await this.storage.delete(file.storageKey);
+      const storageEngine = this.getStorageEngine(file.purpose);
+      await storageEngine.delete(file.storageKey);
       await this.prisma.uploadedFile.update({
         where: { id: file.id },
         data: { status: UploadedFileStatus.DELETED, deletedAt: new Date() },
