@@ -467,9 +467,9 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
               const cleanText = String(textValue).replace(/[\r\n]+/g, ' ').trim();
               const fontSize = field.fontSize || 11;
               
-              // Tính toán lại Y để đường baseline của chữ nằm vào khoảng giữa khung
-              const boxHeight = field.height || 30;
-              const textY = field.y + (boxHeight / 2) - (fontSize / 2.5);
+              // Nếu bạn muốn chữ nằm ở lề dưới (bottom) của khung thay vì căn giữa
+              // Cộng thêm 2px để các chữ có đuôi (như g, y, p) không bị cắt lẹm ra ngoài khung
+              const textY = field.y + 2;
 
               if (customFont) {
                 page.drawText(cleanText, { x: field.x + 5, y: textY, size: fontSize, font: customFont });
@@ -482,8 +482,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           } else if (field.type === 'checkbox') {
             const isChecked = filledFields[field.id] === true || filledFields[field.id] === 'true';
             if (isChecked) {
-              const boxHeight = field.height || 30;
-              const checkY = field.y + (boxHeight / 2) - (14 / 2.5);
+              const checkY = field.y + 2;
               page.drawText('V', { x: field.x + 5, y: checkY, size: 14 });
             }
           } else if (field.type === 'signature' && (!field.role || field.role === role)) {
