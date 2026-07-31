@@ -185,6 +185,15 @@ export function ContractTemplatesScreen() {
               <Pressable 
                 key={tpl.id} 
                 style={styles.templateCard}
+                onPress={() => {
+                  const url = resolveFileUrl(tpl.templateFileUrl);
+                  if (url) {
+                    setPdfViewerUrl(url);
+                    setPdfViewerVisible(true);
+                  } else {
+                    Alert.alert("Lỗi", "Không tìm thấy file hợp đồng");
+                  }
+                }}
                 onLongPress={() => handleLongPressTemplate(tpl)}
                 delayLongPress={500}
               >
@@ -269,45 +278,6 @@ export function ContractTemplatesScreen() {
                       }}
                     >
                       Cấu hình
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={({ pressed }) => [
-                      {
-                        flex: 1,
-                        backgroundColor: colors.primary,
-                        borderRadius: 8,
-                        paddingVertical: 10,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexDirection: "row",
-                        gap: 6,
-                      },
-                      pressed && { opacity: 0.8 },
-                    ]}
-                    onPress={() => {
-                      const url = resolveFileUrl(tpl.templateFileUrl);
-                      if (url) {
-                        setPdfViewerUrl(url);
-                        setPdfViewerVisible(true);
-                      } else {
-                        Alert.alert("Lỗi", "Không tìm thấy file hợp đồng");
-                      }
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      size={18}
-                      color="#374151"
-                    />
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontWeight: "600",
-                        color: "#374151",
-                      }}
-                    >
-                      Xem PDF
                     </Text>
                   </Pressable>
 
