@@ -5,7 +5,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
-    "@livekit/react-native": "^2.6.0",
+    "@livekit/react-native": "^2.12.0",
     "@livekit/react-native-expo-plugin": "^1.0.1",
     "@livekit/react-native-webrtc": "^144.1.2",
     "@lottiefiles/dotlottie-react": "^0.13.5",
@@ -65,6 +65,7 @@
     "@types/jest": "^29.5.14",
     "@types/react": "~19.1.10",
     "jest-expo": "~54.0.17",
+    "patch-package": "^8.0.1",
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
   },
@@ -74,7 +75,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "patch-package"
   },
   "jest": {
     "preset": "jest-expo",
