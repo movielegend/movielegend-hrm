@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, TextInput, Modal, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import ImageView from 'react-native-image-viewing';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import Toast from 'react-native-toast-message';
 import { apiUrl } from '../../constants/env';
 

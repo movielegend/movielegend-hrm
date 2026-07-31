@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal } fr
 import { AttendanceCamera } from './AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
+import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from '../../lib/Maps';
@@ -18,7 +19,7 @@ import Toast from 'react-native-toast-message';
 export function CheckInScreen() {
   const router = useRouter();
   const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
-  
+
   // Find today's shift
   const todayStr = new Date().toISOString().substring(0, 10);
   const todayShift = schedule?.find(s => new Date(s.workDate).toISOString().substring(0, 10) === todayStr);
@@ -27,13 +28,29 @@ export function CheckInScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [ipv4, setIpv4] = useState<string>('Đang lấy IP...');
+  const [networkType, setNetworkType] = useState<string>('Đang kiểm tra...');
 
   useEffect(() => {
-    fetch('https://api.ipify.org?format=json')
-      .then(res => res.json())
-      .then(data => setIpv4(data.ip))
-      .catch(() => setIpv4('Không xác định'));
+    const getNetworkInfo = async () => {
+      try {
+        const state = await NetInfo.fetch();
+        if (state.type === 'wifi') {
+          const ssid = (state.details as any)?.ssid;
+          if (ssid && ssid !== '<unknown ssid>' && ssid !== 'unknown') {
+            setNetworkType(`Wi-Fi: ${ssid}`);
+          } else {
+            setNetworkType('Wi-Fi');
+          }
+        } else if (state.type === 'cellular') {
+          setNetworkType('Mạng Di động (4G/5G)');
+        } else {
+          setNetworkType(state.type ? String(state.type) : 'Không rõ');
+        }
+      } catch (e: any) {
+        setNetworkType('Lỗi: ' + e.message);
+      }
+    };
+    getNetworkInfo();
   }, []);
   const [isCameraVisible, setCameraVisible] = useState(false);
   const cameraRef = useRef<any>(null);
@@ -96,7 +113,7 @@ export function CheckInScreen() {
 
   const handleCaptureAndSubmit = async (photoUri: string) => {
     if (!location) return;
-    
+
     setLoading(true);
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
@@ -144,7 +161,7 @@ export function CheckInScreen() {
       <View style={styles.mapContainerWrapper}>
         <View style={styles.mapContainer}>
           {location ? (
-            <MapView 
+            <MapView
               style={styles.map}
               provider={PROVIDER_GOOGLE}
               initialRegion={{
@@ -166,8 +183,8 @@ export function CheckInScreen() {
         {/* Map Footer Info */}
         <View style={styles.mapFooter}>
           <Text style={styles.privacyText}>Quyền riêng tư</Text>
-          <Pressable 
-            style={styles.refreshBtn} 
+          <Pressable
+            style={styles.refreshBtn}
             onPress={() => void fetchLocation(true)}
             disabled={isRefreshingLocation}
           >
@@ -189,8 +206,8 @@ export function CheckInScreen() {
             <MaterialCommunityIcons name="wifi" size={24} color="#111827" />
           </View>
           <View style={styles.wifiInfoBox}>
-            <Text style={styles.wifiName}>IPv4: {ipv4}</Text>
-            <Text style={styles.wifiBssid}>IP Public đang kết nối</Text>
+            <Text style={styles.wifiName}>Mạng: {networkType}</Text>
+            <Text style={styles.wifiBssid}>Đang kết nối</Text>
           </View>
           <MaterialCommunityIcons name="check-circle" size={20} color="#111827" />
         </View>
@@ -211,26 +228,26 @@ export function CheckInScreen() {
           </Pressable>
         ) : (
           <View style={styles.emptyShiftCard}>
-             <MaterialCommunityIcons name="calendar-blank-outline" size={32} color="#9CA3AF" />
-             <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay</Text>
+            <MaterialCommunityIcons name="calendar-blank-outline" size={32} color="#9CA3AF" />
+            <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay</Text>
           </View>
         )}
       </View>
 
       {/* Camera Modal */}
       <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent>
-        <AttendanceCamera 
-          photoUri={null} 
-          onCapture={handleCaptureAndSubmit} 
-          onClose={() => setCameraVisible(false)} 
+        <AttendanceCamera
+          photoUri={null}
+          onCapture={handleCaptureAndSubmit}
+          onClose={() => setCameraVisible(false)}
         />
       </Modal>
 
       {/* Footer Confirm Button */}
       {todayShift && !isCameraVisible ? (
         <View style={styles.footer}>
-          <Pressable 
-            style={styles.confirmBtn} 
+          <Pressable
+            style={styles.confirmBtn}
             onPress={() => void handleConfirm()}
           >
             <Text style={styles.confirmBtnText}>Xác nhận</Text>

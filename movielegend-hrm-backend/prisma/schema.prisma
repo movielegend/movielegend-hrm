@@ -1359,6 +1359,8 @@ model AttendanceRecord {
   checkInLongitude    Decimal?                 @db.Decimal(10, 7)
   checkOutLatitude    Decimal?                 @db.Decimal(10, 7)
   checkOutLongitude   Decimal?                 @db.Decimal(10, 7)
+  checkInIp           String?
+  checkOutIp          String?
   status              AttendanceStatus         @default(CHECKED_IN)
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal } fr
 import { AttendanceCamera } from '../../../src/features/attendance/AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
+import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from '../../../src/lib/Maps';
@@ -27,13 +28,29 @@ export default function CheckInScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [ipv4, setIpv4] = useState<string>('Đang lấy IP...');
+  const [networkType, setNetworkType] = useState<string>('Đang kiểm tra...');
 
   useEffect(() => {
-    fetch('https://api.ipify.org?format=json')
-      .then(res => res.json())
-      .then(data => setIpv4(data.ip))
-      .catch(() => setIpv4('Không xác định'));
+    const getNetworkInfo = async () => {
+      try {
+        const state = await NetInfo.fetch();
+        if (state.type === 'wifi') {
+          const ssid = (state.details as any)?.ssid;
+          if (ssid && ssid !== '<unknown ssid>' && ssid !== 'unknown') {
+            setNetworkType(`Wi-Fi: ${ssid}`);
+          } else {
+            setNetworkType('Wi-Fi');
+          }
+        } else if (state.type === 'cellular') {
+          setNetworkType('Mạng Di động (4G/5G)');
+        } else {
+          setNetworkType(state.type ? String(state.type) : 'Không rõ');
+        }
+      } catch (e: any) {
+        setNetworkType('Lỗi: ' + e.message);
+      }
+    };
+    getNetworkInfo();
   }, []);
   const [isCameraVisible, setCameraVisible] = useState(false);
   const cameraRef = useRef<CameraView>(null);
@@ -189,8 +206,8 @@ export default function CheckInScreen() {
             <MaterialCommunityIcons name="wifi" size={24} color="#111827" />
           </View>
           <View style={styles.wifiInfoBox}>
-            <Text style={styles.wifiName}>IPv4: {ipv4}</Text>
-            <Text style={styles.wifiBssid}>IP Public đang kết nối</Text>
+            <Text style={styles.wifiName}>Mạng: {networkType}</Text>
+            <Text style={styles.wifiBssid}>Đang kết nối</Text>
           </View>
           <MaterialCommunityIcons name="check-circle" size={20} color="#111827" />
         </View>
