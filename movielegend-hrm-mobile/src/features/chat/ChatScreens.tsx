@@ -190,7 +190,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
               if (isDirect && group.name) {
                 const parts = group.name.split(' - ');
                 if (parts.length === 2) {
-                  const myName = user?.fullName || user?.userCode;
+                  const myName = user?.fullName || (user?.userCode === 'NV000001' ? 'Admin' : user?.userCode);
                   if (parts[0] === myName || parts[0] === 'User') {
                     groupName = parts[1];
                   } else if (parts[1] === myName || parts[1] === 'User') {
@@ -205,7 +205,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                 contentPreview = '[Nhãn dán]';
               }
               const isMine = lastMsg?.sender?.id === user?.id || lastMsg?.senderId === user?.id;
-              const senderName = isMine ? 'Bạn' : (lastMsg?.sender?.profile?.fullName ?? lastMsg?.sender?.userCode ?? 'Ai đó');
+              const senderName = isMine ? 'Bạn' : (lastMsg?.sender?.profile?.fullName ?? (lastMsg?.sender?.userCode === 'NV000001' ? 'Admin' : lastMsg?.sender?.userCode) ?? 'Ai đó');
               const lastMsgText = lastMsg
                 ? `${senderName}: ${contentPreview}`
                 : `${group._count?.members ?? group.members?.length ?? 0} thành viên`;
@@ -443,7 +443,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <MaterialCommunityIcons name="account-group" size={20} color="#111827" />
             </View>
             <View style={styles.chatHeaderInfo}>
-              <Text style={styles.chatHeaderName}>{decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat'}</Text>
+              <Text style={styles.chatHeaderName}>{(decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat').replace('NV000001', 'Admin')}</Text>
               <Text style={styles.chatHeaderMeta}>
                 {messageItems.length} tin nhắn
               </Text>
@@ -513,7 +513,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
             renderItem={({ item: msg }) => {
               const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
-              const senderName = msg.sender?.profile?.fullName ?? msg.sender?.userCode ?? 'User';
+              const senderName = msg.sender?.profile?.fullName ?? (msg.sender?.userCode === 'NV000001' ? 'Admin' : msg.sender?.userCode) ?? 'User';
 
               return (
                 <Pressable
