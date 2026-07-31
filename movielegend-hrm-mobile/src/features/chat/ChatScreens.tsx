@@ -23,7 +23,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
-import ImageViewing from "react-native-image-viewing";
+import ImageViewing from "../../components/ImageViewer/ImageViewer";
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { Screen } from '../../components/Screen';

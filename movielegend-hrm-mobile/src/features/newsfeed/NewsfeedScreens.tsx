@@ -352,18 +352,17 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader
-          title="Chi tiết bài đăng"
-          right={
-            canModerate ? (
-              <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
-                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-              </Pressable>
-            ) : undefined
-          }
-        />
-
+      <PageHeader
+        title="Chi tiết bài đăng"
+        right={
+          canModerate ? (
+            <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
+              <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+            </Pressable>
+          ) : undefined
+        }
+      />
+      <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
         <View style={styles.postCard}>
           <View style={styles.authorRow}>
             <View style={styles.avatar}>
@@ -442,26 +441,26 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
             <Text style={styles.noComments}>Chưa có bình luận nào</Text>
           )}
         </View>
-
-        {/* Comment input */}
-        <View style={styles.commentInputRow}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Viết bình luận..."
-            placeholderTextColor={colors.muted}
-            value={commentText}
-            onChangeText={setCommentText}
-            multiline
-          />
-          <Pressable
-            style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
-            onPress={handleComment}
-            disabled={!commentText.trim() || addComment.isPending}
-          >
-            <MaterialCommunityIcons name="send" size={20} color="#fff" />
-          </Pressable>
-        </View>
       </ScrollView>
+
+      {/* Comment input */}
+      <View style={[styles.commentInputRow, { margin: 16, marginTop: 0 }]}>
+        <TextInput
+          style={styles.commentInput}
+          placeholder="Viết bình luận..."
+          placeholderTextColor={colors.muted}
+          value={commentText}
+          onChangeText={setCommentText}
+          multiline
+        />
+        <Pressable
+          style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
+          onPress={handleComment}
+          disabled={!commentText.trim() || addComment.isPending}
+        >
+          <MaterialCommunityIcons name="send" size={20} color="#fff" />
+        </Pressable>
+      </View>
 
       <ImageView
         images={viewerImages}

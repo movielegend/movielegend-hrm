@@ -43,7 +43,7 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
         });
 
         const { sound: newSound } = await Audio.Sound.createAsync(
-          require('../../../../assets/sounds/ringtone.wav'),
+          require('../../../assets/sounds/ringtone.wav'),
           { isLooping: true }
         );
         
