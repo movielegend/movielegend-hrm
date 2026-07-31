@@ -400,7 +400,7 @@ export function ContractTemplatesScreen() {
                     </Text>
                   </Pressable>
                 </View>
-              </View>
+              </Pressable>
             ))
           ) : !templates.isLoading ? (
             <EmptyState title="Chưa có mẫu hợp đồng" />
