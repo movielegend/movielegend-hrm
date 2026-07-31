@@ -127,10 +127,7 @@ export class ContractsService {
     });
     if (!template) throw notFound('CONTRACT_TEMPLATE_NOT_FOUND', 'Contract template not found');
     
-    // Validate if it is used by any contract
-    if (template.contracts.length > 0) {
-       throw badRequest('CONTRACT_TEMPLATE_IN_USE', 'Cannot delete contract template because it is used by one or more contracts.');
-    }
+    const isInUse = template.contracts.length > 0;
 
     return this.prisma.$transaction(async (tx) => {
       // Soft delete template
@@ -139,16 +136,19 @@ export class ContractsService {
         data: { deletedAt: new Date() },
       });
 
-      // Try to delete files from cloud
-      for (const version of template.versions) {
-        if (version.templateFileUrl) {
-          const key = this.storageService.extractKeyFromUrl(version.templateFileUrl);
-          if (key) {
-             try {
-               await this.storageService.delete(key);
-             } catch (err) {
-               console.warn(`Could not delete file ${key} from storage:`, err);
-             }
+      // Try to delete files from cloud ONLY IF it's not used by any contracts
+      // If it is in use, we must keep the physical file so that pending contracts can still generate their PDFs.
+      if (!isInUse) {
+        for (const version of template.versions) {
+          if (version.templateFileUrl) {
+            const key = this.storageService.extractKeyFromUrl(version.templateFileUrl);
+            if (key) {
+               try {
+                 await this.storageService.delete(key);
+               } catch (err) {
+                 console.warn(`Could not delete file ${key} from storage:`, err);
+               }
+            }
           }
         }
       }
