@@ -32,7 +32,7 @@ import { hasPermission } from '../../utils/permissions';
 import { incidentStatusTone, incidentTypeLabels, mapWarehouseAssetError } from '../assets/asset.logic';
 import { IncidentCard } from '../assets/AssetComponents';
 
-export type IncidentArea = 'employee' | 'leader' | 'warehouse' | 'admin';
+export type IncidentArea = 'employee' | 'leader' | 'warehouse' | 'admin' | 'hr';
 
 const incidentTypes: AssetIncidentType[] = ['DAMAGED', 'LOST', 'STOLEN', 'MALFUNCTION', 'OTHER'];
 const resolveAssetStatuses: AssetStatus[] = ['IN_STOCK', 'MAINTENANCE', 'LOST', 'DAMAGED', 'DISPOSED'];
@@ -41,6 +41,7 @@ function incidentDetailRoute(area: IncidentArea, id: string): string {
   if (area === 'employee') return `/employee/assets/incidents/${id}`;
   if (area === 'leader') return `/leader/incidents/${id}`;
   if (area === 'warehouse') return `/warehouse-manager/asset-incidents/${id}`;
+  if (area === 'hr') return `/hr/asset-incidents/${id}`;
   return `/admin/asset-incidents/${id}`;
 }
 

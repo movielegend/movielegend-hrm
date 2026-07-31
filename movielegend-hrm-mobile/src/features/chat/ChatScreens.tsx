@@ -23,6 +23,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
+import ImageViewing from "react-native-image-viewing";
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { Screen } from '../../components/Screen';
@@ -675,20 +676,12 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         </View>
 
         {/* Image Viewer Modal */}
-        <Modal visible={!!viewingImage} transparent={true} animationType="fade" onRequestClose={() => setViewingImage(null)}>
-          <View style={styles.imageViewerContainer}>
-            <Pressable style={styles.imageViewerCloseBtn} onPress={() => setViewingImage(null)}>
-              <MaterialCommunityIcons name="close" size={32} color="#fff" />
-            </Pressable>
-            {viewingImage && (
-              <Image
-                source={{ uri: viewingImage }}
-                style={styles.imageViewerImage}
-                resizeMode="contain"
-              />
-            )}
-          </View>
-        </Modal>
+        <ImageViewing
+          images={viewingImage ? [{ uri: viewingImage }] : []}
+          imageIndex={0}
+          visible={!!viewingImage}
+          onRequestClose={() => setViewingImage(null)}
+        />
 
         {/* Sticker Modal */}
         <StickerPickerModal
