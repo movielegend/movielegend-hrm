@@ -132,3 +132,8 @@ export async function deleteContract(id: string): Promise<{ success: boolean }> 
   const response = await apiClient.delete<ApiResponse<{ success: boolean }>>(`/employee-contracts/${id}`);
   return unwrapData(response);
 }
+
+export async function deleteContractTemplate(id: string): Promise<{ success: boolean }> {
+  const response = await apiClient.delete<ApiResponse<{ success: boolean }>>(`/contract-templates/${id}`);
+  return unwrapData(response);
+}

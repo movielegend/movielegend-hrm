@@ -21,6 +21,7 @@ import {
   signContractEmployee,
   signContractCompany,
   deleteContract,
+  deleteContractTemplate,
 } from '../api/contracts.api';
 import { contractTemplateKeys, contractKeys } from '../constants/queryKeys';
 import type {
@@ -74,6 +75,16 @@ export function useUpdateTemplateMapping(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: UpdateTemplateMappingPayload) => updateTemplateMapping(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contractTemplateKeys.all });
+    },
+  });
+}
+
+export function useDeleteContractTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteContractTemplate(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contractTemplateKeys.all });
     },

@@ -119,6 +119,47 @@ export class ContractsService {
     return { success: true };
   }
 
+  async deleteTemplate(id: string, actor: AuthenticatedUser) {
+    this.policy.assertCanUpdate(actor); // Require same permission as updating
+    const template = await this.prisma.contractTemplate.findUnique({
+      where: { id },
+      include: { versions: true, contracts: { take: 1 } },
+    });
+    if (!template) throw notFound('CONTRACT_TEMPLATE_NOT_FOUND', 'Contract template not found');
+    
+    // Validate if it is used by any contract
+    if (template.contracts.length > 0) {
+       throw badRequest('CONTRACT_TEMPLATE_IN_USE', 'Cannot delete contract template because it is used by one or more contracts.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Soft delete template
+      await tx.contractTemplate.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+
+      // Try to delete files from cloud
+      for (const version of template.versions) {
+        if (version.templateFileUrl) {
+          const key = this.storageService.extractKeyFromUrl(version.templateFileUrl);
+          if (key) {
+             try {
+               await this.storageService.delete(key);
+             } catch (err) {
+               console.warn(`Could not delete file ${key} from storage:`, err);
+             }
+          }
+        }
+      }
+
+      await tx.auditLog.create({
+        data: { actorUserId: actor.userId, action: 'CONTRACT_TEMPLATE_DELETED', entityType: 'ContractTemplate', entityId: id },
+      });
+      return { success: true };
+    });
+  }
+
   async createContract(dto: CreateEmployeeContractDto, actor: AuthenticatedUser) {
     const [target, version] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: dto.userId }, include: { profile: { include: { position: true } }, departmentLinks: { where: { leftAt: null }, include: { department: true } } } }),

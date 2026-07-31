@@ -53,6 +53,12 @@ export class ContractTemplatesController {
   updateMapping(@Param('id') id: string, @Body() dto: UpdateTemplateMappingDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contracts.updateTemplateMapping(id, dto, actor);
   }
+
+  @Delete(':id')
+  @Permissions('contract_template.create')
+  delete(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.contracts.deleteTemplate(id, actor);
+  }
 }
 
 @ApiTags('Employee Contracts')

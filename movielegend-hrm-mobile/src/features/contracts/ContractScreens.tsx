@@ -45,6 +45,7 @@ import {
   useSignContractCompany,
   useRejectContractSignature,
   useDeleteContract,
+  useDeleteContractTemplate,
 } from "../../hooks/useContracts";
 import {
   CONTRACT_TYPE_LABELS,
@@ -99,11 +100,56 @@ export function ContractTemplatesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const templates = useContractTemplates();
+  const deleteTemplate = useDeleteContractTemplate();
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
+
+  const handleLongPressTemplate = (tpl: any) => {
+    Alert.alert(
+      "Tuỳ chọn",
+      `Hợp đồng: ${tpl.name}`,
+      [
+        {
+          text: "Tải hợp đồng",
+          onPress: () => {
+            const url = resolveFileUrl(tpl.templateFileUrl);
+            if (url) {
+              Linking.openURL(url).catch(() => Alert.alert("Lỗi", "Không thể mở file hợp đồng"));
+            } else {
+              Alert.alert("Lỗi", "Không tìm thấy file hợp đồng");
+            }
+          }
+        },
+        {
+          text: "Xoá",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Xác nhận xoá",
+              "Bạn có chắc chắn muốn xoá mẫu hợp đồng này không? Dữ liệu trên cloud cũng sẽ bị xoá.",
+              [
+                { text: "Huỷ", style: "cancel" },
+                {
+                  text: "Xoá",
+                  style: "destructive",
+                  onPress: () => {
+                    deleteTemplate.mutate(tpl.id, {
+                      onSuccess: () => Alert.alert("Thành công", "Đã xoá mẫu hợp đồng"),
+                      onError: (err: any) => Alert.alert("Lỗi", err?.message || "Không thể xoá mẫu hợp đồng")
+                    });
+                  }
+                }
+              ]
+            );
+          }
+        },
+        { text: "Huỷ", style: "cancel" }
+      ]
+    );
+  };
 
   return (
     <Screen>
@@ -136,7 +182,12 @@ export function ContractTemplatesScreen() {
         <View style={styles.list}>
           {templateItems.length > 0 ? (
             templateItems.map((tpl: any) => (
-              <View key={tpl.id} style={styles.templateCard}>
+              <Pressable 
+                key={tpl.id} 
+                style={styles.templateCard}
+                onLongPress={() => handleLongPressTemplate(tpl)}
+                delayLongPress={500}
+              >
                 <View style={styles.templateHeader}>
                   <View style={styles.templateIcon}>
                     <MaterialCommunityIcons
@@ -198,20 +249,54 @@ export function ContractTemplatesScreen() {
                         flexDirection: "row",
                         gap: 6,
                       },
-                      pressed && { backgroundColor: "#f9fafb" },
+                      pressed && { opacity: 0.7 },
+                    ]}
+                    onPress={() => {
+                      setSelectedTemplate(tpl);
+                      setCreateModalVisible(true);
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name="pencil-outline"
+                      size={18}
+                      color="#4b5563"
+                    />
+                    <Text
+                      style={{
+                        color: "#4b5563",
+                        fontSize: 13,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Cấu hình
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      {
+                        flex: 1,
+                        backgroundColor: colors.primary,
+                        borderRadius: 8,
+                        paddingVertical: 10,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexDirection: "row",
+                        gap: 6,
+                      },
+                      pressed && { opacity: 0.8 },
                     ]}
                     onPress={() => {
                       const url = resolveFileUrl(tpl.templateFileUrl);
                       if (url) {
-                        setPdfViewerVisible(true);
                         setPdfViewerUrl(url);
+                        setPdfViewerVisible(true);
                       } else {
-                        Alert.alert("Lỗi", "Không tìm thấy tệp đính kèm");
+                        Alert.alert("Lỗi", "Không tìm thấy file hợp đồng");
                       }
                     }}
                   >
                     <MaterialCommunityIcons
-                      name="file-eye-outline"
                       size={18}
                       color="#374151"
                     />
