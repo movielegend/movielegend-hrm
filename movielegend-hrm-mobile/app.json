@@ -73,7 +73,6 @@
         "expo-build-properties",
         {
           "android": {
-            "newArchEnabled": false,
             "usesCleartextTraffic": true,
             "packagingOptions": {
               "pickFirsts": [
