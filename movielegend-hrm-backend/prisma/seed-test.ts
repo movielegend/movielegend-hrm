@@ -65,6 +65,8 @@ async function main() {
         email,
         passwordHash,
         isActive: true,
+        accountStatus: 'ACTIVE',
+        approvalStatus: 'APPROVED',
         userCode: `TEST${i.toString().padStart(3, '0')}`,
         profile: {
           create: {
@@ -89,14 +91,19 @@ async function main() {
     shift = await prisma.shift.create({
       data: {
         code: 'SHIFT_TEST_2H',
-        name: 'Ca Chiều 15:00 - 17:00 (Test)',
-        startTime: '15:00:00',
+        name: 'Ca Chiều 15:30 - 17:00 (Test)',
+        startTime: '15:30:00',
         endTime: '17:00:00',
         isActive: true,
         checkInEarlyMinutes: 60,
         checkInLateMinutes: 120, 
         checkOutLateMinutes: 240,
       }
+    });
+  } else {
+    shift = await prisma.shift.update({
+      where: { code: 'SHIFT_TEST_2H' },
+      data: { startTime: '15:30:00', name: 'Ca Chiều 15:30 - 17:00 (Test)' }
     });
   }
 

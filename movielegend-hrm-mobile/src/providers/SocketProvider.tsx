@@ -63,7 +63,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
         setIsConnected(false);
       });
       socket.on('connect_error', (error) => {
-        console.error('Socket connect error:', error.message);
+        console.log('Socket connect error (auto-reconnecting):', error.message);
         setIsConnected(false);
       });
       socket.on('task:assigned', (payload: TaskSocketPayload) => invalidateTaskEvent(queryClient, payload));

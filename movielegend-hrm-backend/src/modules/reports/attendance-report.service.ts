@@ -84,7 +84,7 @@ export class AttendanceReportService {
 
     const lateRequestsRaw = await this.prisma.employeeRequest.findMany({
       where: {
-        type: 'LATE_ARRIVAL',
+        type: { in: ['LATE_ARRIVAL', 'ATTENDANCE_ADJUSTMENT'] },
         status: 'APPROVED',
         userId: { in: userIds },
       },
@@ -175,31 +175,60 @@ export class AttendanceReportService {
         let otMins = 0;
         let nightAllowance = 0;
         let lateDeduction = 0;
+        let attendance = 0;
 
-        if (record && shift) {
-          const shiftStart = moment(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm');
-          const shiftEnd = moment(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm');
-
-          // Late
-          if (checkIn && checkIn.isAfter(shiftStart.clone().add(Number(config.lateThresholdMinutes), 'minutes'))) {
-            lateMins = checkIn.diff(shiftStart, 'minutes');
-            if (lateRequest) {
-              lateDeduction = 0;
-            } else {
-              lateDeduction = Number(config.lateDeductionAmount);
+        if (record) {
+          if (!shift) {
+            // User checked in but has no shift (e.g. OT on an off day)
+            attendance = 0; // Unplanned, so no main shift workday
+            if (checkIn && checkOut && otRequest) {
+              const approvedStart = moment(otRequest.startAt);
+              const approvedEnd = moment(otRequest.endAt);
+              const effectiveOtStart = checkIn.isBefore(approvedStart) ? approvedStart : checkIn;
+              const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
+              otMins = Math.max(0, effectiveOtEnd.diff(effectiveOtStart, 'minutes'));
             }
-          }
-          // Early leave (if no overtime)
-          if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {
-            earlyMins = shiftEnd.diff(checkOut, 'minutes');
-          }
+          } else {
+            const shiftStart = moment(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm');
+            const shiftEnd = moment(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm');
 
-          // Overtime
-          if (checkOut && checkOut.isAfter(shiftEnd) && otRequest) {
-            // Compare with approved OT end time
-            const approvedEnd = moment(otRequest.endAt);
-            const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
-            otMins = effectiveOtEnd.diff(shiftEnd, 'minutes');
+            // Default from record
+            attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : 1;
+            lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
+            lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
+
+            if (record.status === 'MISSING') {
+              if (lateRequest) {
+                attendance = 1;
+                lateDeduction = 0;
+              }
+            } else {
+              // Late Request logic (Tẩy trắng)
+              if (lateMins > 0 && lateRequest) {
+                if (record.latePenaltyLevel === 1 || record.latePenaltyLevel === 2) {
+                  lateDeduction = 0;
+                  attendance = 1;
+                } else if (record.latePenaltyLevel === 3) {
+                  lateDeduction = 80000;
+                  attendance = 1;
+                } else if (record.latePenaltyLevel === 4) {
+                  lateDeduction = 0;
+                  attendance = 1;
+                }
+              }
+
+              // Early leave (if no overtime)
+              if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {
+                earlyMins = shiftEnd.diff(checkOut, 'minutes');
+              }
+
+              // Overtime
+              if (checkOut && checkOut.isAfter(shiftEnd) && otRequest) {
+                const approvedEnd = moment(otRequest.endAt);
+                const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
+                otMins = Math.max(0, effectiveOtEnd.diff(shiftEnd, 'minutes'));
+              }
+            }
           }
         }
 
@@ -213,11 +242,6 @@ export class AttendanceReportService {
         if (otMins > 0) {
           if (isHoliday || isWeekend) ot200 = otMins;
           else ot150 = otMins;
-        }
-        
-        let attendance = 0;
-        if (record) {
-          attendance = (lateMins > 0 || earlyMins > 0) ? (totalMinutes >= 240 ? 0.5 : 0) : 1;
         }
 
         const row = {

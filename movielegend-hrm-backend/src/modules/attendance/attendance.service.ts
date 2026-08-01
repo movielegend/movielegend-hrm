@@ -155,7 +155,7 @@ export class AttendanceService {
             if (ratio <= 0.105) {
               latePenaltyLevel = 1; latePenaltyAmount = 50000; latePenaltyWorkDays = 1;
             } else if (ratio <= 0.42) {
-              latePenaltyLevel = 2; latePenaltyAmount = 100000; latePenaltyWorkDays = 1;
+              latePenaltyLevel = 2; latePenaltyAmount = 80000; latePenaltyWorkDays = 1;
             } else if (ratio <= 0.63) {
               latePenaltyLevel = 3; latePenaltyAmount = 50000; latePenaltyWorkDays = 0.5;
             } else {

@@ -228,27 +228,26 @@ export function CheckOutScreen() {
         ) : (
           <View style={styles.emptyShiftCard}>
              <MaterialCommunityIcons name="calendar-blank-outline" size={32} color="#9CA3AF" />
-             <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay</Text>
+             <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay.</Text>
+             <Text style={{ textAlign: 'center', color: '#6B7280', fontSize: 13, marginTop: 4 }}>Bạn vẫn có thể bấm "Xác nhận" để ra ca OT đột xuất.</Text>
           </View>
         )}
       </View>
 
       {/* Footer Confirm Button */}
-      {todayShift ? (
-        <View style={styles.footer}>
-          <Pressable 
-            style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]} 
-            onPress={() => void handleConfirm()}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.confirmBtnText}>Xác nhận</Text>
-            )}
-          </Pressable>
-        </View>
-      ) : null}
+      <View style={styles.footer}>
+        <Pressable 
+          style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]} 
+          onPress={() => void handleConfirm()}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.confirmBtnText}>Xác nhận</Text>
+          )}
+        </Pressable>
+      </View>
 
       {/* Camera Modal */}
       <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent>

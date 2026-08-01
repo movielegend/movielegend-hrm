@@ -225,7 +225,8 @@ export function CheckInScreen() {
         ) : (
           <View style={styles.emptyShiftCard}>
             <MaterialCommunityIcons name="calendar-blank-outline" size={32} color="#9CA3AF" />
-            <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay</Text>
+            <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay.</Text>
+            <Text style={{ textAlign: 'center', color: '#6B7280', fontSize: 13, marginTop: 4 }}>Bạn vẫn có thể bấm "Xác nhận" để vào ca OT đột xuất.</Text>
           </View>
         )}
       </View>
@@ -240,7 +241,7 @@ export function CheckInScreen() {
       </Modal>
 
       {/* Footer Confirm Button */}
-      {todayShift && !isCameraVisible ? (
+      {!isCameraVisible ? (
         <View style={styles.footer}>
           <Pressable
             style={styles.confirmBtn}
