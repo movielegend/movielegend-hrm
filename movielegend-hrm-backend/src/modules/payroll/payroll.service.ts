@@ -335,16 +335,20 @@ export class PayrollService {
     let earlyLeaveMinutes = 0;
     for (const record of records) {
       if (record.checkOutAt) regularWorkedMinutes += Math.max(0, Math.floor((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 60_000));
-      const shift = record.shiftAssignment.shift;
-      const [startHour, startMinute] = shift.startTime.split(':').map(Number);
-      const shiftStart = new Date(record.workDate);
-      shiftStart.setHours(startHour, startMinute, 0, 0);
-      lateMinutes += Math.max(0, Math.floor((record.checkInAt.getTime() - shiftStart.getTime()) / 60_000));
-      if (record.checkOutAt) {
-        const [endHour, endMinute] = shift.endTime.split(':').map(Number);
-        const shiftEnd = new Date(record.workDate);
-        shiftEnd.setHours(endHour, endMinute, 0, 0);
-        earlyLeaveMinutes += Math.max(0, Math.floor((shiftEnd.getTime() - record.checkOutAt.getTime()) / 60_000));
+      const shift = record.shiftAssignment?.shift;
+      if (shift) {
+        const [startHour, startMinute] = shift.startTime.split(':').map(Number);
+        const shiftStart = new Date(record.workDate);
+        shiftStart.setHours(startHour, startMinute, 0, 0);
+        lateMinutes += Math.max(0, Math.floor((record.checkInAt.getTime() - shiftStart.getTime()) / 60_000));
+        if (record.checkOutAt) {
+          const [endHour, endMinute] = shift.endTime.split(':').map(Number);
+          const shiftEnd = new Date(record.workDate);
+          shiftEnd.setHours(endHour, endMinute, 0, 0);
+          earlyLeaveMinutes += Math.max(0, Math.floor((shiftEnd.getTime() - record.checkOutAt.getTime()) / 60_000));
+        }
+      } else if (record.lateMinutes) {
+        lateMinutes += record.lateMinutes;
       }
     }
     return { actualWorkingDays: records.length, regularWorkedMinutes, lateMinutes, earlyLeaveMinutes };

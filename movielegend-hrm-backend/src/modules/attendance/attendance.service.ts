@@ -7,6 +7,7 @@ import {
   UploadedFileStatus,
   UploadPurpose,
 } from '@prisma/client';
+import { Cron } from '@nestjs/schedule';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
@@ -37,7 +38,7 @@ export class AttendanceService {
     private readonly storage: StorageService,
     private readonly uploads: UploadsService,
     private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
-  ) {}
+  ) { }
 
   async mockTodayAttendance() {
     const today = new Date();
@@ -58,19 +59,27 @@ export class AttendanceService {
       checkOutTime.setHours(17, 30, 0, 0);
 
       try {
-        await this.prisma.attendanceRecord.upsert({
-          where: { userId_workDate: { userId: assign.userId, workDate: assign.workDate } },
-          update: { checkInAt: checkInTime, checkOutAt: checkOutTime, status: AttendanceStatus.CHECKED_OUT },
-          create: {
-            userId: assign.userId,
-            departmentId: assign.departmentId,
-            shiftAssignmentId: assign.id,
-            workDate: assign.workDate,
-            checkInAt: checkInTime,
-            checkOutAt: checkOutTime,
-            status: AttendanceStatus.CHECKED_OUT,
-          }
+        const existing = await this.prisma.attendanceRecord.findFirst({
+          where: { userId: assign.userId, workDate: assign.workDate }
         });
+        if (existing) {
+          await this.prisma.attendanceRecord.update({
+            where: { id: existing.id },
+            data: { checkInAt: checkInTime, checkOutAt: checkOutTime, status: AttendanceStatus.CHECKED_OUT },
+          });
+        } else {
+          await this.prisma.attendanceRecord.create({
+            data: {
+              userId: assign.userId,
+              departmentId: assign.departmentId,
+              shiftAssignmentId: assign.id,
+              workDate: assign.workDate,
+              checkInAt: checkInTime,
+              checkOutAt: checkOutTime,
+              status: AttendanceStatus.CHECKED_OUT,
+            }
+          });
+        }
         count++;
       } catch (e) {
         console.error(e);
@@ -90,35 +99,96 @@ export class AttendanceService {
     }
 
     const workDate = this.businessTime.startOfBusinessDate(dto.workDate);
-    const assignment = await this.prisma.shiftAssignment.findUnique({
-      where: { userId_workDate: { userId: actor.userId, workDate } },
+    const now = new Date();
+
+    // 1. Tìm ca làm việc trong ngày
+    let assignment = await this.prisma.shiftAssignment.findFirst({
+      where: { userId: actor.userId, workDate },
       include: { shift: true },
+      orderBy: { createdAt: 'desc' }
     });
-    if (!assignment) throw notFound('SHIFT_ASSIGNMENT_NOT_FOUND', 'Khong tim thay ca lam trong ngay');
-    if (!assignment.shift.isActive || assignment.shift.deletedAt) {
-      throw badRequest('SHIFT_INACTIVE', 'Ca lam da bi vo hieu hoa');
+
+    let isUnplannedOt = false;
+    let lateMinutes = 0;
+    let latePenaltyLevel: number | null = null;
+    let latePenaltyAmount: number | null = null;
+    let latePenaltyWorkDays: number | null = null;
+
+    if (assignment) {
+      if (!assignment.shift.isActive || assignment.shift.deletedAt) {
+        throw badRequest('SHIFT_INACTIVE', 'Ca lam da bi vo hieu hoa');
+      }
+
+      // Kiem tra xem da co check-in cho ca nay chua
+      const existing = await this.prisma.attendanceRecord.findFirst({
+        where: { userId: actor.userId, shiftAssignmentId: assignment.id },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (existing) {
+        if (existing.status === AttendanceStatus.CHECKED_IN) {
+          throw conflict('ALREADY_CHECKED_IN', 'Ban dang trong mot ca chua check-out');
+        } else {
+          // Da hoan thanh ca nay, day la OT
+          isUnplannedOt = true;
+          assignment = null;
+        }
+      } else {
+        // Tinh toan di muon
+        const shiftStartStr = assignment.shift.startTime; // e.g., "09:00:00"
+        const [sh, sm] = shiftStartStr.split(':').map(Number);
+        const shiftStartDateTime = new Date(workDate);
+        shiftStartDateTime.setHours(sh || 0, sm || 0, 0, 0);
+
+        if (now > shiftStartDateTime) {
+          lateMinutes = Math.floor((now.getTime() - shiftStartDateTime.getTime()) / 60000);
+
+          const shiftEndStr = assignment.shift.endTime;
+          const [eh, em] = shiftEndStr.split(':').map(Number);
+          const shiftEndDateTime = new Date(workDate);
+          shiftEndDateTime.setHours(eh || 0, em || 0, 0, 0);
+          if (shiftEndDateTime <= shiftStartDateTime) shiftEndDateTime.setDate(shiftEndDateTime.getDate() + 1); // qua dem
+
+          const durationMinutes = Math.floor((shiftEndDateTime.getTime() - shiftStartDateTime.getTime()) / 60000);
+          if (durationMinutes > 0 && lateMinutes > 0) {
+            const ratio = lateMinutes / durationMinutes;
+            if (ratio <= 0.105) {
+              latePenaltyLevel = 1; latePenaltyAmount = 50000; latePenaltyWorkDays = 1;
+            } else if (ratio <= 0.42) {
+              latePenaltyLevel = 2; latePenaltyAmount = 100000; latePenaltyWorkDays = 1;
+            } else if (ratio <= 0.63) {
+              latePenaltyLevel = 3; latePenaltyAmount = 50000; latePenaltyWorkDays = 0.5;
+            } else {
+              latePenaltyLevel = 4; latePenaltyAmount = 0; latePenaltyWorkDays = 0;
+            }
+          }
+        }
+      }
+    } else {
+      // Khong tim thay ca nao -> OT
+      isUnplannedOt = true;
     }
 
-    const existing = await this.prisma.attendanceRecord.findUnique({
-      where: { userId_workDate: { userId: actor.userId, workDate } },
-    });
-    if (existing) throw conflict('ALREADY_CHECKED_IN', 'Bang cong da co check-in cho ngay nay');
+    // Lay phong ban chinh hoac phong ban cua ca
+    let targetDepartmentId = assignment?.departmentId;
+    if (!targetDepartmentId) {
+      const primaryDep = await this.prisma.departmentMember.findFirst({
+        where: { userId: actor.userId, isPrimary: true }
+      });
+      targetDepartmentId = primaryDep?.departmentId;
+      if (!targetDepartmentId) throw badRequest('NO_DEPARTMENT', 'Chua xac dinh duoc phong ban');
+    }
 
     let photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
     let faceImage = photo?.fileUrl ?? dto.faceImage;
     if (!faceImage && !dto.photoBase64) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong');
 
-    const location = await this.findAllowedLocation(assignment.departmentId, dto.latitude, dto.longitude);
-    
+    const location = await this.findAllowedLocation(targetDepartmentId, dto.latitude, dto.longitude);
+
     // Check IP
     await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
+    await this.assertWifiAllowed(targetDepartmentId, dto.wifiSsid, dto.wifiBssid);
 
-    await this.assertWifiAllowed(assignment.departmentId, dto.wifiSsid, dto.wifiBssid);
-
-    const now = new Date();
-    const windowOk = this.isWithinCheckInWindow(workDate, assignment.shift.startTime, assignment.shift.checkInEarlyMinutes, assignment.shift.checkInLateMinutes);
-    if (!windowOk) throw badRequest('TOO_EARLY_TO_CHECK_IN', 'Check-in ngoai khung gio cho phep cua ca');
-    
     let photoBuffer: Buffer | undefined;
     if (dto.photoBase64 && !photo) {
       photoBuffer = Buffer.from(dto.photoBase64, 'base64');
@@ -161,7 +231,7 @@ export class AttendanceService {
               latitude: dto.latitude,
               longitude: dto.longitude,
             });
-            
+
             await this.storage.upload({
               buffer: watermarkedBuffer,
               fileName: photo.fileName,
@@ -187,17 +257,22 @@ export class AttendanceService {
         }
       }
 
-        const record = await tx.attendanceRecord.create({
-          data: {
-            userId: actor.userId,
-            departmentId: assignment.departmentId,
-            shiftAssignmentId: assignment.id,
-            photoFileId: finalPhotoId,
+      const record = await tx.attendanceRecord.create({
+        data: {
+          userId: actor.userId,
+          departmentId: targetDepartmentId,
+          shiftAssignmentId: assignment?.id,
+          photoFileId: finalPhotoId,
           workDate,
           checkInAt: now,
           checkInLatitude: dto.latitude,
           checkInLongitude: dto.longitude,
           checkInIp: ip,
+          isUnplannedOt,
+          lateMinutes,
+          latePenaltyLevel,
+          latePenaltyAmount,
+          latePenaltyWorkDays,
           verifications: {
             create: [
               {
@@ -230,7 +305,7 @@ export class AttendanceService {
           action: 'attendance.checkin',
           entityType: 'AttendanceRecord',
           entityId: record.id,
-          metadata: { workDate: dto.workDate, departmentId: assignment.departmentId, photoFileId: finalPhotoId },
+          metadata: { workDate: dto.workDate, departmentId: targetDepartmentId, photoFileId: finalPhotoId, isUnplannedOt },
         },
       });
       return record;
@@ -245,6 +320,8 @@ export class AttendanceService {
     });
     if (!record) throw badRequest('NOT_CHECKED_IN', 'Chua co ban ghi check-in dang mo');
     if (record.checkOutAt) throw conflict('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
+
+    const now = new Date();
 
     const photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
     const faceImage = photo?.fileUrl ?? dto.faceImage;
@@ -263,7 +340,6 @@ export class AttendanceService {
       throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xac minh khuon mat khong thanh cong');
     }
 
-    const now = new Date();
     return this.prisma.$transaction(async (tx) => {
       if (photo) {
         try {
@@ -276,7 +352,7 @@ export class AttendanceService {
             latitude: dto.latitude,
             longitude: dto.longitude,
           });
-          
+
           await this.storage.upload({
             buffer: watermarkedBuffer,
             fileName: photo.fileName,
@@ -379,14 +455,15 @@ export class AttendanceService {
       if (record.checkOutAt || record.status === AttendanceStatus.CHECKED_OUT) {
         return { state: 'NONE', attendance: null };
       }
-      
-      const shift = record.shiftAssignment.shift;
-      const shiftEnd = this.shiftEndDateTime(record.workDate, shift.startTime, shift.endTime);
-      const expiredAt = new Date(shiftEnd.getTime() + (shift.checkOutLateMinutes * 60_000));
-      
-      if (new Date() > expiredAt) {
-        // Đã quên checkout ngày hôm qua và quá thời gian cho phép checkout
-        return { state: 'NONE', attendance: null };
+
+      const shift = record.shiftAssignment?.shift;
+      if (shift) {
+        const shiftEnd = this.shiftEndDateTime(record.workDate, shift.startTime, shift.endTime);
+        const maxCheckoutTime = new Date(shiftEnd.getTime() + (shift.checkOutLateMinutes * 60000));
+
+        if (new Date() > maxCheckoutTime) {
+          return { state: 'NONE', attendance: null };
+        }
       }
     }
 
@@ -459,12 +536,12 @@ export class AttendanceService {
         ...(visibleDepartmentIds === null
           ? {}
           : {
-              OR: [
-                { departments: { none: {} }, branchId: null },
-                { departments: { some: { id: { in: visibleDepartmentIds } } } },
-                { departments: { none: {} }, branch: { departments: { some: { id: { in: visibleDepartmentIds } } } } },
-              ],
-            }),
+            OR: [
+              { departments: { none: {} }, branchId: null },
+              { departments: { some: { id: { in: visibleDepartmentIds } } } },
+              { departments: { none: {} }, branch: { departments: { some: { id: { in: visibleDepartmentIds } } } } },
+            ],
+          }),
       },
       select: {
         id: true,
@@ -521,9 +598,9 @@ export class AttendanceService {
       }
       const oldValue = adjustment.attendanceRecord
         ? {
-            checkInAt: adjustment.attendanceRecord.checkInAt,
-            checkOutAt: adjustment.attendanceRecord.checkOutAt,
-          }
+          checkInAt: adjustment.attendanceRecord.checkInAt,
+          checkOutAt: adjustment.attendanceRecord.checkOutAt,
+        }
         : null;
       if (adjustment.attendanceRecordId) {
         await tx.attendanceRecord.update({
@@ -770,7 +847,7 @@ export class AttendanceService {
 
   private async assertIpAllowed(actor: AuthenticatedUser, location: any, rawIp: string, wifiSsid?: string): Promise<void> {
     if (actor.roles.includes('ADMIN')) return;
-    
+
     // Clean IPv4 prefix if present (e.g. ::ffff:192.168.1.55 -> 192.168.1.55)
     const ip = rawIp.replace(/^::ffff:/, '');
 
@@ -788,7 +865,7 @@ export class AttendanceService {
     if (allowedIps.some((allowed: string) => ip.startsWith(allowed))) {
       isAllowed = true;
     }
-    
+
     // Also allow if the configured IP matches the wifiSSID
     if (wifiSsid && allowedIps.includes(wifiSsid)) {
       isAllowed = true;
@@ -908,10 +985,10 @@ export class AttendanceService {
     });
     return location
       ? {
-          ...location,
-          latitude: Number(location.latitude),
-          longitude: Number(location.longitude),
-        }
+        ...location,
+        latitude: Number(location.latitude),
+        longitude: Number(location.longitude),
+      }
       : null;
   }
 
@@ -919,18 +996,18 @@ export class AttendanceService {
     record: Prisma.AttendanceRecordGetPayload<{ include: ReturnType<AttendanceService['attendanceInclude']> }>,
     attendanceLocation: Awaited<ReturnType<AttendanceService['locationFromRecord']>>,
   ) {
-    const shift = record.shiftAssignment.shift;
-    const scheduledStart = this.shiftDateTime(record.workDate, shift.startTime);
-    const scheduledEnd = this.shiftEndDateTime(record.workDate, shift.startTime, shift.endTime);
+    const shift = record.shiftAssignment?.shift;
+    const scheduledStart = shift ? this.shiftDateTime(record.workDate, shift.startTime) : null;
+    const scheduledEnd = shift ? this.shiftEndDateTime(record.workDate, shift.startTime, shift.endTime) : null;
     const workedMinutes = record.checkOutAt ? this.minutesBetween(record.checkInAt, record.checkOutAt) : 0;
     return {
       ...this.toAttendanceSummary(record),
       scheduledStartAt: scheduledStart,
       scheduledEndAt: scheduledEnd,
       workedMinutes,
-      lateMinutes: Math.max(0, this.minutesBetween(scheduledStart, record.checkInAt)),
-      earlyLeaveMinutes: record.checkOutAt ? Math.max(0, this.minutesBetween(record.checkOutAt, scheduledEnd)) : 0,
-      overtimeMinutes: record.checkOutAt ? Math.max(0, this.minutesBetween(scheduledEnd, record.checkOutAt)) : 0,
+      lateMinutes: scheduledStart ? Math.max(0, this.minutesBetween(scheduledStart, record.checkInAt)) : 0,
+      earlyLeaveMinutes: record.checkOutAt && scheduledEnd ? Math.max(0, this.minutesBetween(record.checkOutAt, scheduledEnd)) : 0,
+      overtimeMinutes: record.checkOutAt && scheduledEnd ? Math.max(0, this.minutesBetween(scheduledEnd, record.checkOutAt)) : 0,
       gps: {
         checkInLatitude: record.checkInLatitude,
         checkInLongitude: record.checkInLongitude,
@@ -963,5 +1040,67 @@ export class AttendanceService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  @Cron('*/30 * * * *')
+  async handleMissingCheckOuts() {
+    const now = new Date();
+
+    // Tìm các bản ghi đang ở trạng thái CHECKED_IN
+    const activeRecords = await this.prisma.attendanceRecord.findMany({
+      where: { status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
+      include: { shiftAssignment: { include: { shift: true } } }
+    });
+
+    for (const record of activeRecords) {
+      // Tùy chọn 1: Nếu thời gian hiện tại đã quá 24h kể từ lúc check-in, force MISSING luôn
+      if (now.getTime() - record.checkInAt.getTime() > 24 * 60 * 60 * 1000) {
+        await this.prisma.attendanceRecord.update({
+          where: { id: record.id },
+          data: { status: AttendanceStatus.MISSING, latePenaltyAmount: 50, notes: 'Hệ thống tự động đóng ca (Quên check-out trên 24h), phạt 50' }
+        });
+        continue;
+      }
+
+      // Tùy chọn 2: Reset trước ca làm tiếp theo 1h30p
+      const nextAssignment = await this.prisma.shiftAssignment.findFirst({
+        where: { userId: record.userId, workDate: { gte: record.workDate } },
+        include: { shift: true },
+        orderBy: { workDate: 'asc' }
+      });
+
+      if (nextAssignment) {
+        let isNextShift = false;
+        if (nextAssignment.id !== record.shiftAssignmentId) {
+          isNextShift = true;
+        } else {
+          // Lấy ca tiếp theo sau ca này
+          const subsequentAssignment = await this.prisma.shiftAssignment.findFirst({
+            where: { userId: record.userId, workDate: { gt: record.workDate } },
+            include: { shift: true },
+            orderBy: { workDate: 'asc' }
+          });
+          if (subsequentAssignment) {
+            Object.assign(nextAssignment, subsequentAssignment);
+            isNextShift = true;
+          }
+        }
+
+        if (isNextShift && nextAssignment.shift?.startTime) {
+          const [sh, sm] = nextAssignment.shift.startTime.split(':').map(Number);
+          const nextShiftStartTime = new Date(nextAssignment.workDate);
+          nextShiftStartTime.setHours(sh || 0, sm || 0, 0, 0);
+
+          // 1h 30m = 90 minutes
+          const timeUntilNextShift = (nextShiftStartTime.getTime() - now.getTime()) / 60000;
+          if (timeUntilNextShift <= 90 && timeUntilNextShift > 0) {
+            await this.prisma.attendanceRecord.update({
+              where: { id: record.id },
+              data: { status: AttendanceStatus.MISSING, latePenaltyAmount: 15, notes: 'Hệ thống reset do quên check-out (1h30p trước ca mới), phạt 15' }
+            });
+          }
+        }
+      }
+    }
   }
 }
