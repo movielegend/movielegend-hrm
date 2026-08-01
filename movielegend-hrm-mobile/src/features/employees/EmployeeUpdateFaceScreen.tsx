@@ -1,7 +1,8 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View, Alert } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { uploadFile } from '../../api/uploads.api';
 import { updateMyFace } from '../../api/users.api';
@@ -39,6 +40,7 @@ export function EmployeeUpdateFaceScreen() {
   const poses: FacePose[] = ['FRONT', 'LEFT', 'RIGHT'];
   const currentImage = faceImages.find((image) => image.pose === activePose);
   const complete = poses.every(p => faceImages.find(img => img.pose === p)?.uploadStatus === 'SUCCESS');
+  const { showAlert } = useAppAlert();
 
   const updateFaceImage = (update: Partial<FaceImageInput> & { pose: FacePose }) => {
     setFaceImages(prev => {
@@ -120,11 +122,10 @@ export function EmployeeUpdateFaceScreen() {
       };
       await updateMyFace(payload);
       await reloadProfile();
-      Alert.alert('Thành công', 'Dữ liệu khuôn mặt đã được cập nhật.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      showAlert('Thành công', 'Dữ liệu khuôn mặt đã được cập nhật.');
+      router.back();
     } catch (error) {
-      Alert.alert('Lỗi', normalizeApiError(error));
+      showAlert('Lỗi', normalizeApiError(error).message);
     } finally {
       setSubmitting(false);
     }

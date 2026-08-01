@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -8,7 +9,6 @@ import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { ConfirmModal } from '../../components/ConfirmModal';
 import { useUserGuide } from '../../components/UserGuideManager';
 import { EditProfileModal } from './components/EditProfileModal';
 import { AvatarPicker } from './components/AvatarPicker';
@@ -18,13 +18,18 @@ export function LeaderProfileScreen() {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
   const { showGuideManual } = useUserGuide();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
   const handleLogout = () => {
-    setShowLogoutConfirm(true);
+    showConfirm({
+      title: "Đăng xuất",
+      message: "Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?",
+      confirmLabel: "Đăng xuất",
+      onConfirm: () => void logout(),
+    });
   };
 
   const getInitials = (name?: string) => {
@@ -119,17 +124,7 @@ export function LeaderProfileScreen() {
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
 
-      <ConfirmModal
-        visible={showLogoutConfirm}
-        title="Đăng xuất"
-        message="Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?"
-        confirmLabel="Đăng xuất"
-        onCancel={() => setShowLogoutConfirm(false)}
-        onConfirm={() => {
-          setShowLogoutConfirm(false);
-          void logout();
-        }}
-      />
+      
 
       <EditProfileModal 
         visible={isEditing} 

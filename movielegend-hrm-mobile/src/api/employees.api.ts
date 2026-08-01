@@ -36,6 +36,7 @@ export async function deleteAdminUser(id: string): Promise<unknown> {
 }
 
 export interface EmployeeReportRow {
+  id?: string;
   userCode?: string;
   fullName?: string;
   department?: string;

@@ -46,6 +46,7 @@ export class ReportsService {
     const rows = await this.prisma.user.findMany({
       where,
       select: {
+        id: true,
         userCode: true,
         accountStatus: true,
         profile: { select: { fullName: true, joinDate: true, employmentStatus: true, position: { select: { name: true } } } },
@@ -56,6 +57,7 @@ export class ReportsService {
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((row) => ({
+      id: row.id,
       userCode: row.userCode,
       fullName: row.profile?.fullName,
       department: row.departmentLinks.map((link) => link.department.name).join(', '),

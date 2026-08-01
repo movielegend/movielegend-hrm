@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity } from 'react-native';
+import { useAppAlert } from '../../../src/contexts/AlertContext';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +32,7 @@ const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typ
 ];
 
 export default function CreateRequestScreen() {
+  const { showAlert } = useAppAlert();
   const router = useRouter();
   const { user } = useAuth();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -98,7 +100,7 @@ export default function CreateRequestScreen() {
   const handleTakePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert("Lỗi", "Vui lòng cấp quyền truy cập Camera để chụp ảnh bằng chứng.");
+      showAlert("Lỗi", "Vui lòng cấp quyền truy cập Camera để chụp ảnh bằng chứng.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -177,34 +179,34 @@ export default function CreateRequestScreen() {
     }
 
     if (!content.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập Lý do/Nội dung chi tiết.');
+      showAlert('Lỗi', 'Vui lòng nhập Lý do/Nội dung chi tiết.');
       return;
     }
     if (isFinancial && !amount.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập Số tiền cho loại đơn này.');
+      showAlert('Lỗi', 'Vui lòng nhập Số tiền cho loại đơn này.');
       return;
     }
     if (isLeave) {
       if (!leaveDurationType || !leaveType || !fromDate) {
-        Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin Loại nghỉ, Ngày nghỉ');
+        showAlert('Lỗi', 'Vui lòng nhập đầy đủ thông tin Loại nghỉ, Ngày nghỉ');
         return;
       }
       if (leaveDurationType === 'Nhiều ngày' && !toDate) {
-        Alert.alert('Lỗi', 'Vui lòng chọn Ngày kết thúc');
+        showAlert('Lỗi', 'Vui lòng chọn Ngày kết thúc');
         return;
       }
     }
     if (isLateOrEarly) {
       if (!shift) {
-        Alert.alert('Lỗi', 'Vui lòng Chọn ca làm.');
+        showAlert('Lỗi', 'Vui lòng Chọn ca làm.');
         return;
       }
       if (selectedType === 'LATE_ARRIVAL' && !startTime) {
-        Alert.alert('Lỗi', 'Vui lòng nhập Giờ bắt đầu.');
+        showAlert('Lỗi', 'Vui lòng nhập Giờ bắt đầu.');
         return;
       }
       if (selectedType === 'EARLY_LEAVE' && !endTime) {
-        Alert.alert('Lỗi', 'Vui lòng nhập Giờ kết thúc.');
+        showAlert('Lỗi', 'Vui lòng nhập Giờ kết thúc.');
         return;
       }
       
@@ -218,14 +220,14 @@ export default function CreateRequestScreen() {
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
         
         if (diffDays > 2) {
-          Alert.alert('Lỗi', 'Chỉ được phép tạo đơn đi muộn trong vòng 2 ngày kể từ ngày vi phạm. Đơn của bạn đã quá hạn.');
+          showAlert('Lỗi', 'Chỉ được phép tạo đơn đi muộn trong vòng 2 ngày kể từ ngày vi phạm. Đơn của bạn đã quá hạn.');
           return;
         }
       }
     }
     if (isOvertime) {
       if (!fromDate || !startTime || !endTime) {
-        Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Ngày làm thêm, Từ giờ, Đến giờ');
+        showAlert('Lỗi', 'Vui lòng nhập đầy đủ Ngày làm thêm, Từ giờ, Đến giờ');
         return;
       }
       
@@ -238,13 +240,13 @@ export default function CreateRequestScreen() {
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays > 3) {
-        Alert.alert('Lỗi', 'Chỉ được phép tạo đơn làm thêm giờ (OT) trong vòng 3 ngày kể từ ngày OT. Đơn của bạn đã quá hạn.');
+        showAlert('Lỗi', 'Chỉ được phép tạo đơn làm thêm giờ (OT) trong vòng 3 ngày kể từ ngày OT. Đơn của bạn đã quá hạn.');
         return;
       }
     }
     if (selectedType === 'EXPENSE' || selectedType === 'PURCHASE') {
       if (!photoUri) {
-        Alert.alert('Lỗi', 'Vui lòng đính kèm ảnh minh chứng (Hóa đơn/Chứng từ).');
+        showAlert('Lỗi', 'Vui lòng đính kèm ảnh minh chứng (Hóa đơn/Chứng từ).');
         return;
       }
     }
@@ -263,7 +265,7 @@ export default function CreateRequestScreen() {
           uploadedUrl = res.fileUrl;
         } catch (uploadErr) {
           console.log('Upload error', uploadErr);
-          Alert.alert('Lỗi', 'Không thể tải ảnh lên. Vui lòng thử lại.');
+          showAlert('Lỗi', 'Không thể tải ảnh lên. Vui lòng thử lại.');
           setIsSubmitting(false);
           return;
         }
@@ -290,13 +292,12 @@ export default function CreateRequestScreen() {
         ...(Object.keys(attachmentMetadata).length > 0 ? { attachmentMetadata } : {})
       });
       
-      Alert.alert('Thành công', 'Đã gửi đơn thành công!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      showAlert('Thành công', 'Đã gửi đơn thành công!');
+      router.back();
     } catch (e: any) {
       console.log('API Error:', JSON.stringify(e.response?.data, null, 2) || e.message);
       const errorMsg = e.response?.data?.error?.message || e.response?.data?.message || e.message || 'Có lỗi xảy ra khi gửi đơn.';
-      Alert.alert('Lỗi', Array.isArray(errorMsg) ? errorMsg.join('\n') : errorMsg);
+      showAlert('Lỗi', Array.isArray(errorMsg) ? errorMsg.join('\n') : errorMsg);
     } finally {
       setIsSubmitting(false);
     }

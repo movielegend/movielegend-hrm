@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { useRouter } from 'expo-router';
 import {
   Pressable,
@@ -18,7 +19,6 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useAuth } from '../../providers/AuthProvider';
 
 import { colors } from '../../theme/colors';
-import { ConfirmModal } from '../../components/ConfirmModal';
 import { spacing } from '../../theme/spacing';
 
 import type { DashboardRole } from '../../api/dashboard.api';
@@ -47,7 +47,7 @@ export function DashboardShell({
   title,
 }: DashboardShellProps) {
   const router = useRouter();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { showConfirm } = useAppAlert();
 
   const {
     user,
@@ -91,7 +91,7 @@ export function DashboardShell({
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => setShowLogoutConfirm(true)}
+            onPress={() => showConfirm({ title: 'Đăng xuất', message: 'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?', confirmLabel: 'Đăng xuất', onConfirm: () => void logout() })}
             style={styles.logoutButton}
           >
             <Text style={styles.logoutText}>
@@ -523,17 +523,7 @@ export function DashboardShell({
         )}
       </ScrollView>
 
-      <ConfirmModal
-        visible={showLogoutConfirm}
-        title="Đăng xuất"
-        message="Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?"
-        confirmLabel="Đăng xuất"
-        onCancel={() => setShowLogoutConfirm(false)}
-        onConfirm={() => {
-          setShowLogoutConfirm(false);
-          void logout();
-        }}
-      />
+      
     </Screen>
   );
 }

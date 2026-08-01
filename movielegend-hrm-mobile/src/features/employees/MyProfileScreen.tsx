@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
 import { useAuth } from '../../providers/AuthProvider';
-import { ConfirmModal } from '../../components/ConfirmModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { AvatarPicker } from './components/AvatarPicker';
 import { useUserGuide } from '../../components/UserGuideManager';

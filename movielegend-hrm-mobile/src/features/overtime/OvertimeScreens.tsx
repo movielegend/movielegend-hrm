@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { Alert, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
@@ -49,14 +50,15 @@ export function CreateOvertimeRequestScreen() {
   const [startAt, setStartAt] = useState(`${businessDateToday()}T18:00:00.000Z`);
   const [endAt, setEndAt] = useState(`${businessDateToday()}T20:00:00.000Z`);
   const [reason, setReason] = useState('');
+  const { showAlert } = useAppAlert();
 
   async function submit() {
     try {
       await mutation.mutateAsync({ workDate, startAt, endAt, reason });
-      Alert.alert('Thanh cong', 'Da gui don tang ca');
+      showAlert('Thanh cong', 'Da gui don tang ca');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 
@@ -81,27 +83,28 @@ export function LeaderOvertimeApprovalsScreen() {
   const approve = useApproveOvertimeRequest();
   const reject = useRejectOvertimeRequest();
   const [rejectReason, setRejectReason] = useState('');
+  const { showAlert } = useAppAlert();
   async function approveRequest(id: string) {
     try {
       await approve.mutateAsync(id);
-      Alert.alert('Thanh cong', 'Da duyet tang ca');
+      showAlert('Thanh cong', 'Da duyet tang ca');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 
   async function rejectRequest(id: string) {
     if (rejectReason.length < 3) {
-      Alert.alert('Thieu ly do', 'Can nhap ly do tu choi.');
+      showAlert('Thieu ly do', 'Can nhap ly do tu choi.');
       return;
     }
     try {
       await reject.mutateAsync({ id, payload: { reason: rejectReason } });
-      Alert.alert('Thanh cong', 'Da tu choi tang ca');
+      showAlert('Thanh cong', 'Da tu choi tang ca');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 

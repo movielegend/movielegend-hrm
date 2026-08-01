@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { Alert, ScrollView, StyleSheet, Text, View, Image, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,14 +102,15 @@ export function CreateLeaveRequestScreen() {
   const [startDate, setStartDate] = useState(businessDateToday());
   const [endDate, setEndDate] = useState(businessDateToday());
   const [reason, setReason] = useState('');
+  const { showAlert } = useAppAlert();
 
   async function submit() {
     try {
       await mutation.mutateAsync({ leaveTypeId, startDate, endDate, reason });
-      Alert.alert('Thành công', 'Đã gửi đơn xin nghỉ phép');
+      showAlert('Thành công', 'Đã gửi đơn xin nghỉ phép');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 
@@ -218,35 +220,38 @@ export function AdminLeaveApprovalScreen() {
   const pending = data ?? [];
   const approve = useApproveLeaveRequest();
   const reject = useRejectLeaveRequest();
+  const { showAlert, showConfirm } = useAppAlert();
 
   async function approveRequest(id: string) {
-    Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn duyệt đơn nghỉ phép này?', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Duyệt', style: 'default', onPress: async () => {
-          try {
-            await approve.mutateAsync(id);
-            Alert.alert('Thành công', 'Đã duyệt đơn nghỉ phép');
-          } catch (error) {
-            const normalized = normalizeApiError(error);
-            Alert.alert(normalized.code, normalized.message);
-          }
-      }}
-    ]);
+    showConfirm({
+      title: 'Xác nhận',
+      message: 'Bạn có chắc chắn muốn duyệt đơn nghỉ phép này?',
+      onConfirm: async () => {
+        try {
+          await approve.mutateAsync(id);
+          showAlert('Thành công', 'Đã duyệt đơn nghỉ phép');
+        } catch (error) {
+          const normalized = normalizeApiError(error);
+          showAlert(normalized.code, normalized.message);
+        }
+      }
+    });
   }
 
   async function rejectRequest(id: string) {
-    Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn từ chối đơn nghỉ phép này?', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Từ chối', style: 'destructive', onPress: async () => {
-          try {
-            await reject.mutateAsync({ id, payload: { reason: 'Từ chối từ ứng dụng quản lý' } });
-            Alert.alert('Thành công', 'Đã từ chối đơn nghỉ phép');
-          } catch (error) {
-            const normalized = normalizeApiError(error);
-            Alert.alert(normalized.code, normalized.message);
-          }
-      }}
-    ]);
+    showConfirm({
+      title: 'Xác nhận',
+      message: 'Bạn có chắc chắn muốn từ chối đơn nghỉ phép này?',
+      onConfirm: async () => {
+        try {
+          await reject.mutateAsync({ id, payload: { reason: 'Từ chối từ ứng dụng quản lý' } });
+          showAlert('Thành công', 'Đã từ chối đơn nghỉ phép');
+        } catch (error) {
+          const normalized = normalizeApiError(error);
+          showAlert(normalized.code, normalized.message);
+        }
+      }
+    });
   }
 
   const queryClient = useQueryClient();

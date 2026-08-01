@@ -45,6 +45,17 @@ export function useUpdateEmployee(id: string) {
   });
 }
 
+export function useUpdateAnyEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateEmployeePayload }) => updateEmployee(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['employees'] });
+      void queryClient.invalidateQueries({ queryKey: ['employeeReport'] });
+    },
+  });
+}
+
 export function useCreateEmployee() {
   const queryClient = useQueryClient();
   return useMutation({

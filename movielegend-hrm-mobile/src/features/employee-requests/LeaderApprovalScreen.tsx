@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Alert, TouchableOpacity, RefreshControl } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,13 +41,16 @@ export function LeaderApprovalScreen() {
     }
   };
 
+  const { showAlert } = useAppAlert();
+
   const handleApprove = () => {
     approveMutation.mutate(id, {
       onSuccess: () => {
-        Alert.alert('Thành công', 'Đã phê duyệt đơn từ!', [{ text: 'OK', onPress: () => router.back() }]);
+        showAlert('Thành công', 'Đã phê duyệt đơn từ!');
+        router.back();
       },
       onError: (err: any) => {
-        Alert.alert('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra');
+        showAlert('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra');
       }
     });
   };
@@ -55,10 +59,11 @@ export function LeaderApprovalScreen() {
     // We could pass comment here if API supported it, currently it doesn't
     rejectMutation.mutate(id, {
       onSuccess: () => {
-        Alert.alert('Đã từ chối', 'Đơn từ đã bị từ chối.', [{ text: 'OK', onPress: () => router.back() }]);
+        showAlert('Đã từ chối', 'Đơn từ đã bị từ chối.');
+        router.back();
       },
       onError: (err: any) => {
-        Alert.alert('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra');
+        showAlert('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra');
       }
     });
   };

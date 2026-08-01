@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -7,7 +8,6 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUserGuide } from '../../components/UserGuideManager';
 import { AvatarPicker } from '../employees/components/AvatarPicker';
-import { ConfirmModal } from '../../components/ConfirmModal';
 import { EditProfileModal } from '../employees/components/EditProfileModal';
 
 export function HRProfileScreen() {
@@ -15,7 +15,7 @@ export function HRProfileScreen() {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
   const { showGuideManual } = useUserGuide();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
 
   const openEdit = () => setIsEditing(true);
@@ -133,7 +133,7 @@ export function HRProfileScreen() {
               title="Đăng xuất" 
               titleColor="#EF4444"
               iconColor="#EF4444"
-              onPress={() => setShowLogoutConfirm(true)} 
+              onPress={handleLogout} 
               isLast 
             />
           </View>
@@ -143,19 +143,7 @@ export function HRProfileScreen() {
       </ScrollView>
 
       {/* Confirmation Modal */}
-      <ConfirmModal
-        visible={showLogoutConfirm}
-        title="Xác nhận đăng xuất"
-        message="Bạn có chắc chắn muốn đăng xuất khỏi tài khoản HR không?"
-        confirmText="Đăng xuất"
-        cancelText="Hủy"
-        type="danger"
-        onConfirm={async () => {
-          setShowLogoutConfirm(false);
-          await logout();
-        }}
-        onCancel={() => setShowLogoutConfirm(false)}
-      />
+      
 
       <EditProfileModal 
         visible={isEditing} 

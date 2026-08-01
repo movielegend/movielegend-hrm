@@ -20,7 +20,7 @@ import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
-import { useEmployees, useEmployeeReport, useEmployee, useUpdateEmployee, useDeleteEmployee, useCreateEmployee } from '../../hooks/useEmployees';
+import { useEmployees, useEmployeeReport, useEmployee, useUpdateEmployee, useDeleteEmployee, useCreateEmployee, useUpdateAnyEmployee } from '../../hooks/useEmployees';
 import { usePositions } from '../../hooks/usePositions';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useAssignLeader, useRevokeLeader } from '../../hooks/useLeaderAssignment';
@@ -72,7 +72,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const deleteEmployee = useDeleteEmployee();
   const assignLeader = useAssignLeader();
   const revokeLeader = useRevokeLeader();
-  const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'appoint' | 'revoke' | 'error_inactive', employeeId?: string, employeeName?: string, leaderRoleId?: string, isHrDept?: boolean } | null>(null);
+  const updateEmployeeAny = useUpdateAnyEmployee();
+  const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'appoint' | 'revoke' | 'error_inactive' | 'lock' | 'unlock', employeeId?: string, employeeName?: string, leaderRoleId?: string, isHrDept?: boolean } | null>(null);
 
   if (scope === 'admin') {
     return (
@@ -194,7 +195,9 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             title={
               confirmAction?.type === 'delete' ? 'Xác nhận xóa nhân viên' :
                 confirmAction?.type === 'appoint' ? (confirmAction?.isHrDept ? 'Bổ nhiệm Trưởng phòng HR' : 'Xác nhận bổ nhiệm') :
-                  confirmAction?.type === 'error_inactive' ? 'Không thể bổ nhiệm' : 'Xác nhận thu hồi'
+                  confirmAction?.type === 'error_inactive' ? 'Không thể bổ nhiệm' :
+                    confirmAction?.type === 'lock' ? 'Khóa tài khoản' :
+                      confirmAction?.type === 'unlock' ? 'Mở khóa tài khoản' : 'Xác nhận thu hồi'
             }
             message={
               confirmAction?.type === 'delete' ? `Bạn có chắc chắn muốn xóa nhân viên ${confirmAction?.employeeName}? Mọi dữ liệu liên quan sẽ bị vô hiệu hóa.` :
@@ -204,15 +207,19 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                     : `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?`
                 ) :
                   confirmAction?.type === 'error_inactive' ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.' :
-                    `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
+                    confirmAction?.type === 'lock' ? `Bạn có chắc chắn muốn khóa tài khoản của ${confirmAction?.employeeName}?` :
+                      confirmAction?.type === 'unlock' ? `Bạn có chắc chắn muốn mở khóa tài khoản của ${confirmAction?.employeeName}?` :
+                        `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
             }
             confirmLabel={
               confirmAction?.type === 'delete' ? 'Xóa ngay' :
                 confirmAction?.type === 'appoint' ? 'Bổ nhiệm' :
-                  confirmAction?.type === 'error_inactive' ? 'Đã hiểu' : 'Thu hồi'
+                  confirmAction?.type === 'error_inactive' ? 'Đã hiểu' :
+                    confirmAction?.type === 'lock' ? 'Khóa' :
+                      confirmAction?.type === 'unlock' ? 'Mở khóa' : 'Thu hồi'
             }
             hideCancel={confirmAction?.type === 'error_inactive'}
-            loading={deleteEmployee.isPending || assignLeader.isPending || revokeLeader.isPending}
+            loading={deleteEmployee.isPending || assignLeader.isPending || revokeLeader.isPending || updateEmployeeAny.isPending}
             onCancel={() => setConfirmAction(null)}
             onConfirm={async () => {
               if (!confirmAction) return;
@@ -227,6 +234,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                   await assignLeader.mutateAsync({ userId: confirmAction.employeeId, departmentId: departmentId! });
                 } else if (confirmAction.type === 'revoke' && confirmAction.leaderRoleId) {
                   await revokeLeader.mutateAsync(confirmAction.leaderRoleId);
+                } else if ((confirmAction.type === 'lock' || confirmAction.type === 'unlock') && confirmAction.employeeId) {
+                  await updateEmployeeAny.mutateAsync({ id: confirmAction.employeeId, payload: { accountStatus: confirmAction.type === 'lock' ? 'INACTIVE' as any : 'ACTIVE' as any } });
                 }
                 setConfirmAction(null);
               } catch (e) {
@@ -276,6 +285,26 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                     <Text style={{ fontSize: 13, color: colors.muted, marginLeft: 6, flex: 1 }}>{employee.position ?? 'Chưa có vị trí'}</Text>
                   </View>
                 </View>
+                  <Pressable
+                    onPress={() => {
+                      if (!employee.id) {
+                        alert('Backend chưa trả về ID của nhân viên này, vui lòng khởi động lại server!');
+                        return;
+                      }
+                      setConfirmAction({
+                        type: employee.accountStatus === 'ACTIVE' ? 'lock' : 'unlock',
+                        employeeId: employee.id,
+                        employeeName: employee.fullName,
+                      });
+                    }}
+                    style={{ padding: 8, marginLeft: 8 }}
+                  >
+                    <MaterialCommunityIcons 
+                      name={employee.accountStatus === 'ACTIVE' ? "lock-outline" : "lock-open-variant-outline"} 
+                      size={24} 
+                      color={employee.accountStatus === 'ACTIVE' ? colors.danger : colors.success} 
+                    />
+                  </Pressable>
               </View>
             </SectionCard>
           );

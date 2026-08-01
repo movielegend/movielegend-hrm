@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +15,7 @@ export function ShiftSwapDetailScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { showAlert } = useAppAlert();
 
   const { data: swap, isLoading } = useQuery({
     queryKey: ['shift-swap', id],
@@ -27,10 +29,10 @@ export function ShiftSwapDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ['shift-swap', id] });
       queryClient.invalidateQueries({ queryKey: ['leader-shift-swaps'] });
       queryClient.invalidateQueries({ queryKey: ['my-shift-swaps'] });
-      Alert.alert('Thành công', 'Đã cập nhật đơn đổi ca.');
+      showAlert('Thành công', 'Đã cập nhật đơn đổi ca.');
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
+      showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
     }
   });
 
