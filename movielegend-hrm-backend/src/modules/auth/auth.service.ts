@@ -359,6 +359,18 @@ export class AuthService {
 
   private async createTokens(userId: string, meta: RequestMeta) {
     const payload = await this.buildPayload(userId);
+    
+    if (!payload.roles.includes('ADMIN')) {
+      await this.prisma.refreshSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await this.prisma.deviceToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
     const accessSecret = this.config.getOrThrow<string>('jwt.accessSecret');
     const refreshSecret = this.config.getOrThrow<string>('jwt.refreshSecret');
     const accessExpiresIn = this.config.get<string>('jwt.accessExpiresIn') ?? '15m';

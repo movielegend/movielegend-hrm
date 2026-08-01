@@ -81,6 +81,13 @@ export class CheckInDto {
   @IsUUID()
   photoFileId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Base64 encoded string of the check-in photo. Used to upload image only if check-in succeeds.',
+  })
+  @IsOptional()
+  @IsString()
+  photoBase64?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)

@@ -43,6 +43,7 @@ export interface CheckInPayload {
   wifiSsid?: string;
   wifiBssid?: string;
   photoFileId?: string;
+  photoBase64?: string;
   /** Deprecated backend transition field. Prefer photoFileId. */
   faceImage?: string;
 }
