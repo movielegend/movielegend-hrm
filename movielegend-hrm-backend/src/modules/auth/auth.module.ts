@@ -8,12 +8,13 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { UploadsModule } from '../uploads/uploads.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
-  imports: [PassportModule, JwtModule.register({}), UploadsModule, NotificationsModule],
+  imports: [PassportModule, JwtModule.register({}), UploadsModule, NotificationsModule, RealtimeModule],
   controllers: [AuthController],
   providers: [
     AuthService,

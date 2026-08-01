@@ -7,11 +7,11 @@ import { ExpoPushService } from './expo-push.service';
 import { ShiftReminderService } from './shift-reminder.service';
 
 import { HttpSmsService } from './httpsms.service';
-
+import { EmailService } from './email.service';
 @Module({
   imports: [DatabaseModule, RealtimeModule],
   controllers: [NotificationsController],
-  providers: [NotificationsService, ExpoPushService, ShiftReminderService, HttpSmsService],
-  exports: [NotificationsService, HttpSmsService, ExpoPushService],
+  providers: [NotificationsService, ExpoPushService, ShiftReminderService, HttpSmsService, EmailService],
+  exports: [NotificationsService, HttpSmsService, ExpoPushService, EmailService],
 })
 export class NotificationsModule {}

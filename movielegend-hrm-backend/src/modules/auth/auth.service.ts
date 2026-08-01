@@ -23,6 +23,7 @@ import { LogoutDto, RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto, VerifyOtpDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { HttpSmsService } from '../notifications/httpsms.service';
+import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { randomUUID, randomInt, createHash } from 'crypto';
 
 interface RequestMeta {
@@ -43,6 +44,7 @@ export class AuthService {
     private readonly uploads: UploadsService,
     private readonly notifications: NotificationsService,
     private readonly httpSms: HttpSmsService,
+    private readonly realtime: RealtimeEventsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -397,6 +399,11 @@ export class AuthService {
       where: { id: session.id },
       data: { tokenHash: await bcrypt.hash(refreshToken, 12) },
     });
+
+    if (!payload.roles.includes('ADMIN')) {
+      this.realtime.emitToUser(userId, 'auth:force_logout', { newSessionId: session.id });
+    }
+
     return { accessToken, refreshToken };
   }
 
