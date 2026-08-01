@@ -1349,7 +1349,7 @@ model AttendanceRecord {
   id                  String                   @id @default(uuid()) @db.Uuid
   userId              String                   @db.Uuid
   departmentId        String                   @db.Uuid
-  shiftAssignmentId   String                   @db.Uuid
+  shiftAssignmentId   String?                  @db.Uuid
   photoFileId         String?                  @db.Uuid
   checkOutPhotoFileId String?                  @db.Uuid
   workDate            DateTime                 @db.Date
@@ -1361,19 +1361,25 @@ model AttendanceRecord {
   checkOutLongitude   Decimal?                 @db.Decimal(10, 7)
   checkInIp           String?
   checkOutIp          String?
+  lateMinutes         Int?                     @default(0)
+  latePenaltyLevel    Int?
+  latePenaltyAmount   Decimal?                 @db.Decimal(10, 2)
+  latePenaltyWorkDays Decimal?                 @db.Decimal(5, 2)
+  notes               String?
+  isUnplannedOt       Boolean                  @default(false)
   status              AttendanceStatus         @default(CHECKED_IN)
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   user                User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
   department          Department               @relation(fields: [departmentId], references: [id])
-  shiftAssignment     ShiftAssignment          @relation(fields: [shiftAssignmentId], references: [id])
+  shiftAssignment     ShiftAssignment?         @relation(fields: [shiftAssignmentId], references: [id])
   photoFile           UploadedFile?            @relation("AttendancePhotoFile", fields: [photoFileId], references: [id], onDelete: Restrict)
   checkOutPhotoFile   UploadedFile?            @relation("AttendanceCheckOutPhotoFile", fields: [checkOutPhotoFileId], references: [id], onDelete: SetNull)
   verifications       AttendanceVerification[]
   adjustments         AttendanceAdjustment[]
 
-  @@unique([userId, workDate])
-  @@unique([userId, shiftAssignmentId])
+  @@index([userId, workDate])
+  @@index([userId, shiftAssignmentId])
   @@index([photoFileId])
   @@index([checkOutPhotoFileId])
   @@index([departmentId, workDate])

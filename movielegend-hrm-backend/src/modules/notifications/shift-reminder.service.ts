@@ -49,12 +49,10 @@ export class ShiftReminderService {
     for (const assignment of upcomingAssignments) {
       if (!assignment.shift) continue;
       
-      const attendance = await this.prisma.attendanceRecord.findUnique({
+      const attendance = await this.prisma.attendanceRecord.findFirst({
         where: {
-          userId_workDate: {
-            userId: assignment.userId,
-            workDate: assignment.workDate
-          }
+          userId: assignment.userId,
+          workDate: assignment.workDate
         }
       });
       

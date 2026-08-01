@@ -54,9 +54,18 @@ export function SocketProvider({ children }: PropsWithChildren) {
         return;
       }
       socketRef.current = socket;
-      socket.on('connect', () => setIsConnected(true));
-      socket.on('disconnect', () => setIsConnected(false));
-      socket.on('connect_error', () => setIsConnected(false));
+      socket.on('connect', () => {
+        console.log('Socket connected successfully:', socket?.id);
+        setIsConnected(true);
+      });
+      socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        setIsConnected(false);
+      });
+      socket.on('connect_error', (error) => {
+        console.error('Socket connect error:', error.message);
+        setIsConnected(false);
+      });
       socket.on('task:assigned', (payload: TaskSocketPayload) => invalidateTaskEvent(queryClient, payload));
       socket.on('task:updated', (payload: TaskSocketPayload) => invalidateTaskEvent(queryClient, payload));
       socket.on('task:commented', (payload: TaskSocketPayload) => invalidateTaskEvent(queryClient, payload));
