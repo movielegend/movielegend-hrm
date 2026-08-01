@@ -9,6 +9,7 @@ export interface AttendanceFaceVerificationInput {
   userId: string;
   image?: string;
   storageKey?: string;
+  imageBuffer?: Buffer;
 }
 
 export interface AttendanceFaceVerificationResult {
@@ -150,7 +151,9 @@ export class FaceVerificationService implements OnModuleInit {
       // 2. Get target face (attendance photo)
       let targetBuffer: Buffer;
       try {
-        if (input.storageKey) {
+        if (input.imageBuffer) {
+          targetBuffer = input.imageBuffer;
+        } else if (input.storageKey) {
           targetBuffer = await this.storage.read(input.storageKey);
         } else if (input.image && input.image.startsWith('http')) {
           const response = await fetch(input.image);

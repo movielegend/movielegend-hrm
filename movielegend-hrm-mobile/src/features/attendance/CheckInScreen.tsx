@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal } fr
 import { AttendanceCamera } from './AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as FileSystem from 'expo-file-system';
 import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -118,19 +119,14 @@ export function CheckInScreen() {
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
-      // 1. Upload photo first
-      const uploaded = await uploadFile({
-        uri: photoUri,
-        name: 'attendance.jpg',
-        mimeType: 'image/jpeg',
-        purpose: 'ATTENDANCE',
-      });
+      // Read file as base64
+      const base64Data = await FileSystem.readAsStringAsync(photoUri, { encoding: FileSystem.EncodingType.Base64 });
 
-      // 2. Check in with photoFileId
+      // Check in with photoBase64
       const payload = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        photoFileId: uploaded.fileId,
+        photoBase64: base64Data,
         workDate: new Date().toISOString().substring(0, 10),
       };
 

@@ -82,6 +82,52 @@ export class UploadsService {
     }
   }
 
+  async uploadFromBuffer(
+    buffer: Buffer,
+    fileName: string,
+    mimeType: string,
+    purpose: UploadPurpose,
+    actorId?: string,
+  ) {
+    const policy = uploadPolicies[purpose];
+    validateFile({ buffer, fileName, mimeType }, policy);
+
+    const extension = extensionFor(fileName, mimeType);
+    const storageKey = `${purpose.toLowerCase()}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${extension}`;
+    const checksum = createHash('sha256').update(buffer).digest('hex');
+    const storageEngine = this.getStorageEngine(purpose);
+
+    const stored = await storageEngine
+      .upload({
+        buffer,
+        fileName,
+        mimeType,
+        storageKey,
+      })
+      .catch(() => {
+        throw new InternalServerErrorException({ code: 'UPLOAD_STORAGE_FAILED', message: 'Storage failed' });
+      });
+
+    try {
+      const record = await this.prisma.uploadedFile.create({
+        data: {
+          uploadedById: actorId,
+          purpose,
+          fileName: safeOriginalName(fileName),
+          storageKey: stored.storageKey,
+          fileUrl: stored.fileUrl,
+          mimeType,
+          size: buffer.length,
+          checksum,
+        },
+      });
+      return toDto(record);
+    } catch (error) {
+      await storageEngine.delete(stored.storageKey);
+      throw error;
+    }
+  }
+
   async attachTemporaryFiles(
     fileIds: string[],
     ownerUserId: string,

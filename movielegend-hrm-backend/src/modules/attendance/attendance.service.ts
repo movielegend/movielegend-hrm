@@ -14,6 +14,7 @@ import { FaceVerificationService } from '../face/services/face-verification.serv
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { BusinessTimeService } from '../time/business-time.service';
 import { StorageService } from '../storage/storage.service';
+import { UploadsService } from '../uploads/uploads.service';
 import { ImageProcessingService } from '../uploads/image-processing.service';
 import {
   AttendanceQueryDto,
@@ -34,6 +35,7 @@ export class AttendanceService {
     private readonly faceVerification: FaceVerificationService,
     private readonly imageProcessing: ImageProcessingService,
     private readonly storage: StorageService,
+    private readonly uploads: UploadsService,
     private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
   ) {}
 
@@ -102,9 +104,9 @@ export class AttendanceService {
     });
     if (existing) throw conflict('ALREADY_CHECKED_IN', 'Bang cong da co check-in cho ngay nay');
 
-    const photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
-    const faceImage = photo?.fileUrl ?? dto.faceImage;
-    if (!faceImage) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong');
+    let photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
+    let faceImage = photo?.fileUrl ?? dto.faceImage;
+    if (!faceImage && !dto.photoBase64) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong');
 
     const location = await this.findAllowedLocation(assignment.departmentId, dto.latitude, dto.longitude);
     
@@ -116,13 +118,33 @@ export class AttendanceService {
     const now = new Date();
     const windowOk = this.isWithinCheckInWindow(workDate, assignment.shift.startTime, assignment.shift.checkInEarlyMinutes, assignment.shift.checkInLateMinutes);
     if (!windowOk) throw badRequest('TOO_EARLY_TO_CHECK_IN', 'Check-in ngoai khung gio cho phep cua ca');
+    
+    let photoBuffer: Buffer | undefined;
+    if (dto.photoBase64 && !photo) {
+      photoBuffer = Buffer.from(dto.photoBase64, 'base64');
+    }
+
     const face = await this.faceVerification.verifyAttendanceFace({
       userId: actor.userId,
       image: faceImage,
       storageKey: photo?.storageKey,
+      imageBuffer: photoBuffer,
     });
     if (!face.matched) {
       throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xac minh khuon mat khong thanh cong');
+    }
+
+    let finalPhotoId = photo?.id;
+    if (photoBuffer && !photo) {
+      const uploadedFile = await this.uploads.uploadFromBuffer(
+        photoBuffer,
+        'attendance.jpg',
+        'image/jpeg',
+        UploadPurpose.ATTENDANCE,
+        actor.userId
+      );
+      finalPhotoId = uploadedFile.fileId;
+      photo = await this.prisma.uploadedFile.findUnique({ where: { id: finalPhotoId } });
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -165,12 +187,12 @@ export class AttendanceService {
         }
       }
 
-      const record = await tx.attendanceRecord.create({
-        data: {
-          userId: actor.userId,
-          departmentId: assignment.departmentId,
-          shiftAssignmentId: assignment.id,
-          photoFileId: photo?.id,
+        const record = await tx.attendanceRecord.create({
+          data: {
+            userId: actor.userId,
+            departmentId: assignment.departmentId,
+            shiftAssignmentId: assignment.id,
+            photoFileId: finalPhotoId,
           workDate,
           checkInAt: now,
           checkInLatitude: dto.latitude,
@@ -208,7 +230,7 @@ export class AttendanceService {
           action: 'attendance.checkin',
           entityType: 'AttendanceRecord',
           entityId: record.id,
-          metadata: { workDate: dto.workDate, departmentId: assignment.departmentId, photoFileId: photo?.id },
+          metadata: { workDate: dto.workDate, departmentId: assignment.departmentId, photoFileId: finalPhotoId },
         },
       });
       return record;
