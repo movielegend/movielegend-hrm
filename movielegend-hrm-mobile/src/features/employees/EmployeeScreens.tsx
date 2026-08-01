@@ -235,7 +235,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                 } else if (confirmAction.type === 'revoke' && confirmAction.leaderRoleId) {
                   await revokeLeader.mutateAsync(confirmAction.leaderRoleId);
                 } else if ((confirmAction.type === 'lock' || confirmAction.type === 'unlock') && confirmAction.employeeId) {
-                  await updateEmployeeAny.mutateAsync({ id: confirmAction.employeeId, payload: { accountStatus: confirmAction.type === 'lock' ? 'SUSPENDED' as any : 'ACTIVE' as any } });
+                  await updateEmployeeAny.mutateAsync({ id: confirmAction.employeeId, status: confirmAction.type === 'lock' ? 'SUSPENDED' as any : 'ACTIVE' as any });
                 }
                 setConfirmAction(null);
               } catch (e) {
@@ -309,6 +309,60 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             </SectionCard>
           );
         })}
+          <ConfirmModal
+            visible={!!confirmAction}
+            title={
+              confirmAction?.type === 'delete' ? 'Xác nhận xóa nhân viên' :
+                confirmAction?.type === 'appoint' ? (confirmAction?.isHrDept ? 'Bổ nhiệm Trưởng phòng HR' : 'Xác nhận bổ nhiệm') :
+                  confirmAction?.type === 'error_inactive' ? 'Không thể bổ nhiệm' :
+                    confirmAction?.type === 'lock' ? 'Khóa tài khoản' :
+                      confirmAction?.type === 'unlock' ? 'Mở khóa tài khoản' : 'Xác nhận thu hồi'
+            }
+            message={
+              confirmAction?.type === 'delete' ? `Bạn có chắc chắn muốn xóa nhân viên ${confirmAction?.employeeName}? Mọi dữ liệu liên quan sẽ bị vô hiệu hóa.` :
+                confirmAction?.type === 'appoint' ? (
+                  confirmAction?.isHrDept 
+                    ? `Bạn có chắc chắn muốn bổ nhiệm ${confirmAction?.employeeName} làm Trưởng phòng Nhân sự? Tài khoản này sẽ tự động được cấp quyền Quản trị HR toàn công ty.`
+                    : `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?`
+                ) :
+                  confirmAction?.type === 'error_inactive' ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.' :
+                    confirmAction?.type === 'lock' ? `Bạn có chắc chắn muốn khóa tài khoản của ${confirmAction?.employeeName}?` :
+                      confirmAction?.type === 'unlock' ? `Bạn có chắc chắn muốn mở khóa tài khoản của ${confirmAction?.employeeName}?` :
+                        `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
+            }
+            confirmLabel={
+              confirmAction?.type === 'delete' ? 'Xóa ngay' :
+                confirmAction?.type === 'appoint' ? 'Bổ nhiệm' :
+                  confirmAction?.type === 'error_inactive' ? 'Đã hiểu' :
+                    confirmAction?.type === 'lock' ? 'Khóa' :
+                      confirmAction?.type === 'unlock' ? 'Mở khóa' : 'Thu hồi'
+            }
+            hideCancel={confirmAction?.type === 'error_inactive'}
+            loading={deleteEmployee.isPending || assignLeader.isPending || revokeLeader.isPending || updateEmployeeAny.isPending}
+            onCancel={() => setConfirmAction(null)}
+            onConfirm={async () => {
+              if (!confirmAction) return;
+              if (confirmAction.type === 'error_inactive') {
+                setConfirmAction(null);
+                return;
+              }
+              try {
+                if (confirmAction.type === 'delete' && confirmAction.employeeId) {
+                  await deleteEmployee.mutateAsync(confirmAction.employeeId);
+                } else if (confirmAction.type === 'appoint' && confirmAction.employeeId) {
+                  await assignLeader.mutateAsync({ userId: confirmAction.employeeId, departmentId: departmentId! });
+                } else if (confirmAction.type === 'revoke' && confirmAction.leaderRoleId) {
+                  await revokeLeader.mutateAsync(confirmAction.leaderRoleId);
+                } else if ((confirmAction.type === 'lock' || confirmAction.type === 'unlock') && confirmAction.employeeId) {
+                  await updateEmployeeAny.mutateAsync({ id: confirmAction.employeeId, status: confirmAction.type === 'lock' ? 'INACTIVE' as any : 'ACTIVE' as any });
+                }
+                setConfirmAction(null);
+              } catch (e) {
+                // Ignore API error because react-query handles it
+                setConfirmAction(null);
+              }
+            }}
+          />
       </ScreenContainer>
     </Screen>
   );

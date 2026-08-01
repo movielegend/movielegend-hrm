@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAdminUser, getEmployeeReport, getEmployees, getScopedEmployees, updateEmployee, createEmployee, deleteAdminUser } from '../api/employees.api';
+import { getAdminUser, getEmployeeReport, getEmployees, getScopedEmployees, updateEmployee, updateEmployeeAccountStatus, createEmployee, deleteAdminUser } from '../api/employees.api';
 import { queryKeys } from '../constants/queryKeys';
 import type { EmployeeListFilters, ScopedEmployeeFilters, UpdateEmployeePayload } from '../types/employee.types';
 
@@ -48,7 +48,7 @@ export function useUpdateEmployee(id: string) {
 export function useUpdateAnyEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateEmployeePayload }) => updateEmployee(id, payload),
+    mutationFn: ({ id, status }: { id: string; status: string }) => updateEmployeeAccountStatus(id, status),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['employees'] });
       void queryClient.invalidateQueries({ queryKey: ['employeeReport'] });

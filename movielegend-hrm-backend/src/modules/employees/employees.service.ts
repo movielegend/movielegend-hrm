@@ -10,6 +10,18 @@ import { ScopedEmployeeQueryDto } from './dto/scoped-employee-query.dto';
 
 @Injectable()
 export class EmployeesService {
+  async updateAccountStatus(id: string, status: AccountStatus, actor: AuthenticatedUser) {
+    if (!actor.roles.includes('ADMIN') && !actor.permissions.includes('user.manage') && !actor.roles.includes('HR')) {
+       const userDeptId = await this.scope.getPrimaryDepartmentId(id);
+       this.scope.assertDepartmentAccess(actor, userDeptId);
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: { accountStatus: status },
+      select: { id: true, userCode: true, accountStatus: true }
+    });
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,

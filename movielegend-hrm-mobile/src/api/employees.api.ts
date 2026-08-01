@@ -62,3 +62,8 @@ function cleanPaginationFallback(filters: EmployeeListFilters): { page?: number;
     ...(typeof filters.limit === 'number' ? { limit: filters.limit } : {}),
   };
 }
+
+export async function updateEmployeeAccountStatus(id: string, status: string): Promise<any> {
+  const response = await apiClient.patch<ApiResponse<any>>(`/employees/${id}/account-status`, { status });
+  return unwrapData(response);
+}
