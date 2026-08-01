@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl, Platform, Modal } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable, RefreshControl, Platform, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { EmptyState } from '../../components/EmptyState';
@@ -20,6 +20,7 @@ import { getHomeRouteForUser } from '../../utils/role-routing';
 import { findTodayShift } from '../attendance/attendance.logic';
 import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts, useRevokeShiftAssignment } from '../../hooks/useShifts';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAppAlert } from '../../contexts/AlertContext';
 
 function TimePickerField({ label, value, onChange }: { label: string; value: string; onChange: (val: string) => void }) {
   const [show, setShow] = useState(false);
@@ -88,6 +89,7 @@ export function EmployeeScheduleScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const schedule = useMySchedule();
+  const { showAlert } = useAppAlert();
   const todayShift = useMemo(() => findTodayShift(schedule.data ?? []), [schedule.data]);
   
   const rolePrefix = useMemo(() => getHomeRouteForUser(user), [user]);
@@ -138,7 +140,7 @@ export function EmployeeScheduleScreen() {
         
         <SectionCard title="Tiện ích ca làm việc">
           <View style={styles.utilitiesGrid}>
-            <Pressable style={styles.utilityBtn} onPress={() => Alert.alert('Thông báo', 'Tính năng Đăng ký ca làm việc đang được nâng cấp.')}>
+            <Pressable style={styles.utilityBtn} onPress={() => showAlert('Thông báo', 'Tính năng Đăng ký ca làm việc đang được nâng cấp.')}>
               <View style={[styles.utilityIconBox, { backgroundColor: '#ECFDF5' }]}>
                 <MaterialCommunityIcons name="calendar-plus" size={24} color="#10B981" />
               </View>
@@ -147,7 +149,7 @@ export function EmployeeScheduleScreen() {
             
             <Pressable style={styles.utilityBtn} onPress={() => {
               if (rolePrefix === '/leader') {
-                Alert.alert('Thông báo', 'Chức năng đang được phát triển');
+                showAlert('Thông báo', 'Chức năng đang được phát triển');
               } else {
                 router.push(`${rolePrefix}/shift-swaps/create` as any);
               }
@@ -213,51 +215,40 @@ export function AdminShiftsScreen() {
   const shifts = useShifts();
   const deleteShift = useDeleteShift();
   const revokeAssignment = useRevokeShiftAssignment();
+  const { showAlert, showConfirm } = useAppAlert();
 
   const handleRevoke = (id: string, name: string) => {
-    Alert.alert(
-      'Thu hồi ca làm',
-      `Bạn có chắc chắn muốn thu hồi ca phân công của "${name}"?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Thu hồi',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await revokeAssignment.mutateAsync(id);
-              Alert.alert('Thành công', 'Đã thu hồi ca làm');
-            } catch (error) {
-              const normalized = normalizeApiError(error);
-              Alert.alert('Lỗi', normalized.message);
-            }
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: 'Thu hồi ca làm',
+      message: `Bạn có chắc chắn muốn thu hồi ca phân công của "${name}"?`,
+      confirmLabel: 'Thu hồi',
+      onConfirm: async () => {
+        try {
+          await revokeAssignment.mutateAsync(id);
+          showAlert('Thành công', 'Đã thu hồi ca làm');
+        } catch (error) {
+          const normalized = normalizeApiError(error);
+          showAlert('Lỗi', normalized.message);
+        }
+      },
+    });
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert(
-      'Xóa ca làm việc',
-      `Bạn có chắc chắn muốn xóa ca "${name}"?\nDữ liệu đã xếp ca cho nhân viên sẽ không bị ảnh hưởng (Xóa mềm).`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteShift.mutateAsync(id);
-              Alert.alert('Thành công', 'Đã xóa ca làm việc');
-            } catch (error) {
-              const normalized = normalizeApiError(error);
-              Alert.alert('Lỗi', normalized.message);
-            }
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: 'Xóa ca làm việc',
+      message: `Bạn có chắc chắn muốn xóa ca "${name}"?\nDữ liệu đã xếp ca cho nhân viên sẽ không bị ảnh hưởng (Xóa mềm).`,
+      confirmLabel: 'Xóa',
+      onConfirm: async () => {
+        try {
+          await deleteShift.mutateAsync(id);
+          showAlert('Thành công', 'Đã xóa ca làm việc');
+        } catch (error) {
+          const normalized = normalizeApiError(error);
+          showAlert('Lỗi', normalized.message);
+        }
+      },
+    });
   };
 
   return (
@@ -382,6 +373,7 @@ export function AdminShiftsScreen() {
 export function CreateShiftScreen() {
   const router = useRouter();
   const createShift = useCreateShift();
+  const { showAlert } = useAppAlert();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [startTime, setStartTime] = useState('08:00');
@@ -390,11 +382,10 @@ export function CreateShiftScreen() {
   async function submit() {
     try {
       await createShift.mutateAsync({ code, name, startTime, endTime });
-      Alert.alert('Thành công', 'Đã tạo ca làm việc mới');
-      router.back();
+      showAlert('Thành công', 'Đã tạo ca làm việc mới', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   }
 
@@ -423,6 +414,7 @@ export function EditShiftScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const shifts = useShifts();
   const updateShift = useUpdateShift(id as string);
+  const { showAlert } = useAppAlert();
   
   const shift = useMemo(() => (shifts.data ?? []).find(s => s.id === id), [shifts.data, id]);
 
@@ -443,11 +435,10 @@ export function EditShiftScreen() {
   async function submit() {
     try {
       await updateShift.mutateAsync({ code, name, startTime, endTime });
-      Alert.alert('Thành công', 'Đã cập nhật ca làm việc');
-      router.back();
+      showAlert('Thành công', 'Đã cập nhật ca làm việc', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   }
 
@@ -482,6 +473,7 @@ export function EditShiftScreen() {
 export function LeaderShiftManagementScreen() {
   const assign = useAssignShift();
   const shifts = useShifts();
+  const { showAlert } = useAppAlert();
   const [userId, setUserId] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [shiftId, setShiftId] = useState('');
@@ -490,10 +482,10 @@ export function LeaderShiftManagementScreen() {
   async function submit() {
     try {
       await assign.mutateAsync({ userId, departmentId, shiftId, workDate });
-      Alert.alert('Thanh cong', 'Da phan ca');
+      showAlert('Thanh cong', 'Da phan ca');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 

@@ -56,7 +56,7 @@ export function SignaturePlacementScreen() {
         let finalUrl = url.replace('http://', 'https://');
         const fileUri = FileSystem.cacheDirectory + 'temp_signature_pdf.pdf';
         await FileSystem.downloadAsync(finalUrl, fileUri, { headers: { 'ngrok-skip-browser-warning': '69420' } });
-        const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+        const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
         webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64, fields: fieldsRef.current }));
       } catch (e: any) {
         Alert.alert('Lỗi', 'Không thể tải file PDF');

@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
@@ -107,16 +108,17 @@ export function MaterialCategoriesScreen() {
   const create = useCreateMaterialCategory();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const { showAlert } = useAppAlert();
 
   async function submit() {
     try {
       await create.mutateAsync({ code: code.trim(), name: name.trim() });
-      Alert.alert('Thành công', 'Đã tạo nhóm vật tư');
+      showAlert('Thành công', 'Đã tạo nhóm vật tư');
       setCode('');
       setName('');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -157,6 +159,7 @@ export function MaterialCreateScreen() {
   const [unit, setUnit] = useState('');
   const [minimumStock, setMinimumStock] = useState('');
   const [maximumStock, setMaximumStock] = useState('');
+  const { showAlert } = useAppAlert();
 
   async function submit() {
     const minimum = Number(minimumStock);
@@ -169,11 +172,11 @@ export function MaterialCreateScreen() {
         ...(minimumStock.trim() && Number.isFinite(minimum) ? { minimumStock: minimum } : {}),
         ...(maximumStock.trim() && Number.isFinite(maximum) ? { maximumStock: maximum } : {}),
       });
-      Alert.alert('Thành công', `Đã tạo vật tư ${material.materialCode}`);
+      showAlert('Thành công', `Đã tạo vật tư ${material.materialCode}`);
       router.back();
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -218,6 +221,7 @@ export function MaterialEditScreen() {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
   const [minimumStock, setMinimumStock] = useState('');
+  const { showAlert } = useAppAlert();
 
   async function submit() {
     if (!id) return;
@@ -231,11 +235,11 @@ export function MaterialEditScreen() {
           ...(minimumStock.trim() && Number.isFinite(minimum) ? { minimumStock: minimum } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã cập nhật vật tư');
+      showAlert('Thành công', 'Đã cập nhật vật tư');
       router.back();
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 

@@ -1,7 +1,8 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
+import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { Video, ResizeMode } from 'expo-av';
@@ -57,6 +58,7 @@ export function IncidentReportScreen() {
   const [uploading, setUploading] = useState(false);
   const [showAssetSelect, setShowAssetSelect] = useState(false);
   const [showTypeSelect, setShowTypeSelect] = useState(false);
+  const { showAlert } = useAppAlert();
 
   const uploadSelectedFile = async (sourceUri: string, mimeType: string) => {
     try {
@@ -72,7 +74,7 @@ export function IncidentReportScreen() {
       setEvidence(uploaded);
     } catch (error: any) {
       setUploading(false);
-      Alert.alert('Lỗi tải file', error.message || 'Không thể tải file lên');
+      showAlert('Lỗi tải file', error.message || 'Không thể tải file lên');
     }
   };
 
@@ -88,7 +90,7 @@ export function IncidentReportScreen() {
         await uploadSelectedFile(file.uri, file.type === 'video' ? 'video/mp4' : 'image/jpeg');
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể mở thư viện');
+      showAlert('Lỗi', 'Không thể mở thư viện');
     }
   };
 
@@ -96,7 +98,7 @@ export function IncidentReportScreen() {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh.');
+        showAlert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh.');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -109,7 +111,7 @@ export function IncidentReportScreen() {
         await uploadSelectedFile(file.uri, 'image/jpeg');
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể mở Camera');
+      showAlert('Lỗi', 'Không thể mở Camera');
     }
   };
 
@@ -135,11 +137,11 @@ export function IncidentReportScreen() {
           ...(evidence ? { evidenceUrl: evidence.fileUrl } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã ghi nhận sự cố');
+      showAlert('Thành công', 'Đã ghi nhận sự cố');
       router.back();
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -327,6 +329,7 @@ export function IncidentDetailScreen() {
   const action = useAssetIncidentAction();
   const [resolutionNote, setResolutionNote] = useState('');
   const [viewerVisible, setViewerVisible] = useState(false);
+  const { showAlert } = useAppAlert();
 
   async function runResolve(status: AssetStatus) {
     if (!id) return;
@@ -339,10 +342,10 @@ export function IncidentDetailScreen() {
           ...(resolutionNote.trim() ? { resolutionNote: resolutionNote.trim() } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã cập nhật trạng thái sự cố.');
+      showAlert('Thành công', 'Đã cập nhật trạng thái sự cố.');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -356,10 +359,10 @@ export function IncidentDetailScreen() {
           ...(resolutionNote.trim() ? { resolutionNote: resolutionNote.trim() } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã từ chối sự cố.');
+      showAlert('Thành công', 'Đã từ chối sự cố.');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 

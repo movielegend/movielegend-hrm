@@ -120,7 +120,7 @@ export function CheckInScreen() {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
       // Read file as base64
-      const base64Data = await FileSystem.readAsStringAsync(photoUri, { encoding: FileSystem.EncodingType.Base64 });
+      const base64Data = await FileSystem.readAsStringAsync(photoUri, { encoding: 'base64' });
 
       // Check in with photoBase64
       const payload = {

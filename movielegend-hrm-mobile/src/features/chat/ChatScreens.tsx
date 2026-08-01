@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAppAlert } from '../../contexts/AlertContext';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -287,6 +287,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
   const router = useRouter();
   const { user } = useAuth();
+  const { showAlert, showConfirm } = useAppAlert();
   const queryClient = useQueryClient();
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
@@ -343,14 +344,14 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       });
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi', 'Không thể gửi nhãn dán');
+      showAlert('Lỗi', 'Không thể gửi nhãn dán');
     }
   }
 
   async function pickImage() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh!');
+      showAlert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh!');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -417,7 +418,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       setMentions([]);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
       setText(content); // restore text if failed
       setSelectedImage(currentImage);
     } finally {
@@ -452,7 +453,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <TouchableOpacity
                 onPress={() => {
                   if (!currentGroup) {
-                    Alert.alert('Vui lòng đợi', 'Đang tải thông tin nhóm chat...');
+                    showAlert('Vui lòng đợi', 'Đang tải thông tin nhóm chat...');
                     return;
                   }
                   const targetUserId = currentGroup?.otherUserId || (currentGroup?.type === 'DIRECT' ? currentGroup?.members?.find((m: any) => m.userId !== user?.id)?.userId : undefined);
@@ -477,21 +478,22 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               {(currentGroup?.type === 'DIRECT' || user?.roles?.includes('ADMIN')) && (
                 <TouchableOpacity
                   onPress={() => {
-                    Alert.alert('Xác nhận', 'Bạn có chắc chắn muốn xóa nhóm chat này không? Mọi tin nhắn sẽ bị xóa vĩnh viễn.', [
-                      { text: 'Hủy', style: 'cancel' },
-                      {
-                        text: 'Xóa', style: 'destructive', onPress: async () => {
-                          try {
-                            await require('../../utils/api').api.delete(`/chat/groups/${groupId}`);
-                            queryClient.invalidateQueries({ queryKey: ['chat', 'groups'] });
-                            queryClient.invalidateQueries({ queryKey: ['chat', 'allGroups'] });
-                            router.back();
-                          } catch (error) {
-                            Alert.alert('Lỗi', 'Không thể xóa nhóm chat');
-                          }
+                    showConfirm({
+                      title: 'Xác nhận',
+                      message: 'Bạn có chắc chắn muốn xóa nhóm chat này không? Mọi tin nhắn sẽ bị xóa vĩnh viễn.',
+                      confirmLabel: 'Xóa',
+                      confirmTone: 'danger',
+                      onConfirm: async () => {
+                        try {
+                          await require('../../utils/api').api.delete(`/chat/groups/${groupId}`);
+                          queryClient.invalidateQueries({ queryKey: ['chat', 'groups'] });
+                          queryClient.invalidateQueries({ queryKey: ['chat', 'allGroups'] });
+                          router.back();
+                        } catch (error) {
+                          showAlert('Lỗi', 'Không thể xóa nhóm chat');
                         }
                       }
-                    ]);
+                    });
                   }}
                   style={{ padding: 8 }}
                 >
@@ -519,14 +521,12 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 <Pressable
                   onLongPress={() => {
                     if (isMine) {
-                      Alert.alert('Thu hồi tin nhắn', 'Bạn có chắc chắn muốn thu hồi tin nhắn này?', [
-                        { text: 'Hủy', style: 'cancel' },
-                        { 
-                          text: 'Thu hồi', 
-                          style: 'destructive', 
-                          onPress: () => deleteMessage.mutate(msg.id) 
-                        }
-                      ]);
+                      showConfirm({
+                        title: 'Thu hồi tin nhắn',
+                        message: 'Bạn có chắc chắn muốn thu hồi tin nhắn này?',
+                        confirmLabel: 'Thu hồi',
+                        onConfirm: () => deleteMessage.mutate(msg.id) 
+                      });
                     }
                   }}
                 >
@@ -552,14 +552,12 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                         onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}
                         onLongPress={() => {
                           if (isMine) {
-                            Alert.alert('Thu hồi tin nhắn', 'Bạn có chắc chắn muốn thu hồi tin nhắn ảnh này?', [
-                              { text: 'Hủy', style: 'cancel' },
-                              { 
-                                text: 'Thu hồi', 
-                                style: 'destructive', 
-                                onPress: () => deleteMessage.mutate(msg.id) 
-                              }
-                            ]);
+                            showConfirm({
+                              title: 'Thu hồi tin nhắn',
+                              message: 'Bạn có chắc chắn muốn thu hồi tin nhắn ảnh này?',
+                              confirmLabel: 'Thu hồi',
+                              onConfirm: () => deleteMessage.mutate(msg.id)
+                            });
                           }
                         }}
                       >

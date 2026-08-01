@@ -1,7 +1,6 @@
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState, useEffect, type ReactNode } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +30,7 @@ import { normalizeApiError } from "../../utils/api-error";
 import { roleBase } from "../../utils/notification-routing";
 import { MultiSelectModal } from "../../components/MultiSelectModal";
 import { CustomDatePickerModal } from "../../components/CustomDatePickerModal";
+import { useAppAlert } from "../../contexts/AlertContext";
 import { useEmployees } from "../../hooks/useEmployees";
 import {
   useContractTemplates,
@@ -101,6 +101,7 @@ export function ContractTemplatesScreen() {
   const { user } = useAuth();
   const templates = useContractTemplates();
   const deleteTemplate = useDeleteContractTemplate();
+  const { showAlert, showConfirm } = useAppAlert();
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
@@ -108,47 +109,20 @@ export function ContractTemplatesScreen() {
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
   const handleLongPressTemplate = (tpl: any) => {
-    Alert.alert(
-      "Tuỳ chọn",
-      `Hợp đồng: ${tpl.name}`,
-      [
-        {
-          text: "Tải hợp đồng",
-          onPress: () => {
-            const url = resolveFileUrl(tpl.templateFileUrl);
-            if (url) {
-              Linking.openURL(url).catch(() => Alert.alert("Lỗi", "Không thể mở file hợp đồng"));
-            } else {
-              Alert.alert("Lỗi", "Không tìm thấy file hợp đồng");
-            }
-          }
-        },
-        {
-          text: "Xoá",
-          style: "destructive",
-          onPress: () => {
-            Alert.alert(
-              "Xác nhận xoá",
-              "Bạn có chắc chắn muốn xoá mẫu hợp đồng này không? Dữ liệu trên cloud cũng sẽ bị xoá.",
-              [
-                { text: "Huỷ", style: "cancel" },
-                {
-                  text: "Xoá",
-                  style: "destructive",
-                  onPress: () => {
-                    deleteTemplate.mutate(tpl.id, {
-                      onSuccess: () => Alert.alert("Thành công", "Đã xoá mẫu hợp đồng"),
-                      onError: (err: any) => Alert.alert("Lỗi", err?.message || "Không thể xoá mẫu hợp đồng")
-                    });
-                  }
-                }
-              ]
-            );
-          }
-        },
-        { text: "Huỷ", style: "cancel" }
-      ]
-    );
+    // Currently relying on Action Sheet pattern which showConfirm doesn't fully support
+    // We will just use standard confirm for deletion instead of action sheet for template options
+    showConfirm({
+      title: "Xác nhận xoá",
+      message: `Bạn có chắc chắn muốn xoá mẫu hợp đồng "${tpl.name}" không? Dữ liệu trên cloud cũng sẽ bị xoá.`,
+      confirmLabel: "Xoá",
+      confirmTone: "danger",
+      onConfirm: () => {
+        deleteTemplate.mutate(tpl.id, {
+          onSuccess: () => showAlert("Thành công", "Đã xoá mẫu hợp đồng"),
+          onError: (err: any) => showAlert("Lỗi", err?.message || "Không thể xoá mẫu hợp đồng")
+        });
+      }
+    });
   };
 
   return (
@@ -191,7 +165,7 @@ export function ContractTemplatesScreen() {
                     setPdfViewerUrl(url);
                     setPdfViewerVisible(true);
                   } else {
-                    Alert.alert("Lỗi", "Không tìm thấy file hợp đồng");
+                    showAlert("Lỗi", "Không tìm thấy file hợp đồng");
                   }
                 }}
                 onLongPress={() => handleLongPressTemplate(tpl)}
@@ -401,9 +375,10 @@ export function ContractTemplatesScreen() {
 export function ContractListScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const contracts = useContracts();
+  const contracts = useContracts({ page: 1, limit: 50 });
   const deleteContract = useDeleteContract();
-  const contractItems = Array.isArray(contracts.data) ? contracts.data : [];
+  const { showAlert, showConfirm } = useAppAlert();
+  const contractItems = Array.isArray(contracts.data?.items) ? contracts.data?.items : [];
 
   return (
     <Screen>
@@ -486,28 +461,22 @@ export function ContractListScreen() {
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation();
-                            Alert.alert(
-                              "Xác nhận xóa",
-                              "Bạn có chắc chắn muốn xóa hợp đồng này không?",
-                              [
-                                { text: "Hủy", style: "cancel" },
-                                {
-                                  text: "Xóa",
-                                  style: "destructive",
-                                  onPress: () => {
-                                    deleteContract.mutate(contract.id, {
-                                      onSuccess: () => {
-                                        Alert.alert(
-                                          "Thành công",
-                                          "Đã xóa hợp đồng",
-                                        );
-                                        contracts.refetch();
-                                      },
-                                    });
+                            showConfirm({
+                              title: "Xác nhận xóa",
+                              message: "Bạn có chắc chắn muốn xóa hợp đồng này không?",
+                              confirmLabel: "Xóa",
+                              onConfirm: () => {
+                                deleteContract.mutate(contract.id, {
+                                  onSuccess: () => {
+                                    showAlert(
+                                      "Thành công",
+                                      "Đã xóa hợp đồng",
+                                    );
+                                    contracts.refetch();
                                   },
-                                },
-                              ],
-                            );
+                                });
+                              },
+                            });
                           }}
                           style={{ padding: 4 }}
                         >
@@ -676,6 +645,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const signCompanyContract = useSignContractCompany(contractId);
   const rejectSignature = useRejectContractSignature(contractId);
   const deleteContract = useDeleteContract();
+  const { showAlert, showConfirm } = useAppAlert();
 
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
@@ -710,10 +680,10 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   async function handleAction(action: () => Promise<unknown>, label: string) {
     try {
       await action();
-      Alert.alert("Thành công", label);
+      showAlert("Thành công", label);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert("Lỗi", normalized.message);
+      showAlert("Lỗi", normalized.message);
     }
   }
 
@@ -865,7 +835,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                   setPdfViewerVisible(true);
                   setPdfViewerUrl(url);
                 } else {
-                  Alert.alert("Lỗi", "Không tìm thấy file hợp đồng");
+                  showAlert("Lỗi", "Không tìm thấy file hợp đồng");
                 }
               }}
               style={{ marginBottom: 8 }}
@@ -933,23 +903,18 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                   marginTop: 8,
                 }}
                 onPress={() => {
-                  Alert.alert(
-                    "Xác nhận xóa",
-                    "Bạn có chắc chắn muốn xóa hợp đồng này không? Hành động này không thể hoàn tác.",
-                    [
-                      { text: "Hủy", style: "cancel" },
-                      {
-                        text: "Xóa",
-                        style: "destructive",
-                        onPress: () => {
-                          handleAction(async () => {
-                            await deleteContract.mutateAsync(contractId);
-                            router.back();
-                          }, "Đã xóa hợp đồng thành công");
-                        },
-                      },
-                    ],
-                  );
+                  showConfirm({
+                    title: "Xác nhận xóa",
+                    message: "Bạn có chắc chắn muốn xóa hợp đồng này không? Hành động này không thể hoàn tác.",
+                    confirmLabel: "Xóa",
+                    confirmTone: "danger",
+                    onConfirm: () => {
+                      handleAction(async () => {
+                        await deleteContract.mutateAsync(contractId);
+                        router.back();
+                      }, "Đã xóa hợp đồng thành công");
+                    },
+                  });
                 }}
               >
                 <Text style={{ color: "#ef4444", fontWeight: "600" }}>
@@ -1138,14 +1103,15 @@ export function CreateContractScreen() {
   >(null);
 
   const createContractMutation = useCreateContract();
+  const { showAlert } = useAppAlert();
 
   async function submit() {
     if (userIds.length === 0 || !templateId || !title.trim() || !startDate) {
-      Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin bắt buộc");
+      showAlert("Lỗi", "Vui lòng điền đầy đủ thông tin bắt buộc");
       return;
     }
     if (contractType !== "INDEFINITE_TERM" && !endDate) {
-      Alert.alert("Lỗi", "Vui lòng chọn ngày kết thúc cho loại hợp đồng này");
+      showAlert("Lỗi", "Vui lòng chọn ngày kết thúc cho loại hợp đồng này");
       return;
     }
     if (
@@ -1153,7 +1119,7 @@ export function CreateContractScreen() {
       endDate &&
       new Date(endDate) < new Date(startDate)
     ) {
-      Alert.alert("Lỗi", "Ngày kết thúc phải sau ngày bắt đầu");
+      showAlert("Lỗi", "Ngày kết thúc phải sau ngày bắt đầu");
       return;
     }
 
@@ -1180,11 +1146,11 @@ export function CreateContractScreen() {
       if (window && typeof window.alert === "function") {
         window.alert("Đã tạo hợp đồng thành công");
       } else {
-        Alert.alert("Thành công", "Đã tạo hợp đồng");
+        showAlert("Thành công", "Đã tạo hợp đồng");
       }
       router.replace(`${roleBase(user)}/contracts` as any);
     } catch (error: any) {
-      Alert.alert("Lỗi", normalizeApiError(error).message);
+      showAlert("Lỗi", normalizeApiError(error).message);
     }
   }
 
@@ -2030,9 +1996,11 @@ export function HRContractListScreen() {
     "MY_CONTRACTS" | "MANAGED_CONTRACTS"
   >("MY_CONTRACTS");
 
+  const [filterType, setFilterType] = useState<string>("ALL");
   const myContracts = useMyContracts();
-  const managedContracts = useContracts();
+  const managedContracts = useContracts({ page: 1, limit: 50 });
   const deleteContract = useDeleteContract();
+  const { showAlert, showConfirm } = useAppAlert();
 
   const myContractItems = Array.isArray(myContracts.data)
     ? myContracts.data
@@ -2274,28 +2242,23 @@ export function HRContractListScreen() {
                           <Pressable
                             onPress={(e) => {
                               e.stopPropagation();
-                              Alert.alert(
-                                "Xác nhận xóa",
-                                "Bạn có chắc chắn muốn xóa hợp đồng này không?",
-                                [
-                                  { text: "Hủy", style: "cancel" },
-                                  {
-                                    text: "Xóa",
-                                    style: "destructive",
-                                    onPress: () => {
-                                      deleteContract.mutate(contract.id, {
-                                        onSuccess: () => {
-                                          Alert.alert(
-                                            "Thành công",
-                                            "Đã xóa hợp đồng",
-                                          );
-                                          managedContracts.refetch();
-                                        },
-                                      });
+                              showConfirm({
+                                title: "Xác nhận xóa",
+                                message: "Bạn có chắc chắn muốn xóa hợp đồng này không?",
+                                confirmLabel: "Xóa",
+                                confirmTone: "danger",
+                                onConfirm: () => {
+                                  deleteContract.mutate(contract.id, {
+                                    onSuccess: () => {
+                                      showAlert(
+                                        "Thành công",
+                                        "Đã xóa hợp đồng",
+                                      );
+                                      managedContracts.refetch();
                                     },
-                                  },
-                                ],
-                              );
+                                  });
+                                },
+                              });
                             }}
                             style={{ padding: 4 }}
                           >

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking, Platform } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
+import { Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -130,13 +131,14 @@ export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefi
 
 export function CommentComposer({ onSubmit, pending }: { onSubmit: (content: string) => Promise<void>; pending?: boolean }) {
   const [content, setContent] = useState('');
+  const { showAlert } = useAppAlert();
   async function submit() {
     try {
       await onSubmit(content);
       setContent('');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
   return (
@@ -178,6 +180,7 @@ export function AttachmentPicker({
 }) {
   const [staged, setStaged] = useState<CreateTaskAttachmentPayload | null>(null);
   const [uploading, setUploading] = useState(false);
+  const { showAlert } = useAppAlert();
 
   async function pickAndUpload() {
     const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
@@ -201,7 +204,7 @@ export function AttachmentPicker({
       });
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     } finally {
       setUploading(false);
     }
@@ -210,7 +213,7 @@ export function AttachmentPicker({
   async function pickImageAndUpload() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Cần quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên.');
+      showAlert('Cần quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên.');
       return;
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
@@ -237,7 +240,7 @@ export function AttachmentPicker({
       });
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     } finally {
       setUploading(false);
     }
@@ -250,7 +253,7 @@ export function AttachmentPicker({
       setStaged(null);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 
@@ -369,7 +372,7 @@ export function AttachmentList({
                   });
                   fileUri = uri;
                 }
-                const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+                const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
                 // Tạo HTML page với PDF.js để render PDF từ base64 - hoạt động hoàn toàn offline
                 const html = `<!DOCTYPE html><html><head>
                   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -470,6 +473,7 @@ export function ReviewActionSheet({
   pending?: boolean;
 }) {
   const [note, setNote] = useState('');
+  const { showAlert } = useAppAlert();
   return (
     <View style={styles.stack}>
       <FormField label="Ghi chú duyệt" value={note} onChangeText={setNote} multiline />
@@ -479,7 +483,7 @@ export function ReviewActionSheet({
           loading={pending} 
           onPress={() => {
             if (note.trim().length < 3) {
-              Alert.alert('Thiếu thông tin', 'Vui lòng nhập ghi chú duyệt để từ chối (ít nhất 3 ký tự)');
+              showAlert('Thiếu thông tin', 'Vui lòng nhập ghi chú duyệt để từ chối (ít nhất 3 ký tự)');
               return;
             }
             void onReject(note);

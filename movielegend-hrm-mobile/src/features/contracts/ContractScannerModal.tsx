@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, View, Text, Image, ScrollView, Alert } from 'react-native';
+import { Modal, StyleSheet, View, Text, Image, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { colors } from '../../theme/colors';
 import { useScanContract } from '../../hooks/useContracts';
 import { ContractType } from '../../types/contract.types';
+import { useAppAlert } from '../../contexts/AlertContext';
 
 interface Props {
   visible: boolean;
@@ -16,12 +17,13 @@ interface Props {
 export function ContractScannerModal({ visible, onClose, onScanComplete }: Props) {
   const [image, setImage] = useState<string | null>(null);
   const scanMutation = useScanContract();
+  const { showAlert } = useAppAlert();
 
   const takePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     
     if (permissionResult.granted === false) {
-      Alert.alert('Lỗi quyền truy cập', 'Bạn cần cấp quyền sử dụng camera để chụp ảnh hợp đồng.');
+      showAlert('Lỗi quyền truy cập', 'Bạn cần cấp quyền sử dụng camera để chụp ảnh hợp đồng.');
       return;
     }
 
@@ -44,7 +46,7 @@ export function ContractScannerModal({ visible, onClose, onScanComplete }: Props
         onScanComplete({ ...data, scannedDocumentUrl: image });
       },
       onError: () => {
-        Alert.alert('Lỗi', 'Không thể bóc tách dữ liệu từ ảnh. Vui lòng thử lại.');
+        showAlert('Lỗi', 'Không thể bóc tách dữ liệu từ ảnh. Vui lòng thử lại.');
       }
     });
   };

@@ -119,7 +119,7 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
 
       setLocalPdfUri(uri);
       const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       const html = `<!DOCTYPE html><html><head>

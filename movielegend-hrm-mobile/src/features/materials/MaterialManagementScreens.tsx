@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -144,6 +145,7 @@ export function AssetDepartmentScreen() {
   const { data: departments } = useDepartments();
   const department = departments?.items.find((d) => d.id === departmentId);
   const { data: assetsData, isLoading, isError, error, refetch, isRefetching } = useAssets();
+  const { showAlert } = useAppAlert();
 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [filters, setFilters] = useState({
@@ -291,7 +293,7 @@ export function AssetDepartmentScreen() {
         onConfirm={async () => {
           if (selectedAssetForRevoke) {
             await revokeMutation.mutateAsync({ assetId: selectedAssetForRevoke.id, payload: { note: revokeNote } });
-            Alert.alert('Thành công', 'Đã thu hồi tài sản');
+            showAlert('Thành công', 'Đã thu hồi tài sản');
             setRevokeModalVisible(false);
           }
         }}
@@ -316,10 +318,10 @@ export function AssetDepartmentScreen() {
           if (selectedAssetForDamaged) {
             try {
               await revokeMutation.mutateAsync({ assetId: selectedAssetForDamaged.id, payload: { note: damagedNote, targetAssetStatus: damagedAction, vendorName: damagedAction === 'MAINTENANCE' ? damagedVendorName : undefined, startedAt: damagedAction === 'MAINTENANCE' && damagedStartedAt ? new Date(damagedStartedAt).toISOString() : undefined } });
-              Alert.alert('Thành công', 'Đã xử lý tài sản hỏng');
+              showAlert('Thành công', 'Đã xử lý tài sản hỏng');
               setDamagedModalVisible(false);
             } catch (e: any) {
-              Alert.alert('Lỗi', e.response?.data?.message || 'Không thể xử lý');
+              showAlert('Lỗi', e.response?.data?.message || 'Không thể xử lý');
             }
           }
         }}
@@ -398,10 +400,10 @@ export function AssetDepartmentScreen() {
                   conditionWhenAssigned: selectedAssetForAssign.conditionStatus,
                 },
               });
-              Alert.alert('Thành công', 'Đã giao tài sản');
+              showAlert('Thành công', 'Đã giao tài sản');
               setAssignModalVisible(false);
             } catch (e: any) {
-              Alert.alert('Lỗi', e.response?.data?.message || 'Không thể giao');
+              showAlert('Lỗi', e.response?.data?.message || 'Không thể giao');
             }
           }
         }}
@@ -418,10 +420,10 @@ export function AssetDepartmentScreen() {
           if (selectedAssetForTransfer) {
             try {
               await transferMutation.mutateAsync({ assetId: selectedAssetForTransfer.id, payload: { targetDepartmentId: option.id } });
-              Alert.alert('Thành công', 'Đã điều chuyển tài sản');
+              showAlert('Thành công', 'Đã điều chuyển tài sản');
               setTransferModalVisible(false);
             } catch (e: any) {
-              Alert.alert('Lỗi', e.response?.data?.message || 'Không thể điều chuyển');
+              showAlert('Lỗi', e.response?.data?.message || 'Không thể điều chuyển');
             }
           }
         }}

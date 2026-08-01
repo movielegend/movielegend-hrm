@@ -8,7 +8,7 @@ import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { ConfirmModal } from '../../components/ConfirmModal';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { EditProfileModal } from './components/EditProfileModal';
 import { useUserGuide } from '../../components/UserGuideManager';
 
@@ -21,13 +21,18 @@ export function EmployeeProfileScreen() {
   const { showGuideManual } = useUserGuide();
   const isHR = user?.roles?.includes('HR');
 
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { showConfirm, showAlert } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
   const handleLogout = () => {
-    setShowLogoutConfirm(true);
+    showConfirm({
+      title: "Đăng xuất",
+      message: "Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?",
+      confirmLabel: "Đăng xuất",
+      onConfirm: () => void logout(),
+    });
   };
 
   const getInitials = (name?: string) => {
@@ -81,7 +86,7 @@ export function EmployeeProfileScreen() {
           <Text style={styles.sectionTitle}>Tính năng</Text>
           <View style={styles.infoCard}>
             <ActionRow icon="text-box-check-outline" title="Hợp đồng lao động" onPress={() => router.push('/employee/contracts' as any)} />
-            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => showAlert('Thông báo', 'Chức năng đang được phát triển')} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/employee/assets' as any)} />
             <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} />
             <ActionRow icon="message-text-outline" title="Nhóm chat" onPress={() => router.push('/employee/chat' as any)} />
@@ -108,17 +113,6 @@ export function EmployeeProfileScreen() {
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
 
-      <ConfirmModal
-        visible={showLogoutConfirm}
-        title="Đăng xuất"
-        message="Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?"
-        confirmLabel="Đăng xuất"
-        onCancel={() => setShowLogoutConfirm(false)}
-        onConfirm={() => {
-          setShowLogoutConfirm(false);
-          void logout();
-        }}
-      />
 
       <EditProfileModal 
         visible={isEditing} 

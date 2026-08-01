@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView } from 'react-native';
+import { Modal, View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors } from '../../theme/colors';
@@ -7,6 +7,7 @@ import { PrimaryButton } from '../../components/Buttons';
 import { uploadFile } from '../../api/uploads.api';
 import { useCreateContractTemplate } from '../../hooks/useContracts';
 import type { ContractType } from '../../types/contract.types';
+import { useAppAlert } from '../../contexts/AlertContext';
 
 interface CreateTemplateModalProps {
   visible: boolean;
@@ -22,6 +23,7 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
   const [isLoading, setIsLoading] = useState(false);
 
   const createTemplate = useCreateContractTemplate();
+  const { showAlert } = useAppAlert();
 
   const handlePickDocument = async () => {
     try {
@@ -33,13 +35,13 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
         setFile(result.assets[0]);
       }
     } catch (err) {
-      Alert.alert('Lỗi', 'Không thể chọn tệp');
+      showAlert('Lỗi', 'Không thể chọn tệp');
     }
   };
 
   const handleSubmit = async () => {
     if (!name.trim() || !file) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên và chọn tệp PDF');
+      showAlert('Lỗi', 'Vui lòng nhập tên và chọn tệp PDF');
       return;
     }
 
@@ -67,10 +69,10 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
         storageKey: uploadedFile.fileId,
       });
 
-      Alert.alert('Thành công', 'Tạo mẫu hợp đồng thành công');
+      showAlert('Thành công', 'Tạo mẫu hợp đồng thành công');
       handleClose();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.message || 'Có lỗi xảy ra');
+      showAlert('Lỗi', error?.message || 'Có lỗi xảy ra');
     } finally {
       setIsLoading(false);
     }

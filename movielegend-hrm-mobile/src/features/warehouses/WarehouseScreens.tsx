@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
@@ -19,6 +19,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { hasPermission } from '../../utils/permissions';
 import { mapWarehouseAssetError } from '../assets/asset.logic';
 import { lowStockCount } from './stock.logic';
@@ -122,25 +123,26 @@ function SummaryTile({ label, value, danger }: { label: string; value: string; d
 }
 
 function WarehouseEditSection({ warehouseId }: { warehouseId: string }) {
-  const update = useUpdateWarehouse();
+  const updateMutation = useUpdateWarehouse(warehouseId);
+  const { showAlert } = useAppAlert();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
 
   async function submit() {
     try {
-      await update.mutateAsync({
+      await updateMutation.mutateAsync({
         id: warehouseId,
         payload: {
           ...(name.trim() ? { name: name.trim() } : {}),
           ...(address.trim() ? { address: address.trim() } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã cập nhật kho');
+      showAlert('Thành công', 'Đã cập nhật kho');
       setName('');
       setAddress('');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -148,7 +150,7 @@ function WarehouseEditSection({ warehouseId }: { warehouseId: string }) {
     <SectionCard title="Cập nhật kho">
       <FormField label="Tên mới (bỏ trống nếu giữ nguyên)" value={name} onChangeText={setName} />
       <FormField label="Địa chỉ mới (bỏ trống nếu giữ nguyên)" value={address} onChangeText={setAddress} />
-      <PrimaryButton loading={update.isPending} disabled={!name.trim() && !address.trim()} onPress={() => void submit()}>
+      <PrimaryButton loading={updateMutation.isPending} disabled={!name.trim() && !address.trim()} onPress={() => void submit()}>
         Lưu
       </PrimaryButton>
     </SectionCard>
@@ -157,7 +159,8 @@ function WarehouseEditSection({ warehouseId }: { warehouseId: string }) {
 
 export function WarehouseCreateScreen() {
   const router = useRouter();
-  const create = useCreateWarehouse();
+  const createMutation = useCreateWarehouse();
+  const { showAlert } = useAppAlert();
   const departments = useDepartments({ page: 1, limit: 50 });
   const [companyId, setCompanyId] = useState('');
   const [departmentId, setDepartmentId] = useState('');
@@ -172,17 +175,16 @@ export function WarehouseCreateScreen() {
 
   async function submit() {
     try {
-      const warehouse = await create.mutateAsync({
+      const warehouse = await createMutation.mutateAsync({
         companyId: companyId.trim(),
         ...(departmentId ? { departmentId } : {}),
         name: name.trim(),
         ...(address.trim() ? { address: address.trim() } : {}),
       });
-      Alert.alert('Thành công', `Đã tạo kho ${warehouse.code}`);
-      router.back();
+      showAlert('Thành công', `Đã tạo kho ${warehouse.code}`, () => router.back());
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 

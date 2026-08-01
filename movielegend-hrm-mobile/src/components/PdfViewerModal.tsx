@@ -53,7 +53,7 @@ export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu
       
       fileUri = uri;
       setCurrentPdfUri(fileUri);
-      const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+      const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
       
       const html = `<!DOCTYPE html><html><head>
         <meta name="viewport" content="width=device-width,initial-scale=1">

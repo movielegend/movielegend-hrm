@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
@@ -32,6 +32,7 @@ import { useWarehouses } from '../../hooks/useWarehouses';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { useAppAlert } from '../../contexts/AlertContext';
 import type { MaterialIssueTargetType, StockLinePayload } from '../../types/stock.types';
 import { formatDateTime } from '../../utils/date-time';
 import { hasAnyPermission, hasPermission } from '../../utils/permissions';
@@ -83,15 +84,16 @@ export function StockReceiptDetailScreen() {
   const { user } = useAuth();
   const receipt = useStockReceipt(id);
   const approve = useApproveStockReceipt();
+  const { showAlert } = useAppAlert();
 
   async function runApprove() {
     if (!id) return;
     try {
       await approve.mutateAsync(id);
-      Alert.alert('Success', 'Receipt approved. Stock will be refreshed from REST.');
+      showAlert('Success', 'Receipt approved. Stock will be refreshed from REST.');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -123,6 +125,7 @@ export function StockReceiptCreateScreen() {
   const create = useCreateStockReceipt();
   const warehouses = useWarehouses();
   const materials = useMaterials();
+  const { showAlert } = useAppAlert();
   const [warehouseId, setWarehouseId] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
@@ -136,11 +139,10 @@ export function StockReceiptCreateScreen() {
         ...(referenceNumber.trim() ? { referenceNumber: referenceNumber.trim() } : {}),
         items: toStockLinePayloads(lines),
       });
-      Alert.alert('Success', 'Receipt created.');
-      router.back();
+      showAlert('Success', 'Receipt created.', () => router.back());
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -210,9 +212,11 @@ export function MaterialIssueListScreen({ area }: { area: OperationArea }) {
 
 export function MaterialIssueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
   const issue = useMaterialIssue(id);
   const action = useMaterialIssueAction();
+  const { showAlert } = useAppAlert();
 
   function translateAction(kind: string) {
     if (kind === 'approve') return 'Phê duyệt';
@@ -226,10 +230,10 @@ export function MaterialIssueDetailScreen() {
     if (!id) return;
     try {
       await action.mutateAsync({ id, action: kind });
-      Alert.alert('Thành công', `Đã ${translateAction(kind).toLowerCase()} yêu cầu.`);
+      showAlert('Thành công', `Đã ${translateAction(kind).toLowerCase()} yêu cầu.`, () => router.back());
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -281,6 +285,7 @@ export function MaterialIssueCreateScreen() {
   const warehouses = useWarehouses();
   const materials = useMaterials();
   const departments = useDepartments({ page: 1, limit: 50 });
+  const { showAlert } = useAppAlert();
   const [warehouseId, setWarehouseId] = useState('');
   const [issueTargetType, setIssueTargetType] = useState<MaterialIssueTargetType>('DEPARTMENT');
   const [issuedToDepartmentId, setIssuedToDepartmentId] = useState('');
@@ -298,7 +303,7 @@ export function MaterialIssueCreateScreen() {
 
   async function submit() {
     if (validation) {
-      Alert.alert('INVALID_FORM', validation);
+      showAlert('INVALID_FORM', validation);
       return;
     }
     try {
@@ -309,11 +314,10 @@ export function MaterialIssueCreateScreen() {
         ...(note.trim() ? { note: note.trim() } : {}),
         items: toStockLinePayloads(lines),
       });
-      Alert.alert('Success', 'Material issue created.');
-      router.back();
+      showAlert('Success', 'Material issue created.', () => router.back());
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -383,19 +387,21 @@ export function StockTransferListScreen({ area }: { area: Extract<OperationArea,
 }
 
 export function StockTransferDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string; }>();
+  const router = useRouter();
   const { user } = useAuth();
   const transfer = useStockTransferFromList(id);
   const action = useStockTransferAction();
+  const { showAlert } = useAppAlert();
 
   async function run(kind: 'approve' | 'ship' | 'receive' | 'cancel') {
     if (!id) return;
     try {
       await action.mutateAsync({ id, action: kind });
-      Alert.alert('Success', `Transfer ${kind} completed.`);
+      showAlert('Success', `Transfer ${kind} completed.`, () => router.back());
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -427,6 +433,7 @@ export function StockTransferCreateScreen() {
   const create = useCreateStockTransfer();
   const warehouses = useWarehouses();
   const materials = useMaterials();
+  const { showAlert } = useAppAlert();
   const [sourceWarehouseId, setSourceWarehouseId] = useState('');
   const [targetWarehouseId, setTargetWarehouseId] = useState('');
   const [note, setNote] = useState('');
@@ -436,7 +443,7 @@ export function StockTransferCreateScreen() {
 
   async function submit() {
     if (validation) {
-      Alert.alert('INVALID_FORM', validation);
+      showAlert('INVALID_FORM', validation);
       return;
     }
     try {
@@ -446,11 +453,10 @@ export function StockTransferCreateScreen() {
         ...(note.trim() ? { note: note.trim() } : {}),
         items: toStockLinePayloads(lines),
       });
-      Alert.alert('Success', 'Transfer created.');
-      router.back();
+      showAlert('Success', 'Transfer created.', () => router.back());
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 

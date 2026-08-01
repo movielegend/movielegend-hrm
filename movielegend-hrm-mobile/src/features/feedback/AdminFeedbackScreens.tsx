@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, TextInput, Modal, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ImageView from '../../components/ImageViewer/ImageViewer';
@@ -128,6 +129,7 @@ export function AdminFeedbackDetailScreen() {
   const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>('REVIEWED');
   const [reason, setReason] = useState('');
   const [viewerVisible, setViewerVisible] = useState(false);
+  const { showAlert } = useAppAlert();
 
   if (isLoading) {
     return (
@@ -155,7 +157,7 @@ export function AdminFeedbackDetailScreen() {
       Toast.show({ type: 'success', text1: 'Đã cập nhật trạng thái' });
       setModalVisible(false);
     } catch (error) {
-      Alert.alert('Lỗi', normalizeApiError(error).message);
+      showAlert('Lỗi', normalizeApiError(error).message);
     }
   };
 

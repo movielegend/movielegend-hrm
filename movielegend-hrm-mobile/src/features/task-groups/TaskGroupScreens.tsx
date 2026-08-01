@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
@@ -14,6 +14,7 @@ import { useDepartments } from '../../hooks/useDepartments';
 import { useEmployees } from '../../hooks/useEmployees';
 import { useAddTaskGroupMember, useCreateTaskGroup, useRemoveTaskGroupMember, useTaskGroup, useTaskGroups } from '../../hooks/useTaskGroups';
 import { useAuth } from '../../providers/AuthProvider';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
@@ -52,15 +53,15 @@ export function CreateTaskGroupScreen() {
   const router = useRouter();
   const departments = useDepartments({ page: 1, limit: 50 });
   const mutation = useCreateTaskGroup();
+  const { showAlert } = useAppAlert();
 
   async function submit() {
     try {
       await mutation.mutateAsync({ departmentId, name, description });
-      Alert.alert('Thanh cong', 'Da tao task group');
-      router.back();
+      showAlert('Thanh cong', 'Da tao task group', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 
@@ -90,24 +91,25 @@ export function TaskGroupDetailScreen({ area }: { area: GroupArea }) {
   const removeMember = useRemoveTaskGroupMember(id ?? '');
   const canReadUsers = hasPermission(user, 'user.read');
   const users = useEmployees({ page: 1, limit: 30 }, canReadUsers);
+  const { showAlert } = useAppAlert();
 
   async function add(userId: string) {
     try {
       await addMember.mutateAsync({ userId });
-      Alert.alert('Thanh cong', 'Da them member');
+      showAlert('Thanh cong', 'Da them member');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 
   async function remove(userId: string) {
     try {
       await removeMember.mutateAsync(userId);
-      Alert.alert('Thanh cong', 'Da xoa member');
+      showAlert('Thanh cong', 'Da xoa member');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      showAlert(normalized.code, normalized.message);
     }
   }
 

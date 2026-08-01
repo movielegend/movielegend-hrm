@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Controller, useForm, type Control, type FieldErrors } from 'react-hook-form';
-import { RefreshControl, StyleSheet, Text, View, Pressable, Alert, ScrollView } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
 import { Avatar } from '../../components/Avatar';
@@ -19,6 +19,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { SelectModal } from '../../components/SelectModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { useCreateDepartment, useDepartment, useDepartments, useUpdateDepartment, useDeleteDepartment } from '../../hooks/useDepartments';
 import { useBranches } from '../../api/branches.api';
 import { usePositions } from '../../hooks/usePositions';
@@ -46,6 +47,7 @@ export function DepartmentListScreen() {
   const router = useRouter();
   const { branchId } = useLocalSearchParams<{ branchId?: string }>();
   const { user } = useAuth();
+  const { showAlert, showConfirm } = useAppAlert();
   const [search, setSearch] = useState('');
   const departments = useDepartments({ search });
   const deleteDept = useDeleteDepartment();
@@ -59,26 +61,21 @@ export function DepartmentListScreen() {
   const canDelete = hasPermission(user, 'department.delete');
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert(
-      'Xóa cứng phòng ban',
-      `Bạn có chắc chắn muốn xóa phòng ban "${name}" vĩnh viễn khỏi Database?\n(Sẽ không thể xóa nếu phòng ban đang có nhân viên)`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa vĩnh viễn',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteDept.mutateAsync(id);
-              Alert.alert('Thành công', 'Đã xóa phòng ban');
-            } catch (error) {
-              const normalized = normalizeApiError(error);
-              Alert.alert('Lỗi', normalized.message);
-            }
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: 'Xóa cứng phòng ban',
+      message: `Bạn có chắc chắn muốn xóa phòng ban "${name}" vĩnh viễn khỏi Database?\n(Sẽ không thể xóa nếu phòng ban đang có nhân viên)`,
+      confirmLabel: 'Xóa vĩnh viễn',
+      confirmTone: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteDept.mutateAsync(id);
+          showAlert('Thành công', 'Đã xóa phòng ban');
+        } catch (error) {
+          const normalized = normalizeApiError(error);
+          showAlert('Lỗi', normalized.message);
+        }
+      },
+    });
   };
 
   return (
@@ -197,6 +194,7 @@ export function DepartmentDetailScreen() {
   const { id, departmentId } = useLocalSearchParams<{ id?: string, departmentId?: string }>();
   const actualId = (id || departmentId) as string;
   const { user } = useAuth();
+  const { showAlert } = useAppAlert();
   const department = useDepartment(actualId);
   const positions = usePositions(actualId);
   const employees = useEmployees({ departmentId: actualId, page: 1, limit: 100 });
@@ -391,7 +389,7 @@ export function DepartmentDetailScreen() {
           onConfirm={async () => {
             if (selectedAssetForRevoke) {
               await revokeMutation.mutateAsync({ assetId: selectedAssetForRevoke.id, payload: { note: revokeNote } });
-              Alert.alert('Thành công', 'Đã thu hồi tài sản');
+              showAlert('Thành công', 'Đã thu hồi tài sản');
               setRevokeModalVisible(false);
             }
           }}
@@ -425,10 +423,10 @@ export function DepartmentDetailScreen() {
                     conditionWhenAssigned: selectedAssetForAssign.conditionStatus,
                   },
                 });
-                Alert.alert('Thành công', 'Đã giao tài sản');
+                showAlert('Thành công', 'Đã giao tài sản');
                 setAssignModalVisible(false);
               } catch (e: any) {
-                Alert.alert('Lỗi', e.response?.data?.message || 'Không thể giao');
+                showAlert('Lỗi', e.response?.data?.message || 'Không thể giao');
               }
             }
           }}
@@ -446,11 +444,11 @@ export function DepartmentDetailScreen() {
             if (selectedAssetForTransfer) {
               try {
                 await transferMutation.mutateAsync({ assetId: selectedAssetForTransfer.id, payload: { targetDepartmentId: option.id } });
-                Alert.alert('Thành công', 'Đã điều chuyển tài sản');
+                showAlert('Thành công', 'Đã điều chuyển tài sản');
                 setTransferModalVisible(false);
               } catch (e: any) {
                 console.error('Transfer Error:', JSON.stringify(e.response?.data, null, 2));
-                Alert.alert('Lỗi', e.response?.data?.error?.message || e.response?.data?.message || 'Không thể điều chuyển');
+                showAlert('Lỗi', e.response?.data?.error?.message || e.response?.data?.message || 'Không thể điều chuyển');
               }
             }
           }}
@@ -535,6 +533,7 @@ export function EditDepartmentScreen() {
   const actualId = (id || departmentId) as string;
   const department = useDepartment(actualId);
   const update = useUpdateDepartment(actualId);
+  const { showAlert } = useAppAlert();
   
   const { control, handleSubmit, formState: { errors }, reset } = useForm<DepartmentFormValues>({
     resolver: zodResolver(createSchema),
@@ -557,11 +556,10 @@ export function EditDepartmentScreen() {
   const submit = handleSubmit(async (payload) => {
     try {
       await update.mutateAsync(buildUpdateDepartmentPayload(payload));
-      Alert.alert('Thành công', 'Đã cập nhật phòng ban');
-      router.back();
+      showAlert('Thành công', 'Đã cập nhật phòng ban', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   });
 

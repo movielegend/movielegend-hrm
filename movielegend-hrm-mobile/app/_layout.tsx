@@ -120,25 +120,28 @@ function PushNotificationWrapper({ children }: { children: React.ReactNode }) {
 import { VoiceCallProvider } from '../src/features/voice-call/VoiceCallProvider';
 import { UserGuideManager } from '../src/components/UserGuideManager';
 import { Provider as PaperProvider } from 'react-native-paper';
+import { AlertProvider } from '../src/contexts/AlertContext';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <PaperProvider>
         <QueryProvider>
-          <AuthProvider>
-            <SocketProvider>
-              <VoiceCallProvider>
-                <UserGuideManager>
-                  <PushNotificationWrapper>
-                    <StatusBar style="dark" />
-                    <Stack screenOptions={{ headerShown: false }} />
-                    <ToastWrapper />
-                  </PushNotificationWrapper>
-                </UserGuideManager>
-              </VoiceCallProvider>
-            </SocketProvider>
-          </AuthProvider>
+          <AlertProvider>
+            <AuthProvider>
+              <SocketProvider>
+                <VoiceCallProvider>
+                  <UserGuideManager>
+                    <PushNotificationWrapper>
+                      <StatusBar style="dark" />
+                      <Stack screenOptions={{ headerShown: false }} />
+                      <ToastWrapper />
+                    </PushNotificationWrapper>
+                  </UserGuideManager>
+                </VoiceCallProvider>
+              </SocketProvider>
+            </AuthProvider>
+          </AlertProvider>
         </QueryProvider>
       </PaperProvider>
     </SafeAreaProvider>

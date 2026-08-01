@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Image, TextInput, Pressable, Switch, Platform, ActivityIndicator } from 'react-native';
+import { useAppAlert } from '../../contexts/AlertContext';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../api/uploads.api';
@@ -76,32 +77,33 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
+  const { showAlert } = useAppAlert();
 
   async function runConfirm(assignmentId: string) {
     try {
       await confirm.mutateAsync(assignmentId);
-      Alert.alert('Thành công', 'Đã xác nhận nhận tài sản');
+      showAlert('Thành công', 'Đã xác nhận nhận tài sản');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
   async function runRequestReturn() {
     if (!selectedAssignmentId) return;
     if (!returnReason.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập lý do trả tài sản.');
+      showAlert('Lỗi', 'Vui lòng nhập lý do trả tài sản.');
       return;
     }
     try {
       await requestReturn.mutateAsync({ assignmentId: selectedAssignmentId, payload: { reason: returnReason.trim() } });
-      Alert.alert('Thành công', 'Đã gửi yêu cầu trả tài sản');
+      showAlert('Thành công', 'Đã gửi yêu cầu trả tài sản');
       setShowReturnModal(false);
       setReturnReason('');
       setSelectedAssignmentId(null);
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -267,6 +269,7 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
 
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnReason, setReturnReason] = useState('');
+  const { showAlert } = useAppAlert();
 
   const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
@@ -300,27 +303,27 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
   async function runAction(action: () => Promise<unknown>, successMessage: string) {
     try {
       await action();
-      Alert.alert('Thành công', successMessage);
+      showAlert('Thành công', successMessage);
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
   async function runRequestReturn() {
     if (!assignment) return;
     if (!returnReason.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập lý do trả tài sản.');
+      showAlert('Lỗi', 'Vui lòng nhập lý do trả tài sản.');
       return;
     }
     try {
       await requestReturn.mutateAsync({ assignmentId: assignment.id, payload: { reason: returnReason.trim() } });
-      Alert.alert('Thành công', 'Đã gửi yêu cầu trả tài sản');
+      showAlert('Thành công', 'Đã gửi yêu cầu trả tài sản');
       setShowReturnModal(false);
       setReturnReason('');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -487,6 +490,7 @@ export function AssetCreateScreen() {
   const [showBrandSelect, setShowBrandSelect] = useState(false);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const { showAlert } = useAppAlert();
 
   const uploadSelectedImage = async (sourceUri: string) => {
     try {
@@ -505,7 +509,7 @@ export function AssetCreateScreen() {
       }
     } catch (error: any) {
       setIsUploading(false);
-      Alert.alert('Lỗi tải ảnh', error.message || 'Không thể tải ảnh lên');
+      showAlert('Lỗi tải ảnh', error.message || 'Không thể tải ảnh lên');
     }
   };
 
@@ -520,7 +524,7 @@ export function AssetCreateScreen() {
         await uploadSelectedImage(result.assets[0].uri);
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh');
+      showAlert('Lỗi', 'Không thể mở thư viện ảnh');
     }
   };
 
@@ -528,7 +532,7 @@ export function AssetCreateScreen() {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh thiết bị.');
+        showAlert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh thiết bị.');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -540,7 +544,7 @@ export function AssetCreateScreen() {
         await uploadSelectedImage(result.assets[0].uri);
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể mở Camera');
+      showAlert('Lỗi', 'Không thể mở Camera');
     }
   };
 
@@ -592,11 +596,11 @@ export function AssetCreateScreen() {
         ...(conditionNote.trim() ? { conditionNote: conditionNote.trim() } : {}),
         ...(imageUrls.length > 0 ? { imageUrl: imageUrls.join(',') } : {}),
       });
-      Alert.alert('Thành công', `Đã tạo tài sản ${asset.assetCode}`);
+      showAlert('Thành công', `Đã tạo tài sản ${asset.assetCode}`);
       router.back();
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 
@@ -741,6 +745,7 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
   const [showEmployeeSelect, setShowEmployeeSelect] = useState(false);
   const [showDepartmentSelect, setShowDepartmentSelect] = useState(false);
   const [showConditionSelect, setShowConditionSelect] = useState(false);
+  const { showAlert } = useAppAlert();
 
   // Reuse GET /employees/scoped — backend tự giới hạn scope theo actor.
   const employees = useQuery({
@@ -761,11 +766,11 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
           ...(note.trim() ? { note: note.trim() } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã tạo cấp phát, chờ nhân viên xác nhận');
+      showAlert('Thành công', 'Đã tạo cấp phát, chờ nhân viên xác nhận');
       router.back();
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      showAlert(mapped.code, mapped.message);
     }
   }
 

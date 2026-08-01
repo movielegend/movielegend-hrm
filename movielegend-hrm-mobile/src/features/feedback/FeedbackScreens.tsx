@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput, RefreshControl } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,10 +18,10 @@ import { FeedbackStatusBadge } from './components/FeedbackStatusBadge';
 import { normalizeApiError } from '../../utils/api-error';
 import type { FeedbackStatus } from '../../types/feedback.types';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
 import { uploadFile } from '../../api/uploads.api';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiUrl } from '../../constants/env';
+import { useAppAlert } from '../../contexts/AlertContext';
 
 // --- My Feedback List Screen ---
 export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: string }) {
@@ -135,6 +135,8 @@ export function CreateFeedbackScreen() {
     }
   });
 
+  const { showAlert } = useAppAlert();
+
   const onSubmit = async (data: CreateFeedbackForm) => {
     try {
       setIsUploading(true);
@@ -156,7 +158,7 @@ export function CreateFeedbackScreen() {
     } catch (error) {
       setIsUploading(false);
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   };
 

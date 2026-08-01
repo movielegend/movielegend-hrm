@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { RefreshControl, StyleSheet, Text, View, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -20,33 +20,30 @@ import { normalizeApiError } from '../../utils/api-error';
 import { MultiSelectModal } from '../../components/MultiSelectModal';
 import { LocationPickerMap, LocationData } from '../../components/LocationPickerMap';
 
+import { useAppAlert } from '../../contexts/AlertContext';
+
 export function BranchListScreen() {
   const router = useRouter();
+  const { showAlert, showConfirm } = useAppAlert();
   const [search, setSearch] = useState('');
   const branches = useBranches();
   const deleteBranch = useDeleteBranch();
   
   const handleDelete = (id: string, name: string) => {
-    Alert.alert(
-      'Xóa chi nhánh',
-      `Bạn có chắc chắn muốn xóa chi nhánh "${name}"?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteBranch.mutateAsync(id);
-              Alert.alert('Thành công', 'Đã xóa chi nhánh');
-            } catch (error) {
-              const normalized = normalizeApiError(error);
-              Alert.alert('Lỗi', normalized.message);
-            }
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: 'Xóa chi nhánh',
+      message: `Bạn có chắc chắn muốn xóa chi nhánh "${name}"?`,
+      confirmLabel: 'Xóa',
+      onConfirm: async () => {
+        try {
+          await deleteBranch.mutateAsync(id);
+          showAlert('Thành công', 'Đã xóa chi nhánh');
+        } catch (error) {
+          const normalized = normalizeApiError(error);
+          showAlert('Lỗi', normalized.message);
+        }
+      },
+    });
   };
 
   const filteredItems = branches.data?.filter(b => 
@@ -107,8 +104,12 @@ export function BranchListScreen() {
   );
 }
 
+import NetInfo from '@react-native-community/netinfo';
+import * as Location from 'expo-location';
+
 export function BranchCreateScreen() {
   const router = useRouter();
+  const { showAlert, showConfirm } = useAppAlert();
   const mutation = useCreateBranch();
   
   const [name, setName] = useState('');
@@ -116,26 +117,49 @@ export function BranchCreateScreen() {
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
+  const [networkName, setNetworkName] = useState('');
   const [mapVisible, setMapVisible] = useState(false);
   const [isFetchingIp, setIsFetchingIp] = useState(false);
 
-  const fetchCurrentIp = async (setter: (val: string) => void, currentValue: string) => {
+  const fetchCurrentIp = async (currentValue: string) => {
     try {
       setIsFetchingIp(true);
+      
+      // Xin quyền Location trên Android để đọc được tên mạng Wi-Fi
+      let ssid = '';
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const netInfo = await NetInfo.fetch();
+        if (netInfo.type === 'wifi' && netInfo.details && 'ssid' in netInfo.details && netInfo.details.ssid) {
+          ssid = netInfo.details.ssid;
+        }
+      }
+
+      // Vẫn lấy Public IP để lưu DB
       const res = await fetch('https://api.ipify.org?format=json');
       const data = await res.json();
       const currentIp = data.ip;
+
+      if (ssid) {
+        setNetworkName(ssid); // Lưu SSID để hiển thị lên màn hình
+      }
+
       if (currentValue && !currentValue.includes(currentIp)) {
-        setter(currentValue.trim() ? `${currentValue}, ${currentIp}` : currentIp);
+        setAllowedIps(currentValue.trim() ? `${currentValue}, ${currentIp}` : currentIp);
       } else if (!currentValue) {
-        setter(currentIp);
+        setAllowedIps(currentIp);
       }
     } catch (err) {
-      Alert.alert('Lỗi', 'Không thể lấy địa chỉ IP mạng hiện tại');
+      console.warn('Lỗi lấy mạng:', err);
     } finally {
       setIsFetchingIp(false);
     }
   };
+
+  useEffect(() => {
+    // Tự động lấy Wi-Fi khi vừa mở màn hình
+    void fetchCurrentIp(allowedIps);
+  }, []);
 
   const submit = async () => {
     try {
@@ -159,12 +183,10 @@ export function BranchCreateScreen() {
       };
       
       await mutation.mutateAsync(payload);
-      Alert.alert('Thành công', 'Đã tạo chi nhánh mới', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      showAlert('Thành công', 'Đã tạo chi nhánh mới', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   };
 
@@ -188,14 +210,17 @@ export function BranchCreateScreen() {
             placeholder="Ví dụ: Chi nhánh Hà Nội"
           />
           <FormField
-            label="ID mạng Wi-Fi (IP công ty)"
-            value={allowedIps}
-            onChangeText={setAllowedIps}
-            placeholder="Ví dụ: 11.22.33.44 (Cách nhau dấu phẩy)"
+            label="Tên mạng Wi-Fi (SSID)"
+            value={networkName || allowedIps}
+            onChangeText={(text) => {
+              setNetworkName(''); // Xóa tên mạng nếu người dùng tự sửa bằng tay
+              setAllowedIps(text);
+            }}
+            placeholder="Ví dụ: Tầng 1 - WiFi"
             autoCapitalize="none"
             rightLabelElement={
               <Pressable 
-                onPress={() => void fetchCurrentIp(setAllowedIps, allowedIps)}
+                onPress={() => void fetchCurrentIp(allowedIps)}
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 4, backgroundColor: '#EFF6FF', borderRadius: 4 }}
                 disabled={isFetchingIp}
               >
@@ -204,7 +229,7 @@ export function BranchCreateScreen() {
                 ) : (
                   <>
                     <MaterialCommunityIcons name="wifi" size={14} color="#3B82F6" style={{ marginRight: 4 }} />
-                    <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Tự động điền mạng này</Text>
+                    <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Làm mới mạng</Text>
                   </>
                 )}
               </Pressable>
@@ -263,8 +288,9 @@ export function BranchCreateScreen() {
 }
 
 export function BranchEditScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { showAlert, showConfirm } = useAppAlert();
   const branchQuery = useBranch(id!);
   const mutation = useUpdateBranch();
   
@@ -289,7 +315,7 @@ export function BranchEditScreen() {
         setter(currentIp);
       }
     } catch (err) {
-      Alert.alert('Lỗi', 'Không thể lấy địa chỉ IP mạng hiện tại');
+      showAlert('Lỗi', 'Không thể lấy địa chỉ IP mạng hiện tại');
     } finally {
       setIsFetchingIp(false);
     }
@@ -316,12 +342,10 @@ export function BranchEditScreen() {
       payload.allowedIps = allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [];
 
       await mutation.mutateAsync(payload);
-      Alert.alert('Thành công', 'Đã lưu thay đổi chi nhánh', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      showAlert('Thành công', 'Đã lưu thay đổi chi nhánh', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   };
 

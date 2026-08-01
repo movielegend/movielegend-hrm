@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import {
-  Alert,
   FlatList,
   Pressable,
   ScrollView,
@@ -41,6 +40,7 @@ import {
 } from '../../hooks/useNewsfeed';
 import type { NewsfeedPostDto, PostLikeDto, PostCommentDto } from '../../types/newsfeed.types';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAppAlert } from '../../contexts/AlertContext';
 
 // ── Helpers ──
 
@@ -78,6 +78,7 @@ function getInitials(name: string): string {
 export function NewsfeedListScreen({ canModerate = false }: { canModerate?: boolean }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { showAlert, showConfirm } = useAppAlert();
   
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
@@ -87,21 +88,19 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
   const removePost = useDeletePost();
 
   function confirmDelete(postId: string) {
-    Alert.alert('Xóa bài đăng', 'Bạn có chắc muốn xóa bài đăng này?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: () => {
-          removePost.mutate(postId, {
-            onError: (error) => {
-              const normalized = normalizeApiError(error);
-              Alert.alert('Lỗi', normalized.message);
-            },
-          });
-        },
+    showConfirm({
+      title: 'Xóa bài đăng',
+      message: 'Bạn có chắc muốn xóa bài đăng này?',
+      confirmLabel: 'Xóa',
+      onConfirm: () => {
+        removePost.mutate(postId, {
+          onError: (error) => {
+            const normalized = normalizeApiError(error);
+            showAlert('Lỗi', normalized.message);
+          },
+        });
       },
-    ]);
+    });
   }
 
   const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as { items?: NewsfeedPostDto[] })?.items ?? [];
@@ -292,25 +291,26 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   const addComment = useAddComment();
   const removePost = useDeletePost();
   const { user } = useAuth();
+  const { showAlert, showConfirm } = useAppAlert();
   const [commentText, setCommentText] = useState('');
 
   function confirmDelete() {
-    Alert.alert('Xóa bài đăng', 'Bạn có chắc muốn xóa bài đăng này?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: () => {
-          removePost.mutate(postId, {
-            onSuccess: () => router.back(),
-            onError: (error) => {
-              const normalized = normalizeApiError(error);
-              Alert.alert('Lỗi', normalized.message);
-            },
-          });
-        },
+    showConfirm({
+      title: 'Xóa bài đăng',
+      message: 'Bạn có chắc muốn xóa bài đăng này?',
+      confirmLabel: 'Xóa',
+      onConfirm: () => {
+        removePost.mutate(postId, {
+          onSuccess: () => {
+            router.back();
+          },
+          onError: (error) => {
+            const normalized = normalizeApiError(error);
+            showAlert('Lỗi', normalized.message);
+          },
+        });
       },
-    ]);
+    });
   }
 
   const post = postQuery.data;
@@ -346,7 +346,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
       postQuery.refetch();
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   }
 
@@ -481,6 +481,7 @@ export function CreatePostScreen() {
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const { showAlert } = useAppAlert();
 
   async function pickImage() {
     let fileUri = '';
@@ -519,7 +520,7 @@ export function CreatePostScreen() {
       setImageUri(uploaded.fileUrl);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     } finally {
       setUploading(false);
     }
@@ -527,7 +528,7 @@ export function CreatePostScreen() {
 
   async function submit() {
     if (!content.trim()) {
-      Alert.alert('Lỗi', 'Nội dung bài đăng không được để trống');
+      showAlert('Lỗi', 'Nội dung bài đăng không được để trống');
       return;
     }
     try {
@@ -536,11 +537,11 @@ export function CreatePostScreen() {
         content: content.trim(),
         ...(imageUri ? { images: [imageUri] } : {}),
       });
-      Alert.alert('Thành công', 'Đã đăng bài mới');
+      showAlert('Thành công', 'Đã đăng bài mới');
       router.back();
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      showAlert('Lỗi', normalized.message);
     }
   }
 
@@ -697,6 +698,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
 
   const postQuery = useNewsfeedPost(postId);
   const approvePost = useApprovePost();
+  const { showAlert, showConfirm } = useAppAlert();
 
   // If already approved, redirect to normal detail view
   useEffect(() => {
@@ -706,39 +708,35 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   }, [postQuery.data?.status, postId, router, base]);
 
   function handleApprove() {
-    Alert.alert('Duyệt bài', 'Cho phép hiển thị bài đăng này trên bảng tin?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Duyệt',
-        style: 'default',
-        onPress: () => {
-          approvePost.mutate({ postId, status: 'APPROVED' }, {
-            onSuccess: () => router.replace(`${base}/newsfeed/${postId}` as any),
-            onError: (error) => {
-              Alert.alert('Lỗi', normalizeApiError(error).message);
-            }
-          });
-        }
+    showConfirm({
+      title: 'Duyệt bài',
+      message: 'Cho phép hiển thị bài đăng này trên bảng tin?',
+      confirmLabel: 'Duyệt',
+      onConfirm: () => {
+        approvePost.mutate({ postId, status: 'APPROVED' }, {
+          onSuccess: () => router.replace(`${base}/newsfeed/${postId}` as any),
+          onError: (error) => {
+            showAlert('Lỗi', normalizeApiError(error).message);
+          }
+        });
       }
-    ]);
+    });
   }
 
   function handleReject() {
-    Alert.prompt('Từ chối bài', 'Vui lòng nhập lý do từ chối (không bắt buộc)', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Từ chối',
-        style: 'destructive',
-        onPress: (reason?: string) => {
-          approvePost.mutate({ postId, status: 'REJECTED', rejectionReason: reason }, {
-            onSuccess: () => router.back(),
-            onError: (error) => {
-              Alert.alert('Lỗi', normalizeApiError(error).message);
-            }
-          });
-        }
+    showConfirm({
+      title: 'Từ chối bài',
+      message: 'Bạn có chắc chắn muốn từ chối bài đăng này?',
+      confirmLabel: 'Từ chối',
+      onConfirm: () => {
+        approvePost.mutate({ postId, status: 'REJECTED' }, {
+          onSuccess: () => router.back(),
+          onError: (error) => {
+            showAlert('Lỗi', normalizeApiError(error).message);
+          }
+        });
       }
-    ]);
+    });
   }
 
   const post = postQuery.data;

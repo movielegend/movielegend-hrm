@@ -6,8 +6,9 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { colors } from '../../theme/colors';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 
-import { Linking, Alert } from 'react-native';
+import { Linking } from 'react-native';
 import { resolveFileUrl } from '../../utils/url';
+import { useAppAlert } from '../../contexts/AlertContext';
 
 interface Props {
   visible: boolean;
@@ -22,6 +23,7 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
   const ref = useRef<any>();
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
+  const { showAlert } = useAppAlert();
   
   const [filledValues, setFilledValues] = useState<Record<string, any>>({});
 
@@ -130,7 +132,7 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
                     setPdfViewerVisible(true);
                     setPdfViewerUrl(url);
                   } else {
-                    Alert.alert('Lỗi', 'Không tìm thấy file hợp đồng');
+                    showAlert('Lỗi', 'Không tìm thấy file hợp đồng');
                   }
                 }}
               >

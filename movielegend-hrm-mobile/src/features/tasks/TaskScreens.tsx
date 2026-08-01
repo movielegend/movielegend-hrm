@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCompleteTask } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { useTaskGroups } from '../../hooks/useTaskGroups';
+import { useAppAlert } from '../../contexts/AlertContext';
 import {
   useAcceptTaskAssignment,
   useCreateTask,
@@ -170,6 +171,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const extensionReview = useReviewTaskExtension(id);
   const completeTask = useCompleteTask(id ?? '');
   const cancel = useCancelTask(id ?? '');
+  const { showAlert, showConfirm } = useAppAlert();
   const canReview = hasAnyPermission(user, ['task.review_all', 'task.review_department']);
   const canReviewExtension = hasAnyPermission(user, ['task.extension_review_all', 'task.extension_review_department']);
 
@@ -192,10 +194,10 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   async function run(action: () => Promise<unknown>, success: string) {
     try {
       await action();
-      Alert.alert('Thanh cong', success);
+      showAlert('Thanh cong', success);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, mapTaskError(normalized.code, normalized.message));
+      showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
     }
   }
 
@@ -244,10 +246,12 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               <SecondaryButton
                 loading={cancel.isPending}
                 onPress={() => {
-                  Alert.alert('Xác nhận hủy', 'Bạn có chắc chắn muốn hủy công việc này?', [
-                    { text: 'Không', style: 'cancel' },
-                    { text: 'Có, Hủy', onPress: () => run(() => cancel.mutateAsync(), 'Đã hủy công việc'), style: 'destructive' },
-                  ]);
+                  showConfirm({
+                    title: 'Xác nhận hủy',
+                    message: 'Bạn có chắc chắn muốn hủy công việc này?',
+                    confirmLabel: 'Có, Hủy',
+                    onConfirm: () => run(() => cancel.mutateAsync(), 'Đã hủy công việc')
+                  });
                 }}
               >
                 Hủy công việc
@@ -522,6 +526,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const router = useRouter();
   const { parentTaskId } = useLocalSearchParams<{ parentTaskId?: string }>();
   const { user } = useAuth();
+  const { showAlert } = useAppAlert();
   const mutation = useCreateTask();
   
   const [title, setTitle] = useState('');
@@ -581,11 +586,10 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         }
       }
       
-      Alert.alert('Thành công', 'Đã giao việc thành công!');
-      router.back();
+      showAlert('Thành công', 'Đã giao việc thành công!', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, mapTaskError(normalized.code, normalized.message));
+      showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
     }
   }
 
@@ -807,6 +811,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
 
 export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
   const router = useRouter();
+  const { showAlert } = useAppAlert();
   const queue = useTaskReviewQueue({ page: 1, limit: 20 });
   const extensions = usePendingTaskExtensions({ page: 1, limit: 20 });
   const review = useReviewTaskAssignment();
@@ -814,10 +819,10 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
   async function run(action: () => Promise<unknown>, success: string) {
     try {
       await action();
-      Alert.alert('Thành công', success);
+      showAlert('Thành công', success);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, mapTaskError(normalized.code, normalized.message));
+      showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
     }
   }
   return (
