@@ -689,6 +689,8 @@ export function PendingNewsfeedListScreen() {
 
 export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   const router = useRouter();
+  const { user } = useAuth();
+  const base = roleBase(user);
   
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
@@ -699,9 +701,9 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   // If already approved, redirect to normal detail view
   useEffect(() => {
     if (postQuery.data && postQuery.data.status === 'APPROVED') {
-      router.replace(`/leader/newsfeed/${postId}` as any);
+      router.replace(`${base}/newsfeed/${postId}` as any);
     }
-  }, [postQuery.data?.status, postId, router]);
+  }, [postQuery.data?.status, postId, router, base]);
 
   function handleApprove() {
     Alert.alert('Duyệt bài', 'Cho phép hiển thị bài đăng này trên bảng tin?', [
@@ -711,7 +713,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
         style: 'default',
         onPress: () => {
           approvePost.mutate({ postId, status: 'APPROVED' }, {
-            onSuccess: () => router.replace(`/leader/newsfeed/${postId}` as any),
+            onSuccess: () => router.replace(`${base}/newsfeed/${postId}` as any),
             onError: (error) => {
               Alert.alert('Lỗi', normalizeApiError(error).message);
             }

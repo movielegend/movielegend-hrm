@@ -1,5 +1,5 @@
 import { ApprovalListScreen } from '../../../src/features/approvals/ApprovalScreens';
 
 export default function AdminApprovalsRoute() {
-  return <ApprovalListScreen title="Duyệt tài khoản" />;
+  return <ApprovalListScreen title="Duyệt tài khoản" detailRoute={(id) => `/admin/approvals/${id}`} />;
 }

@@ -30,53 +30,18 @@ async function main() {
   await safeUpdateAll('kpiTemplate', { createdById: null });
   await safeUpdateAll('uploadedFile', { uploadedById: null });
 
-  // 2. Xóa các bảng giao dịch, lịch sử, dữ liệu phát sinh của TẤT CẢ USER
-  const modelsToDeleteAll = [
-    // Hợp đồng & Mẫu hợp đồng
-    'contractSignature', 'employeeContract', 'contractTemplateVersion', 'contractTemplate',
-    // Chấm công & Ca làm
-    'attendanceLog', 'attendanceVerification', 'attendanceAdjustment', 'attendanceRecord',
-    'shiftAssignment', 'shiftRegistration', 'shiftSwap', 'userShift', 'locationTracking',
-    // Đơn từ & Nghỉ phép
-    'leaveBalance', 'leaveRequest', 'overtimeRequest', 'employeeRequest',
-    // Lương & Hồ sơ
-    'payrollItem', 'payrollCalculationSnapshot', 'payroll', 'payrollPeriod', 'payrollRecord',
-    'salaryProfile', 'employeeSalaryComponent', 'employeeBonus', 'employeeDeduction',
-    'employeeDocument', 'employeeBankAccount',
-    // Công việc (Tasks) & KPI
-    'taskExtensionRequest', 'taskAssignment', 'taskComment', 'taskAttachment',
-    'taskStatusHistory', 'taskTarget', 'taskGroupMember', 'taskGroup',
-    'crossDepartmentRequest', 'task', 'kpiTemplate',
-    // Chat & Thông báo
-    'chatGroupMember', 'chatMessage', 'chatGroup',
-    'notificationTarget', 'notificationDelivery', 'notification',
-    // Vật tư & Tài sản
-    'assetAssignmentHistory', 'assetAssignment', 'assetIncidentReport', 'assetMaintenanceRecord',
-    'materialReturnItem', 'materialReturn', 'materialIssueItem', 'materialIssue',
-    'stockTransferItem', 'stockTransfer', 'stockReceiptItem', 'stockReceipt',
-    'stockTransaction', 'inventoryCheckItem', 'inventoryCheck',
-    // Newsfeed, Face, Auth tokens, Logs
-    'newsfeedComment', 'newsfeedLike', 'newsfeedPost',
-    'faceRegistrationImage', 'faceProfile',
-    'approvalHistory', 'userApprovalRequest',
-    'deviceToken', 'refreshSession', 'auditLog', 'otpToken',
-    'userRole', 'profile', 'employeeProfile'
-  ];
-
-  console.log('--> Đang xóa toàn bộ dữ liệu nghiệp vụ...');
-  for (const model of modelsToDeleteAll) {
-    await safeDeleteAll(model);
+  console.log('--> Đang xóa toàn bộ dữ liệu nghiệp vụ (TRUNCATE CASCADE)...');
+  try {
+    const tables = await prisma.$queryRawUnsafe(`
+      SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename != '_prisma_migrations';
+    `);
+    if (tables && tables.length > 0) {
+      const tableList = tables.map(t => `"${t.tablename}"`).join(', ');
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableList} CASCADE;`);
+    }
+  } catch (e) {
+    console.log('Lỗi khi TRUNCATE:', e);
   }
-
-  // Xóa trực tiếp các bảng liên kết bằng SQL
-  try { await prisma.$executeRawUnsafe(`DELETE FROM "contract_templates"`); } catch (e) {}
-  try { await prisma.$executeRawUnsafe(`DELETE FROM "otp_tokens"`); } catch (e) {}
-  try { await prisma.$executeRawUnsafe(`DELETE FROM "OtpToken"`); } catch (e) {}
-  try { await prisma.$executeRawUnsafe(`DELETE FROM "profiles"`); } catch (e) {}
-
-  // 3. Xóa tất cả các user hiện tại (kể cả Admin cũ) để reset sạch hoàn toàn bảng user
-  console.log('--> Đang dọn dẹp toàn bộ bảng User...');
-  await prisma.user.deleteMany({});
 
   // 4. RESET SEQUENCE MÃ NHÂN VIÊN VỀ LẠI 1
   console.log('--> Đang Reset Sequence user_code_seq về lại 1...');
@@ -132,6 +97,16 @@ async function main() {
   console.log(`👑 Admin hiện tại: Mã [${adminUserCode}] | SĐT: 0900000000 | Mật khẩu: admin123`);
   console.log('➡️  Tài khoản tạo tiếp theo CHẮC CHẮN sẽ nhận Mã [NV000002]!');
   console.log('------------------------------------------------------------------');
+  
+  // Tự động chạy lại kịch bản phân quyền (seed)
+  console.log('--> Đang tự động nạp lại Cấu hình Quyền hệ thống (prisma:seed)...');
+  const { execSync } = require('child_process');
+  try {
+    execSync('npx tsx prisma/seed.ts', { stdio: 'inherit' });
+    console.log('✅ Đã nạp lại bảng quyền (Permissions) thành công!');
+  } catch (e) {
+    console.error('Lỗi khi tự động nạp quyền:', e.message);
+  }
 }
 
 main()

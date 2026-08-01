@@ -64,7 +64,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type.startsWith('VIOLATION_') && violationId) return `${base}/violations/${violationId}`;
   if (notification.type.startsWith('NEWSFEED_POST_') && postId) {
     if (notification.type === 'NEWSFEED_POST_PENDING') {
-      const pendingBase = base === '/admin' ? '/admin' : '/leader';
+      const pendingBase = (base === '/admin' || base === '/hr') ? base : '/leader';
       return `${pendingBase}/newsfeed/pending/${postId}`;
     }
     const targetBase = base === '/warehouse-manager' ? '/employee' : base;

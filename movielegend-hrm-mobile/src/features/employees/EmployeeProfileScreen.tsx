@@ -64,17 +64,15 @@ export function EmployeeProfileScreen() {
             <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
-            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} isLast={!isHR} />
-            {isHR && (
-              <InfoRow
-                icon="face-recognition"
-                label="Dữ liệu khuôn mặt"
-                value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'}
-                valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
-                onPress={() => router.push('/employee/update-face' as any)}
-                isLast
-              />
-            )}
+            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} />
+            <InfoRow
+              icon="face-recognition"
+              label="Dữ liệu khuôn mặt"
+              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'}
+              valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
+              onPress={() => router.push('/employee/update-face' as any)}
+              isLast
+            />
           </View>
         </View>
 
