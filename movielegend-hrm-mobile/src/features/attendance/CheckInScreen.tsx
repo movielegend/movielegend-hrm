@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal } fr
 import { AttendanceCamera } from './AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';

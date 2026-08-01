@@ -90,6 +90,7 @@ export interface ScopedEmployee {
     name: string;
   } | null;
   employmentStatus?: string | null;
+  accountStatus?: AccountStatus;
   isActive: boolean;
 }
 

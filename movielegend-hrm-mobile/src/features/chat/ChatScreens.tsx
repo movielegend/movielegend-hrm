@@ -210,6 +210,11 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                 ? `${senderName}: ${contentPreview}`
                 : `${group._count?.members ?? group.members?.length ?? 0} thành viên`;
               const unreadCount = group.unreadCount || 0;
+              let otherAvatarUrl: string | undefined;
+              if (isDirect && group.members) {
+                const otherMember = group.members.find((m: any) => m.userId !== user?.id);
+                otherAvatarUrl = otherMember?.user?.profile?.avatarUrl;
+              }
 
               return (
                 <Pressable
@@ -228,12 +233,16 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                     router.push(`${basePath}/${group.id}?name=${encodeURIComponent(groupName)}` as any);
                   }}
                 >
-                  <View style={[styles.groupIcon, { backgroundColor: '#F3F4F6' }]}>
-                    <MaterialCommunityIcons
-                      name={isDirect ? 'account' : isCustom ? 'account-multiple' : isCompany ? 'domain' : group.type === 'DEPARTMENT' ? 'account-group' : 'clipboard-text-outline'}
-                      size={24}
-                      color="#111827"
-                    />
+                  <View style={[styles.groupIcon, { backgroundColor: '#F3F4F6', overflow: 'hidden' }]}>
+                    {otherAvatarUrl ? (
+                      <Image source={{ uri: otherAvatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                    ) : (
+                      <MaterialCommunityIcons
+                        name={isDirect ? 'account' : isCustom ? 'account-multiple' : isCompany ? 'domain' : group.type === 'DEPARTMENT' ? 'account-group' : 'clipboard-text-outline'}
+                        size={24}
+                        color="#111827"
+                      />
+                    )}
                   </View>
 
                   <View style={styles.groupInfo}>
@@ -532,10 +541,14 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 >
                   <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
                     {!isMine && (
-                      <View style={styles.messageBubbleAvatar}>
-                        <Text style={styles.messageBubbleAvatarText}>
-                          {getInitials(senderName)}
-                        </Text>
+                      <View style={[styles.messageBubbleAvatar, msg.sender?.profile?.avatarUrl ? { backgroundColor: 'transparent', overflow: 'hidden' } : {}]}>
+                        {msg.sender?.profile?.avatarUrl ? (
+                          <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                        ) : (
+                          <Text style={styles.messageBubbleAvatarText}>
+                            {getInitials(senderName)}
+                          </Text>
+                        )}
                       </View>
                     )}
                   <View style={[

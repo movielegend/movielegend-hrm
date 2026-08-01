@@ -452,14 +452,7 @@ export class AdminService {
         });
       }
 
-      if (dto.accountStatus === 'SUSPENDED' || dto.isActive === false) {
-        const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
-        if (leaderRole) {
-          await tx.userRole.deleteMany({
-            where: { userId: id, roleId: leaderRole.id },
-          });
-        }
-      }
+      // Giữ nguyên quyền khi tạm khóa hoặc vô hiệu hóa tài khoản
 
       const { passwordHash: _passwordHash, ...safeUser } = user;
       return safeUser;

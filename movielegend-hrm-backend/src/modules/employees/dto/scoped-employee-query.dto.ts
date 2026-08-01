@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { AccountStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 export class ScopedEmployeeQueryDto {
   @ApiPropertyOptional()
@@ -18,6 +19,10 @@ export class ScopedEmployeeQueryDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  accountStatus?: AccountStatus;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @Type(() => Number)

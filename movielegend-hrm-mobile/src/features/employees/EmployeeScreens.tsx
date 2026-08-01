@@ -235,7 +235,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                 } else if (confirmAction.type === 'revoke' && confirmAction.leaderRoleId) {
                   await revokeLeader.mutateAsync(confirmAction.leaderRoleId);
                 } else if ((confirmAction.type === 'lock' || confirmAction.type === 'unlock') && confirmAction.employeeId) {
-                  await updateEmployeeAny.mutateAsync({ id: confirmAction.employeeId, payload: { accountStatus: confirmAction.type === 'lock' ? 'INACTIVE' as any : 'ACTIVE' as any } });
+                  await updateEmployeeAny.mutateAsync({ id: confirmAction.employeeId, payload: { accountStatus: confirmAction.type === 'lock' ? 'SUSPENDED' as any : 'ACTIVE' as any } });
                 }
                 setConfirmAction(null);
               } catch (e) {

@@ -72,7 +72,7 @@ export class EmployeesService {
 
     const where: Prisma.UserWhereInput = {
       deletedAt: null,
-      accountStatus: AccountStatus.ACTIVE,
+      ...(query.accountStatus ? { accountStatus: query.accountStatus } : {}),
       ...(typeof query.isActive === 'boolean' ? { isActive: query.isActive } : {}),
       ...(query.search
         ? {
@@ -108,6 +108,7 @@ export class EmployeesService {
         select: {
           id: true,
           userCode: true,
+          accountStatus: true,
           isActive: true,
           profile: { select: { fullName: true, avatarUrl: true, employmentStatus: true } },
           departmentLinks: {
@@ -139,6 +140,7 @@ export class EmployeesService {
           department: link?.department ?? null,
           position: link?.position ?? null,
           employmentStatus: item.profile?.employmentStatus ?? null,
+          accountStatus: item.accountStatus,
           isActive: item.isActive,
           roles: item.roles,
         };
@@ -153,22 +155,28 @@ export class EmployeesService {
   }
 
   async remove(id: string, actorUserId: string) {
-    const profile = await this.prisma.employeeProfile.findUnique({
-      where: { id },
-      select: { userId: true, avatarUrl: true },
+    let profile = await this.prisma.employeeProfile.findFirst({
+      where: { OR: [{ id }, { userId: id }] },
+      select: { id: true, userId: true, avatarUrl: true },
     });
-    if (!profile) throw notFound('EMPLOYEE_NOT_FOUND', 'Không tìm thấy hồ sơ nhân viên');
+    const targetUserId = profile?.userId || id;
+    const userExists = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!userExists) throw notFound('EMPLOYEE_NOT_FOUND', 'Không tìm thấy nhân viên');
 
     // Tìm các ảnh khuôn mặt trước khi xóa DB
     const faceProfile = await this.prisma.faceProfile.findUnique({
-      where: { userId: profile.userId },
+      where: { userId: targetUserId },
       include: { images: true }
     });
 
     await this.prisma.$transaction(async (tx) => {
-      // Xóa cứng user (tự động xóa cascade profile, departmentMember, faceProfile, etc.)
+      // Xóa các bảng có ràng buộc Restrict trước khi xóa user
+      await tx.employeeProfile.deleteMany({ where: { userId: targetUserId } });
+      await tx.departmentMember.deleteMany({ where: { userId: targetUserId } });
+      await tx.userRole.deleteMany({ where: { userId: targetUserId } });
+
       await tx.user.delete({
-        where: { id: profile.userId },
+        where: { id: targetUserId },
       });
 
       // Ghi log xóa
@@ -177,14 +185,14 @@ export class EmployeesService {
           actorUserId,
           action: 'employee.delete',
           entityType: 'User',
-          entityId: profile.userId,
-          metadata: { profileId: id },
+          entityId: targetUserId,
+          metadata: { profileId: profile?.id || id },
         },
       });
     });
 
     // Sau khi xóa DB thành công, thực hiện xóa file vật lý
-    if (profile.avatarUrl) {
+    if (profile?.avatarUrl) {
       const avatarKey = this.mediaStorage.extractKeyFromUrl(profile.avatarUrl);
       if (avatarKey) {
         await this.mediaStorage.delete(avatarKey).catch(e => console.error(`Lỗi xóa avatar cũ: ${avatarKey}`, e));

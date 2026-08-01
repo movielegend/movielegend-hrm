@@ -13,7 +13,7 @@ import { UserQueryDto } from './dto/user-query.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@Roles('ADMIN')
+@Roles('ADMIN', 'LEADER')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
