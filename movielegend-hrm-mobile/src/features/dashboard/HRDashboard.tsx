@@ -86,7 +86,11 @@ export function HRDashboard() {
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+              {user?.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+              ) : (
+                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+              )}
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.greetingText}>Xin chào 👋</Text>

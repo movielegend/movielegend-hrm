@@ -10,3 +10,14 @@ export async function updateMyFace(payload: UpdateFacePayload): Promise<{ succes
   const response = await apiClient.patch<ApiResponse<{ success: boolean; message: string }>>('/users/me/face', payload);
   return unwrapData(response);
 }
+
+export interface UpdateMePayload {
+  phone?: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
+export async function updateMe(payload: UpdateMePayload): Promise<any> {
+  const response = await apiClient.patch<ApiResponse<any>>('/users/me', payload);
+  return unwrapData(response);
+}

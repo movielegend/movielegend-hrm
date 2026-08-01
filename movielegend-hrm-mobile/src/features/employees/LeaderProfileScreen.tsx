@@ -11,6 +11,7 @@ import { spacing } from '../../theme/spacing';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { useUserGuide } from '../../components/UserGuideManager';
 import { EditProfileModal } from './components/EditProfileModal';
+import { AvatarPicker } from './components/AvatarPicker';
 
 export function LeaderProfileScreen() {
   const router = useRouter();
@@ -44,9 +45,7 @@ export function LeaderProfileScreen() {
 
         {/* Profile Card */}
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-          </View>
+          <AvatarPicker getInitials={getInitials} />
           <Text style={styles.userName}>{user?.fullName || 'Quản lý'}</Text>
           <Text style={styles.userRole}>{user?.position?.name || 'Trưởng phòng / Quản lý'}</Text>
           <Text style={styles.userDepartment}>{user?.department?.name || ''}</Text>

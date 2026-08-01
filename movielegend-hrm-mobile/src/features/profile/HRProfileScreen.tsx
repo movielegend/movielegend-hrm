@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUserGuide } from '../../components/UserGuideManager';
+import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EditProfileModal } from '../employees/components/EditProfileModal';
 
@@ -37,9 +38,7 @@ export function HRProfileScreen() {
         
         {/* Profile Card */}
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-          </View>
+          <AvatarPicker getInitials={getInitials} />
           <Text style={styles.userName}>{user?.fullName || 'Chuyên viên HR'}</Text>
           <Text style={styles.userRole}>Quản trị Nhân sự (HR)</Text>
           <View style={styles.statusBadge}>

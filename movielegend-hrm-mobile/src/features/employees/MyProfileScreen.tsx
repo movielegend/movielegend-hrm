@@ -1,11 +1,13 @@
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable, useState } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
 import { useAuth } from '../../providers/AuthProvider';
-import { useUserGuide } from '../../components/UserGuideManager';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { EditProfileModal } from './components/EditProfileModal';
+import { AvatarPicker } from './components/AvatarPicker';
+import { useUserGuide } from '../../components/UserGuideManager';
 import type { DashboardRole } from '../../api/dashboard.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -43,9 +45,7 @@ export function MyProfileScreen() {
         <View style={styles.headerBg} />
 
         <View style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-          </View>
+          <AvatarPicker getInitials={getInitials} />
           <Text style={styles.userName}>{user?.fullName || 'Người dùng'}</Text>
           <Text style={styles.userRole}>{user?.position?.name || 'Nhân viên'}</Text>
           <Text style={styles.userDepartment}>{user?.department?.name || ''}</Text>

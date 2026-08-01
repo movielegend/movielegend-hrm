@@ -11,6 +11,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EditProfileModal } from './components/EditProfileModal';
+import { AvatarPicker } from './components/AvatarPicker';
 
 export function AdminProfileScreen() {
   const router = useRouter();
@@ -47,9 +48,7 @@ export function AdminProfileScreen() {
         
         {/* Profile Card */}
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-          </View>
+          <AvatarPicker getInitials={getInitials} />
           <Text style={styles.userName}>{user?.fullName || 'Quản trị viên'}</Text>
           <Text style={styles.userRole}>System Admin</Text>
           <View style={styles.statusBadge}>

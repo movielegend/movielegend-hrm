@@ -12,6 +12,8 @@ import { ConfirmModal } from '../../components/ConfirmModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { useUserGuide } from '../../components/UserGuideManager';
 
+import { AvatarPicker } from './components/AvatarPicker';
+
 export function EmployeeProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -46,9 +48,7 @@ export function EmployeeProfileScreen() {
 
         {/* Profile Card */}
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-          </View>
+          <AvatarPicker getInitials={getInitials} />
           <Text style={styles.userName}>{user?.fullName || 'Người dùng'}</Text>
           <Text style={styles.userRole}>{user?.position?.name || 'Nhân viên'}</Text>
           <View style={styles.statusBadge}>
