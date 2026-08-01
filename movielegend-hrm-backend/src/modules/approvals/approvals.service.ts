@@ -12,12 +12,14 @@ import { PrismaService } from '../../database/prisma.service';
 import { ApprovalPolicyService } from './approval-policy.service';
 import { ApprovalQueryDto } from './dto/approval-query.dto';
 import { RejectDto } from './dto/reject.dto';
+import { EmailService } from '../notifications/email.service';
 
 @Injectable()
 export class ApprovalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly policy: ApprovalPolicyService,
+    private readonly emailService: EmailService,
   ) {}
 
   async findAll(actor: AuthenticatedUser, query: ApprovalQueryDto) {
@@ -155,6 +157,20 @@ export class ApprovalsService {
           metadata: { userId: request.userId, departmentId: request.requestedDepartmentId },
         },
       });
+
+      // Lấy thông tin user để gửi email
+      const user = await tx.user.findUnique({
+        where: { id: request.userId },
+        include: { profile: true },
+      });
+
+      if (user?.email) {
+        // Gửi email không block luồng transaction (fire and forget)
+        this.emailService.sendAccountApprovedEmail(user.email, user.profile?.fullName || user.userCode).catch(e => {
+          // Ignored
+        });
+      }
+
       return { id, status: ApprovalStatus.APPROVED };
     });
   }

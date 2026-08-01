@@ -1,5 +1,5 @@
 import { PropsWithChildren, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus, Platform } from 'react-native';
+import { AppState, type AppStateStatus, Platform, Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 import { createHrmSocket } from '../api/socket';
@@ -35,7 +35,7 @@ const SocketContext = createContext<SocketContextValue>({
 });
 
 export function SocketProvider({ children }: PropsWithChildren) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
   const joinedWarehouseIds = useRef<Set<string>>(new Set());
@@ -106,6 +106,12 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('asset:assigned', (payload: AssetSocketPayload) => invalidateForAssetAssigned(queryClient, payload));
       socket.on('asset:return-updated', (payload: AssetSocketPayload) => invalidateForAssetReturnUpdated(queryClient, payload));
       socket.on('asset:incident-updated', (payload: IncidentSocketPayload) => invalidateForIncidentUpdated(queryClient, payload));
+
+      socket.on('auth:force_logout', (payload: any) => {
+        Alert.alert('Đăng xuất', 'Tài khoản của bạn vừa đăng nhập ở thiết bị khác.');
+        logout();
+      });
+
       socket.connect();
     }
 
