@@ -1,9 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { StorageService } from '../../storage/storage.service';
-import * as faceapi from '@vladmandic/face-api';
+import { Worker } from 'worker_threads';
 import * as path from 'path';
-import sharp from 'sharp';
 
 export interface AttendanceFaceVerificationInput {
   userId: string;
@@ -20,9 +19,14 @@ export interface AttendanceFaceVerificationResult {
 }
 
 @Injectable()
-export class FaceVerificationService implements OnModuleInit {
+export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(FaceVerificationService.name);
-  private modelsLoaded = false;
+  private worker: Worker | null = null;
+  private workerReady = false;
+  private jobCounter = 0;
+  private pendingJobs = new Map<string, { resolve: (res: any) => void; reject: (err: any) => void }>();
+  
+  // Cache descriptor on the main thread to avoid reading source image buffer every time
   private descriptorCache = new Map<string, { url: string, descriptor: Float32Array }>();
 
   constructor(
@@ -31,74 +35,69 @@ export class FaceVerificationService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    try {
-      const modelsPath = path.join(process.cwd(), 'src', 'assets', 'models');
-      this.logger.log(`Loading face-api models from ${modelsPath} (Pure JS Mode)...`);
+    this.logger.log('Initializing Face API Worker Thread...');
+    // In NestJS dist folder, the file is compiled to .js
+    const workerPath = path.join(__dirname, 'face.worker.js');
+    this.worker = new Worker(workerPath);
+    
+    this.worker.on('message', (message) => {
+      if (message.type === 'INIT_DONE') {
+        this.workerReady = true;
+        this.logger.log('Face API Worker is ready and models loaded.');
+      } else if (message.type === 'INIT_ERROR') {
+        this.logger.error('Worker failed to init models: ' + message.error);
+      } else if (message.jobId) {
+        const job = this.pendingJobs.get(message.jobId);
+        if (job) {
+          job.resolve(message);
+          this.pendingJobs.delete(message.jobId);
+        }
+      }
+    });
 
-      // Monkey patch fetch to read local files
-      const fetchMock = async (url: string) => {
-        const filePath = path.join(modelsPath, path.basename(url));
-        const fs = require('fs');
-        const buffer = fs.readFileSync(filePath);
-        return {
-          ok: true,
-          status: 200,
-          json: async () => JSON.parse(buffer.toString('utf8')),
-          arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
-        } as any;
-      };
+    this.worker.on('error', (err) => {
+      this.logger.error('Worker thread error:', err);
+    });
 
-      faceapi.env.monkeyPatch({ fetch: fetchMock });
-      // Patch tfjs platform fetch as well because tfjs uses it to load the binary weights
-      (faceapi.tf as any).env().platform.fetch = fetchMock;
-      
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri('http://localhost/models'),
-        faceapi.nets.faceLandmark68Net.loadFromUri('http://localhost/models'),
-        faceapi.nets.faceRecognitionNet.loadFromUri('http://localhost/models')
-      ]);
-      
-      this.modelsLoaded = true;
-      this.logger.log('Face-api models loaded successfully.');
-    } catch (err: any) {
-      this.logger.error('Failed to load face-api models. Please run download-models.js', err);
+    this.worker.on('exit', (code) => {
+      if (code !== 0) {
+        this.logger.error(`Worker stopped with exit code ${code}`);
+      }
+    });
+  }
+
+  onModuleDestroy() {
+    if (this.worker) {
+      this.worker.terminate();
     }
   }
 
-  /**
-   * Helper to decode image and run face detection
-   */
-  private async getFaceDescriptor(buffer: Buffer): Promise<Float32Array | undefined> {
-    const tensor = await this.bufferToTensor(buffer);
-    try {
-      const detection = await faceapi.detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-      return detection?.descriptor;
-    } finally {
-      tensor.dispose();
-    }
-  }
-
-  private async bufferToTensor(buffer: Buffer) {
-    // Decode and resize image using sharp (100x faster than Jimp)
-    // Add failOn: 'none' to tolerate corrupt Android JPEGs
-    const { data, info } = await sharp(buffer, { failOn: 'none' })
-      .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
-      .removeAlpha() // Ensure 3 channels (RGB)
-      .raw()
-      .toBuffer({ resolveWithObject: true });
+  private runWorkerVerification(
+    sourceDescriptor: Float32Array | undefined,
+    sourceBuffer: Buffer | undefined,
+    targetBuffer: Buffer
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!this.worker) {
+        return reject(new Error('Worker is not initialized'));
+      }
+      const jobId = (++this.jobCounter).toString();
+      this.pendingJobs.set(jobId, { resolve, reject });
       
-    const values = Int32Array.from(data);
-    return faceapi.tf.tensor3d(
-      values,
-      [info.height, info.width, 3],
-      'int32'
-    ) as faceapi.tf.Tensor3D;
+      this.worker.postMessage({
+        type: 'VERIFY',
+        jobId,
+        sourceDescriptor,
+        sourceBuffer: sourceBuffer ? new Uint8Array(sourceBuffer) : undefined,
+        targetBuffer: new Uint8Array(targetBuffer)
+      });
+    });
   }
 
   async verifyAttendanceFace(
     input: AttendanceFaceVerificationInput,
   ): Promise<AttendanceFaceVerificationResult> {
-    if (!this.modelsLoaded) {
+    if (!this.workerReady) {
       this.logger.warn('Local Face AI models not loaded. Mocking true.');
       return {
         matched: true,
@@ -117,19 +116,19 @@ export class FaceVerificationService implements OnModuleInit {
       if (!profile || profile.status !== 'APPROVED' || profile.images.length === 0) {
         return {
           matched: false,
-          provider: 'local-face-api',
+          provider: 'local-face-api-worker',
           reason: 'Người dùng chưa có khuôn mặt đăng ký được phê duyệt.',
         };
       }
 
       const registeredImageUrl = profile.images[0].imageUrl;
       let sourceDescriptor: Float32Array | undefined;
+      let sourceBuffer: Buffer | undefined;
       
       const cached = this.descriptorCache.get(input.userId);
       if (cached && cached.url === registeredImageUrl) {
         sourceDescriptor = cached.descriptor;
       } else {
-        let sourceBuffer: Buffer;
         try {
           if (registeredImageUrl.startsWith('http')) {
             const response = await fetch(registeredImageUrl);
@@ -141,13 +140,6 @@ export class FaceVerificationService implements OnModuleInit {
           this.logger.error('Failed to read registered face image', e);
           return { matched: false, reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt.' };
         }
-        
-        const desc = await this.getFaceDescriptor(sourceBuffer);
-        if (!desc) {
-          return { matched: false, provider: 'local-face-api', reason: 'Không tìm thấy khuôn mặt rõ nét trong ảnh gốc đã đăng ký.' };
-        }
-        sourceDescriptor = desc;
-        this.descriptorCache.set(input.userId, { url: registeredImageUrl, descriptor: desc });
       }
 
       // 2. Get target face (attendance photo)
@@ -170,37 +162,29 @@ export class FaceVerificationService implements OnModuleInit {
         return { matched: false, reason: 'Không thể tải ảnh điểm danh vừa chụp. Vui lòng thử lại.' };
       }
 
-      // 3. Extract descriptors
-      const targetDescriptor = await this.getFaceDescriptor(targetBuffer);
-      if (!targetDescriptor) {
-        return { matched: false, provider: 'local-face-api', reason: 'Không tìm thấy khuôn mặt người trong ảnh điểm danh này.' };
+      // 3. Offload heavy verification to Worker Thread
+      const result = await this.runWorkerVerification(sourceDescriptor, sourceBuffer, targetBuffer);
+
+      // Cache the descriptor if it was newly calculated by the worker
+      if (result.sourceDescriptor) {
+        this.descriptorCache.set(input.userId, { url: registeredImageUrl, descriptor: result.sourceDescriptor });
       }
 
-      // 4. Calculate Distance
-      const distance = faceapi.euclideanDistance(sourceDescriptor, targetDescriptor);
-      
-      // Usually distance < 0.6 is a match. Use 0.75 for looser matching.
-      if (distance < 0.75) {
-        return {
-          matched: true,
-          confidence: 1 - distance,
-          provider: 'local-face-api',
-        };
-      } else {
-        return {
-          matched: false,
-          confidence: 1 - distance,
-          provider: 'local-face-api',
-          reason: 'Khuôn mặt không khớp (Tỷ lệ sai lệch: ' + distance.toFixed(2) + '). Vui lòng thử lại.',
-        };
-      }
+      return {
+        matched: result.matched,
+        confidence: result.confidence,
+        provider: result.provider,
+        reason: result.reason,
+      };
+
     } catch (error: any) {
       this.logger.error(`Face verification failed: ${error.message}`, error.stack);
       return {
         matched: false,
-        provider: 'local-face-api',
+        provider: 'local-face-api-worker',
         reason: 'Lỗi phân tích khuôn mặt: ' + error.message,
       };
     }
   }
 }
+
