@@ -61,9 +61,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const { departmentId, branchId } = useLocalSearchParams<{ departmentId?: string; branchId?: string }>();
   const [filters, setFilters] = useState<EmployeeListFilters>({
     page: 1,
-    limit: 10,
+    limit: 50,
     departmentId: departmentId,
-    accountStatus: 'ACTIVE',
   });
 
   const adminUsers = useEmployees(filters);
@@ -260,8 +259,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         {(leaderReport.data?.items || []).filter(emp => emp.userCode !== user?.userCode).map((employee) => {
           let viStatus = employee.accountStatus;
           if (viStatus === 'ACTIVE') viStatus = 'Hoạt động';
-          else if (viStatus === 'INACTIVE') viStatus = 'Khóa';
-          else if (viStatus === 'SUSPENDED') viStatus = 'Đình chỉ';
+          else if (viStatus === 'INACTIVE' || viStatus === 'SUSPENDED') viStatus = 'Đã khóa';
 
           return (
             <SectionCard key={`${employee.userCode}-${employee.fullName}`} style={{ padding: 16 }}>

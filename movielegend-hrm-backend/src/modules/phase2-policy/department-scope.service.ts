@@ -33,8 +33,8 @@ export class DepartmentScopeService {
 
   async getPrimaryDepartmentId(userId: string): Promise<string> {
     const member = await this.prisma.departmentMember.findFirst({
-      where: { userId, leftAt: null, isPrimary: true },
-      orderBy: { joinedAt: 'desc' },
+      where: { userId, leftAt: null },
+      orderBy: [{ isPrimary: 'desc' }, { joinedAt: 'desc' }],
     });
     if (!member) throw notFound('DEPARTMENT_MEMBER_NOT_FOUND', 'User chưa thuộc phòng ban active');
     return member.departmentId;

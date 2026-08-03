@@ -51,7 +51,8 @@ export function useUpdateAnyEmployee() {
     mutationFn: ({ id, status }: { id: string; status: string }) => updateEmployeeAccountStatus(id, status),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['employees'] });
-      void queryClient.invalidateQueries({ queryKey: ['employeeReport'] });
+      void queryClient.invalidateQueries({ queryKey: ['employee-report'] });
+      void queryClient.invalidateQueries({ queryKey: ['scoped-employees'] });
     },
   });
 }
