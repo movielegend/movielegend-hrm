@@ -72,13 +72,4 @@ export class ShiftsService {
     });
   }
 
-  async deleteAllAssignments() {
-    try {
-      await this.prisma.$executeRawUnsafe('DELETE FROM "attendance_records"');
-      await this.prisma.$executeRawUnsafe('DELETE FROM "shift_assignments"');
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e.message };
-    }
-  }
 }

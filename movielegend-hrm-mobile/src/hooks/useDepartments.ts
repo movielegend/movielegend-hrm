@@ -31,6 +31,7 @@ export function useCreateDepartment() {
     mutationFn: (payload: CreateDepartmentPayload) => createDepartment(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['departments'] });
+      void queryClient.invalidateQueries({ queryKey: ['public-departments'] });
     },
   });
 }
@@ -41,6 +42,7 @@ export function useUpdateDepartment(id: string) {
     mutationFn: (payload: UpdateDepartmentPayload) => updateDepartment(id, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['departments'] });
+      void queryClient.invalidateQueries({ queryKey: ['public-departments'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.department(id) });
     },
   });
@@ -52,6 +54,8 @@ export function useDeleteDepartment() {
     mutationFn: (id: string) => deleteDepartment(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['departments'] });
+      void queryClient.invalidateQueries({ queryKey: ['public-departments'] });
     },
   });
 }
+

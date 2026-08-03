@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const accountSchema = z.object({
   fullName: z.string().min(2, 'Vui long nhap ho ten'),
   phone: z.string().regex(/^[0-9+\-\s]{8,20}$/, 'So dien thoai chua hop le'),
-  email: z.string().email('Email chua hop le').optional().or(z.literal('')),
+  email: z.string().min(1, 'Vui long nhap email').email('Email chua hop le'),
   password: z.string().min(8, 'Mat khau toi thieu 8 ky tu'),
   confirmPassword: z.string().min(8, 'Vui long nhap lai mat khau'),
 }).refine((value) => value.password === value.confirmPassword, {

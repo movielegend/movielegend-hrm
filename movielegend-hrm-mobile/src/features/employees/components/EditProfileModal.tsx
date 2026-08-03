@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Modal, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { apiClient } from '../../../api/client';
 import { useAuth } from '../../../providers/AuthProvider';
 
@@ -33,10 +33,13 @@ export function EditProfileModal({ visible, onClose, initialPhone = '', initialE
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView 
+        style={styles.modalOverlay} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Chỉnh sửa thông tin</Text>
-          <Text style={styles.modalSubtitle}>Sử dụng số điện thoại mới này để đăng nhập vào lần sau.</Text>
+          <Text style={styles.modalSubtitle}>Sử dụng Số điện thoại hoặc Email này để khôi phục mật khẩu và đăng nhập vào lần sau.</Text>
           
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Số điện thoại</Text>
@@ -70,7 +73,7 @@ export function EditProfileModal({ visible, onClose, initialPhone = '', initialE
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -23,8 +23,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const message = this.resolveMessage(body, exception);
     const code = typeof body === 'object' && body?.code ? body.code : this.codeFromStatus(status);
 
-    if (status >= 500) {
-      this.logger.error(exception instanceof Error ? exception.stack : String(exception));
+    if (status >= 400) {
+      this.logger.error(
+        exception instanceof Error ? exception.stack : String(exception),
+        `Status: ${status}, Body: ${JSON.stringify(body)}`
+      );
     }
 
     response.status(status).json({

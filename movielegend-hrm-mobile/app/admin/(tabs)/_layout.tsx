@@ -60,15 +60,7 @@ export default function AdminTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="elearning"
-        options={{
-          title: 'Chấm công',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="clock-outline" size={26} color={color} />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="notifications"
         options={{

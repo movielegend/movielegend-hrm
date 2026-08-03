@@ -117,12 +117,7 @@ export default function HRTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="elearning"
-        options={{
-          href: null,
-        }}
-      />
+
       <Tabs.Screen
         name="attendance-management"
         options={{
