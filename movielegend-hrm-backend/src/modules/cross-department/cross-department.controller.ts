@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -21,8 +21,8 @@ export class CrossDepartmentController {
 
   @Get()
   @AnyPermissions('cross_department.create', 'cross_department.source_approve', 'cross_department.target_receive', 'cross_department.read_all')
-  findAll(@CurrentUser() actor: AuthenticatedUser) {
-    return this.requests.findAll(actor);
+  findAll(@CurrentUser() actor: AuthenticatedUser, @Query('type') type?: 'incoming' | 'outgoing') {
+    return this.requests.findAll(actor, type);
   }
 
   @Get(':id')
@@ -53,5 +53,29 @@ export class CrossDepartmentController {
   @Permissions('cross_department.target_receive')
   rejectTarget(@Param('id') id: string, @Body() dto: RejectCrossDepartmentRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.requests.rejectTarget(id, dto, actor);
+  }
+
+  @Patch(':id/assign-target')
+  @Permissions('cross_department.target_receive')
+  assignTarget(@Param('id') id: string, @Body() dto: import('./dto/cross-department.dto').AssignTargetDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.requests.assignTarget(id, dto, actor);
+  }
+
+  @Patch(':id/update-progress')
+  @AnyPermissions('cross_department.target_receive', 'cross_department.create', 'cross_department.read_all')
+  updateProgress(@Param('id') id: string, @Body() dto: import('./dto/cross-department.dto').UpdateProgressDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.requests.updateProgress(id, dto, actor);
+  }
+
+  @Patch(':id/submit')
+  @AnyPermissions('cross_department.target_receive', 'cross_department.create', 'cross_department.read_all')
+  submitDeliverable(@Param('id') id: string, @Body() dto: import('./dto/cross-department.dto').SubmitDeliverableDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.requests.submitDeliverable(id, dto, actor);
+  }
+
+  @Patch(':id/complete')
+  @Permissions('cross_department.source_approve')
+  completeTask(@Param('id') id: string, @Body() dto: import('./dto/cross-department.dto').CompleteTaskDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.requests.completeTask(id, dto, actor);
   }
 }

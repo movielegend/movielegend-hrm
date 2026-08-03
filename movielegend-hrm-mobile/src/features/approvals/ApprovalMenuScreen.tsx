@@ -38,6 +38,13 @@ export function ApprovalMenuScreen() {
             iconColor="#D97706" 
             onPress={() => router.push(isAdmin ? '/admin/approvals' : `${roleBase(user)}/approvals/account` as any)}
           />
+          <MenuRow 
+            title="Liên phòng ban" 
+            icon="transit-connection-variant" 
+            iconBg="#E0F2FE" 
+            iconColor="#2563EB" 
+            onPress={() => router.push(`${roleBase(user)}/cross-department` as any)} 
+          />
           {!isAdmin && (
             <>
               <MenuRow 
@@ -46,13 +53,6 @@ export function ApprovalMenuScreen() {
                 iconBg="#FDF2F8" 
                 iconColor="#DB2777" 
                 onPress={() => router.push(`${roleBase(user)}/material-issues` as any)} 
-              />
-              <MenuRow 
-                title="Liên phòng ban" 
-                icon="transit-connection-variant" 
-                iconBg="#E0F2FE" 
-                iconColor="#2563EB" 
-                onPress={() => router.push(`${roleBase(user)}/cross-department` as any)} 
               />
             </>
           )}

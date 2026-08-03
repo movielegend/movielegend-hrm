@@ -16,7 +16,15 @@ export class CrossDepartmentService {
   ) {}
 
   async create(dto: CreateCrossDepartmentRequestDto, actor: AuthenticatedUser) {
-    await this.scope.assertUserInDepartment(actor.userId, dto.sourceDepartmentId);
+    if (dto.sourceDepartmentId === dto.targetDepartmentId) {
+      throw badRequest('SAME_DEPARTMENT', 'Phòng ban nguồn và phòng ban đích không được trùng nhau');
+    }
+
+    const isPowerUser = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
+    if (!isPowerUser) {
+      await this.scope.assertUserInDepartment(actor.userId, dto.sourceDepartmentId);
+    }
+
     const payload = await this.prisma.$transaction(async (tx) => {
       const requestCode = await this.prisma.nextCrossDepartmentRequestCode(tx);
       const request = await tx.crossDepartmentRequest.create({
@@ -28,15 +36,25 @@ export class CrossDepartmentService {
           targetDepartmentId: dto.targetDepartmentId,
           title: dto.title,
           content: dto.content,
+          status: isPowerUser ? CrossDepartmentRequestStatus.SOURCE_APPROVED : CrossDepartmentRequestStatus.PENDING_SOURCE_APPROVAL,
+          decidedByUserId: isPowerUser ? actor.userId : null,
+          decidedAt: isPowerUser ? new Date() : null,
         },
+      });
+      const targetLeaders = await tx.department.findUnique({
+        where: { id: dto.targetDepartmentId },
+        select: { leaderUserId: true },
       });
       const sourceLeaders = await tx.department.findUnique({
         where: { id: dto.sourceDepartmentId },
         select: { leaderUserId: true },
       });
-      const notification = await this.notifications.createForUsers(tx, sourceLeaders?.leaderUserId ? [sourceLeaders.leaderUserId] : [], {
+      
+      const notificationTarget = isPowerUser ? targetLeaders?.leaderUserId : sourceLeaders?.leaderUserId;
+      
+      const notification = await this.notifications.createForUsers(tx, notificationTarget ? [notificationTarget] : [], {
         type: NotificationType.CROSS_DEPARTMENT_REQUESTED,
-        title: 'Cross-department request pending',
+        title: isPowerUser ? 'New cross-department request assigned' : 'Cross-department request pending',
         body: dto.title,
         taskId: dto.taskId,
       });
@@ -46,13 +64,54 @@ export class CrossDepartmentService {
     return payload.request;
   }
 
-  findAll(actor: AuthenticatedUser) {
+  findAll(actor: AuthenticatedUser, type?: 'incoming' | 'outgoing') {
+    const includeClause = {
+      createdBy: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+      assignedTo: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+      sourceDepartment: { select: { id: true, code: true, name: true } },
+      targetDepartment: { select: { id: true, code: true, name: true } },
+    };
+
     if (actor.roles.includes('ADMIN')) {
-      return this.prisma.crossDepartmentRequest.findMany({ orderBy: { createdAt: 'desc' } });
+      if (type === 'incoming') {
+        return this.prisma.crossDepartmentRequest.findMany({ 
+          where: { status: { in: ['SOURCE_APPROVED', 'TARGET_ACCEPTED', 'TARGET_ASSIGNED', 'IN_PROGRESS', 'SUBMITTED_FOR_REVIEW'] } }, 
+          include: includeClause,
+          orderBy: { createdAt: 'desc' } 
+        });
+      }
+      return this.prisma.crossDepartmentRequest.findMany({ include: includeClause, orderBy: { createdAt: 'desc' } });
     }
+
     const visible = this.scope.visibleDepartmentIds(actor) ?? [];
+    let whereClause: any = { 
+      OR: [
+        { sourceDepartmentId: { in: visible } }, 
+        { targetDepartmentId: { in: visible } }, 
+        { createdByUserId: actor.userId },
+        { assignedToUserId: actor.userId }
+      ] 
+    };
+    
+    if (type === 'incoming') {
+      whereClause = { 
+        OR: [
+          { targetDepartmentId: { in: visible } },
+          { assignedToUserId: actor.userId }
+        ]
+      };
+    } else if (type === 'outgoing') {
+      whereClause = { 
+        OR: [
+          { sourceDepartmentId: { in: visible } }, 
+          { createdByUserId: actor.userId }
+        ]
+      };
+    }
+
     return this.prisma.crossDepartmentRequest.findMany({
-      where: { OR: [{ sourceDepartmentId: { in: visible } }, { targetDepartmentId: { in: visible } }, { createdByUserId: actor.userId }] },
+      where: whereClause,
+      include: includeClause,
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -62,6 +121,7 @@ export class CrossDepartmentService {
       where: { id },
       include: {
         createdBy: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+        assignedTo: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
         decidedBy: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
         sourceDepartment: { select: { id: true, code: true, name: true } },
         targetDepartment: { select: { id: true, code: true, name: true } },
@@ -114,6 +174,69 @@ export class CrossDepartmentService {
     return this.decide(id, actor, CrossDepartmentRequestStatus.SOURCE_APPROVED, CrossDepartmentRequestStatus.TARGET_REJECTED, 'target', dto.reason);
   }
 
+  async assignTarget(id: string, dto: import('./dto/cross-department.dto').AssignTargetDto, actor: AuthenticatedUser) {
+    const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
+    if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
+    this.scope.assertDepartmentAccess(actor, request.targetDepartmentId);
+    if (request.status !== CrossDepartmentRequestStatus.TARGET_ACCEPTED && request.status !== CrossDepartmentRequestStatus.SOURCE_APPROVED) {
+      throw badRequest('INVALID_CROSS_DEPARTMENT_STATUS', `Request cannot be assigned in status ${request.status}`);
+    }
+    return this.prisma.crossDepartmentRequest.update({
+      where: { id },
+      data: {
+        status: CrossDepartmentRequestStatus.TARGET_ASSIGNED,
+        assignedToUserId: dto.assignedToUserId,
+      },
+    });
+  }
+
+  async updateProgress(id: string, dto: import('./dto/cross-department.dto').UpdateProgressDto, actor: AuthenticatedUser) {
+    const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
+    if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
+    if (request.assignedToUserId !== actor.userId && !actor.roles.includes('ADMIN')) {
+      throw forbidden('CROSS_DEPARTMENT_REQUEST_FORBIDDEN', 'Only the assignee can update progress');
+    }
+    return this.prisma.crossDepartmentRequest.update({
+      where: { id },
+      data: {
+        progress: dto.progress,
+        status: dto.progress > 0 ? CrossDepartmentRequestStatus.IN_PROGRESS : request.status,
+      },
+    });
+  }
+
+  async submitDeliverable(id: string, dto: import('./dto/cross-department.dto').SubmitDeliverableDto, actor: AuthenticatedUser) {
+    const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
+    if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
+    if (request.assignedToUserId !== actor.userId && !actor.roles.includes('ADMIN')) {
+      throw forbidden('CROSS_DEPARTMENT_REQUEST_FORBIDDEN', 'Only the assignee can submit deliverables');
+    }
+    return this.prisma.crossDepartmentRequest.update({
+      where: { id },
+      data: {
+        status: CrossDepartmentRequestStatus.SUBMITTED_FOR_REVIEW,
+        resultSummary: dto.resultSummary,
+        progress: 100,
+      },
+    });
+  }
+
+  async completeTask(id: string, dto: import('./dto/cross-department.dto').CompleteTaskDto, actor: AuthenticatedUser) {
+    const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
+    if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
+    this.scope.assertDepartmentAccess(actor, request.sourceDepartmentId);
+    if (request.status !== CrossDepartmentRequestStatus.SUBMITTED_FOR_REVIEW) {
+      throw badRequest('INVALID_CROSS_DEPARTMENT_STATUS', `Request must be SUBMITTED_FOR_REVIEW`);
+    }
+    return this.prisma.crossDepartmentRequest.update({
+      where: { id },
+      data: {
+        status: CrossDepartmentRequestStatus.COMPLETED,
+        rating: dto.rating,
+      },
+    });
+  }
+
   private async decide(
     id: string,
     actor: AuthenticatedUser,
@@ -138,11 +261,11 @@ export class CrossDepartmentService {
   }
 
   private canView(
-    request: { createdByUserId: string; sourceDepartmentId: string; targetDepartmentId: string },
+    request: { createdByUserId: string; assignedToUserId?: string | null; sourceDepartmentId: string; targetDepartmentId: string },
     actor: AuthenticatedUser,
   ): boolean {
     if (actor.roles.includes('ADMIN') || actor.permissions.includes('cross_department.read_all')) return true;
-    if (request.createdByUserId === actor.userId) return true;
+    if (request.createdByUserId === actor.userId || request.assignedToUserId === actor.userId) return true;
     const visible = this.scope.visibleDepartmentIds(actor) ?? [];
     return visible.includes(request.sourceDepartmentId) || visible.includes(request.targetDepartmentId);
   }

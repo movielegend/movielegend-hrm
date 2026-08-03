@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../api/uploads.api';
 
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -22,6 +24,7 @@ import {
   useCrossDepartmentRequests 
 } from '../../hooks/useCrossDepartment';
 import { useDepartments } from '../../hooks/useDepartments';
+import { useEmployees } from '../../hooks/useEmployees';
 import { useAuth } from '../../providers/AuthProvider';
 
 import { colors } from '../../theme/colors';
@@ -31,17 +34,21 @@ import { normalizeApiError } from '../../utils/api-error';
 import { formatDateTime } from '../../utils/date-time';
 import { hasAnyPermission } from '../../utils/permissions';
 
-type CrossArea = 'employee' | 'leader' | 'admin';
+type CrossArea = 'employee' | 'leader' | 'admin' | 'hr';
 
 // ==========================================
 // 1. LIST SCREEN
 // ==========================================
 export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossArea; mode?: 'all' | 'incoming' }) {
   const router = useRouter();
-  const list = useCrossDepartmentRequests({ page: 1, limit: 100 });
-  
-  // Custom Tab State
+  const [directionTab, setDirectionTab] = useState<'outgoing' | 'incoming' | 'all'>('outgoing');
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('ALL');
+
+  const list = useCrossDepartmentRequests({ 
+    page: 1, 
+    limit: 100, 
+    type: directionTab !== 'all' ? directionTab : undefined 
+  });
 
   const filteredItems = useMemo(() => {
     if (!list.data?.items) return [];
@@ -69,19 +76,57 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
           }
         />
 
-        {/* Custom Tabs */}
-        <View style={styles.tabsContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
-            {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map((tab) => {
-              const isActive = activeTab === tab;
-              const labels: any = { ALL: 'Tất cả', PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối' };
+        {/* Modern Segmented Control */}
+        <View style={styles.segmentedContainer}>
+          <Pressable
+            style={[styles.segmentBtn, directionTab === 'outgoing' && styles.segmentBtnActive]}
+            onPress={() => setDirectionTab('outgoing')}
+          >
+            <MaterialCommunityIcons 
+              name="send-outline" 
+              size={16} 
+              color={directionTab === 'outgoing' ? colors.primary : colors.muted} 
+            />
+            <Text style={[styles.segmentText, directionTab === 'outgoing' && styles.segmentTextActive]}>Yêu cầu đã gửi</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.segmentBtn, directionTab === 'incoming' && styles.segmentBtnActive]}
+            onPress={() => setDirectionTab('incoming')}
+          >
+            <MaterialCommunityIcons 
+              name="inbox-arrow-down-outline" 
+              size={18} 
+              color={directionTab === 'incoming' ? colors.primary : colors.muted} 
+            />
+            <Text style={[styles.segmentText, directionTab === 'incoming' && styles.segmentTextActive]}>Yêu cầu đến</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.segmentBtn, directionTab === 'all' && styles.segmentBtnActive, { flex: 0.6 }]}
+            onPress={() => setDirectionTab('all')}
+          >
+            <Text style={[styles.segmentText, directionTab === 'all' && styles.segmentTextActive]}>Tất cả</Text>
+          </Pressable>
+        </View>
+
+        {/* Status Filter Chips */}
+        <View style={styles.chipsWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+            {[
+              { key: 'ALL', label: 'Tất cả' },
+              { key: 'PENDING', label: 'Chờ duyệt' },
+              { key: 'APPROVED', label: 'Đã duyệt / Tiến độ' },
+              { key: 'REJECTED', label: 'Từ chối' },
+            ].map((chip) => {
+              const isActive = activeTab === chip.key;
               return (
                 <Pressable
-                  key={tab}
-                  style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-                  onPress={() => setActiveTab(tab as any)}
+                  key={chip.key}
+                  style={[styles.chipBtn, isActive && styles.chipBtnActive]}
+                  onPress={() => setActiveTab(chip.key as any)}
                 >
-                  <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{labels[tab]}</Text>
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{chip.label}</Text>
                 </Pressable>
               );
             })}
@@ -127,17 +172,17 @@ export function CreateCrossDepartmentScreen() {
   const [targetModalVisible, setTargetModalVisible] = useState(false);
   const [sourceModalVisible, setSourceModalVisible] = useState(false);
 
-  const isAdmin = user?.roles.includes('ADMIN');
+  const isPowerUser = user?.roles.includes('ADMIN') || user?.roles.includes('HR');
 
-  // Auto-set source for non-admins
-  useMemo(() => {
-    if (!isAdmin && user?.department) {
+  // Auto-set source department if available
+  useEffect(() => {
+    if (user?.department && !sourceDepartment) {
       setSourceDepartment({
         id: user.department.id,
         label: user.department.name
       });
     }
-  }, [isAdmin, user]);
+  }, [user?.department]);
 
   const departmentOptions: SelectOption[] = useMemo(() => {
     if (!departmentsQuery.data?.items) return [];
@@ -148,23 +193,76 @@ export function CreateCrossDepartmentScreen() {
     }));
   }, [departmentsQuery.data]);
 
+  const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const pickAttachment = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setAttachmentUri(result.assets[0].uri);
+    }
+  };
+
   async function submit() {
-    if (!sourceDepartment || !targetDepartment) return;
+    if (!sourceDepartment) {
+      Alert.alert('Thông báo', 'Vui lòng chọn Phòng ban nguồn.');
+      return;
+    }
+    if (!targetDepartment) {
+      Alert.alert('Thông báo', 'Vui lòng chọn Phòng ban đích.');
+      return;
+    }
+    if (sourceDepartment.id === targetDepartment.id) {
+      Alert.alert('Thông báo', 'Phòng ban nguồn và phòng ban đích không được trùng nhau.');
+      return;
+    }
+    if (!title.trim() || title.trim().length < 3) {
+      Alert.alert('Thông báo', 'Tiêu đề yêu cầu phải có ít nhất 3 ký tự.');
+      return;
+    }
+    if (!content.trim() || content.trim().length < 3) {
+      Alert.alert('Thông báo', 'Nội dung yêu cầu phải có ít nhất 3 ký tự.');
+      return;
+    }
+
     try {
+      setIsUploading(true);
+      let finalContent = content.trim();
+      if (attachmentUri) {
+        const uploaded = await uploadFile({
+          uri: attachmentUri,
+          name: attachmentUri.split('/').pop() || 'request-attachment.jpg',
+          mimeType: 'image/jpeg',
+          purpose: 'TASK_ATTACHMENT',
+        });
+        const fileUrl = uploaded.fileUrl || (uploaded as any).url;
+        if (fileUrl) {
+          finalContent += `\n\n[File đính kèm]: ${fileUrl}`;
+        }
+      }
+      setIsUploading(false);
+
       await mutation.mutateAsync({
         sourceDepartmentId: sourceDepartment.id,
         targetDepartmentId: targetDepartment.id,
         ...(taskId ? { taskId } : {}),
-        title,
-        content,
+        title: title.trim(),
+        content: finalContent,
       });
       Alert.alert('Thành công', 'Đã tạo yêu cầu liên phòng ban!');
       router.back();
     } catch (error) {
+      setIsUploading(false);
       const normalized = normalizeApiError(error);
       Alert.alert('Lỗi', normalized.message);
     }
   }
+
+  const canSelectSource = isPowerUser || !user?.department;
 
   return (
     <Screen>
@@ -172,40 +270,75 @@ export function CreateCrossDepartmentScreen() {
         <PageHeader title="Tạo Yêu Cầu" subtitle="Luân chuyển hoặc phối hợp liên phòng ban" />
         
         <SectionCard>
-          {isAdmin ? (
+          {canSelectSource ? (
             <>
-              <Text style={styles.fieldLabel}>Phòng ban Nguồn</Text>
+              <Text style={styles.fieldLabel}>Phòng ban Nguồn *</Text>
               <Pressable style={styles.selector} onPress={() => setSourceModalVisible(true)}>
                 <Text style={sourceDepartment ? styles.selectorText : styles.selectorPlaceholder}>
-                  {sourceDepartment ? sourceDepartment.label : 'Chọn phòng ban...'}
+                  {sourceDepartment ? sourceDepartment.label : 'Chọn phòng ban nguồn...'}
                 </Text>
                 <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
               </Pressable>
             </>
           ) : (
             <>
-              <Text style={styles.fieldLabel}>Phòng ban Nguồn</Text>
+              <Text style={styles.fieldLabel}>Phòng ban Nguồn *</Text>
               <View style={[styles.selector, { backgroundColor: colors.background }]}>
-                <Text style={styles.selectorText}>{sourceDepartment?.label}</Text>
+                <Text style={styles.selectorText}>{sourceDepartment?.label || 'Chưa xác định'}</Text>
                 <MaterialCommunityIcons name="lock" size={20} color={colors.muted} />
               </View>
             </>
           )}
 
-          <Text style={styles.fieldLabel}>Phòng ban Đích</Text>
+          <Text style={styles.fieldLabel}>Phòng ban Đích *</Text>
           <Pressable style={styles.selector} onPress={() => setTargetModalVisible(true)}>
             <Text style={targetDepartment ? styles.selectorText : styles.selectorPlaceholder}>
-              {targetDepartment ? targetDepartment.label : 'Chọn phòng ban...'}
+              {targetDepartment ? targetDepartment.label : 'Chọn phòng ban đích...'}
             </Text>
             <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
           </Pressable>
 
-          <FormField label="Tiêu đề yêu cầu" value={title} onChangeText={setTitle} placeholder="VD: Xin hỗ trợ nhân sự kho" />
-          <FormField label="Nội dung / Lý do" value={content} onChangeText={setContent} multiline placeholder="Mô tả chi tiết yêu cầu..." />
+          <FormField label="Tiêu đề yêu cầu *" value={title} onChangeText={setTitle} placeholder="VD: Xin hỗ trợ nhân sự kho" />
+          <FormField label="Nội dung / Lý do *" value={content} onChangeText={setContent} multiline placeholder="Mô tả chi tiết yêu cầu..." />
           <FormField label="Mã Task liên quan (Tùy chọn)" value={taskId} onChangeText={setTaskId} autoCapitalize="none" placeholder="Nhập ID công việc nếu có" />
 
+          {/* Attachment Selection */}
+          <Text style={styles.fieldLabel}>Ảnh / Đính kèm (Tùy chọn)</Text>
+          <Pressable 
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              gap: 8, 
+              padding: 12, 
+              borderWidth: 1, 
+              borderColor: colors.border, 
+              borderRadius: 8, 
+              backgroundColor: colors.background,
+              marginBottom: spacing.md
+            }}
+            onPress={() => void pickAttachment()}
+          >
+            <MaterialCommunityIcons name="paperclip" size={20} color={colors.primary} />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+              {attachmentUri ? 'Đã chọn 1 ảnh đính kèm (Chạm để đổi)' : 'Tải lên ảnh hoặc file minh chứng'}
+            </Text>
+          </Pressable>
+
+          {attachmentUri && (
+            <View style={{ marginBottom: spacing.md, alignItems: 'center', position: 'relative' }}>
+              <Image source={{ uri: attachmentUri }} style={{ width: 140, height: 140, borderRadius: 12 }} />
+              <Pressable 
+                style={{ position: 'absolute', top: -6, right: '30%', backgroundColor: colors.danger, borderRadius: 12, padding: 2 }}
+                onPress={() => setAttachmentUri(null)}
+              >
+                <MaterialCommunityIcons name="close" size={16} color="#fff" />
+              </Pressable>
+            </View>
+          )}
+
           <PrimaryButton
-            loading={mutation.isPending}
+            loading={mutation.isPending || isUploading}
             disabled={!sourceDepartment || !targetDepartment || title.trim().length < 3 || content.trim().length < 3}
             onPress={() => void submit()}
           >
@@ -243,13 +376,66 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
   const { user } = useAuth();
   const request = useCrossDepartmentRequest(id);
   const action = useCrossDepartmentAction();
+
+  // Fetch employees for target department (Called unconditionally at top level)
+  const targetDepartmentId = request.data?.targetDepartmentId;
+  const employeesQuery = useEmployees({ departmentId: targetDepartmentId, page: 1, limit: 100 }, Boolean(targetDepartmentId));
   
   const [rejectReason, setRejectReason] = useState('');
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [pendingActionType, setPendingActionType] = useState<'source-reject' | 'target-reject' | null>(null);
 
-  const canSource = hasAnyPermission(user, ['cross_department.source_approve', 'cross_department.read_all']);
-  const canTarget = hasAnyPermission(user, ['cross_department.target_receive', 'cross_department.read_all']);
+  // Employee Selection Modal State
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  
+  // Custom Input Modal State
+  const [inputModalVisible, setInputModalVisible] = useState(false);
+  const [inputModalTitle, setInputModalTitle] = useState('');
+  const [inputModalDesc, setInputModalDesc] = useState('');
+  const [inputModalPlaceholder, setInputModalPlaceholder] = useState('');
+  const [inputModalValue, setInputModalValue] = useState('');
+  const [inputActionType, setInputActionType] = useState<'update-progress' | 'submit' | 'complete' | null>(null);
+
+  // File/Image Attachment State
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setSelectedImageUri(result.assets[0].uri);
+    }
+  };
+
+  if (request.isLoading) return <LoadingState />;
+  if (request.isError) return <ErrorState error={request.error} onRetry={() => void request.refetch()} />;
+  if (!request.data) return <EmptyState title="Không tìm thấy yêu cầu" />;
+  const item = request.data;
+
+  // Target department employee options
+  const employeeOptions: SelectOption[] = (employeesQuery.data?.items ?? []).map(emp => ({
+    id: emp.id,
+    label: emp.profile?.fullName || emp.userCode || 'Nhân viên',
+    subtitle: `Mã NV: ${emp.userCode}`
+  }));
+
+  const isAdmin = user?.roles.includes('ADMIN');
+  const isHR = user?.roles.includes('HR');
+
+  const isSourceSide = item.createdByUserId === user?.id || (Boolean(user?.department?.id) && user?.department?.id === item.sourceDepartmentId);
+  const isTargetSide = Boolean(user?.department?.id) && user?.department?.id === item.targetDepartmentId;
+
+  // Source side actions (Source approve / Complete & Rate)
+  const canSource = isAdmin || (isHR && isSourceSide) || (isSourceSide && hasAnyPermission(user, ['cross_department.source_approve', 'cross_department.read_all']));
+
+  // Target side actions (Target accept / Assign target employee)
+  const canTarget = isAdmin || isTargetSide || (
+    !isSourceSide && hasAnyPermission(user, ['cross_department.target_receive', 'cross_department.read_all'])
+  );
 
   async function runAction(next: 'source-approve' | 'source-reject' | 'target-accept' | 'target-reject', reason?: string) {
     try {
@@ -263,10 +449,64 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
     }
   }
 
-  if (request.isLoading) return <LoadingState />;
-  if (request.isError) return <ErrorState error={request.error} onRetry={() => void request.refetch()} />;
-  if (!request.data) return <EmptyState title="Không tìm thấy yêu cầu" />;
-  const item = request.data;
+  function openInputModal(type: 'update-progress' | 'submit' | 'complete') {
+    setInputActionType(type);
+    setInputModalValue('');
+    setSelectedImageUri(null);
+    if (type === 'update-progress') {
+      setInputModalTitle('Cập nhật tiến độ');
+      setInputModalDesc('Nhập % hoàn thành công việc (từ 0 đến 100):');
+      setInputModalPlaceholder('Ví dụ: 50');
+    } else if (type === 'submit') {
+      setInputModalTitle('Nộp kết quả');
+      setInputModalDesc('Nhập tóm tắt kết quả công việc & đính kèm minh chứng:');
+      setInputModalPlaceholder('Mô tả kết quả công việc...');
+    } else if (type === 'complete') {
+      setInputModalTitle('Nghiệm thu & Đánh giá');
+      setInputModalDesc('Nhập điểm đánh giá chất lượng (từ 1 đến 5 sao):');
+      setInputModalPlaceholder('Nhập 5');
+    }
+    setInputModalVisible(true);
+  }
+
+  async function handleInputModalSubmit() {
+    if (!inputActionType) return;
+    try {
+      setIsUploading(true);
+      let attachmentUrl = '';
+      if (selectedImageUri) {
+        const uploaded = await uploadFile({
+          uri: selectedImageUri,
+          name: selectedImageUri.split('/').pop() || 'result-attachment.jpg',
+          mimeType: 'image/jpeg',
+          purpose: 'TASK_ATTACHMENT',
+        });
+        attachmentUrl = uploaded.fileUrl || (uploaded as any).url;
+      }
+
+      if (inputActionType === 'update-progress') {
+        const progress = parseInt(inputModalValue || '0', 10);
+        await action.mutateAsync({ id: item.id, action: 'update-progress', payload: { progress } });
+      } else if (inputActionType === 'submit') {
+        let finalSummary = inputModalValue.trim();
+        if (attachmentUrl) {
+          finalSummary += (finalSummary ? '\n\n' : '') + `[File đính kèm]: ${attachmentUrl}`;
+        }
+        await action.mutateAsync({ id: item.id, action: 'submit', payload: { resultSummary: finalSummary } });
+      } else if (inputActionType === 'complete') {
+        const rating = parseInt(inputModalValue || '5', 10);
+        await action.mutateAsync({ id: item.id, action: 'complete', payload: { rating } });
+      }
+      setIsUploading(false);
+      Alert.alert('Thành công', 'Cập nhật trạng thái thành công!');
+      setInputModalVisible(false);
+      setSelectedImageUri(null);
+    } catch (error) {
+      setIsUploading(false);
+      const normalized = normalizeApiError(error);
+      Alert.alert('Lỗi', normalized.message);
+    }
+  }
 
   return (
     <Screen>
@@ -297,8 +537,42 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
           <View style={styles.divider} />
           
           <Text style={styles.sectionTitle}>Nội dung yêu cầu</Text>
-          <Text style={styles.bodyText}>{item.content}</Text>
+          <Text style={styles.bodyText}>{item.content.replace(/\[File đính kèm\]:\s*http\S+/g, '').trim()}</Text>
+          {item.content.includes('[File đính kèm]:') && (
+            <View style={{ marginBottom: spacing.md, width: '100%' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 6 }}>Tài liệu / Ảnh đính kèm từ Bên gửi:</Text>
+              <Image 
+                source={{ uri: item.content.split('[File đính kèm]:')[1].trim() }} 
+                style={{ width: '100%', height: 200, borderRadius: 12, resizeMode: 'cover' }} 
+              />
+            </View>
+          )}
           <Text style={styles.metaText}>Người tạo: {item.createdBy?.profile?.fullName ?? item.createdBy?.userCode ?? 'N/A'}</Text>
+          {item.assignedTo && (
+            <Text style={[styles.metaText, { marginTop: 4 }]}>
+              Nhân viên phụ trách: {item.assignedTo.profile?.fullName ?? item.assignedTo.userCode}
+            </Text>
+          )}
+          {item.resultSummary && (
+            <View style={[styles.rejectBox, { backgroundColor: colors.primarySoft, marginTop: spacing.md, flexDirection: 'column', alignItems: 'flex-start' }]}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+                <MaterialCommunityIcons name="check-circle-outline" size={20} color={colors.primary} />
+                <Text style={[styles.rejectText, { color: colors.primaryDark, fontWeight: '700' }]}>Báo cáo kết quả:</Text>
+              </View>
+              <Text style={{ fontSize: 14, color: colors.text, marginTop: 4, lineHeight: 20 }}>
+                {item.resultSummary.replace(/\[File đính kèm\]:\s*http\S+/g, '').trim()}
+              </Text>
+              {item.resultSummary.includes('[File đính kèm]:') && (
+                <View style={{ marginTop: spacing.sm, width: '100%' }}>
+                  <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Hình ảnh / minh chứng đính kèm:</Text>
+                  <Image 
+                    source={{ uri: item.resultSummary.split('[File đính kèm]:')[1].trim() }} 
+                    style={{ width: '100%', height: 180, borderRadius: 10, resizeMode: 'cover' }} 
+                  />
+                </View>
+              )}
+            </View>
+          )}
           
           {item.rejectionReason && (
             <View style={styles.rejectBox}>
@@ -312,32 +586,147 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
         <CrossDepartmentTimeline request={item} />
 
         {/* Action Buttons */}
-        {area !== 'employee' && (
-          <View style={styles.actionSection}>
-            {canSource && item.status === 'PENDING_SOURCE_APPROVAL' && (
-              <>
-                <PrimaryButton loading={action.isPending} onPress={() => void runAction('source-approve')}>Trưởng phòng Nguồn Duyệt</PrimaryButton>
-                <SecondaryButton 
-                  onPress={() => { setPendingActionType('source-reject'); setActionModalVisible(true); }}
+        <View style={styles.actionSection}>
+          {canSource && item.status === 'PENDING_SOURCE_APPROVAL' && (
+            <>
+              <PrimaryButton loading={action.isPending} onPress={() => void runAction('source-approve')}>Trưởng phòng Nguồn Duyệt</PrimaryButton>
+              <SecondaryButton 
+                onPress={() => { setPendingActionType('source-reject'); setActionModalVisible(true); }}
+              >
+                Từ chối
+              </SecondaryButton>
+            </>
+          )}
+          
+          {canTarget && item.status === 'SOURCE_APPROVED' && (
+            <>
+              <PrimaryButton loading={action.isPending} onPress={() => void runAction('target-accept')}>Trưởng phòng Đích Nhận</PrimaryButton>
+              <SecondaryButton 
+                onPress={() => { setPendingActionType('target-reject'); setActionModalVisible(true); }}
+              >
+                Từ chối nhận
+              </SecondaryButton>
+            </>
+          )}
+          
+          {canTarget && (item.status === 'TARGET_ACCEPTED' || item.status === 'SOURCE_APPROVED') && !item.assignedToUserId && (
+            <PrimaryButton loading={action.isPending} onPress={() => setAssignModalVisible(true)}>
+              Giao việc cho nhân viên
+            </PrimaryButton>
+          )}
+
+          {/* Assigned Employee Actions */}
+          {item.assignedToUserId === user?.id && item.status === 'TARGET_ASSIGNED' && (
+            <PrimaryButton loading={action.isPending} onPress={() => {
+              void action.mutateAsync({ id: item.id, action: 'update-progress', payload: { progress: 10 } });
+            }}>
+              Xác nhận tiếp nhận & Bắt đầu làm
+            </PrimaryButton>
+          )}
+
+          {item.assignedToUserId === user?.id && ['TARGET_ASSIGNED', 'IN_PROGRESS'].includes(item.status) && (
+            <>
+              <PrimaryButton loading={action.isPending} onPress={() => openInputModal('update-progress')}>
+                Cập nhật Tiến độ ({item.progress ?? 0}%)
+              </PrimaryButton>
+              <PrimaryButton loading={action.isPending} onPress={() => openInputModal('submit')}>
+                Nộp kết quả
+              </PrimaryButton>
+            </>
+          )}
+
+          {canSource && item.status === 'SUBMITTED_FOR_REVIEW' && (
+            <PrimaryButton loading={action.isPending} onPress={() => openInputModal('complete')}>
+              Nghiệm thu & Đánh giá
+            </PrimaryButton>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Select Employee Modal */}
+      <SelectModal
+        visible={assignModalVisible}
+        title="Chọn nhân viên phụ trách"
+        options={employeeOptions}
+        isLoading={employeesQuery.isLoading}
+        onSelect={(opt) => {
+          setAssignModalVisible(false);
+          void action.mutateAsync({ id: item.id, action: 'assign-target', payload: { assignedToUserId: opt.id } });
+        }}
+        onClose={() => setAssignModalVisible(false)}
+      />
+
+      {/* Custom Cross-Platform Input Modal */}
+      <Modal visible={inputModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{inputModalTitle}</Text>
+            <Text style={styles.modalDesc}>{inputModalDesc}</Text>
+            
+            <TextInput
+              style={styles.reasonInput}
+              placeholder={inputModalPlaceholder}
+              value={inputModalValue}
+              onChangeText={setInputModalValue}
+              multiline={inputActionType === 'submit'}
+              keyboardType={inputActionType === 'submit' ? 'default' : 'numeric'}
+            />
+
+            {inputActionType === 'submit' && (
+              <View style={{ marginBottom: spacing.md }}>
+                <Pressable 
+                  style={{ 
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    gap: 8, 
+                    padding: 12, 
+                    borderWidth: 1, 
+                    borderColor: colors.primary, 
+                    borderRadius: 12, 
+                    backgroundColor: colors.primarySoft 
+                  }}
+                  onPress={() => void pickImage()}
                 >
-                  Từ chối
-                </SecondaryButton>
-              </>
+                  <MaterialCommunityIcons name="paperclip" size={20} color={colors.primary} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.primary }}>
+                    {selectedImageUri ? 'Đã đính kèm 1 ảnh (Chạm để đổi)' : 'Tải lên ảnh / minh chứng kết quả'}
+                  </Text>
+                </Pressable>
+
+                {selectedImageUri && (
+                  <View style={{ marginTop: spacing.sm, alignItems: 'center', position: 'relative' }}>
+                    <Image source={{ uri: selectedImageUri }} style={{ width: 120, height: 120, borderRadius: 12 }} />
+                    <Pressable 
+                      style={{ position: 'absolute', top: -6, right: '32%', backgroundColor: colors.danger, borderRadius: 12, padding: 2 }}
+                      onPress={() => setSelectedImageUri(null)}
+                    >
+                      <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                    </Pressable>
+                  </View>
+                )}
+              </View>
             )}
             
-            {canTarget && item.status === 'SOURCE_APPROVED' && (
-              <>
-                <PrimaryButton loading={action.isPending} onPress={() => void runAction('target-accept')}>Trưởng phòng Đích Nhận</PrimaryButton>
-                <SecondaryButton 
-                  onPress={() => { setPendingActionType('target-reject'); setActionModalVisible(true); }}
-                >
-                  Từ chối nhận
-                </SecondaryButton>
-              </>
-            )}
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalBtnCancel} onPress={() => setInputModalVisible(false)} disabled={isUploading}>
+                <Text style={styles.modalBtnCancelText}>Hủy</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.modalBtnConfirm, isUploading && { opacity: 0.6 }]}
+                onPress={() => void handleInputModalSubmit()}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalBtnConfirmText}>Xác nhận</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
-        )}
-      </ScrollView>
+        </View>
+      </Modal>
 
       {/* Reject Modal */}
       <Modal visible={actionModalVisible} transparent animationType="fade">
@@ -384,17 +773,23 @@ export function CrossDepartmentTimeline({ request }: { request: CrossDepartmentR
   const steps = [
     { key: 'PENDING_SOURCE_APPROVAL', label: 'Chờ PB Nguồn duyệt' },
     { key: 'SOURCE_APPROVED', label: 'Chờ PB Đích nhận' },
-    { key: 'TARGET_ACCEPTED', label: 'Đã hoàn tất' }
+    { key: 'TARGET_ACCEPTED', label: 'Đã tiếp nhận' },
+    { key: 'TARGET_ASSIGNED', label: 'Đã giao việc' },
+    { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
+    { key: 'SUBMITTED_FOR_REVIEW', label: 'Chờ nghiệm thu' },
+    { key: 'COMPLETED', label: 'Hoàn tất' }
   ];
 
   // Helper to determine if a step is past, current, or future
   const getStepStatus = (stepKey: string) => {
-    if (request.status.includes('REJECTED')) {
+    if (request.status.includes('REJECTED') || request.status === 'CANCELLED') {
       if (request.status === 'SOURCE_REJECTED' && stepKey === 'PENDING_SOURCE_APPROVAL') return 'rejected';
       if (request.status === 'TARGET_REJECTED' && stepKey === 'SOURCE_APPROVED') return 'rejected';
       return 'past'; // If rejected later, previous steps are past
     }
-    if (request.status === 'TARGET_ACCEPTED' || request.status === 'COMPLETED') return 'past';
+    
+    // Specifically handle COMPLETED as past for all previous steps
+    if (request.status === 'COMPLETED' && stepKey !== 'COMPLETED') return 'past';
     if (request.status === stepKey) return 'current';
     
     const currentIndex = steps.findIndex(s => s.key === request.status);
@@ -435,16 +830,23 @@ function CrossDepartmentCard({ request, onPress }: { request: CrossDepartmentReq
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardCode}>{request.requestCode ?? 'REQ-XXX'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <MaterialCommunityIcons name="file-document-outline" size={16} color={colors.primary} />
+          <Text style={styles.cardCode}>{request.requestCode ?? 'REQ-XXX'}</Text>
+        </View>
         <StatusBadge label={request.status} tone={toneForStatus(request.status)} />
       </View>
       
       <Text style={styles.cardTitle} numberOfLines={2}>{request.title}</Text>
       
       <View style={styles.cardDepts}>
-        <Text style={styles.cardDeptName} numberOfLines={1}>{request.sourceDepartment?.name ?? 'PB Nguồn'}</Text>
-        <MaterialCommunityIcons name="arrow-right" size={16} color={colors.muted} style={{ marginHorizontal: 4 }} />
-        <Text style={styles.cardDeptName} numberOfLines={1}>{request.targetDepartment?.name ?? 'PB Đích'}</Text>
+        <View style={styles.deptBadge}>
+          <Text style={styles.deptBadgeText} numberOfLines={1}>{request.sourceDepartment?.name ?? 'PB Nguồn'}</Text>
+        </View>
+        <MaterialCommunityIcons name="arrow-right-thin" size={18} color={colors.muted} />
+        <View style={[styles.deptBadge, { backgroundColor: colors.primarySoft }]}>
+          <Text style={[styles.deptBadgeText, { color: colors.primaryDark }]} numberOfLines={1}>{request.targetDepartment?.name ?? 'PB Đích'}</Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -465,27 +867,71 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700', marginLeft: 4 },
   
-  // Tabs
-  tabsContainer: {
+  // Modern Segmented Control
+  segmentedContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: spacing.xs,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  segmentBtnActive: {
+    backgroundColor: colors.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  segmentTextActive: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+
+  // Status Filter Chips
+  chipsWrap: {
     marginHorizontal: -spacing.lg,
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
-  tabsScroll: { gap: spacing.sm },
-  tabBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  chipsScroll: {
+    gap: spacing.xs,
+    paddingVertical: 4,
   },
-  tabBtnActive: {
+  chipBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  chipBtnActive: {
     backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
   },
-  tabText: { fontSize: 14, fontWeight: '600', color: colors.muted },
-  tabTextActive: { color: colors.primaryDark },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.muted,
+  },
+  chipTextActive: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   
   listWrap: { gap: spacing.md },
   
@@ -505,8 +951,20 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
   cardCode: { fontSize: 12, fontWeight: '700', color: colors.muted },
   cardTitle: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: spacing.sm },
-  cardDepts: { flexDirection: 'row', alignItems: 'center' },
+  cardDepts: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   cardDeptName: { fontSize: 13, fontWeight: '600', color: colors.text, flex: 1 },
+  deptBadge: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    maxWidth: '45%',
+  },
+  deptBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
   
   // Form fields
   fieldLabel: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs, marginTop: spacing.md },

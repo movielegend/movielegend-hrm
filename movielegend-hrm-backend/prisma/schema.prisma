@@ -238,8 +238,13 @@ enum CrossDepartmentRequestStatus {
   PENDING_SOURCE_APPROVAL
   SOURCE_APPROVED
   SOURCE_REJECTED
+  TARGET_ASSIGNED
   TARGET_ACCEPTED
   TARGET_REJECTED
+  IN_PROGRESS
+  SUBMITTED_FOR_REVIEW
+  REVISION_REQUESTED
+  COMPLETED
   CANCELLED
 }
 
@@ -734,6 +739,7 @@ model User {
   createdTaskGroups               TaskGroup[]                  @relation("TaskGroupCreator")
   crossRequestsCreated            CrossDepartmentRequest[]     @relation("CrossRequestCreator")
   crossRequestsDecided            CrossDepartmentRequest[]     @relation("CrossRequestDecider")
+  crossRequestsAssigned           CrossDepartmentRequest[]     @relation("CrossRequestAssignee")
   notifications                   NotificationTarget[]
   notificationDeliveries          NotificationDelivery[]
   deviceTokens                    DeviceToken[]
@@ -1729,24 +1735,32 @@ model CrossDepartmentRequest {
   requestCode        String                       @unique
   taskId             String?                      @db.Uuid
   createdByUserId    String                       @db.Uuid
+  assignedToUserId   String?                      @db.Uuid
   sourceDepartmentId String                       @db.Uuid
   targetDepartmentId String                       @db.Uuid
   title              String
   content            String
+  priority           TaskPriority                 @default(NORMAL)
+  dueAt              DateTime?
+  progress           Int                          @default(0)
   status             CrossDepartmentRequestStatus @default(PENDING_SOURCE_APPROVAL)
   decidedByUserId    String?                      @db.Uuid
   decidedAt          DateTime?
   rejectionReason    String?
+  resultSummary      String?
+  rating             Int?
   createdAt          DateTime                     @default(now())
   updatedAt          DateTime                     @updatedAt
   task               Task?                        @relation(fields: [taskId], references: [id])
   createdBy          User                         @relation("CrossRequestCreator", fields: [createdByUserId], references: [id])
+  assignedTo         User?                        @relation("CrossRequestAssignee", fields: [assignedToUserId], references: [id])
   decidedBy          User?                        @relation("CrossRequestDecider", fields: [decidedByUserId], references: [id])
   sourceDepartment   Department                   @relation("CrossRequestSourceDepartment", fields: [sourceDepartmentId], references: [id])
   targetDepartment   Department                   @relation("CrossRequestTargetDepartment", fields: [targetDepartmentId], references: [id])
 
   @@index([sourceDepartmentId, status])
   @@index([targetDepartmentId, status])
+  @@index([assignedToUserId, status])
   @@map("cross_department_requests")
 }
 

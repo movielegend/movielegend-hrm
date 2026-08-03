@@ -24,6 +24,16 @@ export class CreateCrossDepartmentRequestDto {
   @IsString()
   @IsNotEmpty()
   content!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dueAt?: string;
 }
 
 export class RejectCrossDepartmentRequestDto {
@@ -31,4 +41,28 @@ export class RejectCrossDepartmentRequestDto {
   @IsString()
   @IsNotEmpty()
   reason!: string;
+}
+
+export class AssignTargetDto {
+  @ApiProperty()
+  @IsUUID()
+  assignedToUserId!: string;
+}
+
+export class UpdateProgressDto {
+  @ApiProperty()
+  progress!: number;
+}
+
+export class SubmitDeliverableDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  resultSummary?: string;
+}
+
+export class CompleteTaskDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  rating?: number;
 }

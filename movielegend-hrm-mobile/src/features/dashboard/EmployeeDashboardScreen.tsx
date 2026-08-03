@@ -175,6 +175,11 @@ export function EmployeeDashboardScreen() {
               onPress={() => router.push('/employee/requests')}
             />
             <GridItem
+              icon="transit-connection-variant"
+              title="Yêu cầu Liên phòng"
+              onPress={() => router.push('/employee/cross-department')}
+            />
+            <GridItem
               icon="cash-multiple"
               title="Phiếu lương"
               onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')}

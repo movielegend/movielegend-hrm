@@ -7,7 +7,7 @@ import type {
   RejectCrossDepartmentRequestPayload,
 } from '../types/cross-department.types';
 
-export async function getCrossDepartmentRequests(filters: { page?: number; limit?: number; status?: string } = {}): Promise<PaginatedResult<CrossDepartmentRequestDto>> {
+export async function getCrossDepartmentRequests(filters: { page?: number; limit?: number; status?: string; type?: 'incoming' | 'outgoing' } = {}): Promise<PaginatedResult<CrossDepartmentRequestDto>> {
   const response = await apiClient.get<ApiResponse<CrossDepartmentRequestDto[] | { items: CrossDepartmentRequestDto[] }>>('/cross-department-requests', {
     params: filters,
   });
@@ -41,5 +41,25 @@ export async function targetAcceptCrossDepartmentRequest(id: string): Promise<Cr
 
 export async function targetRejectCrossDepartmentRequest(id: string, payload: RejectCrossDepartmentRequestPayload): Promise<CrossDepartmentRequestDto> {
   const response = await apiClient.patch<ApiResponse<CrossDepartmentRequestDto>>(`/cross-department-requests/${id}/target-reject`, payload);
+  return unwrapData(response);
+}
+
+export async function assignTargetCrossDepartmentRequest(id: string, payload: import('../types/cross-department.types').AssignTargetPayload): Promise<CrossDepartmentRequestDto> {
+  const response = await apiClient.patch<ApiResponse<CrossDepartmentRequestDto>>(`/cross-department-requests/${id}/assign-target`, payload);
+  return unwrapData(response);
+}
+
+export async function updateProgressCrossDepartmentRequest(id: string, payload: import('../types/cross-department.types').UpdateProgressPayload): Promise<CrossDepartmentRequestDto> {
+  const response = await apiClient.patch<ApiResponse<CrossDepartmentRequestDto>>(`/cross-department-requests/${id}/update-progress`, payload);
+  return unwrapData(response);
+}
+
+export async function submitDeliverableCrossDepartmentRequest(id: string, payload: import('../types/cross-department.types').SubmitDeliverablePayload): Promise<CrossDepartmentRequestDto> {
+  const response = await apiClient.patch<ApiResponse<CrossDepartmentRequestDto>>(`/cross-department-requests/${id}/submit`, payload);
+  return unwrapData(response);
+}
+
+export async function completeTaskCrossDepartmentRequest(id: string, payload: import('../types/cross-department.types').CompleteTaskPayload): Promise<CrossDepartmentRequestDto> {
+  const response = await apiClient.patch<ApiResponse<CrossDepartmentRequestDto>>(`/cross-department-requests/${id}/complete`, payload);
   return unwrapData(response);
 }

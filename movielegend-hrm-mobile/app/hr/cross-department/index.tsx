@@ -1,5 +1,5 @@
-import { CrossDepartmentRequestListScreen } from '../../../src/features/cross-department/CrossDepartmentScreens';
+import { CrossDepartmentListScreen } from '../../../src/features/cross-department/CrossDepartmentScreens';
 
 export default function HRCrossDepartmentListRoute() {
-  return <CrossDepartmentRequestListScreen />;
+  return <CrossDepartmentListScreen area="hr" />;
 }

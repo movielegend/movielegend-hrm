@@ -20,6 +20,17 @@ export function HRProfileScreen() {
 
   const openEdit = () => setIsEditing(true);
 
+  const handleLogout = () => {
+    showConfirm({
+      title: 'Đăng xuất',
+      message: 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?',
+      confirmLabel: 'Đăng xuất',
+      onConfirm: () => {
+        void logout();
+      },
+    });
+  };
+
   const getInitials = (name?: string) => {
     if (!name) return 'HR';
     const parts = name.trim().split(' ').filter(Boolean);
