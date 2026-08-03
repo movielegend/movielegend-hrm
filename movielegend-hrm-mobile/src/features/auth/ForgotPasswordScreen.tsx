@@ -11,7 +11,7 @@ export function ForgotPasswordScreen() {
   const router = useRouter();
   
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [otp, setOtp] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -29,13 +29,15 @@ export function ForgotPasswordScreen() {
   }, [countdown]);
 
   const handleRequestOtp = async () => {
-    if (!phone) {
-      Toast.show({ type: 'error', text1: 'Vui lòng nhập số điện thoại' });
+    if (!identifier) {
+      Toast.show({ type: 'error', text1: 'Vui lòng nhập Email hoặc SĐT' });
       return;
     }
     try {
       setIsLoading(true);
-      await requestOtpApi({ phone });
+      const isEmail = identifier.includes('@');
+      const payload = isEmail ? { email: identifier.trim() } : { phone: identifier.trim() };
+      await requestOtpApi(payload);
       Toast.show({ type: 'success', text1: 'Mã xác thực đã được gửi!' });
       setStep(2);
       setCountdown(60);
@@ -53,7 +55,9 @@ export function ForgotPasswordScreen() {
     }
     try {
       setIsLoading(true);
-      const res = await verifyOtpApi({ phone, otp });
+      const isEmail = identifier.includes('@');
+      const payload = isEmail ? { email: identifier.trim(), otp } : { phone: identifier.trim(), otp };
+      const res = await verifyOtpApi(payload);
       setResetToken(res.resetToken);
       setStep(3);
       Toast.show({ type: 'success', text1: 'Xác minh thành công!' });
@@ -76,7 +80,12 @@ export function ForgotPasswordScreen() {
     try {
       setIsLoading(true);
       await resetPasswordApi({ resetToken, newPassword });
-      await removeRememberedAccount(phone);
+      
+      const isEmail = identifier.includes('@');
+      if (!isEmail) {
+        await removeRememberedAccount(identifier.trim());
+      }
+      
       Toast.show({ type: 'success', text1: 'Đổi mật khẩu thành công!' });
       router.replace('/login');
     } catch (error: any) {
@@ -86,9 +95,15 @@ export function ForgotPasswordScreen() {
     }
   };
 
-  const maskPhone = (p: string) => {
-    if (p.length < 6) return p;
-    return p.substring(0, 3) + '****' + p.substring(p.length - 3);
+  const maskIdentifier = (p: string) => {
+    const trimmed = p.trim();
+    if (trimmed.includes('@')) {
+      const [name, domain] = trimmed.split('@');
+      if (name.length <= 2) return trimmed;
+      return name.substring(0, 2) + '***@' + domain;
+    }
+    if (trimmed.length < 6) return trimmed;
+    return trimmed.substring(0, 3) + '****' + trimmed.substring(trimmed.length - 3);
   };
 
   return (
@@ -117,17 +132,18 @@ export function ForgotPasswordScreen() {
           {step === 1 && (
             <View style={styles.stepContainer}>
               <Text style={styles.description}>
-                Nhập số điện thoại của bạn để nhận mã OTP khôi phục mật khẩu.
+                Nhập email hoặc số điện thoại của bạn để nhận mã OTP khôi phục mật khẩu.
               </Text>
               <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Số điện thoại</Text>
+                <Text style={styles.inputLabel}>Email / Số điện thoại</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Ví dụ: 0987654321"
+                  placeholder="Ví dụ: 0987654321 hoặc user@gmail.com"
                   placeholderTextColor="#9CA3AF"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
+                  keyboardType="default"
+                  autoCapitalize="none"
+                  value={identifier}
+                  onChangeText={setIdentifier}
                   underlineColorAndroid="transparent"
                 />
               </View>
@@ -144,7 +160,7 @@ export function ForgotPasswordScreen() {
           {step === 2 && (
             <View style={styles.stepContainer}>
               <Text style={styles.description}>
-                Mã xác thực đã được gửi tới {maskPhone(phone)}. Mã có hiệu lực trong 5 phút.
+                Mã xác thực đã được gửi tới {maskIdentifier(identifier)}. Mã có hiệu lực trong 5 phút.
               </Text>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Mã xác thực OTP</Text>

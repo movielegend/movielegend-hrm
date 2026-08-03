@@ -23,6 +23,7 @@ import { LogoutDto, RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto, VerifyOtpDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { HttpSmsService } from '../notifications/httpsms.service';
+import { EmailService } from '../notifications/email.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { randomUUID, randomInt, createHash } from 'crypto';
 
@@ -44,6 +45,7 @@ export class AuthService {
     private readonly uploads: UploadsService,
     private readonly notifications: NotificationsService,
     private readonly httpSms: HttpSmsService,
+    private readonly emailService: EmailService,
     private readonly realtime: RealtimeEventsService,
   ) {}
 
@@ -477,16 +479,25 @@ export class AuthService {
   }
 
   async requestOtp(dto: RequestOtpDto, meta: RequestMeta) {
+    if (!dto.phone && !dto.email) {
+      throw badRequest('INVALID_INPUT', 'Vui lòng cung cấp số điện thoại hoặc email.');
+    }
+
+    const whereClause = dto.email ? { email: dto.email } : { phone: dto.phone! };
     const user = await this.prisma.user.findUnique({
-      where: { phone: dto.phone },
+      where: whereClause,
+      include: { profile: true },
     });
-    // Check rate limits: 3 reqs / 15 mins, 5 reqs / 1 hr for this phone.
+
+    const recentRequestsWhere = dto.email ? { email: dto.email } : { phone: dto.phone! };
+    
+    // Check rate limits: 3 reqs / 15 mins, 5 reqs / 1 hr for this identifier.
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
     const oneMinAgo = new Date(Date.now() - 60 * 1000);
 
     const recentRequests = await this.prisma.otpToken.findMany({
-      where: { phone: dto.phone, createdAt: { gte: oneHourAgo } },
+      where: { ...recentRequestsWhere, createdAt: { gte: oneHourAgo } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -505,13 +516,13 @@ export class AuthService {
       // Simulate bcrypt delay and network delay to prevent timing attacks
       await bcrypt.hash('dummy_otp', 12);
       await new Promise(resolve => setTimeout(resolve, 300));
-      return { message: 'Nếu số điện thoại này được đăng ký trong hệ thống, mã OTP sẽ được gửi tới số điện thoại đó.' };
+      return { message: 'Nếu thông tin này được đăng ký trong hệ thống, mã OTP sẽ được gửi tới bạn.' };
     }
 
-    // Invalidate old OTPs and reset tokens for this phone
+    // Invalidate old OTPs and reset tokens for this identifier
     await this.prisma.otpToken.updateMany({
       where: { 
-        phone: dto.phone, 
+        ...recentRequestsWhere, 
         OR: [
           { isUsed: false, expiresAt: { gt: new Date() } },
           { resetExpireAt: { gt: new Date() } }
@@ -528,6 +539,7 @@ export class AuthService {
       data: {
         userId: user.id,
         phone: dto.phone,
+        email: dto.email,
         otpHash,
         expiresAt,
         ipAddress: meta.ipAddress,
@@ -535,21 +547,36 @@ export class AuthService {
       },
     });
 
-    // Send SMS via HttpSmsService
-    const smsContent = `[MovieLegend HRM] Ma xac thuc cua ban la: ${otpCode}. Ma co hieu luc trong 5 phut. Khong chia se ma nay cho bat ky ai.`;
-    const smsSuccess = await this.httpSms.sendSms(dto.phone, smsContent);
-    
-    if (!smsSuccess) {
-      // Do not throw error to client to prevent account enumeration. Log internally instead.
-      this.logger.error(`Failed to send SMS to ${dto.phone} but returning generic success response.`);
+    if (dto.email && user.email) {
+      // Send Email
+      await this.emailService.sendPasswordResetOtpEmail(
+        user.email,
+        otpCode,
+        user.profile?.fullName || 'Người dùng'
+      );
+    } else if (dto.phone && user.phone) {
+      // Send SMS
+      const smsContent = `[MovieLegend HRM] Ma xac thuc cua ban la: ${otpCode}. Ma co hieu luc trong 5 phut. Khong chia se ma nay cho bat ky ai.`;
+      const smsSuccess = await this.httpSms.sendSms(dto.phone, smsContent);
+      
+      if (!smsSuccess) {
+        // Do not throw error to client to prevent account enumeration. Log internally instead.
+        this.logger.error(`Failed to send SMS to ${dto.phone} but returning generic success response.`);
+      }
     }
 
-    return { message: 'Nếu số điện thoại này được đăng ký trong hệ thống, mã OTP sẽ được gửi tới số điện thoại đó.' };
+    return { message: 'Nếu thông tin này được đăng ký trong hệ thống, mã OTP sẽ được gửi tới bạn.' };
   }
 
   async verifyOtp(dto: VerifyOtpDto, meta: RequestMeta) {
+    if (!dto.phone && !dto.email) {
+      throw badRequest('INVALID_INPUT', 'Vui lòng cung cấp số điện thoại hoặc email.');
+    }
+
+    const whereClause = dto.email ? { email: dto.email } : { phone: dto.phone! };
+    
     const otpToken = await this.prisma.otpToken.findFirst({
-      where: { phone: dto.phone, isUsed: false, expiresAt: { gt: new Date() } },
+      where: { ...whereClause, isUsed: false, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
     });
 

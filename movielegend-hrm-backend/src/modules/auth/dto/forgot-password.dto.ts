@@ -1,18 +1,32 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, MinLength, IsOptional, ValidateIf, IsEmail } from 'class-validator';
 
 export class RequestOtpDto {
-  @ApiProperty({ example: '0987654321', description: 'Phone number to send OTP to' })
+  @ApiPropertyOptional({ example: '0987654321', description: 'Phone number to send OTP to' })
+  @ValidateIf(o => !o.email)
   @IsString()
   @IsNotEmpty()
-  phone!: string;
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'user@example.com', description: 'Email address to send OTP to' })
+  @ValidateIf(o => !o.phone)
+  @IsEmail()
+  @IsNotEmpty()
+  email?: string;
 }
 
 export class VerifyOtpDto {
-  @ApiProperty({ example: '0987654321', description: 'Phone number' })
+  @ApiPropertyOptional({ example: '0987654321', description: 'Phone number' })
+  @ValidateIf(o => !o.email)
   @IsString()
   @IsNotEmpty()
-  phone!: string;
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'user@example.com', description: 'Email address' })
+  @ValidateIf(o => !o.phone)
+  @IsEmail()
+  @IsNotEmpty()
+  email?: string;
 
   @ApiProperty({ example: '123456', description: '6-digit OTP code' })
   @IsString()

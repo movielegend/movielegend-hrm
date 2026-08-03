@@ -4,10 +4,12 @@ import type { AuthUser } from '../types/user.types';
 import type { LoginPayload, LoginResponse, LogoutPayload, RefreshResponse } from '../types/auth.types';
 
 export interface RequestOtpPayload {
-  phone: string;
+  phone?: string;
+  email?: string;
 }
 export interface VerifyOtpPayload {
-  phone: string;
+  phone?: string;
+  email?: string;
   otp: string;
 }
 export interface ResetPasswordPayload {

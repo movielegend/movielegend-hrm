@@ -667,7 +667,8 @@ enum FeedbackStatus {
 model OtpToken {
   id            String    @id @default(uuid()) @db.Uuid
   userId        String    @db.Uuid
-  phone         String
+  phone         String?
+  email         String?
   otpHash       String
   attempts      Int       @default(0)
   expiresAt     DateTime
@@ -681,6 +682,7 @@ model OtpToken {
   user User @relation(fields: [userId], references: [id])
 
   @@index([phone])
+  @@index([email])
   @@index([userId])
 }
 

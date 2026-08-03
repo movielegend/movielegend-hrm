@@ -63,4 +63,41 @@ export class EmailService {
       this.logger.error(`Failed to send approval email to ${toEmail}`, error instanceof Error ? error.stack : String(error));
     }
   }
+  async sendPasswordResetOtpEmail(toEmail: string, otpCode: string, fullName: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Cannot send OTP email to ${toEmail} because SMTP is not configured.`);
+      return;
+    }
+
+    try {
+      const subject = 'Mã xác nhận quên mật khẩu - MovieLegend HRM';
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #4CAF50; text-align: center;">Yêu cầu Đặt lại Mật khẩu</h2>
+          <p>Chào <strong>${fullName}</strong>,</p>
+          <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn trên hệ thống <strong>MovieLegend HRM</strong>.</p>
+          <p>Mã xác thực (OTP) của bạn là:</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <span style="font-size: 24px; font-weight: bold; padding: 10px 20px; background-color: #f4f4f4; border-radius: 5px; letter-spacing: 5px;">${otpCode}</span>
+          </div>
+          <p style="color: #d9534f; font-size: 14px;">Mã này có hiệu lực trong vòng 5 phút. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</p>
+          <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
+          <br/>
+          <p>Trân trọng,</p>
+          <p><strong>Ban Quản Trị MovieLegend</strong></p>
+        </div>
+      `;
+
+      await this.transporter.sendMail({
+        from: this.from,
+        to: toEmail,
+        subject,
+        html,
+      });
+
+      this.logger.log(`Password reset OTP email sent successfully to ${toEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send password reset OTP email to ${toEmail}`, error instanceof Error ? error.stack : String(error));
+    }
+  }
 }
