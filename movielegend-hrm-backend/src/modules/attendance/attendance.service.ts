@@ -161,6 +161,33 @@ export class AttendanceService {
             } else {
               latePenaltyLevel = 4; latePenaltyAmount = 0; latePenaltyWorkDays = 0;
             }
+
+            // Nếu có đơn xin phép trễ (LeaveRequest) được APPROVED trong ngày:
+            // - Mức 1, 2, 3 → tẩy trắng hoàn toàn (không trừ tiền, tính 1 công)
+            // - Mức 4 → không tẩy trắng, giảm xuống Mức 3 (trừ 50k, tính 0.5 công)
+            if (latePenaltyLevel !== null) {
+              const approvedLeave = await this.prisma.leaveRequest.findFirst({
+                where: {
+                  userId: actor.userId,
+                  status: 'APPROVED',
+                  startDate: { lte: workDate },
+                  endDate:   { gte: workDate },
+                },
+              });
+              if (approvedLeave) {
+                if (latePenaltyLevel <= 3) {
+                  // Tẩy trắng: Mức 1/2/3 → không trừ gì
+                  latePenaltyLevel = null;
+                  latePenaltyAmount = null;
+                  latePenaltyWorkDays = null;
+                } else {
+                  // Mức 4: vẫn trừ (50k) nhưng tính 1 công
+                  latePenaltyLevel = 4;
+                  latePenaltyAmount = 50000;
+                  latePenaltyWorkDays = 1;
+                }
+              }
+            }
           }
         }
       }
@@ -416,6 +443,43 @@ export class AttendanceService {
         ],
       });
 
+      // Tính OT hợp lệ: đối chiếu thời gian checkout thực tế với OvertimeRequest APPROVED
+      const shift = record.shiftAssignment?.shift;
+      let approvedOvertimeMinutes = 0;
+      if (shift && now > record.checkInAt) {
+        const workDate = record.workDate;
+        const [eh, em] = shift.endTime.split(':').map(Number);
+        const scheduledEnd = new Date(workDate);
+        scheduledEnd.setHours(eh, em, 0, 0);
+        const [sh2, sm2] = shift.startTime.split(':').map(Number);
+        const shiftStartForOt = new Date(workDate);
+        shiftStartForOt.setHours(sh2, sm2, 0, 0);
+        if (scheduledEnd <= shiftStartForOt) {
+          scheduledEnd.setDate(scheduledEnd.getDate() + 1);
+        }
+
+        if (now > scheduledEnd) {
+          // Lấy tất cả OT request APPROVED của user trong ngày làm việc này
+          const approvedOTs = await this.prisma.overtimeRequest.findMany({
+            where: {
+              userId: actor.userId,
+              status: 'APPROVED',
+              workDate: record.workDate,
+              startAt: { lt: now },
+              endAt:   { gt: scheduledEnd },
+            },
+          });
+          // Tính tổng phút OT thực tế được phủ bởi đơn OT APPROVED
+          for (const ot of approvedOTs) {
+            const otStart = ot.startAt > scheduledEnd ? ot.startAt : scheduledEnd;
+            const otEnd   = ot.endAt < now ? ot.endAt : now;
+            if (otEnd > otStart) {
+              approvedOvertimeMinutes += Math.floor((otEnd.getTime() - otStart.getTime()) / 60_000);
+            }
+          }
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -426,6 +490,7 @@ export class AttendanceService {
             checkInAt: record.checkInAt,
             checkOutAt: now,
             workedMinutes: this.minutesBetween(record.checkInAt, now),
+            approvedOvertimeMinutes,
           },
         },
       });

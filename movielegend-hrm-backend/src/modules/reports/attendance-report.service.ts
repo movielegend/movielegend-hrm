@@ -58,51 +58,82 @@ export class AttendanceReportService {
       },
     });
 
-    const overtimesRaw = await this.prisma.employeeRequest.findMany({
-      where: {
-        type: 'OVERTIME',
-        status: 'APPROVED',
-        userId: { in: userIds },
-      },
-    });
+    // Fetch Overtimes from OvertimeRequest table as well as EmployeeRequest
+    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw] = await Promise.all([
+      this.prisma.overtimeRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          userId: { in: userIds },
+          workDate: { gte: start, lte: end },
+        },
+      }),
+      this.prisma.employeeRequest.findMany({
+        where: {
+          type: 'OVERTIME',
+          status: 'APPROVED',
+          userId: { in: userIds },
+        },
+      }),
+      this.prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          userId: { in: userIds },
+          startDate: { lte: end },
+          endDate: { gte: start },
+        },
+      }),
+      this.prisma.employeeRequest.findMany({
+        where: {
+          type: { in: ['LATE_ARRIVAL', 'ATTENDANCE_ADJUSTMENT', 'LEAVE'] },
+          status: 'APPROVED',
+          userId: { in: userIds },
+        },
+      }),
+    ]);
 
-    const overtimes = overtimesRaw.filter(o => {
-      if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
-      const meta: any = o.attachmentMetadata;
-      if (!meta.fromDate) return false;
-      const otDate = moment(meta.fromDate);
-      return otDate.isBetween(start, end, 'day', '[]');
-    }).map(o => {
-      const meta: any = o.attachmentMetadata;
-      return {
+    const overtimes = [
+      ...overtimesDb.map(o => ({
         userId: o.userId,
-        workDate: new Date(meta.fromDate),
-        startAt: new Date(meta.startTime),
-        endAt: new Date(meta.endTime),
-      };
-    });
+        workDate: o.workDate,
+        startAt: o.startAt,
+        endAt: o.endAt,
+      })),
+      ...overtimesRaw.filter(o => {
+        if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
+        const meta: any = o.attachmentMetadata;
+        if (!meta.fromDate) return false;
+        const otDate = moment(meta.fromDate);
+        return otDate.isBetween(start, end, 'day', '[]');
+      }).map(o => {
+        const meta: any = o.attachmentMetadata;
+        return {
+          userId: o.userId,
+          workDate: new Date(meta.fromDate),
+          startAt: new Date(meta.startTime),
+          endAt: new Date(meta.endTime),
+        };
+      }),
+    ];
 
-    const lateRequestsRaw = await this.prisma.employeeRequest.findMany({
-      where: {
-        type: { in: ['LATE_ARRIVAL', 'ATTENDANCE_ADJUSTMENT'] },
-        status: 'APPROVED',
-        userId: { in: userIds },
-      },
-    });
-
-    const lateRequests = lateRequestsRaw.filter(o => {
-      if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
-      const meta: any = o.attachmentMetadata;
-      if (!meta.fromDate) return false;
-      const rDate = moment(meta.fromDate);
-      return rDate.isBetween(start, end, 'day', '[]');
-    }).map(o => {
-      const meta: any = o.attachmentMetadata;
-      return {
-        userId: o.userId,
-        workDate: new Date(meta.fromDate),
-      };
-    });
+    const lateRequests = [
+      ...leavesDb.map(l => ({
+        userId: l.userId,
+        workDate: l.startDate,
+      })),
+      ...lateRequestsRaw.filter(o => {
+        if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
+        const meta: any = o.attachmentMetadata;
+        if (!meta.fromDate) return false;
+        const rDate = moment(meta.fromDate);
+        return rDate.isBetween(start, end, 'day', '[]');
+      }).map(o => {
+        const meta: any = o.attachmentMetadata;
+        return {
+          userId: o.userId,
+          workDate: new Date(meta.fromDate),
+        };
+      }),
+    ];
 
 
     const configs = await this.prisma.departmentOvertimeConfig.findMany();
@@ -145,10 +176,16 @@ export class AttendanceReportService {
         const isHoliday = holidayDates.has(dateStr);
         const isWeekend = dayOfWeek === 'Thứ bảy' || dayOfWeek === 'Chủ nhật';
 
-        const record = userRecords.find(r => moment(r.workDate).format('YYYY-MM-DD') === dateStr);
-        const otRequest = overtimes.find(o => o.userId === user.id && moment(o.workDate).format('YYYY-MM-DD') === dateStr);
+        const record = userRecords.find(r => moment(r.workDate).format('YYYY-MM-DD') === dateStr || moment.utc(r.workDate).format('YYYY-MM-DD') === dateStr);
+        const otRequest = overtimes.find(o => o.userId === user.id && (
+          moment(o.workDate).format('YYYY-MM-DD') === dateStr ||
+          moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
+        ));
 
-        const lateRequest = lateRequests.find(o => o.userId === user.id && moment(o.workDate).format('YYYY-MM-DD') === dateStr);
+        const lateRequest = lateRequests.find(o => o.userId === user.id && (
+          moment(o.workDate).format('YYYY-MM-DD') === dateStr ||
+          moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
+        ));
 
         let checkIn = record?.checkInAt ? moment(record.checkInAt) : null;
         let checkOut = record?.checkOutAt ? moment(record.checkOutAt) : null;
@@ -156,9 +193,9 @@ export class AttendanceReportService {
         // Compute Total Hours worked
         let totalMinutes = 0;
         const shift = record?.shiftAssignment?.shift;
-        if (checkIn && checkOut && shift) {
+        if (checkIn && checkOut) {
           totalMinutes = checkOut.diff(checkIn, 'minutes');
-          if (shift.breakMinutes) totalMinutes -= shift.breakMinutes;
+          if (shift?.breakMinutes) totalMinutes -= shift.breakMinutes;
         }
         if (totalMinutes < 0) totalMinutes = 0;
         
@@ -178,9 +215,13 @@ export class AttendanceReportService {
         let attendance = 0;
 
         if (record) {
+          // Read stored values from AttendanceRecord
+          attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : (record.isUnplannedOt ? 0 : 1);
+          lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
+          lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
+
           if (!shift) {
-            // User checked in but has no shift (e.g. OT on an off day)
-            attendance = 0; // Unplanned, so no main shift workday
+            // User checked in but has no shift assignment (e.g. OT on an off day)
             if (checkIn && checkOut && otRequest) {
               const approvedStart = moment(otRequest.startAt);
               const approvedEnd = moment(otRequest.endAt);
@@ -192,11 +233,6 @@ export class AttendanceReportService {
             const shiftStart = moment(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm');
             const shiftEnd = moment(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm');
 
-            // Default from record
-            attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : 1;
-            lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
-            lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
-
             if (record.status === 'MISSING') {
               if (lateRequest) {
                 attendance = 1;
@@ -205,14 +241,11 @@ export class AttendanceReportService {
             } else {
               // Late Request logic (Tẩy trắng)
               if (lateMins > 0 && lateRequest) {
-                if (record.latePenaltyLevel === 1 || record.latePenaltyLevel === 2) {
+                if (record.latePenaltyLevel === null || record.latePenaltyLevel <= 3) {
                   lateDeduction = 0;
-                  attendance = 1;
-                } else if (record.latePenaltyLevel === 3) {
-                  lateDeduction = 80000;
                   attendance = 1;
                 } else if (record.latePenaltyLevel === 4) {
-                  lateDeduction = 0;
+                  lateDeduction = 50000;
                   attendance = 1;
                 }
               }

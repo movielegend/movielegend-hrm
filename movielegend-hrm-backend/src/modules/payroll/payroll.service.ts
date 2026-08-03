@@ -370,11 +370,60 @@ export class PayrollService {
   }
 
   private async overtimeSummary(userId: string, startDate: Date, endDate: Date) {
-    const ots = await this.prisma.overtimeRequest.findMany({
-      where: { userId, status: OvertimeRequestStatus.APPROVED, workDate: { gte: startDate, lte: endDate } },
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        userId,
+        workDate: { gte: startDate, lte: endDate },
+        checkOutAt: { not: null },
+      },
+      include: {
+        shiftAssignment: { include: { shift: true } },
+      },
     });
-    const overtimeMinutes = ots.reduce((sum, item) => sum + Math.max(0, Math.floor((item.endAt.getTime() - item.startAt.getTime()) / 60_000)), 0);
-    return { overtimeMinutes, multiplier: 1.5, policy: 'APPROVED_OVERTIME_ONLY' };
+
+    const approvedOts = await this.prisma.overtimeRequest.findMany({
+      where: {
+        userId,
+        status: OvertimeRequestStatus.APPROVED,
+        workDate: { gte: startDate, lte: endDate },
+      },
+    });
+
+    let totalApprovedOtMinutes = 0;
+
+    for (const record of records) {
+      if (!record.checkOutAt) continue;
+      const shift = record.shiftAssignment?.shift;
+      if (!shift) {
+        // OT ngày nghỉ / không ca: giao giữa thời gian quẹt thẻ [checkInAt..checkOutAt] và đơn OT APPROVED
+        const dayOts = approvedOts.filter(o => o.workDate.getTime() === record.workDate.getTime());
+        for (const ot of dayOts) {
+          const otStart = record.checkInAt > ot.startAt ? record.checkInAt : ot.startAt;
+          const otEnd = record.checkOutAt < ot.endAt ? record.checkOutAt : ot.endAt;
+          if (otEnd > otStart) {
+            totalApprovedOtMinutes += Math.floor((otEnd.getTime() - otStart.getTime()) / 60_000);
+          }
+        }
+      } else {
+        // Có ca: tính từ scheduledEnd
+        const [eh, em] = shift.endTime.split(':').map(Number);
+        const scheduledEnd = new Date(record.workDate);
+        scheduledEnd.setHours(eh, em, 0, 0);
+
+        if (record.checkOutAt > scheduledEnd) {
+          const dayOts = approvedOts.filter(o => o.workDate.getTime() === record.workDate.getTime());
+          for (const ot of dayOts) {
+            const otStart = ot.startAt > scheduledEnd ? ot.startAt : scheduledEnd;
+            const otEnd = ot.endAt < record.checkOutAt ? ot.endAt : record.checkOutAt;
+            if (otEnd > otStart) {
+              totalApprovedOtMinutes += Math.floor((otEnd.getTime() - otStart.getTime()) / 60_000);
+            }
+          }
+        }
+      }
+    }
+
+    return { overtimeMinutes: totalApprovedOtMinutes, multiplier: 1.5, policy: 'APPROVED_OVERTIME_ONLY' };
   }
 
   private effectiveComponents(userId: string, startDate: Date, endDate: Date) {

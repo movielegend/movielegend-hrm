@@ -55,6 +55,14 @@ export class LeaveService {
     const startDate = this.businessTime.startOfBusinessDate(dto.startDate);
     const endDate = this.businessTime.startOfBusinessDate(dto.endDate);
     if (endDate < startDate) throw badRequest('INVALID_LEAVE_DATE_RANGE', 'Ngay ket thuc phai sau ngay bat dau');
+    const workDateObj = new Date(startDate);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 3);
+    cutoffDate.setHours(0, 0, 0, 0);
+    if (workDateObj < cutoffDate) {
+      throw badRequest('LEAVE_REQUEST_TOO_LATE', 'Khong duoc nop don xin nghi/giai trinh cho ngay da qua qua 3 ngay');
+    }
+
     const leaveType = await this.prisma.leaveType.findFirst({
       where: { id: dto.leaveTypeId, isActive: true },
     });
@@ -157,6 +165,30 @@ export class LeaveService {
         where: { referenceId: id, type: EmployeeRequestType.LEAVE },
         data: { status: EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
       });
+
+      // Cập nhật hồi tố (retroactive) penalty cho các bảng công đã tồn tại trong khoảng thời gian nghỉ
+      const attendanceRecords = await tx.attendanceRecord.findMany({
+        where: {
+          userId: request.userId,
+          workDate: { gte: request.startDate, lte: request.endDate },
+          latePenaltyLevel: { not: null }
+        }
+      });
+      for (const record of attendanceRecords) {
+        if (record.latePenaltyLevel === null) continue;
+        if (record.latePenaltyLevel <= 3) {
+          await tx.attendanceRecord.update({
+            where: { id: record.id },
+            data: { latePenaltyLevel: null, latePenaltyAmount: null, latePenaltyWorkDays: null }
+          });
+        } else if (record.latePenaltyLevel === 4) {
+          await tx.attendanceRecord.update({
+            where: { id: record.id },
+            data: { latePenaltyLevel: 4, latePenaltyAmount: 50000, latePenaltyWorkDays: 1 }
+          });
+        }
+      }
+
       return approved;
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
