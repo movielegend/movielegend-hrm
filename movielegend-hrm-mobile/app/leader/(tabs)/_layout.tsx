@@ -88,12 +88,7 @@ export default function LeaderTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="elearning"
-        options={{
-          href: null,
-        }}
-      />
+
     </Tabs>
   );
 }

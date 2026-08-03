@@ -52,9 +52,11 @@ export class FaceVerificationService implements OnModuleInit {
       // Patch tfjs platform fetch as well because tfjs uses it to load the binary weights
       (faceapi.tf as any).env().platform.fetch = fetchMock;
       
-      await faceapi.nets.ssdMobilenetv1.loadFromUri('http://localhost/models');
-      await faceapi.nets.faceLandmark68Net.loadFromUri('http://localhost/models');
-      await faceapi.nets.faceRecognitionNet.loadFromUri('http://localhost/models');
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri('http://localhost/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri('http://localhost/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri('http://localhost/models')
+      ]);
       
       this.modelsLoaded = true;
       this.logger.log('Face-api models loaded successfully.');
@@ -69,7 +71,7 @@ export class FaceVerificationService implements OnModuleInit {
   private async getFaceDescriptor(buffer: Buffer): Promise<Float32Array | undefined> {
     const tensor = await this.bufferToTensor(buffer);
     try {
-      const detection = await faceapi.detectSingleFace(tensor).withFaceLandmarks().withFaceDescriptor();
+      const detection = await faceapi.detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
       return detection?.descriptor;
     } finally {
       tensor.dispose();

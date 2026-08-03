@@ -79,8 +79,12 @@ export class PayrollService {
         where: { isActive: true, accountStatus: AccountStatus.ACTIVE, deletedAt: null },
         select: { id: true },
       });
-      for (const employee of employees) {
-        await this.calculateEmployeePayroll(id, employee.id, actor.userId);
+      const chunkSize = 20;
+      for (let i = 0; i < employees.length; i += chunkSize) {
+        const chunk = employees.slice(i, i + chunkSize);
+        await Promise.all(
+          chunk.map((employee) => this.calculateEmployeePayroll(id, employee.id, actor.userId)),
+        );
       }
       const updated = await this.prisma.payrollPeriod.update({
         where: { id },
@@ -405,13 +409,33 @@ export class PayrollService {
           }
         }
       } else {
-        // Có ca: tính từ scheduledEnd
+        // Có ca: tính OT cả trước và sau ca
+        const [sh, sm] = shift.startTime.split(':').map(Number);
+        const scheduledStart = new Date(record.workDate);
+        scheduledStart.setHours(sh, sm, 0, 0);
+
         const [eh, em] = shift.endTime.split(':').map(Number);
         const scheduledEnd = new Date(record.workDate);
         scheduledEnd.setHours(eh, em, 0, 0);
+        if (scheduledEnd <= scheduledStart) {
+          scheduledEnd.setDate(scheduledEnd.getDate() + 1);
+        }
 
+        const dayOts = approvedOts.filter(o => o.workDate.getTime() === record.workDate.getTime());
+
+        // OT TRƯỚC CA: giao điểm [checkInAt ─── shiftStart] ∩ [đơn OT]
+        if (record.checkInAt < scheduledStart) {
+          for (const ot of dayOts) {
+            const otStart = record.checkInAt > ot.startAt ? record.checkInAt : ot.startAt;
+            const otEnd   = scheduledStart < ot.endAt ? scheduledStart : ot.endAt;
+            if (otEnd > otStart) {
+              totalApprovedOtMinutes += Math.floor((otEnd.getTime() - otStart.getTime()) / 60_000);
+            }
+          }
+        }
+
+        // OT SAU CA: giao điểm [shiftEnd ─── checkOut] ∩ [đơn OT]
         if (record.checkOutAt > scheduledEnd) {
-          const dayOts = approvedOts.filter(o => o.workDate.getTime() === record.workDate.getTime());
           for (const ot of dayOts) {
             const otStart = ot.startAt > scheduledEnd ? ot.startAt : scheduledEnd;
             const otEnd = ot.endAt < record.checkOutAt ? ot.endAt : record.checkOutAt;

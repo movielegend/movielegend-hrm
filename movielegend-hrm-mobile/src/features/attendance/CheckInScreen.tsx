@@ -8,6 +8,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from '../../lib/Maps';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import { Screen } from '../../components/Screen';
 import { checkIn } from '../../api/attendance.api';
@@ -119,8 +120,15 @@ export function CheckInScreen() {
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
+      // Compress image
+      const compressedImage = await ImageManipulator.manipulateAsync(
+        photoUri,
+        [{ resize: { width: 600 } }],
+        { compress: 0.3, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
       // Read file as base64
-      const base64Data = await FileSystem.readAsStringAsync(photoUri, { encoding: 'base64' });
+      const base64Data = await FileSystem.readAsStringAsync(compressedImage.uri, { encoding: 'base64' });
 
       // Check in with photoBase64
       const payload = {

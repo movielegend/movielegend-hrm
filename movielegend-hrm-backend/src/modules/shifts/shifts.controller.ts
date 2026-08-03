@@ -11,12 +11,6 @@ import { ShiftsService } from './shifts.service';
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 
-  @Public()
-  @Get('delete-all-assignments')
-  deleteAllAssignments() {
-    return this.shiftsService.deleteAllAssignments();
-  }
-
   @Permissions('shift.create')
   @Post()
   create(@Body() dto: CreateShiftDto) {

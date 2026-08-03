@@ -24,18 +24,6 @@ import { Public } from '../../common/decorators/public.decorator';
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
-  @Public()
-  @Get('mock-today')
-  async mockToday() {
-    return this.attendanceService.mockTodayAttendance();
-  }
-
-  @Public()
-  @Get('cleanup-today')
-  async cleanupToday() {
-    return this.attendanceService.cleanupTodayAttendance();
-  }
-
   @Permissions('attendance.checkin')
   @Post('check-in')
   checkIn(@Body() dto: CheckInDto, @CurrentUser() actor: AuthenticatedUser, @Ip() ip: string) {

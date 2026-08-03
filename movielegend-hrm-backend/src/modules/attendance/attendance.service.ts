@@ -40,54 +40,7 @@ export class AttendanceService {
     private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
   ) { }
 
-  async mockTodayAttendance() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const assignments = await this.prisma.shiftAssignment.findMany({
-      where: { workDate: today },
-      include: { user: { include: { profile: true } }, shift: true },
-    });
-
-    let count = 0;
-    for (const assign of assignments) {
-      if (!assign.departmentId) continue;
-
-      const checkInTime = new Date(today);
-      checkInTime.setHours(8, 0, 0, 0);
-      const checkOutTime = new Date(today);
-      checkOutTime.setHours(17, 30, 0, 0);
-
-      try {
-        const existing = await this.prisma.attendanceRecord.findFirst({
-          where: { userId: assign.userId, workDate: assign.workDate }
-        });
-        if (existing) {
-          await this.prisma.attendanceRecord.update({
-            where: { id: existing.id },
-            data: { checkInAt: checkInTime, checkOutAt: checkOutTime, status: AttendanceStatus.CHECKED_OUT },
-          });
-        } else {
-          await this.prisma.attendanceRecord.create({
-            data: {
-              userId: assign.userId,
-              departmentId: assign.departmentId,
-              shiftAssignmentId: assign.id,
-              workDate: assign.workDate,
-              checkInAt: checkInTime,
-              checkOutAt: checkOutTime,
-              status: AttendanceStatus.CHECKED_OUT,
-            }
-          });
-        }
-        count++;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    return { message: `Successfully mocked ${count} attendance records for ${today.toISOString()}` };
-  }
 
   async checkIn(dto: CheckInDto, actor: AuthenticatedUser, ip: string) {
     // HARD BLOCK: Require accepting NEW tasks before check-in
@@ -116,7 +69,7 @@ export class AttendanceService {
 
     if (assignment) {
       if (!assignment.shift.isActive || assignment.shift.deletedAt) {
-        throw badRequest('SHIFT_INACTIVE', 'Ca lam da bi vo hieu hoa');
+        throw badRequest('SHIFT_INACTIVE', 'Ca làm đã bị vô hiệu hóa');
       }
 
       // Kiem tra xem da co check-in cho ca nay chua
@@ -127,7 +80,7 @@ export class AttendanceService {
 
       if (existing) {
         if (existing.status === AttendanceStatus.CHECKED_IN) {
-          throw conflict('ALREADY_CHECKED_IN', 'Ban dang trong mot ca chua check-out');
+          throw conflict('ALREADY_CHECKED_IN', 'Bạn đang trong một ca chưa check-out');
         } else {
           // Da hoan thanh ca nay, day la OT
           isUnplannedOt = true;
@@ -203,12 +156,12 @@ export class AttendanceService {
         where: { userId: actor.userId, isPrimary: true }
       });
       targetDepartmentId = primaryDep?.departmentId;
-      if (!targetDepartmentId) throw badRequest('NO_DEPARTMENT', 'Chua xac dinh duoc phong ban');
+      if (!targetDepartmentId) throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban');
     }
 
     let photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
     let faceImage = photo?.fileUrl ?? dto.faceImage;
-    if (!faceImage && !dto.photoBase64) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong');
+    if (!faceImage && !dto.photoBase64) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Cần ảnh chấm công');
 
     const location = await this.findAllowedLocation(targetDepartmentId, dto.latitude, dto.longitude);
 
@@ -246,29 +199,27 @@ export class AttendanceService {
 
     return this.prisma.$transaction(async (tx) => {
       if (photo) {
-        // Áp dụng watermark lên ảnh chấm công
-        (async () => {
-          try {
-            const user = await this.prisma.user.findUnique({ where: { id: actor.userId } });
-            const userProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
-            const imageBuffer = await this.storage.read(photo.storageKey);
-            const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
-              employeeName: userProfile?.fullName ?? 'Unknown',
-              userCode: user?.userCode ?? actor.userId,
-              latitude: dto.latitude,
-              longitude: dto.longitude,
-            });
+        // Áp dụng watermark lên ảnh chấm công TRƯỚC khi attach
+        try {
+          const user = await this.prisma.user.findUnique({ where: { id: actor.userId } });
+          const userProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
+          const imageBuffer = await this.storage.read(photo.storageKey);
+          const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
+            employeeName: userProfile?.fullName ?? 'Unknown',
+            userCode: user?.userCode ?? actor.userId,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+          });
 
-            await this.storage.upload({
-              buffer: watermarkedBuffer,
-              fileName: photo.fileName,
-              mimeType: 'image/jpeg',
-              storageKey: photo.storageKey,
-            });
-          } catch (error) {
-            // Continue if watermarking fails, do not block attendance
-          }
-        })();
+          await this.storage.upload({
+            buffer: watermarkedBuffer,
+            fileName: photo.fileName,
+            mimeType: 'image/jpeg',
+            storageKey: photo.storageKey,
+          });
+        } catch (error) {
+          // Nếu watermark lỗi, vẫn tiếp tục lưu ảnh gốc
+        }
 
         const attached = await tx.uploadedFile.updateMany({
           where: {
@@ -280,7 +231,7 @@ export class AttendanceService {
           data: { status: UploadedFileStatus.ATTACHED },
         });
         if (attached.count !== 1) {
-          throw badRequest('ATTENDANCE_PHOTO_INVALID', 'Anh cham cong khong con kha dung');
+          throw badRequest('ATTENDANCE_PHOTO_INVALID', 'Ảnh chấm công không còn khả dụng');
         }
       }
 
@@ -345,14 +296,14 @@ export class AttendanceService {
       include: { shiftAssignment: { include: { shift: true } } },
       orderBy: { checkInAt: 'desc' },
     });
-    if (!record) throw badRequest('NOT_CHECKED_IN', 'Chua co ban ghi check-in dang mo');
-    if (record.checkOutAt) throw conflict('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
+    if (!record) throw badRequest('NOT_CHECKED_IN', 'Chưa có bản ghi check-in đang mở');
+    if (record.checkOutAt) throw conflict('ALREADY_CHECKED_OUT', 'Bảng công đã checkout');
 
     const now = new Date();
 
     const photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
     const faceImage = photo?.fileUrl ?? dto.faceImage;
-    if (!faceImage) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Can anh cham cong de ra ca');
+    if (!faceImage) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Cần ảnh chấm công để ra ca');
 
     const location = await this.findAllowedLocation(record.departmentId, dto.latitude, dto.longitude);
     await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
@@ -364,7 +315,7 @@ export class AttendanceService {
       storageKey: photo?.storageKey,
     });
     if (!face.matched) {
-      throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xac minh khuon mat khong thanh cong');
+      throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xác minh khuôn mặt không thành công');
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -400,7 +351,7 @@ export class AttendanceService {
           data: { status: UploadedFileStatus.ATTACHED },
         });
         if (attached.count !== 1) {
-          throw badRequest('ATTENDANCE_PHOTO_INVALID', 'Anh cham cong khong con kha dung');
+          throw badRequest('ATTENDANCE_PHOTO_INVALID', 'Ảnh chấm công không còn khả dụng');
         }
       }
 
@@ -415,7 +366,7 @@ export class AttendanceService {
           status: AttendanceStatus.CHECKED_OUT,
         },
       });
-      if (updated.count === 0) throw conflict('ALREADY_CHECKED_OUT', 'Bang cong da checkout');
+      if (updated.count === 0) throw conflict('ALREADY_CHECKED_OUT', 'Bảng công đã checkout');
 
       await tx.attendanceVerification.createMany({
         data: [
@@ -458,18 +409,28 @@ export class AttendanceService {
           scheduledEnd.setDate(scheduledEnd.getDate() + 1);
         }
 
+        // Lấy tất cả OT request APPROVED của user trong ngày làm việc này
+        const approvedOTs = await this.prisma.overtimeRequest.findMany({
+          where: {
+            userId: actor.userId,
+            status: 'APPROVED',
+            workDate: record.workDate,
+          },
+        });
+
+        // OT TRƯỚC CA: giao điểm [checkInAt ─── shiftStart] ∩ [đơn OT]
+        if (record.checkInAt < shiftStartForOt) {
+          for (const ot of approvedOTs) {
+            const otStart = ot.startAt > record.checkInAt ? ot.startAt : record.checkInAt;
+            const otEnd   = ot.endAt < shiftStartForOt ? ot.endAt : shiftStartForOt;
+            if (otEnd > otStart) {
+              approvedOvertimeMinutes += Math.floor((otEnd.getTime() - otStart.getTime()) / 60_000);
+            }
+          }
+        }
+
+        // OT SAU CA: giao điểm [shiftEnd ─── checkOut] ∩ [đơn OT]
         if (now > scheduledEnd) {
-          // Lấy tất cả OT request APPROVED của user trong ngày làm việc này
-          const approvedOTs = await this.prisma.overtimeRequest.findMany({
-            where: {
-              userId: actor.userId,
-              status: 'APPROVED',
-              workDate: record.workDate,
-              startAt: { lt: now },
-              endAt:   { gt: scheduledEnd },
-            },
-          });
-          // Tính tổng phút OT thực tế được phủ bởi đơn OT APPROVED
           for (const ot of approvedOTs) {
             const otStart = ot.startAt > scheduledEnd ? ot.startAt : scheduledEnd;
             const otEnd   = ot.endAt < now ? ot.endAt : now;
@@ -538,27 +499,7 @@ export class AttendanceService {
     };
   }
 
-  async cleanupTodayAttendance() {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(now);
-    end.setHours(23, 59, 59, 999);
 
-    const deletedRecords = await this.prisma.attendanceRecord.deleteMany({
-      where: { workDate: { gte: start, lte: end } }
-    });
-
-    const deletedShifts = await this.prisma.shiftAssignment.deleteMany({
-      where: { workDate: { gte: start, lte: end } }
-    });
-
-    return {
-      message: 'Cleaned up mock attendance for today',
-      deletedRecords: deletedRecords.count,
-      deletedShifts: deletedShifts.count,
-    };
-  }
 
   async myHistory(actor: AuthenticatedUser, query: AttendanceQueryDto) {
     const where: Prisma.AttendanceRecordWhereInput = {
@@ -586,7 +527,7 @@ export class AttendanceService {
       where: { id },
       include: this.attendanceInclude(),
     });
-    if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Khong tim thay bang cong');
+    if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Không tìm thấy bảng công');
     this.assertAttendanceAccess(actor, record.userId, record.departmentId);
     const location = await this.locationFromRecord(record);
     return this.toAttendanceDetail(record, location);
@@ -633,9 +574,9 @@ export class AttendanceService {
       const record = await this.prisma.attendanceRecord.findUnique({
         where: { id: dto.attendanceRecordId },
       });
-      if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Khong tim thay bang cong');
+      if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Không tìm thấy bảng công');
       if (record.userId !== actor.userId) {
-        throw badRequest('ATTENDANCE_ADJUSTMENT_OWNER_ONLY', 'Chi duoc tao yeu cau sua cong cua chinh minh');
+        throw badRequest('ATTENDANCE_ADJUSTMENT_OWNER_ONLY', 'Chỉ được tạo yêu cầu sửa công của chính mình');
       }
     }
     return this.prisma.attendanceAdjustment.create({
@@ -656,10 +597,10 @@ export class AttendanceService {
         where: { id },
         include: { attendanceRecord: true },
       });
-      if (!adjustment) throw notFound('ATTENDANCE_ADJUSTMENT_NOT_FOUND', 'Khong tim thay yeu cau sua cong');
+      if (!adjustment) throw notFound('ATTENDANCE_ADJUSTMENT_NOT_FOUND', 'Không tìm thấy yêu cầu sửa công');
       this.scope.assertDepartmentAccess(actor, adjustment.departmentId);
       if (adjustment.status !== AttendanceAdjustmentStatus.PENDING) {
-        throw badRequest('ATTENDANCE_ADJUSTMENT_ALREADY_PROCESSED', 'Yeu cau sua cong da duoc xu ly');
+        throw badRequest('ATTENDANCE_ADJUSTMENT_ALREADY_PROCESSED', 'Yêu cầu sửa công đã được xử lý');
       }
       const oldValue = adjustment.attendanceRecord
         ? {
@@ -811,7 +752,7 @@ export class AttendanceService {
   async removeLocation(id: string) {
     // Soft delete location
     const location = await this.prisma.attendanceLocation.findUnique({ where: { id } });
-    if (!location) throw notFound('LOCATION_NOT_FOUND', 'Khong tim thay diem cham cong');
+    if (!location) throw notFound('LOCATION_NOT_FOUND', 'Không tìm thấy điểm chấm công');
     return this.prisma.attendanceLocation.update({
       where: { id },
       data: {
@@ -868,15 +809,15 @@ export class AttendanceService {
 
   private async validateAttendancePhoto(photoFileId: string, userId: string) {
     const file = await this.prisma.uploadedFile.findUnique({ where: { id: photoFileId } });
-    if (!file || file.deletedAt) throw notFound('ATTENDANCE_PHOTO_INVALID', 'Anh cham cong khong hop le');
+    if (!file || file.deletedAt) throw notFound('ATTENDANCE_PHOTO_INVALID', 'Ảnh chấm công không hợp lệ');
     if (file.uploadedById !== userId) {
-      throw forbidden('ATTENDANCE_PHOTO_FORBIDDEN', 'Khong duoc dung file cua user khac');
+      throw forbidden('ATTENDANCE_PHOTO_FORBIDDEN', 'Không được dùng file của user khác');
     }
     if (file.purpose !== UploadPurpose.ATTENDANCE) {
-      throw badRequest('ATTENDANCE_PHOTO_INVALID', 'File khong dung muc dich ATTENDANCE');
+      throw badRequest('ATTENDANCE_PHOTO_INVALID', 'File không đúng mục đích ATTENDANCE');
     }
     if (file.status !== UploadedFileStatus.TEMPORARY) {
-      throw badRequest('ATTENDANCE_PHOTO_INVALID', 'File cham cong khong con o trang thai tam');
+      throw badRequest('ATTENDANCE_PHOTO_INVALID', 'File chấm công không còn ở trạng thái tạm');
     }
     return file;
   }
@@ -950,7 +891,7 @@ export class AttendanceService {
       },
     });
     if (!configs.length) return;
-    if (!ssid) throw badRequest('INVALID_WIFI', 'Thieu thong tin WiFi');
+    if (!ssid) throw badRequest('INVALID_WIFI', 'Thiếu thông tin WiFi');
     const matched = configs.some((config) => {
       if (config.ssid !== ssid) return false;
       return config.bssid ? config.bssid === bssid : true;
@@ -1014,7 +955,7 @@ export class AttendanceService {
   private assertAttendanceAccess(actor: AuthenticatedUser, userId: string, departmentId: string): void {
     if (userId === actor.userId) return;
     if (actor.permissions.includes('attendance.read') && this.scope.canAccessDepartment(actor, departmentId)) return;
-    throw forbidden('ATTENDANCE_FORBIDDEN', 'Khong co quyen xem bang cong nay');
+    throw forbidden('ATTENDANCE_FORBIDDEN', 'Không có quyền xem bảng công này');
   }
 
   private stateFor(record: { checkOutAt: Date | null; status: AttendanceStatus }) {
