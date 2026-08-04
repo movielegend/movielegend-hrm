@@ -39,11 +39,14 @@ export class DepartmentsService {
               OR: [
                 { code: { contains: search, mode: 'insensitive' } },
                 { name: { contains: search, mode: 'insensitive' } },
+                { branch: { name: { contains: search, mode: 'insensitive' } } },
               ],
             }
           : {}),
       },
       include: {
+        branch: { select: { name: true } },
+        _count: { select: { members: { where: { leftAt: null } } } },
         leader: {
           select: {
             profile: {
