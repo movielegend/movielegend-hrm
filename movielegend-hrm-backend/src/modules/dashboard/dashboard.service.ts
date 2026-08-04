@@ -15,6 +15,7 @@ import {
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { ChartQueryDto, ChartGroupBy } from './dto/chart-query.dto';
 
 @Injectable()
 export class DashboardAggregationService {
@@ -32,6 +33,143 @@ export class DashboardAggregationService {
   async countBy<T extends string>(items: T[], count: (value: T) => Promise<number>) {
     const entries = await Promise.all(items.map(async (item) => [item, await count(item)] as const));
     return Object.fromEntries(entries) as Record<T, number>;
+  }
+
+  async chartStats(dto: ChartQueryDto, departmentIds?: string[]) {
+    const { startDate, endDate, groupBy = ChartGroupBy.DAY } = dto;
+    
+    // Convert strings to dates if they aren't already
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Optional: filter by userIds if leader
+    let userIds: string[] | undefined;
+    if (departmentIds) {
+      const members = await this.prisma.departmentMember.findMany({
+        where: { departmentId: { in: departmentIds }, leftAt: null },
+        select: { userId: true }
+      });
+      userIds = members.map(m => m.userId);
+      if (userIds.length === 0) return [];
+    }
+
+    // 1. Fetch data in the date range
+    const userFilter = userIds ? { in: userIds } : undefined;
+    
+    const attendances = await this.prisma.attendanceRecord.findMany({
+      where: {
+        workDate: { gte: start, lte: end },
+        ...(userFilter ? { userId: userFilter } : {})
+      },
+      select: { workDate: true, checkInAt: true, status: true, shiftAssignmentId: true }
+    });
+    
+    const leaves = await this.prisma.leaveRequest.findMany({
+      where: {
+        status: 'APPROVED',
+        startDate: { lte: end },
+        endDate: { gte: start },
+        ...(userFilter ? { userId: userFilter } : {})
+      },
+      select: { startDate: true, endDate: true }
+    });
+
+    const shiftAssignments = await this.prisma.shiftAssignment.findMany({
+      where: {
+        workDate: { gte: start, lte: end },
+        ...(userFilter ? { userId: userFilter } : {})
+      },
+      include: { shift: true }
+    });
+
+    // 2. Build time buckets
+    const buckets: Record<string, { name: string; attendance: number; late: number; leave: number }> = {};
+    
+    const getBucketKey = (d: Date): string => {
+      if (groupBy === ChartGroupBy.HOUR) {
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
+      } else if (groupBy === ChartGroupBy.WEEK) {
+        const dClone = new Date(d);
+        dClone.setDate(dClone.getDate() - dClone.getDay() + 1); // rough start of week (Monday)
+        return `${dClone.getFullYear()}-${dClone.getMonth()}-${dClone.getDate()}`;
+      } else if (groupBy === ChartGroupBy.MONTH) {
+        return `${d.getFullYear()}-${d.getMonth()}`;
+      }
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    };
+
+    const getBucketName = (d: Date): string => {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      if (groupBy === ChartGroupBy.HOUR) {
+        return `${pad(d.getHours())}:00`;
+      } else if (groupBy === ChartGroupBy.WEEK) {
+        const dClone = new Date(d);
+        dClone.setDate(dClone.getDate() - dClone.getDay() + 1);
+        const endW = new Date(dClone);
+        endW.setDate(endW.getDate() + 6);
+        return `${pad(dClone.getDate())}/${pad(dClone.getMonth() + 1)} - ${pad(endW.getDate())}/${pad(endW.getMonth() + 1)}`;
+      } else if (groupBy === ChartGroupBy.MONTH) {
+        return `${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+      }
+      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+    };
+
+    // Initialize buckets based on range
+    let current = new Date(start);
+    while (current <= end) {
+      const key = getBucketKey(current);
+      if (!buckets[key]) {
+        buckets[key] = { name: getBucketName(current), attendance: 0, late: 0, leave: 0 };
+      }
+      if (groupBy === ChartGroupBy.HOUR) {
+        current.setHours(current.getHours() + 1);
+      } else if (groupBy === ChartGroupBy.WEEK) {
+        current.setDate(current.getDate() + 7);
+      } else if (groupBy === ChartGroupBy.MONTH) {
+        current.setMonth(current.getMonth() + 1);
+      } else {
+        current.setDate(current.getDate() + 1);
+      }
+    }
+
+    // Process Attendance
+    for (const record of attendances) {
+      const d = new Date(groupBy === ChartGroupBy.HOUR && record.checkInAt ? record.checkInAt : record.workDate);
+      if (d < start || d > end) continue;
+      
+      const key = getBucketKey(d);
+      if (buckets[key]) {
+        buckets[key].attendance++;
+        
+        // Late calculation
+        const assignment = shiftAssignments.find(a => a.id === record.shiftAssignmentId);
+        if (assignment?.shift?.startTime && record.checkInAt) {
+           const [hours, minutes] = assignment.shift.startTime.toString().split(':').map(Number);
+           const shiftStart = new Date(record.workDate);
+           shiftStart.setHours(hours, minutes + 15, 0, 0); // 15 mins grace
+           if (record.checkInAt > shiftStart) {
+             buckets[key].late++;
+           }
+        } else if (record.status === 'LATE') {
+           buckets[key].late++;
+        }
+      }
+    }
+
+    // Process Leaves
+    for (const leave of leaves) {
+       let currLeave = new Date(leave.startDate > start ? leave.startDate : start);
+       const endLeave = new Date(leave.endDate < end ? leave.endDate : end);
+       while (currLeave <= endLeave) {
+         const key = getBucketKey(currLeave);
+         if (buckets[key]) {
+           buckets[key].leave++;
+         }
+         currLeave.setDate(currLeave.getDate() + 1);
+       }
+    }
+
+    return Object.values(buckets);
   }
 }
 
@@ -66,6 +204,10 @@ export class AdminDashboardService {
       this.kpiSummary(),
     ]);
     return { employees, attendanceToday: attendance, tasks, leave, warehouse, assets, payroll, contracts, kpi };
+  }
+
+  async chartStats(dto: ChartQueryDto) {
+    return this.aggregation.chartStats(dto);
   }
 
   private async employeeSummary() {
@@ -319,6 +461,11 @@ export class LeaderDashboardService {
       kpi: { awaitingLeaderReview, finalizedAverageScore: null },
       assets: { assignedDepartmentAssets },
     };
+  }
+
+  async chartStats(actor: AuthenticatedUser, dto: ChartQueryDto) {
+    const departmentIds = this.scope.visibleDepartmentIds(actor) ?? [];
+    return new DashboardAggregationService(this.prisma).chartStats(dto, departmentIds);
   }
 
   async activities(actor: AuthenticatedUser) {
