@@ -21,7 +21,10 @@ export class BranchesService {
       include: { 
         departments: { 
           where: { deletedAt: null },
-          select: { id: true, name: true, code: true } 
+          select: { 
+            id: true, name: true, code: true,
+            _count: { select: { members: { where: { leftAt: null } } } }
+          } 
         } 
       },
     });
@@ -34,7 +37,10 @@ export class BranchesService {
       include: { 
         departments: { 
           where: { deletedAt: null },
-          select: { id: true, name: true, code: true } 
+          select: { 
+            id: true, name: true, code: true,
+            _count: { select: { members: { where: { leftAt: null } } } }
+          } 
         } 
       },
     });
@@ -61,7 +67,10 @@ export class BranchesService {
       include: { 
         departments: { 
           where: { deletedAt: null },
-          select: { id: true, name: true, code: true } 
+          select: { 
+            id: true, name: true, code: true,
+            _count: { select: { members: { where: { leftAt: null } } } }
+          } 
         } 
       },
     });
@@ -90,7 +99,10 @@ export class BranchesService {
       include: { 
         departments: { 
           where: { deletedAt: null },
-          select: { id: true, name: true, code: true } 
+          select: { 
+            id: true, name: true, code: true,
+            _count: { select: { members: { where: { leftAt: null } } } }
+          } 
         } 
       },
     });
