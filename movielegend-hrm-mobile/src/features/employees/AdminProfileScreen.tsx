@@ -11,6 +11,7 @@ import { useUserGuide } from '../../components/UserGuideManager';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { EditProfileModal } from './components/EditProfileModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AvatarPicker } from './components/AvatarPicker';
 
 export function AdminProfileScreen() {
@@ -23,6 +24,7 @@ export function AdminProfileScreen() {
 
   const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
@@ -115,7 +117,7 @@ export function AdminProfileScreen() {
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
             <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={showGuideManual} />
-            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => {}} />
+            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: colors.dangerSoft }]}>
                 <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
@@ -129,14 +131,13 @@ export function AdminProfileScreen() {
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
 
-      
-
       <EditProfileModal 
         visible={isEditing} 
         onClose={() => setIsEditing(false)} 
         initialPhone={user?.phone || ''} 
         initialEmail={user?.email || ''} 
       />
+      <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
     </View>
   );
 }

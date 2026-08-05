@@ -310,15 +310,68 @@ export function AttendanceCheckOutScreen() {
 }
 
 export function AttendanceHistoryScreen() {
-  const history = useAttendanceHistory({ page: 1, limit: 20 });
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
+  const month = currentDate.getMonth() + 1;
+  const year = currentDate.getFullYear();
+
+  const history = useAttendanceHistory({ page: 1, limit: 100 });
   const [refreshing, setRefreshing] = useState(false);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries();
     setRefreshing(false);
   }, [queryClient]);
+
+  // Handle Month Navigation
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, currentDate.getMonth() - 1, 1));
+    setSelectedDay(null);
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, currentDate.getMonth() + 1, 1));
+    setSelectedDay(null);
+  };
+
+  // Calendar matrix calculations
+  const firstDayOfMonth = new Date(year, currentDate.getMonth(), 1).getDay(); // 0 is Sunday
+  const daysInMonth = new Date(year, currentDate.getMonth() + 1, 0).getDate();
+
+  // Shift Sunday (0) to end of week (Monday=0, Sunday=6) for standard VN calendar (T2 -> CN)
+  const startingOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+  // Map attendance items by YYYY-MM-DD
+  const attendanceMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    if (history.data?.items) {
+      history.data.items.forEach((item: any) => {
+        if (item.workDate) {
+          const key = new Date(item.workDate).toISOString().split('T')[0];
+          map[key] = item;
+        }
+      });
+    }
+    return map;
+  }, [history.data?.items]);
+
+  // Filter items for selected day or full month list
+  const displayedItems = useMemo(() => {
+    const items = history.data?.items ?? [];
+    return items.filter((record: any) => {
+      const d = new Date(record.workDate);
+      const isSameMonth = d.getMonth() + 1 === month && d.getFullYear() === year;
+      if (!isSameMonth) return false;
+      if (selectedDay !== null) {
+        return d.getDate() === selectedDay;
+      }
+      return true;
+    });
+  }, [history.data?.items, month, year, selectedDay]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
@@ -327,9 +380,8 @@ export function AttendanceHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
-        
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#111827" />
@@ -338,23 +390,165 @@ export function AttendanceHistoryScreen() {
           </View>
         </View>
 
-        {history.isLoading ? <Text style={{ color: '#6B7280', textAlign: 'center' }}>Đang tải...</Text> : null}
+        {/* Calendar Card */}
+        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#ECEEF3', marginBottom: 20 }}>
+          {/* Month Header Navigation */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Pressable onPress={prevMonth} style={{ padding: 8, borderRadius: 8, backgroundColor: '#F3F4F6' }}>
+              <Ionicons name="chevron-back" size={18} color="#374151" />
+            </Pressable>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>
+              Tháng {month < 10 ? `0${month}` : month}/{year}
+            </Text>
+            <Pressable onPress={nextMonth} style={{ padding: 8, borderRadius: 8, backgroundColor: '#F3F4F6' }}>
+              <Ionicons name="chevron-forward" size={18} color="#374151" />
+            </Pressable>
+          </View>
 
+          {/* Weekday Headers */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((w, idx) => (
+              <Text key={idx} style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', color: idx >= 5 ? '#EF4444' : '#6B7280' }}>
+                {w}
+              </Text>
+            ))}
+          </View>
+
+          {/* Calendar Days Grid */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {/* Empty slots for previous month padding */}
+            {Array.from({ length: startingOffset }).map((_, idx) => (
+              <View key={`empty-${idx}`} style={{ width: '14.28%', height: 44 }} />
+            ))}
+
+            {/* Days of current month */}
+            {Array.from({ length: daysInMonth }).map((_, idx) => {
+              const dayNum = idx + 1;
+              const dateKey = `${year}-${month < 10 ? `0${month}` : month}-${dayNum < 10 ? `0${dayNum}` : dayNum}`;
+              const record = attendanceMap[dateKey];
+              const isSelected = selectedDay === dayNum;
+
+              // Premium Color & Status Styling
+              // 🟢 HOÀN TẤT: Soft Emerald Green background + Check mark icon
+              // 🟡 THIẾU IN/OUT: Soft Amber/Yellow background + Alert icon / Warning
+              // ⚪ NGHỈ / KHÔNG CÔNG: Soft Neutral Gray background / Clean Text
+              let dayBg = '#F9FAFB';
+              let dayBorderColor = '#F3F4F6';
+              let textColor = '#374151';
+              let statusIcon = null;
+
+              if (record) {
+                const hasIn = Boolean(record.checkInAt);
+                const hasOut = Boolean(record.checkOutAt);
+                if (hasIn && hasOut) {
+                  dayBg = '#ECFDF5'; // Soft Emerald Green
+                  dayBorderColor = '#A7F3D0';
+                  textColor = '#065F46';
+                  statusIcon = <Ionicons name="checkmark-circle" size={12} color="#10B981" style={{ position: 'absolute', top: -2, right: -2 }} />;
+                } else if (hasIn || hasOut) {
+                  dayBg = '#FFFBEB'; // Soft Amber / Yellow
+                  dayBorderColor = '#FDE68A';
+                  textColor = '#92400E';
+                  statusIcon = <Ionicons name="alert-circle" size={12} color="#F59E0B" style={{ position: 'absolute', top: -2, right: -2 }} />;
+                }
+              }
+
+              if (isSelected) {
+                dayBg = '#2563EB';
+                dayBorderColor = '#2563EB';
+                textColor = '#FFFFFF';
+              }
+
+              return (
+                <Pressable
+                  key={`day-${dayNum}`}
+                  onPress={() => setSelectedDay(isSelected ? null : dayNum)}
+                  style={{
+                    width: '14.28%',
+                    height: 48,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginBottom: 6,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: dayBg,
+                      borderWidth: isSelected ? 2 : 1,
+                      borderColor: dayBorderColor,
+                      shadowColor: isSelected ? '#2563EB' : 'transparent',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.15,
+                      shadowRadius: 4,
+                      elevation: isSelected ? 3 : 0,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>
+                      {dayNum}
+                    </Text>
+
+                    {/* Status Badge Icon on Top Corner */}
+                    {!isSelected && statusIcon}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Premium Status Legend */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#ECFDF5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: '#A7F3D0' }}>
+              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+              <Text style={{ fontSize: 11, color: '#065F46', fontWeight: '700' }}>Hoàn tất</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFBEB', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A' }}>
+              <Ionicons name="alert-circle" size={14} color="#F59E0B" />
+              <Text style={{ fontSize: 11, color: '#92400E', fontWeight: '700' }}>Thiếu In/Out</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F9FAFB', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB' }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#9CA3AF' }} />
+              <Text style={{ fontSize: 11, color: '#4B5563', fontWeight: '600' }}>Nghỉ / Trống</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Selected Day Filter Badge indicator */}
+        {selectedDay !== null && (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#4B5563' }}>
+              Chi tiết ngày {selectedDay}/{month}/{year}:
+            </Text>
+            <Pressable onPress={() => setSelectedDay(null)}>
+              <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Xem cả tháng</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {history.isLoading ? <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 12 }}>Đang tải...</Text> : null}
+
+        {/* Attendance Records List */}
         <View style={{ gap: 16 }}>
-          {(history.data?.items ?? []).map((record: any) => {
+          {displayedItems.map((record: any) => {
             const dateStr = new Date(record.workDate).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
             const checkInTime = record.checkInAt ? new Date(record.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
             const checkOutTime = record.checkOutAt ? new Date(record.checkOutAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
             const shiftName = record.shiftAssignment?.shift?.name || 'Ca làm việc';
             
-            // Get proper status text and color
+            // Status determination
             let statusText = 'CHƯA RÕ';
             let statusColor = '#6B7280';
             let statusBg = '#F3F4F6';
-            if (record.status === 'CHECKED_IN') {
-              statusText = 'ĐANG LÀM'; statusColor = '#3B82F6'; statusBg = '#EFF6FF';
-            } else if (record.status === 'CHECKED_OUT') {
+
+            if (record.checkInAt && record.checkOutAt) {
               statusText = 'HOÀN TẤT'; statusColor = '#10B981'; statusBg = '#ECFDF5';
+            } else if (record.checkInAt || record.checkOutAt) {
+              statusText = record.checkInAt ? 'THIẾU CHECK-OUT' : 'THIẾU CHECK-IN';
+              statusColor = '#F59E0B'; statusBg = '#FFFBEB';
             } else if (record.status === 'ABSENT') {
               statusText = 'VẮNG MẶT'; statusColor = '#EF4444'; statusBg = '#FEF2F2';
             }
@@ -410,11 +604,11 @@ export function AttendanceHistoryScreen() {
           })}
         </View>
 
-        {!history.data?.items?.length && !history.isLoading ? (
+        {!displayedItems.length && !history.isLoading ? (
           history.isError ? (
             <EmptyState title="Không có dữ liệu" message="Lỗi khi tải lịch sử chấm công." />
           ) : (
-            <EmptyState icon="calendar-outline" title="Chưa có dữ liệu chấm công" message="Bạn chưa có bản ghi chấm công nào." />
+            <EmptyState icon="calendar-outline" title="Chưa có dữ liệu chấm công" message={selectedDay ? `Không có dữ liệu chấm công cho ngày ${selectedDay}/${month}/${year}` : "Không có dữ liệu chấm công trong tháng này."} />
           )
         ) : null}
       </ScrollView>

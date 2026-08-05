@@ -10,6 +10,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { useAppAlert } from '../../contexts/AlertContext';
 import { EditProfileModal } from './components/EditProfileModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { useUserGuide } from '../../components/UserGuideManager';
 
 import { AvatarPicker } from './components/AvatarPicker';
@@ -23,6 +24,7 @@ export function EmployeeProfileScreen() {
 
   const { showConfirm, showAlert } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
@@ -99,7 +101,7 @@ export function EmployeeProfileScreen() {
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
             <ActionRow icon="file-document-outline" title="Cẩm nang PDF" onPress={showGuideManual} />
-            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => { }} />
+            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialCommunityIcons name="logout" size={20} color="#DC2626" />
@@ -113,13 +115,13 @@ export function EmployeeProfileScreen() {
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
 
-
       <EditProfileModal 
         visible={isEditing} 
         onClose={() => setIsEditing(false)} 
         initialPhone={user?.phone || ''} 
         initialEmail={user?.email || ''} 
       />
+      <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
     </View>
   );
 }

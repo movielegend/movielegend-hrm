@@ -9,6 +9,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useUserGuide } from '../../components/UserGuideManager';
 import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { EditProfileModal } from '../employees/components/EditProfileModal';
+import { ChangePasswordModal } from '../employees/components/ChangePasswordModal';
 
 export function HRProfileScreen() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export function HRProfileScreen() {
   const { showGuideManual } = useUserGuide();
   const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
@@ -137,7 +139,7 @@ export function HRProfileScreen() {
             <ActionRow 
               icon="lock-reset" 
               title="Đổi mật khẩu" 
-              onPress={() => Alert.alert('Thông báo', 'Tính năng đổi mật khẩu đang được cập nhật.')} 
+              onPress={() => setIsChangingPassword(true)} 
             />
             <ActionRow 
               icon="logout-variant" 
@@ -162,6 +164,7 @@ export function HRProfileScreen() {
         initialPhone={user?.phone || ''} 
         initialEmail={user?.email || ''} 
       />
+      <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
     </View>
   );
 }

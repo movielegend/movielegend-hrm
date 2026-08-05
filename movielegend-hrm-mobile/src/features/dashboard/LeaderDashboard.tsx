@@ -181,7 +181,7 @@ export function LeaderDashboard() {
           <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
             <GridItem icon="file-document-multiple" title="Duyệt đơn" onPress={() => router.push('/leader/(tabs)/approvals' as any)} />
-            <GridItem icon="calendar-clock" title="Ca làm việc" onPress={() => router.push('/leader/schedule' as any)} />
+            <GridItem icon="calendar-clock" title="Lịch sử công" onPress={() => router.push('/leader/attendance-history' as any)} />
             <GridItem icon="swap-horizontal" title="Chấm công" onPress={() => router.push('/leader/attendance' as any)} />
             <GridItem icon="view-grid-outline" title="Phân ca" onPress={() => router.push('/leader/shift-management' as any)} />
             <GridItem icon="account-tie-outline" title="Nhân sự" onPress={() => router.push('/leader/employees' as any)} />

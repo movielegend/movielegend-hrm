@@ -11,6 +11,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { useUserGuide } from '../../components/UserGuideManager';
 import { EditProfileModal } from './components/EditProfileModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { AvatarPicker } from './components/AvatarPicker';
 
 export function LeaderProfileScreen() {
@@ -20,6 +21,7 @@ export function LeaderProfileScreen() {
   const { showGuideManual } = useUserGuide();
   const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
@@ -98,7 +100,7 @@ export function LeaderProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="card-account-details-outline" title="Hồ sơ của tôi" onPress={() => router.push('/leader/my-profile' as any)} />
+            <ActionRow icon="calendar-clock" title="Lịch sử chấm công" onPress={() => router.push('/leader/attendance-history' as any)} />
             <ActionRow icon="cash-multiple" title="Bảng lương" onPress={() => router.push('/leader/payslip' as any)} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/leader/assets' as any)} />
             <ActionRow icon="message-draw" title="Góp ý" onPress={() => router.push('/leader/feedbacks' as any)} isLast />
@@ -110,7 +112,7 @@ export function LeaderProfileScreen() {
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
             <ActionRow icon="file-document-outline" title="Cẩm nang PDF" onPress={showGuideManual} />
-            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => { }} />
+            <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialCommunityIcons name="logout" size={20} color="#DC2626" />
@@ -124,14 +126,13 @@ export function LeaderProfileScreen() {
         <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
       </ScrollView>
 
-      
-
       <EditProfileModal 
         visible={isEditing} 
         onClose={() => setIsEditing(false)} 
         initialPhone={user?.phone || ''} 
         initialEmail={user?.email || ''} 
       />
+      <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
     </View>
   );
 }

@@ -50,3 +50,8 @@ export async function resetPasswordApi(payload: ResetPasswordPayload): Promise<{
   const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/forgot-password/reset', payload);
   return unwrapData(response);
 }
+
+export async function changePasswordApi(payload: { oldPassword: string; newPassword: string }): Promise<{ message: string }> {
+  const response = await apiClient.patch<ApiResponse<{ message: string }>>('/auth/change-password', payload);
+  return unwrapData(response);
+}
