@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking, Platform } from 'react-native';
+import { Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking, Platform, Image, ScrollView } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -178,15 +178,16 @@ export function AttachmentPicker({
   onAttach: (payload: CreateTaskAttachmentPayload) => Promise<void>;
   pending?: boolean;
 }) {
-  const [staged, setStaged] = useState<CreateTaskAttachmentPayload | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [staged, setStaged] = useState<CreateTaskAttachmentPayload[]>([]);
+  const [uploadingType, setUploadingType] = useState<'FILE' | 'IMAGE' | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const { showAlert } = useAppAlert();
 
   async function pickAndUpload() {
     const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
     if (picked.canceled || !picked.assets?.[0]) return;
     const asset = picked.assets[0];
-    setUploading(true);
+    setUploadingType('FILE');
     try {
       const upload = await uploadFile({
         uri: asset.uri,
@@ -195,18 +196,18 @@ export function AttachmentPicker({
         purpose: 'TASK_ATTACHMENT',
         file: asset.file,
       });
-      setStaged({
+      setStaged(prev => [...prev, {
         fileName: asset.name,
         fileUrl: upload.fileUrl,
         mimeType: upload.mimeType,
         sizeBytes: upload.size,
         type: upload.mimeType.startsWith('image/') ? 'IMAGE' : 'FILE',
-      });
+      }]);
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, normalized.message);
     } finally {
-      setUploading(false);
+      setUploadingType(null);
     }
   }
 
@@ -218,39 +219,45 @@ export function AttachmentPicker({
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
       quality: 0.8,
     });
-    if (picked.canceled || !picked.assets?.[0]) return;
-    const asset = picked.assets[0];
-    setUploading(true);
+    if (picked.canceled || !picked.assets?.length) return;
+    
+    setUploadingType('IMAGE');
     try {
-      const fileName = asset.fileName ?? asset.uri.split('/').pop() ?? 'image.jpg';
-      const upload = await uploadFile({
-        uri: asset.uri,
-        name: fileName,
-        mimeType: asset.mimeType ?? 'image/jpeg',
-        purpose: 'TASK_ATTACHMENT',
-      });
-      setStaged({
-        fileName: fileName,
-        fileUrl: upload.fileUrl,
-        mimeType: upload.mimeType,
-        sizeBytes: upload.size,
-        type: 'IMAGE',
-      });
+      const uploadedAssets = await Promise.all(picked.assets.map(async (asset) => {
+        const fileName = asset.fileName ?? asset.uri.split('/').pop() ?? 'image.jpg';
+        const upload = await uploadFile({
+          uri: asset.uri,
+          name: fileName,
+          mimeType: asset.mimeType ?? 'image/jpeg',
+          purpose: 'TASK_ATTACHMENT',
+        });
+        return {
+          fileName: fileName,
+          fileUrl: upload.fileUrl,
+          mimeType: upload.mimeType,
+          sizeBytes: upload.size,
+          type: 'IMAGE' as const,
+        };
+      }));
+      setStaged(prev => [...prev, ...uploadedAssets]);
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, normalized.message);
     } finally {
-      setUploading(false);
+      setUploadingType(null);
     }
   }
 
   async function attach() {
-    if (!staged) return;
+    if (staged.length === 0) return;
     try {
-      await onAttach(staged);
-      setStaged(null);
+      for (const item of staged) {
+        await onAttach(item);
+      }
+      setStaged([]);
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, normalized.message);
@@ -259,18 +266,49 @@ export function AttachmentPicker({
 
   return (
     <View style={styles.stack}>
+      <Modal visible={!!previewImage} transparent={true} animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+          <Pressable style={{ position: 'absolute', top: 40, right: 20, zIndex: 10, padding: 8 }} onPress={() => setPreviewImage(null)}>
+            <MaterialCommunityIcons name="close" size={32} color="white" />
+          </Pressable>
+          {previewImage && (
+            <Image source={{ uri: previewImage }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+          )}
+        </View>
+      </Modal>
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <View style={{ flex: 1 }}>
-          <SecondaryButton loading={uploading} onPress={() => void pickAndUpload()}>Chọn file</SecondaryButton>
+          <SecondaryButton loading={uploadingType === 'FILE'} onPress={() => void pickAndUpload()}>Chọn file</SecondaryButton>
         </View>
         <View style={{ flex: 1 }}>
-          <SecondaryButton loading={uploading} onPress={() => void pickImageAndUpload()}>Chọn ảnh</SecondaryButton>
+          <SecondaryButton loading={uploadingType === 'IMAGE'} onPress={() => void pickImageAndUpload()}>Chọn ảnh</SecondaryButton>
         </View>
       </View>
-      {staged ? (
+      {staged.length > 0 ? (
         <View style={styles.inlinePanel}>
-          <Text style={styles.titleSmall}>{staged.fileName}</Text>
-          <Text style={styles.meta}>Tải lên thành công, sẵn sàng đính kèm. Nếu đính kèm thất bại, ứng dụng sẽ giữ lại file để thử lại.</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
+            {staged.map((item, index) => (
+              <View key={index} style={{ width: '30%', aspectRatio: 1, position: 'relative' }}>
+                {item.type === 'IMAGE' ? (
+                  <Pressable style={{ flex: 1 }} onPress={() => setPreviewImage(item.fileUrl)}>
+                    <Image source={{ uri: item.fileUrl }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+                  </Pressable>
+                ) : (
+                  <View style={{ flex: 1, borderRadius: 8, backgroundColor: colors.surfaceHover, justifyContent: 'center', alignItems: 'center', padding: 8 }}>
+                    <MaterialCommunityIcons name="file-document-outline" size={32} color={colors.textSecondary} />
+                    <Text style={[styles.titleSmall, { textAlign: 'center', marginTop: 4 }]} numberOfLines={2}>{item.fileName}</Text>
+                  </View>
+                )}
+                <Pressable
+                  style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: 12 }}
+                  onPress={() => setStaged(prev => prev.filter((_, i) => i !== index))}
+                >
+                  <MaterialCommunityIcons name="close-circle" size={24} color={colors.danger} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.meta}>Tải lên thành công {staged.length} file, sẵn sàng đính kèm. Nếu đính kèm thất bại, ứng dụng sẽ giữ lại file để thử lại.</Text>
           <PrimaryButton loading={pending} onPress={() => void attach()}>Đính kèm file</PrimaryButton>
         </View>
       ) : null}
@@ -826,7 +864,6 @@ const styles = StyleSheet.create({
 export function TaskStepper({ currentStatus }: { currentStatus: string }) {
   const steps = [
     { key: 'NEW', label: 'Mới giao' },
-    { key: 'ACCEPTED', label: 'Đã nhận' },
     { key: 'IN_PROGRESS', label: 'Đang làm' },
     { key: 'WAITING_REVIEW', label: 'Chờ duyệt' },
     { key: 'COMPLETED', label: 'Hoàn thành' },

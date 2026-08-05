@@ -14,13 +14,13 @@ export class ChartQueryDto {
   @IsDate()
   @Type(() => Date)
   @IsNotEmpty()
-  startDate: Date;
+  startDate!: Date;
 
   @ApiProperty({ type: Date, description: 'End date' })
   @IsDate()
   @Type(() => Date)
   @IsNotEmpty()
-  endDate: Date;
+  endDate!: Date;
 
   @ApiProperty({ enum: ChartGroupBy, description: 'Group by interval', required: false })
   @IsEnum(ChartGroupBy)

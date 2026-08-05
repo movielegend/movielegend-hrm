@@ -397,7 +397,7 @@ export class ChatService {
         task: { select: { title: true } },
         _count: { select: { members: true, messages: true } },
         members: {
-          include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
+          include: { user: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
         }
       },
       orderBy: { updatedAt: 'desc' }

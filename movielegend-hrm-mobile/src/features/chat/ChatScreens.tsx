@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppAlert } from '../../contexts/AlertContext';
 import {
@@ -312,6 +312,25 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     limit: 100,
     departmentId: currentGroup?.departmentId || undefined
   });
+
+  const mentionCandidates = useMemo(() => {
+    if (currentGroup?.members && Array.isArray(currentGroup.members) && currentGroup.members.length > 0) {
+      return currentGroup.members
+        .map((m: any) => {
+          const u = m.user;
+          const uId = m.userId || u?.id;
+          if (!uId) return null;
+          return {
+            id: uId,
+            userCode: u?.userCode || '',
+            fullName: u?.profile?.fullName || u?.userCode || 'Thành viên',
+            avatarUrl: u?.profile?.avatarUrl
+          };
+        })
+        .filter(Boolean);
+    }
+    return Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []);
+  }, [currentGroup?.members, employees.data]);
   const insets = useSafeAreaInsets();
 
   const [text, setText] = useState('');
@@ -630,8 +649,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           {showMentions && (
             <View style={styles.mentionListContainer}>
               <FlatList
-                data={Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []).filter((e: any) =>
-                  (e.fullName ?? e.userCode).toLowerCase().includes(mentionQuery)
+                data={mentionCandidates.filter((e: any) =>
+                  (e.fullName ?? e.userCode ?? '').toLowerCase().includes(mentionQuery)
                 )}
                 keyExtractor={(e) => e.id}
                 renderItem={({ item }) => (

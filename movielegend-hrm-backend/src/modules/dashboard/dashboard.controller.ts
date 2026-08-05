@@ -3,7 +3,6 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { AdminDashboardService, EmployeeDashboardService, LeaderDashboardService } from './dashboard.service';
 import { ChartQueryDto } from './dto/chart-query.dto';
 

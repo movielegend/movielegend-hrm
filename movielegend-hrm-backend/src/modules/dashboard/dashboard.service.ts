@@ -150,9 +150,9 @@ export class DashboardAggregationService {
            if (record.checkInAt > shiftStart) {
              buckets[key].late++;
            }
-        } else if (record.status === 'LATE') {
-           buckets[key].late++;
-        }
+         } else if ((record.status as string) === 'LATE') {
+            buckets[key].late++;
+         }
       }
     }
 

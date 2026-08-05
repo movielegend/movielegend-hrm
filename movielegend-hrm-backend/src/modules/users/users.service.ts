@@ -52,7 +52,14 @@ export class UsersService {
           ...(dto.avatarUrl !== undefined
             ? {
               profile: {
-                update: { avatarUrl: dto.avatarUrl },
+                upsert: {
+                  update: { avatarUrl: dto.avatarUrl },
+                  create: {
+                    avatarUrl: dto.avatarUrl,
+                    fullName: 'System Admin',
+                    idCardNumber: `ADMIN_${actor.userId}`,
+                  },
+                },
               },
             }
             : {}),

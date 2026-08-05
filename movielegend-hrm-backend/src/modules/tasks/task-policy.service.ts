@@ -6,7 +6,7 @@ import { badRequest } from '../../common/utils/error.util';
 export class TaskPolicyService {
   assertAssignmentTransition(from: TaskAssignmentStatus, to: TaskAssignmentStatus): void {
     const allowed: Record<TaskAssignmentStatus, TaskAssignmentStatus[]> = {
-      NEW: [TaskAssignmentStatus.ACCEPTED, TaskAssignmentStatus.CANCELLED],
+      NEW: [TaskAssignmentStatus.ACCEPTED, TaskAssignmentStatus.IN_PROGRESS, TaskAssignmentStatus.CANCELLED],
       ACCEPTED: [TaskAssignmentStatus.IN_PROGRESS, TaskAssignmentStatus.CANCELLED],
       IN_PROGRESS: [TaskAssignmentStatus.WAITING_REVIEW, TaskAssignmentStatus.CANCELLED],
       WAITING_REVIEW: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.REJECTED],

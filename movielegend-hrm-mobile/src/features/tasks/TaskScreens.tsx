@@ -83,6 +83,7 @@ const TASK_STATUS_TABS = [
   { label: 'Chờ nhận', value: 'NEW' },
   { label: 'Đang làm', value: 'IN_PROGRESS' },
   { label: 'Chờ duyệt', value: 'WAITING_REVIEW' },
+  { label: 'Quá hạn ⚠️', value: 'OVERDUE' },
   { label: 'Hoàn thành', value: 'COMPLETED' },
   { label: 'Làm lại', value: 'REJECTED' },
   { label: 'Đã hủy', value: 'CANCELLED' },
@@ -92,7 +93,12 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
-  const filters: TaskListFilters = { page: 1, limit: 20, ...(search ? { search } : {}), ...(status ? { status: status as never } : {}) };
+  const filters: TaskListFilters = {
+    page: 1,
+    limit: 20,
+    ...(search ? { search } : {}),
+    ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {})
+  };
   const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
@@ -270,17 +276,9 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                 {canAcceptAssignment(assignment.status) ? (
                   <View style={{ backgroundColor: colors.primarySoft, padding: spacing.md, borderRadius: 8, alignItems: 'center' }}>
                     <Text style={{ textAlign: 'center', marginBottom: spacing.sm, color: colors.primary, fontWeight: '700' }}>
-                      Bạn vừa được phân công công việc này. Hãy xác nhận để bắt đầu!
+                      Bạn vừa được phân công công việc này. Hãy xác nhận để bắt đầu làm ngay!
                     </Text>
-                    <PrimaryButton loading={accept.isPending} onPress={() => void run(() => accept.mutateAsync(assignment.id), 'Đã nhận việc')}>Nhận việc ngay</PrimaryButton>
-                  </View>
-                ) : null}
-                {canStartAssignment(assignment.status) ? (
-                  <View style={{ backgroundColor: '#EFF6FF', padding: spacing.md, borderRadius: 8, alignItems: 'center' }}>
-                    <Text style={{ textAlign: 'center', marginBottom: spacing.sm, color: colors.info, fontWeight: '700' }}>
-                      Tuyệt vời! Bạn đã nhận việc. Khi nào bắt tay vào làm, hãy bấm nút dưới đây.
-                    </Text>
-                    <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã bắt đầu làm')}>Bắt đầu làm</PrimaryButton>
+                    <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã nhận việc và bắt đầu làm')}>Nhận việc & Làm ngay</PrimaryButton>
                   </View>
                 ) : null}
                 {(canUpdateProgress(assignment.status) || canSubmitAssignment(assignment.status)) ? (

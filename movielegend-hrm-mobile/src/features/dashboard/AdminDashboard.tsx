@@ -103,8 +103,8 @@ export function AdminDashboard() {
                 </View>
               )}
             </Pressable>
-            <Pressable style={styles.iconBtn}>
-              <MaterialCommunityIcons name="format-list-bulleted" size={24} color="#111827" />
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat')}>
+              <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>

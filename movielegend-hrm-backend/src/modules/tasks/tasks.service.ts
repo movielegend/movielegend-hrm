@@ -517,6 +517,46 @@ export class TasksService {
           action: TaskHistoryAction.EXTENSION_REQUESTED,
         },
       });
+
+      const task = await tx.task.findUnique({
+        where: { id: taskId },
+        select: { id: true, title: true, createdByUserId: true, groupLeaderId: true }
+      });
+      const requester = await tx.user.findUnique({
+        where: { id: actor.userId },
+        select: { profile: { select: { fullName: true } }, userCode: true }
+      });
+      const requesterName = requester?.profile?.fullName || requester?.userCode || 'Nhân viên';
+
+      const notifyUsers = new Set<string>();
+      if (task?.createdByUserId && task.createdByUserId !== actor.userId) {
+        notifyUsers.add(task.createdByUserId);
+      }
+      if (task?.groupLeaderId && task.groupLeaderId !== actor.userId) {
+        notifyUsers.add(task.groupLeaderId);
+      }
+      if (assignment.assignedByUserId && assignment.assignedByUserId !== actor.userId) {
+        notifyUsers.add(assignment.assignedByUserId);
+      }
+
+      if (notifyUsers.size > 0 && task) {
+        const payload = await this.notifications.createForUsers(tx as any, Array.from(notifyUsers), {
+          type: NotificationType.TASK_UPDATED,
+          title: 'Yêu cầu gia hạn công việc mới',
+          body: `${requesterName} đã xin gia hạn công việc "${task.title}". Lý do: ${dto.reason || 'Không có'}`,
+          taskId: task.id,
+          metadata: { taskId: task.id, extensionRequestId: request.id }
+        });
+        if (payload) {
+          process.nextTick(() => {
+            this.notifications.emitCreated(payload);
+            for (const uid of notifyUsers) {
+              this.realtime.emitToUser(uid, 'task:extension_requested', { taskId: task.id, requestId: request.id });
+            }
+          });
+        }
+      }
+
       return request;
     });
   }
@@ -660,6 +700,28 @@ export class TasksService {
           action: approve ? TaskHistoryAction.EXTENSION_APPROVED : TaskHistoryAction.EXTENSION_REJECTED,
         },
       });
+
+      if (request.assignment?.userId && request.assignment.userId !== actor.userId) {
+        const targetUserId = request.assignment.userId;
+        const taskTitle = request.assignment.task?.title || 'Công việc';
+        const isApproved = approve;
+        const payload = await this.notifications.createForUsers(tx as any, [targetUserId], {
+          type: NotificationType.TASK_UPDATED,
+          title: isApproved ? 'Yêu cầu gia hạn được phê duyệt' : 'Yêu cầu gia hạn bị từ chối',
+          body: isApproved
+            ? `Yêu cầu gia hạn công việc "${taskTitle}" của bạn đã được chấp nhận.`
+            : `Yêu cầu gia hạn công việc "${taskTitle}" của bạn đã bị từ chối.${reason ? ` Lý do: ${reason}` : ''}`,
+          taskId: request.taskId,
+          metadata: { taskId: request.taskId, extensionRequestId: request.id }
+        });
+        if (payload) {
+          process.nextTick(() => {
+            this.notifications.emitCreated(payload);
+            this.realtime.emitToUser(targetUserId, 'task:extension_decided', { taskId: request.taskId, approved: approve });
+          });
+        }
+      }
+
       return updated;
     });
   }
