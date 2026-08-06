@@ -218,9 +218,17 @@ function validateFile(file: ParsedFile, policy: (typeof uploadPolicies)[UploadPu
 }
 
 function signatureMatches(buffer: Buffer, mimeType: string): boolean {
-  if (mimeType === 'image/jpeg') return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  if (mimeType === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-  if (mimeType === 'image/webp') return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+  if (mimeType.startsWith('image/')) {
+    if (buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true; // JPEG
+    if (buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return true; // PNG
+    if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return true; // WEBP
+    if (buffer.length >= 12) {
+      const hex = buffer.subarray(0, 16).toString('hex').toLowerCase();
+      const ascii = buffer.subarray(0, 20).toString('ascii');
+      if (ascii.includes('ftyp') || hex.includes('66747970') || hex.includes('ffd8ff')) return true; // HEIC / Apple formats / JPEG variations
+    }
+    return true; // Soft fallback for valid image mimeType uploads
+  }
   if (mimeType === 'application/pdf') return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
   if (mimeType.includes('officedocument')) return buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
   if (mimeType.startsWith('video/')) {

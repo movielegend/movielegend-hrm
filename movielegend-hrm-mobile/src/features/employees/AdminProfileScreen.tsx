@@ -12,6 +12,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { EditProfileModal } from './components/EditProfileModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
 
 export function AdminProfileScreen() {
@@ -25,6 +26,7 @@ export function AdminProfileScreen() {
   const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
@@ -118,6 +120,7 @@ export function AdminProfileScreen() {
           <View style={styles.infoCard}>
             <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={showGuideManual} />
             <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
+            <ActionRow icon="account-remove-outline" title="Quyền sở hữu & Xóa tài khoản" onPress={() => setIsDeleting(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: colors.dangerSoft }]}>
                 <MaterialCommunityIcons name="logout" size={20} color={colors.danger} />
@@ -138,6 +141,7 @@ export function AdminProfileScreen() {
         initialEmail={user?.email || ''} 
       />
       <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
+      <DeleteAccountModal visible={isDeleting} onClose={() => setIsDeleting(false)} />
     </View>
   );
 }

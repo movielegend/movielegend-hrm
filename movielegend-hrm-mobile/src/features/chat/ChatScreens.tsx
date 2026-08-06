@@ -376,6 +376,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     }
   }
 
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [viewingAlbum, setViewingAlbum] = useState<string[] | null>(null);
+
   async function pickImage() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -385,9 +388,12 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: 5,
     });
-    if (!result.canceled && result.assets[0]) {
-      setSelectedImage(result.assets[0].uri);
+    if (!result.canceled && result.assets.length > 0) {
+      const newUris = result.assets.map(a => a.uri);
+      setSelectedImages(prev => [...prev, ...newUris].slice(0, 5));
     }
   }
 
@@ -415,26 +421,36 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   }
 
   async function handleSend() {
-    if (!text.trim() && !selectedImage) return;
+    if (!text.trim() && selectedImages.length === 0) return;
     const content = text.trim();
     setText('');
-    const currentImage = selectedImage;
-    setSelectedImage(null);
+    const currentImages = [...selectedImages];
+    setSelectedImages([]);
     setIsUploading(true);
 
     try {
-      let fileUrl;
-      let fileType;
+      let fileUrl: string | undefined;
+      let fileType: string | undefined;
 
-      if (currentImage) {
-        const uploadResult = await uploadFile({
-          uri: currentImage,
-          name: 'chat-image.jpg',
-          mimeType: 'image/jpeg',
-          purpose: 'TASK_ATTACHMENT',
-        });
-        fileUrl = uploadResult.fileUrl;
-        fileType = 'IMAGE';
+      if (currentImages.length > 0) {
+        const uploadResults = await Promise.all(
+          currentImages.map((uri, idx) =>
+            uploadFile({
+              uri,
+              name: `chat-image-${idx}.jpg`,
+              mimeType: 'image/jpeg',
+              purpose: 'TASK_ATTACHMENT',
+            })
+          )
+        );
+
+        if (uploadResults.length === 1) {
+          fileUrl = uploadResults[0].fileUrl;
+          fileType = 'IMAGE';
+        } else {
+          fileUrl = JSON.stringify(uploadResults.map(r => r.fileUrl));
+          fileType = 'IMAGE_ALBUM';
+        }
       }
 
       await sendMessage.mutateAsync({
@@ -448,7 +464,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       const normalized = normalizeApiError(error);
       showAlert('Lỗi', normalized.message);
       setText(content); // restore text if failed
-      setSelectedImage(currentImage);
+      setSelectedImages(currentImages);
     } finally {
       setIsUploading(false);
     }
@@ -574,30 +590,129 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     styles.messageBubble,
                     isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
                     msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {},
-                    msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
+                    msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
                   ]}>
                     {!isMine && !msg.content?.startsWith('LOTTIE_STICKER:') && !msg.content?.startsWith('STATIC_STICKER:') && !msg.content?.startsWith('GIPHY_STICKER:') && (
                       <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
                     )}
-                    {msg.fileUrl && msg.fileType === 'IMAGE' && (
-                      <Pressable 
-                        onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}
-                        onLongPress={() => {
-                          if (isMine) {
-                            showConfirm({
-                              title: 'Thu hồi tin nhắn',
-                              message: 'Bạn có chắc chắn muốn thu hồi tin nhắn ảnh này?',
-                              confirmLabel: 'Thu hồi',
-                              onConfirm: () => deleteMessage.mutate(msg.id)
-                            });
-                          }
-                        }}
-                      >
-                        <Image
-                          source={{ uri: resolveImageUrl(msg.fileUrl) || '' }}
-                          style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]}
-                        />
-                      </Pressable>
+                    {msg.fileUrl && (msg.fileType === 'IMAGE' || msg.fileType === 'IMAGE_ALBUM') && (
+                      <View>
+                        {msg.fileType === 'IMAGE_ALBUM' ? (() => {
+                          let albumUrls: string[] = [];
+                          try { albumUrls = JSON.parse(msg.fileUrl); } catch (e) {}
+                          const topImage = albumUrls[0];
+                          const totalCount = albumUrls.length;
+
+                          return (
+                            <View style={{ marginVertical: 6, alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+                              {/* Header Badge: X ảnh */}
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4, paddingHorizontal: 4 }}>
+                                <MaterialCommunityIcons name="view-grid" size={14} color="#6B7280" />
+                                <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280' }}>
+                                  {totalCount} ảnh
+                                </Text>
+                              </View>
+
+                              {/* Stacked Album Deck Effect (Messenger Style) */}
+                              <Pressable
+                                onPress={() => setViewingAlbum(albumUrls)}
+                                onLongPress={() => {
+                                  if (isMine) {
+                                    showConfirm({
+                                      title: 'Thu hồi tin nhắn',
+                                      message: 'Bạn có chắc chắn muốn thu hồi album ảnh này?',
+                                      confirmLabel: 'Thu hồi',
+                                      onConfirm: () => deleteMessage.mutate(msg.id)
+                                    });
+                                  }
+                                }}
+                                style={{ width: 170, height: 180, position: 'relative', marginTop: 6 }}
+                              >
+                                {/* Layer 3 (Bottom Stacked Card) */}
+                                {totalCount >= 3 && (
+                                  <View
+                                    style={{
+                                      position: 'absolute',
+                                      top: -8,
+                                      left: 14,
+                                      width: 142,
+                                      height: 155,
+                                      borderRadius: 20,
+                                      backgroundColor: '#D1D5DB',
+                                      transform: [{ rotate: '-8deg' }],
+                                      borderWidth: 2,
+                                      borderColor: '#FFFFFF',
+                                      opacity: 0.6,
+                                    }}
+                                  />
+                                )}
+
+                                {/* Layer 2 (Middle Stacked Card) */}
+                                {totalCount >= 2 && (
+                                  <View
+                                    style={{
+                                      position: 'absolute',
+                                      top: -4,
+                                      left: 8,
+                                      width: 154,
+                                      height: 165,
+                                      borderRadius: 20,
+                                      backgroundColor: '#E5E7EB',
+                                      transform: [{ rotate: '6deg' }],
+                                      borderWidth: 2,
+                                      borderColor: '#FFFFFF',
+                                      opacity: 0.85,
+                                    }}
+                                  />
+                                )}
+
+                                {/* Layer 1 (Main Front Top Card) */}
+                                <View
+                                  style={{
+                                    width: 170,
+                                    height: 180,
+                                    borderRadius: 22,
+                                    overflow: 'hidden',
+                                    borderWidth: 3,
+                                    borderColor: '#FFFFFF',
+                                    backgroundColor: '#F3F4F6',
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.2,
+                                    shadowRadius: 6,
+                                    elevation: 5,
+                                  }}
+                                >
+                                  <Image
+                                    source={{ uri: resolveImageUrl(topImage) || '' }}
+                                    style={{ width: '100%', height: '100%' }}
+                                    resizeMode="cover"
+                                  />
+                                </View>
+                              </Pressable>
+                            </View>
+                          );
+                        })() : (
+                          <Pressable 
+                            onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}
+                            onLongPress={() => {
+                              if (isMine) {
+                                showConfirm({
+                                  title: 'Thu hồi tin nhắn',
+                                  message: 'Bạn có chắc chắn muốn thu hồi tin nhắn ảnh này?',
+                                  confirmLabel: 'Thu hồi',
+                                  onConfirm: () => deleteMessage.mutate(msg.id)
+                                });
+                              }
+                            }}
+                          >
+                            <Image
+                              source={{ uri: resolveImageUrl(msg.fileUrl) || '' }}
+                              style={[styles.messageImage, !msg.content ? styles.messageImageOnly : {}]}
+                            />
+                          </Pressable>
+                        )}
+                      </View>
                     )}
                     {!!msg.content && !msg.content.startsWith('LOTTIE_STICKER:') && !msg.content.startsWith('STATIC_STICKER:') && !msg.content.startsWith('GIPHY_STICKER:') && (
                       <Text style={[
@@ -627,7 +742,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                       styles.messageTime,
                       isMine && styles.messageTimeMine,
                       msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {},
-                      (msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:')) ? { color: colors.muted } : {}
+                      (msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:')) ? { color: colors.muted } : {}
                     ]}>
                       {timeAgo(msg.createdAt)}
                     </Text>
@@ -666,6 +781,35 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             </View>
           )}
 
+          {/* Selected Images Preview Bar Above Input */}
+          {selectedImages.length > 0 && (
+            <View style={{ backgroundColor: '#F9FAFB', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, alignItems: 'center' }}>
+                {selectedImages.map((uri, idx) => (
+                  <View key={idx} style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#D1D5DB', position: 'relative' }}>
+                    <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+                    <Pressable
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        backgroundColor: 'rgba(0,0,0,0.6)',
+                        borderRadius: 10,
+                        width: 18,
+                        height: 18,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                      onPress={() => setSelectedImages(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <MaterialCommunityIcons name="close" size={12} color="#fff" />
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Input */}
           <View style={[styles.chatInputRow, { paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, 10) }]}>
             <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
@@ -675,14 +819,6 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
             </Pressable>
             <View style={{ flex: 1 }}>
-              {selectedImage && (
-                <View style={styles.imagePreviewContainer}>
-                  <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
-                  <Pressable style={styles.removeImageBtn} onPress={() => setSelectedImage(null)}>
-                    <MaterialCommunityIcons name="close" size={16} color="#fff" />
-                  </Pressable>
-                </View>
-              )}
               <TextInput
                 style={styles.chatInput}
                 placeholder="Nhập tin nhắn..."
@@ -696,9 +832,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               />
             </View>
             <Pressable
-              style={[styles.chatSendBtn, (!text.trim() && !selectedImage) && styles.chatSendBtnDisabled]}
+              style={[styles.chatSendBtn, (!text.trim() && selectedImages.length === 0) && styles.chatSendBtnDisabled]}
               onPress={handleSend}
-              disabled={(!text.trim() && !selectedImage) || sendMessage.isPending || isUploading}
+              disabled={(!text.trim() && selectedImages.length === 0) || sendMessage.isPending || isUploading}
             >
               <MaterialCommunityIcons name={isUploading ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>
@@ -707,10 +843,10 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
         {/* Image Viewer Modal */}
         <ImageViewing
-          images={viewingImage ? [{ uri: viewingImage }] : []}
+          images={viewingAlbum ? viewingAlbum.map(u => ({ uri: resolveImageUrl(u) || u })) : (viewingImage ? [{ uri: viewingImage }] : [])}
           imageIndex={0}
-          visible={!!viewingImage}
-          onRequestClose={() => setViewingImage(null)}
+          visible={!!viewingImage || !!viewingAlbum}
+          onRequestClose={() => { setViewingImage(null); setViewingAlbum(null); }}
         />
 
         {/* Sticker Modal */}

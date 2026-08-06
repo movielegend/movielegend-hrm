@@ -50,6 +50,7 @@ initModels();
 
 async function bufferToTensor(buffer: Uint8Array) {
   const { data, info } = await sharp(Buffer.from(buffer), { failOn: 'none' })
+    .rotate() // Automatically orient EXIF rotated images (from iOS devices)
     .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
     .removeAlpha()
     .raw()
@@ -66,7 +67,20 @@ async function bufferToTensor(buffer: Uint8Array) {
 async function getFaceDescriptor(buffer: Uint8Array): Promise<Float32Array | undefined> {
   const tensor = await bufferToTensor(buffer);
   try {
-    const detection = await faceapi.detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+    // Try higher resolution input first for better face detection
+    let detection = await faceapi
+      .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    // Fallback if not detected at 512
+    if (!detection) {
+      detection = await faceapi
+        .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 }))
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+    }
+
     return detection?.descriptor;
   } finally {
     tensor.dispose();

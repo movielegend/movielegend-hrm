@@ -12,6 +12,7 @@ import { spacing } from '../../theme/spacing';
 import { useUserGuide } from '../../components/UserGuideManager';
 import { EditProfileModal } from './components/EditProfileModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
 
 export function LeaderProfileScreen() {
@@ -22,6 +23,7 @@ export function LeaderProfileScreen() {
   const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
@@ -113,6 +115,7 @@ export function LeaderProfileScreen() {
           <View style={styles.infoCard}>
             <ActionRow icon="file-document-outline" title="Cẩm nang PDF" onPress={showGuideManual} />
             <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
+            <ActionRow icon="account-remove-outline" title="Quyền sở hữu & Xóa tài khoản" onPress={() => setIsDeleting(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
               <View style={[styles.actionIconBg, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialCommunityIcons name="logout" size={20} color="#DC2626" />
@@ -133,6 +136,7 @@ export function LeaderProfileScreen() {
         initialEmail={user?.email || ''} 
       />
       <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
+      <DeleteAccountModal visible={isDeleting} onClose={() => setIsDeleting(false)} />
     </View>
   );
 }

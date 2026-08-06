@@ -5,6 +5,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import type { ApiResponse } from '../types/api.types';
 import type { UploadFileInput, UploadedFileDto } from '../types/upload.types';
 
+import { normalizeAndCompressImage } from '../utils/image';
+
 export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDto> {
   const token = await import('../storage/secure-token.storage').then(m => m.getAccessToken());
   const apiUrl = await import('../constants/env').then(m => m.assertApiUrl());
@@ -14,12 +16,20 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
     'ngrok-skip-browser-warning': 'true',
   };
 
+  // Normalize and compress image for iOS/Android before uploading
+  let targetUri = input.uri;
+  let targetMimeType = input.mimeType;
+  if (input.mimeType?.startsWith('image/') || input.name?.match(/\.(jpg|jpeg|png|heic|heif|webp)$/i)) {
+    targetUri = await normalizeAndCompressImage(input.uri);
+    targetMimeType = 'image/jpeg';
+  }
+
   if (Platform.OS !== 'web') {
-    const uploadResult = await FileSystem.uploadAsync(endpoint, input.uri, {
+    const uploadResult = await FileSystem.uploadAsync(endpoint, targetUri, {
       httpMethod: 'POST',
       uploadType: (FileSystem as any).FileSystemUploadType?.MULTIPART ?? 1,
       fieldName: 'file',
-      mimeType: input.mimeType,
+      mimeType: targetMimeType,
       parameters: {
         purpose: input.purpose,
       },

@@ -5,7 +5,7 @@ import { IsDateString, IsEnum, IsNumber, IsObject, IsOptional, IsString, IsUUID,
 
 export class CreateEmployeeRequestDto {
   @ApiProperty({ enum: EmployeeRequestType })
-  @IsEnum(EmployeeRequestType)
+  @IsEnum({ ...EmployeeRequestType, ACCOUNT_DELETION: 'ACCOUNT_DELETION' })
   type!: EmployeeRequestType;
 
   @ApiProperty()

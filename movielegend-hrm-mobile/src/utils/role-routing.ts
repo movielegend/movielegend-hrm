@@ -11,8 +11,9 @@ export const roleRoutePriority: Array<{ role: UserRole; route: AppRoute }> = [
   { role: 'EMPLOYEE', route: '/employee' },
 ];
 
-export function getHomeRouteForUser(user: AuthUser | null): AppRoute {
+export function getHomeRouteForUser(user: AuthUser | null): AppRoute | '/deactivated-account' {
   if (!user) return '/login';
+  if (user.accountStatus === 'DEACTIVATED_30_DAYS' || Boolean(user.deletionScheduledAt)) return '/deactivated-account';
   const matched = roleRoutePriority.find((item) => user.roles.includes(item.role));
   return matched?.route ?? '/employee';
 }

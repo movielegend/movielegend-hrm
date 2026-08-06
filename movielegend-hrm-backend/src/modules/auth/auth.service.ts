@@ -7,13 +7,15 @@ import {
   AccountStatus,
   ApprovalAction,
   ApprovalStatus,
+  EmployeeRequestStatus,
+  EmployeeRequestType,
   FacePoseType,
   Prisma,
   UploadPurpose,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { badRequest, conflict, unauthorized } from '../../common/utils/error.util';
+import { badRequest, conflict, notFound, unauthorized } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UploadsService } from '../uploads/uploads.service';
@@ -237,10 +239,11 @@ export class AuthService {
     if (user.approvalStatus === ApprovalStatus.REJECTED) {
       throw unauthorized('ACCOUNT_REJECTED', 'Tài khoản đã bị từ chối');
     }
-    if (user.accountStatus === AccountStatus.SUSPENDED) {
+    const isDeletionPending = Boolean((user as any).deletionScheduledAt);
+    if (user.accountStatus === AccountStatus.SUSPENDED && !isDeletionPending) {
       throw unauthorized('ACCOUNT_SUSPENDED', 'Tài khoản đã bị tạm khóa');
     }
-    if (!user.isActive || user.accountStatus !== AccountStatus.ACTIVE) {
+    if (!user.isActive && !isDeletionPending && (user.accountStatus as string) !== 'DEACTIVATED_30_DAYS') {
       throw unauthorized('ACCOUNT_INACTIVE', 'Tài khoản chưa hoạt động');
     }
 
@@ -475,6 +478,7 @@ export class AuthService {
       accountStatus: user.accountStatus,
       approvalStatus: user.approvalStatus,
       isActive: user.isActive,
+      deletionScheduledAt: (user as any).deletionScheduledAt ? (user as any).deletionScheduledAt.toISOString() : null,
     };
   }
 
@@ -649,5 +653,76 @@ export class AuthService {
     });
 
     return { message: 'Đặt lại mật khẩu thành công.' };
+  }
+
+  async cancelAccountDeletion(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw notFound('USER_NOT_FOUND', 'Người dùng không tồn tại');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          accountStatus: AccountStatus.ACTIVE,
+          isActive: true,
+          deletionScheduledAt: null,
+        } as any,
+      });
+
+      // Update any pending ACCOUNT_DELETION request to CANCELLED
+      await tx.employeeRequest.updateMany({
+        where: { userId, type: 'ACCOUNT_DELETION' as any, status: EmployeeRequestStatus.APPROVED },
+        data: { status: EmployeeRequestStatus.CANCELLED },
+      });
+    });
+
+    return { message: 'Đã hủy yêu cầu xóa tài khoản thành công. Tài khoản của bạn đã hoạt động trở lại!' };
+  }
+
+  async adminSelfDelete(currentAdminUserId: string, targetSuccessorUserId?: string, passwordConfirm?: string) {
+    const currentAdmin = await this.prisma.user.findUnique({ where: { id: currentAdminUserId } });
+    if (!currentAdmin) throw notFound('USER_NOT_FOUND', 'Tài khoản không tồn tại');
+
+    if (passwordConfirm) {
+      const match = await bcrypt.compare(passwordConfirm, currentAdmin.passwordHash);
+      if (!match) throw badRequest('INVALID_PASSWORD', 'Mật khẩu xác nhận không chính xác');
+    }
+
+    const scheduledDate = new Date();
+    scheduledDate.setDate(scheduledDate.getDate() + 30);
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. If a successor was chosen, upgrade successor to ADMIN role immediately
+      if (targetSuccessorUserId) {
+        const adminRole = await tx.role.findUnique({ where: { code: 'ADMIN' } });
+        if (adminRole) {
+          const existingRole = await tx.userRole.findFirst({
+            where: { userId: targetSuccessorUserId, roleId: adminRole.id },
+          });
+          if (!existingRole) {
+            await tx.userRole.create({
+              data: { userId: targetSuccessorUserId, roleId: adminRole.id },
+            });
+          }
+        }
+      }
+
+      // 2. Put current admin in 30-day grace period
+      await tx.user.update({
+        where: { id: currentAdminUserId },
+        data: {
+          accountStatus: AccountStatus.SUSPENDED,
+          deletionScheduledAt: scheduledDate,
+          isActive: false,
+        } as any,
+      });
+
+      // 3. Revoke all refresh sessions for current admin so they get logged out
+      await tx.refreshSession.deleteMany({
+        where: { userId: currentAdminUserId },
+      });
+    });
+
+    return { message: 'Bàn giao quyền Quản trị viên và đăng ký hủy tài khoản thành công. Tài khoản sẽ được chuyển vào mốc 30 ngày khôi phục.' };
   }
 }

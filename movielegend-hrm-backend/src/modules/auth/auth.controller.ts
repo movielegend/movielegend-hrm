@@ -68,4 +68,16 @@ export class AuthController {
   resetPassword(@Body() dto: ResetPasswordDto, @Ip() ipAddress: string, @Headers('user-agent') userAgent?: string) {
     return this.authService.resetPassword(dto, { ipAddress, userAgent });
   }
+
+  @ApiBearerAuth()
+  @Post('cancel-deletion')
+  cancelAccountDeletion(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.cancelAccountDeletion(user.userId);
+  }
+
+  @ApiBearerAuth()
+  @Post('admin-self-delete')
+  adminSelfDelete(@CurrentUser() user: AuthenticatedUser, @Body() dto: { targetSuccessorUserId?: string; password?: string }) {
+    return this.authService.adminSelfDelete(user.userId, dto.targetSuccessorUserId, dto.password);
+  }
 }

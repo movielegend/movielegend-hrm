@@ -37,6 +37,7 @@ export function LeaderApprovalScreen() {
       case 'ADVANCE': return { label: 'Tạm ứng', color: '#14B8A6', icon: 'cash' };
       case 'EXPENSE': return { label: 'Thanh toán', color: '#F97316', icon: 'receipt' };
       case 'PURCHASE': return { label: 'Mua sắm', color: '#0EA5E9', icon: 'cart-outline' };
+      case 'ACCOUNT_DELETION': return { label: 'Hủy tài khoản', color: '#DC2626', icon: 'account-remove-outline' };
       default: return { label: 'Khác', color: '#6B7280', icon: 'file-document' };
     }
   };

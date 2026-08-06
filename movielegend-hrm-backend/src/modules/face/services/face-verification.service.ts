@@ -186,5 +186,9 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
       };
     }
   }
+
+  clearUserCache(userId: string) {
+    this.descriptorCache.delete(userId);
+  }
 }
 

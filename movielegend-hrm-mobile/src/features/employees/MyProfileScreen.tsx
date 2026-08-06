@@ -7,6 +7,7 @@ import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
 import { useAuth } from '../../providers/AuthProvider';
 import { EditProfileModal } from './components/EditProfileModal';
+import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
 import { useUserGuide } from '../../components/UserGuideManager';
 import type { DashboardRole } from '../../api/dashboard.api';
@@ -19,6 +20,7 @@ export function MyProfileScreen() {
   const { user } = useAuth();
   const { showGuideManual } = useUserGuide();
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editForm, setEditForm] = useState({ phone: '', email: '' });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -75,6 +77,13 @@ export function MyProfileScreen() {
               label="Cẩm nang PDF"
               value="Xem chi tiết"
               onPress={showGuideManual}
+            />
+            <InfoRow
+              icon="account-remove-outline"
+              label="Quyền sở hữu & Xóa tài khoản"
+              value="Yêu cầu hủy"
+              valueColor="#EF4444"
+              onPress={() => setIsDeleting(true)}
               isLast
             />
           </View>
@@ -86,6 +95,11 @@ export function MyProfileScreen() {
         onClose={() => setIsEditing(false)} 
         initialPhone={user?.phone || ''} 
         initialEmail={user?.email || ''} 
+      />
+
+      <DeleteAccountModal
+        visible={isDeleting}
+        onClose={() => setIsDeleting(false)}
       />
     </Screen>
   );

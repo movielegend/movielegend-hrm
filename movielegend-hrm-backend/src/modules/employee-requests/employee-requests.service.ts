@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EmployeeRequestStatus, EmployeeRequestType, Prisma, NotificationType } from '@prisma/client';
+import { AccountStatus, EmployeeRequestStatus, EmployeeRequestType, Prisma, NotificationType } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
@@ -21,12 +21,42 @@ export class EmployeeRequestsService {
   async create(dto: CreateEmployeeRequestDto, actor: AuthenticatedUser) {
     const departmentId = await this.scope.getPrimaryDepartmentId(actor.userId);
     this.assertFinancialRequest(dto);
+    const isAccountDeletion = (dto.type as string) === 'ACCOUNT_DELETION';
+
+    // Last Admin Protection Rule (Quy tắc 1: Bảo vệ Admin cuối cùng)
+    if (isAccountDeletion && actor.roles.includes('ADMIN')) {
+      const activeAdminCount = await this.prisma.user.count({
+        where: {
+          accountStatus: 'ACTIVE',
+          isActive: true,
+          deletedAt: null,
+          roles: {
+            some: {
+              role: { code: 'ADMIN' },
+            },
+          },
+        },
+      });
+
+      if (activeAdminCount <= 1) {
+        throw badRequest(
+          'LAST_ADMIN_PROTECTION',
+          'Không thể xóa tài khoản. Bạn hiện là Quản trị viên (Admin) duy nhất còn hoạt động trong hệ thống. Vui lòng phân quyền Admin cho một thành viên khác trước khi rời đi.',
+        );
+      }
+    }
+
+    const requestType = isAccountDeletion ? EmployeeRequestType.OTHER : dto.type;
+    const requestTitle = isAccountDeletion && !dto.title.includes('[ACCOUNT_DELETION]') 
+      ? `[ACCOUNT_DELETION] ${dto.title}` 
+      : dto.title;
+
     const request = await this.prisma.employeeRequest.create({
       data: {
         userId: actor.userId,
         departmentId,
-        type: dto.type,
-        title: dto.title,
+        type: requestType,
+        title: requestTitle,
         content: dto.content,
         amount: dto.amount,
         attachmentMetadata: dto.attachmentMetadata as Prisma.InputJsonValue | undefined,
@@ -184,6 +214,48 @@ export class EmployeeRequestsService {
         where: { id },
         data: { status: EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
       });
+
+      // Handle ACCOUNT_DELETION approval (supports both enum type and fallback title tag)
+      if ((request.type as string) === 'ACCOUNT_DELETION' || request.title.includes('[ACCOUNT_DELETION]')) {
+        const scheduledDate = new Date();
+        scheduledDate.setDate(scheduledDate.getDate() + 30);
+
+        // Check if there is a successor mentioned in title
+        const successorMatch = request.title.match(/\[Kế nhiệm: ([^\]]+)\]/);
+        if (successorMatch) {
+          const successorName = successorMatch[1];
+          // Find successor user and assign ADMIN role
+          const successorUser = await tx.user.findFirst({
+            where: {
+              profile: { fullName: { contains: successorName } }
+            },
+            select: { id: true }
+          });
+
+          if (successorUser) {
+            const adminRole = await tx.role.findUnique({ where: { code: 'ADMIN' } });
+            if (adminRole) {
+              const existingAdminRole = await tx.userRole.findFirst({
+                where: { userId: successorUser.id, roleId: adminRole.id }
+              });
+              if (!existingAdminRole) {
+                await tx.userRole.create({
+                  data: { userId: successorUser.id, roleId: adminRole.id }
+                });
+              }
+            }
+          }
+        }
+
+        await tx.user.update({
+          where: { id: request.userId },
+          data: {
+            accountStatus: AccountStatus.SUSPENDED,
+            deletionScheduledAt: scheduledDate,
+            isActive: false,
+          } as any,
+        });
+      }
 
       const notif = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,

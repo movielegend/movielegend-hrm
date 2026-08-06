@@ -11,6 +11,7 @@ import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/u
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
+import { spacing } from '../../theme/spacing';
 
 const appleTheme = {
   bg: '#FFFFFF',
@@ -320,6 +321,14 @@ export function HRDashboard() {
         </View>
 
       </ScrollView>
+
+      {/* Floating AI Chat Button */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => router.push('/hr/ai-chat' as any)}
+      >
+        <MaterialCommunityIcons name="robot-outline" size={28} color="#fff" />
+      </Pressable>
     </Screen>
   );
 }
@@ -671,4 +680,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xxl,
+    right: spacing.lg,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 999,
+  }
 });

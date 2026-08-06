@@ -10,6 +10,7 @@ import { useUserGuide } from '../../components/UserGuideManager';
 import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { EditProfileModal } from '../employees/components/EditProfileModal';
 import { ChangePasswordModal } from '../employees/components/ChangePasswordModal';
+import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 
 export function HRProfileScreen() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export function HRProfileScreen() {
   const { showConfirm } = useAppAlert();
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const openEdit = () => setIsEditing(true);
 
@@ -142,6 +144,11 @@ export function HRProfileScreen() {
               onPress={() => setIsChangingPassword(true)} 
             />
             <ActionRow 
+              icon="account-remove-outline" 
+              title="Quyền sở hữu & Xóa tài khoản" 
+              onPress={() => setIsDeleting(true)} 
+            />
+            <ActionRow 
               icon="logout-variant" 
               title="Đăng xuất" 
               titleColor="#EF4444"
@@ -155,16 +162,20 @@ export function HRProfileScreen() {
         <Text style={styles.versionText}>Phiên bản 1.0.0 (HR Suite)</Text>
       </ScrollView>
 
-      {/* Confirmation Modal */}
-      
-
       <EditProfileModal 
         visible={isEditing} 
         onClose={() => setIsEditing(false)} 
         initialPhone={user?.phone || ''} 
         initialEmail={user?.email || ''} 
       />
-      <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
+      <ChangePasswordModal 
+        visible={isChangingPassword} 
+        onClose={() => setIsChangingPassword(false)} 
+      />
+      <DeleteAccountModal 
+        visible={isDeleting} 
+        onClose={() => setIsDeleting(false)} 
+      />
     </View>
   );
 }

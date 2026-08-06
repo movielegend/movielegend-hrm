@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ActivityIndicator, Pressable, Platform, Dimensi
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { normalizeAndCompressImage } from '../../utils/image';
 
 const { width } = Dimensions.get('window');
 
@@ -50,7 +51,8 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
         // Removed skipProcessing because it causes malformed JPEGs on Android
       });
       if (photo?.uri) {
-        onCapture(photo.uri);
+        const normalizedUri = await normalizeAndCompressImage(photo.uri);
+        onCapture(normalizedUri);
       } else {
         throw new Error('Không thể lấy được ảnh chụp');
       }

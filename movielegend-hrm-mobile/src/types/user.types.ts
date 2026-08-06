@@ -24,4 +24,6 @@ export interface AuthUser {
   department?: DepartmentSummary | null;
   position?: PositionSummary | null;
   hasFaceData: boolean;
+  accountStatus?: string;
+  deletionScheduledAt?: string | null;
 }
