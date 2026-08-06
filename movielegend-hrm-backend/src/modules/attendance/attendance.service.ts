@@ -670,6 +670,7 @@ export class AttendanceService {
             },
           },
           shiftAssignment: { include: { shift: true } },
+            photoFile: { select: { id: true, fileUrl: true } },
         },
         orderBy: [{ workDate: 'desc' }, { checkInAt: 'desc' }],
         skip: (query.page - 1) * query.limit,
