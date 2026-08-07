@@ -90,17 +90,15 @@ export function DeleteAccountModal({ visible, onClose }: DeleteAccountModalProps
           password: password.trim(),
         });
 
+        onClose();
+        void logout();
         showAlert(
           'Thành công',
-          'Đã chuyển nhượng quyền Quản trị viên và đăng ký hủy tài khoản. Hệ thống sẽ tự động đăng xuất.',
-          () => {
-            onClose();
-            void logout();
-          }
+          'Đã chuyển nhượng quyền Quản trị viên và đăng ký hủy tài khoản. Hệ thống đã tự động đăng xuất.',
         );
       } else {
         const successorInfo = selectedEmployee
-          ? ` [Kế nhiệm: ${selectedEmployee.profile?.fullName || selectedEmployee.userCode}]`
+          ? ` [Kế nhiệm: ${selectedEmployee.id}]`
           : '';
 
         await createRequestMutation.mutateAsync({
@@ -111,13 +109,11 @@ export function DeleteAccountModal({ visible, onClose }: DeleteAccountModalProps
             : `Lý do: Muốn dừng sử dụng tài khoản.${successorInfo ? ` Bàn giao cho: ${selectedEmployee?.profile?.fullName}` : ''}`,
         });
 
+        onClose();
+        void logout();
         showAlert(
           'Yêu cầu thành công',
-          'Yêu cầu hủy tài khoản & chuyển nhượng quyền đã được gửi tới hệ thống. Bạn sẽ được tự động đăng xuất.',
-          () => {
-            onClose();
-            void logout();
-          }
+          'Yêu cầu hủy tài khoản & chuyển nhượng quyền đã được gửi tới hệ thống. Hệ thống đã tự động đăng xuất.',
         );
       }
     } catch (error: any) {

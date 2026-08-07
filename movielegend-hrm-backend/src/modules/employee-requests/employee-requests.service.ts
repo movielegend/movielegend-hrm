@@ -67,13 +67,14 @@ export class EmployeeRequestsService {
       }
     });
 
-    // Notify admins, HR, and Department Leader
+    // Notify admins, HR, and Department Leader (If ACCOUNT_DELETION, notify ADMINs only)
+    const targetRoles = isAccountDeletion ? ['ADMIN'] : ['ADMIN', 'HR', 'ACCOUNTANT'];
     const admins = await this.prisma.user.findMany({
       where: {
         accountStatus: 'ACTIVE',
         roles: {
           some: {
-            role: { code: { in: ['ADMIN', 'HR', 'ACCOUNTANT'] } }
+            role: { code: { in: targetRoles } }
           }
         }
       },
@@ -81,7 +82,7 @@ export class EmployeeRequestsService {
     });
 
     let leaderId: string | undefined;
-    if (departmentId) {
+    if (departmentId && !isAccountDeletion) {
       const dept = await this.prisma.department.findUnique({
         where: { id: departmentId },
         select: { leaderUserId: true }
@@ -204,7 +205,15 @@ export class EmployeeRequestsService {
   async approve(id: string, actor: AuthenticatedUser) {
     const request = await this.prisma.employeeRequest.findUnique({ where: { id } });
     if (!request) throw notFound('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
-    this.scope.assertDepartmentAccess(actor, request.departmentId);
+
+    const isAccountDeletion = (request.type as string) === 'ACCOUNT_DELETION' || request.title.includes('[ACCOUNT_DELETION]');
+    if (isAccountDeletion && !actor.roles.includes('ADMIN')) {
+      throw forbidden('ADMIN_ONLY_APPROVAL', 'Chỉ Quản trị viên (ADMIN) mới có quyền duyệt đơn xóa tài khoản.');
+    }
+
+    if (!isAccountDeletion) {
+      this.scope.assertDepartmentAccess(actor, request.departmentId);
+    }
     if (request.status !== EmployeeRequestStatus.PENDING) {
       throw badRequest('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn chờ duyệt');
     }
@@ -223,11 +232,15 @@ export class EmployeeRequestsService {
         // Check if there is a successor mentioned in title
         const successorMatch = request.title.match(/\[Kế nhiệm: ([^\]]+)\]/);
         if (successorMatch) {
-          const successorName = successorMatch[1];
-          // Find successor user and assign ADMIN role
+          const successorName = successorMatch[1].trim();
+          // Find successor user accurately by ID, userCode, or fullName
           const successorUser = await tx.user.findFirst({
             where: {
-              profile: { fullName: { contains: successorName } }
+              OR: [
+                { id: successorName },
+                { userCode: successorName },
+                { profile: { fullName: { contains: successorName } } }
+              ]
             },
             select: { id: true }
           });
