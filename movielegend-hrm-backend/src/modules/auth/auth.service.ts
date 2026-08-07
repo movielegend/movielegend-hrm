@@ -265,9 +265,21 @@ export class AuthService {
     const session = await this.prisma.refreshSession.findUnique({
       where: { id: payload.sessionId },
     });
-    if (!session || session.revokedAt || session.expiresAt <= new Date()) {
+    
+    // Check if session is completely invalid
+    if (!session || session.expiresAt <= new Date()) {
       throw unauthorized('REFRESH_TOKEN_REVOKED', 'Refresh token không hợp lệ hoặc đã bị thu hồi');
     }
+
+    // Grace period for concurrent refreshes (Race condition fix)
+    // If the token was revoked within the last 60 seconds, we still allow it to refresh
+    if (session.revokedAt) {
+      const timeSinceRevoked = Date.now() - session.revokedAt.getTime();
+      if (timeSinceRevoked > 60000) {
+        throw unauthorized('REFRESH_TOKEN_REVOKED', 'Refresh token không hợp lệ hoặc đã bị thu hồi');
+      }
+    }
+
     const match = await bcrypt.compare(dto.refreshToken, session.tokenHash);
     if (!match) throw unauthorized('REFRESH_TOKEN_REVOKED', 'Refresh token không hợp lệ hoặc đã bị thu hồi');
 
