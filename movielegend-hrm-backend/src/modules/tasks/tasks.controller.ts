@@ -68,6 +68,12 @@ export class TasksController {
     return this.tasks.cancel(id, actor);
   }
 
+  @Delete(':id')
+  @AnyPermissions('task.assign_any', 'task.assign_department')
+  remove(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.tasks.remove(id, actor);
+  }
+
   @Post(':id/comments')
   @AnyPermissions('task.comment_own', 'task.read_department', 'task.read_all')
   comment(@Param('id') id: string, @Body() dto: CreateTaskCommentDto, @CurrentUser() actor: AuthenticatedUser) {

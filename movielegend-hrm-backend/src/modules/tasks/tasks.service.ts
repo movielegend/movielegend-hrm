@@ -313,6 +313,16 @@ export class TasksService {
     });
   }
 
+  async remove(id: string, actor: AuthenticatedUser) {
+    const task = await this.prisma.task.findUnique({ where: { id } });
+    if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
+    this.assertCanManageTask(task.departmentContextId, actor);
+    return this.prisma.task.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   async acceptAssignment(assignmentId: string, actor: AuthenticatedUser) {
     return this.changeOwnAssignment(assignmentId, actor, TaskAssignmentStatus.ACCEPTED, TaskHistoryAction.ACCEPTED, {});
   }
