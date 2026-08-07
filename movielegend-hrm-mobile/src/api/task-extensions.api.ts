@@ -3,8 +3,8 @@ import type { ApiResponse } from '../types/api.types';
 import type { ReviewTaskPayload, TaskExtensionRequestDto } from '../types/task.types';
 export { createTaskExtensionRequest } from './tasks.api';
 
-export async function approveTaskExtension(id: string): Promise<TaskExtensionRequestDto> {
-  const response = await apiClient.patch<ApiResponse<TaskExtensionRequestDto>>(`/task-extensions/${id}/approve`);
+export async function approveTaskExtension(id: string, payload?: ReviewTaskPayload): Promise<TaskExtensionRequestDto> {
+  const response = await apiClient.patch<ApiResponse<TaskExtensionRequestDto>>(`/task-extensions/${id}/approve`, payload ?? {});
   return unwrapData(response);
 }
 

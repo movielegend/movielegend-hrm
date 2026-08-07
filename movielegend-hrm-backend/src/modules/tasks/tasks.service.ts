@@ -508,6 +508,18 @@ export class TasksService {
     if (new Date(dto.requestedDueAt) <= new Date()) {
       throw badRequest('INVALID_EXTENSION_DUE_AT', 'Requested due date must be in the future');
     }
+
+    const existingCount = await this.prisma.taskExtensionRequest.count({
+      where: {
+        assignmentId: dto.assignmentId,
+        status: { in: ['APPROVED', 'PENDING'] },
+      },
+    });
+
+    if (existingCount >= 2) {
+      throw badRequest('EXTENSION_LIMIT_EXCEEDED', 'Bạn đã đạt giới hạn tối đa 2 lần gia hạn cho công việc này');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const request = await tx.taskExtensionRequest.create({
         data: {
@@ -571,8 +583,8 @@ export class TasksService {
     });
   }
 
-  async approveExtension(id: string, actor: AuthenticatedUser) {
-    return this.decideExtension(id, actor, true);
+  async approveExtension(id: string, actor: AuthenticatedUser, reason?: string) {
+    return this.decideExtension(id, actor, true, reason);
   }
 
   async rejectExtension(id: string, actor: AuthenticatedUser, reason?: string) {
@@ -692,12 +704,16 @@ export class TasksService {
           where: { id: request.assignmentId },
           data: { assignmentDueAt: request.requestedDueAt },
         });
+        await tx.task.update({
+          where: { id: request.taskId },
+          data: { dueAt: request.requestedDueAt },
+        });
       }
       const updated = await tx.taskExtensionRequest.update({
         where: { id },
         data: {
           status: approve ? 'APPROVED' : 'REJECTED',
-          rejectionReason: approve ? undefined : reason,
+          rejectionReason: reason || undefined,
           decidedByUserId: actor.userId,
           decidedAt: new Date(),
         },
@@ -805,6 +821,7 @@ export class TasksService {
     let status: TaskStatus = TaskStatus.NEW;
     if (assignments.every((item) => item.status === TaskAssignmentStatus.COMPLETED)) status = TaskStatus.COMPLETED;
     else if (assignments.some((item) => item.status === TaskAssignmentStatus.WAITING_REVIEW)) status = TaskStatus.WAITING_REVIEW;
+    else if (assignments.some((item) => item.status === TaskAssignmentStatus.REJECTED)) status = TaskStatus.REJECTED;
     else if (assignments.some((item) => item.status === TaskAssignmentStatus.IN_PROGRESS)) status = TaskStatus.IN_PROGRESS;
     else if (assignments.some((item) => item.status === TaskAssignmentStatus.ACCEPTED)) status = TaskStatus.ACCEPTED;
     await tx.task.update({

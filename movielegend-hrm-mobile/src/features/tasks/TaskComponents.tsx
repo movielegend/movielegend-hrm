@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { ActionDatePicker } from './TaskScreens';
 import { useAppAlert } from '../../contexts/AlertContext';
 import { Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking, Platform, Image, ScrollView } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +15,7 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { colors } from '../../theme/colors';
@@ -319,16 +322,20 @@ export function AttachmentPicker({
 export function AttachmentList({ 
   attachments,
   canDelete,
-  onDeleteAttachment 
+  onDeleteAttachment,
+  isUnaccepted = false,
 }: { 
   attachments?: TaskAttachmentDto[] | undefined;
   canDelete?: (attachmentId: string) => boolean;
   onDeleteAttachment?: (id: string) => Promise<void>;
+  isUnaccepted?: boolean;
 }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [pdfHtml, setPdfHtml] = useState<string | null>(null);
-  const [currentPdfUri, setCurrentPdfUri] = useState<string | null>(null);
+  const [imagePreviewUri, setImagePreviewUri] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('Xem tệp');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { showAlert } = useAppAlert();
 
   if (!attachments?.length) return <EmptyState small icon="paperclip" title="Chưa có tệp đính kèm" message="Thêm tài liệu liên quan đến công việc này." />;
   return (
@@ -346,136 +353,114 @@ export function AttachmentList({
         setDeletingId(null);
       }}
     />
-    {/* Modal xem PDF ngay trong App */}
-    <Modal visible={!!pdfHtml} animationType="slide" onRequestClose={() => setPdfHtml(null)}>
+
+    {/* Modal xem PDF offline trực tiếp trong App */}
+    <PdfViewerModal
+      visible={!!pdfPreviewUrl}
+      url={pdfPreviewUrl}
+      title={previewTitle}
+      onClose={() => setPdfPreviewUrl(null)}
+    />
+
+    {/* Modal xem Ảnh trực tiếp trong App */}
+    <Modal visible={!!imagePreviewUri} animationType="slide" onRequestClose={() => setImagePreviewUri(null)}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#1a1a1a', gap: 8 }}>
           <Pressable
-            onPress={() => {
-              setPdfHtml(null);
-              setCurrentPdfUri(null);
-            }}
+            onPress={() => setImagePreviewUri(null)}
             style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#333', borderRadius: 8 }}
           >
             <Text style={{ color: '#fff', fontWeight: '600' }}>✕ Đóng</Text>
           </Pressable>
-          <Text style={{ color: '#fff', flex: 1, fontWeight: '600', fontSize: 15 }}>Xem tài liệu</Text>
-          {currentPdfUri && (
+          <Text style={{ color: '#fff', flex: 1, fontWeight: '600', fontSize: 15 }} numberOfLines={1}>{previewTitle}</Text>
+          {imagePreviewUri && (
             <Pressable
-              onPress={() => Sharing.shareAsync(currentPdfUri, { UTI: 'application/pdf', mimeType: 'application/pdf' }).catch(console.error)}
+              onPress={() => Sharing.shareAsync(imagePreviewUri).catch(console.error)}
               style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.primary, borderRadius: 8 }}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Lưu / Chia sẻ</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Chia sẻ</Text>
             </Pressable>
           )}
         </View>
-        {pdfHtml ? (
-          <WebView
-            source={{ html: pdfHtml, baseUrl: '' }}
-            style={{ flex: 1 }}
-            originWhitelist={['*']}
-            javaScriptEnabled
-            startInLoadingState
-            mixedContentMode="always"
-          />
+        {imagePreviewUri ? (
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }} maximumZoomScale={3} minimumZoomScale={1}>
+            <Image source={{ uri: imagePreviewUri }} style={{ width: '100%', height: '100%', resizeMode: 'contain' }} />
+          </ScrollView>
         ) : null}
       </SafeAreaView>
     </Modal>
+
     <View style={styles.stack}>
       {attachments.map((attachment) => (
         <Pressable 
           key={attachment.id} 
           style={[styles.row, styles.attachmentTile, downloadingId === attachment.id && { opacity: 0.6 }]}
           onPress={async () => {
+            if (isUnaccepted) {
+              showAlert('Yêu cầu nhận việc', 'Vui lòng nhấn "Nhận việc" trước khi xem tài liệu đính kèm.');
+              return;
+            }
             const url = resolveFileUrl(attachment.fileUrl);
             if (!url) return;
             
             try {
               setDownloadingId(attachment.id);
-              
-              const assumedMimeType = attachment.mimeType || 'application/pdf';
+              const fileName = attachment.fileName || 'file';
+              const ext = (fileName.split('.').pop() || '').toLowerCase();
+              const mime = (attachment.mimeType || '').toLowerCase();
 
-              if (assumedMimeType === 'application/pdf') {
-                // Tải file về máy trước, sau đó render bằng PDF.js trong WebView
-                let cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
-                if (!cleanFileName.toLowerCase().endsWith('.pdf')) cleanFileName += '.pdf';
+              const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || mime.startsWith('image/');
+              const isPdf = ext === 'pdf' || mime.includes('pdf');
+
+              setPreviewTitle(fileName);
+
+              if (isImg) {
+                let cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
                 const localUri = FileSystem.documentDirectory + cleanFileName;
                 const info = await FileSystem.getInfoAsync(localUri);
                 let fileUri = localUri;
                 if (!info.exists) {
                   const { uri } = await FileSystem.downloadAsync(url, localUri, {
-                    headers: {
-                      'ngrok-skip-browser-warning': 'true'
-                    }
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
                   });
                   fileUri = uri;
                 }
-                const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
-                // Tạo HTML page với PDF.js để render PDF từ base64 - hoạt động hoàn toàn offline
-                const html = `<!DOCTYPE html><html><head>
-                  <meta name="viewport" content="width=device-width,initial-scale=1">
-                  <style>body{margin:0;background:#525659;}canvas{display:block;margin:8px auto;box-shadow:0 2px 8px rgba(0,0,0,.4);}#loading{color:#fff;text-align:center;padding:40px;font-family:sans-serif;font-size:16px;}#error{color:#f88;text-align:center;padding:40px;font-family:sans-serif;}</style>
-                </head><body>
-                  <div id="loading">Đang tải PDF...</div>
-                  <div id="error"></div>
-                  <div id="container"></div>
-                  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-                  <script>
-                    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                    const base64='${base64}';
-                    const binary=atob(base64);
-                    const bytes=new Uint8Array(binary.length);
-                    for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-                    pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){
-                      document.getElementById('loading').style.display='none';
-                      for(let p=1;p<=pdf.numPages;p++){
-                        pdf.getPage(p).then(function(page){
-                          const vp=page.getViewport({scale:window.innerWidth/page.getViewport({scale:1}).width});
-                          const pixelRatio = window.devicePixelRatio || 1;
-                          const canvas = document.createElement('canvas');
-                          const context = canvas.getContext('2d');
-                          
-                          canvas.width = Math.floor(vp.width * pixelRatio);
-                          canvas.height = Math.floor(vp.height * pixelRatio);
-                          canvas.style.width = Math.floor(vp.width) + 'px';
-                          canvas.style.height = Math.floor(vp.height) + 'px';
-                          
-                          document.getElementById('container').appendChild(canvas);
-                          
-                          const transform = pixelRatio !== 1 ? [pixelRatio, 0, 0, pixelRatio, 0, 0] : null;
-                          
-                          page.render({
-                            canvasContext: context,
-                            transform: transform,
-                            viewport: vp
-                          });
-                        });
-                      }
-                    }).catch(function(e){
-                      document.getElementById('loading').style.display='none';
-                      document.getElementById('error').innerHTML='Lỗi: '+e.message;
-                    });
-                  </script>
-                </body></html>`;
-                setPdfHtml(html);
-                setCurrentPdfUri(fileUri);
+                setImagePreviewUri(fileUri);
                 return;
               }
 
-              // Các file khác: Sharing
-              let cleanFileName = (attachment.fileName || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
+              if (isPdf) {
+                setPdfPreviewUrl(url);
+                return;
+              }
+
+              // Các loại file khác: Tải về và mở menu chia sẻ/xem của OS
+              let cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
               const localUri = FileSystem.documentDirectory + cleanFileName;
               const { uri } = await FileSystem.downloadAsync(url, localUri);
-              await Sharing.shareAsync(uri, { UTI: assumedMimeType, mimeType: assumedMimeType });
+              await Sharing.shareAsync(uri, { UTI: mime || undefined, mimeType: mime || undefined });
             } catch (err) {
               console.error(err);
-              Linking.openURL(resolveFileUrl(attachment.fileUrl) ?? '').catch((e) => console.error(e));
+              if (url) {
+                setPreviewTitle(attachment.fileName || 'Xem tệp');
+                setPdfPreviewUrl(url);
+              }
             } finally {
               setDownloadingId(null);
             }
           }}
         >
-          <MaterialCommunityIcons name="file-document-outline" size={28} color={colors.primary} />
+          {(() => {
+            const fn = attachment.fileName || '';
+            const ext = fn.split('.').pop()?.toLowerCase() || '';
+            const mime = (attachment.mimeType || '').toLowerCase();
+            const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || mime.startsWith('image/');
+            return isImg ? (
+              <MaterialCommunityIcons name="file-image-outline" size={28} color="#2563EB" />
+            ) : (
+              <MaterialCommunityIcons name="file-document-outline" size={28} color={colors.primary} />
+            );
+          })()}
           <View style={styles.flex}>
             <Text style={styles.titleSmall} numberOfLines={1}>
               {downloadingId === attachment.id ? 'Đang mở...' : attachment.fileName}
@@ -538,79 +523,75 @@ export function ExtensionRequestModal({
   currentDueAt,
   onSubmit,
   pending,
+  extensionCount = 0,
 }: {
   currentDueAt?: string | null | undefined;
   onSubmit: (requestedDueAt: string, reason: string) => Promise<void>;
   pending?: boolean;
+  extensionCount?: number;
 }) {
   const [requestedDueAt, setRequestedDueAt] = useState(currentDueAt ?? '');
   const [reason, setReason] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   
   const selectedDate = requestedDueAt ? new Date(requestedDueAt) : new Date();
   const invalidDate = Boolean(currentDueAt && requestedDueAt && new Date(requestedDueAt) <= new Date(currentDueAt));
-  
-  const handleDateChange = (event: any, date?: Date) => {
-    setShowDatePicker(false);
-    if (date) {
-      if (Platform.OS === 'android') {
-        const current = new Date(requestedDueAt || new Date());
-        current.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-        setRequestedDueAt(current.toISOString());
-        setShowTimePicker(true);
-      } else {
-        setRequestedDueAt(date.toISOString());
-      }
-    }
-  };
+  const isLimitReached = extensionCount >= 2;
 
-  const handleTimeChange = (event: any, date?: Date) => {
-    setShowTimePicker(false);
-    if (date) {
-      const current = new Date(requestedDueAt || new Date());
-      current.setHours(date.getHours(), date.getMinutes());
-      setRequestedDueAt(current.toISOString());
-    }
-  };
+  if (isLimitReached) {
+    return (
+      <View style={[styles.inlinePanel, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.warning} />
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.warning }}>
+            Đã đạt giới hạn gia hạn (2/2 lần)
+          </Text>
+        </View>
+        <Text style={[styles.metaSmall, { marginTop: 4, color: colors.textSecondary }]}>
+          Bạn đã sử dụng hết 2 lượt xin gia hạn cho công việc này.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.stack}>
-      <Text style={[styles.meta, { marginBottom: -4 }]}>Hạn chót đề xuất</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={styles.meta}>Hạn chót đề xuất</Text>
+        <Text style={[styles.metaSmall, { color: colors.primary, fontWeight: '600' }]}>Đã xin: {extensionCount}/2 lần</Text>
+      </View>
       <Pressable
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.md, backgroundColor: colors.surface }}
-        onPress={() => setShowDatePicker(true)}
+        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.md, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        onPress={() => setShowPicker(true)}
       >
-        <Text style={{ color: requestedDueAt ? colors.text : colors.muted }}>
+        <Text style={{ color: requestedDueAt ? colors.text : colors.muted, fontWeight: '500' }}>
           {requestedDueAt ? formatDateTime(requestedDueAt) : 'Chọn ngày & giờ'}
         </Text>
+        <MaterialCommunityIcons name="calendar-clock" size={20} color={colors.primary} />
       </Pressable>
       
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
-      {showTimePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="time"
-          display="default"
-          onChange={handleTimeChange}
-        />
-      )}
+      <ActionDatePicker
+        visible={showPicker}
+        title="Chọn hạn chót đề xuất"
+        value={selectedDate}
+        onChange={(d) => setRequestedDueAt(d.toISOString())}
+        onClose={() => setShowPicker(false)}
+      />
 
       <FormField label="Lý do gia hạn" value={reason} onChangeText={setReason} multiline />
       {invalidDate ? <Text style={styles.dangerText}>Ngày mới phải sau hạn chót hiện tại.</Text> : null}
       <SecondaryButton
         disabled={!requestedDueAt || reason.trim().length < 3 || invalidDate}
         loading={pending}
-        onPress={() => void onSubmit(requestedDueAt, reason)}
+        onPress={() => {
+          const due = requestedDueAt;
+          const r = reason;
+          setRequestedDueAt('');
+          setReason('');
+          void onSubmit(due, r);
+        }}
       >
-        Gửi gia hạn
+        Gửi gia hạn ({extensionCount + 1}/2)
       </SecondaryButton>
     </View>
   );
@@ -626,7 +607,16 @@ export function ExtensionList({ extensions }: { extensions?: TaskExtensionReques
             <TaskStatusBadge status={extension.status} />
             <Text style={[styles.meta, { marginLeft: 'auto' }]}>{formatDateTime(extension.requestedDueAt)}</Text>
           </View>
-          <Text style={[styles.body, { marginTop: spacing.xs }]}>{extension.reason}</Text>
+          <Text style={[styles.body, { marginTop: spacing.xs }]}>
+            <Text style={{ fontWeight: '600' }}>Lý do xin gia hạn:</Text> {extension.reason}
+          </Text>
+          {Boolean(extension.rejectionReason || (extension as any).decisionNote || (extension as any).note) ? (
+            <View style={{ marginTop: spacing.xs, backgroundColor: extension.status === 'APPROVED' ? colors.successSoft : colors.dangerSoft, padding: spacing.xs, borderRadius: 6 }}>
+              <Text style={{ fontSize: 13, color: extension.status === 'APPROVED' ? colors.successDark : colors.dangerDark, fontWeight: '600' }}>
+                Ghi chú duyệt: {extension.rejectionReason || (extension as any).decisionNote || (extension as any).note}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ))}
     </View>
@@ -640,15 +630,17 @@ export function TargetPreview({ task }: { task: TaskDto }) {
 
   if (!targets.length) {
     return (
-      <SectionCard title="Người thực hiện">
-        <EmptyState small icon="account-group" title="Chưa có người nhận việc" message="Hãy giao việc cho ai đó." />
-      </SectionCard>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+        <MaterialCommunityIcons name="account-group" size={16} color={colors.muted} />
+        <Text style={styles.metaSmall}>Chưa có người nhận việc</Text>
+      </View>
     );
   }
 
   return (
-    <SectionCard title="Người thực hiện">
-      <View style={styles.rowWrap}>
+    <View style={{ gap: spacing.xs }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginRight: 2 }}>Người thực hiện:</Text>
         {targets.map((t) => {
           const type = t.targetType ?? t.type;
           let icon: keyof typeof MaterialCommunityIcons.glyphMap = 'account';
@@ -669,19 +661,19 @@ export function TargetPreview({ task }: { task: TaskDto }) {
 
           return (
             <View key={t.id} style={styles.targetChip}>
-              <MaterialCommunityIcons name={icon} size={16} color={colors.primary} />
+              <MaterialCommunityIcons name={icon} size={14} color={colors.primary} />
               <Text style={styles.targetChipText}>{label}</Text>
             </View>
           );
         })}
       </View>
       {assignments.length > 0 && (
-        <View style={[styles.row, { marginTop: spacing.xs }]}>
-          <MaterialCommunityIcons name="check-all" size={18} color={colors.success} />
-          <Text style={styles.meta}>{completed} / {assignments.length} người đã hoàn thành</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 2 }}>
+          <MaterialCommunityIcons name="check-all" size={16} color={colors.success} />
+          <Text style={[styles.metaSmall, { color: colors.success }]}>{completed} / {assignments.length} người đã hoàn thành</Text>
         </View>
       )}
-    </SectionCard>
+    </View>
   );
 }
 

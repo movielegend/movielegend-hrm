@@ -10,7 +10,7 @@ export class TaskPolicyService {
       ACCEPTED: [TaskAssignmentStatus.IN_PROGRESS, TaskAssignmentStatus.CANCELLED],
       IN_PROGRESS: [TaskAssignmentStatus.WAITING_REVIEW, TaskAssignmentStatus.CANCELLED],
       WAITING_REVIEW: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.REJECTED],
-      REJECTED: [TaskAssignmentStatus.IN_PROGRESS, TaskAssignmentStatus.CANCELLED],
+      REJECTED: [TaskAssignmentStatus.IN_PROGRESS, TaskAssignmentStatus.WAITING_REVIEW, TaskAssignmentStatus.CANCELLED],
       COMPLETED: [],
       CANCELLED: [],
     };

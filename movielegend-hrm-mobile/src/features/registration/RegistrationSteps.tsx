@@ -39,24 +39,17 @@ export function RegistrationIntroScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
-        {/* Background ML Logo Watermark */}
-        <View style={{ position: 'absolute', top: 205, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', zIndex: 0 }} pointerEvents="none">
-          <Image
-            source={require('../../../assets/ml-logo-only.png')}
-            style={{ width: 380, height: 240, opacity: 0.15 }}
-            resizeMode="contain"
-          />
-        </View>
 
         <View style={{ flex: 1, justifyContent: 'center', padding: 24, zIndex: 1 }}>
           <View style={{ alignItems: 'center', marginBottom: 36 }}>
             <Image 
               source={require('../../../assets/ml-logo-only.png')} 
-              style={{ width: 140, height: 60, marginBottom: 16 }} 
+              style={{ width: 140, height: 70, marginBottom: 8 }} 
               resizeMode="contain" 
             />
-            <Text style={{ fontSize: 24, fontWeight: '700', color: '#111827', marginBottom: 6 }}>Đăng ký</Text>
-            <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Tạo tài khoản mới cho Movielegend</Text>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: '#000000', letterSpacing: 1.5, marginBottom: 12 }}>MOVIE LEGEND</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Đăng ký</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Tạo tài khoản mới cho ML Group</Text>
           </View>
           
           <View style={{ flex: 1 }}>
@@ -102,14 +95,6 @@ export function RegistrationProfileScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-        {/* Background ML Logo Watermark */}
-        <View style={{ position: 'absolute', top: 205, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', zIndex: 0 }} pointerEvents="none">
-          <Image
-            source={require('../../../assets/ml-logo-only.png')}
-            style={{ width: 380, height: 240, opacity: 0.18 }}
-            resizeMode="contain"
-          />
-        </View>
 
         <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60, zIndex: 1 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
@@ -124,7 +109,7 @@ export function RegistrationProfileScreen() {
 
           <View style={{ gap: 20 }}>
             <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
-            <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" label="Số điện thoại" value={field.value} onChangeText={field.onChange} error={errors.phone?.message} />} />
+            <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" maxLength={10} label="Số điện thoại" value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 10))} error={errors.phone?.message} />} />
             <Controller control={control} name="email" render={({ field }) => <FormField autoCapitalize="none" keyboardType="email-address" label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} />} />
             <Controller control={control} name="password" render={({ field }) => <FormField isPassword label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
             <Controller control={control} name="confirmPassword" render={({ field }) => <FormField isPassword label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
@@ -171,7 +156,7 @@ export function RegistrationPersonalScreen() {
           </View>
 
           <View style={{ gap: 20 }}>
-            <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="Số CCCD" value={field.value} onChangeText={field.onChange} error={errors.idCardNumber?.message} keyboardType="numeric" />} />
+            <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="Số CCCD" maxLength={12} value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 12))} error={errors.idCardNumber?.message} keyboardType="numeric" />} />
             
             <View>
               <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>

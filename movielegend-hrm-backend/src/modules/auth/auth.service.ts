@@ -686,6 +686,29 @@ export class AuthService {
         where: { userId, type: 'ACCOUNT_DELETION' as any, status: EmployeeRequestStatus.APPROVED },
         data: { status: EmployeeRequestStatus.CANCELLED },
       });
+
+      // If this user was an ADMIN who initiated adminSelfDelete, revoke the ADMIN role granted to successor(s)
+      const userAdminRole = await tx.userRole.findFirst({
+        where: { userId, role: { code: 'ADMIN' } },
+      });
+      if (userAdminRole) {
+        // Find recent ADMIN roles granted to successors during self-delete and revert if current admin has restored their account
+        const recentSelfDeleteHistory = await tx.auditLog.findFirst({
+          where: { actorUserId: userId, action: 'ADMIN_SELF_DELETE_INITIATED' },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (recentSelfDeleteHistory?.entityId) {
+          const successorUserId = recentSelfDeleteHistory.entityId;
+          const adminRole = await tx.role.findUnique({ where: { code: 'ADMIN' } });
+          if (adminRole) {
+            await tx.userRole.deleteMany({
+              where: { userId: successorUserId, roleId: adminRole.id },
+            });
+            // Force logout successor so their token updates
+            this.realtime.emitToUser(successorUserId, 'auth:force_logout', { reason: 'ROLE_REVOKED' });
+          }
+        }
+      }
     });
 
     return { message: 'Đã hủy yêu cầu xóa tài khoản thành công. Tài khoản của bạn đã hoạt động trở lại!' };
@@ -729,7 +752,17 @@ export class AuthService {
         } as any,
       });
 
-      // 3. Revoke all refresh sessions for current admin so they get logged out
+      // 3. Log audit entry for tracking successor user id
+      await tx.auditLog.create({
+        data: {
+          actorUserId: currentAdminUserId,
+          action: 'ADMIN_SELF_DELETE_INITIATED',
+          entityType: 'User',
+          entityId: targetSuccessorUserId || currentAdminUserId,
+        },
+      });
+
+      // 4. Revoke all refresh sessions for current admin so they get logged out
       await tx.refreshSession.deleteMany({
         where: { userId: currentAdminUserId },
       });

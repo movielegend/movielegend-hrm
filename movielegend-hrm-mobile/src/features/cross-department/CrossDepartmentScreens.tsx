@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { uploadFile } from '../../api/uploads.api';
 
 import { EmptyState } from '../../components/EmptyState';
@@ -17,6 +18,7 @@ import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
 
+import { AttachmentList } from '../tasks/TaskComponents';
 import { 
   useCrossDepartmentAction, 
   useCreateCrossDepartmentRequest, 
@@ -41,7 +43,7 @@ type CrossArea = 'employee' | 'leader' | 'admin' | 'hr';
 // ==========================================
 export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossArea; mode?: 'all' | 'incoming' }) {
   const router = useRouter();
-  const [directionTab, setDirectionTab] = useState<'outgoing' | 'incoming' | 'all'>('outgoing');
+  const [directionTab, setDirectionTab] = useState<'outgoing' | 'incoming' | 'all'>(mode === 'incoming' ? 'incoming' : 'outgoing');
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('ALL');
 
   const list = useCrossDepartmentRequests({ 
@@ -196,7 +198,10 @@ export function CreateCrossDepartmentScreen() {
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const pickAttachment = async () => {
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [attachmentMime, setAttachmentMime] = useState<string | null>(null);
+
+  const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
@@ -204,6 +209,24 @@ export function CreateCrossDepartmentScreen() {
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setAttachmentUri(result.assets[0].uri);
+      setAttachmentName(result.assets[0].fileName || 'image.jpg');
+      setAttachmentMime(result.assets[0].mimeType || 'image/jpeg');
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setAttachmentUri(result.assets[0].uri);
+        setAttachmentName(result.assets[0].name || 'document');
+        setAttachmentMime(result.assets[0].mimeType || 'application/octet-stream');
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -235,8 +258,8 @@ export function CreateCrossDepartmentScreen() {
       if (attachmentUri) {
         const uploaded = await uploadFile({
           uri: attachmentUri,
-          name: attachmentUri.split('/').pop() || 'request-attachment.jpg',
-          mimeType: 'image/jpeg',
+          name: attachmentName || attachmentUri.split('/').pop() || 'request-attachment',
+          mimeType: attachmentMime || 'application/octet-stream',
           purpose: 'TASK_ATTACHMENT',
         });
         const fileUrl = uploaded.fileUrl || (uploaded as any).url;
@@ -303,36 +326,61 @@ export function CreateCrossDepartmentScreen() {
           <FormField label="Mã Task liên quan (Tùy chọn)" value={taskId} onChangeText={setTaskId} autoCapitalize="none" placeholder="Nhập ID công việc nếu có" />
 
           {/* Attachment Selection */}
-          <Text style={styles.fieldLabel}>Ảnh / Đính kèm (Tùy chọn)</Text>
-          <Pressable 
-            style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              gap: 8, 
-              padding: 12, 
-              borderWidth: 1, 
-              borderColor: colors.border, 
-              borderRadius: 8, 
-              backgroundColor: colors.background,
-              marginBottom: spacing.md
-            }}
-            onPress={() => void pickAttachment()}
-          >
-            <MaterialCommunityIcons name="paperclip" size={20} color={colors.primary} />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
-              {attachmentUri ? 'Đã chọn 1 ảnh đính kèm (Chạm để đổi)' : 'Tải lên ảnh hoặc file minh chứng'}
-            </Text>
-          </Pressable>
+          <Text style={styles.fieldLabel}>Tài liệu / Ảnh đính kèm (Tùy chọn)</Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
+            <Pressable 
+              style={{ 
+                flex: 1,
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                gap: 6, 
+                padding: 10, 
+                borderWidth: 1, 
+                borderColor: colors.primary, 
+                borderRadius: 10, 
+                backgroundColor: colors.primarySoft 
+              }}
+              onPress={() => void pickImage()}
+            >
+              <MaterialCommunityIcons name="image-outline" size={18} color={colors.primary} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn ảnh</Text>
+            </Pressable>
+
+            <Pressable 
+              style={{ 
+                flex: 1,
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                gap: 6, 
+                padding: 10, 
+                borderWidth: 1, 
+                borderColor: colors.primary, 
+                borderRadius: 10, 
+                backgroundColor: colors.primarySoft 
+              }}
+              onPress={() => void pickDocument()}
+            >
+              <MaterialCommunityIcons name="file-document-outline" size={18} color={colors.primary} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn file / PDF</Text>
+            </Pressable>
+          </View>
 
           {attachmentUri && (
-            <View style={{ marginBottom: spacing.md, alignItems: 'center', position: 'relative' }}>
-              <Image source={{ uri: attachmentUri }} style={{ width: 140, height: 140, borderRadius: 12 }} />
+            <View style={{ marginBottom: spacing.md, padding: spacing.xs, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <MaterialCommunityIcons name="file-check-outline" size={20} color={colors.primary} />
+              <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.text }} numberOfLines={1}>
+                {attachmentName || 'Tệp đính kèm'}
+              </Text>
               <Pressable 
-                style={{ position: 'absolute', top: -6, right: '30%', backgroundColor: colors.danger, borderRadius: 12, padding: 2 }}
-                onPress={() => setAttachmentUri(null)}
+                onPress={() => {
+                  setAttachmentUri(null);
+                  setAttachmentName(null);
+                  setAttachmentMime(null);
+                }}
               >
-                <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                <MaterialCommunityIcons name="close-circle-outline" size={20} color={colors.error} />
               </Pressable>
             </View>
           )}
@@ -397,7 +445,9 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
   const [inputActionType, setInputActionType] = useState<'update-progress' | 'submit' | 'complete' | null>(null);
 
   // File/Image Attachment State
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [selectedAttachmentUri, setSelectedAttachmentUri] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedMimeType, setSelectedMimeType] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const pickImage = async () => {
@@ -407,7 +457,25 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
       quality: 0.8,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setSelectedImageUri(result.assets[0].uri);
+      setSelectedAttachmentUri(result.assets[0].uri);
+      setSelectedFileName(result.assets[0].fileName || 'image.jpg');
+      setSelectedMimeType(result.assets[0].mimeType || 'image/jpeg');
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedAttachmentUri(result.assets[0].uri);
+        setSelectedFileName(result.assets[0].name || 'file');
+        setSelectedMimeType(result.assets[0].mimeType || 'application/octet-stream');
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -452,7 +520,9 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
   function openInputModal(type: 'update-progress' | 'submit' | 'complete') {
     setInputActionType(type);
     setInputModalValue('');
-    setSelectedImageUri(null);
+    setSelectedAttachmentUri(null);
+    setSelectedFileName(null);
+    setSelectedMimeType(null);
     if (type === 'update-progress') {
       setInputModalTitle('Cập nhật tiến độ');
       setInputModalDesc('Nhập % hoàn thành công việc (từ 0 đến 100):');
@@ -474,11 +544,11 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
     try {
       setIsUploading(true);
       let attachmentUrl = '';
-      if (selectedImageUri) {
+      if (selectedAttachmentUri) {
         const uploaded = await uploadFile({
-          uri: selectedImageUri,
-          name: selectedImageUri.split('/').pop() || 'result-attachment.jpg',
-          mimeType: 'image/jpeg',
+          uri: selectedAttachmentUri,
+          name: selectedFileName || selectedAttachmentUri.split('/').pop() || 'result-attachment',
+          mimeType: selectedMimeType || 'application/octet-stream',
           purpose: 'TASK_ATTACHMENT',
         });
         attachmentUrl = uploaded.fileUrl || (uploaded as any).url;
@@ -500,7 +570,9 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
       setIsUploading(false);
       Alert.alert('Thành công', 'Cập nhật trạng thái thành công!');
       setInputModalVisible(false);
-      setSelectedImageUri(null);
+      setSelectedAttachmentUri(null);
+      setSelectedFileName(null);
+      setSelectedMimeType(null);
     } catch (error) {
       setIsUploading(false);
       const normalized = normalizeApiError(error);
@@ -515,7 +587,7 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
         
         <SectionCard>
           <View style={styles.statusWrap}>
-            <StatusBadge label={item.status} tone={toneForStatus(item.status)} />
+            <StatusBadge label={statusToVietnamese(item.status)} tone={toneForStatus(item.status)} />
             <Text style={styles.dateText}>{formatDateTime(item.createdAt)}</Text>
           </View>
           
@@ -537,14 +609,29 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
           <View style={styles.divider} />
           
           <Text style={styles.sectionTitle}>Nội dung yêu cầu</Text>
-          <Text style={styles.bodyText}>{item.content.replace(/\[File đính kèm\]:\s*http\S+/g, '').trim()}</Text>
+          <Text style={styles.bodyText}>{item.content.replace(/\[File đính kèm\]:\s*\S+/g, '').trim()}</Text>
           {item.content.includes('[File đính kèm]:') && (
             <View style={{ marginBottom: spacing.md, width: '100%' }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 6 }}>Tài liệu / Ảnh đính kèm từ Bên gửi:</Text>
-              <Image 
-                source={{ uri: item.content.split('[File đính kèm]:')[1].trim() }} 
-                style={{ width: '100%', height: 200, borderRadius: 12, resizeMode: 'cover' }} 
-              />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 6 }}>Tài liệu / Minh chứng đính kèm ban đầu:</Text>
+              {(() => {
+                const url = item.content.split('[File đính kèm]:')[1].trim();
+                const fileName = url.split('/').pop() || 'tai_lieu_dinh_kem';
+                const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(fileName);
+                return (
+                  <AttachmentList 
+                    attachments={[{
+                      id: 'initial_attachment',
+                      taskId: item.id,
+                      uploadedByUserId: item.createdByUserId,
+                      type: isImage ? 'FILE' : 'FILE',
+                      fileName: fileName,
+                      fileUrl: url,
+                      mimeType: isImage ? 'image/jpeg' : 'application/pdf',
+                      createdAt: item.createdAt
+                    }]} 
+                  />
+                );
+              })()}
             </View>
           )}
           <Text style={styles.metaText}>Người tạo: {item.createdBy?.profile?.fullName ?? item.createdBy?.userCode ?? 'N/A'}</Text>
@@ -560,15 +647,30 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
                 <Text style={[styles.rejectText, { color: colors.primaryDark, fontWeight: '700' }]}>Báo cáo kết quả:</Text>
               </View>
               <Text style={{ fontSize: 14, color: colors.text, marginTop: 4, lineHeight: 20 }}>
-                {item.resultSummary.replace(/\[File đính kèm\]:\s*http\S+/g, '').trim()}
+                {item.resultSummary.replace(/\[File đính kèm\]:\s*\S+/g, '').trim()}
               </Text>
               {item.resultSummary.includes('[File đính kèm]:') && (
                 <View style={{ marginTop: spacing.sm, width: '100%' }}>
-                  <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Hình ảnh / minh chứng đính kèm:</Text>
-                  <Image 
-                    source={{ uri: item.resultSummary.split('[File đính kèm]:')[1].trim() }} 
-                    style={{ width: '100%', height: 180, borderRadius: 10, resizeMode: 'cover' }} 
-                  />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 4 }}>Minh chứng kết quả đính kèm:</Text>
+                  {(() => {
+                    const url = item.resultSummary.split('[File đính kèm]:')[1].trim();
+                    const fileName = url.split('/').pop() || 'ket_qua_dinh_kem';
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(fileName);
+                    return (
+                      <AttachmentList 
+                        attachments={[{
+                          id: 'result_attachment',
+                          taskId: item.id,
+                          uploadedByUserId: item.assignedToUserId || '',
+                          type: 'FILE',
+                          fileName: fileName,
+                          fileUrl: url,
+                          mimeType: isImage ? 'image/jpeg' : 'application/pdf',
+                          createdAt: item.createdAt
+                        }]} 
+                      />
+                    );
+                  })()}
                 </View>
               )}
             </View>
@@ -674,34 +776,60 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
 
             {inputActionType === 'submit' && (
               <View style={{ marginBottom: spacing.md }}>
-                <Pressable 
-                  style={{ 
-                    flexDirection: 'row', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    gap: 8, 
-                    padding: 12, 
-                    borderWidth: 1, 
-                    borderColor: colors.primary, 
-                    borderRadius: 12, 
-                    backgroundColor: colors.primarySoft 
-                  }}
-                  onPress={() => void pickImage()}
-                >
-                  <MaterialCommunityIcons name="paperclip" size={20} color={colors.primary} />
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.primary }}>
-                    {selectedImageUri ? 'Đã đính kèm 1 ảnh (Chạm để đổi)' : 'Tải lên ảnh / minh chứng kết quả'}
-                  </Text>
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  <Pressable 
+                    style={{ 
+                      flex: 1,
+                      flexDirection: 'row', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      gap: 6, 
+                      padding: 10, 
+                      borderWidth: 1, 
+                      borderColor: colors.primary, 
+                      borderRadius: 10, 
+                      backgroundColor: colors.primarySoft 
+                    }}
+                    onPress={() => void pickImage()}
+                  >
+                    <MaterialCommunityIcons name="image-outline" size={18} color={colors.primary} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn ảnh</Text>
+                  </Pressable>
 
-                {selectedImageUri && (
-                  <View style={{ marginTop: spacing.sm, alignItems: 'center', position: 'relative' }}>
-                    <Image source={{ uri: selectedImageUri }} style={{ width: 120, height: 120, borderRadius: 12 }} />
+                  <Pressable 
+                    style={{ 
+                      flex: 1,
+                      flexDirection: 'row', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      gap: 6, 
+                      padding: 10, 
+                      borderWidth: 1, 
+                      borderColor: colors.primary, 
+                      borderRadius: 10, 
+                      backgroundColor: colors.primarySoft 
+                    }}
+                    onPress={() => void pickDocument()}
+                  >
+                    <MaterialCommunityIcons name="file-document-outline" size={18} color={colors.primary} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn file / PDF</Text>
+                  </Pressable>
+                </View>
+
+                {selectedAttachmentUri && (
+                  <View style={{ marginTop: spacing.sm, padding: spacing.xs, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <MaterialCommunityIcons name="file-check-outline" size={20} color={colors.primary} />
+                    <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.text }} numberOfLines={1}>
+                      {selectedFileName || 'Tệp đính kèm'}
+                    </Text>
                     <Pressable 
-                      style={{ position: 'absolute', top: -6, right: '32%', backgroundColor: colors.danger, borderRadius: 12, padding: 2 }}
-                      onPress={() => setSelectedImageUri(null)}
+                      onPress={() => {
+                        setSelectedAttachmentUri(null);
+                        setSelectedFileName(null);
+                        setSelectedMimeType(null);
+                      }}
                     >
-                      <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                      <MaterialCommunityIcons name="close-circle-outline" size={20} color={colors.error} />
                     </Pressable>
                   </View>
                 )}
@@ -826,6 +954,23 @@ export function CrossDepartmentTimeline({ request }: { request: CrossDepartmentR
   );
 }
 
+export function statusToVietnamese(status?: string): string {
+  if (!status) return 'Không xác định';
+  switch (status) {
+    case 'PENDING_SOURCE_APPROVAL': return 'Chờ Nguồn Duyệt';
+    case 'SOURCE_APPROVED': return 'Chờ Đích Nhận';
+    case 'SOURCE_REJECTED': return 'PB Nguồn Từ Chối';
+    case 'TARGET_ACCEPTED': return 'Đã Tiếp Nhận';
+    case 'TARGET_REJECTED': return 'PB Đích Từ Chối';
+    case 'TARGET_ASSIGNED': return 'Đã Giao Việc';
+    case 'IN_PROGRESS': return 'Đang Thực Hiện';
+    case 'SUBMITTED_FOR_REVIEW': return 'Chờ Nghiệm Thu';
+    case 'COMPLETED': return 'Hoàn Thành';
+    case 'CANCELLED': return 'Đã Hủy';
+    default: return status;
+  }
+}
+
 function CrossDepartmentCard({ request, onPress }: { request: CrossDepartmentRequestDto; onPress: () => void }) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -834,7 +979,7 @@ function CrossDepartmentCard({ request, onPress }: { request: CrossDepartmentReq
           <MaterialCommunityIcons name="file-document-outline" size={16} color={colors.primary} />
           <Text style={styles.cardCode}>{request.requestCode ?? 'REQ-XXX'}</Text>
         </View>
-        <StatusBadge label={request.status} tone={toneForStatus(request.status)} />
+        <StatusBadge label={statusToVietnamese(request.status)} tone={toneForStatus(request.status)} />
       </View>
       
       <Text style={styles.cardTitle} numberOfLines={2}>{request.title}</Text>

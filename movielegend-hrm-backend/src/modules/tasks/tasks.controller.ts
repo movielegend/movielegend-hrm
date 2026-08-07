@@ -162,8 +162,8 @@ export class TaskExtensionsController {
 
   @Patch(':id/approve')
   @AnyPermissions('task.extension_review_all', 'task.extension_review_department')
-  approve(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.tasks.approveExtension(id, actor);
+  approve(@Param('id') id: string, @Body() dto: ReviewTaskDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.tasks.approveExtension(id, actor, dto?.note);
   }
 
   @Patch(':id/reject')

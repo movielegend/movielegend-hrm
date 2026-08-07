@@ -35,6 +35,10 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const base = roleBase(user);
   
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
+  if (notification.type === 'CROSS_DEPARTMENT_REQUESTED' || notification.type.startsWith('CROSS_DEPARTMENT_')) {
+    const crossReqId = requestId || stringMeta(notification.metadata, 'id') || stringMeta(notification.metadata, 'crossDepartmentRequestId');
+    if (crossReqId) return `${base}/cross-department/${crossReqId}`;
+  }
   if (requestId) {
     if (base === '/admin') return `/admin/employee-requests/${requestId}`;
     if (base === '/hr') return `/hr/employee-requests/${requestId}`;

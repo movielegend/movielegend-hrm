@@ -99,9 +99,10 @@ export function SocketProvider({ children }: PropsWithChildren) {
           void queryClient.invalidateQueries({ queryKey: chatKeys.messages(message.groupId) });
         }
       });
-      socket.on('cross-department:updated', (payload: CrossDepartmentSocketPayload) => {
+      socket.on('cross-department:updated', (payload: CrossDepartmentSocketPayload | any) => {
         void queryClient.invalidateQueries({ queryKey: ['cross-department-requests'] });
-        if (payload.requestId) void queryClient.invalidateQueries({ queryKey: queryKeys.crossDepartmentRequest(payload.requestId) });
+        const reqId = payload?.id || payload?.requestId;
+        if (reqId) void queryClient.invalidateQueries({ queryKey: queryKeys.crossDepartmentRequest(reqId) });
       });
       socket.on('department:updated', (payload: any) => {
         void queryClient.invalidateQueries({ queryKey: ['departments'] });
@@ -115,6 +116,16 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('asset:assigned', (payload: AssetSocketPayload) => invalidateForAssetAssigned(queryClient, payload));
       socket.on('asset:return-updated', (payload: AssetSocketPayload) => invalidateForAssetReturnUpdated(queryClient, payload));
       socket.on('asset:incident-updated', (payload: IncidentSocketPayload) => invalidateForIncidentUpdated(queryClient, payload));
+      socket.on('task:extension_requested', (payload: any) => {
+        void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        void queryClient.invalidateQueries({ queryKey: ['task-extensions'] });
+        if (payload?.taskId) void queryClient.invalidateQueries({ queryKey: queryKeys.task(payload.taskId) });
+      });
+      socket.on('task:extension_decided', (payload: any) => {
+        void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        void queryClient.invalidateQueries({ queryKey: ['task-extensions'] });
+        if (payload?.taskId) void queryClient.invalidateQueries({ queryKey: queryKeys.task(payload.taskId) });
+      });
 
       socket.on('auth:force_logout', (payload: any) => {
         Alert.alert('Đăng xuất', 'Tài khoản của bạn vừa đăng nhập ở thiết bị khác.');

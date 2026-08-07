@@ -46,10 +46,17 @@ export function useTasks(filters: TaskListFilters = {}) {
 }
 
 export function useMyTasks(filters: TaskListFilters = {}) {
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.myTasks(filters),
     queryFn: () => getMyTasks(filters),
   });
+
+  if (query.data?.items) {
+    const { scheduleTaskNotifications } = require('../services/NotificationService');
+    scheduleTaskNotifications(query.data.items).catch(() => undefined);
+  }
+
+  return query;
 }
 
 export function useTask(id?: string) {
@@ -194,7 +201,7 @@ export function useReviewTaskExtension(taskId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, action, payload }: { id: string; action: 'approve' | 'reject'; payload?: ReviewTaskPayload }) =>
-      action === 'approve' ? approveTaskExtension(id) : rejectTaskExtension(id, payload ?? {}),
+      action === 'approve' ? approveTaskExtension(id, payload) : rejectTaskExtension(id, payload ?? {}),
     onSuccess: () => {
       if (taskId) void queryClient.invalidateQueries({ queryKey: queryKeys.task(taskId) });
       invalidateTaskCollections(queryClient);

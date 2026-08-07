@@ -109,14 +109,6 @@ export function ForgotPasswordScreen() {
   return (
     <Screen>
       <View style={styles.container}>
-        {/* Background ML Logo Watermark */}
-        <View style={styles.backgroundWatermarkWrapper} pointerEvents="none">
-          <Image
-            source={require('../../../assets/ml-logo-only.png')}
-            style={styles.backgroundWatermarkImage}
-            resizeMode="contain"
-          />
-        </View>
 
         <View style={styles.header}>
           <Pressable onPress={() => {

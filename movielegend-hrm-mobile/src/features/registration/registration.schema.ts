@@ -1,18 +1,18 @@
 import { z } from 'zod';
 
 export const accountSchema = z.object({
-  fullName: z.string().min(2, 'Vui long nhap ho ten'),
-  phone: z.string().regex(/^[0-9+\-\s]{8,20}$/, 'So dien thoai chua hop le'),
-  email: z.string().min(1, 'Vui long nhap email').email('Email chua hop le'),
-  password: z.string().min(8, 'Mat khau toi thieu 8 ky tu'),
-  confirmPassword: z.string().min(8, 'Vui long nhap lai mat khau'),
+  fullName: z.string().min(2, 'Vui lòng nhập họ tên'),
+  phone: z.string().regex(/^0[0-9]{9}$/, 'Số điện thoại phải gồm 10 chữ số (bắt đầu bằng 0)'),
+  email: z.string().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
+  password: z.string().min(8, 'Mật khẩu tối thiểu 8 ký tự'),
+  confirmPassword: z.string().min(8, 'Vui lòng nhập lại mật khẩu'),
 }).refine((value) => value.password === value.confirmPassword, {
   path: ['confirmPassword'],
-  message: 'Mat khau nhap lai khong khop',
+  message: 'Mật khẩu nhập lại không khớp',
 });
 
 export const profileSchema = z.object({
-  idCardNumber: z.string().min(6, 'Vui long nhap CCCD'),
+  idCardNumber: z.string().regex(/^[0-9]{12}$/, 'Số CCCD phải bao gồm đúng 12 chữ số'),
   dateOfBirth: z.string().optional().or(z.literal('')),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
 });

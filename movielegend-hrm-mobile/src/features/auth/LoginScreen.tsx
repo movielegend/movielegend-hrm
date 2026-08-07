@@ -91,14 +91,6 @@ export function LoginScreen() {
   return (
     <Screen>
       <View style={styles.container}>
-        {/* Background ML Logo Watermark */}
-        <View style={styles.backgroundWatermarkWrapper} pointerEvents="none">
-          <Image
-            source={require('../../../assets/ml-logo-only.png')}
-            style={styles.backgroundWatermarkImage}
-            resizeMode="contain"
-          />
-        </View>
 
         <KeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
@@ -115,6 +107,7 @@ export function LoginScreen() {
                 style={styles.logoImage}
                 resizeMode="contain"
               />
+              <Text style={styles.brandTitleText}>MOVIE LEGEND</Text>
               <Text style={styles.subtitleText}>Đăng nhập để tiếp tục vào hệ thống</Text>
             </View>
 
@@ -129,13 +122,15 @@ export function LoginScreen() {
                   render={({ field: { onBlur, onChange, value } }) => (
                     <TextInput
                       autoCapitalize="none"
+                      maxLength={10}
                       onBlur={() => {
                         onBlur();
                         setTimeout(() => setShowAccountSuggestions(false), 200);
                       }}
                       onFocus={() => setShowAccountSuggestions(true)}
                       onChangeText={(val) => {
-                        onChange(val);
+                        const cleanVal = val.replace(/\D/g, '').slice(0, 10);
+                        onChange(cleanVal);
                         setShowAccountSuggestions(true);
                       }}
                       placeholder="0987654321"
@@ -285,8 +280,15 @@ const styles = StyleSheet.create({
   },
   logoImage: {
     width: 140,
-    height: 60,
-    marginBottom: 16,
+    height: 70,
+    marginBottom: 8,
+  },
+  brandTitleText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#000000',
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
   subtitleText: {
     fontSize: 14,

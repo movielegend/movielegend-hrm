@@ -181,9 +181,17 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const canReview = hasAnyPermission(user, ['task.review_all', 'task.review_department']);
   const canReviewExtension = hasAnyPermission(user, ['task.extension_review_all', 'task.extension_review_department']);
 
-  if (task.isLoading) return <LoadingState label="Dang tai task" />;
+  const initialAttachments = useMemo(() => {
+    return task.data?.attachments?.filter(att => att.uploadedByUserId === task.data?.createdByUserId) ?? [];
+  }, [task.data?.attachments, task.data?.createdByUserId]);
+
+  const submissionAttachments = useMemo(() => {
+    return task.data?.attachments?.filter(att => att.uploadedByUserId !== task.data?.createdByUserId) ?? [];
+  }, [task.data?.attachments, task.data?.createdByUserId]);
+
+  if (task.isLoading) return <LoadingState label="Đang tải task" />;
   if (task.isError) return <ErrorState error={task.error} onRetry={() => void task.refetch()} />;
-  if (!task.data) return <EmptyState title="Khong tim thay task" />;
+  if (!task.data) return <EmptyState title="Không tìm thấy task" />;
   const item = task.data;
   
   const isUnacceptedAssignee = assignment?.status === 'NEW' && item.createdByUserId !== user?.id;
@@ -200,7 +208,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   async function run(action: () => Promise<unknown>, success: string) {
     try {
       await action();
-      showAlert('Thanh cong', success);
+      showAlert('Thành công', success);
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
@@ -264,9 +272,25 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               </SecondaryButton>
             </View>
           ) : null}
-        </View>
+          <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <TargetPreview task={item} />
+          </View>
 
-        <TargetPreview task={item} />
+          {initialAttachments.length > 0 ? (
+            <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Tài liệu đính kèm:</Text>
+              <AttachmentList 
+                attachments={initialAttachments} 
+                isUnaccepted={isUnacceptedAssignee}
+                canDelete={(attachmentId) => {
+                  const att = item.attachments?.find(a => a.id === attachmentId);
+                  return hasAnyPermission(user, ['task.assign_any']) || item.groupLeaderId === user?.id || att?.uploadedByUserId === user?.id;
+                }}
+                onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu')}
+              />
+            </View>
+          ) : null}
+        </View>
 
         {assignment ? (
           <SectionCard title="Nhiệm vụ của tôi">
@@ -311,6 +335,22 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                     {canSubmitAssignment(assignment.status) ? (
                       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md }}>
                         <FormField label="Ghi chú hoàn thành" value={completionNote} onChangeText={setCompletionNote} multiline />
+                        <View style={{ marginVertical: spacing.sm }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: spacing.xs }}>Đính kèm kết quả / báo cáo</Text>
+                          {submissionAttachments.length > 0 ? (
+                            <View style={{ marginBottom: spacing.xs }}>
+                              <AttachmentList
+                                attachments={submissionAttachments}
+                                canDelete={(attachmentId) => {
+                                  const att = item.attachments?.find(a => a.id === attachmentId);
+                                  return att?.uploadedByUserId === user?.id;
+                                }}
+                                onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu báo cáo')}
+                              />
+                            </View>
+                          ) : null}
+                          <AttachmentPicker pending={attachment.isPending} onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)} />
+                        </View>
                         <PrimaryButton
                           loading={submit.isPending}
                           onPress={() => void run(() => submit.mutateAsync({ assignmentId: assignment.id, payload: { completionNote } }), 'Đã nộp công việc')}
@@ -323,9 +363,16 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                 ) : null}
                 <ExtensionRequestModal
                   currentDueAt={assignment.assignmentDueAt ?? item.dueAt}
+                  extensionCount={item.extensionRequests?.filter(e => e.assignmentId === assignment.id && e.status !== 'REJECTED').length ?? 0}
                   pending={extension.isPending}
                   onSubmit={(requestedDueAt, reason) => run(() => extension.mutateAsync({ assignmentId: assignment.id, requestedDueAt, reason }), 'Đã gửi yêu cầu gia hạn')}
                 />
+                {item.extensionRequests?.some(e => e.assignmentId === assignment.id) ? (
+                  <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Lịch sử xin gia hạn:</Text>
+                    <ExtensionList extensions={item.extensionRequests.filter(e => e.assignmentId === assignment.id)} />
+                  </View>
+                ) : null}
               </>
             ) : null}
           </SectionCard>
@@ -361,37 +408,45 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
-        {canReview && (item.createdByUserId === user?.id || reviewAssignments.length > 0) ? (
+        {canReview && reviewAssignments.length > 0 ? (
           <SectionCard title="Xét duyệt công việc">
-            {!reviewAssignments.length ? (
-              <EmptyState small icon="check-all" title="Không có yêu cầu" message="Không có công việc nào đang chờ duyệt." />
-            ) : null}
-            {reviewAssignments.map((entry) => (
-              <View key={entry.id} style={styles.inlinePanel}>
-                <Text style={styles.titleText}>{entry.user?.profile?.fullName ?? entry.user?.userCode ?? entry.userId}</Text>
-                <ProgressBar value={entry.progressPercent} />
-                <ReviewActionSheet
-                  pending={review.isPending}
-                  onApprove={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'approve', payload: note ? { note } : {} }), 'Đã duyệt')}
-                  onReject={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'reject', payload: { note } }), 'Đã từ chối')}
-                />
-              </View>
-            ))}
+            {reviewAssignments.map((entry) => {
+              const entryAttachments = item.attachments?.filter(att => att.uploadedByUserId === entry.userId) ?? [];
+              return (
+                <View key={entry.id} style={styles.inlinePanel}>
+                  <Text style={styles.titleText}>{entry.user?.profile?.fullName ?? entry.user?.userCode ?? entry.userId}</Text>
+                  <ProgressBar value={entry.progressPercent} />
+                  {entry.completionNote ? (
+                    <Text style={[styles.body, { marginTop: spacing.xs, fontStyle: 'italic' }]}>
+                      Ghi chú: {entry.completionNote}
+                    </Text>
+                  ) : null}
+                  {entryAttachments.length > 0 ? (
+                    <View style={{ marginTop: spacing.xs, marginBottom: spacing.xs }}>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 4 }}>Báo cáo / Tệp đính kèm nộp:</Text>
+                      <AttachmentList attachments={entryAttachments} />
+                    </View>
+                  ) : null}
+                  <ReviewActionSheet
+                    pending={review.isPending}
+                    onApprove={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'approve', payload: note ? { note } : {} }), 'Đã duyệt')}
+                    onReject={(note) => run(() => review.mutateAsync({ assignmentId: entry.id, action: 'reject', payload: { note } }), 'Đã từ chối')}
+                  />
+                </View>
+              );
+            })}
           </SectionCard>
         ) : null}
 
-        {canReviewExtension && (item.createdByUserId === user?.id || pendingExtensions.length > 0) ? (
+        {canReviewExtension && pendingExtensions.length > 0 ? (
           <SectionCard title="Xét duyệt gia hạn">
-            {!pendingExtensions.length ? (
-              <EmptyState small icon="calendar-check-outline" title="Không có yêu cầu" message="Không có yêu cầu gia hạn nào đang chờ duyệt." />
-            ) : null}
             {pendingExtensions.map((entry) => (
               <View key={entry.id} style={styles.inlinePanel}>
                 <Text style={styles.titleText}>{formatDateTime(entry.requestedDueAt)}</Text>
                 <Text style={styles.body}>{entry.reason}</Text>
                 <ReviewActionSheet
                   pending={extensionReview.isPending}
-                  onApprove={() => run(() => extensionReview.mutateAsync({ id: entry.id, action: 'approve' }), 'Đã duyệt gia hạn')}
+                  onApprove={(note) => run(() => extensionReview.mutateAsync({ id: entry.id, action: 'approve', payload: note ? { note } : {} }), 'Đã duyệt gia hạn')}
                   onReject={(note) => run(() => extensionReview.mutateAsync({ id: entry.id, action: 'reject', payload: { note } }), 'Đã từ chối gia hạn')}
                 />
               </View>
@@ -404,23 +459,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           <CommentComposer pending={comment.isPending} onSubmit={(content) => comment.mutateAsync({ content }).then(() => undefined)} />
         </SectionCard>
 
-        <SectionCard title="Tệp đính kèm">
-          <AttachmentList 
-            attachments={item.attachments} 
-            canDelete={(attachmentId) => {
-              const att = item.attachments?.find(a => a.id === attachmentId);
-              return hasAnyPermission(user, ['task.assign_any']) || item.groupLeaderId === user?.id || att?.uploadedByUserId === user?.id;
-            }}
-            onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu')}
-          />
-          {isUnacceptedAssignee ? (
-            <Text style={[styles.meta, { marginTop: spacing.md, fontStyle: 'italic', color: colors.warning }]}>
-              * Vui lòng bấm "Nhận việc" trước khi đính kèm tài liệu.
-            </Text>
-          ) : (
-            <AttachmentPicker pending={attachment.isPending} onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)} />
-          )}
-        </SectionCard>
+
 
         <SectionCard title="Lịch sử hoạt động">
           {timeline.isLoading ? <LoadingState label="Đang tải lịch sử" /> : null}
@@ -428,15 +467,18 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           <TaskTimeline items={timeline.data?.items ?? item.histories} />
         </SectionCard>
 
-        <SectionCard title="Danh sách yêu cầu gia hạn">
-          <ExtensionList extensions={item.extensionRequests} />
-        </SectionCard>
+        {(!assignment && (item.createdByUserId === user?.id || canReviewExtension)) && (item.extensionRequests ?? []).length > 0 ? (
+          <SectionCard title="Danh sách yêu cầu gia hạn">
+            <ExtensionList extensions={item.extensionRequests} />
+          </SectionCard>
+        ) : null}
+
       </ScrollView>
     </Screen>
   );
 }
 
-function ActionDatePicker({ 
+export function ActionDatePicker({ 
   visible, 
   value, 
   onChange, 
@@ -855,7 +897,7 @@ export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
               <Text style={styles.body}>{item.reason}</Text>
               <ReviewActionSheet
                 pending={extensionReview.isPending}
-                onApprove={() => run(() => extensionReview.mutateAsync({ id: item.id, action: 'approve' }), 'Đã duyệt gia hạn')}
+                onApprove={(note) => run(() => extensionReview.mutateAsync({ id: item.id, action: 'approve', payload: note ? { note } : {} }), 'Đã duyệt gia hạn')}
                 onReject={(note) => run(() => extensionReview.mutateAsync({ id: item.id, action: 'reject', payload: { note } }), 'Đã từ chối gia hạn')}
               />
             </View>
@@ -1137,10 +1179,12 @@ const styles = StyleSheet.create({
   },
   heroDates: {
     flexDirection: 'row',
-    gap: spacing.lg,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: spacing.md,
     backgroundColor: colors.background,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 8,
   },
   dateItem: {
