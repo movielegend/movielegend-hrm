@@ -1,8 +1,7 @@
-import { Controller, Get, Patch, Param, Body } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RolesService } from './roles.service';
-import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
 
 @ApiTags('Roles')
 @ApiBearerAuth()
@@ -15,14 +14,4 @@ export class RolesController {
   findAll() {
     return this.rolesService.findAll();
   }
-
-  @Permissions('role.assign')
-  @Patch(':id/permissions')
-  updateRolePermissions(
-    @Param('id') id: string,
-    @Body() dto: UpdateRolePermissionsDto,
-  ) {
-    return this.rolesService.updateRolePermissions(id, dto.permissionCodes);
-  }
 }
-
