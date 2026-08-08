@@ -892,7 +892,18 @@ export class TasksService {
 
     const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor) ?? [];
     if (query.departmentId) this.scope.assertDepartmentAccess(actor, query.departmentId);
-    where.departmentContextId = query.departmentId ?? { in: visibleDepartmentIds };
+    
+    const targetDeptIds = query.departmentId ? [query.departmentId] : visibleDepartmentIds;
+    where.AND = [
+      ...this.toAndArray(where.AND),
+      {
+        OR: [
+          { departmentContextId: { in: targetDeptIds } },
+          { assignments: { some: { user: { departmentLinks: { some: { departmentId: { in: targetDeptIds }, leftAt: null } } } } } }
+        ]
+      }
+    ];
+    
     return where;
   }
 
