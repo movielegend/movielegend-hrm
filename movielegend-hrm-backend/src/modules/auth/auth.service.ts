@@ -247,7 +247,7 @@ export class AuthService {
       throw unauthorized('ACCOUNT_INACTIVE', 'Tài khoản chưa hoạt động');
     }
 
-    const tokens = await this.createTokens(user.id, meta);
+    const tokens = await this.createTokens(user.id, meta, true);
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
@@ -376,10 +376,10 @@ export class AuthService {
     };
   }
 
-  private async createTokens(userId: string, meta: RequestMeta) {
+  private async createTokens(userId: string, meta: RequestMeta, isLogin: boolean = false) {
     const payload = await this.buildPayload(userId);
     
-    if (!payload.roles.includes('ADMIN')) {
+    if (isLogin && !payload.roles.includes('ADMIN')) {
       await this.prisma.refreshSession.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
@@ -417,7 +417,7 @@ export class AuthService {
       data: { tokenHash: await bcrypt.hash(refreshToken, 12) },
     });
 
-    if (!payload.roles.includes('ADMIN')) {
+    if (isLogin && !payload.roles.includes('ADMIN')) {
       this.realtime.emitToUser(userId, 'auth:force_logout', { newSessionId: session.id });
     }
 
