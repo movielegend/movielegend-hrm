@@ -59,8 +59,8 @@ export class NewsfeedController {
   @ApiOperation({ summary: 'Xóa bài đăng (Admin kiểm duyệt)' })
   @Permissions('user.manage') // Use an existing admin permission
   @Delete(':id')
-  deletePost(@Param('id') id: string) {
-    return this.newsfeedService.deletePost(id);
+  deletePost(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.newsfeedService.deletePost(id, user);
   }
 }
 

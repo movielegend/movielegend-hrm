@@ -319,11 +319,25 @@ export class NewsfeedService {
     return comment;
   }
 
-  async deletePost(id: string) {
+  async deletePost(id: string, currentUser?: AuthenticatedUser) {
     const post = await this.prisma.newsfeedPost.findUnique({ where: { id } });
     if (!post) throw new NotFoundException('Post not found');
 
-    return this.prisma.newsfeedPost.delete({ where: { id } });
+    const deletedPost = await this.prisma.newsfeedPost.delete({ where: { id } });
+
+    if (currentUser && post.authorId !== currentUser.userId) {
+      const notifPayload = await this.prisma.$transaction(async (tx) => {
+        return this.notificationsService.createForUsers(tx, [post.authorId], {
+          type: 'SYSTEM' as any,
+          title: 'Bài đăng bị thu hồi',
+          body: `Bài đăng "${post.title || (post.content && post.content.length > 30 ? post.content.substring(0, 30) + '...' : post.content) || 'của bạn'}" đã bị quản trị viên thu hồi.`,
+          metadata: { postId: post.id, action: 'DELETE' }
+        });
+      });
+      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+    }
+
+    return deletedPost;
   }
 }
 
