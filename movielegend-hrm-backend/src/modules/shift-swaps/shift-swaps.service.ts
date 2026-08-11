@@ -173,10 +173,11 @@ export class ShiftSwapsService {
       include: { 
         requester: { include: { profile: true } }, 
         target: { include: { profile: true } }, 
+        department: true,
         fromShift: true, 
         toShift: true 
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
