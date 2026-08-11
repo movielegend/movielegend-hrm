@@ -378,7 +378,9 @@ export function ContractListScreen() {
   const contracts = useContracts({ page: 1, limit: 50 });
   const deleteContract = useDeleteContract();
   const { showAlert, showConfirm } = useAppAlert();
-  const contractItems = Array.isArray(contracts.data?.items) ? contracts.data?.items : [];
+  const contractItems = Array.isArray(contracts.data)
+    ? contracts.data
+    : contracts.data?.items || [];
 
   return (
     <Screen>
@@ -1071,7 +1073,7 @@ export function CreateContractScreen() {
   const templateId =
     typeof params.templateId === "string" ? params.templateId : undefined;
   const { data: templates } = useContractTemplates();
-  const employeesQuery = useEmployees({});
+  const employeesQuery = useEmployees({ limit: 200, page: 1 });
   const employeesData = Array.isArray(employeesQuery.data)
     ? employeesQuery.data
     : employeesQuery.data?.items || employeesQuery.data?.data || [];

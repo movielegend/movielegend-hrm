@@ -53,8 +53,9 @@ export default function CreateRequestScreen() {
   const [leaveType, setLeaveType] = useState('');
   const [explanationType, setExplanationType] = useState('');
   const [handoverEmployee, setHandoverEmployee] = useState<EmployeeUser | null>(null);
-  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [fromDate, setFromDate] = useState<Date | null>(new Date());
   const [toDate, setToDate] = useState<Date | null>(null);
+  const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
 
   // Modal states
   const [showShiftModal, setShowShiftModal] = useState(false);
@@ -132,10 +133,14 @@ export default function CreateRequestScreen() {
     if (event.type === 'dismissed') return;
     
     if (selectedDate) {
-      if (showDatePicker === 'from' || showDatePicker === 'single') {
-        setFromDate(selectedDate);
-      } else if (showDatePicker === 'to') {
-        setToDate(selectedDate);
+      if (Platform.OS === 'ios') {
+        setTempSelectedDate(selectedDate);
+      } else {
+        if (showDatePicker === 'from' || showDatePicker === 'single') {
+          setFromDate(selectedDate);
+        } else if (showDatePicker === 'to') {
+          setToDate(selectedDate);
+        }
       }
     }
   };
@@ -1136,15 +1141,24 @@ export default function CreateRequestScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.iosPickerContainer}>
               <View style={styles.iosPickerHeader}>
-                <Pressable onPress={() => setShowDatePicker(null)}>
+                <Pressable onPress={() => {
+                  setTempSelectedDate(null);
+                  setShowDatePicker(null);
+                }}>
                   <Text style={styles.iosPickerBtn}>Hủy</Text>
                 </Pressable>
                 <Pressable onPress={() => {
-                  if ((showDatePicker === 'from' || showDatePicker === 'single') && !fromDate) {
-                    setFromDate(new Date());
-                  } else if (showDatePicker === 'to' && !toDate) {
-                    setToDate(new Date());
+                  const targetDate = tempSelectedDate || (
+                    showDatePicker === 'from' ? (fromDate || new Date())
+                    : showDatePicker === 'to' ? (toDate || new Date())
+                    : (fromDate || new Date())
+                  );
+                  if (showDatePicker === 'from' || showDatePicker === 'single') {
+                    setFromDate(targetDate);
+                  } else if (showDatePicker === 'to') {
+                    setToDate(targetDate);
                   }
+                  setTempSelectedDate(null);
                   setShowDatePicker(null);
                 }}>
                   <Text style={[styles.iosPickerBtn, { fontWeight: '700' }]}>Xong</Text>
@@ -1153,9 +1167,11 @@ export default function CreateRequestScreen() {
               {showDatePicker !== null && (
                 <DateTimePicker
                   value={
-                    showDatePicker === 'from' ? (fromDate || new Date()) 
-                    : showDatePicker === 'to' ? (toDate || new Date())
-                    : (fromDate || new Date())
+                    tempSelectedDate || (
+                      showDatePicker === 'from' ? (fromDate || new Date()) 
+                      : showDatePicker === 'to' ? (toDate || new Date())
+                      : (fromDate || new Date())
+                    )
                   }
                   mode="date"
                   display="spinner"

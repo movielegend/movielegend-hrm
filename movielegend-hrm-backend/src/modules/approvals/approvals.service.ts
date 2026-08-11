@@ -181,21 +181,48 @@ export class ApprovalsService {
       if (!this.policy.canApproveDepartment(actor, request.requestedDepartmentId)) {
         throw forbidden('APPROVAL_SCOPE_DENIED', 'Bạn không có quyền từ chối phòng ban này');
       }
-      // Xóa hoàn toàn User (sẽ tự động xóa UserApprovalRequest, Profile, FaceProfile... qua Cascade)
-      await tx.user.delete({
-        where: { id: request.userId },
+      // 1. Cập nhật trạng thái Yêu cầu duyệt sang REJECTED
+      await tx.userApprovalRequest.update({
+        where: { id },
+        data: {
+          status: ApprovalStatus.REJECTED,
+          rejectionReason: dto.reason,
+          decidedByUserId: actor.userId,
+          decidedAt: new Date(),
+        },
       });
 
-      // Chỉ lưu AuditLog để Admin biết đã thao tác, không cần lưu History vì Request đã bị xóa
+      // 2. Cập nhật trạng thái User sang REJECTED để từ chối truy cập
+      await tx.user.update({
+        where: { id: request.userId },
+        data: {
+          approvalStatus: ApprovalStatus.REJECTED,
+          accountStatus: AccountStatus.SUSPENDED,
+          isActive: false,
+        },
+      });
+
+      // 3. Ghi lịch sử phê duyệt
+      await tx.approvalHistory.create({
+        data: {
+          approvalRequestId: id,
+          actorUserId: actor.userId,
+          action: ApprovalAction.REJECTED,
+          note: dto.reason,
+        },
+      });
+
+      // 4. Lưu Audit Log
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
           action: 'approval.account.reject',
           entityType: 'UserApprovalRequest',
           entityId: id,
-          metadata: { reason: dto.reason },
+          metadata: { reason: dto.reason, userId: request.userId },
         },
       });
+
       return { id, status: ApprovalStatus.REJECTED };
     });
   }

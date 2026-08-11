@@ -67,22 +67,24 @@ function getInitials(name: string): string {
 
 import axios from 'axios';
 
-const GIPHY_API_KEY = process.env.EXPO_PUBLIC_GIPHY_API_KEY || '';
+const GIPHY_API_KEY = process.env.EXPO_PUBLIC_GIPHY_API_KEY || 'Gc7131jiJuvI7IdN0HZ1D7nh0ow5BU6g';
 
 const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: boolean, onClose: () => void, onSelectSticker: (url: string, type: string) => void }) => {
-  const [stickers, setStickers] = useState<any[]>([]);
+  const [giphyStickers, setGiphyStickers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchStickers = async (query = '') => {
+  const fetchGiphyStickers = async (query = '') => {
     setLoading(true);
     try {
       const endpoint = query
         ? `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=30`
         : `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_API_KEY}&limit=30`;
       const response = await axios.get(endpoint);
-      setStickers(response.data.data);
+      if (response.data?.data) {
+        setGiphyStickers(response.data.data);
+      }
     } catch (e) {
       console.error('Giphy Fetch Error:', e);
     } finally {
@@ -91,7 +93,9 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
   };
 
   useEffect(() => {
-    if (visible && stickers.length === 0) fetchStickers();
+    if (visible && giphyStickers.length === 0) {
+      fetchGiphyStickers();
+    }
   }, [visible]);
 
   useEffect(() => {
@@ -104,52 +108,65 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
     setSearchQuery(text);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      fetchStickers(text);
+      fetchGiphyStickers(text);
     }, 500);
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-        <View style={{ backgroundColor: '#fff', height: '70%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40 }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+        <View style={{ backgroundColor: '#fff', height: '70%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 20 }}>
           {/* Header */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, paddingBottom: 10 }}>
-            <Text style={{ fontSize: 16, fontWeight: 'bold' }}>Tìm kiếm Nhãn dán</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={{ color: '#3B82F6', fontWeight: 'bold' }}>Đóng</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Kho Nhãn dán GIPHY</Text>
+            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+              <MaterialCommunityIcons name="close" size={24} color={colors.muted} />
             </TouchableOpacity>
           </View>
 
           {/* Search Bar */}
-          <View style={{ paddingHorizontal: 15, paddingBottom: 10 }}>
+          <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
             <TextInput
-              style={{ backgroundColor: '#F3F4F6', padding: 12, borderRadius: 10, fontSize: 15 }}
-              placeholder="Tìm kiếm (VD: Hello, Happy, Sad...)"
+              style={{ backgroundColor: '#F3F4F6', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, fontSize: 14, color: colors.text }}
+              placeholder="Tìm nhãn dán Giphy (VD: Hello, Like, Happy...)"
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={handleSearch}
             />
           </View>
 
-          {/* Sticker Grid */}
-          {loading && stickers.length === 0 ? (
+          {/* GIPHY Grid */}
+          {loading && giphyStickers.length === 0 ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#3B82F6" />
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>Đang tải nhãn dán GIPHY...</Text>
             </View>
           ) : (
             <FlatList
-              data={stickers}
+              data={giphyStickers}
               numColumns={3}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={{ padding: 10 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={{ flex: 1, alignItems: 'center', margin: 5 }}
-                  onPress={() => onSelectSticker(item.images.fixed_width.url, 'giphy')}
-                >
-                  <Image source={{ uri: item.images.fixed_width.url }} style={{ width: 100, height: 100 }} resizeMode="contain" />
-                </TouchableOpacity>
-              )}
+              keyExtractor={(item, index) => item.id || `giphy_${index}`}
+              contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 8 }}
+              ListEmptyComponent={
+                <View style={{ flex: 1, padding: 30, alignItems: 'center' }}>
+                  <Text style={{ color: colors.muted, fontSize: 14 }}>Không tìm thấy nhãn dán GIPHY phù hợp</Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                let stickerUrl = item.images?.fixed_width_small?.url || item.images?.fixed_width?.url || item.images?.original?.url;
+                if (!stickerUrl) return null;
+                if (stickerUrl.startsWith('http:')) {
+                  stickerUrl = stickerUrl.replace('http:', 'https:');
+                }
+                return (
+                  <TouchableOpacity
+                    style={{ flex: 1, alignItems: 'center', margin: 4, borderRadius: 8, backgroundColor: colors.surface, padding: 4 }}
+                    onPress={() => onSelectSticker(stickerUrl, 'giphy')}
+                  >
+                    <Image source={{ uri: stickerUrl }} style={{ width: 90, height: 90 }} resizeMode="contain" />
+                  </TouchableOpacity>
+                );
+              }}
             />
           )}
         </View>
@@ -733,7 +750,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     )}
                     {!!msg.content && (msg.content.startsWith('STATIC_STICKER:') || msg.content.startsWith('GIPHY_STICKER:')) && (
                       <Image
-                        source={{ uri: msg.content.replace('STATIC_STICKER:', '').replace('GIPHY_STICKER:', '') }}
+                        source={{ uri: msg.content.replace('STATIC_STICKER:', '').replace('GIPHY_STICKER:', '').replace(/^http:/, 'https:') }}
                         style={{ width: 120, height: 120 }}
                         resizeMode="contain"
                       />

@@ -205,7 +205,10 @@ export class ContractsService {
   }
 
   async findAll(actor: AuthenticatedUser, departmentId?: string) {
-    if (this.has(actor, 'contract.read_all')) return this.prisma.employeeContract.findMany({ include: this.include(), orderBy: { createdAt: 'desc' } });
+    const isAdmin = actor.roles?.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r.toUpperCase()));
+    if (isAdmin || this.has(actor, 'contract.read_all') || this.has(actor, 'contract.create') || this.has(actor, 'contract.manage')) {
+      return this.prisma.employeeContract.findMany({ include: this.include(), orderBy: { createdAt: 'desc' } });
+    }
     if (this.has(actor, 'contract.read_department')) {
       const ids = await this.departmentUserIds(actor, departmentId);
       return this.prisma.employeeContract.findMany({ where: { userId: { in: ids } }, include: this.include(), orderBy: { createdAt: 'desc' } });
