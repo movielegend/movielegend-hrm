@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: movielegend-hrm-backend
+    env: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
