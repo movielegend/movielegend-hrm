@@ -17,3 +17,9 @@ services:
         value: 7d
       - key: JWT_REFRESH_EXPIRES_IN
         value: 30d
+      - key: SEED_ADMIN_PHONE
+        value: "0900000000"
+      - key: SEED_ADMIN_PASSWORD
+        value: "admin123"
+      - key: SEED_ADMIN_EMAIL
+        value: "admin@movielegend.vn"
