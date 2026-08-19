@@ -1,5 +1,5 @@
-export const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://disciplines-trout-structured-chronic.trycloudflare.com/api/v1';
-export const socketUrl = process.env.EXPO_PUBLIC_SOCKET_URL || 'https://disciplines-trout-structured-chronic.trycloudflare.com';
+export const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://army-appointed-destiny-defendant.trycloudflare.com/api/v1';
+export const socketUrl = process.env.EXPO_PUBLIC_SOCKET_URL || 'https://army-appointed-destiny-defendant.trycloudflare.com';
 
 
 export function assertApiUrl(): string {

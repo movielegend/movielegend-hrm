@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>Báo cáo Đặc tả Vận hành Toàn diện MovieLegend HRM</title>
+
+<!--[if gte mso 9]>
+<xml>
+ <w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+ </w:WordDocument>
+</xml>
+<![endif]-->
+
+<style>
+@page {
+    size: A4 portrait;
+    margin: 1.0in 1.0in 1.0in 1.0in;
+    mso-header-margin: 0.5in;
+    mso-footer-margin: 0.5in;
+}
+
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #2B2D42;
+    background-color: #FFFFFF;
+}
+
+h1 {
+    font-size: 20pt;
+    font-weight: bold;
+    color: #1A365D;
+    text-align: center;
+    margin-top: 24pt;
+    margin-bottom: 12pt;
+    padding-bottom: 6pt;
+    border-bottom: 2pt solid #1A365D;
+}
+
+h2 {
+    font-size: 15pt;
+    font-weight: bold;
+    color: #2B6CB0;
+    margin-top: 18pt;
+    margin-bottom: 8pt;
+    border-bottom: 1pt solid #E2E8F0;
+    padding-bottom: 4pt;
+}
+
+h3 {
+    font-size: 12.5pt;
+    font-weight: bold;
+    color: #2D3748;
+    margin-top: 14pt;
+    margin-bottom: 6pt;
+}
+
+h4 {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #4A5568;
+    margin-top: 10pt;
+    margin-bottom: 4pt;
+}
+
+p {
+    margin-top: 0;
+    margin-bottom: 6pt;
+    text-align: justify;
+}
+
+ul, ol {
+    margin-top: 0;
+    margin-bottom: 8pt;
+    padding-left: 20pt;
+}
+
+li {
+    margin-bottom: 4pt;
+}
+
+strong {
+    color: #1A365D;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12pt;
+    margin-bottom: 16pt;
+    font-size: 10pt;
+}
+
+th {
+    background-color: #1A365D;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-align: left;
+    padding: 8pt 10pt;
+    border: 1pt solid #1A365D;
+}
+
+td {
+    padding: 7pt 10pt;
+    border: 1pt solid #CBD5E0;
+    vertical-align: top;
+}
+
+tr:nth-child(even) td {
+    background-color: #F7FAFC;
+}
+
+.toc-box {
+    background-color: #F8FAFC;
+    border: 1pt solid #E2E8F0;
+    border-left: 4pt solid #2B6CB0;
+    padding: 12pt 16pt;
+    margin-bottom: 20pt;
+    border-radius: 4pt;
+}
+
+.toc-title {
+    font-weight: bold;
+    font-size: 12pt;
+    color: #1A365D;
+    margin-bottom: 8pt;
+}
+
+.hr-divider {
+    border: none;
+    border-top: 1pt solid #E2E8F0;
+    margin: 16pt 0;
+}
+</style>
+</head>
+<body>
+
+<h1>BÁO CÁO ĐẶC TẢ VẬN HÀNH TOÀN DIỆN HỆ THỐNG</h1>
+<h2 style="text-align: center; border: none; color: #4A5568; font-size: 13pt; margin-top: -8pt;">Ứng dụng Quản trị Doanh nghiệp MovieLegend HRM (Web & Mobile Platform)</h2>
+
+<div class="toc-box">
+<div class="toc-title">📑 MỤC LỤC TỔNG QUAN</div>
+<ul>
+  <li><strong>CHƯƠNG 1: TỔNG QUAN DỰ ÁN VÀ KIẾN TRÚC KỸ THUẬT</strong>
+    <ul>
+      <li>1.1. Giới thiệu tổng quan hệ thống MovieLegend HRM</li>
+      <li>1.2. Kiến trúc Kỹ thuật Backend (NestJS 11, Prisma ORM, PostgreSQL)</li>
+      <li>1.3. Kiến trúc Frontend Mobile (React Native / Expo) & Web Platform</li>
+    </ul>
+  </li>
+  <li><strong>CHƯƠNG 2: ĐẶC TẢ CHI TIẾT CÁC VAI TRÒ (ROLES) VÀ PHÂN QUYỀN SCOPE</strong>
+    <ul>
+      <li>2.1. Quản trị viên Hệ thống (ADMIN)</li>
+      <li>2.2. Quản lý Nhân sự (HR - Human Resources)</li>
+      <li>2.3. Trưởng phòng / Trưởng nhóm (LEADER)</li>
+      <li>2.4. Nhân viên (EMPLOYEE)</li>
+      <li>2.5. Ma trận Phân quyền Chức năng Chi tiết (Permissions Matrix)</li>
+    </ul>
+  </li>
+  <li><strong>CHƯƠNG 3: CƠ CHẾ CẤP ROLE, DUYỆT TÀI KHOẢN VÀ QUẢN LÝ SCOPE</strong>
+    <ul>
+      <li>3.1. Tài khoản Khởi tạo Tối cao (Initial Seed Admin Account)</li>
+      <li>3.2. Quy trình Đăng ký & Gán Role Mặc định (EMPLOYEE)</li>
+      <li>3.3. Luồng Phê duyệt 2 Lớp: Duyệt Tài khoản & Duyệt Hồ sơ Face ID</li>
+      <li>3.4. Cơ chế Cấp phát, Thu hồi & Nâng cấp Role từ Admin</li>
+      <li>3.5. Chi tiết 4 Loại Phạm vi Phân quyền (Role Scope Types)</li>
+    </ul>
+  </li>
+  <li><strong>CHƯƠNG 4: ĐẶC TẢ TẤT CẢ CÁC PHÂN HỆ NGHIỆP VỤ CỐT LÕI</strong>
+    <ul>
+      <li>4.1. Phân hệ Quản trị Ca làm việc (Shifts & ShiftAssignments)</li>
+      <li>4.2. Phân hệ Chấm công AI (Attendance - Face ID 3D + GPS Geofencing)</li>
+      <li>4.3. Phân hệ Quản lý Đơn từ & Tờ trình (EmployeeRequests, Leave, Overtime)</li>
+      <li>4.4. Phân hệ Quản lý Công việc & Nhóm dự án (Tasks & TaskGroups)</li>
+      <li>4.5. Phân hệ Phối hợp Chéo phòng ban (CrossDepartment)</li>
+      <li>4.6. Phân hệ Đánh giá KPI & Performance Review (KPI)</li>
+      <li>4.7. Phân hệ Hợp đồng Lao động & Chữ ký số (Contracts)</li>
+      <li>4.8. Phân hệ Truyền thông Nội bộ, Chat & Voice Call (Chat, Newsfeed, VoiceCall)</li>
+      <li>4.9. Phân hệ Trợ lý Trí tuệ Nhân tạo (AiAssistant - Gemini AI)</li>
+    </ul>
+  </li>
+  <li><strong>CHƯƠNG 5: QUY TRÌNH & LUỒNG HOẠT ĐỘNG CHUYÊN SÂU TỪ A-Z (END-TO-END WORKFLOWS)</strong>
+    <ul>
+      <li>5.1. Luồng 1: Khởi tạo Doanh nghiệp, Tổ chức & Danh mục Ca làm việc</li>
+      <li>5.2. Luồng 2: Tuyển dụng, Đăng ký, Duyệt Face ID & Kích hoạt Thành viên</li>
+      <li>5.3. Luồng 3: Lập lịch Phân ca & Quy trình Đổi ca làm việc (ShiftSwap)</li>
+      <li>5.4. Luồng 4: Thực thi Chấm công AI Hàng ngày & Giải trình Chấm công (AttendanceAdjustment)</li>
+      <li>5.5. Luồng 5: Giao việc, Theo dõi Tiến độ, Gia hạn Deadline & Phối hợp Chéo</li>
+      <li>5.6. Luồng 6: Đánh giá KPI & Xuất Báo cáo Chấm công Tổng hợp</li>
+    </ul>
+  </li>
+  <li><strong>CHƯƠNG 6: KẾT NỐI TÍCH HỢP HỆ THỐNG, BẢO MẬT VÀ QUY TRÌNH TRIỂN KHAI</strong>
+    <ul>
+      <li>6.1. Hạ tầng Lưu trữ File (Cloudflare R2 / S3 & Cloudinary)</li>
+      <li>6.2. Cơ chế Bảo mật & Xác thực (JWT, Rate Limiting, Helmet, Validation)</li>
+      <li>6.3. Giải pháp Kết nối Mạng & Đóng gói Container (Cloudflare Tunnel, Docker Multi-stage)</li>
+    </ul>
+  </li>
+</ul>
+</div>
+
+<hr class="hr-divider">
+
+<h2>CHƯƠNG 1: TỔNG QUAN DỰ ÁN VÀ KIẾN TRÚC KỸ THUẬT</h2>
+
+<h3>1.1. Giới thiệu tổng quan hệ thống MovieLegend HRM</h3>
+<p><strong>MovieLegend HRM</strong> là hệ thống phần mềm Quản trị Doanh nghiệp và Nhân sự toàn diện (Enterprise Human Resource Management Platform), được thiết kế nhằm tự động hóa 100% các quy trình vận hành từ Quản lý nhân sự, Chấm công nhận diện khuôn mặt bằng Trí tuệ nhân tạo (AI Face ID), Phân ca làm việc, Quản lý đơn từ, Giao việc & phối hợp chéo phòng ban, Đánh giá KPI đến Truyền thông nội bộ và Trợ lý AI.</p>
+
+<h3>1.2. Kiến trúc Kỹ thuật Backend</h3>
+<p>Hệ thống Backend được phát triển trên nền tảng <strong>NestJS 11</strong> - một NodeJS Framework doanh nghiệp theo kiến trúc mô-đun (Modular Architecture):</p>
+<ul>
+  <li><strong>Ngôn ngữ lập trình:</strong> TypeScript (Strict mode).</li>
+  <li><strong>Cơ sở dữ liệu (ORM):</strong> <strong>Prisma ORM</strong> với hơn 3.060+ dòng mã định nghĩa 60+ thực thể (Tables) và 50+ kiểu liệt kê (Enums).</li>
+  <li><strong>Hệ quản trị CSDL:</strong> <strong>PostgreSQL</strong> hỗ trợ xử lý giao dịch ACID, chỉ mục (Index) nâng cao và truy vấn quan hệ phức tạp.</li>
+  <li><strong>Cấu hình môi trường:</strong> Quản lý tập trung qua @nestjs/config và kiểm tra ràng buộc môi trường bằng Zod/class-validator.</li>
+  <li><strong>Tích hợp dịch vụ:</strong> Firebase Admin SDK, Expo Push Notifications, Cloudflare R2 / S3 Storage, Cloudinary, LiveKit WebRTC Server, Google Gemini AI API.</li>
+</ul>
+
+<h3>1.3. Kiến trúc Frontend Mobile & Web Platform</h3>
+<ul>
+  <li><strong>Mobile Platform:</strong> Xây dựng bằng React Native / Expo cross-platform (iOS & Android), tích hợp thư viện camera quét khuôn mặt, bản đồ GPS vị trí thực và lưu trữ Token bảo mật.</li>
+  <li><strong>Web Platform:</strong> Phát triển trên nền ứng dụng Web hiện đại, tích hợp Swagger API Documentation chuẩn RESTful tại đường dẫn /api/docs.</li>
+</ul>
+
+<hr class="hr-divider">
+
+<h2>CHƯƠNG 2: ĐẶC TẢ CHI TIẾT CÁC VAI TRÒ (ROLES) VÀ PHÂN QUYỀN SCOPE</h2>
+<p>Hệ thống MovieLegend HRM quy định 4 vai trò (Roles) cốt lõi vận hành toàn bộ doanh nghiệp:</p>
+
+<h3>2.1. Quản trị viên Hệ thống (ADMIN)</h3>
+<ul>
+  <li><strong>Mã vai trò:</strong> ADMIN</li>
+  <li><strong>Phạm vi mặc định (Default Scope):</strong> GLOBAL (Toàn hệ thống) hoặc COMPANY.</li>
+  <li><strong>Mô tả vai trò:</strong> Quản trị viên tối cao của hệ thống.</li>
+  <li><strong>Quyền hạn chi tiết:</strong>
+    <ol>
+      <li><strong>Khởi tạo Ca làm việc (Shifts):</strong> Trực tiếp thiết lập danh mục các mẫu ca làm việc toàn công ty (Ca Sáng 08:00 - 12:00, Ca Chiều 13:00 - 17:00, Ca Hành chính 08:00 - 17:00, Ca Đêm), cấu hình mốc giờ làm việc, thời gian cho phép đi trễ và về sớm.</li>
+      <li><strong>Quản lý Cấu hình Tổ chức:</strong> Khai báo Chi nhánh (Branches), Phòng ban (Departments), Vị trí công việc (Positions), vị trí tọa độ GPS văn phòng và bán kính chấm công.</li>
+      <li><strong>Phê duyệt Tài khoản:</strong> Xét duyệt hoặc từ chối các yêu cầu mở tài khoản mới (UserApprovalRequest).</li>
+      <li><strong>Quản lý Phân quyền:</strong> Phân gán, nâng cấp hoặc thu hồi Role (ADMIN, HR, LEADER, EMPLOYEE) và thiết lập Scope cho từng nhân viên.</li>
+      <li><strong>Giám sát:</strong> Xem Nhật ký thao tác hệ thống (AuditLogs), cấu hình tham số hệ thống (SystemSettings).</li>
+    </ol>
+  </li>
+</ul>
+
+<h3>2.2. Quản lý Nhân sự (HR - Human Resources)</h3>
+<ul>
+  <li><strong>Mã vai trò:</strong> HR</li>
+  <li><strong>Phạm vi mặc định (Default Scope):</strong> GLOBAL, COMPANY hoặc BRANCH.</li>
+  <li><strong>Mô tả vai trò:</strong> Chịu trách nhiệm về hồ sơ nhân sự, hợp đồng lao động và tổng hợp chuyên cần.</li>
+  <li><strong>Quyền hạn chi tiết:</strong>
+    <ol>
+      <li><strong>Hồ sơ & Hợp đồng:</strong> Quản lý thông tin nhân sự, tạo mẫu hợp đồng (ContractTemplates), theo dõi và thực hiện ký duyệt chữ ký số công ty.</li>
+      <li><strong>Phê duyệt Face ID:</strong> Duyệt ảnh hồ sơ khuôn mặt 3D (FaceProfile) của nhân viên mới đăng ký.</li>
+      <li><strong>Quản lý Phép & Chấm công:</strong> Khai báo các loại nghỉ phép (LeaveTypes), cấu hình quỹ phép năm, tổng hợp và chốt bảng công cuối tháng.</li>
+    </ol>
+  </li>
+</ul>
+
+<h3>2.3. Trưởng phòng / Trưởng nhóm (LEADER)</h3>
+<ul>
+  <li><strong>Mã vai trò:</strong> LEADER</li>
+  <li><strong>Phạm vi mặc định (Default Scope):</strong> DEPARTMENT (Theo phòng ban phụ trách).</li>
+  <li><strong>Mô tả vai trò:</strong> Quản lý vận hành hàng ngày của phòng ban/đội nhóm.</li>
+  <li><strong>Quyền hạn chi tiết:</strong>
+    <ol>
+      <li><strong>Phân ca Làm việc:</strong> Gán lịch ca làm việc (ShiftAssignments) cho nhân viên trong nhóm từ danh mục ca do Admin khởi tạo.</li>
+      <li><strong>Phê duyệt Đơn từ:</strong> Phê duyệt đơn xin nghỉ phép (LeaveRequests), đơn xin tăng ca (OvertimeRequests), đăng ký đổi ca (ShiftSwaps) và Tờ trình giải trình chấm công (AttendanceAdjustments).</li>
+      <li><strong>Quản lý Công việc & KPI:</strong> Giao Task, tạo nhóm việc (TaskGroups), duyệt giao việc chéo phòng ban (CrossDepartment), duyệt nộp bài, duyệt xin gia hạn (TaskExtension) và chấm điểm KPI.</li>
+      <li><strong>Giám sát Real-time:</strong> Theo dõi trạng thái có mặt/vắng mặt/đi trễ của nhân viên trong nhóm trên màn hình Leader Dashboard.</li>
+    </ol>
+  </li>
+</ul>
+
+<h3>2.4. Nhân viên (EMPLOYEE)</h3>
+<ul>
+  <li><strong>Mã vai trò:</strong> EMPLOYEE</li>
+  <li><strong>Phạm vi mặc định (Default Scope):</strong> OWN (Dữ liệu cá nhân).</li>
+  <li><strong>Mô tả vai trò:</strong> Lực lượng thực thi công việc và chấp hành kỷ luật lao động.</li>
+  <li><strong>Quyền hạn chi tiết:</strong>
+    <ol>
+      <li><strong>Chấm công AI:</strong> Thực hiện Check-in / Check-out hàng ngày bằng khuôn mặt (Face ID AI) kết hợp GPS.</li>
+      <li><strong>Tương tác Ca làm việc:</strong> Xem lịch ca cá nhân, gửi yêu cầu đổi ca (ShiftSwap) với đồng nghiệp.</li>
+      <li><strong>Tạo Đơn từ:</strong> Gửi đơn xin nghỉ phép, đơn OT, tạo Tờ trình giải trình chấm công khi quên check-in/out.</li>
+      <li><strong>Thực thi Task:</strong> Tiếp nhận công việc, cập nhật % tiến độ, gửi bình luận, nộp báo cáo hoàn thành hoặc xin gia hạn.</li>
+    </ol>
+  </li>
+</ul>
+
+<h3>2.5. Ma trận Phân quyền Chức năng Chi tiết (Permissions Matrix)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Nhóm Chức năng</th>
+      <th>Thao tác cụ thể</th>
+      <th>ADMIN</th>
+      <th>HR</th>
+      <th>LEADER</th>
+      <th>EMPLOYEE</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Cấu hình Ca làm việc</strong></td>
+      <td>Tạo mẫu ca (Shifts), sửa khung giờ</td>
+      <td>Đầy đủ</td>
+      <td>Hỗ trợ</td>
+      <td>Không (Chỉ phân ca)</td>
+      <td>Không</td>
+    </tr>
+    <tr>
+      <td><strong>Sơ đồ Tổ chức & GPS</strong></td>
+      <td>Tạo Chi nhánh, Phòng ban, GPS</td>
+      <td>Đầy đủ</td>
+      <td>Xem</td>
+      <td>Xem</td>
+      <td>Xem</td>
+    </tr>
+    <tr>
+      <td><strong>Phê duyệt Tài khoản</strong></td>
+      <td>Phê duyệt đơn đăng ký thành viên mới</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Trong Team</td>
+      <td>Không</td>
+    </tr>
+    <tr>
+      <td><strong>Quản lý Phân quyền</strong></td>
+      <td>Gán Role & Scope cho người dùng</td>
+      <td>Đầy đủ</td>
+      <td>Không</td>
+      <td>Không</td>
+      <td>Không</td>
+    </tr>
+    <tr>
+      <td><strong>Hồ sơ & Hợp đồng</strong></td>
+      <td>Quản lý hợp đồng, ký chữ ký số</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Xem trong Team</td>
+      <td>Chỉ cá nhân</td>
+    </tr>
+    <tr>
+      <td><strong>Duyệt Face ID</strong></td>
+      <td>Duyệt ảnh mẫu khuôn mặt 3D</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Không</td>
+      <td>Chỉ đăng ký</td>
+    </tr>
+    <tr>
+      <td><strong>Phân ca Làm việc</strong></td>
+      <td>Gán lịch ca làm cho nhân viên</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Trong Team</td>
+      <td>Chỉ xin đổi ca</td>
+    </tr>
+    <tr>
+      <td><strong>Chấm công AI + GPS</strong></td>
+      <td>Check-in / Check-out hàng ngày</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Chỉ cá nhân</td>
+    </tr>
+    <tr>
+      <td><strong>Duyệt Đơn từ & Tờ trình</strong></td>
+      <td>Duyệt đơn phép, OT, giải trình công</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Trong Team</td>
+      <td>Chỉ gửi đơn</td>
+    </tr>
+    <tr>
+      <td><strong>Quản lý Task & Dự án</strong></td>
+      <td>Giao Task, duyệt nộp bài, gia hạn</td>
+      <td>Đầy đủ</td>
+      <td>Không</td>
+      <td>Trong Team</td>
+      <td>Chỉ làm & nộp</td>
+    </tr>
+    <tr>
+      <td><strong>Đánh giá KPI</strong></td>
+      <td>Chấm điểm & chốt kết quả KPI</td>
+      <td>Đầy đủ</td>
+      <td>Đầy đủ</td>
+      <td>Trong Team</td>
+      <td>Tự đánh giá</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr class="hr-divider">
+
+<h2>CHƯƠNG 3: CƠ CHẾ CẤP ROLE, DUYỆT TÀI KHOẢN VÀ QUẢN LÝ SCOPE</h2>
+
+<h3>3.1. Tài khoản Khởi tạo Tối cao (Initial Seed Admin Account)</h3>
+<p>Khi khởi tạo hệ thống lần đầu, script seed.ts tự động sinh tài khoản Admin tối cao:</p>
+<ul>
+  <li><strong>Số điện thoại:</strong> 0900000000 | <strong>Mật khẩu:</strong> admin123.</li>
+  <li><strong>Role:</strong> ADMIN | <strong>Scope:</strong> GLOBAL.</li>
+  <li><strong>Trạng thái:</strong> AccountStatus = ACTIVE, ApprovalStatus = APPROVED, isActive = true.</li>
+</ul>
+
+<h3>3.2. Quy trình Đăng ký & Gán Role Mặc định (EMPLOYEE)</h3>
+<p>Khi người dùng mới tải ứng dụng và tự đăng ký tài khoản:</p>
+<ol>
+  <li>Nhập SĐT, Mật khẩu, Họ tên, CCCD, chọn Phòng ban đăng ký và chụp 3 góc ảnh khuôn mặt (Face ID).</li>
+  <li>Hệ thống tự động gán:
+    <ul>
+      <li>accountStatus = PENDING (Tạm khóa).</li>
+      <li>approvalStatus = PENDING (Chờ duyệt).</li>
+      <li>isActive = false.</li>
+      <li><strong>Role mặc định:</strong> EMPLOYEE.</li>
+    </ul>
+  </li>
+  <li>Hệ thống tạo hồ sơ UserApprovalRequest và gửi Push Notification đến Admin và Leader phòng ban đó.</li>
+</ol>
+
+<h3>3.3. Luồng Phê duyệt 2 Lớp: Duyệt Tài khoản & Duyệt Hồ sơ Face ID</h3>
+<ul>
+  <li><strong>Lớp 1 - Duyệt Tài khoản (User Approval):</strong> Leader hoặc Admin kiểm tra thông tin -> Bấm Phê duyệt -> Chuyển trạng thái AccountStatus = ACTIVE, isActive = true.</li>
+  <li><strong>Lớp 2 - Duyệt Face ID (Face Profile Approval):</strong> HR hoặc Admin kiểm tra 3 ảnh góc mặt -> Bấm Duyệt Face ID -> Kích hoạt dữ liệu khuôn mặt để phục vụ chấm công.</li>
+</ul>
+
+<h3>3.4. Cơ chế Cấp phát, Thu hồi & Nâng cấp Role từ Admin</h3>
+<p>Khi cần bổ nhiệm nhân viên lên làm Trưởng phòng (Leader) hoặc cán bộ HR:</p>
+<ol>
+  <li>Admin truy cập mục Quản lý Phân quyền.</li>
+  <li>Chọn tài khoản nhân viên -> Bổ sung Role LEADER hoặc HR.</li>
+  <li>Thiết lập Role Scope (ví dụ: Scope DEPARTMENT - Phòng Marketing).</li>
+  <li>Hệ thống cập nhật tức thì vào bảng UserRole. Người dùng mở lại app sẽ có ngay các giao diện tính năng của Role mới.</li>
+</ol>
+
+<h3>3.5. Chi tiết 4 Loại Phạm vi Phân quyền (Role Scope Types)</h3>
+<ul>
+  <li><strong>GLOBAL:</strong> Thao tác trên toàn bộ hệ thống công ty (Admin, HR tổng).</li>
+  <li><strong>COMPANY:</strong> Thao tác trong phạm vi một Công ty thành viên.</li>
+  <li><strong>BRANCH:</strong> Thao tác trong phạm vi một Chi nhánh địa lý.</li>
+  <li><strong>DEPARTMENT:</strong> Thao tác trong phạm vi Phòng ban phụ trách (Leader phòng ban).</li>
+</ul>
+
+<hr class="hr-divider">
+
+<h2>CHƯƠNG 4: ĐẶC TẢ TẤT CẢ CÁC PHÂN HỆ NGHIỆP VỤ CỐT LÕI</h2>
+<p>Hệ thống được tổ chức thành các mô-đun nghiệp vụ chuyên sâu:</p>
+
+<h3>4.1. Phân hệ Quản trị Ca làm việc (Shifts & ShiftAssignments)</h3>
+<ul>
+  <li><strong>Quản lý Ca (Shifts):</strong> Admin khởi tạo danh mục ca làm việc, định nghĩa giờ bắt đầu, giờ kết thúc, thời gian nới lỏng check-in (Grace period) và mốc tính đi trễ/về sớm.</li>
+  <li><strong>Phân ca (ShiftAssignments):</strong> Leader phân lịch ca làm việc cho nhân viên theo ngày/tuần/tháng.</li>
+  <li><strong>Đổi ca (ShiftSwaps):</strong> Cho phép 2 nhân viên tự thỏa thuận đăng ký đổi ca làm việc cho nhau và gửi Leader phê duyệt.</li>
+</ul>
+
+<h3>4.2. Phân hệ Chấm công AI (Attendance - Face ID 3D + GPS Geofencing)</h3>
+<ul>
+  <li><strong>Kiểm tra Vị trí GPS:</strong> Tính toán khoảng cách tọa độ thực tế của thiết bị di động so với tọa độ văn phòng (Công thức Haversine). Nếu khoảng cách nhỏ hơn hoặc bằng 100m mới cho phép quét mặt.</li>
+  <li><strong>Quét Khuôn mặt AI:</strong> Sử dụng mô hình Deep Learning (TensorFlow/Face-API) đối soát 3 góc khuôn mặt thực tế với dữ liệu mẫu. Nếu độ tương đồng lớn hơn hoặc bằng 90% mới hợp lệ.</li>
+  <li><strong>Tờ trình Giải trình (AttendanceAdjustments):</strong> Cho phép nhân viên gửi đơn giải trình bổ sung công khi quên check-in/out hoặc đi công tác ngoài.</li>
+</ul>
+
+<h3>4.3. Phân hệ Quản lý Đơn từ & Tờ trình (EmployeeRequests, Leave, Overtime)</h3>
+<ul>
+  <li>Quản lý đơn xin nghỉ phép năm, nghỉ phép thai sản, nghỉ bù.</li>
+  <li>Quản lý đơn xin đăng ký làm thêm giờ (OT) trước hoặc sau ca làm việc.</li>
+  <li>Luồng phê duyệt đa cấp tự động gửi thông báo đến Leader và HR.</li>
+</ul>
+
+<h3>4.4. Phân hệ Quản lý Công việc & Nhóm dự án (Tasks & TaskGroups)</h3>
+<ul>
+  <li>Tạo công việc, nhóm công việc, phân công người thực hiện, thiết lập hạn chót (Deadline).</li>
+  <li>Nhân viên cập nhật % tiến độ (0% đến 100%), đính kèm file, viết bình luận.</li>
+  <li>Tính năng Xin gia hạn hạn chót (TaskExtension): Gửi lý do xin lùi deadline để Leader duyệt.</li>
+</ul>
+
+<h3>4.5. Phân hệ Phối hợp Chéo phòng ban (CrossDepartment)</h3>
+<ul>
+  <li>Cho phép một phòng ban (ví dụ: Marketing) gửi yêu cầu hỗ trợ công việc sang phòng ban khác (ví dụ: Kỹ thuật).</li>
+  <li>Leader phòng ban nhận yêu cầu kiểm tra, tiếp nhận và gán cho nhân viên thuộc phòng ban mình xử lý.</li>
+</ul>
+
+<h3>4.6. Phân hệ Đánh giá KPI & Performance Review (KPI)</h3>
+<ul>
+  <li>Khởi tạo bộ tiêu chí KPI mẫu, gán KPI cho từng vị trí.</li>
+  <li>Quy trình đánh giá 2 bước: Nhân viên Tự đánh giá (Self Review) -> Leader Chấm điểm (Leader Review) & Chốt kết quả.</li>
+</ul>
+
+<h3>4.7. Phân hệ Hợp đồng Lao động & Chữ ký số (Contracts)</h3>
+<ul>
+  <li>Quản lý các mẫu hợp đồng lao động, tự động sinh hợp đồng cá nhân từ dữ liệu nhân sự.</li>
+  <li>Tích hợp ký chữ ký số điện tử (ContractSignatures) bảo mật cho đại diện doanh nghiệp và nhân viên.</li>
+</ul>
+
+<h3>4.8. Phân hệ Truyền thông Nội bộ, Chat & Voice Call (Chat, Newsfeed, VoiceCall)</h3>
+<ul>
+  <li><strong>Newsfeed:</strong> Đăng tin tức, thông báo nội bộ toàn công ty.</li>
+  <li><strong>Chat Realtime:</strong> Nhắn tin trực tiếp 1-1 hoặc Chat nhóm qua kết nối Socket.io.</li>
+  <li><strong>Voice Call:</strong> Gọi thoại nội bộ trực tiếp giữa các nhân viên qua hạ tầng LiveKit WebRTC.</li>
+</ul>
+
+<h3>4.9. Phân hệ Trợ lý Trí tuệ Nhân tạo (AiAssistant - Gemini AI)</h3>
+<ul>
+  <li>Tích hợp Trợ lý AI (Google Gemini API) hỗ trợ nhân viên tra cứu quy định công ty, hỏi đáp lịch làm việc, gợi ý viết báo cáo và hỗ trợ công việc.</li>
+</ul>
+
+<hr class="hr-divider">
+
+<h2>CHƯƠNG 5: QUY TRÌNH & LUỒNG HOẠT ĐỘNG CHUYÊN SÂU TỪ A-Z (END-TO-END WORKFLOWS)</h2>
+
+<h3>5.1. Luồng 1: Khởi tạo Doanh nghiệp, Tổ chức & Danh mục Ca làm việc</h3>
+<ol>
+  <li>Admin truy cập hệ thống tạo sơ đồ Chi nhánh, Phòng ban, Vị trí chức danh.</li>
+  <li>Admin vào mục Quản lý ca làm việc, tạo các mẫu ca chuẩn: Ca Hành chính (08:00 - 17:00), Ca Sáng (08:00 - 12:00), Ca Chiều (13:00 - 17:00).</li>
+  <li>Admin/HR cấu hình tọa độ GPS văn phòng (Lat/Lng) và bán kính cho phép chấm công 100m.</li>
+</ol>
+
+<h3>5.2. Luồng 2: Tuyển dụng, Đăng ký, Duyệt Face ID & Kích hoạt Thành viên</h3>
+<ol>
+  <li>Nhân viên mới tải App Mobile, đăng ký tài khoản, chọn phòng ban và chụp 3 góc ảnh khuôn mặt (Thẳng, Trái, Phải).</li>
+  <li>Hệ thống tạo UserApprovalRequest trạng thái PENDING.</li>
+  <li>Leader/Admin mở danh sách duyệt -> Bấm Phê duyệt tài khoản.</li>
+  <li>HR mở mục Duyệt Face ID -> Kiểm tra 3 góc ảnh rõ nét -> Bấm Duyệt Face ID. Tài khoản chuyển sang ACTIVE.</li>
+</ol>
+
+<h3>5.3. Luồng 3: Lập lịch Phân ca & Quy trình Đổi ca làm việc (ShiftSwap)</h3>
+<ol>
+  <li>Đầu tuần, Leader chọn các mẫu ca của Admin để phân ca làm việc cho nhân viên trong nhóm.</li>
+  <li>Quy trình Đổi ca (Shift Swap): Nhân viên A tạo đơn đổi ca với nhân viên B -> B bấm Đồng ý trên App -> Leader bấm Duyệt -> Lịch phân ca 2 bạn tự động hoán đổi.</li>
+</ol>
+
+<h3>5.4. Luồng 4: Thực thi Chấm công AI Hàng ngày & Giải trình Chấm công (AttendanceAdjustment)</h3>
+<ol>
+  <li>Check-in đầu ca: Nhân viên đến văn phòng, mở App bấm Chấm công. App kiểm tra GPS (<100m) + Quét Face ID AI (>90%) -> Ghi nhận Check-in thành công.</li>
+  <li>Giải trình chấm công: Nếu quên check-out, nhân viên tạo Tờ trình giải trình kèm lý do & minh chứng -> Leader/HR bấm Phê duyệt để bổ sung giờ công.</li>
+</ol>
+
+<h3>5.5. Luồng 5: Giao việc, Theo dõi Tiến độ, Gia hạn Deadline & Phối hợp Chéo</h3>
+<ol>
+  <li>Leader giao Task nội bộ hoặc gửi Yêu cầu giao việc chéo phòng ban (CrossDepartment).</li>
+  <li>Nhân viên tiếp nhận, cập nhật % tiến độ, gửi bình luận.</li>
+  <li>Nếu sắp trễ hạn, nhân viên bấm Xin gia hạn (TaskExtension) -> Leader duyệt -> Deadline tự động lùi.</li>
+  <li>Nhân viên Nộp báo cáo -> Leader kiểm tra & Bấm Duyệt hoàn thành.</li>
+</ol>
+
+<h3>5.6. Luồng 6: Đánh giá KPI & Xuất Báo cáo Chấm công Tổng hợp</h3>
+<ol>
+  <li>Cuối kỳ, nhân viên Tự đánh giá KPI -> Leader Chấm điểm và chốt kết quả KPI.</li>
+  <li>Cuối tháng, HR/Admin truy cập phân hệ Báo cáo, tự động xuất file Báo cáo Chấm công Tổng hợp (Excel/CSV) gồm chi tiết số ngày công, giờ OT, số lần đi trễ/về sớm để tổng kết toàn doanh nghiệp.</li>
+</ol>
+
+<hr class="hr-divider">
+
+<h2>CHƯƠNG 6: KẾT NỐI TÍCH HỢP HỆ THỐNG, BẢO MẬT VÀ QUY TRÌNH TRIỂN KHAI</h2>
+
+<h3>6.1. Hạ tầng Lưu trữ File</h3>
+<p>Hệ thống sử dụng cơ chế lưu trữ hybrid:</p>
+<ul>
+  <li><strong>Cloudflare R2 / S3 Storage:</strong> Lưu trữ file hợp đồng, tài liệu nhân sự bảo mật.</li>
+  <li><strong>Cloudinary:</strong> Lưu trữ và tối ưu hóa hình ảnh đại diện, ảnh bằng cấp.</li>
+</ul>
+
+<h3>6.2. Cơ chế Bảo mật & Xác thực</h3>
+<ul>
+  <li><strong>JWT (JSON Web Token):</strong> Sử dụng cặp Access Token (ngắn hạn) + Refresh Token (dài hạn 30 ngày) có mã hóa bcrypt.</li>
+  <li><strong>Bảo mật Header:</strong> Tích hợp Helmet chống XSS, Clickjacking.</li>
+  <li><strong>Rate Limiting:</strong> Sử dụng @nestjs/throttler giới hạn 120 req/phút chống tấn công DDoS.</li>
+  <li><strong>Input Validation:</strong> Sử dụng ValidationPipe với whitelist = true và forbidNonWhitelisted = true triệt hạ lỗ hổng Mass Assignment.</li>
+</ul>
+
+<h3>6.3. Giải pháp Kết nối Mạng & Đóng gói Container</h3>
+<ul>
+  <li><strong>Cloudflare Tunnel (cloudflared):</strong> Tạo đường ống bảo mật HTTPS ổn định 24/7, không giới hạn băng thông, thay thế hoàn toàn Ngrok.</li>
+  <li><strong>Docker Multi-stage Build:</strong> Đóng gói ứng dụng gồm 3 giai đoạn (deps -> build -> runner) giúp giảm tối đa dung lượng Docker Image và tích hợp sẵn Docker HEALTHCHECK.</li>
+</ul>
+
+<hr class="hr-divider">
+
+<h2 style="text-align: center; border: none; font-size: 13pt; color: #1A365D;">🏆 TỔNG KẾT BÁO CÁO 🏆</h2>
+<p style="text-align: center; font-style: italic;">Báo cáo đặc tả master này đã hệ thống hóa toàn bộ 52 mô-đun nghiệp vụ, kiến trúc kỹ thuật, ma trận phân quyền 4 Roles cốt lõi và luồng vận hành chi tiết từ A-Z của hệ thống MovieLegend HRM. Văn bản đã được định dạng chuẩn hóa Word HTML sẵn sàng mở trực tiếp bằng Microsoft Word hoặc Google Docs!</p>
+
+</body>
+</html>
