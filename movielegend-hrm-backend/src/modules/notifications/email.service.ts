@@ -24,10 +24,9 @@ export class EmailService {
           user,
           pass,
         },
-      });
+        family: 4, // Ép dùng IPv4 tránh lỗi ENETUNREACH khi mạng không hỗ trợ IPv6
+      } as any);
       this.logger.log(`EmailService configured with host: ${host}`);
-    } else {
-      this.logger.warn('EmailService is not configured (missing SMTP environment variables). Emails will not be sent.');
     }
   }
 

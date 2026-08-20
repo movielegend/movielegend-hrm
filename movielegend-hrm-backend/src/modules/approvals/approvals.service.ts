@@ -140,17 +140,20 @@ export class ApprovalsService {
         }
       }
 
+      const actorUserExists = await tx.user.findUnique({ where: { id: actor.userId } });
+      const safeActorUserId = actorUserExists ? actor.userId : request.userId;
+
       await tx.approvalHistory.create({
         data: {
           approvalRequestId: id,
-          actorUserId: actor.userId,
+          actorUserId: safeActorUserId,
           action: ApprovalAction.APPROVED,
           note: 'Tài khoản được duyệt',
         },
       });
       await tx.auditLog.create({
         data: {
-          actorUserId: actor.userId,
+          actorUserId: safeActorUserId,
           action: 'approval.account.approve',
           entityType: 'UserApprovalRequest',
           entityId: id,
@@ -202,11 +205,14 @@ export class ApprovalsService {
         },
       });
 
+      const actorUserExists = await tx.user.findUnique({ where: { id: actor.userId } });
+      const safeActorUserId = actorUserExists ? actor.userId : request.userId;
+
       // 3. Ghi lịch sử phê duyệt
       await tx.approvalHistory.create({
         data: {
           approvalRequestId: id,
-          actorUserId: actor.userId,
+          actorUserId: safeActorUserId,
           action: ApprovalAction.REJECTED,
           note: dto.reason,
         },
@@ -215,7 +221,7 @@ export class ApprovalsService {
       // 4. Lưu Audit Log
       await tx.auditLog.create({
         data: {
-          actorUserId: actor.userId,
+          actorUserId: safeActorUserId,
           action: 'approval.account.reject',
           entityType: 'UserApprovalRequest',
           entityId: id,
