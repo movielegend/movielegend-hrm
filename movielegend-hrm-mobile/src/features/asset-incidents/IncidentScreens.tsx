@@ -98,7 +98,6 @@ export function IncidentReportScreen() {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        showAlert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh.');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({

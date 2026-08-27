@@ -101,7 +101,6 @@ export default function CreateRequestScreen() {
   const handleTakePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      showAlert("Lỗi", "Vui lòng cấp quyền truy cập Camera để chụp ảnh bằng chứng.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({

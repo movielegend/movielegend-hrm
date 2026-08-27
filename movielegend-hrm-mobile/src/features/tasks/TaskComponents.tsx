@@ -217,7 +217,6 @@ export function AttachmentPicker({
   async function pickImageAndUpload() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      showAlert('Cần quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên.');
       return;
     }
     const picked = await ImagePicker.launchImageLibraryAsync({

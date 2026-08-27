@@ -18,7 +18,6 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
       if (mode === 'camera') {
         const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
         if (permissionResult.granted === false) {
-          Alert.alert('Cấp quyền', 'Bạn cần cấp quyền sử dụng Camera để chụp ảnh.');
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -30,7 +29,6 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
       } else {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.granted === false) {
-          Alert.alert('Cấp quyền', 'Bạn cần cấp quyền truy cập Thư viện để chọn ảnh.');
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({

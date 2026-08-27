@@ -23,7 +23,6 @@ export function ContractScannerModal({ visible, onClose, onScanComplete }: Props
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     
     if (permissionResult.granted === false) {
-      showAlert('Lỗi quyền truy cập', 'Bạn cần cấp quyền sử dụng camera để chụp ảnh hợp đồng.');
       return;
     }
 

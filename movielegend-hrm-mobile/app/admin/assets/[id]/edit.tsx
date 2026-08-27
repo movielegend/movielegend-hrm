@@ -109,7 +109,6 @@ export default function AssetEditScreen() {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Từ chối', 'Bạn cần cấp quyền sử dụng máy ảnh để chụp ảnh thiết bị.');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({

@@ -399,7 +399,6 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   async function pickImage() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      showAlert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh!');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
