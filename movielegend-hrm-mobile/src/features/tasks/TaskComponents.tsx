@@ -8,6 +8,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
+import { requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { uploadFile } from '../../api/uploads.api';
@@ -215,10 +216,8 @@ export function AttachmentPicker({
   }
 
   async function pickImageAndUpload() {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      return;
-    }
+    const hasPermission = await requestMediaLibraryPermissionWithFallback();
+    if (!hasPermission) return;
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,

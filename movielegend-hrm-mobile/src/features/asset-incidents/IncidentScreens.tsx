@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
 import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { Video, ResizeMode } from 'expo-av';
 import { uploadFile } from '../../api/uploads.api';
@@ -80,6 +81,8 @@ export function IncidentReportScreen() {
 
   const pickFile = async () => {
     try {
+      const hasPermission = await requestMediaLibraryPermissionWithFallback();
+      if (!hasPermission) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: false,
@@ -96,10 +99,8 @@ export function IncidentReportScreen() {
 
   const takePhoto = async () => {
     try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permissionResult.granted) {
-        return;
-      }
+      const hasPermission = await requestCameraPermissionWithFallback();
+      if (!hasPermission) return;
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,

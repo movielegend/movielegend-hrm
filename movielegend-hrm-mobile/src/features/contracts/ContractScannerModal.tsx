@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, StyleSheet, View, Text, Image, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { requestCameraPermissionWithFallback } from '../../utils/mediaPermissions';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { colors } from '../../theme/colors';
@@ -20,11 +21,8 @@ export function ContractScannerModal({ visible, onClose, onScanComplete }: Props
   const { showAlert } = useAppAlert();
 
   const takePhoto = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      return;
-    }
+    const hasPermission = await requestCameraPermissionWithFallback();
+    if (!hasPermission) return;
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,

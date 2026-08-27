@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../providers/AuthProvider';
 import { updateMe } from '../../../api/users.api';
 import { uploadFile } from '../../../api/uploads.api';
+import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../../utils/mediaPermissions';
 
 export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => string }) {
   const { user, reloadProfile } = useAuth();
@@ -16,10 +17,8 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
     try {
       let result;
       if (mode === 'camera') {
-        const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-        if (permissionResult.granted === false) {
-          return;
-        }
+        const hasPermission = await requestCameraPermissionWithFallback();
+        if (!hasPermission) return;
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
@@ -27,10 +26,8 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
           quality: 0.5,
         });
       } else {
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (permissionResult.granted === false) {
-          return;
-        }
+        const hasPermission = await requestMediaLibraryPermissionWithFallback();
+        if (!hasPermission) return;
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,

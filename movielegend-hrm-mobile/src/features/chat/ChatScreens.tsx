@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import ImageViewing from '../../components/ImageViewer/ImageViewer';
@@ -397,10 +398,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [viewingAlbum, setViewingAlbum] = useState<string[] | null>(null);
 
   async function pickImage() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      return;
-    }
+    const hasPermission = await requestMediaLibraryPermissionWithFallback();
+    if (!hasPermission) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,

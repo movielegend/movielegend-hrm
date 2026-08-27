@@ -17,6 +17,7 @@ import { SelectModal } from '../../../../src/components/SelectModal';
 import { SectionCard } from '../../../../src/components/SectionCard';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../../../src/api/uploads.api';
+import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../../../src/utils/mediaPermissions';
 
 export default function AssetEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -92,6 +93,8 @@ export default function AssetEditScreen() {
 
   const pickImage = async () => {
     try {
+      const hasPermission = await requestMediaLibraryPermissionWithFallback();
+      if (!hasPermission) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
@@ -107,10 +110,8 @@ export default function AssetEditScreen() {
 
   const takePhoto = async () => {
     try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permissionResult.granted) {
-        return;
-      }
+      const hasPermission = await requestCameraPermissionWithFallback();
+      if (!hasPermission) return;
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,

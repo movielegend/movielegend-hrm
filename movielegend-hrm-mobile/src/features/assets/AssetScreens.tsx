@@ -4,6 +4,7 @@ import { useAppAlert } from '../../contexts/AlertContext';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -515,6 +516,8 @@ export function AssetCreateScreen() {
 
   const pickImage = async () => {
     try {
+      const hasPermission = await requestMediaLibraryPermissionWithFallback();
+      if (!hasPermission) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
@@ -530,10 +533,8 @@ export function AssetCreateScreen() {
 
   const takePhoto = async () => {
     try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permissionResult.granted) {
-        return;
-      }
+      const hasPermission = await requestCameraPermissionWithFallback();
+      if (!hasPermission) return;
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,

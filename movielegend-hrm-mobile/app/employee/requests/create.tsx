@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { requestCameraPermissionWithFallback } from '../../../src/utils/mediaPermissions';
 import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
@@ -99,10 +100,8 @@ export default function CreateRequestScreen() {
 
 
   const handleTakePhoto = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permissionResult.granted) {
-      return;
-    }
+    const hasPermission = await requestCameraPermissionWithFallback();
+    if (!hasPermission) return;
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
