@@ -187,8 +187,8 @@ export class AttendanceReportService {
           moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
         ));
 
-        let checkIn = record?.checkInAt ? moment(record.checkInAt) : null;
-        let checkOut = record?.checkOutAt ? moment(record.checkOutAt) : null;
+        let checkIn = record?.checkInAt ? moment(record.checkInAt).tz('Asia/Ho_Chi_Minh') : null;
+        let checkOut = record?.checkOutAt ? moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh') : null;
         
         // Compute Total Hours worked
         let totalMinutes = 0;
@@ -223,15 +223,15 @@ export class AttendanceReportService {
           if (!shift) {
             // User checked in but has no shift assignment (e.g. OT on an off day)
             if (checkIn && checkOut && otRequest) {
-              const approvedStart = moment(otRequest.startAt);
-              const approvedEnd = moment(otRequest.endAt);
+              const approvedStart = moment(otRequest.startAt).tz('Asia/Ho_Chi_Minh');
+              const approvedEnd = moment(otRequest.endAt).tz('Asia/Ho_Chi_Minh');
               const effectiveOtStart = checkIn.isBefore(approvedStart) ? approvedStart : checkIn;
               const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
               otMins = Math.max(0, effectiveOtEnd.diff(effectiveOtStart, 'minutes'));
             }
           } else {
-            const shiftStart = moment(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm');
-            const shiftEnd = moment(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm');
+            const shiftStart = moment.tz(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
+            const shiftEnd = moment.tz(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
 
             if (record.status === 'MISSING') {
               if (lateRequest) {
@@ -257,7 +257,7 @@ export class AttendanceReportService {
 
               // Overtime
               if (checkOut && checkOut.isAfter(shiftEnd) && otRequest) {
-                const approvedEnd = moment(otRequest.endAt);
+                const approvedEnd = moment(otRequest.endAt).tz('Asia/Ho_Chi_Minh');
                 const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
                 otMins = Math.max(0, effectiveOtEnd.diff(shiftEnd, 'minutes'));
               }
