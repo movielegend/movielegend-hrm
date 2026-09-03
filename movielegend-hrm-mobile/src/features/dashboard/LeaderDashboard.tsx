@@ -180,6 +180,8 @@ export function LeaderDashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
+            <GridItem icon="star-circle-outline" title="Cấp của bạn" onPress={() => router.push('/employee/leveling' as any)} />
+            <GridItem icon="clipboard-check-outline" title="Duyệt Vòng 1" onPress={() => router.push('/employee/competition/review' as any)} />
             <GridItem icon="file-document-multiple" title="Duyệt đơn" onPress={() => router.push('/leader/(tabs)/approvals' as any)} />
             <GridItem icon="calendar-clock" title="Lịch sử công" onPress={() => router.push('/leader/attendance-history' as any)} />
             <GridItem icon="swap-horizontal" title="Chấm công" onPress={() => router.push('/leader/attendance' as any)} />
