@@ -153,11 +153,11 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
                     <View style={styles.bulletDisplayRow}>
                       <Text style={styles.bulletText}>{bullet}</Text>
                       <View style={styles.bulletActions}>
-                        <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleStartEditBullet(idx, bullet)}>
-                          <Text style={styles.actionBtnTextBlue}>Sửa</Text>
+                        <TouchableOpacity style={styles.editPillBtn} onPress={() => handleStartEditBullet(idx, bullet)}>
+                          <Text style={styles.editPillBtnText}>Sửa</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleDeleteBullet(idx)}>
-                          <Text style={styles.actionBtnTextRed}>Xóa</Text>
+                        <TouchableOpacity style={styles.deletePillBtn} onPress={() => handleDeleteBullet(idx)}>
+                          <Text style={styles.deletePillBtnText}>Xóa</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -293,17 +293,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   bulletsList: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
     padding: 10,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   bulletItemRow: {
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   bulletDisplayRow: {
     flexDirection: 'row',
@@ -313,28 +316,41 @@ const styles = StyleSheet.create({
   },
   bulletText: {
     fontSize: 12,
-    color: '#334155',
+    color: '#0F172A',
     fontWeight: '500',
     flex: 1,
+    lineHeight: 18,
   },
   bulletActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 6,
   },
-  actionIconBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+  editPillBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
-  actionBtnTextBlue: {
+  editPillBtnText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#2563EB',
+    color: '#1D4ED8',
   },
-  actionBtnTextRed: {
+  deletePillBtn: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  deletePillBtnText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#DC2626',
+    color: '#B91C1C',
   },
   editBulletRow: {
     flexDirection: 'row',
