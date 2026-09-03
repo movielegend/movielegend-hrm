@@ -18,120 +18,93 @@ export interface AdminLevelItem {
   levelName: string;
   colorHex: string;
   rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
-  promotionBonusAmount: number; // e.g. 8000000 (VNĐ)
-  physicalItemName: string; // e.g. "Laptop MacBook Air M3"
-  retentionFloorGmv: number; // e.g. 250 (tr)
-  promotionCeilingGmv: number; // e.g. 820 (tr)
-  retentionMultiplier: number; // e.g. 1.6
+  promotionBonusAmount: number;
+  physicalItemName: string;
+  retentionFloorGmv: number;
+  promotionCeilingGmv: number;
+  retentionMultiplier: number;
+}
+
+export interface DepartmentProjectConfig {
+  departmentId: string;
+  departmentName: string;
+  projectName: string;
+  subTaskBullets: string[];
 }
 
 export const AdminLevelConfigScreen: React.FC = () => {
+  const departments = [
+    { id: 'dept-1', name: 'Livestream Hà Nội' },
+    { id: 'dept-2', name: 'Livestream HCM' },
+    { id: 'dept-3', name: 'HR Nhân sự' },
+    { id: 'dept-4', name: 'Kho & Tài sản' },
+    { id: 'dept-5', name: 'Chăm sóc Khách hàng CSKH' },
+    { id: 'dept-6', name: 'Marketing' },
+  ];
+
+  const [selectedDeptId, setSelectedDeptId] = useState('dept-1');
+
+  const [deptProjects, setDeptProjects] = useState<Record<string, DepartmentProjectConfig>>({
+    'dept-1': {
+      departmentId: 'dept-1',
+      departmentName: 'Livestream Hà Nội',
+      projectName: 'Chiến Dịch Nâng Level Q3 - Bứt Phá Doanh Số 1 Tỷ',
+      subTaskBullets: [
+        '• Đảm nhận và dẫn chính 15 ca Livestream đỉnh điểm',
+        '• Tối ưu Setup ánh sáng & kỹ thuật cho 20 phiên Live',
+        '• Kịch bản chốt đơn tăng tỷ lệ chuyển đổi 25%',
+      ],
+    },
+  });
+
   const [levels, setLevels] = useState<AdminLevelItem[]>([
-    {
-      id: 'lvl-1',
-      levelNumber: 1,
-      levelName: 'Thực tập / Thử việc',
-      colorHex: '#9CA3AF',
-      rewardType: 'CASH',
-      promotionBonusAmount: 0,
-      physicalItemName: 'Voucher Sinh nhật 200k',
-      retentionFloorGmv: 0,
-      promotionCeilingGmv: 50,
-      retentionMultiplier: 1.0,
-    },
-    {
-      id: 'lvl-2',
-      levelNumber: 2,
-      levelName: 'Chính thức',
-      colorHex: '#2563EB',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 1000000,
-      physicalItemName: 'Kỷ niệm chương chính thức',
-      retentionFloorGmv: 30,
-      promotionCeilingGmv: 150,
-      retentionMultiplier: 1.1,
-    },
-    {
-      id: 'lvl-3',
-      levelNumber: 3,
-      levelName: 'Senior Specialist',
-      colorHex: '#0D9488',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 3000000,
-      physicalItemName: 'Tai nghe Bluetooth Chống ồn',
-      retentionFloorGmv: 80,
-      promotionCeilingGmv: 300,
-      retentionMultiplier: 1.25,
-    },
-    {
-      id: 'lvl-4',
-      levelNumber: 4,
-      levelName: 'Key Member',
-      colorHex: '#9333EA',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 5000000,
-      physicalItemName: 'Máy tính bảng iPad Air / Màn 4K',
-      retentionFloorGmv: 150,
-      promotionCeilingGmv: 500,
-      retentionMultiplier: 1.4,
-    },
-    {
-      id: 'lvl-5',
-      levelNumber: 5,
-      levelName: 'Team Leader',
-      colorHex: '#EA580C',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 8000000,
-      physicalItemName: '💻 LAPTOP MACBOOK AIR M3',
-      retentionFloorGmv: 250,
-      promotionCeilingGmv: 820,
-      retentionMultiplier: 1.6,
-    },
-    {
-      id: 'lvl-6',
-      levelNumber: 6,
-      levelName: 'Manager Bộ Phận',
-      colorHex: '#DC2626',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 15000000,
-      physicalItemName: '💻 LAPTOP MACBOOK PRO M-SERIES + iPhone',
-      retentionFloorGmv: 500,
-      promotionCeilingGmv: 1500,
-      retentionMultiplier: 2.0,
-    },
-    {
-      id: 'lvl-7',
-      levelNumber: 7,
-      levelName: 'Director Giám Đốc',
-      colorHex: '#D97706',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 30000000,
-      physicalItemName: '💻 MACBOOK PRO MAX + 1 CÂY VÀNG 9999',
-      retentionFloorGmv: 1000,
-      promotionCeilingGmv: 3000,
-      retentionMultiplier: 2.5,
-    },
-    {
-      id: 'lvl-8',
-      levelNumber: 8,
-      levelName: 'Executive Ban Điều Hành',
-      colorHex: '#7C2D12',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 50000000,
-      physicalItemName: '🚗 XE CÔNG VỤ + CỔ PHẦN ESOP DOANH NGHIỆP',
-      retentionFloorGmv: 2000,
-      promotionCeilingGmv: 5000,
-      retentionMultiplier: 3.0,
-    },
+    { id: 'lvl-1', levelNumber: 1, levelName: 'Thực tập / Thử việc', colorHex: '#9CA3AF', rewardType: 'CASH', promotionBonusAmount: 0, physicalItemName: 'Voucher Sinh nhật 200k', retentionFloorGmv: 0, promotionCeilingGmv: 50, retentionMultiplier: 1.0 },
+    { id: 'lvl-2', levelNumber: 2, levelName: 'Chính thức', colorHex: '#2563EB', rewardType: 'HYBRID', promotionBonusAmount: 1000000, physicalItemName: 'Kỷ niệm chương chính thức', retentionFloorGmv: 30, promotionCeilingGmv: 150, retentionMultiplier: 1.1 },
+    { id: 'lvl-3', levelNumber: 3, levelName: 'Senior Specialist', colorHex: '#0D9488', rewardType: 'HYBRID', promotionBonusAmount: 3000000, physicalItemName: 'Tai nghe Bluetooth Chống ồn', retentionFloorGmv: 80, promotionCeilingGmv: 300, retentionMultiplier: 1.25 },
+    { id: 'lvl-4', levelNumber: 4, levelName: 'Key Member', colorHex: '#9333EA', rewardType: 'HYBRID', promotionBonusAmount: 5000000, physicalItemName: 'Máy tính bảng iPad Air / Màn 4K', retentionFloorGmv: 150, promotionCeilingGmv: 500, retentionMultiplier: 1.4 },
+    { id: 'lvl-5', levelNumber: 5, levelName: 'Team Leader', colorHex: '#EA580C', rewardType: 'HYBRID', promotionBonusAmount: 8000000, physicalItemName: '💻 LAPTOP MACBOOK AIR M3', retentionFloorGmv: 250, promotionCeilingGmv: 820, retentionMultiplier: 1.6 },
+    { id: 'lvl-6', levelNumber: 6, levelName: 'Manager Bộ Phận', colorHex: '#DC2626', rewardType: 'HYBRID', promotionBonusAmount: 15000000, physicalItemName: '💻 LAPTOP MACBOOK PRO M-SERIES + iPhone', retentionFloorGmv: 500, promotionCeilingGmv: 1500, retentionMultiplier: 2.0 },
+    { id: 'lvl-7', levelNumber: 7, levelName: 'Director Giám Đốc', colorHex: '#D97706', rewardType: 'HYBRID', promotionBonusAmount: 30000000, physicalItemName: '💻 MACBOOK PRO MAX + 1 CÂY VÀNG 9999', retentionFloorGmv: 1000, promotionCeilingGmv: 3000, retentionMultiplier: 2.5 },
+    { id: 'lvl-8', levelNumber: 8, levelName: 'Executive Ban Điều Hành', colorHex: '#7C2D12', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: '🚗 XE CÔNG VỤ + CỔ PHẦN ESOP DOANH NGHIỆP', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
   ]);
 
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
 
+  // New Bullet-point sub-task modal state
+  const [newBulletText, setNewBulletText] = useState('');
+  const [currentProjectNameInput, setCurrentProjectNameInput] = useState('');
+
+  const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0];
+  const activeProj = deptProjects[selectedDeptId] || {
+    departmentId: selectedDeptId,
+    departmentName: activeDept.name,
+    projectName: `Dự Án Nâng Level - ${activeDept.name}`,
+    subTaskBullets: [],
+  };
+
+  const handleAddBullet = () => {
+    if (!newBulletText.trim()) return;
+    const bulletToAdd = newBulletText.trim().startsWith('•') ? newBulletText.trim() : `• ${newBulletText.trim()}`;
+    setDeptProjects((prev) => ({
+      ...prev,
+      [selectedDeptId]: {
+        ...activeProj,
+        subTaskBullets: [...(activeProj.subTaskBullets || []), bulletToAdd],
+      },
+    }));
+    setNewBulletText('');
+  };
+
+  const handleSaveProjectToDept = () => {
+    Alert.alert(
+      'Giao Dự Án Nâng Level Thành Công!',
+      `Đã giao Dự Án Lớn kèm các Việc con gạch đầu dòng tới Leader phòng ban ${activeDept.name}!`
+    );
+  };
+
   const handleSaveItem = () => {
     if (!editingItem) return;
-    setLevels((prev) =>
-      prev.map((item) => (item.id === editingItem.id ? editingItem : item))
-    );
+    setLevels((prev) => prev.map((item) => (item.id === editingItem.id ? editingItem : item)));
     Alert.alert('Thành Công', `Đã lưu cấu hình cho ${editingItem.levelName}!`);
     setEditingItem(null);
   };
@@ -142,11 +115,81 @@ export const AdminLevelConfigScreen: React.FC = () => {
         <View style={styles.header}>
           <Ionicons name="settings-sharp" size={26} color="#D97706" />
           <View>
-            <Text style={styles.title}>Cấu Hình Cấp Bậc & Thưởng Hiện Vật</Text>
-            <Text style={styles.sub}>Quản lý danh mục 8 Level, MacBook/iPad & 2 Ngưỡng</Text>
+            <Text style={styles.title}>Admin Cấu Hình Level & Giao Dự Án Lớn</Text>
+            <Text style={styles.sub}>Thiết lập điều kiện thăng cấp riêng cho từng phòng ban</Text>
           </View>
         </View>
 
+        {/* Department Selector Tabs */}
+        <Text style={styles.sectionHeaderTitle}>1. Chọn Phòng Ban Cần Cấu Hình:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptTabsRow}>
+          {departments.map((d) => (
+            <TouchableOpacity
+              key={d.id}
+              style={[styles.deptTabPill, selectedDeptId === d.id && styles.deptTabPillActive]}
+              onPress={() => setSelectedDeptId(d.id)}
+            >
+              <Text style={[styles.deptTabText, selectedDeptId === d.id && styles.deptTabTextActive]}>
+                {d.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Strategic Project & Bullet Sub-tasks Creator Section */}
+        <View style={styles.projectCreatorCard}>
+          <View style={styles.projCardHeader}>
+            <Ionicons name="rocket" size={20} color="#2563EB" />
+            <Text style={styles.projCardTitle}>Dự Án Lớn Thăng Cấp: {activeDept.name}</Text>
+          </View>
+
+          <Text style={styles.inputLabel}>Tên Dự Án Lớn Thăng Cấp (Admin Giao):</Text>
+          <TextInput
+            style={styles.input}
+            value={activeProj.projectName}
+            onChangeText={(txt) =>
+              setDeptProjects((prev) => ({
+                ...prev,
+                [selectedDeptId]: { ...activeProj, projectName: txt },
+              }))
+            }
+          />
+
+          <Text style={styles.inputLabel}>Thêm Việc Con Gạch Đầu Dòng (Sub-tasks):</Text>
+          <View style={styles.addBulletRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="Nhập việc con gạch đầu dòng..."
+              value={newBulletText}
+              onChangeText={setNewBulletText}
+            />
+            <TouchableOpacity style={styles.addBulletBtn} onPress={handleAddBullet}>
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Text style={styles.addBulletBtnText}>Thêm</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* List of Bullet Sub-tasks */}
+          <View style={styles.bulletsList}>
+            {activeProj.subTaskBullets && activeProj.subTaskBullets.length > 0 ? (
+              activeProj.subTaskBullets.map((bullet, idx) => (
+                <View key={idx} style={styles.bulletItemRow}>
+                  <Text style={styles.bulletText}>{bullet}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyBulletNotice}>Chưa có việc con nào. Hãy nhập gạch đầu dòng ở trên!</Text>
+            )}
+          </View>
+
+          <TouchableOpacity style={styles.saveProjBtn} onPress={handleSaveProjectToDept}>
+            <Ionicons name="send" size={16} color="#FFFFFF" />
+            <Text style={styles.saveProjBtnText}>GIAO DỰ ÁN CHO LEADER {activeDept.name.toUpperCase()}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Level List */}
+        <Text style={styles.sectionHeaderTitle}>2. Danh Mục 8 Cấp Bậc & Quà Thưởng Hiện Vật:</Text>
         {levels.map((lvl) => (
           <View key={lvl.id} style={styles.levelCard}>
             <View style={styles.cardHeaderRow}>
@@ -163,7 +206,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Reward Box */}
             <View style={styles.rewardBox}>
               <Ionicons name="gift" size={18} color="#D97706" />
               <View style={{ flex: 1 }}>
@@ -171,23 +213,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
                 <Text style={styles.rewardBonus}>Thưởng nóng: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ</Text>
               </View>
             </View>
-
-            {/* 2 Thresholds */}
-            <View style={styles.thresholdGrid}>
-              <View style={[styles.thresholdItem, styles.floorBox]}>
-                <Text style={styles.floorLabel}>🔻 Mốc Duy Trì Cấp (Đỏ)</Text>
-                <Text style={styles.floorValue}>{lvl.retentionFloorGmv} Tr VNĐ</Text>
-              </View>
-
-              <View style={[styles.thresholdItem, styles.ceilingBox]}>
-                <Text style={styles.ceilingLabel}>🚀 Mốc Nâng Cấp (Xanh)</Text>
-                <Text style={styles.ceilingValue}>{lvl.promotionCeilingGmv} Tr VNĐ</Text>
-              </View>
-            </View>
-
-            <Text style={styles.multiplierText}>
-              • Hệ số tích điểm Ví Tết: <Text style={{ fontWeight: 'bold', color: '#111827' }}>{lvl.retentionMultiplier}x</Text>
-            </Text>
           </View>
         ))}
       </ScrollView>
@@ -226,22 +251,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
                   value={String(editingItem.promotionBonusAmount)}
                   onChangeText={(text) => setEditingItem({ ...editingItem, promotionBonusAmount: Number(text) || 0 })}
                 />
-
-                <Text style={styles.inputLabel}>🔻 Mốc Duy Trì Cấp (Tr VNĐ):</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={String(editingItem.retentionFloorGmv)}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, retentionFloorGmv: Number(text) || 0 })}
-                />
-
-                <Text style={styles.inputLabel}>🚀 Mốc Nâng Cấp Mới (Tr VNĐ):</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={String(editingItem.promotionCeilingGmv)}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, promotionCeilingGmv: Number(text) || 0 })}
-                />
               </ScrollView>
             )}
 
@@ -278,6 +287,126 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#D97706',
     fontWeight: '600',
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  deptTabsRow: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  deptTabPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    marginRight: 8,
+  },
+  deptTabPillActive: {
+    backgroundColor: '#2563EB',
+  },
+  deptTabText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#4B5563',
+  },
+  deptTabTextActive: {
+    color: '#FFFFFF',
+  },
+  projectCreatorCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    marginBottom: 16,
+  },
+  projCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  projCardTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#1D4ED8',
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+  },
+  addBulletRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  addBulletBtn: {
+    backgroundColor: '#2563EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 6,
+  },
+  addBulletBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  bulletsList: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  bulletItemRow: {
+    paddingVertical: 4,
+  },
+  bulletText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  emptyBulletNotice: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  saveProjBtn: {
+    backgroundColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  saveProjBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   levelCard: {
     backgroundColor: '#FFFFFF',
@@ -336,7 +465,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
-    marginBottom: 10,
   },
   rewardTitle: {
     fontSize: 12,
@@ -346,51 +474,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#B45309',
     marginTop: 2,
-  },
-  thresholdGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  thresholdItem: {
-    flex: 1,
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  floorBox: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
-  },
-  ceilingBox: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  floorLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#DC2626',
-  },
-  floorValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#991B1B',
-    marginTop: 2,
-  },
-  ceilingLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#059669',
-  },
-  ceilingValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#065F46',
-    marginTop: 2,
-  },
-  multiplierText: {
-    fontSize: 11,
-    color: '#6B7280',
   },
   modalOverlay: {
     flex: 1,
@@ -413,21 +496,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1F2937',
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
   },
   saveBtn: {
     backgroundColor: '#2563EB',
