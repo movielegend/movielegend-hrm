@@ -34,7 +34,7 @@ export interface AdminLevelItem {
 
 export const AdminLevelConfigScreen: React.FC = () => {
   const { data: realDeptData } = useDepartments({ limit: 100 });
-  const { getSocket, isConnected } = useSocketStatus();
+  const { getSocket } = useSocketStatus();
   const realDeptList = realDeptData?.data || realDeptData?.items || [];
 
   const departments = realDeptList.length > 0
@@ -49,6 +49,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
       ];
 
   const [selectedDeptId, setSelectedDeptId] = useState(departments[0]?.id || 'dept-1');
+  const [selectedLevelNum, setSelectedLevelNum] = useState<number>(1);
 
   // Default Level Configs with Integrated Projects & Bullet Sub-tasks for Each Level
   const createDefaultLevels = (deptName: string): AdminLevelItem[] => [
@@ -103,7 +104,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
       promotionCeilingGmv: 300,
       retentionMultiplier: 1.25,
       project: {
-        projectName: `Dự Án Level 3: Tối Ưu Năng Suất Chuyên Chuyện (${deptName})`,
+        projectName: `Dự Án Level 3: Tối Ưu Năng Suất Chuyên Sâu (${deptName})`,
         subTaskBullets: [
           '• Đạt tổng Doanh số / KPI cá nhân 300Trđ',
           '• Hướng dẫn & kèm cặp 1 nhân sự mới Level 1',
@@ -208,13 +209,16 @@ export const AdminLevelConfigScreen: React.FC = () => {
     },
   ];
 
-  // Map of departmentId to department's custom 8 levels
+  // Map of departmentId to department's custom levels
   const [deptLevelConfigs, setDeptLevelConfigs] = useState<Record<string, AdminLevelItem[]>>({});
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
-  const [newBulletInputs, setNewBulletInputs] = useState<Record<string, string>>({});
+  const [newBulletText, setNewBulletText] = useState<string>('');
 
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0];
   const activeLevels = deptLevelConfigs[selectedDeptId] || createDefaultLevels(activeDept.name);
+
+  // Active Focused Level Card
+  const activeFocusedLevel = activeLevels.find((l) => l.levelNumber === selectedLevelNum) || activeLevels[0] || createDefaultLevels(activeDept.name)[0];
 
   // Real-time Socket.io Sync Listener
   useEffect(() => {
@@ -241,9 +245,9 @@ export const AdminLevelConfigScreen: React.FC = () => {
     };
   }, [selectedDeptId, getSocket]);
 
-  // Add bullet sub-task directly to a specific Level Card
-  const handleAddBulletToLevel = (levelId: string) => {
-    const textToAdd = (newBulletInputs[levelId] || '').trim();
+  // Add bullet sub-task directly to active focused Level Card
+  const handleAddBulletToFocusedLevel = () => {
+    const textToAdd = newBulletText.trim();
     if (!textToAdd) {
       Alert.alert('Thông báo', 'Vui lòng nhập nội dung việc con gạch đầu dòng!');
       return;
@@ -253,7 +257,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
     setDeptLevelConfigs((prev) => {
       const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
       const updatedList = currentList.map((lvl) => {
-        if (lvl.id === levelId) {
+        if (lvl.levelNumber === activeFocusedLevel.levelNumber) {
           return {
             ...lvl,
             project: {
@@ -273,7 +277,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
-    setNewBulletInputs((prev) => ({ ...prev, [levelId]: '' }));
+    setNewBulletText('');
   };
 
   // Dynamic Add New Level with Project
@@ -298,13 +302,12 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
     setDeptLevelConfigs((prev) => {
       const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
-      return {
-        ...prev,
-        [selectedDeptId]: [...currentList, newLevelItem],
-      };
+      const updatedList = [...currentList, newLevelItem];
+      return { ...prev, [selectedDeptId]: updatedList };
     });
 
-    Alert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} mới kèm Dự án cho phòng ban ${activeDept.name}!`);
+    setSelectedLevelNum(nextLevelNum);
+    Alert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} mới cho phòng ban ${activeDept.name}!`);
   };
 
   const handleSaveItem = () => {
@@ -331,18 +334,21 @@ export const AdminLevelConfigScreen: React.FC = () => {
         {/* Executive Header Banner */}
         <View style={styles.executiveHeaderCard}>
           <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
-          <Text style={styles.title}>Cấu Hình Dự Án & Quà Thưởng Trực Tiếp Cho Từng Level</Text>
-          <Text style={styles.sub}>Mỗi Level là 1 Dự Án Chinh Phục nối tiếp nhau — Dễ dàng thiết lập 100%</Text>
+          <Text style={styles.title}>Quản Lý Cấu Hình Level Tinh Gọn</Text>
+          <Text style={styles.sub}>Chọn Level bất kỳ trên thanh điều hướng để chỉnh sửa tập trung</Text>
         </View>
 
-        {/* Department Selector Tabs */}
-        <Text style={styles.sectionHeaderTitle}>CHỌN PHÒNG BAN THIẾT LẬP (CẤU HÌNH BẢN QUYỀN RIÊNG):</Text>
+        {/* 1. Department Selector Tabs */}
+        <Text style={styles.sectionHeaderTitle}>1. PHÒNG BAN THIẾT LẬP:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptTabsRow}>
           {departments.map((d) => (
             <TouchableOpacity
               key={d.id}
               style={[styles.deptTabPill, selectedDeptId === d.id && styles.deptTabPillActive]}
-              onPress={() => setSelectedDeptId(d.id)}
+              onPress={() => {
+                setSelectedDeptId(d.id);
+                setSelectedLevelNum(1);
+              }}
             >
               <Text style={[styles.deptTabText, selectedDeptId === d.id && styles.deptTabTextActive]}>
                 {d.name}
@@ -351,27 +357,50 @@ export const AdminLevelConfigScreen: React.FC = () => {
           ))}
         </ScrollView>
 
-        {/* Department Specific Level List with Integrated Projects */}
+        {/* 2. Visual Level Stepper Tabs Bar */}
         <View style={styles.levelHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>DANH SÁCH LEVEL & DỰ ÁN CHINH PHỤC PHÒNG {activeDept.name.toUpperCase()}:</Text>
+          <Text style={styles.sectionHeaderTitle}>2. CHỌN LEVEL ĐỂ CHỈNH SỬA TẬP TRUNG:</Text>
           <TouchableOpacity style={styles.addNewLevelBtn} onPress={handleAddNewLevel}>
-            <Text style={styles.addNewLevelBtnText}>+ THÊM LEVEL MỚI</Text>
+            <Text style={styles.addNewLevelBtnText}>+ THÊM LEVEL</Text>
           </TouchableOpacity>
         </View>
 
-        {activeLevels.map((lvl) => (
-          <View key={lvl.id} style={styles.levelCard}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.levelStepperRow}>
+          {activeLevels.map((lvl) => (
+            <TouchableOpacity
+              key={lvl.levelNumber}
+              style={[
+                styles.levelStepPill,
+                selectedLevelNum === lvl.levelNumber && styles.levelStepPillActive,
+              ]}
+              onPress={() => setSelectedLevelNum(lvl.levelNumber)}
+            >
+              <Text
+                style={[
+                  styles.levelStepText,
+                  selectedLevelNum === lvl.levelNumber && styles.levelStepTextActive,
+                ]}
+              >
+                {lvl.levelName}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* 3. FOCUSED SINGLE LEVEL CARD */}
+        {activeFocusedLevel && (
+          <View style={styles.focusedLevelCard}>
             
-            {/* Header Level Card */}
-            <View style={styles.cardHeaderRow}>
+            {/* Focused Header Row */}
+            <View style={styles.focusedHeaderRow}>
               <View style={styles.levelTitleGroup}>
-                <View style={[styles.colorBadge, { backgroundColor: lvl.colorHex }]}>
-                  <Text style={styles.colorBadgeText}>LEVEL {lvl.levelNumber}</Text>
+                <View style={[styles.colorBadge, { backgroundColor: activeFocusedLevel.colorHex }]}>
+                  <Text style={styles.colorBadgeText}>LEVEL {activeFocusedLevel.levelNumber}</Text>
                 </View>
-                <Text style={styles.levelName}>{lvl.levelName}</Text>
+                <Text style={styles.focusedLevelTitle}>{activeFocusedLevel.levelName} - Phòng {activeDept.name}</Text>
               </View>
 
-              <TouchableOpacity style={styles.editBtn} onPress={() => setEditingItem({ ...lvl })}>
+              <TouchableOpacity style={styles.editBtn} onPress={() => setEditingItem({ ...activeFocusedLevel })}>
                 <Text style={styles.editBtnText}>Chỉnh sửa quà</Text>
               </TouchableOpacity>
             </View>
@@ -379,37 +408,43 @@ export const AdminLevelConfigScreen: React.FC = () => {
             {/* Reward Summary Box */}
             <View style={styles.rewardBox}>
               <Text style={styles.rewardTitle}>
-                Quà Thưởng Hiện Vật: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName}</Text>
+                Quà Thưởng Hiện Vật: <Text style={styles.rewardTitleBold}>{activeFocusedLevel.physicalItemName}</Text>
               </Text>
               <Text style={styles.rewardBonus}>
-                Thưởng nóng thăng cấp: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
+                Thưởng nóng thăng cấp: {activeFocusedLevel.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
               </Text>
             </View>
 
-            {/* Level Stage Project Section directly inside Level Card */}
+            {/* Level Stage Project Editor Section */}
             <View style={styles.levelProjectSection}>
-              <Text style={styles.projSectionTitle}>Dự Án Chinh Phục Của Level {lvl.levelNumber}:</Text>
+              <Text style={styles.projSectionTitle}>Dự Án Chinh Phục Của Level {activeFocusedLevel.levelNumber}:</Text>
               
               <TextInput
                 style={styles.projTitleInput}
-                value={lvl.project.projectName}
+                value={activeFocusedLevel.project.projectName}
                 onChangeText={(txt) => {
                   setDeptLevelConfigs((prev) => {
                     const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
                     const updatedList = currentList.map((item) =>
-                      item.id === lvl.id ? { ...item, project: { ...item.project, projectName: txt } } : item
+                      item.levelNumber === activeFocusedLevel.levelNumber
+                        ? { ...item, project: { ...item.project, projectName: txt } }
+                        : item
                     );
+                    const socket = getSocket();
+                    if (socket) {
+                      socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+                    }
                     return { ...prev, [selectedDeptId]: updatedList };
                   });
                 }}
               />
 
-              <Text style={styles.inputSubLabel}>Các việc con gạch đầu dòng cần làm ở Level {lvl.levelNumber}:</Text>
+              <Text style={styles.inputSubLabel}>Các việc con gạch đầu dòng cần làm ở Level {activeFocusedLevel.levelNumber}:</Text>
               
               {/* Bullet Sub-tasks List */}
               <View style={styles.bulletsList}>
-                {lvl.project.subTaskBullets && lvl.project.subTaskBullets.length > 0 ? (
-                  lvl.project.subTaskBullets.map((bullet, idx) => (
+                {activeFocusedLevel.project.subTaskBullets && activeFocusedLevel.project.subTaskBullets.length > 0 ? (
+                  activeFocusedLevel.project.subTaskBullets.map((bullet, idx) => (
                     <View key={idx} style={styles.bulletItemRow}>
                       <Text style={styles.bulletText}>{bullet}</Text>
                     </View>
@@ -419,22 +454,48 @@ export const AdminLevelConfigScreen: React.FC = () => {
                 )}
               </View>
 
-              {/* Add Bullet Input Row directly inside Level Card */}
+              {/* Add Bullet Input Row */}
               <View style={styles.addBulletRow}>
                 <TextInput
                   style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                  placeholder={`+ Thêm việc con cho Level ${lvl.levelNumber}...`}
-                  value={newBulletInputs[lvl.id] || ''}
-                  onChangeText={(txt) => setNewBulletInputs((prev) => ({ ...prev, [lvl.id]: txt }))}
+                  placeholder={`+ Thêm việc con cho Level ${activeFocusedLevel.levelNumber}...`}
+                  value={newBulletText}
+                  onChangeText={setNewBulletText}
                 />
-                <TouchableOpacity style={styles.addBulletBtn} onPress={() => handleAddBulletToLevel(lvl.id)}>
-                  <Text style={styles.addBulletBtnText}>+ Thêm</Text>
+                <TouchableOpacity style={styles.addBulletBtn} onPress={handleAddBulletToFocusedLevel}>
+                  <Text style={styles.addBulletBtnText}>+ Thêm việc</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
           </View>
-        ))}
+        )}
+
+        {/* 4. ALL LEVELS QUICK OVERVIEW GRID (Compact 1-Line Table) */}
+        <Text style={styles.sectionHeaderTitle}>3. BẢNG TỔNG QUAN TẤT CẢ CÁC LEVEL (PHÒNG {activeDept.name.toUpperCase()}):</Text>
+        <View style={styles.overviewTableCard}>
+          {activeLevels.map((lvl) => (
+            <TouchableOpacity
+              key={lvl.levelNumber}
+              style={[
+                styles.overviewRow,
+                selectedLevelNum === lvl.levelNumber && styles.overviewRowActive,
+              ]}
+              onPress={() => setSelectedLevelNum(lvl.levelNumber)}
+            >
+              <View style={[styles.miniBadge, { backgroundColor: lvl.colorHex }]}>
+                <Text style={styles.miniBadgeText}>L{lvl.levelNumber}</Text>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.overviewLevelName}>{lvl.levelName}: <Text style={{ color: '#92400E', fontWeight: 'bold' }}>{lvl.physicalItemName}</Text></Text>
+                <Text style={styles.overviewProjName} numberOfLines={1}>{lvl.project.projectName}</Text>
+              </View>
+
+              <Text style={styles.overviewBulletCount}>{(lvl.project.subTaskBullets || []).length} việc con</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <View style={{ height: 30 }} />
       </ScrollView>
@@ -523,29 +584,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#64748B',
     letterSpacing: 0.8,
-    flex: 1,
-  },
-  levelHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 10,
-  },
-  addNewLevelBtn: {
-    backgroundColor: '#1E40AF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  addNewLevelBtnText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    marginTop: 4,
+    marginBottom: 8,
   },
   deptTabsRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   deptTabPill: {
     paddingHorizontal: 14,
@@ -569,29 +613,73 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
-  levelCard: {
+  levelHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  addNewLevelBtn: {
+    backgroundColor: '#1E40AF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addNewLevelBtnText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  levelStepperRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  levelStepPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  levelStepPillActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  levelStepText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#475569',
+  },
+  levelStepTextActive: {
+    color: '#FFFFFF',
+  },
+  focusedLevelCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  cardHeaderRow: {
+  focusedHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   levelTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   colorBadge: {
     paddingHorizontal: 8,
@@ -603,7 +691,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 11,
   },
-  levelName: {
+  focusedLevelTitle: {
     fontSize: 15,
     fontWeight: 'bold',
     color: '#0F172A',
@@ -627,7 +715,7 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
     padding: 10,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   rewardTitle: {
     fontSize: 12,
@@ -665,7 +753,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     fontWeight: 'bold',
     color: '#1E40AF',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   inputSubLabel: {
     fontSize: 11,
@@ -677,12 +765,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 6,
     padding: 8,
-    marginBottom: 8,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   bulletItemRow: {
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
   bulletText: {
     fontSize: 12,
@@ -704,21 +792,64 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
     borderRadius: 6,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 8,
     fontSize: 12,
     backgroundColor: '#FFFFFF',
     color: '#0F172A',
   },
   addBulletBtn: {
     backgroundColor: '#2563EB',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: 6,
   },
   addBulletBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 11,
+  },
+  overviewTableCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  overviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  overviewRowActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  miniBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  miniBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 10,
+  },
+  overviewLevelName: {
+    fontSize: 12,
+    color: '#1E293B',
+  },
+  overviewProjName: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  overviewBulletCount: {
+    fontSize: 11,
+    color: '#2563EB',
+    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,
