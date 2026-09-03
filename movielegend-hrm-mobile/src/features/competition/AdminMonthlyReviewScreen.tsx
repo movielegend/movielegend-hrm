@@ -279,7 +279,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
     });
 
     Alert.alert(
-      'CHỐT PHÊ DUYỆT THĂNG CẤP NHÂN VIÊN! ✓',
+      'CHỐT PHÊ DUYỆT THĂNG CẤP NHÂN VIÊN!',
       `Đã duyệt thăng cấp cho Nhân viên: ${item.userName}\n\n• Cấp bậc mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x`,
       [{ text: 'Đóng' }]
     );
@@ -295,7 +295,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
     });
 
     Alert.alert(
-      'CHỐT PHÊ DUYỆT THĂNG CẤP LEADER / QUẢN LÝ! 👑',
+      'CHỐT PHÊ DUYỆT THĂNG CẤP LEADER / QUẢN LÝ!',
       `Đã duyệt thăng cấp quản trị cho Leader: ${item.userName}\n\n• Vị trí Level mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x`,
       [{ text: 'Đóng' }]
     );
@@ -435,7 +435,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                       onPress={() => setSelectedDeptId(dept.id)}
                     >
                       <Text style={[styles.deptPillText, selectedDeptId === dept.id && styles.deptPillTextActive]}>
-                        👥 {dept.name}
+                        {dept.name}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -456,13 +456,13 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                     <View key={item.id} style={styles.auditCard}>
                       <View style={styles.cardHeaderRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.employeeName}>👤 {item.userName}</Text>
+                          <Text style={styles.employeeName}>{item.userName}</Text>
                           <Text style={styles.employeeDept}>Phòng: {item.departmentName}</Text>
                         </View>
 
                         <View style={[styles.statusBadge, item.status === 'APPROVED' && styles.statusApprovedBadge]}>
                           <Text style={[styles.statusBadgeText, item.status === 'APPROVED' && styles.statusApprovedText]}>
-                            {item.status === 'APPROVED' ? 'ĐÃ DUYỆT NHÂN VIÊN ✓' : 'CHỜ CHỐT LEVEL'}
+                            {item.status === 'APPROVED' ? 'ĐÃ DUYỆT NHÂN VIÊN' : 'CHỜ CHỐT LEVEL'}
                           </Text>
                         </View>
                       </View>
@@ -504,10 +504,10 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                             <View key={st.id} style={styles.subTaskAuditItem}>
                               <Text style={styles.subTaskTitle}>{st.bulletTitle}</Text>
                               <View style={styles.subTaskMetaRow}>
-                                <Text style={styles.assigneeText}>👤 Người thực hiện: <Text style={styles.assigneeBold}>{st.assigneeName}</Text></Text>
+                                <Text style={styles.assigneeText}>Người thực hiện: <Text style={styles.assigneeBold}>{st.assigneeName}</Text></Text>
                                 <View style={[styles.rateBadge, st.completionRate === 100 ? styles.rateBadgeComplete : styles.rateBadgeProgress]}>
                                   <Text style={[styles.rateBadgeText, st.completionRate === 100 ? styles.rateTextComplete : styles.rateTextProgress]}>
-                                    {st.completionRate}% {st.completionRate === 100 ? 'Hoàn thành ✓' : 'Đang làm ⚡'}
+                                    {st.completionRate}% {st.completionRate === 100 ? 'Hoàn thành' : 'Đang làm'}
                                   </Text>
                                 </View>
                               </View>
@@ -519,7 +519,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                       {item.status === 'PENDING' ? (
                         <View style={styles.actionRow}>
                           <TouchableOpacity style={styles.approveBtn} onPress={() => handleApproveStaff(item)}>
-                            <Text style={styles.approveBtnText}>PHÊ DUYỆT THĂNG CẤP NHÂN VIÊN ✓</Text>
+                            <Text style={styles.approveBtnText}>PHÊ DUYỆT THĂNG CẤP NHÂN VIÊN</Text>
                           </TouchableOpacity>
                           <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRejectItem(item)}>
                             <Text style={styles.rejectBtnText}>Yêu Cầu Bổ Sung</Text>
@@ -527,7 +527,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                         </View>
                       ) : (
                         <View style={styles.approvedNoticeBox}>
-                          <Text style={styles.approvedNoticeText}>✓ Đã chính thức duyệt thăng cấp Nhân viên lên {item.targetLevelName} & Đồng bộ hệ số Tết {item.retentionMultiplier}x</Text>
+                          <Text style={styles.approvedNoticeText}>Đã chính thức duyệt thăng cấp Nhân viên lên {item.targetLevelName} & Đồng bộ hệ số Tết {item.retentionMultiplier}x</Text>
                         </View>
                       )}
                     </View>
@@ -552,7 +552,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                       onPress={() => setSelectedDeptId(dept.id)}
                     >
                       <Text style={[styles.deptPillText, selectedDeptId === dept.id && styles.deptPillTextActive]}>
-                        👑 {dept.name}
+                        {dept.name}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -573,13 +573,13 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                     <View key={item.id} style={styles.leaderAuditCard}>
                       <View style={styles.cardHeaderRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.leaderName}>👑 {item.userName}</Text>
+                          <Text style={styles.leaderName}>{item.userName}</Text>
                           <Text style={styles.employeeDept}>Trưởng Phòng / Team Leader: {item.departmentName}</Text>
                         </View>
 
                         <View style={[styles.statusBadge, item.status === 'APPROVED' && styles.statusApprovedBadge]}>
                           <Text style={[styles.statusBadgeText, item.status === 'APPROVED' && styles.statusApprovedText]}>
-                            {item.status === 'APPROVED' ? 'ĐÃ DUYỆT LEADER ✓' : 'CHỜ DUYỆT LEADER'}
+                            {item.status === 'APPROVED' ? 'ĐÃ DUYỆT LEADER' : 'CHỜ DUYỆT LEADER'}
                           </Text>
                         </View>
                       </View>
@@ -621,10 +621,10 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                             <View key={st.id} style={styles.subTaskAuditItem}>
                               <Text style={styles.subTaskTitle}>{st.bulletTitle}</Text>
                               <View style={styles.subTaskMetaRow}>
-                                <Text style={styles.assigneeText}>👑 Phụ trách: <Text style={styles.assigneeBold}>{st.assigneeName}</Text></Text>
+                                <Text style={styles.assigneeText}>Phụ trách: <Text style={styles.assigneeBold}>{st.assigneeName}</Text></Text>
                                 <View style={[styles.rateBadge, st.completionRate === 100 ? styles.rateBadgeComplete : styles.rateBadgeProgress]}>
                                   <Text style={[styles.rateBadgeText, st.completionRate === 100 ? styles.rateTextComplete : styles.rateTextProgress]}>
-                                    {st.completionRate}% {st.completionRate === 100 ? 'Đạt 100% KPI ✓' : 'Đang thực hiện ⚡'}
+                                    {st.completionRate}% {st.completionRate === 100 ? 'Đạt 100% KPI' : 'Đang thực hiện'}
                                   </Text>
                                 </View>
                               </View>
@@ -636,7 +636,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                       {item.status === 'PENDING' ? (
                         <View style={styles.actionRow}>
                           <TouchableOpacity style={styles.leaderApproveBtn} onPress={() => handleApproveLeader(item)}>
-                            <Text style={styles.approveBtnText}>PHÊ DUYỆT NÂNG LEVEL LEADER 👑 ✓</Text>
+                            <Text style={styles.approveBtnText}>PHÊ DUYỆT NÂNG LEVEL LEADER</Text>
                           </TouchableOpacity>
                           <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRejectItem(item)}>
                             <Text style={styles.rejectBtnText}>Yêu Cầu Bổ Sung</Text>
@@ -644,7 +644,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                         </View>
                       ) : (
                         <View style={styles.approvedNoticeBox}>
-                          <Text style={styles.approvedNoticeText}>✓ Đã phê duyệt thăng cấp Leader lên {item.targetLevelName} & Đồng bộ hệ số Tết {item.retentionMultiplier}x</Text>
+                          <Text style={styles.approvedNoticeText}>Đã phê duyệt thăng cấp Leader lên {item.targetLevelName} & Đồng bộ hệ số Tết {item.retentionMultiplier}x</Text>
                         </View>
                       )}
                     </View>
@@ -673,7 +673,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                   </View>
 
                   <TouchableOpacity style={styles.finishAllBtn} onPress={() => setActiveStep(1)}>
-                    <Text style={styles.finishAllBtnText}>HOÀN TẤT & ĐỒNG BỘ NĂNG SUẤT REAL-TIME ✓</Text>
+                    <Text style={styles.finishAllBtnText}>HOÀN TẤT & ĐỒNG BỘ NĂNG SUẤT REAL-TIME</Text>
                   </TouchableOpacity>
                 </View>
               </>
