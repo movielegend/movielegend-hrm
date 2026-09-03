@@ -158,6 +158,11 @@ export function EmployeeDashboardScreen() {
           <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.gridContainer}>
             <GridItem
+              icon="star-circle-outline"
+              title="Cấp của bạn"
+              onPress={() => router.push('/employee/leveling' as any)}
+            />
+            <GridItem
               icon="trophy-award"
               title="Thi đua"
               onPress={() => router.push('/employee/competition' as any)}
