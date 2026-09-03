@@ -89,15 +89,27 @@ export const AdminLevelConfigScreen: React.FC = () => {
   };
 
   const handleAddBullet = () => {
-    if (!newBulletText.trim()) return;
+    if (!newBulletText.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập nội dung việc con gạch đầu dòng!');
+      return;
+    }
     const bulletToAdd = newBulletText.trim().startsWith('•') ? newBulletText.trim() : `• ${newBulletText.trim()}`;
-    setDeptProjects((prev) => ({
-      ...prev,
-      [selectedDeptId]: {
-        ...activeProj,
-        subTaskBullets: [...(activeProj.subTaskBullets || []), bulletToAdd],
-      },
-    }));
+    
+    setDeptProjects((prev) => {
+      const currentDeptProj = prev[selectedDeptId] || {
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        projectName: `Dự Án Nâng Level - ${activeDept.name}`,
+        subTaskBullets: [],
+      };
+      return {
+        ...prev,
+        [selectedDeptId]: {
+          ...currentDeptProj,
+          subTaskBullets: [...(currentDeptProj.subTaskBullets || []), bulletToAdd],
+        },
+      };
+    });
     setNewBulletText('');
   };
 
@@ -117,7 +129,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Ionicons name="settings-sharp" size={26} color="#D97706" />
           <View>
