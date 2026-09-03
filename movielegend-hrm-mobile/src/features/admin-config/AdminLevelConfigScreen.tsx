@@ -63,14 +63,14 @@ export const AdminLevelConfigScreen: React.FC = () => {
   });
 
   const [levels, setLevels] = useState<AdminLevelItem[]>([
-    { id: 'lvl-1', levelNumber: 1, levelName: 'Thực tập / Thử việc', colorHex: '#9CA3AF', rewardType: 'CASH', promotionBonusAmount: 0, physicalItemName: 'Voucher Sinh nhật 200k', retentionFloorGmv: 0, promotionCeilingGmv: 50, retentionMultiplier: 1.0 },
+    { id: 'lvl-1', levelNumber: 1, levelName: 'Thực tập / Thử việc', colorHex: '#64748B', rewardType: 'CASH', promotionBonusAmount: 0, physicalItemName: 'Voucher Sinh nhật 200k', retentionFloorGmv: 0, promotionCeilingGmv: 50, retentionMultiplier: 1.0 },
     { id: 'lvl-2', levelNumber: 2, levelName: 'Chính thức', colorHex: '#2563EB', rewardType: 'HYBRID', promotionBonusAmount: 1000000, physicalItemName: 'Kỷ niệm chương chính thức', retentionFloorGmv: 30, promotionCeilingGmv: 150, retentionMultiplier: 1.1 },
-    { id: 'lvl-3', levelNumber: 3, levelName: 'Senior Specialist', colorHex: '#0D9488', rewardType: 'HYBRID', promotionBonusAmount: 3000000, physicalItemName: 'Tai nghe Bluetooth Chống ồn', retentionFloorGmv: 80, promotionCeilingGmv: 300, retentionMultiplier: 1.25 },
-    { id: 'lvl-4', levelNumber: 4, levelName: 'Key Member', colorHex: '#9333EA', rewardType: 'HYBRID', promotionBonusAmount: 5000000, physicalItemName: 'Máy tính bảng iPad Air / Màn 4K', retentionFloorGmv: 150, promotionCeilingGmv: 500, retentionMultiplier: 1.4 },
+    { id: 'lvl-3', levelNumber: 3, levelName: 'Senior Specialist', colorHex: '#0D9488', rewardType: 'HYBRID', promotionBonusAmount: 3000000, physicalItemName: 'Tai nghe Bluetooth Chống ồn cao cấp', retentionFloorGmv: 80, promotionCeilingGmv: 300, retentionMultiplier: 1.25 },
+    { id: 'lvl-4', levelNumber: 4, levelName: 'Key Member', colorHex: '#7C3AED', rewardType: 'HYBRID', promotionBonusAmount: 5000000, physicalItemName: 'Máy tính bảng iPad Air / Màn 4K', retentionFloorGmv: 150, promotionCeilingGmv: 500, retentionMultiplier: 1.4 },
     { id: 'lvl-5', levelNumber: 5, levelName: 'Team Leader', colorHex: '#EA580C', rewardType: 'HYBRID', promotionBonusAmount: 8000000, physicalItemName: 'Laptop MacBook Air M3', retentionFloorGmv: 250, promotionCeilingGmv: 820, retentionMultiplier: 1.6 },
     { id: 'lvl-6', levelNumber: 6, levelName: 'Manager Bộ Phận', colorHex: '#DC2626', rewardType: 'HYBRID', promotionBonusAmount: 15000000, physicalItemName: 'Laptop MacBook Pro M-Series + iPhone', retentionFloorGmv: 500, promotionCeilingGmv: 1500, retentionMultiplier: 2.0 },
     { id: 'lvl-7', levelNumber: 7, levelName: 'Director Giám Đốc', colorHex: '#D97706', rewardType: 'HYBRID', promotionBonusAmount: 30000000, physicalItemName: 'MacBook Pro Max + 1 Cây Vàng 9999', retentionFloorGmv: 1000, promotionCeilingGmv: 3000, retentionMultiplier: 2.5 },
-    { id: 'lvl-8', levelNumber: 8, levelName: 'Executive Ban Điều Hành', colorHex: '#7C2D12', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: 'Xe công vụ + Cổ phần ESOP Doanh nghiệp', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
+    { id: 'lvl-8', levelNumber: 8, levelName: 'Executive Ban Điều Hành', colorHex: '#881337', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: 'Xe công vụ + Cổ phần ESOP Doanh nghiệp', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
   ]);
 
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
@@ -126,15 +126,16 @@ export const AdminLevelConfigScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Admin Cấu Hình Level & Giao Dự Án Lớn</Text>
-            <Text style={styles.sub}>Thiết lập điều kiện thăng cấp riêng cho từng phòng ban</Text>
-          </View>
+        
+        {/* Executive Header Banner */}
+        <View style={styles.executiveHeaderCard}>
+          <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
+          <Text style={styles.title}>Cấu Hình Level & Giao Dự Án Nâng Cấp</Text>
+          <Text style={styles.sub}>Điều kiện thăng cấp & Quà thưởng hiện vật cho từng phòng ban</Text>
         </View>
 
         {/* Department Selector Tabs */}
-        <Text style={styles.sectionHeaderTitle}>1. Chọn Phòng Ban Cần Cấu Hình:</Text>
+        <Text style={styles.sectionHeaderTitle}>CHỌN PHÒNG BAN THIẾT LẬP:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptTabsRow}>
           {departments.map((d) => (
             <TouchableOpacity
@@ -151,7 +152,9 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
         {/* Strategic Project & Bullet Sub-tasks Creator Section */}
         <View style={styles.projectCreatorCard}>
-          <Text style={styles.projCardTitle}>Dự Án Lớn Thăng Cấp: {activeDept.name}</Text>
+          <View style={styles.projHeaderPill}>
+            <Text style={styles.projHeaderPillText}>PHÒNG BAN: {activeDept.name.toUpperCase()}</Text>
+          </View>
 
           <Text style={styles.inputLabel}>Tên Dự Án Lớn Thăng Cấp (Admin Giao):</Text>
           <TextInput
@@ -165,16 +168,16 @@ export const AdminLevelConfigScreen: React.FC = () => {
             }
           />
 
-          <Text style={styles.inputLabel}>Thêm Việc Con Gạch Đầu Dòng (Sub-tasks):</Text>
+          <Text style={styles.inputLabel}>Thêm Việc Con Gạch Đầu Dòng (Bullet-Point Sub-tasks):</Text>
           <View style={styles.addBulletRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder="Nhập việc con gạch đầu dòng..."
+              placeholder="Nhập nội dung việc con gạch đầu dòng..."
               value={newBulletText}
               onChangeText={setNewBulletText}
             />
             <TouchableOpacity style={styles.addBulletBtn} onPress={handleAddBullet}>
-              <Text style={styles.addBulletBtnText}>Thêm</Text>
+              <Text style={styles.addBulletBtnText}>+ Thêm việc</Text>
             </TouchableOpacity>
           </View>
 
@@ -187,23 +190,23 @@ export const AdminLevelConfigScreen: React.FC = () => {
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyBulletNotice}>Chưa có việc con nào. Hãy nhập gạch đầu dòng ở trên!</Text>
+              <Text style={styles.emptyBulletNotice}>Chưa có việc con nào. Nhập gạch đầu dòng ở trên và bấm [+ Thêm việc].</Text>
             )}
           </View>
 
           <TouchableOpacity style={styles.saveProjBtn} onPress={handleSaveProjectToDept}>
-            <Text style={styles.saveProjBtnText}>GIAO DỰ ÁN CHO LEADER {activeDept.name.toUpperCase()}</Text>
+            <Text style={styles.saveProjBtnText}>XÁC NHẬN GIAO DỰ ÁN CHO LEADER {activeDept.name.toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Level List */}
-        <Text style={styles.sectionHeaderTitle}>2. Danh Mục 8 Cấp Bậc & Quà Thưởng Hiện Vật:</Text>
+        <Text style={styles.sectionHeaderTitle}>DANH MỤC 8 CẤP BẬC & QUÀ THƯỞNG HIỆN VẬT:</Text>
         {levels.map((lvl) => (
           <View key={lvl.id} style={styles.levelCard}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.levelTitleGroup}>
                 <View style={[styles.colorBadge, { backgroundColor: lvl.colorHex }]}>
-                  <Text style={styles.colorBadgeText}>L{lvl.levelNumber}</Text>
+                  <Text style={styles.colorBadgeText}>LEVEL {lvl.levelNumber}</Text>
                 </View>
                 <Text style={styles.levelName}>{lvl.levelName}</Text>
               </View>
@@ -214,13 +217,17 @@ export const AdminLevelConfigScreen: React.FC = () => {
             </View>
 
             <View style={styles.rewardBox}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rewardTitle}>Quà Hiện Vật: <Text style={{ color: '#B45309', fontWeight: 'bold' }}>{lvl.physicalItemName}</Text></Text>
-                <Text style={styles.rewardBonus}>Thưởng nóng: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ</Text>
-              </View>
+              <Text style={styles.rewardTitle}>
+                Quà Hiện Vật: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName}</Text>
+              </Text>
+              <Text style={styles.rewardBonus}>
+                Thưởng nóng thăng cấp: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
+              </Text>
             </View>
           </View>
         ))}
+
+        <View style={{ height: 30 }} />
       </ScrollView>
 
       {/* Edit Level Modal */}
@@ -250,7 +257,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
                   onChangeText={(text) => setEditingItem({ ...editingItem, physicalItemName: text })}
                 />
 
-                <Text style={styles.inputLabel}>Thưởng Tiền Mặt (VNĐ):</Text>
+                <Text style={styles.inputLabel}>Thưởng Tiền Mặt Thăng Cấp (VNĐ):</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="number-pad"
@@ -273,95 +280,124 @@ export const AdminLevelConfigScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC',
   },
   scroll: {
     padding: 16,
   },
-  header: {
+  executiveHeaderCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
   },
-  title: {
-    fontSize: 17,
+  executiveBadgeTitle: {
+    fontSize: 10,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#94A3B8',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   sub: {
     fontSize: 12,
-    color: '#D97706',
-    fontWeight: '600',
+    color: '#CBD5E1',
+    lineHeight: 16,
   },
   sectionHeaderTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#64748B',
+    letterSpacing: 0.8,
     marginTop: 8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   deptTabsRow: {
     flexDirection: 'row',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   deptTabPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   deptTabPillActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1E40AF',
+    borderColor: '#1E40AF',
   },
   deptTabText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#4B5563',
+    fontWeight: '600',
+    color: '#475569',
   },
   deptTabTextActive: {
     color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   projectCreatorCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#93C5FD',
-    marginBottom: 16,
+    borderColor: '#CBD5E1',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  projCardTitle: {
-    fontSize: 15,
+  projHeaderPill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  projHeaderPillText: {
+    fontSize: 11,
     fontWeight: 'bold',
     color: '#1D4ED8',
-    marginBottom: 10,
   },
   inputLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#334155',
     marginTop: 8,
     marginBottom: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 13,
     backgroundColor: '#FFFFFF',
+    color: '#0F172A',
     marginBottom: 8,
   },
   addBulletRow: {
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   addBulletBtn: {
     backgroundColor: '#2563EB',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
+    paddingVertical: 11,
+    borderRadius: 8,
   },
   addBulletBtnText: {
     color: '#FFFFFF',
@@ -370,9 +406,9 @@ const styles = StyleSheet.create({
   },
   bulletsList: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 12,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -383,6 +419,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1E293B',
     fontWeight: '500',
+    lineHeight: 18,
   },
   emptyBulletNotice: {
     fontSize: 12,
@@ -393,20 +430,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
   },
   saveProjBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 12,
+    letterSpacing: 0.5,
   },
   levelCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     marginBottom: 12,
   },
   cardHeaderRow: {
@@ -428,23 +466,25 @@ const styles = StyleSheet.create({
   colorBadgeText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 11,
   },
   levelName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#0F172A',
   },
   editBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   editBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
-    color: '#2563EB',
+    color: '#334155',
   },
   rewardBox: {
     backgroundColor: '#FFFBEB',
@@ -455,6 +495,10 @@ const styles = StyleSheet.create({
   },
   rewardTitle: {
     fontSize: 12,
+    color: '#78350F',
+  },
+  rewardTitleBold: {
+    fontWeight: 'bold',
     color: '#92400E',
   },
   rewardBonus: {
@@ -464,13 +508,13 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
   },
   modalHeader: {
@@ -482,12 +526,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#0F172A',
   },
   saveBtn: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#1E40AF',
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 16,
   },

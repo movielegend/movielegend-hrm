@@ -29,10 +29,10 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       userName: 'Trần Thị B',
       departmentName: 'Livestream Hà Nội',
       currentLevelName: 'Level 2 - Chính thức',
-      targetLevelName: 'Level 3 - Senior',
+      targetLevelName: 'Level 3 - Senior Specialist',
       rewardPhysicalItem: 'Tai nghe Bluetooth Chống ồn cao cấp + 3.000.000đ',
       leaderRecommendation: 'Đề xuất nâng Level (Hoàn thành 100% Task ca Live)',
-      actualMetrics: ' Doanh số Live: 950.000.000 VNĐ',
+      actualMetrics: 'Doanh số Live: 950.000.000 VNĐ',
       taskRate: 100,
       status: 'PENDING',
     },
@@ -44,7 +44,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       targetLevelName: 'Level 5 - Team Leader',
       rewardPhysicalItem: 'Laptop MacBook Air M3 + 8.000.000đ',
       leaderRecommendation: 'Đề xuất nâng Level (Đạt 40% Doanh số cả Team)',
-      actualMetrics: ' Doanh số Live: 1.200.000.000 VNĐ',
+      actualMetrics: 'Doanh số Live: 1.200.000.000 VNĐ',
       taskRate: 96,
       status: 'PENDING',
     },
@@ -64,12 +64,15 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Admin Xét Nâng Level Cuối Tháng</Text>
-            <Text style={styles.sub}>Duyệt thăng cấp & Trao thưởng hiện vật tại cuộc họp phòng ban</Text>
-          </View>
+        
+        {/* Executive Header Card */}
+        <View style={styles.executiveHeaderCard}>
+          <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
+          <Text style={styles.title}>Admin Review & Chốt Level Cuối Tháng</Text>
+          <Text style={styles.sub}>Đánh giá tổng thể & Phê duyệt thăng cấp tại buổi họp phòng ban</Text>
         </View>
+
+        <Text style={styles.sectionHeaderTitle}>DANH SÁCH ĐỀ XUẤT THĂNG CẤP TỪ LEADER:</Text>
 
         {items.map((item) => (
           <View key={item.id} style={styles.card}>
@@ -93,13 +96,13 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
 
             {item.rewardPhysicalItem && (
               <View style={styles.rewardBox}>
-                <Text style={styles.rewardText}>Quà thưởng: {item.rewardPhysicalItem}</Text>
+                <Text style={styles.rewardText}>Quà hiện vật & thưởng: {item.rewardPhysicalItem}</Text>
               </View>
             )}
 
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>• Leader Vòng 1: {item.leaderRecommendation}</Text>
-              <Text style={styles.infoText}>• {item.actualMetrics}</Text>
+              <Text style={styles.infoText}>• Kết quả thực tế: {item.actualMetrics}</Text>
               <Text style={styles.infoText}>• Tỷ lệ Task đúng hạn: {item.taskRate}%</Text>
             </View>
 
@@ -108,11 +111,13 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                 style={styles.approveBtn}
                 onPress={() => handleApproveLevel(item.id, item.targetLevelName, item.rewardPhysicalItem || '')}
               >
-                <Text style={styles.approveBtnText}>CHỐT NÂNG {item.targetLevelName.toUpperCase()}</Text>
+                <Text style={styles.approveBtnText}>XÁC NHẬN CHỐT NÂNG {item.targetLevelName.toUpperCase()}</Text>
               </TouchableOpacity>
             )}
           </View>
         ))}
+
+        <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -121,52 +126,72 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC',
   },
   scroll: {
     padding: 16,
   },
-  header: {
+  executiveHeaderCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
   },
-  title: {
-    fontSize: 17,
+  executiveBadgeTitle: {
+    fontSize: 10,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#94A3B8',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   sub: {
     fontSize: 12,
-    color: '#D97706',
-    fontWeight: '600',
+    color: '#CBD5E1',
+    lineHeight: 16,
+  },
+  sectionHeaderTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginTop: 4,
+    marginBottom: 10,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   name: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#0F172A',
   },
   dept: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#64748B',
+    marginTop: 1,
   },
   statusBadge: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   statusApproved: {
     backgroundColor: '#D1FAE5',
@@ -177,20 +202,21 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   statusTextApproved: {
-    color: '#059669',
+    color: '#047857',
   },
   levelTransitionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F3F4F6',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
+    backgroundColor: '#F1F5F9',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
   },
   levelOld: {
     fontSize: 12,
-    color: '#4B5563',
+    color: '#475569',
+    fontWeight: '500',
   },
   arrowText: {
     fontSize: 14,
@@ -206,9 +232,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFBEB',
     borderWidth: 1,
     borderColor: '#FDE68A',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
   },
   rewardText: {
     fontSize: 12,
@@ -216,23 +242,24 @@ const styles = StyleSheet.create({
     color: '#92400E',
   },
   infoBox: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   infoText: {
-    fontSize: 11,
-    color: '#4B5563',
-    lineHeight: 16,
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
   },
   approveBtn: {
     backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
   },
   approveBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
 });
