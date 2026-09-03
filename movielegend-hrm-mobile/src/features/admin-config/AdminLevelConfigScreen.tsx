@@ -9,6 +9,7 @@ import {
   Modal,
   ScrollView,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useSocketStatus } from '../../providers/SocketProvider';
