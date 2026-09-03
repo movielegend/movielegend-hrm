@@ -25,21 +25,21 @@ export interface LevelTierConfig {
   badgeColor: string;
   isUnlocked: boolean;
   perks: LevelPerkItem[];
-  retentionFloorGmv: number; // e.g. 250 (tr)
-  promotionCeilingGmv: number; // e.g. 820 (tr)
-  currentGmv: number; // e.g. 520 (tr)
+  retentionFloorGmv: number;
+  promotionCeilingGmv: number;
+  currentGmv: number;
 }
 
 export const TikTokStyleLevelingScreen: React.FC = () => {
   const { user } = useAuth();
-  const [selectedLevel, setSelectedLevel] = useState<number>(5); // Default to current Level 5
+  const [selectedLevel, setSelectedLevel] = useState<number>(5);
 
   const levels: LevelTierConfig[] = [
     {
       levelNumber: 1,
-      levelName: 'Cấp 1',
-      titleName: 'Thực Tập Sinh',
-      badgeColor: '#9CA3AF',
+      levelName: 'Level 1',
+      titleName: 'Cấp Bậc Level 1',
+      badgeColor: '#64748B',
       isUnlocked: true,
       perks: [
         { id: 'p1', iconName: 'ticket', iconColor: '#EF4444', title: 'Voucher Sinh nhật 200k' },
@@ -51,8 +51,8 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     },
     {
       levelNumber: 2,
-      levelName: 'Cấp 2',
-      titleName: 'Chính Thức',
+      levelName: 'Level 2',
+      titleName: 'Cấp Bậc Level 2',
       badgeColor: '#2563EB',
       isUnlocked: true,
       perks: [
@@ -65,8 +65,8 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     },
     {
       levelNumber: 3,
-      levelName: 'Cấp 3',
-      titleName: 'Senior Specialist',
+      levelName: 'Level 3',
+      titleName: 'Cấp Bậc Level 3',
       badgeColor: '#0D9488',
       isUnlocked: true,
       perks: [
@@ -79,9 +79,9 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     },
     {
       levelNumber: 4,
-      levelName: 'Cấp 4',
-      titleName: 'Key Member',
-      badgeColor: '#9333EA',
+      levelName: 'Level 4',
+      titleName: 'Cấp Bậc Level 4',
+      badgeColor: '#7C3AED',
       isUnlocked: true,
       perks: [
         { id: 'p7', iconName: 'tablet-landscape', iconColor: '#3B82F6', title: 'Thưởng Máy tính bảng iPad' },
@@ -93,14 +93,14 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     },
     {
       levelNumber: 5,
-      levelName: 'Cấp 5',
-      titleName: 'Team Leader',
+      levelName: 'Level 5',
+      titleName: 'Cấp Bậc Level 5',
       badgeColor: '#EA580C',
       isUnlocked: true,
       perks: [
         { id: 'p9', iconName: 'laptop', iconColor: '#F59E0B', title: 'THƯỞNG LAPTOP MACBOOK AIR M3' },
-        { id: 'p10', iconName: 'briefcase', iconColor: '#10B981', title: 'Phụ cấp Leader 2.000.000đ/tháng' },
-        { id: 'p11', iconName: 'people', iconColor: '#8B5CF6', title: 'Quỹ Teambuilding 5.000.000đ/quý' },
+        { id: 'p10', iconName: 'briefcase', iconColor: '#10B981', title: 'Thưởng tiền mặt 8.000.000đ' },
+        { id: 'p11', iconName: 'people', iconColor: '#8B5CF6', title: 'Phụ cấp cấp độ 2.000.000đ/tháng' },
         { id: 'p12', iconName: 'gift', iconColor: '#EC4899', title: 'Hệ số Ví Điểm Thưởng Tết 1.6x' },
       ],
       retentionFloorGmv: 250,
@@ -109,13 +109,13 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     },
     {
       levelNumber: 6,
-      levelName: 'Cấp 6',
-      titleName: 'Manager Bộ Phận',
+      levelName: 'Level 6',
+      titleName: 'Cấp Bậc Level 6',
       badgeColor: '#DC2626',
       isUnlocked: false,
       perks: [
         { id: 'p13', iconName: 'laptop-outline', iconColor: '#DC2626', title: 'THƯỞNG MACBOOK PRO M-SERIES + iPhone' },
-        { id: 'p14', iconName: 'ribbon', iconColor: '#D97706', title: 'Phụ cấp Quản lý 5.000.000đ/tháng' },
+        { id: 'p14', iconName: 'ribbon', iconColor: '#D97706', title: 'Phụ cấp cấp độ 5.000.000đ/tháng' },
       ],
       retentionFloorGmv: 500,
       promotionCeilingGmv: 1500,
@@ -123,8 +123,8 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     },
     {
       levelNumber: 7,
-      levelName: 'Cấp 7',
-      titleName: 'Director Giám Đốc',
+      levelName: 'Level 7',
+      titleName: 'Cấp Bậc Level 7',
       badgeColor: '#D97706',
       isUnlocked: false,
       perks: [
@@ -137,8 +137,8 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     },
     {
       levelNumber: 8,
-      levelName: 'Cấp 8',
-      titleName: 'Executive Ban Điều Hành',
+      levelName: 'Level 8',
+      titleName: 'Cấp Bậc Level 8',
       badgeColor: '#7C2D12',
       isUnlocked: false,
       perks: [
@@ -189,7 +189,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                   selectedLevel === lvl.levelNumber && styles.levelPillTextActive,
                 ]}
               >
-                {!lvl.isUnlocked ? `🔒 Cấp ${lvl.levelNumber}` : `Cấp ${lvl.levelNumber}`}
+                {!lvl.isUnlocked ? `🔒 Level ${lvl.levelNumber}` : `Level ${lvl.levelNumber}`}
               </Text>
             </TouchableOpacity>
           ))}
