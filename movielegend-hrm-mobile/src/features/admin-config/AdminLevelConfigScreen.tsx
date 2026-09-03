@@ -3,15 +3,19 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   SafeAreaView,
   Modal,
+  ScrollView,
+  TextInput,
 } from 'react-native';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useSocketStatus } from '../../providers/SocketProvider';
+
+import { AdminDeptOverviewPage, DepartmentSummaryItem } from './pages/AdminDeptOverviewPage';
+import { AdminLevelRewardsPage } from './pages/AdminLevelRewardsPage';
+import { AdminLevelProjectsPage } from './pages/AdminLevelProjectsPage';
 
 export interface LevelStageProject {
   projectName: string;
@@ -48,8 +52,8 @@ export const AdminLevelConfigScreen: React.FC = () => {
         { id: 'dept-6', name: 'Marketing' },
       ];
 
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [selectedDeptId, setSelectedDeptId] = useState(departments[0]?.id || 'dept-1');
-  const [selectedLevelNum, setSelectedLevelNum] = useState<number>(1);
 
   // Default Level Configs with Integrated Projects & Bullet Sub-tasks for Each Level
   const createDefaultLevels = (deptName: string): AdminLevelItem[] => [
@@ -209,16 +213,11 @@ export const AdminLevelConfigScreen: React.FC = () => {
     },
   ];
 
-  // Map of departmentId to department's custom levels
   const [deptLevelConfigs, setDeptLevelConfigs] = useState<Record<string, AdminLevelItem[]>>({});
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
-  const [newBulletText, setNewBulletText] = useState<string>('');
 
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0];
   const activeLevels = deptLevelConfigs[selectedDeptId] || createDefaultLevels(activeDept.name);
-
-  // Active Focused Level Card
-  const activeFocusedLevel = activeLevels.find((l) => l.levelNumber === selectedLevelNum) || activeLevels[0] || createDefaultLevels(activeDept.name)[0];
 
   // Real-time Socket.io Sync Listener
   useEffect(() => {
@@ -245,42 +244,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
     };
   }, [selectedDeptId, getSocket]);
 
-  // Add bullet sub-task directly to active focused Level Card
-  const handleAddBulletToFocusedLevel = () => {
-    const textToAdd = newBulletText.trim();
-    if (!textToAdd) {
-      Alert.alert('Thông báo', 'Vui lòng nhập nội dung việc con gạch đầu dòng!');
-      return;
-    }
-    const formattedBullet = textToAdd.startsWith('•') ? textToAdd : `• ${textToAdd}`;
-
-    setDeptLevelConfigs((prev) => {
-      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
-      const updatedList = currentList.map((lvl) => {
-        if (lvl.levelNumber === activeFocusedLevel.levelNumber) {
-          return {
-            ...lvl,
-            project: {
-              ...lvl.project,
-              subTaskBullets: [...(lvl.project.subTaskBullets || []), formattedBullet],
-            },
-          };
-        }
-        return lvl;
-      });
-
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
-      }
-
-      return { ...prev, [selectedDeptId]: updatedList };
-    });
-
-    setNewBulletText('');
-  };
-
-  // Dynamic Add New Level with Project
+  // Dynamic Add New Level
   const handleAddNewLevel = () => {
     const nextLevelNum = activeLevels.length + 1;
     const newLevelItem: AdminLevelItem = {
@@ -303,14 +267,63 @@ export const AdminLevelConfigScreen: React.FC = () => {
     setDeptLevelConfigs((prev) => {
       const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
       const updatedList = [...currentList, newLevelItem];
+      
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+      }
+
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
-    setSelectedLevelNum(nextLevelNum);
     Alert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} mới cho phòng ban ${activeDept.name}!`);
   };
 
-  const handleSaveItem = () => {
+  const handleUpdateLevelProjectName = (levelNumber: number, newProjectName: string) => {
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const updatedList = currentList.map((item) =>
+        item.levelNumber === levelNumber
+          ? { ...item, project: { ...item.project, projectName: newProjectName } }
+          : item
+      );
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+      }
+
+      return { ...prev, [selectedDeptId]: updatedList };
+    });
+  };
+
+  const handleAddSubTaskToLevel = (levelNumber: number, bulletText: string) => {
+    const formattedBullet = bulletText.startsWith('•') ? bulletText : `• ${bulletText}`;
+
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const updatedList = currentList.map((item) =>
+        item.levelNumber === levelNumber
+          ? {
+              ...item,
+              project: {
+                ...item.project,
+                subTaskBullets: [...(item.project.subTaskBullets || []), formattedBullet],
+              },
+            }
+          : item
+      );
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+      }
+
+      return { ...prev, [selectedDeptId]: updatedList };
+    });
+  };
+
+  const handleSaveModalItem = () => {
     if (!editingItem) return;
     setDeptLevelConfigs((prev) => {
       const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
@@ -323,182 +336,98 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
       return { ...prev, [selectedDeptId]: updatedList };
     });
-    Alert.alert('Thành Công', `Đã lưu cấu hình cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
+    Alert.alert('Thành Công', `Đã lưu quà thưởng cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
     setEditingItem(null);
   };
 
+  // Build Department Summaries for Page 1
+  const deptSummaries: DepartmentSummaryItem[] = departments.map((d) => {
+    const list = deptLevelConfigs[d.id] || createDefaultLevels(d.name);
+    const topItem = list.find((l) => l.levelNumber === 5) || list[list.length - 1];
+    return {
+      id: d.id,
+      name: d.name,
+      totalLevels: list.length,
+      topRewardName: topItem ? topItem.physicalItemName : 'Laptop MacBook Air M3',
+    };
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        
-        {/* Executive Header Banner */}
-        <View style={styles.executiveHeaderCard}>
-          <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
-          <Text style={styles.title}>Quản Lý Cấu Hình Level Tinh Gọn</Text>
-          <Text style={styles.sub}>Chọn Level bất kỳ trên thanh điều hướng để chỉnh sửa tập trung</Text>
-        </View>
+      {/* Executive Header Card */}
+      <View style={styles.executiveHeaderCard}>
+        <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
+        <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
+      </View>
 
-        {/* 1. Department Selector Tabs */}
-        <Text style={styles.sectionHeaderTitle}>1. PHÒNG BAN THIẾT LẬP:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptTabsRow}>
-          {departments.map((d) => (
-            <TouchableOpacity
-              key={d.id}
-              style={[styles.deptTabPill, selectedDeptId === d.id && styles.deptTabPillActive]}
-              onPress={() => {
-                setSelectedDeptId(d.id);
-                setSelectedLevelNum(1);
-              }}
-            >
-              <Text style={[styles.deptTabText, selectedDeptId === d.id && styles.deptTabTextActive]}>
-                {d.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      {/* 3-Step Progress Stepper Navigation Bar */}
+      <View style={styles.stepperContainer}>
+        <TouchableOpacity
+          style={[styles.stepTab, activeStep === 1 && styles.stepTabActive]}
+          onPress={() => setActiveStep(1)}
+        >
+          <Text style={[styles.stepNumber, activeStep === 1 && styles.stepNumberActive]}>1</Text>
+          <Text style={[styles.stepTitle, activeStep === 1 && styles.stepTitleActive]}>Phòng Ban</Text>
+        </TouchableOpacity>
 
-        {/* 2. Visual Level Stepper Tabs Bar */}
-        <View style={styles.levelHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>2. CHỌN LEVEL ĐỂ CHỈNH SỬA TẬP TRUNG:</Text>
-          <TouchableOpacity style={styles.addNewLevelBtn} onPress={handleAddNewLevel}>
-            <Text style={styles.addNewLevelBtnText}>+ THÊM LEVEL</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.stepDivider} />
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.levelStepperRow}>
-          {activeLevels.map((lvl) => (
-            <TouchableOpacity
-              key={lvl.levelNumber}
-              style={[
-                styles.levelStepPill,
-                selectedLevelNum === lvl.levelNumber && styles.levelStepPillActive,
-              ]}
-              onPress={() => setSelectedLevelNum(lvl.levelNumber)}
-            >
-              <Text
-                style={[
-                  styles.levelStepText,
-                  selectedLevelNum === lvl.levelNumber && styles.levelStepTextActive,
-                ]}
-              >
-                {lvl.levelName}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <TouchableOpacity
+          style={[styles.stepTab, activeStep === 2 && styles.stepTabActive]}
+          onPress={() => setActiveStep(2)}
+        >
+          <Text style={[styles.stepNumber, activeStep === 2 && styles.stepNumberActive]}>2</Text>
+          <Text style={[styles.stepTitle, activeStep === 2 && styles.stepTitleActive]}>Quà Thưởng</Text>
+        </TouchableOpacity>
 
-        {/* 3. FOCUSED SINGLE LEVEL CARD */}
-        {activeFocusedLevel && (
-          <View style={styles.focusedLevelCard}>
-            
-            {/* Focused Header Row */}
-            <View style={styles.focusedHeaderRow}>
-              <View style={styles.levelTitleGroup}>
-                <View style={[styles.colorBadge, { backgroundColor: activeFocusedLevel.colorHex }]}>
-                  <Text style={styles.colorBadgeText}>LEVEL {activeFocusedLevel.levelNumber}</Text>
-                </View>
-                <Text style={styles.focusedLevelTitle}>{activeFocusedLevel.levelName} - Phòng {activeDept.name}</Text>
-              </View>
+        <View style={styles.stepDivider} />
 
-              <TouchableOpacity style={styles.editBtn} onPress={() => setEditingItem({ ...activeFocusedLevel })}>
-                <Text style={styles.editBtnText}>Chỉnh sửa quà</Text>
-              </TouchableOpacity>
-            </View>
+        <TouchableOpacity
+          style={[styles.stepTab, activeStep === 3 && styles.stepTabActive]}
+          onPress={() => setActiveStep(3)}
+        >
+          <Text style={[styles.stepNumber, activeStep === 3 && styles.stepNumberActive]}>3</Text>
+          <Text style={[styles.stepTitle, activeStep === 3 && styles.stepTitleActive]}>Giao Dự Án</Text>
+        </TouchableOpacity>
+      </View>
 
-            {/* Reward Summary Box */}
-            <View style={styles.rewardBox}>
-              <Text style={styles.rewardTitle}>
-                Quà Thưởng Hiện Vật: <Text style={styles.rewardTitleBold}>{activeFocusedLevel.physicalItemName}</Text>
-              </Text>
-              <Text style={styles.rewardBonus}>
-                Thưởng nóng thăng cấp: {activeFocusedLevel.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
-              </Text>
-            </View>
-
-            {/* Level Stage Project Editor Section */}
-            <View style={styles.levelProjectSection}>
-              <Text style={styles.projSectionTitle}>Dự Án Chinh Phục Của Level {activeFocusedLevel.levelNumber}:</Text>
-              
-              <TextInput
-                style={styles.projTitleInput}
-                value={activeFocusedLevel.project.projectName}
-                onChangeText={(txt) => {
-                  setDeptLevelConfigs((prev) => {
-                    const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
-                    const updatedList = currentList.map((item) =>
-                      item.levelNumber === activeFocusedLevel.levelNumber
-                        ? { ...item, project: { ...item.project, projectName: txt } }
-                        : item
-                    );
-                    const socket = getSocket();
-                    if (socket) {
-                      socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
-                    }
-                    return { ...prev, [selectedDeptId]: updatedList };
-                  });
-                }}
-              />
-
-              <Text style={styles.inputSubLabel}>Các việc con gạch đầu dòng cần làm ở Level {activeFocusedLevel.levelNumber}:</Text>
-              
-              {/* Bullet Sub-tasks List */}
-              <View style={styles.bulletsList}>
-                {activeFocusedLevel.project.subTaskBullets && activeFocusedLevel.project.subTaskBullets.length > 0 ? (
-                  activeFocusedLevel.project.subTaskBullets.map((bullet, idx) => (
-                    <View key={idx} style={styles.bulletItemRow}>
-                      <Text style={styles.bulletText}>{bullet}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.emptyBulletNotice}>Chưa có việc con nào ở Level này.</Text>
-                )}
-              </View>
-
-              {/* Add Bullet Input Row */}
-              <View style={styles.addBulletRow}>
-                <TextInput
-                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                  placeholder={`+ Thêm việc con cho Level ${activeFocusedLevel.levelNumber}...`}
-                  value={newBulletText}
-                  onChangeText={setNewBulletText}
-                />
-                <TouchableOpacity style={styles.addBulletBtn} onPress={handleAddBulletToFocusedLevel}>
-                  <Text style={styles.addBulletBtnText}>+ Thêm việc</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-          </View>
+      {/* Page Content Switcher */}
+      <View style={{ flex: 1 }}>
+        {activeStep === 1 && (
+          <AdminDeptOverviewPage
+            departments={deptSummaries}
+            selectedDeptId={selectedDeptId}
+            onSelectDepartment={(id) => setSelectedDeptId(id)}
+            onNextToRewards={() => setActiveStep(2)}
+          />
         )}
 
-        {/* 4. ALL LEVELS QUICK OVERVIEW GRID (Compact 1-Line Table) */}
-        <Text style={styles.sectionHeaderTitle}>3. BẢNG TỔNG QUAN TẤT CẢ CÁC LEVEL (PHÒNG {activeDept.name.toUpperCase()}):</Text>
-        <View style={styles.overviewTableCard}>
-          {activeLevels.map((lvl) => (
-            <TouchableOpacity
-              key={lvl.levelNumber}
-              style={[
-                styles.overviewRow,
-                selectedLevelNum === lvl.levelNumber && styles.overviewRowActive,
-              ]}
-              onPress={() => setSelectedLevelNum(lvl.levelNumber)}
-            >
-              <View style={[styles.miniBadge, { backgroundColor: lvl.colorHex }]}>
-                <Text style={styles.miniBadgeText}>L{lvl.levelNumber}</Text>
-              </View>
+        {activeStep === 2 && (
+          <AdminLevelRewardsPage
+            departmentName={activeDept.name}
+            levels={activeLevels}
+            onEditLevelReward={(lvl) => setEditingItem({ ...lvl })}
+            onAddNewLevel={handleAddNewLevel}
+            onNextToProjects={() => setActiveStep(3)}
+          />
+        )}
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.overviewLevelName}>{lvl.levelName}: <Text style={{ color: '#92400E', fontWeight: 'bold' }}>{lvl.physicalItemName}</Text></Text>
-                <Text style={styles.overviewProjName} numberOfLines={1}>{lvl.project.projectName}</Text>
-              </View>
-
-              <Text style={styles.overviewBulletCount}>{(lvl.project.subTaskBullets || []).length} việc con</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={{ height: 30 }} />
-      </ScrollView>
+        {activeStep === 3 && (
+          <AdminLevelProjectsPage
+            departmentName={activeDept.name}
+            levels={activeLevels}
+            onUpdateLevelProjectName={handleUpdateLevelProjectName}
+            onAddSubTaskToLevel={handleAddSubTaskToLevel}
+            onSaveAllAndSync={() => {
+              Alert.alert(
+                'Đã Lưu & Đồng Bộ Thành Công!',
+                `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name}. Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
+                [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
+              );
+            }}
+          />
+        )}
+      </View>
 
       {/* Edit Level Modal */}
       <Modal visible={editingItem !== null} animationType="slide" transparent>
@@ -515,21 +444,21 @@ export const AdminLevelConfigScreen: React.FC = () => {
               <ScrollView style={{ maxHeight: 400 }}>
                 <Text style={styles.inputLabel}>Tên Cấp Bậc:</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.modalInput}
                   value={editingItem.levelName}
                   onChangeText={(text) => setEditingItem({ ...editingItem, levelName: text })}
                 />
 
                 <Text style={styles.inputLabel}>Quà Hiện Vật (MacBook, iPad, Xe máy...):</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.modalInput}
                   value={editingItem.physicalItemName}
                   onChangeText={(text) => setEditingItem({ ...editingItem, physicalItemName: text })}
                 />
 
                 <Text style={styles.inputLabel}>Thưởng Tiền Mặt Thăng Cấp (VNĐ):</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.modalInput}
                   keyboardType="number-pad"
                   value={String(editingItem.promotionBonusAmount)}
                   onChangeText={(text) => setEditingItem({ ...editingItem, promotionBonusAmount: Number(text) || 0 })}
@@ -537,7 +466,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
               </ScrollView>
             )}
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveItem}>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveModalItem}>
               <Text style={styles.saveBtnText}>LƯU QUÀ THƯỞNG PHÒNG {activeDept.name.toUpperCase()}</Text>
             </TouchableOpacity>
           </View>
@@ -552,304 +481,71 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  scroll: {
-    padding: 16,
-  },
   executiveHeaderCard: {
     backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   executiveBadgeTitle: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     color: '#94A3B8',
     letterSpacing: 1.2,
-    marginBottom: 4,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 4,
   },
-  sub: {
-    fontSize: 12,
-    color: '#CBD5E1',
-    lineHeight: 16,
-  },
-  sectionHeaderTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#64748B',
-    letterSpacing: 0.8,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  deptTabsRow: {
+  stepperContainer: {
     flexDirection: 'row',
-    marginBottom: 14,
-  },
-  deptTabPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  deptTabPillActive: {
-    backgroundColor: '#1E40AF',
-    borderColor: '#1E40AF',
-  },
-  deptTabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  deptTabTextActive: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  levelHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  addNewLevelBtn: {
-    backgroundColor: '#1E40AF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  addNewLevelBtnText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  levelStepperRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  levelStepPill: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  levelStepPillActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-  },
-  levelStepText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#475569',
-  },
-  levelStepTextActive: {
-    color: '#FFFFFF',
-  },
-  focusedLevelCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  focusedHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  levelTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  colorBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  colorBadgeText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 11,
-  },
-  focusedLevelTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  editBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  editBtnText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#334155',
-  },
-  rewardBox: {
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 14,
-  },
-  rewardTitle: {
-    fontSize: 12,
-    color: '#78350F',
-  },
-  rewardTitleBold: {
-    fontWeight: 'bold',
-    color: '#92400E',
-  },
-  rewardBonus: {
-    fontSize: 11,
-    color: '#B45309',
-    marginTop: 2,
-  },
-  levelProjectSection: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  projSectionTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#1D4ED8',
-    marginBottom: 6,
-  },
-  projTitleInput: {
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    backgroundColor: '#FFFFFF',
-    fontWeight: 'bold',
-    color: '#1E40AF',
-    marginBottom: 10,
-  },
-  inputSubLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 4,
-  },
-  bulletsList: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  bulletItemRow: {
-    paddingVertical: 4,
-  },
-  bulletText: {
-    fontSize: 12,
-    color: '#334155',
-    fontWeight: '500',
-  },
-  emptyBulletNotice: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontStyle: 'italic',
-  },
-  addBulletRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 12,
-    backgroundColor: '#FFFFFF',
-    color: '#0F172A',
-  },
-  addBulletBtn: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 6,
-  },
-  addBulletBtnText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 11,
-  },
-  overviewTableCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  overviewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#E2E8F0',
   },
-  overviewRowActive: {
+  stepTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  stepTabActive: {
     backgroundColor: '#EFF6FF',
   },
-  miniBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  miniBadgeText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 10,
-  },
-  overviewLevelName: {
-    fontSize: 12,
-    color: '#1E293B',
-  },
-  overviewProjName: {
+  stepNumber: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#CBD5E1',
+    color: '#475569',
+    textAlign: 'center',
     fontSize: 11,
+    fontWeight: 'bold',
+    lineHeight: 20,
+  },
+  stepNumberActive: {
+    backgroundColor: '#1E40AF',
+    color: '#FFFFFF',
+  },
+  stepTitle: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#64748B',
   },
-  overviewBulletCount: {
-    fontSize: 11,
-    color: '#2563EB',
+  stepTitleActive: {
+    color: '#1E40AF',
     fontWeight: 'bold',
+  },
+  stepDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -879,6 +575,16 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginTop: 8,
     marginBottom: 4,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    backgroundColor: '#FFFFFF',
+    color: '#0F172A',
   },
   saveBtn: {
     backgroundColor: '#1E40AF',
