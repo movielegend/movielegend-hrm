@@ -1,0 +1,217 @@
+xmlns:v="urn:schemas-microsoft-com:vml"
+xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+xmlns="http://www.w3.org/TR/REC-html40">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Báo cáo Đặc tả Yêu cầu Phần mềm - MovieLegend HRM</title>
+<style>
+  body {
+    font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #1F2937;
+    margin: 40px;
+  }
+  h1 {
+    font-size: 20pt;
+    color: #1E3A8A;
+    text-align: center;
+    border-bottom: 2px solid #1E3A8A;
+    padding-bottom: 8px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 15pt;
+    color: #1E40AF;
+    border-left: 4px solid #3B82F6;
+    padding-left: 10px;
+    margin-top: 25px;
+    margin-bottom: 12px;
+  }
+  h3 {
+    font-size: 12pt;
+    color: #1E3A8A;
+    margin-top: 15px;
+    margin-bottom: 8px;
+  }
+  p, li {
+    font-size: 11pt;
+  }
+  .header-box {
+    background-color: #F0F9FF;
+    border: 1px solid #BAE6FD;
+    padding: 15px 20px;
+    border-radius: 6px;
+    margin-bottom: 30px;
+  }
+  .header-title {
+    font-size: 22pt;
+    font-weight: bold;
+    color: #0369A1;
+    text-align: center;
+    margin: 0;
+  }
+  .header-subtitle {
+    font-size: 13pt;
+    text-align: center;
+    color: #0284C7;
+    margin-top: 5px;
+  }
+  .meta-table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+  }
+  .meta-table td {
+    padding: 4px 8px;
+    font-size: 10.5pt;
+  }
+  table.spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    margin-bottom: 20px;
+  }
+  table.spec-table th {
+    background-color: #1E40AF;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #1E3A8A;
+    font-size: 10pt;
+  }
+  table.spec-table td {
+    padding: 8px 10px;
+    border: 1px solid #D1D5DB;
+    font-size: 10pt;
+    vertical-align: top;
+  }
+  table.spec-table tr:nth-child(even) {
+    background-color: #F9FAFB;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 9pt;
+    font-weight: bold;
+    color: #FFFFFF;
+    border-radius: 4px;
+  }
+  .code-block {
+    background-color: #1E293B;
+    color: #F8FAFC;
+    font-family: 'Consolas', 'Courier New', monospace;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 9.5pt;
+    white-space: pre-wrap;
+    margin: 10px 0;
+  }
+  .highlight-item {
+    color: #059669;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="header-box">
+  <div class="header-title">BÁO CÁO ĐẶC TẢ YÊU CẦU PHẦN MỀM</div>
+  <div class="header-subtitle">Khung Điều Kiện Đạt Cấp Bậc Hợp Lý, Minh Bạch & Tự Động Hóa (Level Promotion Matrix)</div>
+  <table class="meta-table">
+    <tr>
+      <td><strong>Dự án:</strong> MovieLegend HRM</td>
+      <td><strong>Phiên bản:</strong> 7.0 - Level Promotion Matrix Integration</td>
+    </tr>
+    <tr>
+      <td><strong>Ngày lập:</strong> 03/09/2026</td>
+      <td><strong>Đơn vị nhận:</strong> Ban Giám Đốc / Đội ngũ Dev / BA / UI-UX</td>
+    </tr>
+  </table>
+</div>
+
+<h2>I. BỘ 4 TIÊU CHÍ TIỂU CHUẨN ĐỂ ĐẠT CẤP BẬC (LEVEL PROMOTION MATRIX)</h2>
+<p>Để đảm bảo tính minh bạch, công bằng và khách quan trong việc thăng cấp, điều kiện đạt cấp được đo lường dựa trên <b>4 trụ cột tiêu chí độc lập</b>:</p>
+
+<table class="spec-table">
+  <thead>
+    <tr>
+      <th style="width: 15%;">Mốc Thăng Cấp</th>
+      <th style="width: 18%;">1. Điều kiện Thâm niên</th>
+      <th style="width: 22%;">2. Điều kiện KPI Trung bình</th>
+      <th style="width: 23%;">3. Kỷ luật & Điểm Chăm chỉ</th>
+      <th style="width: 22%;">4. Quy trình Bảo vệ & Phê duyệt</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>L1 &rarr; L2</b><br>(Thử việc &rarr; Chính thức)</td>
+      <td>&ge; 2 tháng thử việc</td>
+      <td>KPI Thử việc &ge; 85%</td>
+      <td>Không nghỉ quá 2 buổi không phép</td>
+      <td>Leader xác nhận + HR duyệt tự động</td>
+    </tr>
+    <tr>
+      <td><b>L2 &rarr; L3</b><br>(Chính thức &rarr; Senior)</td>
+      <td>&ge; 6 tháng chính thức</td>
+      <td>KPI 3 tháng liên tiếp &ge; 80%</td>
+      <td>Không bị Cảnh cáo (WARNING) trong 3T</td>
+      <td>Leader đề xuất + HR duyệt</td>
+    </tr>
+    <tr>
+      <td><b>L3 &rarr; L4</b><br>(Senior &rarr; Key Member)</td>
+      <td>&ge; 12 tháng chính thức</td>
+      <td>KPI 3 tháng liên tiếp &ge; 90%</td>
+      <td>Điểm Chăm chỉ / Check-in &ge; 90đ</td>
+      <td>Manager trực tiếp phê duyệt</td>
+    </tr>
+    <tr>
+      <td><b>L4 &rarr; L5</b><br>(Key Member &rarr; Team Leader)</td>
+      <td>&ge; 12 tháng</td>
+      <td>Avg KPI 6 tháng &ge; 90%</td>
+      <td>Đã Mentor &ge; 2 nhân sự mới thành công</td>
+      <td>Thuyết trình Kế hoạch QL Team + Manager duyệt</td>
+    </tr>
+    <tr>
+      <td><b>L5 &rarr; L6</b><br>(Team Leader &rarr; Manager)</td>
+      <td>&ge; 18 tháng</td>
+      <td>Team đạt &ge; 90% Target 6 tháng</td>
+      <td>Tỷ lệ biến động nhân sự Team &lt; 15%</td>
+      <td>Phỏng vấn Hội đồng + Director duyệt</td>
+    </tr>
+    <tr>
+      <td><b>L6 &rarr; L7</b><br>(Manager &rarr; Director)</td>
+      <td>&ge; 24 tháng</td>
+      <td>Khối/Phòng đạt Target 1 năm liên tục</td>
+      <td>Không có vi phạm bảo mật / tài chính</td>
+      <td>Ban Điều Hành thông qua bổ nhiệm</td>
+    </tr>
+    <tr>
+      <td><b>L7 &rarr; L8</b><br>(Director &rarr; Executive)</td>
+      <td>Bổ nhiệm Hội đồng</td>
+      <td>Đạt mục tiêu chiến lược công ty</td>
+      <td>Uy tín lãnh đạo & Đánh giá Cổ đông</td>
+      <td>Hội đồng Quản trị phê duyệt</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>II. CƠ CHẾ TỰ ĐỘNG HÓA TRÊN APP MOBILE & ADMIN</h2>
+<div class="code-block">
+1. AUTO-SUGGEST PROMOTION ENGINE (BACKEND):
+   - Hàng tháng, hệ thống quét tự động 4 tiêu chí của toàn bộ Nhân sự.
+   - Nếu đủ 100% điều kiện -> Gửi Notification cho Manager: "Nhân sự Nguyễn Văn A đã đủ điều kiện nâng Level 3. Duyệt ngay?"
+
+2. PROMOTION PROGRESS TRACKER (MOBILE UI):
+   - Thanh tiến độ hiển thị trực quan trên App Mobile của Nhân viên:
+     [Thâm niên: 6/6T ✅]  [KPI 3T: 88%/80% ✅]  [Kỷ luật: Không vi phạm ✅]
+     🎉 BẠN ĐÃ ĐỦ ĐIỀU KIỆN NÂNG LEVEL 3! [BẤM GỬI ĐỀ XUẤT NÂNG LEVEL]
+</div>
+
+</body>
+</html>

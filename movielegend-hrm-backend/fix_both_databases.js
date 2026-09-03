@@ -1,3 +1,4 @@
+
 const { PrismaClient } = require('@prisma/client');
 
 // Database URLs

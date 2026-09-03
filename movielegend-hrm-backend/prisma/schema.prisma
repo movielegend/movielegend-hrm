@@ -709,6 +709,7 @@ model User {
   deletedAt                       DateTime?
   deletionScheduledAt             DateTime?
   isTestAccount                   Boolean                      @default(false)
+  isRewardVaultEnabled            Boolean                      @default(false)
   otpTokens                       OtpToken[]
   profile                         EmployeeProfile?
   roles                           UserRole[]
@@ -3058,3 +3059,153 @@ model Feedback {
   @@index([isAnonymous])
   @@map("feedbacks")
 }
+
+// ==========================================
+// NEW ENUMS & MODELS FOR HR RETENTION & COMPETITION
+// ==========================================
+
+enum RewardType {
+  CASH
+  PHYSICAL_ITEM
+  HYBRID
+}
+
+enum VestingSchedule {
+  QUARTERLY
+  BI_ANNUALLY
+}
+
+enum CompetitionReviewStatus {
+  PENDING_LEADER_REVIEW
+  LEADER_RECOMMENDED
+  LEADER_REJECTED
+  ADMIN_APPROVED_PROMOTION
+  ADMIN_RETAINED_LEVEL
+  ADMIN_DEMOTED_LEVEL
+}
+
+enum WithdrawalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model EmployeeLevel {
+  id                    String      @id @default(uuid()) @db.Uuid
+  levelNumber           Int         @unique // 1 to 8
+  levelName             String      // "Thực tập", "Chính thức", "Senior", "Key Member", "Team Leader", "Manager", "Director", "Executive"
+  colorHex              String      @default("#2563EB")
+  rewardType            RewardType  @default(CASH)
+  promotionBonusAmount  Decimal     @default(0) @db.Decimal(15, 2)
+  physicalItemName      String?     // "MacBook Air M3", "iPad Air", "Honda SH"...
+  physicalItemImageUrl  String?
+  retentionMultiplier   Decimal     @default(1.0) @db.Decimal(3, 2)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@map("employee_levels")
+}
+
+model TalentRetentionVault {
+  id                String             @id @default(uuid()) @db.Uuid
+  userId            String             @db.Uuid
+  year              Int                @default(2026)
+  grantedPoints     Int                @default(0)
+  cashValuePerPoint Decimal            @default(1000) @db.Decimal(10, 2)
+  status            String             @default("ACTIVE") // ACTIVE, COMPLETED, FORFEITED
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  milestones        VestingMilestone[]
+
+  @@unique([userId, year])
+  @@map("talent_retention_vaults")
+}
+
+model VestingMilestone {
+  id             String               @id @default(uuid()) @db.Uuid
+  vaultId        String               @db.Uuid
+  quarter        Int                  // 1, 2, 3, 4
+  unlockDate     DateTime
+  pointsToUnlock Int
+  cashAmount     Decimal              @db.Decimal(15, 2)
+  isUnlocked     Boolean              @default(false)
+  isWithdrawn    Boolean              @default(false)
+  withdrawnAt    DateTime?
+
+  vault          TalentRetentionVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@map("vesting_milestones")
+}
+
+model RewardWithdrawalRequest {
+  id                String                  @id @default(uuid()) @db.Uuid
+  userId            String                  @db.Uuid
+  pointsWithdrawn   Int
+  cashAmount        Decimal                 @db.Decimal(15, 2)
+  bankAccountName   String
+  bankAccountNumber String
+  bankName          String
+  status            WithdrawalRequestStatus @default(PENDING)
+  approvedBy        String?                 @db.Uuid
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@map("reward_withdrawal_requests")
+}
+
+model DepartmentCompetitionConfig {
+  id           String   @id @default(uuid()) @db.Uuid
+  departmentId String   @unique @db.Uuid
+  metricName   String   // "Doanh số Livestream", "Tỷ lệ tuyển dụng", "Độ chính xác kho", "CSAT CSKH"
+  targetValue  Decimal  @db.Decimal(15, 2)
+  unit         String   @default("VND") // VND, %, Views, Orders
+  period       String   @default("MONTHLY")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("department_competition_configs")
+}
+
+model MonthlyCompetitionReview {
+  id                String                  @id @default(uuid()) @db.Uuid
+  userId            String                  @db.Uuid
+  departmentId      String                  @db.Uuid
+  period            String                  // e.g. "2026-09"
+  actualMetricValue Decimal?                @db.Decimal(15, 2)
+  completedTaskRate Decimal?                @db.Decimal(5, 2)
+
+  leaderStatus      CompetitionReviewStatus @default(PENDING_LEADER_REVIEW)
+  leaderNote        String?
+  leaderReviewedAt  DateTime?
+
+  adminStatus       CompetitionReviewStatus @default(PENDING_LEADER_REVIEW)
+  fromLevelNumber   Int?
+  toLevelNumber     Int?
+  adminNote         String?
+  adminApprovedAt   DateTime?
+
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@unique([userId, period])
+  @@map("monthly_competition_reviews")
+}
+
+model TikTokLiveSession {
+  id            String   @id @default(uuid()) @db.Uuid
+  sessionTitle  String
+  streamerId    String   @db.Uuid
+  departmentId  String   @db.Uuid
+  totalGmv      Decimal  @db.Decimal(15, 2)
+  totalOrders   Int      @default(0)
+  peakViewers   Int      @default(0)
+  totalViews    Int      @default(0)
+  startTime     DateTime
+  endTime       DateTime
+  createdAt     DateTime @default(now())
+
+  @@map("tiktok_live_sessions")
+}
+
