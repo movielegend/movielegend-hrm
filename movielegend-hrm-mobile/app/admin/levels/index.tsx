@@ -4,7 +4,7 @@ import { AdminLevelConfigScreen } from '../../../src/features/admin-config/Admin
 
 export default function AdminLevelsRoute() {
   return (
-    <View style={{ flex: 1, backgroundColor: '#1E293B' }}>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
       <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
       <AdminLevelConfigScreen />
     </View>

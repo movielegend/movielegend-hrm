@@ -394,90 +394,95 @@ export const AdminLevelConfigScreen: React.FC = () => {
   });
 
   return (
-    <SafeAreaView style={styles.topSafeArea}>
+    <View style={styles.rootContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
-      
-      {/* Executive Header Card */}
-      <View style={styles.executiveHeaderCard}>
-        <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
-        <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
-      </View>
 
-      {isLoading && departments.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Đang tải danh sách phòng ban thật từ Database Postgres...</Text>
+      {/* Top Header Safe Area (Navy Blue #1E293B) */}
+      <SafeAreaView style={styles.headerSafeArea}>
+        {/* Executive Header Card */}
+        <View style={styles.executiveHeaderCard}>
+          <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
+          <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
         </View>
-      ) : (
-        <>
-          {/* 3-Step Progress Stepper Navigation Bar */}
-      <View style={styles.stepperContainer}>
-        <TouchableOpacity
-          style={[styles.stepTab, activeStep === 1 && styles.stepTabActive]}
-          onPress={() => setActiveStep(1)}
-        >
-          <Text style={[styles.stepNumber, activeStep === 1 && styles.stepNumberActive]}>1</Text>
-          <Text style={[styles.stepTitle, activeStep === 1 && styles.stepTitleActive]}>Phòng Ban</Text>
-        </TouchableOpacity>
 
-        <View style={styles.stepDivider} />
+        {/* 3-Step Progress Stepper Navigation Bar */}
+        <View style={styles.stepperContainer}>
+          <TouchableOpacity
+            style={[styles.stepTab, activeStep === 1 && styles.stepTabActive]}
+            onPress={() => setActiveStep(1)}
+          >
+            <Text style={[styles.stepNumber, activeStep === 1 && styles.stepNumberActive]}>1</Text>
+            <Text style={[styles.stepTitle, activeStep === 1 && styles.stepTitleActive]}>Phòng Ban</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.stepTab, activeStep === 2 && styles.stepTabActive]}
-          onPress={() => setActiveStep(2)}
-        >
-          <Text style={[styles.stepNumber, activeStep === 2 && styles.stepNumberActive]}>2</Text>
-          <Text style={[styles.stepTitle, activeStep === 2 && styles.stepTitleActive]}>Quà Thưởng</Text>
-        </TouchableOpacity>
+          <View style={styles.stepDivider} />
 
-        <View style={styles.stepDivider} />
+          <TouchableOpacity
+            style={[styles.stepTab, activeStep === 2 && styles.stepTabActive]}
+            onPress={() => setActiveStep(2)}
+          >
+            <Text style={[styles.stepNumber, activeStep === 2 && styles.stepNumberActive]}>2</Text>
+            <Text style={[styles.stepTitle, activeStep === 2 && styles.stepTitleActive]}>Quà Thưởng</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.stepTab, activeStep === 3 && styles.stepTabActive]}
-          onPress={() => setActiveStep(3)}
-        >
-          <Text style={[styles.stepNumber, activeStep === 3 && styles.stepNumberActive]}>3</Text>
-          <Text style={[styles.stepTitle, activeStep === 3 && styles.stepTitleActive]}>Giao Dự Án</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.stepDivider} />
 
-      {/* Page Content Switcher */}
+          <TouchableOpacity
+            style={[styles.stepTab, activeStep === 3 && styles.stepTabActive]}
+            onPress={() => setActiveStep(3)}
+          >
+            <Text style={[styles.stepNumber, activeStep === 3 && styles.stepNumberActive]}>3</Text>
+            <Text style={[styles.stepTitle, activeStep === 3 && styles.stepTitleActive]}>Giao Dự Án</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      {/* Page Content Switcher & Bottom Container (Clean White #F8FAFC) */}
       <View style={styles.pageBodyContainer}>
-        {activeStep === 1 && (
-          <AdminDeptOverviewPage
-            departments={deptSummaries}
-            selectedDeptId={selectedDeptId}
-            onSelectDepartment={(id) => setSelectedDeptId(id)}
-            onNextToRewards={() => setActiveStep(2)}
-          />
-        )}
+        {isLoading && departments.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text style={styles.loadingText}>Đang tải danh sách phòng ban thật từ Database Postgres...</Text>
+          </View>
+        ) : (
+          <>
+            {activeStep === 1 && (
+              <AdminDeptOverviewPage
+                departments={deptSummaries}
+                selectedDeptId={selectedDeptId}
+                onSelectDepartment={(id) => setSelectedDeptId(id)}
+                onNextToRewards={() => setActiveStep(2)}
+              />
+            )}
 
-        {activeStep === 2 && (
-          <AdminLevelRewardsPage
-            departmentName={activeDept.name}
-            levels={activeLevels}
-            onEditLevelReward={(lvl) => setEditingItem({ ...lvl })}
-            onAddNewLevel={handleAddNewLevel}
-            onNextToProjects={() => setActiveStep(3)}
-          />
-        )}
+            {activeStep === 2 && (
+              <AdminLevelRewardsPage
+                departmentName={activeDept.name}
+                levels={activeLevels}
+                onEditLevelReward={(lvl) => setEditingItem({ ...lvl })}
+                onAddNewLevel={handleAddNewLevel}
+                onNextToProjects={() => setActiveStep(3)}
+              />
+            )}
 
-        {activeStep === 3 && (
-          <AdminLevelProjectsPage
-            departmentName={activeDept.name}
-            levels={activeLevels}
-            onUpdateLevelProjectName={handleUpdateLevelProjectName}
-            onAddSubTaskToLevel={handleAddSubTaskToLevel}
-            onEditSubTaskInLevel={handleEditSubTaskInLevel}
-            onDeleteSubTaskInLevel={handleDeleteSubTaskInLevel}
-            onSaveAllAndSync={() => {
-              Alert.alert(
-                'Đã Lưu & Đồng Bộ Thành Công!',
-                `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name}. Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
-                [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
-              );
-            }}
-          />
+            {activeStep === 3 && (
+              <AdminLevelProjectsPage
+                departmentName={activeDept.name}
+                levels={activeLevels}
+                onUpdateLevelProjectName={handleUpdateLevelProjectName}
+                onAddSubTaskToLevel={handleAddSubTaskToLevel}
+                onEditSubTaskInLevel={handleEditSubTaskInLevel}
+                onDeleteSubTaskInLevel={handleDeleteSubTaskInLevel}
+                onSaveAllAndSync={() => {
+                  Alert.alert(
+                    'Đã Lưu & Đồng Bộ Thành Công!',
+                    `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name}. Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
+                    [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
+                  );
+                }}
+              />
+            )}
+          </>
         )}
       </View>
 
@@ -524,15 +529,16 @@ export const AdminLevelConfigScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-        </>
-      )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  topSafeArea: {
+  rootContainer: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  headerSafeArea: {
     backgroundColor: '#1E293B',
   },
   loadingContainer: {
