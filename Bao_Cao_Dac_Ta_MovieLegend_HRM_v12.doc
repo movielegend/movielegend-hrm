@@ -1,0 +1,189 @@
+xmlns:v="urn:schemas-microsoft-com:vml"
+xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+xmlns="http://www.w3.org/TR/REC-html40">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Báo cáo Đặc tả Yêu cầu Phần mềm - MovieLegend HRM</title>
+<style>
+  body {
+    font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #1F2937;
+    margin: 40px;
+  }
+  h1 {
+    font-size: 20pt;
+    color: #1E3A8A;
+    text-align: center;
+    border-bottom: 2px solid #1E3A8A;
+    padding-bottom: 8px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 15pt;
+    color: #1E40AF;
+    border-left: 4px solid #3B82F6;
+    padding-left: 10px;
+    margin-top: 25px;
+    margin-bottom: 12px;
+  }
+  h3 {
+    font-size: 12pt;
+    color: #1E3A8A;
+    margin-top: 15px;
+    margin-bottom: 8px;
+  }
+  p, li {
+    font-size: 11pt;
+  }
+  .header-box {
+    background-color: #F0F9FF;
+    border: 1px solid #BAE6FD;
+    padding: 15px 20px;
+    border-radius: 6px;
+    margin-bottom: 30px;
+  }
+  .header-title {
+    font-size: 22pt;
+    font-weight: bold;
+    color: #0369A1;
+    text-align: center;
+    margin: 0;
+  }
+  .header-subtitle {
+    font-size: 13pt;
+    text-align: center;
+    color: #0284C7;
+    margin-top: 5px;
+  }
+  .meta-table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+  }
+  .meta-table td {
+    padding: 4px 8px;
+    font-size: 10.5pt;
+  }
+  table.spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    margin-bottom: 20px;
+  }
+  table.spec-table th {
+    background-color: #1E40AF;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #1E3A8A;
+    font-size: 10pt;
+  }
+  table.spec-table td {
+    padding: 8px 10px;
+    border: 1px solid #D1D5DB;
+    font-size: 10pt;
+    vertical-align: top;
+  }
+  table.spec-table tr:nth-child(even) {
+    background-color: #F9FAFB;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 9pt;
+    font-weight: bold;
+    color: #FFFFFF;
+    border-radius: 4px;
+  }
+  .code-block {
+    background-color: #1E293B;
+    color: #F8FAFC;
+    font-family: 'Consolas', 'Courier New', monospace;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 9.5pt;
+    white-space: pre-wrap;
+    margin: 10px 0;
+  }
+  .highlight-item {
+    color: #059669;
+    font-weight: bold;
+  }
+  .warning-item {
+    color: #DC2626;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="header-box">
+  <div class="header-title">BÁO CÁO ĐẶC TẢ YÊU CẦU PHẦN MỀM</div>
+  <div class="header-subtitle">Hệ Thống Bảo Vệ 5 Lớp Chống Gian Lận Thăng Cấp & Tích Điểm (Multi-Layer Anti-Fraud Framework)</div>
+  <table class="meta-table">
+    <tr>
+      <td><strong>Dự án:</strong> MovieLegend HRM</td>
+      <td><strong>Phiên bản:</strong> 8.0 - Anti-Fraud Security Framework</td>
+    </tr>
+    <tr>
+      <td><strong>Ngày lập:</strong> 03/09/2026</td>
+      <td><strong>Đơn vị nhận:</strong> Ban Giám Đốc / Đội ngũ Dev / BA / UI-UX</td>
+    </tr>
+  </table>
+</div>
+
+<h2>I. PHÂN TÍCH NGUY CƠ GIAN LẬN & HỆ THỐNG PHÒNG THỦ 5 LỚP (ANTI-FRAUD FRAMEWORK)</h2>
+<p>Để ngăn chặn triệt để các hành vi gian lận (Leader bao che, tạo Task rác lấy điểm, gian lận GPS/Check-in, khai khống KPI), hệ thống được trang bị <b>5 lớp bảo mật kiểm soát tự động</b>:</p>
+
+<table class="spec-table">
+  <thead>
+    <tr>
+      <th style="width: 15%;">Nguy cơ Gian lận</th>
+      <th style="width: 25%;">Kịch bản Gian lận Có thể xảy ra</th>
+      <th style="width: 40%;">Lớp Bảo vệ & Cơ chế Kiểm soát Tự động</th>
+      <th style="width: 20%;">Hành động Xử lý</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>1. Tạo Task rác lấy điểm</b></td>
+      <td>Nhân viên tự tạo hàng loạt Task nhỏ không giá trị, bấm hoàn thành trong 1 phút để lấy số lượng Task tích điểm.</td>
+      <td><b>Lớp 1: Min-Time & Daily Cap Engine</b><br>• Task phải được tạo trước ít nhất 30 phút.<br>• Giới hạn tích điểm tối đa 100đ/ngày từ Task. Mọi Task vượt trần sẽ không tính điểm.</td>
+      <td><span class="highlight-item">Tự động chặn tích điểm</span></td>
+    </tr>
+    <tr>
+      <td><b>2. Khai khống Doanh số & KPI</b></td>
+      <td>Leader tự nhập tay số tiền doanh số lớn hoặc tự bấm 100% KPI cho nhân sự thân thiết.</td>
+      <td><b>Lớp 2: Direct API & Document Verification</b><br>• Doanh số đồng bộ 100% tự động từ TikTok API / Pancake, <b>không cho Leader nhập tay</b>.<br>• KPI phải có file minh chứng đính kèm.</td>
+      <td><span class="highlight-item">Bắt buộc xác thực API</span></td>
+    </tr>
+    <tr>
+      <td><b>3. Fake GPS / Ảnh Check-in</b></td>
+      <td>Dùng phần mềm giả lập vị trí GPS hoặc chụp lại ảnh để tích điểm chăm chỉ.</td>
+      <td><b>Lớp 3: AI Face & Geofencing Guard</b><br>• Kiểm tra tọa độ GPS cách công ty &lt; 50m.<br>• Thuật toán AI quét ảnh sống (Liveness Detection) chống chụp qua màn hình.</td>
+      <td><span class="warning-item">Từ chối Check-in</span></td>
+    </tr>
+    <tr>
+      <td><b>4. Leader bao che / Tự duyệt</b></td>
+      <td>Leader tự tạo lệnh thăng cấp và tự duyệt cho nhân sự team mình mà không qua kiểm duyệt.</td>
+      <td><b>Lớp 4: Dual-Approval & Separation of Duties</b><br>• Khi đủ điều kiện, hệ thống chỉ tạo Đề xuất.<br>• Bắt buộc trải qua <b>2 vòng duyệt độc lập</b> (Vòng 1: Manager; Vòng 2: HR Manager).</td>
+      <td><span class="highlight-item">Yêu cầu Phê duyệt 2 Lớp</span></td>
+    </tr>
+    <tr>
+      <td><b>5. Phát hiện gian lận sau này</b></td>
+      <td>Đã được thăng cấp nhưng sau này phát hiện ra số liệu quá khứ bị sai lệch/gian lận.</td>
+      <td><b>Lớp 5: Fraud Clawback & Audit Trail</b><br>• Admin có quyền bấm <b>[Hạ Level & Thu hồi Thưởng]</b>.<br>• Lưu vết nhật ký Audit Log vĩnh viễn không thể sửa xóa.</td>
+      <td><span class="warning-item">Thu hồi Level & Thưởng</span></td>
+    </tr>
+  </tbody>
+</table>
+
+</body>
+</html>

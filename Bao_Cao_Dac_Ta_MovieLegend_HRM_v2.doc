@@ -112,24 +112,17 @@ xmlns="http://www.w3.org/TR/REC-html40">
     white-space: pre-wrap;
     margin: 10px 0;
   }
-  .note-box {
-    background-color: #FEF3C7;
-    border-left: 4px solid #F59E0B;
-    padding: 10px 15px;
-    margin: 15px 0;
-    font-size: 10.5pt;
-  }
 </style>
 </head>
 <body>
 
 <div class="header-box">
   <div class="header-title">BÁO CÁO ĐẶC TẢ YÊU CẦU PHẦN MỀM</div>
-  <div class="header-subtitle">Hệ thống Phân cấp Nhân sự, Trợ lý Nhắc việc, Đánh giá Hiệu suất & Sales Dashboard</div>
+  <div class="header-subtitle">Hệ thống Phân cấp Nhân sự, Chế độ Thưởng theo Level, Trợ lý Nhắc việc, Đánh giá Hiệu suất & Sales Dashboard</div>
   <table class="meta-table">
     <tr>
       <td><strong>Dự án:</strong> MovieLegend HRM</td>
-      <td><strong>Phiên bản:</strong> 2.0 - Final Spec</td>
+      <td><strong>Phiên bản:</strong> 2.1 - Enhanced Reward Integration</td>
     </tr>
     <tr>
       <td><strong>Ngày lập:</strong> 03/09/2026</td>
@@ -139,111 +132,111 @@ xmlns="http://www.w3.org/TR/REC-html40">
 </div>
 
 <h2>I. TỔNG QUAN KIẾN TRÚC & TRIẾT LÝ PHÂN QUYỀN</h2>
-<p>Hệ thống được thiết kế theo kiến trúc phân lớp độc lập, bóc tách hoàn toàn giữa <strong>Cấp bậc nhân sự (Level)</strong> và <strong>Quyền hạn hệ thống (Role/Permission)</strong>. Việc này đảm bảo Admin có thể tự do thay đổi chính sách nâng cấp, thưởng phạt và phạm vi xem dữ liệu trên giao diện Admin mà <strong>không cần gọi Dev sửa lại mã nguồn</strong>.</p>
+<p>Hệ thống được thiết kế theo kiến trúc phân lớp độc lập, bóc tách hoàn toàn giữa <strong>Cấp bậc nhân sự (Level)</strong>, <strong>Quyền hạn hệ thống (Role/Permission)</strong> và <strong>Hệ thống Thưởng (Bonus & Benefits)</strong>. Việc này đảm bảo Admin có thể tự do thay đổi chính sách thưởng, thăng cấp và phạm vi xem dữ liệu trên giao diện Admin mà <strong>không cần gọi Dev sửa lại mã nguồn</strong>.</p>
 
 <p><strong>Mô hình phân lớp dữ liệu:</strong></p>
 <div class="code-block">
-Employee (Nhân sự) ──> Level (Cấp bậc 1-8) ──> Role/Permission (Quyền tính năng) ──> Department (Bộ phận) ──> Data Scope (Phạm vi dữ liệu)
+Employee ──> Level (L1-L8) ──> Benefit/Bonus Group (Thưởng) + Role/Permission (Quyền) ──> Data Scope
 </div>
 
 <hr>
 
-<h2>II. MODULE 1: HỆ THỐNG PHÂN CẤP NHÂN SỰ (LEVEL 1 - LEVEL 8)</h2>
-<p>Hệ thống chia làm 8 cấp bậc nhân sự. Mỗi cấp bậc có màu nhận diện tên riêng (chỉ áp dụng hiển thị màu tại Tên/Badge đại diện, không thay đổi toàn bộ theme giao diện):</p>
+<h2>II. MODULE 1: HỆ THỐNG PHÂN CẤP NHÂN SỰ & KHUNG THƯỞNG (LEVEL 1 - LEVEL 8)</h2>
+<p>Hệ thống chia làm 8 cấp bậc nhân sự. Mỗi cấp bậc đi kèm với <strong>Hệ số Thưởng KPI</strong>, <b>Thưởng Thăng Cấp (1 lần)</b>, và <b>Phụ cấp / Phúc lợi định kỳ</b>:</p>
 
 <table class="spec-table">
   <thead>
     <tr>
-      <th style="width: 6%;">Level</th>
-      <th style="width: 10%;">Mã Code</th>
-      <th style="width: 15%;">Tên Cấp bậc</th>
-      <th style="width: 10%;">Mã Màu</th>
-      <th style="width: 12%;">Điều kiện Thâm niên</th>
-      <th style="width: 15%;">Điều kiện KPI (3T)</th>
-      <th style="width: 16%;">Role Tự động Gán</th>
-      <th style="width: 16%;">Quyền hạn & Đặc quyền</th>
+      <th style="width: 5%;">Level</th>
+      <th style="width: 10%;">Tên Cấp bậc</th>
+      <th style="width: 8%;">Mã Màu</th>
+      <th style="width: 10%;">Điều kiện Nâng cấp</th>
+      <th style="width: 12%;">Thưởng Nóng Thăng Cấp (1 Lần)</th>
+      <th style="width: 12%;">Hệ số Thưởng KPI / Doanh số</th>
+      <th style="width: 23%;">Đặc quyền Phúc lợi & Phụ cấp Tháng</th>
+      <th style="width: 20%;">Quyền hạn Hệ thống & App</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><b>L1</b></td>
-      <td>INTERN</td>
       <td>Thực tập / Thử việc</td>
       <td><span class="badge" style="background-color: #9CA3AF;">#9CA3AF</span></td>
-      <td>0 tháng</td>
+      <td>Mới gia nhập</td>
       <td>N/A</td>
-      <td>ROLE_INTERN</td>
-      <td>Xem lịch ca, Check-in/out cơ bản, gửi đơn nghỉ phép</td>
+      <td><b>1.0x</b> (Mức cơ bản)</td>
+      <td>• Voucher sinh nhật 200.000đ<br>• Phụ cấp gửi xe 100%</td>
+      <td>Xem lịch ca, Check-in/out cơ bản, gửi đơn xin nghỉ</td>
     </tr>
     <tr>
       <td><b>L2</b></td>
-      <td>OFFICIAL</td>
-      <td>Nhân viên Chính thức</td>
+      <td>Chính thức</td>
       <td><span class="badge" style="background-color: #2563EB;">#2563EB</span></td>
-      <td>&ge; 2 tháng</td>
-      <td>Đạt 100% Target thử việc</td>
-      <td>ROLE_EMPLOYEE</td>
-      <td>Tham gia Chat công ty, tạo & nhận Task, gửi đề xuất</td>
+      <td>&ge; 2 tháng + Ký HĐLĐ</td>
+      <td><b>1.000.000đ</b></td>
+      <td><b>1.1x</b></td>
+      <td>• Voucher sinh nhật 300.000đ<br>• Bảo hiểm Y tế / Tai nạn cơ bản<br>• Thưởng Lễ/Tết 500.000đ/dịp</td>
+      <td>Tham gia Chat nhóm công ty, nhận/tạo Task, gửi đề xuất</td>
     </tr>
     <tr>
       <td><b>L3</b></td>
-      <td>SENIOR</td>
       <td>Senior</td>
       <td><span class="badge" style="background-color: #0D9488;">#0D9488</span></td>
-      <td>&ge; 6 tháng</td>
-      <td>Avg KPI &ge; 80%</td>
-      <td>ROLE_SENIOR</td>
-      <td>Ưu tiên đăng ký ca làm, đổi ca, Mentor nhân sự mới</td>
+      <td>&ge; 6 tháng + Avg KPI &ge; 80%</td>
+      <td><b>3.000.000đ</b></td>
+      <td><b>1.25x</b></td>
+      <td>• Voucher sinh nhật 500.000đ<br>• Ngân sách Đào tạo 2.000.000đ/năm<br>• Thưởng Lễ/Tết 1.000.000đ/dịp</td>
+      <td>Đăng ký ca ưu tiên, đổi ca làm, Mentor nhân sự mới</td>
     </tr>
     <tr>
       <td><b>L4</b></td>
-      <td>KEY_MEMBER</td>
       <td>Key Member</td>
       <td><span class="badge" style="background-color: #9333EA;">#9333EA</span></td>
-      <td>&ge; 12 tháng</td>
-      <td>Avg KPI &ge; 90%</td>
-      <td>ROLE_KEY_MEMBER</td>
-      <td>Đính kèm file 100MB, tạo Task nhóm, tài nguyên cao cấp</td>
+      <td>&ge; 12 tháng + Avg KPI &ge; 90%</td>
+      <td><b>5.000.000đ</b></td>
+      <td><b>1.4x</b></td>
+      <td>• Gói Bảo hiểm Sức khỏe Cá nhân cao cấp<br>• Phụ cấp Thâm niên 500.000đ/tháng<br>• Thưởng Lễ/Tết 2.000.000đ/dịp</td>
+      <td>Đính kèm file 100MB, tạo Task nhóm, truy cập kho tài nguyên</td>
     </tr>
     <tr>
       <td><b>L5</b></td>
-      <td>TEAM_LEADER</td>
       <td>Team Leader</td>
       <td><span class="badge" style="background-color: #EA580C;">#EA580C</span></td>
-      <td>&ge; 12 tháng</td>
-      <td>Đánh giá từ Manager</td>
-      <td>ROLE_LEADER</td>
+      <td>&ge; 12 tháng + Đánh giá Manager</td>
+      <td><b>8.000.000đ</b></td>
+      <td><b>1.6x</b> + % Thưởng Team</td>
+      <td>• Phụ cấp Trách nhiệm Leader 2.000.000đ/tháng<br>• Quỹ Teambuilding Team 5.000.000đ/quý<br>• Thưởng Lễ/Tết 3.000.000đ/dịp</td>
       <td><b>Kích hoạt Trợ lý Nhắc việc</b>, duyệt đơn team, tạo Đánh giá Hiệu suất</td>
     </tr>
     <tr>
       <td><b>L6</b></td>
-      <td>MANAGER</td>
-      <td>Quản lý Bộ phận</td>
+      <td>Manager</td>
       <td><span class="badge" style="background-color: #DC2626;">#DC2626</span></td>
-      <td>Phỏng vấn Manager</td>
-      <td>Đánh giá từ Director</td>
-      <td>ROLE_MANAGER</td>
-      <td>Dashboard Doanh số Bộ phận, QL tài sản/sự cố, duyệt chi phí phòng</td>
+      <td>Phỏng vấn Manager + Phê duyệt Director</td>
+      <td><b>15.000.000đ</b></td>
+      <td><b>2.0x</b> + % Doanh số Phòng</td>
+      <td>• Phụ cấp Quản lý 5.000.000đ/tháng<br>• Gói Bảo hiểm Sức khỏe cho Thân nhân<br>• Thưởng Lễ/Tết 5.000.000đ/dịp</td>
+      <td>Dashboard Doanh số Phòng, QL tài sản/sự cố, duyệt ngân sách phòng</td>
     </tr>
     <tr>
       <td><b>L7</b></td>
-      <td>DIRECTOR</td>
-      <td>Giám đốc / Cấp cao</td>
+      <td>Director</td>
       <td><span class="badge" style="background-color: #D97706;">#D97706</span></td>
       <td>Bổ nhiệm Giám đốc</td>
-      <td>Đánh giá từ BĐH</td>
-      <td>ROLE_DIRECTOR</td>
-      <td>Dashboard Doanh số Liên khu vực, phê duyệt nhân sự cấp cao</td>
+      <td><b>30.000.000đ</b></td>
+      <td><b>2.5x</b> + % Doanh số Khối</td>
+      <td>• Phụ cấp Điều hành 10.000.000đ/tháng<br>• Du lịch nghỉ dưỡng cao cấp 5 sao hàng năm<br>• Xét cấp Cổ phần ESOP</td>
+      <td>Dashboard Doanh số Liên khu vực, duyệt Nhân sự cấp cao</td>
     </tr>
     <tr>
       <td><b>L8</b></td>
-      <td>EXECUTIVE</td>
-      <td>Ban Điều Hành</td>
+      <td>Executive (BĐH)</td>
       <td><span class="badge" style="background-color: #7C2D12;">#7C2D12</span></td>
       <td>Board Member</td>
       <td>N/A</td>
-      <td>ROLE_ADMIN, ROLE_EXEC</td>
-      <td>Full Data Scope (Global), Cấu hình Hệ thống, Level & Ngân sách</td>
+      <td><b>Thưởng Lợi nhuận Quý/Năm</b></td>
+      <td>• Chế độ Cổ đông / ESOP Đặc biệt<br>• Xe công vụ & Phụ cấp Đặc biệt Ban Điều hành</td>
+      <td>Full Data Scope (Global), Cấu hình Hệ thống, Ngân sách & Thưởng</td>
     </tr>
   </tbody>
 </table>
@@ -298,8 +291,8 @@ Employee (Nhân sự) ──> Level (Cấp bậc 1-8) ──> Role/Permission (Q
 
 <hr>
 
-<h2>IV. MODULE 3: HỆ THỐNG ĐÁNH GIÁ HIỆU SUẤT (PERFORMANCE PROFILE)</h2>
-<p>Ghi nhận lịch sử đánh giá của nhân sự trong suốt quá trình làm việc, làm căn cứ xét thưởng, hạ/nâng Level.</p>
+<h2>IV. MODULE 3: HỆ THỐNG ĐÁNH GIÁ HIỆU SUẤT & QUY TẮC THƯỞNG/TRỪ</h2>
+<p>Ghi nhận lịch sử đánh giá của nhân sự trong suốt quá trình làm việc, làm căn cứ xét Thưởng nóng, phạt và hạ/nâng Level.</p>
 
 <table class="spec-table">
   <thead>
@@ -307,9 +300,9 @@ Employee (Nhân sự) ──> Level (Cấp bậc 1-8) ──> Role/Permission (Q
       <th style="width: 15%;">Mức Đánh giá</th>
       <th style="width: 12%;">Mã Enum</th>
       <th style="width: 10%;">Điểm số</th>
+      <th style="width: 15%;">Chế độ Thưởng / Phạt Tiền mặt</th>
       <th style="width: 25%;">Trường hợp Áp dụng</th>
-      <th style="width: 18%;">Phân quyền Đánh giá</th>
-      <th style="width: 20%;">Ảnh hưởng tới Level</th>
+      <th style="width: 23%;">Ảnh hưởng tới Level & Thăng cấp</th>
     </tr>
   </thead>
   <tbody>
@@ -317,48 +310,48 @@ Employee (Nhân sự) ──> Level (Cấp bậc 1-8) ──> Role/Permission (Q
       <td><b>Làm tốt</b></td>
       <td>EXCELLENT</td>
       <td><span style="color: green; font-weight: bold;">+10</span></td>
+      <td><b>Thưởng nóng +500.000đ - 2.000.000đ</b> vào lương tháng</td>
       <td>Hoàn thành xuất sắc công việc, hỗ trợ đồng đội, có sáng kiến</td>
-      <td>Team Leader, Manager</td>
       <td>Tích lũy +50 điểm &rarr; Đủ điều kiện xét nâng Level</td>
     </tr>
     <tr>
       <td><b>Cần cải thiện</b></td>
       <td>NEED_IMPROVEMENT</td>
       <td><span style="color: #D97706;">-2</span></td>
+      <td>Giảm 10% thưởng KPI tháng</td>
       <td>Trễ Task nhẹ (&lt; 24h), có sai sót nhỏ trong thao tác</td>
-      <td>Team Leader, Manager</td>
       <td>Không ảnh hưởng ngay</td>
     </tr>
     <tr>
       <td><b>Cần rút kinh nghiệm</b></td>
       <td>LESSON_LEARNED</td>
       <td><span style="color: #D97706;">-5</span></td>
+      <td>Giảm 25% thưởng KPI tháng</td>
       <td>Vi phạm quy trình làm việc, gây ảnh hưởng nhỏ tới team</td>
-      <td>Team Leader, Manager</td>
       <td>Yêu cầu viết bài học kinh nghiệm, trừ điểm tháng</td>
     </tr>
     <tr>
       <td><b>Cảnh cáo</b></td>
       <td>WARNING</td>
       <td><span style="color: red;">-15</span></td>
+      <td><b>Cắt 100% Thưởng KPI tháng</b></td>
       <td>Nghỉ làm không phép, vi phạm văn hóa, sai phạm dữ liệu nhẹ</td>
-      <td>Manager, HR</td>
       <td>Khóa xét nâng Level trong 3 tháng</td>
     </tr>
     <tr>
       <td><b>Nghiêm trọng</b></td>
       <td>SERIOUS</td>
       <td><span style="color: red;">-30</span></td>
+      <td>Phạt 50% Phụ cấp + Khấu trừ bồi thường thiệt hại</td>
       <td>Làm thất thoát tài sản (&lt; 10tr), rò rỉ thông tin nội bộ</td>
-      <td>Manager, HR, Director</td>
       <td>Tự động <b>Hạ 1 Level</b></td>
     </tr>
     <tr>
       <td><b>Rất nghiêm trọng</b></td>
       <td>CRITICAL</td>
       <td><span style="color: red; font-weight: bold;">-50</span></td>
+      <td>Cắt toàn bộ Thưởng/Phụ cấp + Bồi thường 100% thiệt hại</td>
       <td>Vi phạm pháp luật, phá hoại hệ thống, thất thoát tài sản lớn</td>
-      <td>Director, Ban Điều Hành</td>
       <td>Giảm về <b>Level 1</b> hoặc Buộc thôi việc</td>
     </tr>
   </tbody>
@@ -410,102 +403,27 @@ Employee (Nhân sự) ──> Level (Cấp bậc 1-8) ──> Role/Permission (Q
 
 <h2>VI. PHỤ LỤC KỸ THUẬT (DANH SÁCH API ENDPOINTS & DATABASE SCHEMA)</h2>
 
-<h3>1. Danh sách API Endpoints chính</h3>
-<table class="spec-table">
-  <thead>
-    <tr>
-      <th>Method</th>
-      <th>Endpoint URI</th>
-      <th>Mô tả Chức năng</th>
-      <th>Quyền truy cập</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>GET</td>
-      <td>/api/v1/levels</td>
-      <td>Lấy danh sách 8 Level & cấu hình màu sắc</td>
-      <td>Authenticated User</td>
-    </tr>
-    <tr>
-      <td>POST</td>
-      <td>/api/v1/admin/levels</td>
-      <td>Cấu hình Level, quyền lợi và Role tự động</td>
-      <td>ROLE_ADMIN</td>
-    </tr>
-    <tr>
-      <td>POST</td>
-      <td>/api/v1/admin/users/:id/change-level</td>
-      <td>Thực hiện nâng/hạ Level cho nhân sự</td>
-      <td>ROLE_ADMIN, ROLE_HR</td>
-    </tr>
-    <tr>
-      <td>GET</td>
-      <td>/api/v1/reminders/post-checkin</td>
-      <td>Lấy danh sách Task cần nhắc sau Check-in</td>
-      <td>Level 5 trở lên (L5-L8)</td>
-    </tr>
-    <tr>
-      <td>POST</td>
-      <td>/api/v1/reminders/acknowledge</td>
-      <td>Xác nhận hoặc hẹn giờ nhắc lại 30m</td>
-      <td>Level 5 trở lên (L5-L8)</td>
-    </tr>
-    <tr>
-      <td>POST</td>
-      <td>/api/v1/performance/evaluations</td>
-      <td>Tạo đánh giá hiệu suất nhân sự</td>
-      <td>ROLE_LEADER trở lên</td>
-    </tr>
-    <tr>
-      <td>GET</td>
-      <td>/api/v1/sales/dashboard</td>
-      <td>Lấy dữ liệu Dashboard doanh số theo Data Scope</td>
-      <td>Authenticated User</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3>2. Cấu trúc Database Schema (Prisma PostgreSQL)</h3>
+<h3>1. Cấu trúc Database Schema Mới (Thêm Khung Thưởng)</h3>
 <div class="code-block">
 model EmployeeLevel {
-  id                 String                 @id @default(uuid())
-  levelNumber        Int                    @unique // 1 -> 8
-  code               String                 @unique // INTERN, OFFICIAL...
-  name               String                 // Thực tập, Senior...
-  colorCode          String                 // Hex color: #2563EB
-  badgeIcon          String?
-  minSeniorityMonths Int                    @default(0)
-  autoAssignRoleIds  String[]
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  users              User[]
-}
+  id                    String   @id @default(uuid())
+  levelNumber           Int      @unique // 1 -> 8
+  code                  String   @unique // INTERN, OFFICIAL...
+  name                  String   // Thực tập, Senior...
+  colorCode             String   // Hex color: #2563EB
+  badgeIcon             String?
+  minSeniorityMonths    Int      @default(0)
+  
+  // Thưởng & Quyền lợi
+  promotionBonusAmount  Decimal  @default(0) @db.Decimal(15, 2) // Thưởng nâng cấp 1 lần
+  kpiBonusMultiplier    Decimal  @default(1.0) @db.Decimal(3, 2) // Hệ số thưởng KPI (1.1x, 1.25x...)
+  monthlyAllowance      Decimal  @default(0) @db.Decimal(15, 2) // Phụ cấp cố định tháng
+  benefitDescription    String?  // Mô tả quà tặng, bảo hiểm...
 
-model PerformanceEvaluation {
-  id             String            @id @default(uuid())
-  evaluateeId    String
-  evaluatee      User              @relation("EvaluateeUser", fields: [evaluateeId], references: [id])
-  evaluatorId    String
-  evaluator      User              @relation("EvaluatorUser", fields: [evaluatorId], references: [id])
-  rating         PerformanceRating
-  scoreDelta     Int
-  title          String
-  content        String
-  evidenceUrls   String[]
-  createdAt      DateTime          @default(now())
-}
-
-model DepartmentSalesRecord {
-  id             String     @id @default(uuid())
-  departmentId   String
-  department     Department @relation(fields: [departmentId], references: [id])
-  recordDate     DateTime   @db.Date
-  todaySales     Decimal    @db.Decimal(15, 2)
-  monthSales     Decimal    @db.Decimal(15, 2)
-  targetSales    Decimal    @db.Decimal(15, 2)
-  ranking        Int?
-  updatedAt      DateTime   @updatedAt
+  autoAssignRoleIds     String[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  users                 User[]
 }
 </div>
 
