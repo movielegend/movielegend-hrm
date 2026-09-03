@@ -215,7 +215,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
   const [deptLevelConfigs, setDeptLevelConfigs] = useState<Record<string, AdminLevelItem[]>>({});
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
 
-  const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0];
+  const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0] || { id: 'default', name: 'Phòng Ban' };
   const activeLevels = deptLevelConfigs[selectedDeptId] || createDefaultLevels(activeDept.name);
 
   // Real-time Socket.io Sync Listener
