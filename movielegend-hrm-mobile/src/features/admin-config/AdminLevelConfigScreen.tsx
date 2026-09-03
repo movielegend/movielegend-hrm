@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { useDepartments } from '../../hooks/useDepartments';
+import { useSocketStatus } from '../../providers/SocketProvider';
 
 export interface LevelStageProject {
   projectName: string;
@@ -33,6 +34,7 @@ export interface AdminLevelItem {
 
 export const AdminLevelConfigScreen: React.FC = () => {
   const { data: realDeptData } = useDepartments({ limit: 100 });
+  const { getSocket, isConnected } = useSocketStatus();
   const realDeptList = realDeptData?.data || realDeptData?.items || [];
 
   const departments = realDeptList.length > 0
@@ -214,6 +216,31 @@ export const AdminLevelConfigScreen: React.FC = () => {
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0];
   const activeLevels = deptLevelConfigs[selectedDeptId] || createDefaultLevels(activeDept.name);
 
+  // Real-time Socket.io Sync Listener
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.emit('level:join_config_room', { departmentId: selectedDeptId });
+
+    const handleLevelConfigUpdated = (payload: any) => {
+      if (payload && payload.departmentId && payload.levels) {
+        setDeptLevelConfigs((prev) => ({
+          ...prev,
+          [payload.departmentId]: payload.levels,
+        }));
+      }
+    };
+
+    socket.on('level:config:updated', handleLevelConfigUpdated);
+    socket.on('level:updated', handleLevelConfigUpdated);
+
+    return () => {
+      socket.off('level:config:updated', handleLevelConfigUpdated);
+      socket.off('level:updated', handleLevelConfigUpdated);
+    };
+  }, [selectedDeptId, getSocket]);
+
   // Add bullet sub-task directly to a specific Level Card
   const handleAddBulletToLevel = (levelId: string) => {
     const textToAdd = (newBulletInputs[levelId] || '').trim();
@@ -237,6 +264,12 @@ export const AdminLevelConfigScreen: React.FC = () => {
         }
         return lvl;
       });
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+      }
+
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
@@ -279,6 +312,12 @@ export const AdminLevelConfigScreen: React.FC = () => {
     setDeptLevelConfigs((prev) => {
       const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
       const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+      }
+
       return { ...prev, [selectedDeptId]: updatedList };
     });
     Alert.alert('Thành Công', `Đã lưu cấu hình cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
