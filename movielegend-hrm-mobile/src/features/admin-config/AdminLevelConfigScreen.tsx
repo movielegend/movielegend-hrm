@@ -49,6 +49,32 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   const [selectedDeptId, setSelectedDeptId] = useState(departments[0]?.id || 'dept-1');
 
+  // Department-Specific Level Configurations
+  const defaultLevels: AdminLevelItem[] = [
+    { id: 'lvl-1', levelNumber: 1, levelName: 'Thực tập / Thử việc', colorHex: '#64748B', rewardType: 'CASH', promotionBonusAmount: 0, physicalItemName: 'Voucher Sinh nhật 200k', retentionFloorGmv: 0, promotionCeilingGmv: 50, retentionMultiplier: 1.0 },
+    { id: 'lvl-2', levelNumber: 2, levelName: 'Chính thức', colorHex: '#2563EB', rewardType: 'HYBRID', promotionBonusAmount: 1000000, physicalItemName: 'Kỷ niệm chương chính thức', retentionFloorGmv: 30, promotionCeilingGmv: 150, retentionMultiplier: 1.1 },
+    { id: 'lvl-3', levelNumber: 3, levelName: 'Senior Specialist', colorHex: '#0D9488', rewardType: 'HYBRID', promotionBonusAmount: 3000000, physicalItemName: 'Tai nghe Bluetooth Chống ồn cao cấp', retentionFloorGmv: 80, promotionCeilingGmv: 300, retentionMultiplier: 1.25 },
+    { id: 'lvl-4', levelNumber: 4, levelName: 'Key Member', colorHex: '#7C3AED', rewardType: 'HYBRID', promotionBonusAmount: 5000000, physicalItemName: 'Máy tính bảng iPad Air / Màn 4K', retentionFloorGmv: 150, promotionCeilingGmv: 500, retentionMultiplier: 1.4 },
+    { id: 'lvl-5', levelNumber: 5, levelName: 'Level 5 Năng Lực', colorHex: '#EA580C', rewardType: 'HYBRID', promotionBonusAmount: 8000000, physicalItemName: 'Laptop MacBook Air M3', retentionFloorGmv: 250, promotionCeilingGmv: 820, retentionMultiplier: 1.6 },
+    { id: 'lvl-6', levelNumber: 6, levelName: 'Level 6 Chuyên Gia', colorHex: '#DC2626', rewardType: 'HYBRID', promotionBonusAmount: 15000000, physicalItemName: 'Laptop MacBook Pro M-Series + iPhone', retentionFloorGmv: 500, promotionCeilingGmv: 1500, retentionMultiplier: 2.0 },
+    { id: 'lvl-7', levelNumber: 7, levelName: 'Level 7 Xuất Sắc', colorHex: '#D97706', rewardType: 'HYBRID', promotionBonusAmount: 30000000, physicalItemName: 'MacBook Pro Max + 1 Cây Vàng 9999', retentionFloorGmv: 1000, promotionCeilingGmv: 3000, retentionMultiplier: 2.5 },
+    { id: 'lvl-8', levelNumber: 8, levelName: 'Level 8 Huyền Thoại', colorHex: '#881337', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: 'Xe công vụ + Cổ phần ESOP Doanh nghiệp', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
+  ];
+
+  // Map of departmentId to department's custom 8 levels
+  const [deptLevelConfigs, setDeptLevelConfigs] = useState<Record<string, AdminLevelItem[]>>({
+    'dept-4': [ // Kho & Tài sản specific rewards
+      { id: 'lvl-1', levelNumber: 1, levelName: 'Thử việc Kho', colorHex: '#64748B', rewardType: 'CASH', promotionBonusAmount: 0, physicalItemName: 'Voucher 200k', retentionFloorGmv: 0, promotionCeilingGmv: 50, retentionMultiplier: 1.0 },
+      { id: 'lvl-2', levelNumber: 2, levelName: 'Nhân viên Kho chính thức', colorHex: '#2563EB', rewardType: 'HYBRID', promotionBonusAmount: 1000000, physicalItemName: 'Bộ đồ nghề chuyên dụng', retentionFloorGmv: 30, promotionCeilingGmv: 150, retentionMultiplier: 1.1 },
+      { id: 'lvl-3', levelNumber: 3, levelName: 'Thủ kho Senior', colorHex: '#0D9488', rewardType: 'HYBRID', promotionBonusAmount: 3000000, physicalItemName: 'Tai nghe Bluetooth', retentionFloorGmv: 80, promotionCeilingGmv: 300, retentionMultiplier: 1.25 },
+      { id: 'lvl-4', levelNumber: 4, levelName: 'Quản lý Kho Key', colorHex: '#7C3AED', rewardType: 'HYBRID', promotionBonusAmount: 5000000, physicalItemName: 'Máy tính bảng iPad Air', retentionFloorGmv: 150, promotionCeilingGmv: 500, retentionMultiplier: 1.4 },
+      { id: 'lvl-5', levelNumber: 5, levelName: 'Chuyên Gia Tối Ưu Kho L5', colorHex: '#EA580C', rewardType: 'HYBRID', promotionBonusAmount: 8000000, physicalItemName: 'Xe máy Honda Wave Alpha / iPad Pro', retentionFloorGmv: 250, promotionCeilingGmv: 820, retentionMultiplier: 1.6 },
+      { id: 'lvl-6', levelNumber: 6, levelName: 'Giám Sát Tổng Kho L6', colorHex: '#DC2626', rewardType: 'HYBRID', promotionBonusAmount: 15000000, physicalItemName: 'Xe máy Honda SH Mode', retentionFloorGmv: 500, promotionCeilingGmv: 1500, retentionMultiplier: 2.0 },
+      { id: 'lvl-7', levelNumber: 7, levelName: 'Giám Đốc Chuỗi Cung Ứng L7', colorHex: '#D97706', rewardType: 'HYBRID', promotionBonusAmount: 30000000, physicalItemName: 'Xe máy Honda SH 160i + 1 Cây Vàng 9999', retentionFloorGmv: 1000, promotionCeilingGmv: 3000, retentionMultiplier: 2.5 },
+      { id: 'lvl-8', levelNumber: 8, levelName: 'Hội Đồng Kho Vận L8', colorHex: '#881337', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: 'Xe Ô tô Công vụ + Cổ phần ESOP', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
+    ],
+  });
+
   const [deptProjects, setDeptProjects] = useState<Record<string, DepartmentProjectConfig>>({
     'dept-1': {
       departmentId: 'dept-1',
@@ -62,21 +88,12 @@ export const AdminLevelConfigScreen: React.FC = () => {
     },
   });
 
-  const [levels, setLevels] = useState<AdminLevelItem[]>([
-    { id: 'lvl-1', levelNumber: 1, levelName: 'Thực tập / Thử việc', colorHex: '#64748B', rewardType: 'CASH', promotionBonusAmount: 0, physicalItemName: 'Voucher Sinh nhật 200k', retentionFloorGmv: 0, promotionCeilingGmv: 50, retentionMultiplier: 1.0 },
-    { id: 'lvl-2', levelNumber: 2, levelName: 'Chính thức', colorHex: '#2563EB', rewardType: 'HYBRID', promotionBonusAmount: 1000000, physicalItemName: 'Kỷ niệm chương chính thức', retentionFloorGmv: 30, promotionCeilingGmv: 150, retentionMultiplier: 1.1 },
-    { id: 'lvl-3', levelNumber: 3, levelName: 'Senior Specialist', colorHex: '#0D9488', rewardType: 'HYBRID', promotionBonusAmount: 3000000, physicalItemName: 'Tai nghe Bluetooth Chống ồn cao cấp', retentionFloorGmv: 80, promotionCeilingGmv: 300, retentionMultiplier: 1.25 },
-    { id: 'lvl-4', levelNumber: 4, levelName: 'Key Member', colorHex: '#7C3AED', rewardType: 'HYBRID', promotionBonusAmount: 5000000, physicalItemName: 'Máy tính bảng iPad Air / Màn 4K', retentionFloorGmv: 150, promotionCeilingGmv: 500, retentionMultiplier: 1.4 },
-    { id: 'lvl-5', levelNumber: 5, levelName: 'Team Leader', colorHex: '#EA580C', rewardType: 'HYBRID', promotionBonusAmount: 8000000, physicalItemName: 'Laptop MacBook Air M3', retentionFloorGmv: 250, promotionCeilingGmv: 820, retentionMultiplier: 1.6 },
-    { id: 'lvl-6', levelNumber: 6, levelName: 'Manager Bộ Phận', colorHex: '#DC2626', rewardType: 'HYBRID', promotionBonusAmount: 15000000, physicalItemName: 'Laptop MacBook Pro M-Series + iPhone', retentionFloorGmv: 500, promotionCeilingGmv: 1500, retentionMultiplier: 2.0 },
-    { id: 'lvl-7', levelNumber: 7, levelName: 'Director Giám Đốc', colorHex: '#D97706', rewardType: 'HYBRID', promotionBonusAmount: 30000000, physicalItemName: 'MacBook Pro Max + 1 Cây Vàng 9999', retentionFloorGmv: 1000, promotionCeilingGmv: 3000, retentionMultiplier: 2.5 },
-    { id: 'lvl-8', levelNumber: 8, levelName: 'Executive Ban Điều Hành', colorHex: '#881337', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: 'Xe công vụ + Cổ phần ESOP Doanh nghiệp', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
-  ]);
-
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
   const [newBulletText, setNewBulletText] = useState('');
 
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0];
+  const activeLevels = deptLevelConfigs[selectedDeptId] || defaultLevels;
+
   const activeProj = deptProjects[selectedDeptId] || {
     departmentId: selectedDeptId,
     departmentName: activeDept.name,
@@ -118,8 +135,12 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   const handleSaveItem = () => {
     if (!editingItem) return;
-    setLevels((prev) => prev.map((item) => (item.id === editingItem.id ? editingItem : item)));
-    Alert.alert('Thành Công', `Đã lưu cấu hình cho ${editingItem.levelName}!`);
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[selectedDeptId] || defaultLevels;
+      const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
+      return { ...prev, [selectedDeptId]: updatedList };
+    });
+    Alert.alert('Thành Công', `Đã lưu cấu hình Cấp Bậc & Quà Thưởng riêng cho phòng ban ${activeDept.name}!`);
     setEditingItem(null);
   };
 
@@ -130,12 +151,12 @@ export const AdminLevelConfigScreen: React.FC = () => {
         {/* Executive Header Banner */}
         <View style={styles.executiveHeaderCard}>
           <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
-          <Text style={styles.title}>Cấu Hình Level & Giao Dự Án Nâng Cấp</Text>
-          <Text style={styles.sub}>Điều kiện thăng cấp & Quà thưởng hiện vật cho từng phòng ban</Text>
+          <Text style={styles.title}>Cấu Hình Level & Quà Thưởng Theo Phòng Ban</Text>
+          <Text style={styles.sub}>Thưởng thuần túy theo Level năng lực — Tách biệt 100% với Chức vụ</Text>
         </View>
 
         {/* Department Selector Tabs */}
-        <Text style={styles.sectionHeaderTitle}>CHỌN PHÒNG BAN THIẾT LẬP:</Text>
+        <Text style={styles.sectionHeaderTitle}>CHỌN PHÒNG BAN THIẾT LẬP (CẤU HÌNH BẢN QUYỀN RIÊNG):</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptTabsRow}>
           {departments.map((d) => (
             <TouchableOpacity
@@ -153,7 +174,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
         {/* Strategic Project & Bullet Sub-tasks Creator Section */}
         <View style={styles.projectCreatorCard}>
           <View style={styles.projHeaderPill}>
-            <Text style={styles.projHeaderPillText}>PHÒNG BAN: {activeDept.name.toUpperCase()}</Text>
+            <Text style={styles.projHeaderPillText}>1. DỰ ÁN THĂNG CẤP: {activeDept.name.toUpperCase()}</Text>
           </View>
 
           <Text style={styles.inputLabel}>Tên Dự Án Lớn Thăng Cấp (Admin Giao):</Text>
@@ -199,9 +220,9 @@ export const AdminLevelConfigScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Level List */}
-        <Text style={styles.sectionHeaderTitle}>DANH MỤC 8 CẤP BẬC & QUÀ THƯỞNG HIỆN VẬT:</Text>
-        {levels.map((lvl) => (
+        {/* Department Specific Level List */}
+        <Text style={styles.sectionHeaderTitle}>2. DANH MỤC 8 CẤP BẬC & QUÀ THƯỞNG RIÊNG CHO PHÒNG {activeDept.name.toUpperCase()}:</Text>
+        {activeLevels.map((lvl) => (
           <View key={lvl.id} style={styles.levelCard}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.levelTitleGroup}>
@@ -218,7 +239,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
             <View style={styles.rewardBox}>
               <Text style={styles.rewardTitle}>
-                Quà Hiện Vật: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName}</Text>
+                Quà Hiện Vật Dành Cho {activeDept.name}: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName}</Text>
               </Text>
               <Text style={styles.rewardBonus}>
                 Thưởng nóng thăng cấp: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
@@ -235,7 +256,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chỉnh Sửa Level {editingItem?.levelNumber}</Text>
+              <Text style={styles.modalTitle}>Chỉnh Sửa Level {editingItem?.levelNumber} - Phòng {activeDept.name}</Text>
               <TouchableOpacity onPress={() => setEditingItem(null)}>
                 <Text style={{ fontSize: 18, color: '#6B7280', fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
@@ -250,7 +271,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
                   onChangeText={(text) => setEditingItem({ ...editingItem, levelName: text })}
                 />
 
-                <Text style={styles.inputLabel}>Quà Hiện Vật (MacBook, iPad, Vàng...):</Text>
+                <Text style={styles.inputLabel}>Quà Hiện Vật (MacBook, iPad, Xe máy...):</Text>
                 <TextInput
                   style={styles.input}
                   value={editingItem.physicalItemName}
@@ -268,7 +289,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
             )}
 
             <TouchableOpacity style={styles.saveBtn} onPress={handleSaveItem}>
-              <Text style={styles.saveBtnText}>LƯU CẤU HÌNH LEVEL</Text>
+              <Text style={styles.saveBtnText}>LƯU QUÀ THƯỞNG PHÒNG {activeDept.name.toUpperCase()}</Text>
             </TouchableOpacity>
           </View>
         </View>
