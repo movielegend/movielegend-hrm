@@ -426,21 +426,6 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
             {/* STEP 2: DUYỆT LEVEL NHÂN VIÊN */}
             {activeStep === 2 && (
               <>
-                <Text style={styles.filterSubLabel}>ĐANG CHỌN PHÒNG BAN XÉT DUYỆT NHÂN VIÊN:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollRow}>
-                  {departments.map((dept) => (
-                    <TouchableOpacity
-                      key={dept.id}
-                      style={[styles.deptPill, selectedDeptId === dept.id && styles.deptPillActive]}
-                      onPress={() => setSelectedDeptId(dept.id)}
-                    >
-                      <Text style={[styles.deptPillText, selectedDeptId === dept.id && styles.deptPillTextActive]}>
-                        {dept.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
                 <View style={styles.deptHeaderSummary}>
                   <Text style={styles.deptSummaryTitle}>BƯỚC 2: DUYỆT LEVEL NHÂN VIÊN - PHÒNG {activeDept.name.toUpperCase()}</Text>
                   <Text style={styles.deptSummarySub}>Kiểm tra chi tiết việc con, người phụ trách & Phê duyệt thăng cấp cho Nhân viên trong {selectedMonth}</Text>
@@ -543,21 +528,6 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
             {/* STEP 3: DUYỆT LEADER & THỐNG KÊ TỔNG HỢP */}
             {activeStep === 3 && (
               <>
-                <Text style={styles.filterSubLabel}>ĐANG CHỌN PHÒNG BAN XÉT DUYỆT LEADER:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollRow}>
-                  {departments.map((dept) => (
-                    <TouchableOpacity
-                      key={dept.id}
-                      style={[styles.deptPill, selectedDeptId === dept.id && styles.deptPillActive]}
-                      onPress={() => setSelectedDeptId(dept.id)}
-                    >
-                      <Text style={[styles.deptPillText, selectedDeptId === dept.id && styles.deptPillTextActive]}>
-                        {dept.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
                 <View style={styles.leaderDeptHeaderSummary}>
                   <Text style={styles.leaderDeptSummaryTitle}>BƯỚC 3: DUYỆT LEVEL LEADER - PHÒNG {activeDept.name.toUpperCase()}</Text>
                   <Text style={styles.leaderDeptSummarySub}>Đánh giá năng lực quản trị toàn team & Xét duyệt nâng Level Leader phòng {activeDept.name}</Text>
