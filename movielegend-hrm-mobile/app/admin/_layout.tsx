@@ -8,5 +8,5 @@ export default function AdminRootLayout() {
   if (isLoading) return <LoadingState />;
   if (!canAccessRoleRoute(user, '/admin')) return <Redirect href={getHomeRouteForUser(user)} />;
   
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1E293B' } }} />;
 }

@@ -15,6 +15,8 @@ interface AdminLevelProjectsPageProps {
   levels: AdminLevelItem[];
   onUpdateLevelProjectName: (levelNumber: number, newProjectName: string) => void;
   onAddSubTaskToLevel: (levelNumber: number, bulletText: string) => void;
+  onEditSubTaskInLevel: (levelNumber: number, bulletIndex: number, newBulletText: string) => void;
+  onDeleteSubTaskInLevel: (levelNumber: number, bulletIndex: number) => void;
   onSaveAllAndSync: () => void;
 }
 
@@ -23,10 +25,15 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   levels,
   onUpdateLevelProjectName,
   onAddSubTaskToLevel,
+  onEditSubTaskInLevel,
+  onDeleteSubTaskInLevel,
   onSaveAllAndSync,
 }) => {
   const [selectedLevelNum, setSelectedLevelNum] = useState<number>(1);
   const [newBulletText, setNewBulletText] = useState<string>('');
+
+  const [editingBulletIndex, setEditingBulletIndex] = useState<number | null>(null);
+  const [editingBulletText, setEditingBulletText] = useState<string>('');
 
   const activeFocusedLevel = levels.find((l) => l.levelNumber === selectedLevelNum) || levels[0];
 
@@ -37,6 +44,36 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
     }
     onAddSubTaskToLevel(activeFocusedLevel.levelNumber, newBulletText.trim());
     setNewBulletText('');
+  };
+
+  const handleStartEditBullet = (index: number, currentText: string) => {
+    setEditingBulletIndex(index);
+    setEditingBulletText(currentText.replace(/^•\s*/, ''));
+  };
+
+  const handleSaveEditBullet = (index: number) => {
+    if (!editingBulletText.trim()) {
+      Alert.alert('Thông báo', 'Nội dung việc con không được để trống!');
+      return;
+    }
+    onEditSubTaskInLevel(activeFocusedLevel.levelNumber, index, editingBulletText.trim());
+    setEditingBulletIndex(null);
+    setEditingBulletText('');
+  };
+
+  const handleDeleteBullet = (index: number) => {
+    Alert.alert(
+      'Xác nhận xóa',
+      'Bạn có chắc chắn muốn xóa đầu mục việc con này không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => onDeleteSubTaskInLevel(activeFocusedLevel.levelNumber, index),
+        },
+      ]
+    );
   };
 
   return (
@@ -58,7 +95,10 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
               styles.stepPill,
               selectedLevelNum === lvl.levelNumber && styles.stepPillActive,
             ]}
-            onPress={() => setSelectedLevelNum(lvl.levelNumber)}
+            onPress={() => {
+              setSelectedLevelNum(lvl.levelNumber);
+              setEditingBulletIndex(null);
+            }}
           >
             <Text
               style={[
@@ -66,7 +106,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
                 selectedLevelNum === lvl.levelNumber && styles.stepPillTextActive,
               ]}
             >
-              {lvl.levelName}
+              LEVEL {lvl.levelNumber}
             </Text>
           </TouchableOpacity>
         ))}
@@ -95,7 +135,33 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
             {activeFocusedLevel.project.subTaskBullets && activeFocusedLevel.project.subTaskBullets.length > 0 ? (
               activeFocusedLevel.project.subTaskBullets.map((bullet, idx) => (
                 <View key={idx} style={styles.bulletItemRow}>
-                  <Text style={styles.bulletText}>{bullet}</Text>
+                  {editingBulletIndex === idx ? (
+                    <View style={styles.editBulletRow}>
+                      <TextInput
+                        style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                        value={editingBulletText}
+                        onChangeText={setEditingBulletText}
+                      />
+                      <TouchableOpacity style={styles.saveBulletBtn} onPress={() => handleSaveEditBullet(idx)}>
+                        <Text style={styles.saveBulletBtnText}>Lưu</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.cancelBulletBtn} onPress={() => setEditingBulletIndex(null)}>
+                        <Text style={styles.cancelBulletBtnText}>Hủy</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.bulletDisplayRow}>
+                      <Text style={styles.bulletText}>{bullet}</Text>
+                      <View style={styles.bulletActions}>
+                        <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleStartEditBullet(idx, bullet)}>
+                          <Text style={styles.actionBtnTextBlue}>Sửa</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleDeleteBullet(idx)}>
+                          <Text style={styles.actionBtnTextRed}>Xóa</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
                 </View>
               ))
             ) : (
@@ -235,12 +301,67 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   bulletItemRow: {
-    paddingVertical: 3,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  bulletDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   bulletText: {
     fontSize: 12,
     color: '#334155',
     fontWeight: '500',
+    flex: 1,
+  },
+  bulletActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionIconBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  actionBtnTextBlue: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#2563EB',
+  },
+  actionBtnTextRed: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#DC2626',
+  },
+  editBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  saveBulletBtn: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 6,
+  },
+  saveBulletBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
+  cancelBulletBtn: {
+    backgroundColor: '#CBD5E1',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 6,
+  },
+  cancelBulletBtnText: {
+    color: '#334155',
+    fontWeight: 'bold',
+    fontSize: 11,
   },
   emptyNotice: {
     fontSize: 11,

@@ -322,6 +322,48 @@ export const AdminLevelConfigScreen: React.FC = () => {
     });
   };
 
+  const handleEditSubTaskInLevel = (levelNumber: number, bulletIndex: number, newBulletText: string) => {
+    const formattedBullet = newBulletText.startsWith('•') ? newBulletText : `• ${newBulletText}`;
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const updatedList = currentList.map((item) => {
+        if (item.levelNumber === levelNumber) {
+          const updatedBullets = [...(item.project.subTaskBullets || [])];
+          updatedBullets[bulletIndex] = formattedBullet;
+          return { ...item, project: { ...item.project, subTaskBullets: updatedBullets } };
+        }
+        return item;
+      });
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+      }
+
+      return { ...prev, [selectedDeptId]: updatedList };
+    });
+  };
+
+  const handleDeleteSubTaskInLevel = (levelNumber: number, bulletIndex: number) => {
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const updatedList = currentList.map((item) => {
+        if (item.levelNumber === levelNumber) {
+          const updatedBullets = (item.project.subTaskBullets || []).filter((_, idx) => idx !== bulletIndex);
+          return { ...item, project: { ...item.project, subTaskBullets: updatedBullets } };
+        }
+        return item;
+      });
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+      }
+
+      return { ...prev, [selectedDeptId]: updatedList };
+    });
+  };
+
   const handleSaveModalItem = () => {
     if (!editingItem) return;
     setDeptLevelConfigs((prev) => {
@@ -426,6 +468,8 @@ export const AdminLevelConfigScreen: React.FC = () => {
             levels={activeLevels}
             onUpdateLevelProjectName={handleUpdateLevelProjectName}
             onAddSubTaskToLevel={handleAddSubTaskToLevel}
+            onEditSubTaskInLevel={handleEditSubTaskInLevel}
+            onDeleteSubTaskInLevel={handleDeleteSubTaskInLevel}
             onSaveAllAndSync={() => {
               Alert.alert(
                 'Đã Lưu & Đồng Bộ Thành Công!',
