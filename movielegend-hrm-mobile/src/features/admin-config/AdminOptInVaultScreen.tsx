@@ -11,7 +11,6 @@ import {
   SafeAreaView,
   Modal,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useEmployees } from '../../hooks/useEmployees';
 
 export interface UserOptInVaultItem {
@@ -73,7 +72,6 @@ export const AdminOptInVaultScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
-          <Ionicons name="gift-sharp" size={26} color="#059669" />
           <View>
             <Text style={styles.title}>Bật/Tắt Ví Thưởng Tết Cá Nhân</Text>
             <Text style={styles.sub}>Đặc quyền Opt-in dành riêng cho Nhân sự Cốt cán</Text>
@@ -101,18 +99,15 @@ export const AdminOptInVaultScreen: React.FC = () => {
 
             {u.isRewardVaultEnabled ? (
               <View style={styles.vaultActiveBox}>
-                <Ionicons name="checkmark-circle" size={16} color="#059669" />
                 <Text style={styles.vaultActiveText}>
                   Quỹ thưởng năm: <Text style={{ fontWeight: 'bold' }}>{u.grantedPoints.toLocaleString('vi-VN')} điểm</Text> ({(u.grantedPoints * 1000).toLocaleString('vi-VN')} VNĐ)
                 </Text>
                 <TouchableOpacity style={styles.grantBtn} onPress={() => { setGrantingUser(u); setPointsToGrant(String(u.grantedPoints || 50000)); }}>
-                  <Ionicons name="add-circle-outline" size={14} color="#059669" />
                   <Text style={styles.grantBtnText}>Điều chỉnh Quỹ</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.vaultDisabledBox}>
-                <Ionicons name="lock-closed" size={14} color="#6B7280" />
                 <Text style={styles.vaultDisabledText}>Chưa bật đặc quyền Ví Điểm Tết</Text>
                 <TouchableOpacity style={styles.enableBtn} onPress={() => { setGrantingUser(u); setPointsToGrant('50000'); }}>
                   <Text style={styles.enableBtnText}>Bật & Cấp Quỹ</Text>
@@ -130,7 +125,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Cấp Quỹ Thưởng Giữ Chân</Text>
               <TouchableOpacity onPress={() => setGrantingUser(null)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Text style={{ fontSize: 18, color: '#6B7280', fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -173,9 +168,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     marginBottom: 16,
   },
   title: {
@@ -228,7 +220,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   vaultActiveText: {
     fontSize: 12,
@@ -236,11 +227,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   grantBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -257,7 +245,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   vaultDisabledText: {
     fontSize: 12,
@@ -265,8 +252,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   enableBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6,
     backgroundColor: '#059669',
   },

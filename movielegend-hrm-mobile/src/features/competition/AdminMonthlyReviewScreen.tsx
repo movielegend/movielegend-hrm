@@ -8,7 +8,6 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 export interface AdminReviewItem {
   id: string;
@@ -43,7 +42,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       departmentName: 'Livestream HCM',
       currentLevelName: 'Level 4 - Key Member',
       targetLevelName: 'Level 5 - Team Leader',
-      rewardPhysicalItem: '💻 LAPTOP MACBOOK AIR M3 + 8.000.000đ',
+      rewardPhysicalItem: 'Laptop MacBook Air M3 + 8.000.000đ',
       leaderRecommendation: 'Đề xuất nâng Level (Đạt 40% Doanh số cả Team)',
       actualMetrics: ' Doanh số Live: 1.200.000.000 VNĐ',
       taskRate: 96,
@@ -66,10 +65,9 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
-          <Ionicons name="shield-checkmark-sharp" size={28} color="#D97706" />
           <View>
             <Text style={styles.title}>Admin Xét Nâng Level Cuối Tháng</Text>
-            <Text style={styles.sub}>Duyệt thăng cấp & Thưởng hiện vật cho toàn công ty</Text>
+            <Text style={styles.sub}>Duyệt thăng cấp & Trao thưởng hiện vật tại cuộc họp phòng ban</Text>
           </View>
         </View>
 
@@ -89,13 +87,12 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
 
             <View style={styles.levelTransitionRow}>
               <Text style={styles.levelOld}>{item.currentLevelName}</Text>
-              <Ionicons name="arrow-forward" size={16} color="#059669" />
+              <Text style={styles.arrowText}>→</Text>
               <Text style={styles.levelNew}>{item.targetLevelName}</Text>
             </View>
 
             {item.rewardPhysicalItem && (
               <View style={styles.rewardBox}>
-                <Ionicons name="gift-outline" size={16} color="#D97706" />
                 <Text style={styles.rewardText}>Quà thưởng: {item.rewardPhysicalItem}</Text>
               </View>
             )}
@@ -111,7 +108,6 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                 style={styles.approveBtn}
                 onPress={() => handleApproveLevel(item.id, item.targetLevelName, item.rewardPhysicalItem || '')}
               >
-                <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                 <Text style={styles.approveBtnText}>CHỐT NÂNG {item.targetLevelName.toUpperCase()}</Text>
               </TouchableOpacity>
             )}
@@ -131,9 +127,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     marginBottom: 16,
   },
   title: {
@@ -199,6 +192,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4B5563',
   },
+  arrowText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#059669',
+  },
   levelNew: {
     fontSize: 12,
     fontWeight: 'bold',
@@ -210,9 +208,6 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
     padding: 8,
     borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     marginBottom: 8,
   },
   rewardText: {
@@ -230,10 +225,8 @@ const styles = StyleSheet.create({
   },
   approveBtn: {
     backgroundColor: '#059669',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     paddingVertical: 12,
     borderRadius: 8,
   },

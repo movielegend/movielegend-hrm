@@ -10,7 +10,6 @@ import {
   SafeAreaView,
   Modal,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useDepartments } from '../../hooks/useDepartments';
 
 export interface AdminLevelItem {
@@ -68,17 +67,14 @@ export const AdminLevelConfigScreen: React.FC = () => {
     { id: 'lvl-2', levelNumber: 2, levelName: 'Chính thức', colorHex: '#2563EB', rewardType: 'HYBRID', promotionBonusAmount: 1000000, physicalItemName: 'Kỷ niệm chương chính thức', retentionFloorGmv: 30, promotionCeilingGmv: 150, retentionMultiplier: 1.1 },
     { id: 'lvl-3', levelNumber: 3, levelName: 'Senior Specialist', colorHex: '#0D9488', rewardType: 'HYBRID', promotionBonusAmount: 3000000, physicalItemName: 'Tai nghe Bluetooth Chống ồn', retentionFloorGmv: 80, promotionCeilingGmv: 300, retentionMultiplier: 1.25 },
     { id: 'lvl-4', levelNumber: 4, levelName: 'Key Member', colorHex: '#9333EA', rewardType: 'HYBRID', promotionBonusAmount: 5000000, physicalItemName: 'Máy tính bảng iPad Air / Màn 4K', retentionFloorGmv: 150, promotionCeilingGmv: 500, retentionMultiplier: 1.4 },
-    { id: 'lvl-5', levelNumber: 5, levelName: 'Team Leader', colorHex: '#EA580C', rewardType: 'HYBRID', promotionBonusAmount: 8000000, physicalItemName: '💻 LAPTOP MACBOOK AIR M3', retentionFloorGmv: 250, promotionCeilingGmv: 820, retentionMultiplier: 1.6 },
-    { id: 'lvl-6', levelNumber: 6, levelName: 'Manager Bộ Phận', colorHex: '#DC2626', rewardType: 'HYBRID', promotionBonusAmount: 15000000, physicalItemName: '💻 LAPTOP MACBOOK PRO M-SERIES + iPhone', retentionFloorGmv: 500, promotionCeilingGmv: 1500, retentionMultiplier: 2.0 },
-    { id: 'lvl-7', levelNumber: 7, levelName: 'Director Giám Đốc', colorHex: '#D97706', rewardType: 'HYBRID', promotionBonusAmount: 30000000, physicalItemName: '💻 MACBOOK PRO MAX + 1 CÂY VÀNG 9999', retentionFloorGmv: 1000, promotionCeilingGmv: 3000, retentionMultiplier: 2.5 },
-    { id: 'lvl-8', levelNumber: 8, levelName: 'Executive Ban Điều Hành', colorHex: '#7C2D12', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: '🚗 XE CÔNG VỤ + CỔ PHẦN ESOP DOANH NGHIỆP', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
+    { id: 'lvl-5', levelNumber: 5, levelName: 'Team Leader', colorHex: '#EA580C', rewardType: 'HYBRID', promotionBonusAmount: 8000000, physicalItemName: 'Laptop MacBook Air M3', retentionFloorGmv: 250, promotionCeilingGmv: 820, retentionMultiplier: 1.6 },
+    { id: 'lvl-6', levelNumber: 6, levelName: 'Manager Bộ Phận', colorHex: '#DC2626', rewardType: 'HYBRID', promotionBonusAmount: 15000000, physicalItemName: 'Laptop MacBook Pro M-Series + iPhone', retentionFloorGmv: 500, promotionCeilingGmv: 1500, retentionMultiplier: 2.0 },
+    { id: 'lvl-7', levelNumber: 7, levelName: 'Director Giám Đốc', colorHex: '#D97706', rewardType: 'HYBRID', promotionBonusAmount: 30000000, physicalItemName: 'MacBook Pro Max + 1 Cây Vàng 9999', retentionFloorGmv: 1000, promotionCeilingGmv: 3000, retentionMultiplier: 2.5 },
+    { id: 'lvl-8', levelNumber: 8, levelName: 'Executive Ban Điều Hành', colorHex: '#7C2D12', rewardType: 'HYBRID', promotionBonusAmount: 50000000, physicalItemName: 'Xe công vụ + Cổ phần ESOP Doanh nghiệp', retentionFloorGmv: 2000, promotionCeilingGmv: 5000, retentionMultiplier: 3.0 },
   ]);
 
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
-
-  // New Bullet-point sub-task modal state
   const [newBulletText, setNewBulletText] = useState('');
-  const [currentProjectNameInput, setCurrentProjectNameInput] = useState('');
 
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0];
   const activeProj = deptProjects[selectedDeptId] || {
@@ -131,7 +127,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Ionicons name="settings-sharp" size={26} color="#D97706" />
           <View>
             <Text style={styles.title}>Admin Cấu Hình Level & Giao Dự Án Lớn</Text>
             <Text style={styles.sub}>Thiết lập điều kiện thăng cấp riêng cho từng phòng ban</Text>
@@ -156,10 +151,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
         {/* Strategic Project & Bullet Sub-tasks Creator Section */}
         <View style={styles.projectCreatorCard}>
-          <View style={styles.projCardHeader}>
-            <Ionicons name="rocket" size={20} color="#2563EB" />
-            <Text style={styles.projCardTitle}>Dự Án Lớn Thăng Cấp: {activeDept.name}</Text>
-          </View>
+          <Text style={styles.projCardTitle}>Dự Án Lớn Thăng Cấp: {activeDept.name}</Text>
 
           <Text style={styles.inputLabel}>Tên Dự Án Lớn Thăng Cấp (Admin Giao):</Text>
           <TextInput
@@ -182,7 +174,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
               onChangeText={setNewBulletText}
             />
             <TouchableOpacity style={styles.addBulletBtn} onPress={handleAddBullet}>
-              <Ionicons name="add" size={20} color="#FFFFFF" />
               <Text style={styles.addBulletBtnText}>Thêm</Text>
             </TouchableOpacity>
           </View>
@@ -201,7 +192,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
           </View>
 
           <TouchableOpacity style={styles.saveProjBtn} onPress={handleSaveProjectToDept}>
-            <Ionicons name="send" size={16} color="#FFFFFF" />
             <Text style={styles.saveProjBtnText}>GIAO DỰ ÁN CHO LEADER {activeDept.name.toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
@@ -219,13 +209,11 @@ export const AdminLevelConfigScreen: React.FC = () => {
               </View>
 
               <TouchableOpacity style={styles.editBtn} onPress={() => setEditingItem({ ...lvl })}>
-                <Ionicons name="create-outline" size={18} color="#2563EB" />
                 <Text style={styles.editBtnText}>Chỉnh sửa</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.rewardBox}>
-              <Ionicons name="gift" size={18} color="#D97706" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.rewardTitle}>Quà Hiện Vật: <Text style={{ color: '#B45309', fontWeight: 'bold' }}>{lvl.physicalItemName}</Text></Text>
                 <Text style={styles.rewardBonus}>Thưởng nóng: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ</Text>
@@ -242,7 +230,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chỉnh Sửa Level {editingItem?.levelNumber}</Text>
               <TouchableOpacity onPress={() => setEditingItem(null)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Text style={{ fontSize: 18, color: '#6B7280', fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -291,9 +279,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     marginBottom: 16,
   },
   title: {
@@ -343,16 +328,11 @@ const styles = StyleSheet.create({
     borderColor: '#93C5FD',
     marginBottom: 16,
   },
-  projCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
   projCardTitle: {
     fontSize: 15,
     fontWeight: 'bold',
     color: '#1D4ED8',
+    marginBottom: 10,
   },
   inputLabel: {
     fontSize: 12,
@@ -379,11 +359,8 @@ const styles = StyleSheet.create({
   },
   addBulletBtn: {
     backgroundColor: '#2563EB',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 6,
   },
   addBulletBtnText: {
@@ -414,10 +391,8 @@ const styles = StyleSheet.create({
   },
   saveProjBtn: {
     backgroundColor: '#059669',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     paddingVertical: 12,
     borderRadius: 8,
   },
@@ -461,11 +436,8 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6,
     backgroundColor: '#EFF6FF',
   },
@@ -480,9 +452,6 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
     padding: 10,
     borderRadius: 8,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
   },
   rewardTitle: {
     fontSize: 12,
