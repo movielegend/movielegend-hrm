@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useDepartments } from '../../hooks/useDepartments';
 
 export interface AdminLevelItem {
   id: string;
@@ -33,16 +34,21 @@ export interface DepartmentProjectConfig {
 }
 
 export const AdminLevelConfigScreen: React.FC = () => {
-  const departments = [
-    { id: 'dept-1', name: 'Livestream Hà Nội' },
-    { id: 'dept-2', name: 'Livestream HCM' },
-    { id: 'dept-3', name: 'HR Nhân sự' },
-    { id: 'dept-4', name: 'Kho & Tài sản' },
-    { id: 'dept-5', name: 'Chăm sóc Khách hàng CSKH' },
-    { id: 'dept-6', name: 'Marketing' },
-  ];
+  const { data: realDeptData } = useDepartments({ limit: 100 });
+  const realDeptList = realDeptData?.data || realDeptData?.items || [];
 
-  const [selectedDeptId, setSelectedDeptId] = useState('dept-1');
+  const departments = realDeptList.length > 0
+    ? realDeptList.map((d: any) => ({ id: d.id, name: d.name }))
+    : [
+        { id: 'dept-1', name: 'Livestream Hà Nội' },
+        { id: 'dept-2', name: 'Livestream HCM' },
+        { id: 'dept-3', name: 'HR Nhân sự' },
+        { id: 'dept-4', name: 'Kho & Tài sản' },
+        { id: 'dept-5', name: 'Chăm sóc Khách hàng CSKH' },
+        { id: 'dept-6', name: 'Marketing' },
+      ];
+
+  const [selectedDeptId, setSelectedDeptId] = useState(departments[0]?.id || 'dept-1');
 
   const [deptProjects, setDeptProjects] = useState<Record<string, DepartmentProjectConfig>>({
     'dept-1': {

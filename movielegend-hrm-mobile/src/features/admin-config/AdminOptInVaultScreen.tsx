@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useEmployees } from '../../hooks/useEmployees';
 
 export interface UserOptInVaultItem {
   id: string;
@@ -22,12 +23,25 @@ export interface UserOptInVaultItem {
 }
 
 export const AdminOptInVaultScreen: React.FC = () => {
-  const [users, setUsers] = useState<UserOptInVaultItem[]>([
-    { id: 'usr-1', name: 'Nguyễn Văn A', department: 'Livestream HCM', isRewardVaultEnabled: true, grantedPoints: 50000 },
-    { id: 'usr-2', name: 'Trần Thị B', department: 'Livestream Hà Nội', isRewardVaultEnabled: true, grantedPoints: 30000 },
-    { id: 'usr-3', name: 'Lê Văn C', department: 'Kho & Tài sản', isRewardVaultEnabled: false, grantedPoints: 0 },
-    { id: 'usr-4', name: 'Phạm Thị D', department: 'Nhân sự HR', isRewardVaultEnabled: false, grantedPoints: 0 },
-  ]);
+  const { data: realEmpData } = useEmployees({ limit: 100 });
+  const realEmpList = realEmpData?.data || realEmpData?.items || [];
+
+  const initialUsers: UserOptInVaultItem[] = realEmpList.length > 0
+    ? realEmpList.map((emp: any) => ({
+        id: emp.id,
+        name: emp.fullName || emp.userCode || 'Nhân viên',
+        department: emp.department?.name || 'Văn phòng',
+        isRewardVaultEnabled: Boolean(emp.isRewardVaultEnabled),
+        grantedPoints: emp.grantedPoints || 0,
+      }))
+    : [
+        { id: 'usr-1', name: 'Nguyễn Văn A', department: 'Livestream HCM', isRewardVaultEnabled: true, grantedPoints: 50000 },
+        { id: 'usr-2', name: 'Trần Thị B', department: 'Livestream Hà Nội', isRewardVaultEnabled: true, grantedPoints: 30000 },
+        { id: 'usr-3', name: 'Lê Văn C', department: 'Kho & Tài sản', isRewardVaultEnabled: false, grantedPoints: 0 },
+        { id: 'usr-4', name: 'Phạm Thị D', department: 'Nhân sự HR', isRewardVaultEnabled: false, grantedPoints: 0 },
+      ];
+
+  const [users, setUsers] = useState<UserOptInVaultItem[]>(initialUsers);
 
   const [grantingUser, setGrantingUser] = useState<UserOptInVaultItem | null>(null);
   const [pointsToGrant, setPointsToGrant] = useState('50000');
