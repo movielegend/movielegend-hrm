@@ -482,20 +482,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   executiveHeaderCard: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   executiveBadgeTitle: {
     fontSize: 9,
     fontWeight: 'bold',
-    color: '#94A3B8',
+    color: '#64748B',
     letterSpacing: 1.2,
   },
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   stepperContainer: {
     flexDirection: 'row',
