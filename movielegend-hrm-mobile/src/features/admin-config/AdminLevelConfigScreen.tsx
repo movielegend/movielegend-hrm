@@ -48,188 +48,81 @@ export const AdminLevelConfigScreen: React.FC = () => {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
 
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [availableYears, setAvailableYears] = useState<number[]>([2025, 2026, 2027]);
+
   useEffect(() => {
     if (departments.length > 0 && (!selectedDeptId || !departments.some((d: any) => d.id === selectedDeptId))) {
       setSelectedDeptId(departments[0].id);
     }
   }, [departments, selectedDeptId]);
 
-  // Default Level Configs with Integrated Projects & Bullet Sub-tasks for Each Level
-  const createDefaultLevels = (deptName: string): AdminLevelItem[] => [
-    {
-      id: 'lvl-1',
-      levelNumber: 1,
-      levelName: 'Level 1',
-      colorHex: '#64748B',
-      rewardType: 'CASH',
-      promotionBonusAmount: 0,
-      physicalItemName: 'Voucher Sinh nhật 200k',
-      retentionFloorGmv: 0,
-      promotionCeilingGmv: 50,
-      retentionMultiplier: 1.0,
-      project: {
-        projectName: `Dự Án Level 1: Hòa Nhập & Chuẩn Hóa (${deptName})`,
-        subTaskBullets: [
-          '• Hoàn thành khóa đào tạo hội nhập ban đầu',
-          '• Nắm rõ quy trình vận hành & nội quy công ty',
-          '• Thử nghiệm 5 ca làm việc dưới sự giám sát',
-        ],
-      },
-    },
-    {
-      id: 'lvl-2',
-      levelNumber: 2,
-      levelName: 'Level 2',
-      colorHex: '#2563EB',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 1000000,
-      physicalItemName: 'Kỷ niệm chương chính thức',
-      retentionFloorGmv: 30,
-      promotionCeilingGmv: 150,
-      retentionMultiplier: 1.1,
-      project: {
-        projectName: `Dự Án Level 2: Làm Chủ Quy Trình Độc Lập (${deptName})`,
-        subTaskBullets: [
-          '• Đạt 100% KPI ca làm việc cá nhân đúng hạn',
-          '• Đề xuất 1 giải pháp cải tiến quy trình phòng ban',
-        ],
-      },
-    },
-    {
-      id: 'lvl-3',
-      levelNumber: 3,
-      levelName: 'Level 3',
-      colorHex: '#0D9488',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 3000000,
-      physicalItemName: 'Tai nghe Bluetooth Chống ồn cao cấp',
-      retentionFloorGmv: 80,
-      promotionCeilingGmv: 300,
-      retentionMultiplier: 1.25,
-      project: {
-        projectName: `Dự Án Level 3: Tối Ưu Năng Suất Chuyên Sâu (${deptName})`,
-        subTaskBullets: [
-          '• Đạt tổng Doanh số / KPI cá nhân 300Trđ',
-          '• Hướng dẫn & kèm cặp 1 nhân sự mới Level 1',
-        ],
-      },
-    },
-    {
-      id: 'lvl-4',
-      levelNumber: 4,
-      levelName: 'Level 4',
-      colorHex: '#7C3AED',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 5000000,
-      physicalItemName: 'Máy tính bảng iPad Air / Màn 4K',
-      retentionFloorGmv: 150,
-      promotionCeilingGmv: 500,
-      retentionMultiplier: 1.4,
-      project: {
-        projectName: `Dự Án Level 4: Chinh Phục Cột Mốc 500 Triệu (${deptName})`,
-        subTaskBullets: [
-          '• Đạt tổng Doanh số / KPI cá nhân 500Trđ',
-          '• Đảm nhận dẫn dắt các phiên nhiệm vụ ưu tiên',
-        ],
-      },
-    },
-    {
-      id: 'lvl-5',
-      levelNumber: 5,
-      levelName: 'Level 5',
-      colorHex: '#EA580C',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 8000000,
-      physicalItemName: 'Laptop MacBook Air M3',
-      retentionFloorGmv: 250,
-      promotionCeilingGmv: 820,
-      retentionMultiplier: 1.6,
-      project: {
-        projectName: `Dự Án Level 5: Bứt Phá Doanh Số 1 Tỷ (${deptName})`,
-        subTaskBullets: [
-          '• Đảm nhận và hoàn thành 30 ca đỉnh điểm',
-          '• Đạt tổng Doanh số / KPI cá nhân 820Trđ - 1 Tỷđ',
-          '• Tỷ lệ hoàn thành Task SLA đúng hạn ≥ 98%',
-        ],
-      },
-    },
-    {
-      id: 'lvl-6',
-      levelNumber: 6,
-      levelName: 'Level 6',
-      colorHex: '#DC2626',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 15000000,
-      physicalItemName: 'Laptop MacBook Pro M-Series + iPhone',
-      retentionFloorGmv: 500,
-      promotionCeilingGmv: 1500,
-      retentionMultiplier: 2.0,
-      project: {
-        projectName: `Dự Án Level 6: Quản Trị & Bứt Phá 1.5 Tỷ (${deptName})`,
-        subTaskBullets: [
-          '• Xây dựng bộ quy trình chuẩn cho phòng ban',
-          '• Đạt tổng Doanh số / KPI 1.5 Tỷđ',
-        ],
-      },
-    },
-    {
-      id: 'lvl-7',
-      levelNumber: 7,
-      levelName: 'Level 7',
-      colorHex: '#D97706',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 30000000,
-      physicalItemName: 'MacBook Pro Max + 1 Cây Vàng 9999',
-      retentionFloorGmv: 1000,
-      promotionCeilingGmv: 3000,
-      retentionMultiplier: 2.5,
-      project: {
-        projectName: `Dự Án Level 7: Chinh Phục 3 Tỷ Doanh Số (${deptName})`,
-        subTaskBullets: [
-          '• Đạt mốc 3 Tỷđ Doanh số toàn diện',
-          '• Đào tạo & phát triển 3 nhân sự lên Level 5',
-        ],
-      },
-    },
-    {
-      id: 'lvl-8',
-      levelNumber: 8,
-      levelName: 'Level 8',
-      colorHex: '#881337',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 50000000,
-      physicalItemName: 'Xe công vụ + Cổ phần ESOP Doanh nghiệp',
-      retentionFloorGmv: 2000,
-      promotionCeilingGmv: 5000,
-      retentionMultiplier: 3.0,
-      project: {
-        projectName: `Dự Án Level 8: Tăng Trưởng Quy Mô 5 Tỷ (${deptName})`,
-        subTaskBullets: [
-          '• Đạt mốc 5 Tỷđ Doanh số',
-          '• Hoàn thành chiến lược mở rộng thị phần công ty',
-        ],
-      },
-    },
-  ];
+  // Default 12 Levels Config representing 12 Months of the Year
+  const createDefault12Levels = (deptName: string, year: number): AdminLevelItem[] => {
+    const colors = [
+      '#64748B', '#2563EB', '#0D9488', '#7C3AED', '#EA580C', '#DC2626',
+      '#D97706', '#881337', '#4F46E5', '#059669', '#0284C7', '#9333EA',
+    ];
+
+    const physicalRewards = [
+      'Voucher Sinh Nhật 200k',
+      'Kỷ Niệm Chương Thăng Cấp',
+      'Tai Nghe Bluetooth Chống Ồn',
+      'Máy Tính Bảng iPad Air',
+      'Laptop MacBook Air M3',
+      'Laptop MacBook Pro M-Series',
+      'MacBook Pro Max + 1 Cây Vàng 9999',
+      'Xe Công Vụ + Cổ Phần ESOP',
+      'Gói Nghỉ Dưỡng 5 Sao Gia Đình',
+      'Đồng Hồ Thông Minh Cao Cấp',
+      'Bộ Quà Tặng Tri Ân Đỉnh Cao',
+      'Kỳ Nghỉ Châu Âu + Thưởng Năm Lớn',
+    ];
+
+    return Array.from({ length: 12 }, (_, i) => {
+      const lvlNum = i + 1;
+      return {
+        id: `lvl-${year}-${lvlNum}`,
+        levelNumber: lvlNum,
+        levelName: `Level ${lvlNum}`,
+        colorHex: colors[i % colors.length],
+        rewardType: lvlNum === 1 ? 'CASH' : 'HYBRID',
+        promotionBonusAmount: (lvlNum - 1) * 2000000,
+        physicalItemName: physicalRewards[i % physicalRewards.length],
+        retentionFloorGmv: (lvlNum - 1) * 50,
+        promotionCeilingGmv: lvlNum * 100,
+        retentionMultiplier: Number((1.0 + (lvlNum - 1) * 0.15).toFixed(2)),
+        project: {
+          projectName: `Dự Án Chinh Phục Level ${lvlNum} - Năm ${year} (${deptName})`,
+          subTaskBullets: [
+            `• Hoàn thành 100% chỉ tiêu KPI tháng cho Level ${lvlNum}`,
+            `• Thực hiện quy trình chuẩn hóa Level ${lvlNum} phòng ${deptName}`,
+          ],
+        },
+      };
+    });
+  };
 
   const [deptLevelConfigs, setDeptLevelConfigs] = useState<Record<string, AdminLevelItem[]>>({});
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
 
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0] || { id: 'default', name: 'Phòng Ban' };
-  const activeLevels = deptLevelConfigs[selectedDeptId] || createDefaultLevels(activeDept.name);
+  const currentConfigKey = `${selectedDeptId}_${selectedYear}`;
+  const activeLevels = deptLevelConfigs[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
 
   // Real-time Socket.io Sync Listener
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
-    socket.emit('level:join_config_room', { departmentId: selectedDeptId });
+    socket.emit('level:join_config_room', { departmentId: selectedDeptId, year: selectedYear });
 
     const handleLevelConfigUpdated = (payload: any) => {
       if (payload && payload.departmentId && payload.levels) {
+        const key = payload.year ? `${payload.departmentId}_${payload.year}` : payload.departmentId;
         setDeptLevelConfigs((prev) => ({
           ...prev,
-          [payload.departmentId]: payload.levels,
+          [key]: payload.levels,
         }));
       }
     };
@@ -241,46 +134,82 @@ export const AdminLevelConfigScreen: React.FC = () => {
       socket.off('level:config:updated', handleLevelConfigUpdated);
       socket.off('level:updated', handleLevelConfigUpdated);
     };
-  }, [selectedDeptId, getSocket]);
+  }, [selectedDeptId, selectedYear, getSocket]);
+
+  // Add New Year
+  const handleAddNewYear = () => {
+    const nextYear = Math.max(...availableYears) + 1;
+    setAvailableYears((prev) => [...prev, nextYear]);
+    setSelectedYear(nextYear);
+    Alert.alert('Thành Công', `Đã khởi tạo Năm Cấu Hình Level mới: ${nextYear}!`);
+  };
+
+  // Delete Level
+  const handleDeleteLevel = (levelId: string, levelNumber: number) => {
+    Alert.alert(
+      'Xác nhận xóa Level',
+      `Bạn có chắc chắn muốn xóa Level ${levelNumber} của Năm ${selectedYear} không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa Level',
+          style: 'destructive',
+          onPress: () => {
+            setDeptLevelConfigs((prev) => {
+              const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+              const updatedList = currentList.filter((l) => l.id !== levelId);
+
+              const socket = getSocket();
+              if (socket) {
+                socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
+              }
+
+              return { ...prev, [currentConfigKey]: updatedList };
+            });
+          },
+        },
+      ]
+    );
+  };
 
   // Dynamic Add New Level
   const handleAddNewLevel = () => {
     const nextLevelNum = activeLevels.length + 1;
     const newLevelItem: AdminLevelItem = {
-      id: `lvl-${Date.now()}`,
+      id: `lvl-${selectedYear}-${Date.now()}`,
       levelNumber: nextLevelNum,
       levelName: `Level ${nextLevelNum}`,
       colorHex: '#0F172A',
       rewardType: 'HYBRID',
-      promotionBonusAmount: 60000000,
-      physicalItemName: `Quà Thưởng Hiện Vật Cao Cấp Level ${nextLevelNum}`,
+      promotionBonusAmount: 25000000,
+      physicalItemName: `Quà Thưởng Đặc Biệt Level ${nextLevelNum} - Năm ${selectedYear}`,
       retentionFloorGmv: 3000,
       promotionCeilingGmv: 8000,
       retentionMultiplier: 3.5,
       project: {
-        projectName: `Dự Án Level ${nextLevelNum}: Thử Thách Mới (${activeDept.name})`,
-        subTaskBullets: ['• Hoàn thành 100% KPI Level mới'],
+        projectName: `Dự Án Thách Thức Level ${nextLevelNum} - Năm ${selectedYear} (${activeDept.name})`,
+        subTaskBullets: ['• Hoàn thành 100% KPI chỉ tiêu đặc biệt'],
       },
     };
 
     setDeptLevelConfigs((prev) => {
-      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = [...currentList, newLevelItem];
       
       const socket = getSocket();
       if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
       }
 
-      return { ...prev, [selectedDeptId]: updatedList };
+      return { ...prev, [currentConfigKey]: updatedList };
     });
 
-    Alert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} mới cho phòng ban ${activeDept.name}!`);
+    Alert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} cho Năm ${selectedYear} - Phòng ${activeDept.name}!`);
   };
 
   const handleUpdateLevelProjectName = (levelNumber: number, newProjectName: string) => {
     setDeptLevelConfigs((prev) => {
-      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = currentList.map((item) =>
         item.levelNumber === levelNumber
           ? { ...item, project: { ...item.project, projectName: newProjectName } }
@@ -289,43 +218,43 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
       const socket = getSocket();
       if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
       }
 
-      return { ...prev, [selectedDeptId]: updatedList };
+      return { ...prev, [currentConfigKey]: updatedList };
     });
   };
 
   const handleAddSubTaskToLevel = (levelNumber: number, bulletText: string) => {
     const formattedBullet = bulletText.startsWith('•') ? bulletText : `• ${bulletText}`;
-
     setDeptLevelConfigs((prev) => {
-      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
-      const updatedList = currentList.map((item) =>
-        item.levelNumber === levelNumber
-          ? {
-              ...item,
-              project: {
-                ...item.project,
-                subTaskBullets: [...(item.project.subTaskBullets || []), formattedBullet],
-              },
-            }
-          : item
-      );
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+      const updatedList = currentList.map((item) => {
+        if (item.levelNumber === levelNumber) {
+          return {
+            ...item,
+            project: {
+              ...item.project,
+              subTaskBullets: [...(item.project.subTaskBullets || []), formattedBullet],
+            },
+          };
+        }
+        return item;
+      });
 
       const socket = getSocket();
       if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
       }
 
-      return { ...prev, [selectedDeptId]: updatedList };
+      return { ...prev, [currentConfigKey]: updatedList };
     });
   };
 
   const handleEditSubTaskInLevel = (levelNumber: number, bulletIndex: number, newBulletText: string) => {
     const formattedBullet = newBulletText.startsWith('•') ? newBulletText : `• ${newBulletText}`;
     setDeptLevelConfigs((prev) => {
-      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = currentList.map((item) => {
         if (item.levelNumber === levelNumber) {
           const updatedBullets = [...(item.project.subTaskBullets || [])];
@@ -337,16 +266,16 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
       const socket = getSocket();
       if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
       }
 
-      return { ...prev, [selectedDeptId]: updatedList };
+      return { ...prev, [currentConfigKey]: updatedList };
     });
   };
 
   const handleDeleteSubTaskInLevel = (levelNumber: number, bulletIndex: number) => {
     setDeptLevelConfigs((prev) => {
-      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = currentList.map((item) => {
         if (item.levelNumber === levelNumber) {
           const updatedBullets = (item.project.subTaskBullets || []).filter((_, idx) => idx !== bulletIndex);
@@ -357,25 +286,25 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
       const socket = getSocket();
       if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
       }
 
-      return { ...prev, [selectedDeptId]: updatedList };
+      return { ...prev, [currentConfigKey]: updatedList };
     });
   };
 
   const handleSaveModalItem = () => {
     if (!editingItem) return;
     setDeptLevelConfigs((prev) => {
-      const currentList = prev[selectedDeptId] || createDefaultLevels(activeDept.name);
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
 
       const socket = getSocket();
       if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, levels: updatedList });
+        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
       }
 
-      return { ...prev, [selectedDeptId]: updatedList };
+      return { ...prev, [currentConfigKey]: updatedList };
     });
     Alert.alert('Thành Công', `Đã lưu quà thưởng cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
     setEditingItem(null);
@@ -383,13 +312,14 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   // Build Department Summaries for Page 1
   const deptSummaries: DepartmentSummaryItem[] = departments.map((d) => {
-    const list = deptLevelConfigs[d.id] || createDefaultLevels(d.name);
-    const topItem = list.find((l) => l.levelNumber === 5) || list[list.length - 1];
+    const key = `${d.id}_${selectedYear}`;
+    const list = deptLevelConfigs[key] || createDefault12Levels(d.name, selectedYear);
+    const topItem = list.find((l) => l.levelNumber === 12) || list[list.length - 1];
     return {
       id: d.id,
       name: d.name,
       totalLevels: list.length,
-      topRewardName: topItem ? topItem.physicalItemName : 'Laptop MacBook Air M3',
+      topRewardName: topItem ? topItem.physicalItemName : 'Kỳ Nghỉ Châu Âu + Thưởng Năm Lớn',
     };
   });
 
@@ -459,7 +389,12 @@ export const AdminLevelConfigScreen: React.FC = () => {
               <AdminLevelRewardsPage
                 departmentName={activeDept.name}
                 levels={activeLevels}
+                selectedYear={selectedYear}
+                availableYears={availableYears}
+                onSelectYear={setSelectedYear}
+                onAddNewYear={handleAddNewYear}
                 onEditLevelReward={(lvl) => setEditingItem({ ...lvl })}
+                onDeleteLevel={handleDeleteLevel}
                 onAddNewLevel={handleAddNewLevel}
                 onNextToProjects={() => setActiveStep(3)}
               />
@@ -469,6 +404,9 @@ export const AdminLevelConfigScreen: React.FC = () => {
               <AdminLevelProjectsPage
                 departmentName={activeDept.name}
                 levels={activeLevels}
+                selectedYear={selectedYear}
+                availableYears={availableYears}
+                onSelectYear={setSelectedYear}
                 onUpdateLevelProjectName={handleUpdateLevelProjectName}
                 onAddSubTaskToLevel={handleAddSubTaskToLevel}
                 onEditSubTaskInLevel={handleEditSubTaskInLevel}
@@ -476,7 +414,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
                 onSaveAllAndSync={() => {
                   Alert.alert(
                     'Đã Lưu & Đồng Bộ Thành Công!',
-                    `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name}. Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
+                    `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name} (Năm ${selectedYear}). Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
                     [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
                   );
                 }}

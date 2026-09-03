@@ -13,6 +13,9 @@ import type { AdminLevelItem } from '../AdminLevelConfigScreen';
 interface AdminLevelProjectsPageProps {
   departmentName: string;
   levels: AdminLevelItem[];
+  selectedYear: number;
+  availableYears: number[];
+  onSelectYear: (year: number) => void;
   onUpdateLevelProjectName: (levelNumber: number, newProjectName: string) => void;
   onAddSubTaskToLevel: (levelNumber: number, bulletText: string) => void;
   onEditSubTaskInLevel: (levelNumber: number, bulletIndex: number, newBulletText: string) => void;
@@ -23,6 +26,9 @@ interface AdminLevelProjectsPageProps {
 export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   departmentName,
   levels,
+  selectedYear,
+  availableYears,
+  onSelectYear,
   onUpdateLevelProjectName,
   onAddSubTaskToLevel,
   onEditSubTaskInLevel,
@@ -78,9 +84,25 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      {/* Year Selector Bar */}
+      <Text style={styles.yearSubLabel}>CHỌN NĂM GIAO DỰ ÁN (NĂM {selectedYear}):</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScrollRow}>
+        {availableYears.map((yr) => (
+          <TouchableOpacity
+            key={yr}
+            style={[styles.yearPill, selectedYear === yr && styles.yearPillActive]}
+            onPress={() => onSelectYear(yr)}
+          >
+            <Text style={[styles.yearPillText, selectedYear === yr && styles.yearPillTextActive]}>
+              NĂM {yr}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.sectionHeaderTitle}>GIAO DỰ ÁN & VIỆC CON CHO PHÒNG BAN:</Text>
+          <Text style={styles.sectionHeaderTitle}>GIAO DỰ ÁN & VIỆC CON (NĂM {selectedYear}):</Text>
           <Text style={styles.deptTitle}>{departmentName.toUpperCase()}</Text>
         </View>
       </View>
@@ -199,6 +221,38 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: 16,
+  },
+  yearSubLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  yearScrollRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  yearPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  yearPillActive: {
+    backgroundColor: '#1E40AF',
+    borderColor: '#1E40AF',
+  },
+  yearPillText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#475569',
+  },
+  yearPillTextActive: {
+    color: '#FFFFFF',
   },
   headerRow: {
     marginBottom: 10,

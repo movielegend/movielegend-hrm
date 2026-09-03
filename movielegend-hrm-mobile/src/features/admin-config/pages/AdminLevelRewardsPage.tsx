@@ -11,7 +11,12 @@ import type { AdminLevelItem } from '../AdminLevelConfigScreen';
 interface AdminLevelRewardsPageProps {
   departmentName: string;
   levels: AdminLevelItem[];
+  selectedYear: number;
+  availableYears: number[];
+  onSelectYear: (year: number) => void;
+  onAddNewYear: () => void;
   onEditLevelReward: (level: AdminLevelItem) => void;
+  onDeleteLevel: (levelId: string, levelNumber: number) => void;
   onAddNewLevel: () => void;
   onNextToProjects: () => void;
 }
@@ -19,15 +24,40 @@ interface AdminLevelRewardsPageProps {
 export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
   departmentName,
   levels,
+  selectedYear,
+  availableYears,
+  onSelectYear,
+  onAddNewYear,
   onEditLevelReward,
+  onDeleteLevel,
   onAddNewLevel,
   onNextToProjects,
 }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+      {/* Year Selector Bar */}
+      <Text style={styles.yearSubLabel}>CHỌN NĂM CẤU HÌNH LEVEL (12 THÁNG/NĂM):</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScrollRow}>
+        {availableYears.map((yr) => (
+          <TouchableOpacity
+            key={yr}
+            style={[styles.yearPill, selectedYear === yr && styles.yearPillActive]}
+            onPress={() => onSelectYear(yr)}
+          >
+            <Text style={[styles.yearPillText, selectedYear === yr && styles.yearPillTextActive]}>
+              NĂM {yr}
+            </Text>
+          </TouchableOpacity>
+        ))}
+
+        <TouchableOpacity style={styles.addYearBtn} onPress={onAddNewYear}>
+          <Text style={styles.addYearBtnText}>+ Thêm Năm Mới</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.sectionHeaderTitle}>CẤU HÌNH QUÀ THƯỞNG CHO PHÒNG BAN:</Text>
+          <Text style={styles.sectionHeaderTitle}>CẤU HÌNH QUÀ THƯỞNG (NĂM {selectedYear}):</Text>
           <Text style={styles.deptTitle}>{departmentName.toUpperCase()}</Text>
         </View>
 
@@ -46,9 +76,14 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.editBtn} onPress={() => onEditLevelReward(lvl)}>
-                <Text style={styles.editBtnText}>Chỉnh sửa quà</Text>
-              </TouchableOpacity>
+              <View style={styles.levelCardActions}>
+                <TouchableOpacity style={styles.editPillBtn} onPress={() => onEditLevelReward(lvl)}>
+                  <Text style={styles.editPillBtnText}>Sửa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.deletePillBtn} onPress={() => onDeleteLevel(lvl.id, lvl.levelNumber)}>
+                  <Text style={styles.deletePillBtnText}>Xóa</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.rewardContentBox}>
@@ -67,7 +102,7 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
       </View>
 
       <TouchableOpacity style={styles.nextStepBtn} onPress={onNextToProjects}>
-        <Text style={styles.nextStepBtnText}>TIẾP THEO: THIẾT LẬP DỰ ÁN & VIỆC CON →</Text>
+        <Text style={styles.nextStepBtnText}>TIẾP THEO: THIẾT LẬP DỰ ÁN NĂM {selectedYear} →</Text>
       </TouchableOpacity>
 
       <View style={{ height: 20 }} />
@@ -82,6 +117,52 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: 16,
+  },
+  yearSubLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  yearScrollRow: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  yearPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  yearPillActive: {
+    backgroundColor: '#1E40AF',
+    borderColor: '#1E40AF',
+  },
+  yearPillText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#475569',
+  },
+  yearPillTextActive: {
+    color: '#FFFFFF',
+  },
+  addYearBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#94A3B8',
+    borderStyle: 'dashed',
+  },
+  addYearBtnText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#2563EB',
   },
   headerRow: {
     flexDirection: 'row',
@@ -142,6 +223,37 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 11,
+  },
+  levelCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editPillBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  editPillBtnText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#1D4ED8',
+  },
+  deletePillBtn: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  deletePillBtnText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#B91C1C',
   },
   levelName: {
     fontSize: 14,
