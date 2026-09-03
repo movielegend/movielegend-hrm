@@ -44,7 +44,6 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
                 <View style={[styles.colorBadge, { backgroundColor: lvl.colorHex }]}>
                   <Text style={styles.colorBadgeText}>LEVEL {lvl.levelNumber}</Text>
                 </View>
-                <Text style={styles.levelName}>{lvl.levelName}</Text>
               </View>
 
               <TouchableOpacity style={styles.editBtn} onPress={() => onEditLevelReward(lvl)}>

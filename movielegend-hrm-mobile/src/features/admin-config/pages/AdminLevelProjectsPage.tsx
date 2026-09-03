@@ -79,7 +79,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
             <View style={[styles.colorBadge, { backgroundColor: activeFocusedLevel.colorHex }]}>
               <Text style={styles.colorBadgeText}>LEVEL {activeFocusedLevel.levelNumber}</Text>
             </View>
-            <Text style={styles.cardTitle}>{activeFocusedLevel.levelName} - Dự Án Chinh Phục</Text>
+            <Text style={styles.cardTitle}>Dự Án Chinh Phục</Text>
           </View>
 
           <Text style={styles.inputLabel}>Tên Dự Án Lớn Thăng Cấp (Level {activeFocusedLevel.levelNumber}):</Text>
