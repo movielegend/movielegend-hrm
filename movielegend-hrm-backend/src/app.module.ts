@@ -62,6 +62,7 @@ import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { ShiftSwapsModule } from './modules/shift-swaps/shift-swaps.module';
 import { VoiceCallModule } from './modules/voice-call/voice-call.module';
+import { CompetitionModule } from './modules/competition/competition.module';
 
 @Module({
   imports: [
@@ -142,6 +143,7 @@ import { VoiceCallModule } from './modules/voice-call/voice-call.module';
     AiAssistantModule,
     FeedbackModule,
     VoiceCallModule,
+    CompetitionModule,
   ],
   providers: [
     {
