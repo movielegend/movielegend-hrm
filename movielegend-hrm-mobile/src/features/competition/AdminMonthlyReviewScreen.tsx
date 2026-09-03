@@ -46,7 +46,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
   const realDeptList = realDeptData?.data || realDeptData?.items || (Array.isArray(realDeptData) ? realDeptData : []);
   const departments = realDeptList.map((d: any) => ({ id: d.id || d._id, name: d.name || 'Phòng ban' }));
 
-  const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1); // 1: Staff, 2: Leader, 3: Summary
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1); // Step 1: Depts, Step 2: Staff, Step 3: Leader & Summary
   const [selectedDeptId, setSelectedDeptId] = useState<string>(departments[0]?.id || 'dept-1');
   const [selectedMonth, setSelectedMonth] = useState<string>('Tháng 09/2026');
 
@@ -317,31 +317,38 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       <SafeAreaView style={styles.headerSafeArea}>
         <View style={styles.executiveHeaderCard}>
           <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
-          <Text style={styles.title}>Màn Hình Chốt Duyệt Level Cuối Tháng</Text>
-          <Text style={styles.subTitle}>Duyệt thăng cấp Level & Trao quà thưởng cho cả Nhân Viên & Leader</Text>
+          <Text style={styles.title}>Chốt Duyệt Level Cuối Tháng 3 Bước</Text>
+          <Text style={styles.subTitle}>Duyệt thăng cấp Level & Trao quà thưởng cho Nhân Viên & Leader</Text>
         </View>
 
-        {/* 3-Tab Stepper Bar (Staff / Leader / Summary) */}
-        <View style={styles.tabStepperContainer}>
+        {/* 3-Step Progress Stepper Navigation Bar */}
+        <View style={styles.stepperContainer}>
           <TouchableOpacity
-            style={[styles.tabStepBtn, activeTab === 1 && styles.tabStepBtnActive]}
-            onPress={() => setActiveTab(1)}
+            style={[styles.stepTab, activeStep === 1 && styles.stepTabActive]}
+            onPress={() => setActiveStep(1)}
           >
-            <Text style={[styles.tabStepTitle, activeTab === 1 && styles.tabStepTitleActive]}>1. Duyệt Nhân Viên</Text>
+            <Text style={[styles.stepNumber, activeStep === 1 && styles.stepNumberActive]}>1</Text>
+            <Text style={[styles.stepTitle, activeStep === 1 && styles.stepTitleActive]}>Phòng Ban</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabStepBtn, activeTab === 2 && styles.tabStepBtnActive]}
-            onPress={() => setActiveTab(2)}
-          >
-            <Text style={[styles.tabStepTitle, activeTab === 2 && styles.tabStepTitleActive]}>2. Duyệt Leader</Text>
-          </TouchableOpacity>
+          <View style={styles.stepDivider} />
 
           <TouchableOpacity
-            style={[styles.tabStepBtn, activeTab === 3 && styles.tabStepBtnActive]}
-            onPress={() => setActiveTab(3)}
+            style={[styles.stepTab, activeStep === 2 && styles.stepTabActive]}
+            onPress={() => setActiveStep(2)}
           >
-            <Text style={[styles.tabStepTitle, activeTab === 3 && styles.tabStepTitleActive]}>3. Thống Kê & Báo Cáo</Text>
+            <Text style={[styles.stepNumber, activeStep === 2 && styles.stepNumberActive]}>2</Text>
+            <Text style={[styles.stepTitle, activeStep === 2 && styles.stepTitleActive]}>Duyệt Nhân Viên</Text>
+          </TouchableOpacity>
+
+          <View style={styles.stepDivider} />
+
+          <TouchableOpacity
+            style={[styles.stepTab, activeStep === 3 && styles.stepTabActive]}
+            onPress={() => setActiveStep(3)}
+          >
+            <Text style={[styles.stepNumber, activeStep === 3 && styles.stepNumberActive]}>3</Text>
+            <Text style={[styles.stepTitle, activeStep === 3 && styles.stepTitleActive]}>Duyệt Leader</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -355,10 +362,10 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.scroll}>
-            {/* TAB 1: DUYỆT NHÂN VIÊN */}
-            {activeTab === 1 && (
+            {/* STEP 1: TỔNG QUAN PHÒNG BAN & DANH SÁCH CHỜ CHỐT LEVEL */}
+            {activeStep === 1 && (
               <>
-                <Text style={styles.filterSubLabel}>KỲ CHỐT LEVEL CUỐI THÁNG (NHÂN VIÊN):</Text>
+                <Text style={styles.filterSubLabel}>CHỌN KỲ CHỐT LEVEL CUỐI THÁNG:</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollRow}>
                   {availableMonths.map((m) => (
                     <TouchableOpacity
@@ -373,7 +380,53 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                   ))}
                 </ScrollView>
 
-                <Text style={styles.filterSubLabel}>CHỌN PHÒNG BAN XÉT DUYỆT NHÂN VIÊN:</Text>
+                <View style={styles.stepBanner}>
+                  <Text style={styles.stepBannerTitle}>BƯỚC 1: TỔNG QUAN PHÒNG BAN CHỜ CHỐT LEVEL ({selectedMonth})</Text>
+                  <Text style={styles.stepBannerSub}>Bấm chọn phòng ban để tiến hành xem chi tiết việc con & Duyệt nâng Level cho Nhân Viên và Leader</Text>
+                </View>
+
+                <View style={styles.deptCardGrid}>
+                  {departments.map((dept) => {
+                    const staffList = staffItems[dept.id] || [];
+                    const leaderList = leaderItems[dept.id] || [];
+                    const pendingStaffCount = staffList.filter((s) => s.status === 'PENDING').length;
+                    const pendingLeaderCount = leaderList.filter((l) => l.status === 'PENDING').length;
+
+                    return (
+                      <TouchableOpacity
+                        key={dept.id}
+                        style={[styles.deptCardItem, selectedDeptId === dept.id && styles.deptCardItemActive]}
+                        onPress={() => {
+                          setSelectedDeptId(dept.id);
+                          setActiveStep(2);
+                        }}
+                      >
+                        <View style={styles.deptCardHeader}>
+                          <Text style={styles.deptCardName}>{dept.name}</Text>
+                          <View style={styles.deptBadge}>
+                            <Text style={styles.deptBadgeText}>{pendingStaffCount + pendingLeaderCount} CHỜ DUYỆT</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.deptCardBody}>
+                          <Text style={styles.deptDetailLine}>• Nhân viên đề xuất thăng cấp: <Text style={styles.boldBlue}>{staffList.length} Nhân sự</Text></Text>
+                          <Text style={styles.deptDetailLine}>• Leader đề xuất thăng cấp: <Text style={styles.boldAmber}>{leaderList.length} Leader</Text></Text>
+                        </View>
+
+                        <View style={styles.deptCardFooter}>
+                          <Text style={styles.deptActionText}>Bấm Chọn Xét Duyệt Phòng {dept.name} →</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
+            {/* STEP 2: DUYỆT LEVEL NHÂN VIÊN */}
+            {activeStep === 2 && (
+              <>
+                <Text style={styles.filterSubLabel}>ĐANG CHỌN PHÒNG BAN XÉT DUYỆT NHÂN VIÊN:</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollRow}>
                   {departments.map((dept) => (
                     <TouchableOpacity
@@ -389,8 +442,8 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                 </ScrollView>
 
                 <View style={styles.deptHeaderSummary}>
-                  <Text style={styles.deptSummaryTitle}>XÉT DUYỆT LEVEL NHÂN VIÊN: {activeDept.name.toUpperCase()}</Text>
-                  <Text style={styles.deptSummarySub}>Danh sách Nhân viên đủ điều kiện xét thăng cấp Level trong {selectedMonth}</Text>
+                  <Text style={styles.deptSummaryTitle}>BƯỚC 2: DUYỆT LEVEL NHÂN VIÊN - PHÒNG {activeDept.name.toUpperCase()}</Text>
+                  <Text style={styles.deptSummarySub}>Kiểm tra chi tiết việc con, người phụ trách & Phê duyệt thăng cấp cho Nhân viên trong {selectedMonth}</Text>
                 </View>
 
                 {currentStaffDeptItems.length === 0 ? (
@@ -480,28 +533,17 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                     </View>
                   ))
                 )}
+
+                <TouchableOpacity style={styles.nextStepBtn} onPress={() => setActiveStep(3)}>
+                  <Text style={styles.nextStepBtnText}>TIẾP THEO: SANG BƯỚC 3 (DUYỆT LEADER & THỐNG KÊ) →</Text>
+                </TouchableOpacity>
               </>
             )}
 
-            {/* TAB 2: DUYỆT LEADER & QUẢN LÝ */}
-            {activeTab === 2 && (
+            {/* STEP 3: DUYỆT LEADER & THỐNG KÊ TỔNG HỢP */}
+            {activeStep === 3 && (
               <>
-                <Text style={styles.filterSubLabel}>KỲ CHỐT LEVEL CUỐI THÁNG (LEADER & QUẢN LÝ):</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollRow}>
-                  {availableMonths.map((m) => (
-                    <TouchableOpacity
-                      key={m}
-                      style={[styles.monthPill, selectedMonth === m && styles.monthPillActive]}
-                      onPress={() => setSelectedMonth(m)}
-                    >
-                      <Text style={[styles.monthPillText, selectedMonth === m && styles.monthPillTextActive]}>
-                        {m.toUpperCase()}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                <Text style={styles.filterSubLabel}>CHỌN PHÒNG BAN XÉT DUYỆT LEADER:</Text>
+                <Text style={styles.filterSubLabel}>ĐANG CHỌN PHÒNG BAN XÉT DUYỆT LEADER:</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollRow}>
                   {departments.map((dept) => (
                     <TouchableOpacity
@@ -517,8 +559,8 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                 </ScrollView>
 
                 <View style={styles.leaderDeptHeaderSummary}>
-                  <Text style={styles.leaderDeptSummaryTitle}>XÉT DUYỆT LEVEL LEADER: {activeDept.name.toUpperCase()}</Text>
-                  <Text style={styles.leaderDeptSummarySub}>Đánh giá năng lực quản trị, KPI team & Xét nâng Level Leader phòng {activeDept.name}</Text>
+                  <Text style={styles.leaderDeptSummaryTitle}>BƯỚC 3: DUYỆT LEVEL LEADER - PHÒNG {activeDept.name.toUpperCase()}</Text>
+                  <Text style={styles.leaderDeptSummarySub}>Đánh giá năng lực quản trị toàn team & Xét duyệt nâng Level Leader phòng {activeDept.name}</Text>
                 </View>
 
                 {currentLeaderDeptItems.length === 0 ? (
@@ -608,41 +650,33 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
                     </View>
                   ))
                 )}
+
+                {/* EXECUTIVE MONTHLY REWARDS SUMMARY */}
+                <View style={styles.summaryContainer}>
+                  <Text style={styles.summaryHeaderTitle}>BÁO CÁO TỔNG HỢP DUYỆT LEVEL TOÀN CÔNG TY ({selectedMonth})</Text>
+
+                  <View style={styles.summaryStatGrid}>
+                    <View style={styles.statBoxCard}>
+                      <Text style={styles.statBoxNumber}>12</Text>
+                      <Text style={styles.statBoxLabel}>Tổng Nhân Sự Đã Duyệt Thăng Cấp</Text>
+                    </View>
+
+                    <View style={styles.statBoxCard}>
+                      <Text style={styles.statBoxNumber}>48.000.000đ</Text>
+                      <Text style={styles.statBoxLabel}>Tổng Ngân Sách Thưởng Nóng Tiền Mặt</Text>
+                    </View>
+
+                    <View style={styles.statBoxCard}>
+                      <Text style={styles.statBoxNumber}>5 MacBook, 4 iPad</Text>
+                      <Text style={styles.statBoxLabel}>Quà Thưởng Hiện Vật Đã Trao</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity style={styles.finishAllBtn} onPress={() => setActiveStep(1)}>
+                    <Text style={styles.finishAllBtnText}>HOÀN TẤT & ĐỒNG BỘ NĂNG SUẤT REAL-TIME ✓</Text>
+                  </TouchableOpacity>
+                </View>
               </>
-            )}
-
-            {/* TAB 3: THỐNG KÊ & BÁO CÁO TỔNG HỢP */}
-            {activeTab === 3 && (
-              <View style={styles.summaryContainer}>
-                <Text style={styles.summaryHeaderTitle}>BÁO CÁO TỔNG HỢP DUYỆT LEVEL THÁNG ({selectedMonth})</Text>
-
-                <View style={styles.summaryStatGrid}>
-                  <View style={styles.statBoxCard}>
-                    <Text style={styles.statBoxNumber}>12</Text>
-                    <Text style={styles.statBoxLabel}>Tổng Nhân Sự Đã Duyệt Thăng Cấp</Text>
-                  </View>
-
-                  <View style={styles.statBoxCard}>
-                    <Text style={styles.statBoxNumber}>48.000.000đ</Text>
-                    <Text style={styles.statBoxLabel}>Tổng Ngân Sách Thưởng Nóng Tiền Mặt</Text>
-                  </View>
-
-                  <View style={styles.statBoxCard}>
-                    <Text style={styles.statBoxNumber}>5 MacBook, 4 iPad</Text>
-                    <Text style={styles.statBoxLabel}>Quà Thưởng Hiện Vật Đã Trao</Text>
-                  </View>
-
-                  <View style={styles.statBoxCard}>
-                    <Text style={styles.statBoxNumber}>1.85x</Text>
-                    <Text style={styles.statBoxLabel}>Hệ Số Tết Trung Bình Toàn Công Ty</Text>
-                  </View>
-                </View>
-
-                <View style={styles.summaryNoticeBox}>
-                  <Text style={styles.summaryNoticeTitle}>✓ ĐỒNG BỘ NĂNG SUẤT THỜI GIAN THỰC (REAL-TIME)</Text>
-                  <Text style={styles.summaryNoticeSub}>Mọi quyết định phê duyệt thăng cấp Level cho Nhân viên & Leader đã được ghi nhận vào Database Postgres và tự động thông báo về App Nhân viên!</Text>
-                </View>
-              </View>
             )}
 
             <View style={{ height: 20 }} />
@@ -684,28 +718,52 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     marginTop: 2,
   },
-  tabStepperContainer: {
+  stepperContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  tabStepBtn: {
-    flex: 1,
-    paddingVertical: 8,
     alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  stepTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 8,
   },
-  tabStepBtnActive: {
-    backgroundColor: '#2563EB',
+  stepTabActive: {
+    backgroundColor: '#1E293B',
   },
-  tabStepTitle: {
+  stepNumber: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#334155',
+    color: '#94A3B8',
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  tabStepTitleActive: {
+  stepNumberActive: {
+    backgroundColor: '#2563EB',
     color: '#FFFFFF',
+  },
+  stepTitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: 'bold',
+  },
+  stepTitleActive: {
+    color: '#FFFFFF',
+  },
+  stepDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+    marginHorizontal: 4,
   },
   pageBodyContainer: {
     flex: 1,
@@ -757,6 +815,87 @@ const styles = StyleSheet.create({
   },
   monthPillTextActive: {
     color: '#FFFFFF',
+  },
+  stepBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginBottom: 14,
+  },
+  stepBannerTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1E40AF',
+  },
+  stepBannerSub: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 2,
+  },
+  deptCardGrid: {
+    gap: 12,
+  },
+  deptCardItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  deptCardItemActive: {
+    borderColor: '#2563EB',
+    borderWidth: 2,
+  },
+  deptCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  deptCardName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  deptBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  deptBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#92400E',
+  },
+  deptCardBody: {
+    gap: 4,
+    marginBottom: 10,
+  },
+  deptDetailLine: {
+    fontSize: 12,
+    color: '#475569',
+  },
+  boldBlue: {
+    fontWeight: 'bold',
+    color: '#1E40AF',
+  },
+  boldAmber: {
+    fontWeight: 'bold',
+    color: '#D97706',
+  },
+  deptCardFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 8,
+    alignItems: 'flex-end',
+  },
+  deptActionText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#2563EB',
   },
   deptPill: {
     paddingHorizontal: 12,
@@ -1138,8 +1277,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
   },
+  nextStepBtn: {
+    backgroundColor: '#1E40AF',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  nextStepBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
   summaryContainer: {
     gap: 14,
+    marginTop: 10,
   },
   summaryHeaderTitle: {
     fontSize: 13,
@@ -1167,22 +1321,17 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  summaryNoticeBox: {
-    backgroundColor: '#ECFDF5',
+  finishAllBtn: {
+    backgroundColor: '#1E293B',
+    paddingVertical: 16,
     borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
+    alignItems: 'center',
+    marginTop: 8,
   },
-  summaryNoticeTitle: {
-    fontSize: 11,
+  finishAllBtnText: {
+    color: '#FFFFFF',
     fontWeight: 'bold',
-    color: '#065F46',
-  },
-  summaryNoticeSub: {
-    fontSize: 11,
-    color: '#047857',
-    marginTop: 4,
-    lineHeight: 16,
+    fontSize: 13,
+    letterSpacing: 0.8,
   },
 });
