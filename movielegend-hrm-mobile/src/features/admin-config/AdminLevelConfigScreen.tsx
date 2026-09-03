@@ -353,7 +353,9 @@ export const AdminLevelConfigScreen: React.FC = () => {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.topSafeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
+      
       {/* Executive Header Card */}
       <View style={styles.executiveHeaderCard}>
         <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
@@ -392,7 +394,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
       </View>
 
       {/* Page Content Switcher */}
-      <View style={{ flex: 1 }}>
+      <View style={styles.pageBodyContainer}>
         {activeStep === 1 && (
           <AdminDeptOverviewPage
             departments={deptSummaries}
@@ -477,36 +479,39 @@ export const AdminLevelConfigScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  topSafeArea: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+  },
+  pageBodyContainer: {
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
   executiveHeaderCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E293B',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   executiveBadgeTitle: {
     fontSize: 9,
     fontWeight: 'bold',
-    color: '#64748B',
+    color: '#94A3B8',
     letterSpacing: 1.2,
   },
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E293B',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#334155',
   },
   stepTab: {
     flexDirection: 'row',
@@ -517,36 +522,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   stepTabActive: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#334155',
   },
   stepNumber: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#CBD5E1',
-    color: '#475569',
+    backgroundColor: '#475569',
+    color: '#CBD5E1',
     textAlign: 'center',
     fontSize: 11,
     fontWeight: 'bold',
     lineHeight: 20,
   },
   stepNumberActive: {
-    backgroundColor: '#1E40AF',
+    backgroundColor: '#2563EB',
     color: '#FFFFFF',
   },
   stepTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#94A3B8',
   },
   stepTitleActive: {
-    color: '#1E40AF',
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   stepDivider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#475569',
     marginHorizontal: 4,
   },
   modalOverlay: {
