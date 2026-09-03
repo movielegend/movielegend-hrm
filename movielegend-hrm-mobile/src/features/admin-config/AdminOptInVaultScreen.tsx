@@ -22,27 +22,26 @@ export interface UserOptInVaultItem {
 }
 
 export const AdminOptInVaultScreen: React.FC = () => {
-  const { data: realEmpData } = useEmployees({ limit: 100 });
-  const realEmpList = realEmpData?.data || realEmpData?.items || [];
+  const { data: realEmpData, isLoading } = useEmployees({ limit: 100 });
+  const realEmpList = realEmpData?.data || realEmpData?.items || (Array.isArray(realEmpData) ? realEmpData : []);
 
-  const initialUsers: UserOptInVaultItem[] = realEmpList.length > 0
-    ? realEmpList.map((emp: any) => ({
-        id: emp.id,
-        name: emp.fullName || emp.userCode || 'Nhân viên',
-        department: emp.department?.name || 'Văn phòng',
-        isRewardVaultEnabled: Boolean(emp.isRewardVaultEnabled),
-        grantedPoints: emp.grantedPoints || 0,
-      }))
-    : [
-        { id: 'usr-1', name: 'Nguyễn Văn A', department: 'Livestream HCM', isRewardVaultEnabled: true, grantedPoints: 50000 },
-        { id: 'usr-2', name: 'Trần Thị B', department: 'Livestream Hà Nội', isRewardVaultEnabled: true, grantedPoints: 30000 },
-        { id: 'usr-3', name: 'Lê Văn C', department: 'Kho & Tài sản', isRewardVaultEnabled: false, grantedPoints: 0 },
-        { id: 'usr-4', name: 'Phạm Thị D', department: 'Nhân sự HR', isRewardVaultEnabled: false, grantedPoints: 0 },
-      ];
-
-  const [users, setUsers] = useState<UserOptInVaultItem[]>(initialUsers);
+  const [users, setUsers] = useState<UserOptInVaultItem[]>([]);
   const [grantingUser, setGrantingUser] = useState<UserOptInVaultItem | null>(null);
   const [pointsToGrant, setPointsToGrant] = useState('50000');
+
+  useEffect(() => {
+    if (realEmpList.length > 0) {
+      setUsers(
+        realEmpList.map((emp: any) => ({
+          id: emp.id || emp._id,
+          name: emp.fullName || emp.userCode || 'Nhân viên',
+          department: emp.department?.name || 'Văn phòng',
+          isRewardVaultEnabled: Boolean(emp.isRewardVaultEnabled),
+          grantedPoints: emp.grantedPoints || 0,
+        }))
+      );
+    }
+  }, [realEmpData]);
 
   const handleToggleVault = (id: string, currentValue: boolean) => {
     setUsers((prev) =>

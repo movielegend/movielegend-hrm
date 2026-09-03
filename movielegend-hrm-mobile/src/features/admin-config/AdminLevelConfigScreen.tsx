@@ -10,6 +10,7 @@ import {
   ScrollView,
   TextInput,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useSocketStatus } from '../../providers/SocketProvider';
@@ -38,23 +39,20 @@ export interface AdminLevelItem {
 }
 
 export const AdminLevelConfigScreen: React.FC = () => {
-  const { data: realDeptData } = useDepartments({ limit: 100 });
+  const { data: realDeptData, isLoading } = useDepartments({ limit: 100 });
   const { getSocket } = useSocketStatus();
-  const realDeptList = realDeptData?.data || realDeptData?.items || [];
 
-  const departments = realDeptList.length > 0
-    ? realDeptList.map((d: any) => ({ id: d.id, name: d.name }))
-    : [
-        { id: 'dept-1', name: 'Livestream Hà Nội' },
-        { id: 'dept-2', name: 'Livestream HCM' },
-        { id: 'dept-3', name: 'HR Nhân sự' },
-        { id: 'dept-4', name: 'Kho & Tài sản' },
-        { id: 'dept-5', name: 'Chăm sóc Khách hàng CSKH' },
-        { id: 'dept-6', name: 'Marketing' },
-      ];
+  const realDeptList = realDeptData?.data || realDeptData?.items || (Array.isArray(realDeptData) ? realDeptData : []);
+  const departments = realDeptList.map((d: any) => ({ id: d.id || d._id, name: d.name || 'Phòng ban' }));
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
-  const [selectedDeptId, setSelectedDeptId] = useState(departments[0]?.id || 'dept-1');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+
+  useEffect(() => {
+    if (departments.length > 0 && (!selectedDeptId || !departments.some((d: any) => d.id === selectedDeptId))) {
+      setSelectedDeptId(departments[0].id);
+    }
+  }, [departments, selectedDeptId]);
 
   // Default Level Configs with Integrated Projects & Bullet Sub-tasks for Each Level
   const createDefaultLevels = (deptName: string): AdminLevelItem[] => [
@@ -363,7 +361,14 @@ export const AdminLevelConfigScreen: React.FC = () => {
         <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
       </View>
 
-      {/* 3-Step Progress Stepper Navigation Bar */}
+      {isLoading && departments.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Đang tải danh sách phòng ban thật từ Database Postgres...</Text>
+        </View>
+      ) : (
+        <>
+          {/* 3-Step Progress Stepper Navigation Bar */}
       <View style={styles.stepperContainer}>
         <TouchableOpacity
           style={[styles.stepTab, activeStep === 1 && styles.stepTabActive]}
@@ -475,6 +480,8 @@ export const AdminLevelConfigScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+        </>
+      )}
     </SafeAreaView>
   );
 };
@@ -483,6 +490,20 @@ const styles = StyleSheet.create({
   topSafeArea: {
     flex: 1,
     backgroundColor: '#1E293B',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 12,
+    textAlign: 'center',
   },
   pageBodyContainer: {
     flex: 1,
