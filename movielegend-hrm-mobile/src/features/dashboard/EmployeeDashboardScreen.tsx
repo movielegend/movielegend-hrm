@@ -13,6 +13,7 @@ import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../ser
 import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { RetentionVaultWidget } from '../vault/RetentionVaultWidget';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
@@ -149,10 +150,23 @@ export function EmployeeDashboardScreen() {
           </View>
         </Pressable>
 
+        {/* Ví Thưởng Giữ Chân Nhân Tài (Opt-in Widget) */}
+        <RetentionVaultWidget isVaultEnabled={true} />
+
         {/* Tiện ích (Grid) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.gridContainer}>
+            <GridItem
+              icon="trophy-award"
+              title="Thi đua"
+              onPress={() => router.push('/employee/competition' as any)}
+            />
+            <GridItem
+              icon="gift-outline"
+              title="Ví Thưởng Tết"
+              onPress={() => router.push('/employee/vault' as any)}
+            />
             <GridItem
               icon="history"
               title="Lịch sử chấm công"
