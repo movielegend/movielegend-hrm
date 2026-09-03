@@ -149,6 +149,21 @@ export function AdminDashboard() {
           style={{ marginHorizontal: -16 }}
         >
           <GridCard
+            title="Cấu hình Level"
+            icon="crown-outline"
+            onPress={() => router.navigate('/admin/levels' as any)}
+          />
+          <GridCard
+            title="Quyền Ví Tết"
+            icon="gift-outline"
+            onPress={() => router.navigate('/admin/vault-permissions' as any)}
+          />
+          <GridCard
+            title="Chốt Level"
+            icon="shield-check-outline"
+            onPress={() => router.navigate('/admin/competition/review' as any)}
+          />
+          <GridCard
             title="Chấm công"
             icon="clock-outline"
             onPress={() => router.navigate('/admin/attendance')}
