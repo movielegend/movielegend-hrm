@@ -340,16 +340,16 @@ export const AdminLevelConfigScreen: React.FC = () => {
             {/* Reward Summary Box */}
             <View style={styles.rewardBox}>
               <Text style={styles.rewardTitle}>
-                🎁 Quà Thưởng: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName}</Text>
+                Quà Thưởng Hiện Vật: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName}</Text>
               </Text>
               <Text style={styles.rewardBonus}>
-                💵 Thưởng nóng: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
+                Thưởng nóng thăng cấp: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
               </Text>
             </View>
 
             {/* Level Stage Project Section directly inside Level Card */}
             <View style={styles.levelProjectSection}>
-              <Text style={styles.projSectionTitle}>🎯 Dự Án Chinh Phục Của Level {lvl.levelNumber}:</Text>
+              <Text style={styles.projSectionTitle}>Dự Án Chinh Phục Của Level {lvl.levelNumber}:</Text>
               
               <TextInput
                 style={styles.projTitleInput}
