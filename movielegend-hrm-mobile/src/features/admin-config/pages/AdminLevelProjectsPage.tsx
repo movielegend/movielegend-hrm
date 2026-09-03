@@ -118,7 +118,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
       )}
 
       <TouchableOpacity style={styles.saveSyncBtn} onPress={onSaveAllAndSync}>
-        <Text style={styles.saveSyncBtnText}>HOÀN TẤT & ĐỒNG BỘ REAL-TIME SANG LEADER / NHÂN VIÊN ✓</Text>
+        <Text style={styles.saveSyncBtnText}>HOÀN TẤT & ĐỒNG BỘ CẤU HÌNH</Text>
       </TouchableOpacity>
 
       <View style={{ height: 20 }} />
@@ -265,14 +265,22 @@ const styles = StyleSheet.create({
   },
   saveSyncBtn: {
     backgroundColor: '#1E40AF',
-    paddingVertical: 13,
-    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   saveSyncBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 13,
+    textAlign: 'center',
     letterSpacing: 0.5,
   },
 });
