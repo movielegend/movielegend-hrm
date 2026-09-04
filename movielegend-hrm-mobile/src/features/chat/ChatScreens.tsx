@@ -196,6 +196,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
         <PageHeader
           title="Nhóm Chat"
           subtitle={scope === 'all' ? 'Tất cả nhóm chat trong công ty' : 'Trao đổi nội bộ công ty'}
+          showBack={false}
         />
 
         <View style={styles.groupList}>

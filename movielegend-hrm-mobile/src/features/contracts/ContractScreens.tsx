@@ -396,6 +396,7 @@ export function ContractListScreen() {
         <PageHeader
           title="Hợp đồng"
           subtitle="Quản lý hợp đồng lao động"
+          showBack={false}
           right={
             <View style={styles.headerActions}>
               <Pressable

@@ -298,6 +298,7 @@ export function IncidentListScreen({ area }: { area: IncidentArea }) {
         <PageHeader
           title="Sự cố tài sản"
           subtitle="Quản lý tài sản cần duyệt trạng thái"
+          showBack={false}
         />
         
         <View style={[styles.headerRow, { zIndex: 10, elevation: 10 }]}>

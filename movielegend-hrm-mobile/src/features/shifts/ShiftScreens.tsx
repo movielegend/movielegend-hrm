@@ -260,6 +260,7 @@ export function AdminShiftsScreen() {
         <PageHeader
           title="Quản lý Ca làm việc"
           subtitle="Tất cả ca làm việc trong hệ thống"
+          showBack={false}
           right={
             hasPermission(user, 'shift.create') ? (
               <Pressable

@@ -122,6 +122,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
         <PageHeader
           title="Bảng tin công ty"
           subtitle="Tin tức và thông báo nội bộ"
+          showBack={false}
         />
 
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
