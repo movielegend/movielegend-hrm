@@ -57,6 +57,7 @@ export function BranchListScreen() {
         <PageHeader
           title="Chi nhánh"
           subtitle="Quản lý chi nhánh công ty"
+          showBack={false}
           right={
             <Pressable style={styles.addBtn} onPress={() => router.push('./branches/create')}>
               <MaterialCommunityIcons name="plus" size={18} color="#fff" />

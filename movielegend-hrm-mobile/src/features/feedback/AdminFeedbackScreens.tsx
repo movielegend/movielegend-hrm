@@ -44,11 +44,11 @@ export function AdminFeedbackListScreen() {
   return (
     <Screen>
       <ScrollView 
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
-        <PageHeader title="Quản lý góp ý" subtitle="Xem và phản hồi ý kiến từ nhân viên" />
+        <PageHeader title="Quản lý góp ý" subtitle="Xem và phản hồi ý kiến từ nhân viên" showBack={false} />
         
         {statsQuery.data && (
           <View style={styles.statsContainer}>

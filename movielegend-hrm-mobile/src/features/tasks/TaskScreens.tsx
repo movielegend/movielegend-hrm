@@ -110,7 +110,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   return (
     <Screen>
       <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
-        <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" />
+        <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" showBack={false} />
         
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />
         
