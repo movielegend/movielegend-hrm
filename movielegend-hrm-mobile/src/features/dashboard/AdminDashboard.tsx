@@ -79,16 +79,21 @@ export function AdminDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: '#4338CA' }]}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
               ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{getInitials(user?.fullName)}</Text>
               )}
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName || 'Admin'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#C7D2FE' }}>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#4338CA' }}>ADMIN QUẢN TRỊ</Text>
+                </View>
+              </View>
+              <Text style={styles.userName}>{user?.fullName || 'System Admin'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
@@ -245,8 +250,8 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
 function GridCard({ title, icon, onPress }: any) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.cardIconBg}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+      <View style={[styles.cardIconBg, { backgroundColor: '#EEF2FF' }]}>
+        <MaterialCommunityIcons name={icon} size={26} color="#4338CA" />
       </View>
       <Text style={styles.cardTitle}>{title}</Text>
     </Pressable>

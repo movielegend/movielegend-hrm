@@ -86,15 +86,20 @@ export function HRDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: '#059669' }]}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
               ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{getInitials(user?.fullName)}</Text>
               )}
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <View style={{ backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#A7F3D0' }}>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#047857' }}>QUẢN TRỊ NHÂN SỰ</Text>
+                </View>
+              </View>
               <Text style={styles.userName}>{user?.fullName || 'HR Manager'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
@@ -345,8 +350,8 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
 function GridCard({ title, icon, onPress }: any) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.cardIconBg}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+      <View style={[styles.cardIconBg, { backgroundColor: '#ECFDF5' }]}>
+        <MaterialCommunityIcons name={icon} size={26} color="#059669" />
       </View>
       <Text style={styles.cardTitle}>{title}</Text>
     </Pressable>

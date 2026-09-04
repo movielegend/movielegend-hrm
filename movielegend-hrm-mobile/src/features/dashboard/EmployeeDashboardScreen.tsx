@@ -78,15 +78,20 @@ export function EmployeeDashboardScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: '#2563EB' }]}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
               ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{getInitials(user?.fullName)}</Text>
               )}
             </View>
           <View style={styles.headerInfo}>
-            <Text style={styles.greetingText}>Xin chào,</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.greetingText}>Xin chào 👋</Text>
+              <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' }}>
+                <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#1E40AF' }}>NHÂN VIÊN CHÍNH THỨC</Text>
+              </View>
+            </View>
             <Text style={styles.userName}>{fullName}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -279,8 +284,8 @@ export function EmployeeDashboardScreen() {
 function GridItem({ icon, title, onPress, color, badge }: any) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
-      <View style={styles.gridIconContainer}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+      <View style={[styles.gridIconContainer, { backgroundColor: '#EFF6FF' }]}>
+        <MaterialCommunityIcons name={icon} size={26} color="#2563EB" />
         {badge && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge}</Text>
