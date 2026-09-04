@@ -849,21 +849,18 @@ export function AdminAttendanceScreen() {
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }} edges={['top', 'left', 'right']}>
       <ScrollView 
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingTop: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}>
-              <Ionicons name="chevron-back" size={24} color="#111827" />
-            </Pressable>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: '#111827' }}>{isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}</Text>
-          </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 4 }}>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>
+            {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
+          </Text>
         </View>
 
         {/* Date Selector (Card đẹp mắt hơn) */}
