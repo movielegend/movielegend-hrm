@@ -12,7 +12,7 @@ export default function ApprovalsTabScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
-        <PageHeader title="Duyệt đơn từ" subtitle="Trung tâm xử lý yêu cầu của nhân viên" />
+        <PageHeader title="Duyệt đơn từ" subtitle="Trung tâm xử lý yêu cầu của nhân viên" showBack={false} />
         
         <View style={styles.grid}>
           <ApprovalCard 

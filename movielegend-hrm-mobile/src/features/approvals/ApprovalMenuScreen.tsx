@@ -14,13 +14,11 @@ export function ApprovalMenuScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.container} bounces={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
-          </Pressable>
-        </View>
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Duyệt đơn từ</Text>
 
         <View style={styles.list}>
@@ -76,23 +74,19 @@ function MenuRow({ icon, title, iconBg, iconColor, onPress }: any) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xxl,
     backgroundColor: '#F8FAFC',
     minHeight: '100%',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  backBtn: {
-    padding: 4,
-  },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: spacing.xl,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
+    letterSpacing: -0.5,
   },
   list: {
     gap: spacing.md,
@@ -108,11 +102,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -122,5 +118,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#0F172A',
-  }
+  },
 });
