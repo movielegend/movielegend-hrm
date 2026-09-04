@@ -344,9 +344,18 @@ export const AdminLevelConfigScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              // 1. Reset backend config via existing /admin/config endpoint
+              await levelingApi.saveAdminDepartmentConfig({
+                departmentId: selectedDeptId || 'dept-1',
+                departmentName: activeDept.name || 'Phòng ban',
+                year: selectedYear || 2026,
+                levels: [],
+              }).catch(() => {});
+
+              // 2. Reset backend via reset-data if available
               await apiClient.post('/leveling/admin/reset-data').catch(() => {});
 
-              // Delete all approved user level keys
+              // 3. Delete all approved user level keys in SecureStore
               const existingIdsRaw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
               if (existingIdsRaw) {
                 try {
@@ -358,14 +367,25 @@ export const AdminLevelConfigScreen: React.FC = () => {
                   }
                 } catch {}
               }
+
+              // Also clear current user approved level key
+              if (user?.id) {
+                await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+              }
+
               await SecureStore.deleteItemAsync('ALL_APPROVED_USER_IDS').catch(() => {});
               await SecureStore.deleteItemAsync('LEADER_ROUND1_SUBMITTED_USERS').catch(() => {});
               await SecureStore.deleteItemAsync('ADMIN_PENDING_ROUND1_REVIEWS').catch(() => {});
               await SecureStore.deleteItemAsync('ML_LEVEL_DEPARTMENT_PROJECTS_V6').catch(() => {});
 
+              // Save global data reset timestamp
+              const resetTime = Date.now();
+              await SecureStore.setItemAsync('LAST_DATA_RESET_TIMESTAMP', String(resetTime)).catch(() => {});
+
+              // 4. Broadcast socket reset event
               const socket = getSocket();
               if (socket) {
-                socket.emit('level:data_reset', {});
+                socket.emit('level:data_reset', { resetAt: resetTime });
               }
 
               setDeptLevelConfigs({});

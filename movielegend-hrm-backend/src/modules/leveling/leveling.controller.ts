@@ -41,6 +41,7 @@ export class LevelingController {
       levels: any[];
     },
   ) {
+    return this.levelingService.saveAdminDepartmentConfig(body);
   }
 
   @Post('admin/reset-data')

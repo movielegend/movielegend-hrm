@@ -147,6 +147,20 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     if (!user?.id) return;
     void (async () => {
       try {
+        const resetTimeStr = await SecureStore.getItemAsync('LAST_DATA_RESET_TIMESTAMP').catch(() => null);
+        const approvalTimeStr = await SecureStore.getItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => null);
+        const resetTime = resetTimeStr ? parseInt(resetTimeStr, 10) : 0;
+        const approvalTime = approvalTimeStr ? parseInt(approvalTimeStr, 10) : 0;
+
+        if (resetTime > 0 && approvalTime < resetTime) {
+          // Data was reset after approval => Clear approved level!
+          await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+          await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => {});
+          setApprovedLevelNumber(null);
+          setSelectedLevel(1);
+          return;
+        }
+
         const val = await SecureStore.getItemAsync(`USER_APPROVED_LEVEL_${user.id}`);
         if (val) {
           const num = parseInt(val, 10);
@@ -215,7 +229,11 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       }
     };
 
-    const handleDataReset = () => {
+    const handleDataReset = async () => {
+      if (user?.id) {
+        await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+        await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => {});
+      }
       setApprovedLevelNumber(null);
       setSelectedLevel(1);
     };

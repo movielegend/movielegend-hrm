@@ -182,7 +182,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
-    // Save level to SecureStore & emit real-time socket event
+    // Save level & approval timestamp to SecureStore & emit real-time socket event
     void (async () => {
       try {
         const raw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
@@ -190,6 +190,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
         const updated = Array.from(new Set([...(Array.isArray(existing) ? existing : []), item.employeeId]));
         await SecureStore.setItemAsync('ALL_APPROVED_USER_IDS', JSON.stringify(updated)).catch(() => {});
         await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber)).catch(() => {});
+        await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_TIME_${item.employeeId}`, String(Date.now())).catch(() => {});
       } catch {}
     })();
 
@@ -217,7 +218,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
-    // Save level to SecureStore & emit real-time socket event
+    // Save level & approval timestamp to SecureStore & emit real-time socket event
     void (async () => {
       try {
         const raw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
@@ -225,6 +226,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
         const updated = Array.from(new Set([...(Array.isArray(existing) ? existing : []), item.employeeId]));
         await SecureStore.setItemAsync('ALL_APPROVED_USER_IDS', JSON.stringify(updated)).catch(() => {});
         await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber)).catch(() => {});
+        await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_TIME_${item.employeeId}`, String(Date.now())).catch(() => {});
       } catch {}
     })();
 
