@@ -607,7 +607,7 @@ export function AttendanceHistoryScreen() {
           )
         ) : null}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
