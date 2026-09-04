@@ -8,16 +8,18 @@ interface PageHeaderProps {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  showBack?: boolean;
+  onBack?: () => void;
 }
 
-export function PageHeader({ title, subtitle, right, showBack }: PageHeaderProps & { showBack?: boolean }) {
+export function PageHeader({ title, subtitle, right, showBack = false, onBack }: PageHeaderProps) {
   const router = useRouter();
-  const shouldShowBack = showBack !== undefined ? showBack : router.canGoBack();
+  const shouldShowBack = showBack || !!onBack;
 
   return (
-    <View style={{ marginBottom: 16 }}>
+    <View style={styles.container}>
       {shouldShowBack && (
-        <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Quay lại">
+        <Pressable onPress={() => onBack ? onBack() : router.back()} style={styles.backBtn} accessibilityLabel="Quay lại">
           <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
         </Pressable>
       )}
@@ -35,6 +37,10 @@ export function PageHeader({ title, subtitle, right, showBack }: PageHeaderProps
 }
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+    marginTop: 4,
+  },
   copy: {
     flex: 1,
     gap: 4,

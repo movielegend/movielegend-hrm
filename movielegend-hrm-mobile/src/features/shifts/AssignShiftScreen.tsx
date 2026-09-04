@@ -180,15 +180,16 @@ export function AssignShiftScreen() {
 
   return (
     <Screen>
-      <PageHeader 
-        title="Phân Ca Làm Việc" 
-        subtitle="Chọn nhân viên và ca làm việc tương ứng" 
-      />
-
       <ScrollView 
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        showsVerticalScrollIndicator={false}
       >
+        <PageHeader 
+          title="Phân Ca Làm Việc" 
+          subtitle="Chọn nhân viên và ca làm việc tương ứng" 
+        />
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Thông tin phân ca</Text>
 
