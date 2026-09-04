@@ -58,26 +58,11 @@ export const AdminLevelConfigScreen: React.FC = () => {
     }
   }, [departments, selectedDeptId]);
 
-  // Default 12 Levels Config representing 12 Months of the Year
+  // Default 12 Levels Config representing 12 Months of the Year (Clean Template)
   const createDefault12Levels = (deptName: string, year: number): AdminLevelItem[] => {
     const colors = [
       '#64748B', '#2563EB', '#0D9488', '#7C3AED', '#EA580C', '#DC2626',
       '#D97706', '#881337', '#4F46E5', '#059669', '#0284C7', '#9333EA',
-    ];
-
-    const physicalRewards = [
-      'Voucher Sinh Nhật 200k',
-      'Kỷ Niệm Chương Thăng Cấp',
-      'Tai Nghe Bluetooth Chống Ồn',
-      'Máy Tính Bảng iPad Air',
-      'Laptop MacBook Air M3',
-      'Laptop MacBook Pro M-Series',
-      'MacBook Pro Max + 1 Cây Vàng 9999',
-      'Xe Công Vụ + Cổ Phần ESOP',
-      'Gói Nghỉ Dưỡng 5 Sao Gia Đình',
-      'Đồng Hồ Thông Minh Cao Cấp',
-      'Bộ Quà Tặng Tri Ân Đỉnh Cao',
-      'Kỳ Nghỉ Châu Âu + Thưởng Năm Lớn',
     ];
 
     return Array.from({ length: 12 }, (_, i) => {
@@ -87,18 +72,15 @@ export const AdminLevelConfigScreen: React.FC = () => {
         levelNumber: lvlNum,
         levelName: `Level ${lvlNum}`,
         colorHex: colors[i % colors.length] ?? '#2563EB',
-        rewardType: lvlNum === 1 ? 'CASH' : 'HYBRID',
-        promotionBonusAmount: (lvlNum - 1) * 2000000,
-        physicalItemName: physicalRewards[i % physicalRewards.length],
-        retentionFloorGmv: (lvlNum - 1) * 50,
-        promotionCeilingGmv: lvlNum * 100,
-        retentionMultiplier: Number((1.0 + (lvlNum - 1) * 0.15).toFixed(2)),
+        rewardType: 'HYBRID',
+        promotionBonusAmount: 0,
+        physicalItemName: '',
+        retentionFloorGmv: 0,
+        promotionCeilingGmv: 0,
+        retentionMultiplier: 1.0,
         project: {
-          projectName: `Dự Án Chinh Phục Level ${lvlNum} - Năm ${year} (${deptName})`,
-          subTaskBullets: [
-            `• Hoàn thành 100% chỉ tiêu KPI tháng cho Level ${lvlNum}`,
-            `• Thực hiện quy trình chuẩn hóa Level ${lvlNum} phòng ${deptName}`,
-          ],
+          projectName: '',
+          subTaskBullets: [],
         },
       };
     });
@@ -218,14 +200,14 @@ export const AdminLevelConfigScreen: React.FC = () => {
       levelName: `Level ${nextLevelNum}`,
       colorHex: '#0F172A',
       rewardType: 'HYBRID',
-      promotionBonusAmount: 25000000,
-      physicalItemName: `Quà Thưởng Đặc Biệt Level ${nextLevelNum} - Năm ${selectedYear}`,
-      retentionFloorGmv: 3000,
-      promotionCeilingGmv: 8000,
-      retentionMultiplier: 3.5,
+      promotionBonusAmount: 0,
+      physicalItemName: '',
+      retentionFloorGmv: 0,
+      promotionCeilingGmv: 0,
+      retentionMultiplier: 1.0,
       project: {
-        projectName: `Dự Án Thách Thức Level ${nextLevelNum} - Năm ${selectedYear} (${activeDept.name})`,
-        subTaskBullets: ['• Hoàn thành 100% KPI chỉ tiêu đặc biệt'],
+        projectName: '',
+        subTaskBullets: [],
       },
     };
 
@@ -358,7 +340,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
       id: d.id,
       name: d.name,
       totalLevels: list.length,
-      topRewardName: topItem ? topItem.physicalItemName : 'Kỳ Nghỉ Châu Âu + Thưởng Năm Lớn',
+      topRewardName: topItem && topItem.physicalItemName ? topItem.physicalItemName : 'Chưa cấu hình',
     };
   });
 

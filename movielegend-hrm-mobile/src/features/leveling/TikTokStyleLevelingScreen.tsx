@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../../providers/AuthProvider';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import {
@@ -139,10 +140,28 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Xác định vai trò cá nhân: Mỗi nhân sự chỉ xem lộ trình của chính mình
+  // Load level stored or approved from SecureStore
+  const [approvedLevelNumber, setApprovedLevelNumber] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void (async () => {
+      try {
+        const val = await SecureStore.getItemAsync(`USER_APPROVED_LEVEL_${user.id}`);
+        if (val) {
+          const num = parseInt(val, 10);
+          if (!isNaN(num)) {
+            setApprovedLevelNumber(num);
+          }
+        }
+      } catch {}
+    })();
+  }, [user?.id]);
+
+  // Dynamic Level Calculation
   const isLeader = Boolean(user?.roles?.includes('LEADER'));
   const userDisplayName = user?.fullName || user?.name || (isLeader ? 'Trưởng Nhóm' : 'Nhân Viên');
-  const currentUserLevelNumber = (user as any)?.levelNumber || (user as any)?.currentLevel || 1;
+  const currentUserLevelNumber = approvedLevelNumber || (user as any)?.levelNumber || (user as any)?.currentLevel || 1;
 
   // Hook into Level Projects & GMV store with logged-in user department
   const userDeptId = user?.department?.id;
@@ -159,7 +178,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
 
   const { getSocket } = useSocketStatus();
 
-  // Real-time synchronization when Admin saves / assigns projects to this department
+  // Real-time synchronization when Admin approves promotion or updates config
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -183,13 +202,32 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       }
     };
 
+    const handleUserPromoted = (payload: any) => {
+      if (payload && (payload.userId === user?.id || !payload.userId)) {
+        if (payload.targetLevelNumber) {
+          setApprovedLevelNumber(payload.targetLevelNumber);
+          setSelectedLevel(payload.targetLevelNumber);
+          Alert.alert(
+            'CHÚC MỪNG BẠN ĐÃ ĐƯỢC THĂNG CẤP!',
+            `Admin đã chốt phê duyệt thăng cấp cho bạn lên ${payload.targetLevelName || `Level ${payload.targetLevelNumber}`}!`
+          );
+        }
+      }
+    };
+
     socket.on('level:config:updated', handleConfigUpdated);
+    socket.on('level:user_promoted', handleUserPromoted);
     return () => {
       socket.off('level:config:updated', handleConfigUpdated);
+      socket.off('level:user_promoted', handleUserPromoted);
     };
-  }, [getSocket, userDeptId, userDeptName, setProjects, fetchProjects]);
+  }, [getSocket, userDeptId, userDeptName, setProjects, fetchProjects, user?.id]);
 
   const [selectedLevel, setSelectedLevel] = useState<number>(currentUserLevelNumber);
+
+  useEffect(() => {
+    setSelectedLevel(currentUserLevelNumber);
+  }, [currentUserLevelNumber]);
 
   // Base definition templates for Staff (1 -> 5)
   const staffLevelDefs = [
@@ -238,9 +276,8 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       projectTitle: 'Tối ưu năng suất chuyên sâu & Kèm cặp nhân sự mới',
       projectSub: 'Kèm cặp 1 nhân sự mới Level 1 & đề xuất 1 kịch bản chốt đơn',
       perks: [
-        { id: 'sp9', title: 'TAI NGHE BLUETOOTH CHỐNG ỒN', subtitle: 'Quà hiện vật cao cấp' },
-        { id: 'sp10', title: 'Thưởng nóng 3.000.000đ', subtitle: 'Trao thưởng trực tiếp' },
-        { id: 'sp11', title: 'Ngân sách học tập 2tr/năm', subtitle: 'Hỗ trợ nâng cao nghiệp vụ' },
+        { id: 'sp9', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
+        { id: 'sp10', title: 'Thưởng Nóng Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
         { id: 'sp12', title: 'Hệ số Ví Tết 1.25x', subtitle: 'Tăng 25% giá trị thưởng Tết' },
       ],
     },
@@ -252,12 +289,11 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       shiftCompletedText: 'Chỉ tiêu: Ca trực đỉnh điểm toàn phòng',
       slaPercentText: 'Yêu cầu SLA ca trực ≥ 96%',
       disciplineScoreText: 'Chuyên cần yêu cầu ≥ 95đ',
-      projectTitle: 'Dẫn dắt 10 phiên livestream đỉnh điểm',
-      projectSub: 'Đào tạo kỹ năng xử lý phản hồi và chốt đơn cho team',
+      projectTitle: 'Dự án Level 4 thăng cấp',
+      projectSub: 'Thực hiện các mục tiêu theo phân công',
       perks: [
-        { id: 'sp13', title: 'MÁY TÍNH BẢNG IPAD AIR 4K', subtitle: 'Quà hiện vật thăng cấp' },
-        { id: 'sp14', title: 'Thưởng nóng 5.000.000đ', subtitle: 'Trao thưởng bằng tiền mặt' },
-        { id: 'sp15', title: 'BH Sức khỏe Cao Cấp', subtitle: 'Chăm sóc y tế tư nhân' },
+        { id: 'sp13', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
+        { id: 'sp14', title: 'Thưởng Nóng Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
         { id: 'sp16', title: 'Hệ số Ví Tết 1.4x', subtitle: 'Tăng 40% giá trị thưởng Tết' },
       ],
     },
@@ -266,15 +302,14 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       levelName: 'Level 5',
       titleName: 'Chuyên Gia Nòng Cốt',
       nextTierTitle: 'Cấp Tối Đa',
-      shiftCompletedText: 'Chỉ tiêu: Chủ trì Mega Live chiến lược',
+      shiftCompletedText: 'Chỉ tiêu: Chủ trì chiến dịch lớn',
       slaPercentText: 'Yêu cầu SLA ca trực ≥ 98%',
       disciplineScoreText: 'Chuyên cần yêu cầu ≥ 95đ',
-      projectTitle: 'Chủ trì các chiến dịch Mega Live lớn',
-      projectSub: 'Xây dựng giáo trình đào tạo nghiệp vụ Streamer mới',
+      projectTitle: 'Dự án Level 5 thăng cấp',
+      projectSub: 'Thực hiện các mục tiêu theo phân công',
       perks: [
-        { id: 'sp17', title: 'LAPTOP MACBOOK AIR M3', subtitle: 'Trang bị công việc cao cấp' },
-        { id: 'sp18', title: 'Thưởng nóng 8.000.000đ', subtitle: 'Thưởng cống hiến vượt bậc' },
-        { id: 'sp19', title: 'Phụ cấp nòng cốt 1.500.000đ/th', subtitle: 'Cộng hàng tháng' },
+        { id: 'sp17', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
+        { id: 'sp18', title: 'Thưởng Nóng Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
         { id: 'sp20', title: 'Hệ số Ví Tết 1.5x', subtitle: 'Tăng 50% giá trị thưởng Tết' },
       ],
     },
@@ -291,11 +326,9 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       slaPercentText: 'Yêu cầu SLA ca trực ≥ 90%',
       disciplineScoreText: 'Chuyên cần yêu cầu ≥ 85đ',
       projectTitle: 'Dự Án Level 1: Vận Hành Ca Live Cơ Bản',
-      projectSub: 'Thực hiện 10 việc con chuẩn bị & vận hành phòng live',
+      projectSub: 'Thực hiện việc con chuẩn bị & vận hành phòng live',
       perks: [
         { id: 'lp01', title: 'Hệ số Ví Tết 1.0x', subtitle: 'Thưởng Tết cơ bản' },
-        { id: 'lp02', title: 'Phụ cấp gửi xe', subtitle: 'Hỗ trợ 100% chi phí' },
-        { id: 'lp03', title: 'Voucher sinh nhật', subtitle: 'Trị giá 200.000đ' },
       ],
     },
     {
@@ -306,10 +339,9 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       shiftCompletedText: 'Chỉ tiêu: Điều phối ca trực độc lập',
       slaPercentText: 'Yêu cầu SLA ca trực ≥ 92%',
       disciplineScoreText: 'Chuyên cần yêu cầu ≥ 90đ',
-      projectTitle: 'Dự Án Level 2: Vận Hành Độc Lập & Bứt Phá Doanh Số',
-      projectSub: 'Phân bổ và thực hiện 10 việc con chuyên sâu',
+      projectTitle: 'Dự Án Level 2',
+      projectSub: 'Thực hiện các việc con theo phân công',
       perks: [
-        { id: 'lp04', title: 'Thưởng nóng 2.000.000đ', subtitle: 'Thưởng mốc thâm niên' },
         { id: 'lp05', title: 'Hệ số Ví Tết 1.1x', subtitle: 'Tăng 10% thưởng Tết' },
       ],
     },
@@ -318,13 +350,12 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       levelName: 'Level 3',
       titleName: 'Cấp Tinh Anh',
       nextTierTitle: 'Level 4',
-      shiftCompletedText: 'Chỉ tiêu: Quản trị phiên Mega Live',
+      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực',
       slaPercentText: 'Yêu cầu SLA ca trực ≥ 95%',
       disciplineScoreText: 'Chuyên cần yêu cầu ≥ 95đ',
-      projectTitle: 'Dự Án Level 3: Tối Ưu Doanh Số & Kịch Bản Lớn',
-      projectSub: 'Thực hiện các chiến dịch Mega Live doanh số lớn',
+      projectTitle: 'Dự Án Level 3',
+      projectSub: 'Thực hiện các việc con theo phân công',
       perks: [
-        { id: 'lp06', title: 'Thưởng nóng 3.000.000đ', subtitle: 'Thưởng mốc tinh anh' },
         { id: 'lp07', title: 'Hệ số Ví Tết 1.25x', subtitle: 'Tăng 25% thưởng Tết' },
       ],
     },
@@ -336,13 +367,10 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       shiftCompletedText: 'Chỉ tiêu: Quản trị vận hành toàn team',
       slaPercentText: 'Yêu cầu SLA toàn phòng ≥ 95%',
       disciplineScoreText: 'Kỷ luật toàn team: 100% không sự cố',
-      projectTitle: 'Tối ưu lịch ca trực & vận hành toàn phòng',
-      projectSub: 'Hoàn thành 30 ca đỉnh điểm toàn team không gián đoạn',
+      projectTitle: 'Dự Án Level 4',
+      projectSub: 'Hoàn thành nhiệm vụ toàn team',
       perks: [
-        { id: 'lp1', title: 'Thưởng nóng 5.000.000đ', subtitle: 'Thưởng hiệu suất quản lý' },
-        { id: 'lp2', title: 'Phụ cấp quản lý 1.500.000đ/th', subtitle: 'Cộng hàng tháng' },
         { id: 'lp3', title: 'Hệ số Ví Tết Quản Trị 1.4x', subtitle: 'Tăng 40% thưởng Tết' },
-        { id: 'lp4', title: 'Kỷ niệm chương Cống hiến', subtitle: 'Ghi nhận cống hiến' },
       ],
     },
     {
@@ -353,12 +381,10 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực toàn phòng',
       slaPercentText: 'Yêu cầu SLA toàn phòng ≥ 98%',
       disciplineScoreText: 'Kỷ luật toàn team: 100% chuẩn quy trình',
-      projectTitle: 'Bứt phá doanh số & Đảm bảo các ca đỉnh điểm',
-      projectSub: 'Đảm nhận các ca đỉnh điểm & đạt tỷ lệ Task SLA ≥ 98%',
+      projectTitle: 'Dự Án Level 5',
+      projectSub: 'Đảm nhận nhiệm vụ thăng cấp',
       perks: [
-        { id: 'lp5', title: 'MACBOOK AIR M3 + XE MÁY CÔNG VỤ', subtitle: 'Trang bị làm việc cao cấp' },
-        { id: 'lp6', title: 'Thưởng nóng 8.000.000đ', subtitle: 'Thưởng thành tích quý' },
-        { id: 'lp7', title: 'Phụ cấp quản trị 2.000.000đ/th', subtitle: 'Cộng hàng tháng' },
+        { id: 'lp5', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
         { id: 'lp8', title: 'Hệ số Ví Tết Quản Trị 1.6x', subtitle: 'Tăng 60% thưởng Tết' },
       ],
     },
@@ -367,15 +393,13 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       levelName: 'Level 6',
       titleName: 'Leader Quản Trị Cấp Cao',
       nextTierTitle: 'Level 7',
-      shiftCompletedText: 'Chỉ tiêu: 100 ca trực chất lượng cao',
+      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực chất lượng cao',
       slaPercentText: 'Yêu cầu SLA Task toàn phòng ≥ 98%',
       disciplineScoreText: 'Kỷ luật toàn team: Duy trì 100%',
-      projectTitle: 'Ban hành quy trình chuẩn SOP & Đào tạo nội bộ',
-      projectSub: 'Xây dựng bộ quy trình chuẩn SOP + Đào tạo nhân sự',
+      projectTitle: 'Dự Án Level 6',
+      projectSub: 'Xây dựng quy trình chuẩn & đào tạo nhân sự',
       perks: [
-        { id: 'lp9', title: 'MACBOOK PRO + IPHONE PRO MAX', subtitle: 'Bộ đôi công nghệ đỉnh cao' },
-        { id: 'lp10', title: 'Thưởng nóng 15.000.000đ', subtitle: 'Thưởng lãnh đạo xuất sắc' },
-        { id: 'lp11', title: 'Phụ cấp quản trị 3.500.000đ/th', subtitle: 'Cộng hàng tháng' },
+        { id: 'lp9', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
         { id: 'lp12', title: 'Hệ số Ví Tết Quản Trị 2.0x', subtitle: 'Nhân đôi giá trị thưởng Tết' },
       ],
     },
@@ -384,15 +408,13 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       levelName: 'Level 7',
       titleName: 'Quản Lý Chiến Lược',
       nextTierTitle: 'Level 8',
-      shiftCompletedText: 'Chỉ tiêu: 150 ca trực quy mô lớn',
+      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực quy mô lớn',
       slaPercentText: 'Yêu cầu SLA Task toàn phòng: 100%',
       disciplineScoreText: 'Kỷ luật: Đào tạo nhân sự nòng cốt',
-      projectTitle: 'Mở rộng quy mô phòng livestream 24/7',
-      projectSub: 'Xây dựng mô hình các phòng studio hoạt động liên tục 24/7',
+      projectTitle: 'Dự Án Level 7',
+      projectSub: 'Phát triển vận hành phòng live',
       perks: [
-        { id: 'lp13', title: 'MACBOOK PRO MAX + 1 CÂY VÀNG 9999', subtitle: 'Đãi ngộ lãnh đạo cấp cao' },
-        { id: 'lp14', title: 'Thưởng nóng 30.000.000đ', subtitle: 'Thưởng hoàn thành chiến lược' },
-        { id: 'lp15', title: 'Phụ cấp quản trị 5.000.000đ/th', subtitle: 'Cộng hàng tháng' },
+        { id: 'lp13', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
         { id: 'lp16', title: 'Hệ số Ví Tết Quản Trị 2.5x', subtitle: 'Gấp 2.5 lần thưởng Tết' },
       ],
     },
@@ -401,15 +423,13 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       levelName: 'Level 8',
       titleName: 'Thủ Lĩnh Tinh Anh',
       nextTierTitle: 'Cấp Tối Đa',
-      shiftCompletedText: 'Chỉ tiêu: 200 ca trực toàn công ty',
+      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực toàn công ty',
       slaPercentText: 'Duy trì hiệu suất SLA: 100%',
       disciplineScoreText: 'Xây dựng đội ngũ kế thừa vững chắc',
-      projectTitle: 'Phát triển hệ sinh thái mở rộng MovieLegend',
-      projectSub: 'Dẫn dắt toàn bộ các chi nhánh đạt mốc tăng trưởng kỷ lục',
+      projectTitle: 'Dự Án Level 8',
+      projectSub: 'Phát triển mô hình phòng live',
       perks: [
-        { id: 'lp17', title: 'XE Ô TÔ CÔNG VỤ + CỔ PHẦN ESOP', subtitle: 'Đặc quyền cấp thủ lĩnh' },
-        { id: 'lp18', title: 'Thưởng nóng 50.000.000đ', subtitle: 'Thưởng cống hiến đặc biệt' },
-        { id: 'lp19', title: 'Phụ cấp nòng cốt 10.000.000đ/th', subtitle: 'Cộng hàng tháng' },
+        { id: 'lp17', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
         { id: 'lp20', title: 'Hệ số Ví Tết Quản Trị 3.0x', subtitle: 'Gấp 3 lần thưởng Tết' },
       ],
     },

@@ -30,7 +30,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
   const { getAssignedSubTasksForUser, submitSubTask } = useLevelProjects(empDeptId, empDeptName);
 
   const currentUserId = user?.id;
-  const currentUserName = user?.fullName || 'Trần Thị B';
+  const currentUserName = user?.fullName || user?.userCode || '';
 
   // Real-time reactive assigned subtasks for this employee
   const assignedItems = getAssignedSubTasksForUser(currentUserId, currentUserName);

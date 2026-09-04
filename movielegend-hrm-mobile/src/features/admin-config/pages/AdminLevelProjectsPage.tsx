@@ -154,6 +154,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
           <Text style={styles.inputLabel}>Tên Dự Án Lớn Thăng Cấp (Level {activeFocusedLevel.levelNumber}):</Text>
           <TextInput
             style={styles.input}
+            placeholder="Nhập tên dự án thăng cấp..."
             value={activeFocusedLevel.project.projectName}
             onChangeText={(txt) => onUpdateLevelProjectName(activeFocusedLevel.levelNumber, txt)}
           />

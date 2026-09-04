@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,10 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
+import { useLevelProjects } from '../leveling/levelProjectsStore';
+import { useSocketStatus } from '../../providers/SocketProvider';
 
 export interface SubTaskProgressItem {
   id: string;
@@ -48,6 +51,7 @@ export interface AdminReviewItem {
 
 export const AdminMonthlyReviewScreen: React.FC = () => {
   const { data: realDeptData, isLoading: isDeptLoading } = useDepartments({ limit: 100 });
+  const { getSocket } = useSocketStatus();
   const realDeptList = realDeptData?.data || realDeptData?.items || (Array.isArray(realDeptData) ? realDeptData : []);
   const departments = realDeptList.map((d: any) => ({ id: d.id || d._id, name: d.name || 'Phòng ban' }));
 
@@ -63,278 +67,110 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
   };
 
   // Staff Level Review Items
-  const [staffItems, setStaffItems] = useState<Record<string, AdminReviewItem[]>>({
-    'dept-1': [
-      {
-        id: 'staff-rev-1',
-        employeeId: 'emp-101',
-        userName: 'Trần Thị B (Chuyên Viên Livestream)',
-        userRole: 'STAFF',
-        departmentId: 'dept-1',
-        departmentName: 'Livestream Hà Nội',
-        currentLevelNumber: 2,
-        currentLevelName: 'Level 2',
-        targetLevelNumber: 3,
-        targetLevelName: 'Level 3',
-        projectName: 'Dự Án Level 3: Tối Ưu Năng Suất Chuyên Sâu Ca Live',
-        rewardPhysicalItem: 'Tai nghe Bluetooth Chống ồn cao cấp',
-        promotionBonusAmount: 3000000,
-        retentionMultiplier: 1.25,
-        subTasks: [
-          {
-            id: 'st-1',
-            bulletTitle: '• Đạt tổng Doanh số KPI cá nhân 300 Trđ',
-            assigneeName: 'Trần Thị B',
-            assigneeRole: 'Chủ trì ca chính',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Đã chủ trì 14 ca livestream thời trang cao điểm, chốt tổng cộng 1.840 đơn hàng thành công, mang về doanh thu thực tế 320.500.000 VNĐ (Vượt 6.8% chỉ tiêu ban đầu).',
-            targetMetric: '300.000.000 VNĐ',
-            achievedMetric: '320.500.000 VNĐ (106.8%)',
-            proofNotes: 'Hệ thống POS & TikTok Shop đối soát doanh thu tự động khớp 100%.',
-            verifiedBy: 'Leader Phạm Minh H đã ký nghiệm thu',
-          },
-          {
-            id: 'st-2',
-            bulletTitle: '• Hướng dẫn & kèm cặp 1 nhân sự mới Level 1',
-            assigneeName: 'Trần Thị B (Kèm cặp Nguyễn Văn D)',
-            assigneeRole: 'Người hướng dẫn',
-            completionRate: 90,
-            status: 'IN_PROGRESS',
-            actualResultDescription: 'Đã trực tiếp đứng ca hỗ trợ nhân sự mới Nguyễn Văn D trong 12 ca live thực tế. Hướng dẫn thành thạo kỹ năng tương tác chốt đơn, xử lý bình luận khiếu nại và kỹ thuật điều khiển màn hình live.',
-            targetMetric: 'Kèm cặp 1 nhân sự tự chủ đứng ca',
-            achievedMetric: 'Nguyễn Văn D đã tự vận hành độc lập 4 ca live đạt đánh giá 4.8/5 sao',
-            proofNotes: 'Biên bản đánh giá kèm cặp nội bộ có xác nhận của nhân sự mới.',
-            verifiedBy: 'HR & Leader phòng ban xác nhận',
-          },
-          {
-            id: 'st-3',
-            bulletTitle: '• Đề xuất 1 kịch bản chốt đơn ngắn đỉnh điểm',
-            assigneeName: 'Trần Thị B',
-            assigneeRole: 'Sáng tạo nội dung',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Xây dựng hoàn chỉnh kịch bản Flash Sale 15 phút "Khung Giờ Vàng Chốt Nhanh 100 Đơn", đã được đưa vào ứng dụng thực tế cho 8 phiên live trong tuần của team, tăng 32% tỷ lệ chuyển đổi đơn hàng.',
-            targetMetric: '1 Kịch bản được áp dụng thực tế',
-            achievedMetric: 'Áp dụng thành công cho 8 ca live, tỷ lệ chốt đơn tăng 32%',
-            proofNotes: 'Kịch bản lưu trữ tại thư mục tài liệu SOP chuẩn của team.',
-            verifiedBy: 'Leader duyệt áp dụng toàn team',
-          },
-        ],
-        overallProjectProgress: 96,
-        status: 'PENDING',
-      },
-      {
-        id: 'staff-rev-2',
-        employeeId: 'emp-103',
-        userName: 'Nguyễn Văn C (Nhân Viên Kỹ Thuật Live)',
-        userRole: 'STAFF',
-        departmentId: 'dept-1',
-        departmentName: 'Livestream Hà Nội',
-        currentLevelNumber: 1,
-        currentLevelName: 'Level 1',
-        targetLevelNumber: 2,
-        targetLevelName: 'Level 2',
-        projectName: 'Dự Án Level 2: Làm Chủ Hệ Thống Kỹ Thuật Ca Live',
-        rewardPhysicalItem: 'Kỷ niệm chương thăng cấp chính thức',
-        promotionBonusAmount: 1000000,
-        retentionMultiplier: 1.1,
-        subTasks: [
-          {
-            id: 'st-4',
-            bulletTitle: '• Vận hành 100% ca Live không gián đoạn tín hiệu',
-            assigneeName: 'Nguyễn Văn C',
-            assigneeRole: 'Kỹ thuật chính',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Trực kỹ thuật 28 ca livestream studio liên tục, tỷ lệ rớt sóng 0%, đảm bảo đường truyền ổn định full HD và âm thanh rõ nét suốt toàn bộ các ca.',
-            targetMetric: '100% ca không gián đoạn',
-            achievedMetric: 'Đạt 28/28 ca trực chuẩn kỹ thuật tuyệt đối',
-            proofNotes: 'Nhật ký vận hành OBS & Log hệ thống đường truyền không có sự cố.',
-            verifiedBy: 'IT Lead & Team Leader nghiệm thu',
-          },
-          {
-            id: 'st-5',
-            bulletTitle: '• Kiểm tra bảo trì thiết bị âm thanh ánh sáng ca trực',
-            assigneeName: 'Nguyễn Văn C',
-            assigneeRole: 'Bảo trì thiết bị',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Đã hoàn thành bảo dưỡng định kỳ 4 cụm đèn softbox, cân chỉnh 6 micro cài áo không dây và vệ sinh hệ thống tản nhiệt camera cho 2 studio chính.',
-            targetMetric: 'Bảo dưỡng 100% thiết bị phòng live',
-            achievedMetric: 'Hoàn tất nghiệm thu 10 cụm thiết bị âm thanh - ánh sáng',
-            proofNotes: 'Biên bản bàn giao thiết bị phòng thu tháng 09/2026.',
-            verifiedBy: 'Quản lý tài sản studio ký duyệt',
-          },
-        ],
-        overallProjectProgress: 100,
-        status: 'APPROVED',
-      },
-    ],
-    'dept-2': [
-      {
-        id: 'staff-rev-3',
-        employeeId: 'emp-104',
-        userName: 'Lê Văn E (Streamer HCM)',
-        userRole: 'STAFF',
-        departmentId: 'dept-2',
-        departmentName: 'Livestream HCM',
-        currentLevelNumber: 3,
-        currentLevelName: 'Level 3',
-        targetLevelNumber: 4,
-        targetLevelName: 'Level 4',
-        projectName: 'Dự Án Level 4: Chinh Phục Cột Mốc 500 Triệu Doanh Số',
-        rewardPhysicalItem: 'Máy tính bảng iPad Air Màn 4K',
-        promotionBonusAmount: 5000000,
-        retentionMultiplier: 1.4,
-        subTasks: [
-          {
-            id: 'st-6',
-            bulletTitle: '• Đạt tổng Doanh số KPI 500Trđ cá nhân',
-            assigneeName: 'Lê Văn E',
-            assigneeRole: 'Main Host Live',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Đạt doanh thu cá nhân 515.000.000 VNĐ qua 16 ca live bán hàng gia dụng thông minh, thu hút 128.000 lượt xem trực tiếp.',
-            targetMetric: '500.000.000 VNĐ',
-            achievedMetric: '515.000.000 VNĐ (103%)',
-            proofNotes: 'Báo cáo doanh số tự động từ TikTok Shop Creator Analytics.',
-            verifiedBy: 'Leader Livestream HCM duyệt',
-          },
-          {
-            id: 'st-7',
-            bulletTitle: '• Dẫn dắt 10 phiên livestream bán hàng đỉnh điểm',
-            assigneeName: 'Lê Văn E',
-            assigneeRole: 'Main Host Live',
-            completionRate: 95,
-            status: 'COMPLETED',
-            actualResultDescription: 'Dẫn dắt 10 ca live sự kiện Big Campaign của nhãn hàng, duy trì lượng mắt xem liên tục trên 1.200 người trong suốt 3 giờ phát sóng.',
-            targetMetric: '10 Phiên Mega Live',
-            achievedMetric: 'Hoàn thành 10/10 phiên Mega Live xuất sắc',
-            proofNotes: 'Báo cáo số liệu ca phát sóng của agency.',
-            verifiedBy: 'Leader Livestream HCM nghiệm thu',
-          },
-        ],
-        overallProjectProgress: 97,
-        status: 'PENDING',
-      },
-    ],
-  });
+  const [staffItems, setStaffItems] = useState<Record<string, AdminReviewItem[]>>({});
 
   // Leader Level Review Items
-  const [leaderItems, setLeaderItems] = useState<Record<string, AdminReviewItem[]>>({
-    'dept-1': [
-      {
-        id: 'ldr-rev-1',
-        employeeId: 'emp-leader-1',
-        userName: 'Phạm Minh H (Leader Phòng Livestream HN)',
-        userRole: 'LEADER',
-        departmentId: 'dept-1',
-        departmentName: 'Livestream Hà Nội',
-        currentLevelNumber: 5,
-        currentLevelName: 'Level 5',
-        targetLevelNumber: 6,
-        targetLevelName: 'Level 6',
-        projectName: 'Dự Án Level 6: Quản Trị & Bứt Phá Doanh Số 1.5 Tỷ Toàn Team',
-        rewardPhysicalItem: 'Laptop MacBook Pro M-Series + iPhone 15 Pro Max',
-        promotionBonusAmount: 15000000,
-        retentionMultiplier: 2.0,
-        subTasks: [
-          {
-            id: 'lst-1',
-            bulletTitle: '• Xây dựng bộ quy trình chuẩn vận hành cho toàn phòng',
-            assigneeName: 'Phạm Minh H',
-            assigneeRole: 'Leader phòng ban',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Đã hoàn thành ban hành Bộ SOP Vận hành Livestream Chuẩn gồm 5 giai đoạn: Chuẩn bị thiết bị - Set kịch bản - Tương tác ca - Xử lý khủng hoảng - Báo cáo sau ca live. Giảm 85% lỗi phát sinh trong ca trực của team.',
-            targetMetric: '1 Bộ quy trình chuẩn SOP áp dụng toàn phòng',
-            achievedMetric: 'Đã đào tạo & áp dụng 100% cho 18 nhân sự trong phòng',
-            proofNotes: 'Văn bản SOP mã số SOP-LS-2026 đã được BĐH phê duyệt chính thức.',
-            verifiedBy: 'Admin / Ban Điều Hành xác nhận',
-          },
-          {
-            id: 'lst-2',
-            bulletTitle: '• Đạt tổng Doanh số toàn phòng Livestream HN 1.5 Tỷđ',
-            assigneeName: 'Phạm Minh H & Toàn team HN',
-            assigneeRole: 'Quản lý doanh số',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Điều phối lịch trực và tối ưu hóa 6 khung giờ vàng cho 6 phòng studio, đưa tổng doanh thu toàn phòng Livestream Hà Nội đạt 1.580.000.000 VNĐ (Vượt 80 triệu so với chỉ tiêu giao).',
-            targetMetric: '1.500.000.000 VNĐ',
-            achievedMetric: '1.580.000.000 VNĐ (105.3%)',
-            proofNotes: 'Số liệu đối soát doanh thu đã được Kế toán trưởng ký xác nhận.',
-            verifiedBy: 'Admin / Giám đốc Vận hành',
-          },
-          {
-            id: 'lst-3',
-            bulletTitle: '• Đào tạo 2 nhân sự từ Level 2 thăng cấp lên Level 3',
-            assigneeName: 'Phạm Minh H',
-            assigneeRole: 'Đào tạo & Quản trị',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Tổ chức 6 buổi đào tạo nâng cao kỹ năng dẫn dắt và xử lý kịch bản cho 2 nhân sự Trần Thị B và Hoàng Thu H; cả 2 đều đã hoàn thành dự án cá nhân và đủ điều kiện thăng cấp Level 3 trong đợt này.',
-            targetMetric: '2 Nhân sự hoàn thành dự án Level 3',
-            achievedMetric: '2/2 Nhân sự đạt chỉ tiêu thăng cấp xuất sắc',
-            proofNotes: 'Hồ sơ đánh giá năng lực của 2 nhân sự trên hệ thống HRM.',
-            verifiedBy: 'Phòng Nhân sự HR nghiệm thu',
-          },
-        ],
-        overallProjectProgress: 100,
-        status: 'PENDING',
-      },
-    ],
-    'dept-2': [
-      {
-        id: 'ldr-rev-2',
-        employeeId: 'emp-leader-2',
-        userName: 'Nguyễn Văn A (Leader Livestream HCM)',
-        userRole: 'LEADER',
-        departmentId: 'dept-2',
-        departmentName: 'Livestream HCM',
-        currentLevelNumber: 4,
-        currentLevelName: 'Level 4',
-        targetLevelNumber: 5,
-        targetLevelName: 'Level 5',
-        projectName: 'Dự Án Level 5: Bứt Phá Doanh Số 1 Tỷđ & Quản Trị Đỉnh Cao',
-        rewardPhysicalItem: 'Laptop MacBook Air M3 + Xe Máy Công Vụ',
-        promotionBonusAmount: 8000000,
-        retentionMultiplier: 1.6,
-        subTasks: [
-          {
-            id: 'lst-4',
-            bulletTitle: '• Đảm nhận và hoàn thành 30 ca đỉnh điểm toàn team',
-            assigneeName: 'Nguyễn Văn A',
-            assigneeRole: 'Team Leader',
-            completionRate: 100,
-            status: 'COMPLETED',
-            actualResultDescription: 'Trực tiếp chỉ đạo và điều phối 30 ca live cao điểm chiến dịch mua sắm cuối tháng, không phát sinh sự cố về giá bán hoặc tồn kho.',
-            targetMetric: '30 Ca đỉnh điểm',
-            achievedMetric: 'Hoàn thành 30/30 ca đúng tiến độ cam kết',
-            proofNotes: 'Bảng theo dõi lịch ca trực và tỷ lệ hoàn thành SLA ca.',
-            verifiedBy: 'Ban Giám Đốc xác nhận',
-          },
-          {
-            id: 'lst-5',
-            bulletTitle: '• Tỷ lệ hoàn thành Task SLA phòng ban ≥ 98%',
-            assigneeName: 'Nguyễn Văn A',
-            assigneeRole: 'Team Leader',
-            completionRate: 99,
-            status: 'COMPLETED',
-            actualResultDescription: 'Toàn bộ 240 công việc được giao cho nhân sự trong tháng đều được hoàn thành đúng thời hạn quy định, tỷ lệ đạt 99.2% (vượt mốc cam kết 98%).',
-            targetMetric: 'Tỷ lệ SLA ≥ 98%',
-            achievedMetric: 'Đạt 99.2% (238/240 task đúng hạn)',
-            proofNotes: 'Dữ liệu đo lường tự động từ module Task Management.',
-            verifiedBy: 'Hệ thống HRM tự động kiểm chứng',
-          },
-        ],
-        overallProjectProgress: 99,
-        status: 'PENDING',
-      },
-    ],
-  });
+  const [leaderItems, setLeaderItems] = useState<Record<string, AdminReviewItem[]>>({});
 
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0] || { id: 'dept-1', name: 'Livestream Hà Nội' };
+
+  const { projects } = useLevelProjects(selectedDeptId, activeDept.name);
+
+  useEffect(() => {
+    if (!Array.isArray(projects) || projects.length === 0) return;
+
+    const userTaskMap = new Map<string, {
+      employeeId: string;
+      userName: string;
+      userRole: 'STAFF' | 'LEADER';
+      levelNumber: number;
+      levelName: string;
+      projectName: string;
+      subTasks: SubTaskProgressItem[];
+      total: number;
+      approved: number;
+    }>();
+
+    projects.forEach((proj) => {
+      (proj.subTasks || []).forEach((st) => {
+        if (!st.assignedToUserId && !st.assignedToUserName) return;
+
+        const uid = st.assignedToUserId || st.assignedToUserName || 'unknown';
+        const uname = st.assignedToUserName || 'Nhân sự';
+        const isLeader = uname.toLowerCase().includes('leader') || uname.toLowerCase().includes('trưởng');
+
+        const existing = userTaskMap.get(uid) || {
+          employeeId: uid,
+          userName: uname,
+          userRole: isLeader ? 'LEADER' : 'STAFF',
+          levelNumber: proj.levelNumber,
+          levelName: proj.levelName,
+          projectName: proj.projectName,
+          subTasks: [],
+          total: 0,
+          approved: 0,
+        };
+
+        existing.total += 1;
+        if (st.status === 'LEADER_APPROVED') existing.approved += 1;
+
+        existing.subTasks.push({
+          id: st.id,
+          bulletTitle: `• ${st.title}`,
+          assigneeName: uname,
+          assigneeRole: isLeader ? 'Leader' : 'Nhân viên',
+          completionRate: st.status === 'LEADER_APPROVED' ? 100 : st.status === 'SUBMITTED' ? 50 : 0,
+          status: st.status === 'LEADER_APPROVED' ? 'COMPLETED' : st.status === 'SUBMITTED' ? 'IN_PROGRESS' : 'NOT_STARTED',
+          actualResultDescription: st.submissionNote || (st.status === 'LEADER_APPROVED' ? 'Leader đã hoàn tất duyệt Vòng 1' : 'Chưa hoàn thành'),
+          targetMetric: st.targetKpi || '100% Nghiệm thu',
+          achievedMetric: st.status === 'LEADER_APPROVED' ? 'Đã duyệt Vòng 1' : 'Đang thực hiện',
+          proofNotes: st.evidenceUrl ? `Minh chứng: ${st.evidenceUrl}` : 'Đã đối soát hồ sơ',
+          verifiedBy: 'Leader phòng ban xác nhận',
+        });
+
+        userTaskMap.set(uid, existing);
+      });
+    });
+
+    const staffCandidateList: AdminReviewItem[] = [];
+    const leaderCandidateList: AdminReviewItem[] = [];
+
+    userTaskMap.forEach((val) => {
+      const progress = val.total > 0 ? Math.round((val.approved / val.total) * 100) : 0;
+      const reviewItem: AdminReviewItem = {
+        id: `rev-${val.employeeId}`,
+        employeeId: val.employeeId,
+        userName: val.userName,
+        userRole: val.userRole,
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        currentLevelNumber: val.levelNumber,
+        currentLevelName: val.levelName,
+        targetLevelNumber: val.levelNumber + 1,
+        targetLevelName: `Level ${val.levelNumber + 1}`,
+        projectName: val.projectName,
+        rewardPhysicalItem: 'Quà hiện vật theo cấu hình Level',
+        promotionBonusAmount: 0,
+        retentionMultiplier: 1.2,
+        subTasks: val.subTasks,
+        overallProjectProgress: progress,
+        status: 'PENDING',
+      };
+
+      if (val.userRole === 'LEADER') {
+        leaderCandidateList.push(reviewItem);
+      } else {
+        staffCandidateList.push(reviewItem);
+      }
+    });
+
+    if (staffCandidateList.length > 0) {
+      setStaffItems((prev) => ({ ...prev, [selectedDeptId]: staffCandidateList }));
+    }
+    if (leaderCandidateList.length > 0) {
+      setLeaderItems((prev) => ({ ...prev, [selectedDeptId]: leaderCandidateList }));
+    }
+  }, [projects, selectedDeptId, activeDept.name]);
 
   const currentStaffDeptItems = staffItems[selectedDeptId] || staffItems['dept-1'] || [];
   const currentLeaderDeptItems = leaderItems[selectedDeptId] || leaderItems['dept-1'] || [];
@@ -346,9 +182,21 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
+    // Save level to SecureStore & emit real-time socket event
+    void SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber));
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('level:user_promoted', {
+        userId: item.employeeId,
+        targetLevelNumber: item.targetLevelNumber,
+        targetLevelName: item.targetLevelName,
+        userName: item.userName,
+      });
+    }
+
     Alert.alert(
       'CHỐT PHÊ DUYỆT THĂNG CẤP NHÂN VIÊN!',
-      `Đã duyệt thăng cấp cho Nhân viên: ${item.userName}\n\n• Cấp bậc mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x`,
+      `Đã duyệt thăng cấp cho Nhân viên: ${item.userName}\n\n• Cấp bậc mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x\n\nLevel của nhân viên đã được cập nhật Real-time!`,
       [{ text: 'Đóng' }]
     );
   };
@@ -360,9 +208,21 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
+    // Save level to SecureStore & emit real-time socket event
+    void SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber));
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('level:user_promoted', {
+        userId: item.employeeId,
+        targetLevelNumber: item.targetLevelNumber,
+        targetLevelName: item.targetLevelName,
+        userName: item.userName,
+      });
+    }
+
     Alert.alert(
       'CHỐT PHÊ DUYỆT THĂNG CẤP LEADER / QUẢN LÝ!',
-      `Đã duyệt thăng cấp quản trị cho Leader: ${item.userName}\n\n• Vị trí Level mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x`,
+      `Đã duyệt thăng cấp quản trị cho Leader: ${item.userName}\n\n• Vị trí Level mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x\n\nLevel của Leader đã được cập nhật Real-time!`,
       [{ text: 'Đóng' }]
     );
   };
@@ -821,17 +681,17 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
 
                   <View style={styles.summaryStatGrid}>
                     <View style={styles.statBoxCard}>
-                      <Text style={styles.statBoxNumber}>12 Nhân Sự</Text>
+                      <Text style={styles.statBoxNumber}>0 Nhân Sự</Text>
                       <Text style={styles.statBoxLabel}>Tổng Đã Phê Duyệt Thăng Cấp</Text>
                     </View>
 
                     <View style={styles.statBoxCard}>
-                      <Text style={styles.statBoxNumber}>48.000.000 VNĐ</Text>
+                      <Text style={styles.statBoxNumber}>0 VNĐ</Text>
                       <Text style={styles.statBoxLabel}>Tổng Thưởng Nóng Tiền Mặt</Text>
                     </View>
 
                     <View style={styles.statBoxCard}>
-                      <Text style={styles.statBoxNumber}>5 MacBook, 4 iPad</Text>
+                      <Text style={styles.statBoxNumber}>0 Quà</Text>
                       <Text style={styles.statBoxLabel}>Quà Thưởng Hiện Vật Đã Trao</Text>
                     </View>
                   </View>

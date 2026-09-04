@@ -82,14 +82,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       return [leaderItem, ...mapped];
     }
 
-    return [
-      leaderItem,
-      { id: 'u-1', name: 'Trần Thị B', rawName: 'Trần Thị B', role: 'Host Livestream', isMe: false },
-      { id: 'u-2', name: 'Lê Văn C', rawName: 'Lê Văn C', role: 'Kỹ Thuật Live', isMe: false },
-      { id: 'u-3', name: 'Nguyễn Thị D', rawName: 'Nguyễn Thị D', role: 'Trợ Lý Live', isMe: false },
-      { id: 'u-4', name: 'Phạm Văn E', rawName: 'Phạm Văn E', role: 'Chuyên Viên Kho', isMe: false },
-      { id: 'u-5', name: 'Đỗ Hoàng G', rawName: 'Đỗ Hoàng G', role: 'Host Tập Sự', isMe: false },
-    ];
+    return [leaderItem];
   }, [realEmployees, currentLeaderId, currentLeaderName]);
 
   const filteredTeamList = useMemo(() => {

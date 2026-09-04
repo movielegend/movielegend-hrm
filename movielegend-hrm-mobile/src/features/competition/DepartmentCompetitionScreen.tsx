@@ -24,42 +24,12 @@ export interface DepartmentMemberContribution {
 export const DepartmentCompetitionScreen: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState<'LIVESTREAM' | 'HR' | 'WAREHOUSE' | 'CSKH' | 'MKT'>('LIVESTREAM');
 
-  // Dummy member data for drill-down view
-  const members: DepartmentMemberContribution[] = [
-    {
-      id: '1',
-      name: 'Nguyễn Văn A',
-      role: 'Team Leader',
-      assignedTasks: 25,
-      completedTaskRate: 96,
-      overdueRate: 4,
-      directRevenue: 1200000000,
-      teamContributionRate: 40,
-      rating360: 4.9,
-    },
-    {
-      id: '2',
-      name: 'Trần Thị B',
-      role: 'Streamer chính',
-      assignedTasks: 18,
-      completedTaskRate: 100,
-      overdueRate: 0,
-      directRevenue: 950000000,
-      teamContributionRate: 32,
-      rating360: 5.0,
-    },
-    {
-      id: '3',
-      name: 'Lê Văn C',
-      role: 'Kỹ thuật Live',
-      assignedTasks: 22,
-      completedTaskRate: 86,
-      overdueRate: 14,
-      directRevenue: 850000000,
-      teamContributionRate: 28,
-      rating360: 4.2,
-    },
-  ];
+  // Member data for drill-down view
+  const members: DepartmentMemberContribution[] = [];
+
+  const top1 = members[0];
+  const top2 = members[1];
+  const top3 = members[2];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,120 +74,99 @@ export const DepartmentCompetitionScreen: React.FC = () => {
           </TouchableOpacity>
         </ScrollView>
 
-        {/* Head-to-Head Battle Banner (Livestream HN vs HCM) */}
-        {selectedDept === 'LIVESTREAM' && (
-          <View style={styles.battleCard}>
-            <View style={styles.battleHeader}>
-              <Ionicons name="flame" size={20} color="#DC2626" />
-              <Text style={styles.battleTitle}>ĐỌ SỨC DOANH SỐ TIKTOK LIVE THÁNG 9</Text>
-            </View>
-
-            <View style={styles.battleProgressBarBg}>
-              <View style={[styles.battleProgressHn, { width: '55%' }]} />
-              <View style={[styles.battleProgressHcm, { width: '45%' }]} />
-            </View>
-
-            <View style={styles.battleTeamRow}>
-              <View style={styles.battleTeamBox}>
-                <Text style={styles.teamHnText}>🔵 Livestream Hà Nội</Text>
-                <Text style={styles.battleRevenue}>1.410.000.000 VNĐ</Text>
-                <Text style={styles.battleSub}>70.5% Target | 4,210 Đơn</Text>
-              </View>
-
-              <Text style={styles.vsText}>VS</Text>
-
-              <View style={styles.battleTeamBox}>
-                <Text style={styles.teamHcmText}>🔴 Livestream HCM</Text>
-                <Text style={styles.battleRevenue}>1.250.000.000 VNĐ</Text>
-                <Text style={styles.battleSub}>62.5% Target | 3,890 Đơn</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         {/* Podium Leaderboard */}
-        <View style={styles.podiumSection}>
-          <Text style={styles.sectionTitle}>🏆 Bảng Xếp Hạng Top 3 Phong Hiệu</Text>
-          
-          <View style={styles.podiumRow}>
-            {/* Rank 2 */}
-            <View style={styles.podiumItem}>
-              <Ionicons name="medal" size={32} color="#9CA3AF" />
-              <Text style={styles.podiumName}>Trần Thị B</Text>
-              <Text style={styles.podiumRole}>Streamer chính</Text>
-              <View style={[styles.podiumBar, { height: 70, backgroundColor: '#E5E7EB' }]}>
-                <Text style={styles.podiumRank}>#2</Text>
+        {members.length > 0 ? (
+          <View style={styles.podiumSection}>
+            <Text style={styles.sectionTitle}>🏆 Bảng Xếp Hạng Top 3 Phong Hiệu</Text>
+            
+            <View style={styles.podiumRow}>
+              {/* Rank 2 */}
+              <View style={styles.podiumItem}>
+                <Ionicons name="medal" size={32} color="#9CA3AF" />
+                <Text style={styles.podiumName}>{top2?.name || '---'}</Text>
+                <Text style={styles.podiumRole}>{top2?.role || ''}</Text>
+                <View style={[styles.podiumBar, { height: 70, backgroundColor: '#E5E7EB' }]}>
+                  <Text style={styles.podiumRank}>#2</Text>
+                </View>
               </View>
-            </View>
 
-            {/* Rank 1 */}
-            <View style={styles.podiumItem}>
-              <Ionicons name="crown" size={40} color="#D97706" />
-              <Text style={[styles.podiumName, { color: '#B45309', fontWeight: 'bold' }]}>Nguyễn Văn A</Text>
-              <Text style={styles.podiumRole}>Team Leader</Text>
-              <View style={[styles.podiumBar, { height: 95, backgroundColor: '#FEF3C7' }]}>
-                <Text style={[styles.podiumRank, { color: '#B45309' }]}>#1</Text>
+              {/* Rank 1 */}
+              <View style={styles.podiumItem}>
+                <Ionicons name="crown" size={40} color="#D97706" />
+                <Text style={[styles.podiumName, { color: '#B45309', fontWeight: 'bold' }]}>{top1?.name || '---'}</Text>
+                <Text style={styles.podiumRole}>{top1?.role || ''}</Text>
+                <View style={[styles.podiumBar, { height: 95, backgroundColor: '#FEF3C7' }]}>
+                  <Text style={[styles.podiumRank, { color: '#B45309' }]}>#1</Text>
+                </View>
               </View>
-            </View>
 
-            {/* Rank 3 */}
-            <View style={styles.podiumItem}>
-              <Ionicons name="medal" size={32} color="#D97706" />
-              <Text style={styles.podiumName}>Lê Văn C</Text>
-              <Text style={styles.podiumRole}>Kỹ thuật Live</Text>
-              <View style={[styles.podiumBar, { height: 55, backgroundColor: '#FFEDD5' }]}>
-                <Text style={styles.podiumRank}>#3</Text>
+              {/* Rank 3 */}
+              <View style={styles.podiumItem}>
+                <Ionicons name="medal" size={32} color="#D97706" />
+                <Text style={styles.podiumName}>{top3?.name || '---'}</Text>
+                <Text style={styles.podiumRole}>{top3?.role || ''}</Text>
+                <View style={[styles.podiumBar, { height: 55, backgroundColor: '#FFEDD5' }]}>
+                  <Text style={styles.podiumRank}>#3</Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        ) : null}
 
         {/* Team Member Drill-down Contribution Table */}
         <View style={styles.drilldownSection}>
-          <Text style={styles.sectionTitle}>📊 Chi Tiết Đóng Góp Cá Nhân Trong Team (Gồm cả Leader)</Text>
-          <Text style={styles.drilldownSub}>Đánh giá tỷ lệ hoàn thành Task & giá trị đóng góp thực tế:</Text>
+          <Text style={styles.sectionTitle}>📊 Chi Tiết Đóng Góp Cá Nhân Trong Team</Text>
 
-          {members.map((member) => (
-            <View key={member.id} style={styles.memberCard}>
-              <View style={styles.memberHeaderRow}>
-                <View style={styles.memberInfoGroup}>
-                  <Text style={styles.memberName}>{member.name}</Text>
-                  <View style={[styles.roleBadge, member.role.includes('Leader') ? styles.leaderBadge : styles.staffBadge]}>
-                    <Text style={styles.roleText}>{member.role}</Text>
+          {members.length === 0 ? (
+            <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="trophy-outline" size={48} color="#9CA3AF" />
+              <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 8, fontWeight: '500' }}>
+                Chưa có dữ liệu thi đua phòng ban.
+              </Text>
+            </View>
+          ) : (
+            members.map((member) => (
+              <View key={member.id} style={styles.memberCard}>
+                <View style={styles.memberHeaderRow}>
+                  <View style={styles.memberInfoGroup}>
+                    <Text style={styles.memberName}>{member.name}</Text>
+                    <View style={[styles.roleBadge, member.role.includes('Leader') ? styles.leaderBadge : styles.staffBadge]}>
+                      <Text style={styles.roleText}>{member.role}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.ratingBox}>
+                    <Ionicons name="star" size={14} color="#D97706" />
+                    <Text style={styles.ratingText}>{member.rating360} / 5</Text>
                   </View>
                 </View>
-                <View style={styles.ratingBox}>
-                  <Ionicons name="star" size={14} color="#D97706" />
-                  <Text style={styles.ratingText}>{member.rating360} / 5</Text>
+
+                <View style={styles.metricGrid}>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Tỷ lệ Hoàn thành Task</Text>
+                    <Text style={styles.metricValueGreen}>{member.completedTaskRate}%</Text>
+                    <Text style={styles.metricSub}>({member.assignedTasks} Task được giao)</Text>
+                  </View>
+
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Tỷ lệ Trễ hạn Task</Text>
+                    <Text style={member.overdueRate > 10 ? styles.metricValueRed : styles.metricValueGray}>
+                      {member.overdueRate}%
+                    </Text>
+                  </View>
+
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Doanh số Tác động</Text>
+                    <Text style={styles.metricValueBold}>{(member.directRevenue / 1000000).toLocaleString()} tr</Text>
+                  </View>
+
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>% Đóng góp vào Team</Text>
+                    <Text style={styles.metricValueOrange}>{member.teamContributionRate}%</Text>
+                  </View>
                 </View>
               </View>
-
-              <View style={styles.metricGrid}>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Tỷ lệ Hoàn thành Task</Text>
-                  <Text style={styles.metricValueGreen}>{member.completedTaskRate}%</Text>
-                  <Text style={styles.metricSub}>({member.assignedTasks} Task được giao)</Text>
-                </View>
-
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Tỷ lệ Trễ hạn Task</Text>
-                  <Text style={member.overdueRate > 10 ? styles.metricValueRed : styles.metricValueGray}>
-                    {member.overdueRate}%
-                  </Text>
-                </View>
-
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Doanh số Tác động</Text>
-                  <Text style={styles.metricValueBold}>{(member.directRevenue / 1000000).toLocaleString()} tr</Text>
-                </View>
-
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>% Đóng góp vào Team</Text>
-                  <Text style={styles.metricValueOrange}>{member.teamContributionRate}%</Text>
-                </View>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

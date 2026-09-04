@@ -88,13 +88,13 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
 
             <View style={styles.rewardContentBox}>
               <Text style={styles.rewardTitle}>
-                Quà Hiện Vật: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName}</Text>
+                Quà Hiện Vật: <Text style={styles.rewardTitleBold}>{lvl.physicalItemName || 'Chưa cấu hình'}</Text>
               </Text>
               <Text style={styles.rewardBonus}>
-                Thưởng nóng thăng cấp: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ
+                Thưởng nóng thăng cấp: {lvl.promotionBonusAmount > 0 ? `${lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ` : 'Chưa nhập'}
               </Text>
               <Text style={styles.rewardBonus}>
-                Hệ số Ví Điểm Tết: {lvl.retentionMultiplier}x
+                Hệ số Ví Điểm Tết: {lvl.retentionMultiplier || 1.0}x
               </Text>
             </View>
           </View>

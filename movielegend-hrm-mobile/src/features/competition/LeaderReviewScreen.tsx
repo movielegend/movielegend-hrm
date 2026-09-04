@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import * as SecureStore from 'expo-secure-store';
+import { useAuth } from '../../providers/AuthProvider';
+import { useSocketStatus } from '../../providers/SocketProvider';
+import { useLevelProjects } from '../leveling/levelProjectsStore';
+
 export interface LeaderReviewItem {
   userId: string;
   userName: string;
@@ -22,29 +27,98 @@ export interface LeaderReviewItem {
   note: string;
 }
 
+const SUBMITTED_KEY = 'LEADER_ROUND1_SUBMITTED_USERS';
+const ADMIN_REVIEWS_KEY = 'ADMIN_PENDING_ROUND1_REVIEWS';
+
 export const LeaderReviewScreen: React.FC = () => {
-  const [reviews, setReviews] = useState<LeaderReviewItem[]>([
-    {
-      userId: 'usr-1',
-      userName: 'Trần Thị B',
-      currentLevelName: 'Level 2 - Chính thức',
-      currentLevelNumber: 2,
-      taskCompletionRate: 100,
-      actualMetricValue: '950.000.000 VNĐ',
-      recommendation: 'RECOMMEND_PROMOTION',
-      note: 'Nhân sự hoàn thành 100% Task, chốt đơn rất xuất sắc trong ca Live.',
-    },
-    {
-      userId: 'usr-2',
-      userName: 'Lê Văn C',
-      currentLevelName: 'Level 1 - Thực tập',
-      currentLevelNumber: 1,
-      taskCompletionRate: 86,
-      actualMetricValue: '850.000.000 VNĐ',
-      recommendation: 'RETAIN_LEVEL',
-      note: 'Hỗ trợ kỹ thuật tốt nhưng còn trễ 3 Task kiểm kê thiết bị.',
-    },
-  ]);
+  const { user } = useAuth();
+  const { getSocket } = useSocketStatus();
+  const leaderDeptId = (user as any)?.departmentId || user?.department?.id;
+  const leaderDeptName = user?.department?.name || (user as any)?.departmentName;
+
+  const { projects } = useLevelProjects(leaderDeptId, leaderDeptName);
+  const [reviews, setReviews] = useState<LeaderReviewItem[]>([]);
+  const [submittedUserIds, setSubmittedUserIds] = useState<string[]>([]);
+
+  // Load previously submitted candidate IDs
+  useEffect(() => {
+    void (async () => {
+      try {
+        const stored = await SecureStore.getItemAsync(SUBMITTED_KEY);
+        if (stored) {
+          const ids = JSON.parse(stored);
+          if (Array.isArray(ids)) {
+            setSubmittedUserIds(ids);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!Array.isArray(projects) || projects.length === 0) return;
+
+    // Map to group subtasks by assigned employee
+    const userTaskMap = new Map<string, {
+      userName: string;
+      levelNumber: number;
+      levelName: string;
+      total: number;
+      approved: number;
+      submitted: number;
+      bulletTitles: string[];
+    }>();
+
+    projects.forEach((proj) => {
+      (proj.subTasks || []).forEach((st) => {
+        if (!st.assignedToUserId && !st.assignedToUserName) return;
+
+        const uid = st.assignedToUserId || st.assignedToUserName || 'unknown';
+        const uname = st.assignedToUserName || 'Nhân sự';
+
+        // Skip candidates already submitted to Admin
+        if (submittedUserIds.includes(uid)) return;
+
+        const existing = userTaskMap.get(uid) || {
+          userName: uname,
+          levelNumber: proj.levelNumber,
+          levelName: proj.levelName,
+          total: 0,
+          approved: 0,
+          submitted: 0,
+          bulletTitles: [],
+        };
+
+        existing.total += 1;
+        if (st.status === 'LEADER_APPROVED') {
+          existing.approved += 1;
+        } else if (st.status === 'SUBMITTED') {
+          existing.submitted += 1;
+        }
+
+        if (st.title) existing.bulletTitles.push(st.title);
+        userTaskMap.set(uid, existing);
+      });
+    });
+
+    const dynamicCandidates: LeaderReviewItem[] = Array.from(userTaskMap.entries()).map(([uid, val]) => {
+      const rate = val.total > 0 ? Math.round((val.approved / val.total) * 100) : 0;
+      return {
+        userId: uid,
+        userName: val.userName,
+        currentLevelName: val.levelName,
+        currentLevelNumber: val.levelNumber,
+        taskCompletionRate: rate,
+        actualMetricValue: `${val.approved}/${val.total} việc con đã duyệt Vòng 1`,
+        recommendation: rate >= 80 ? 'RECOMMEND_PROMOTION' : 'RETAIN_LEVEL',
+        note: val.approved > 0
+          ? `Leader đã duyệt Vòng 1 cho ${val.approved}/${val.total} việc con ở ${val.levelName}.`
+          : `Đã giao ${val.total} việc con ở ${val.levelName}.`,
+      };
+    });
+
+    setReviews(dynamicCandidates);
+  }, [projects, submittedUserIds]);
 
   const handleRecommendationChange = (userId: string, newRec: 'RECOMMEND_PROMOTION' | 'RETAIN_LEVEL' | 'REJECT') => {
     setReviews((prev) =>
@@ -59,15 +133,48 @@ export const LeaderReviewScreen: React.FC = () => {
   };
 
   const handleSubmitReviews = () => {
+    if (reviews.length === 0) {
+      Alert.alert('Thông báo', 'Không có nhân sự nào cần duyệt Vòng 1.');
+      return;
+    }
+
     Alert.alert(
       'Xác Nhận Gửi Duyệt Vòng 1',
-      'Bạn có chắc chắn muốn gửi kết quả đánh giá thi đua Vòng 1 lên Admin phê duyệt cuối tháng?',
+      `Bạn có chắc chắn muốn gửi kết quả đánh giá thi đua Vòng 1 của ${reviews.length} nhân sự lên Admin phê duyệt cuối tháng?`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Gửi Duyệt',
-          onPress: () => {
-            Alert.alert('Thành Công', 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin!');
+          onPress: async () => {
+            try {
+              const newSubmittedIds = reviews.map((r) => r.userId);
+              const updatedSubmitted = Array.from(new Set([...submittedUserIds, ...newSubmittedIds]));
+              setSubmittedUserIds(updatedSubmitted);
+              await SecureStore.setItemAsync(SUBMITTED_KEY, JSON.stringify(updatedSubmitted));
+
+              // Persist submitted reviews for Admin screen
+              const existingAdminReviewsRaw = await SecureStore.getItemAsync(ADMIN_REVIEWS_KEY);
+              const existingAdminReviews = existingAdminReviewsRaw ? JSON.parse(existingAdminReviewsRaw) : [];
+              const combined = [...(Array.isArray(existingAdminReviews) ? existingAdminReviews : []), ...reviews];
+              await SecureStore.setItemAsync(ADMIN_REVIEWS_KEY, JSON.stringify(combined));
+
+              // Broadcast socket event
+              const socket = getSocket();
+              if (socket) {
+                socket.emit('level:round1_submitted', {
+                  leaderUserId: user?.id,
+                  departmentId: leaderDeptId,
+                  submittedReviews: reviews,
+                });
+              }
+
+              Alert.alert(
+                'Thành Công',
+                'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin thành công! Danh sách đã được gạch bỏ khỏi trang duyệt Vòng 1 của Leader.'
+              );
+            } catch {
+              Alert.alert('Thành Công', 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin!');
+            }
           },
         },
       ]
@@ -86,8 +193,16 @@ export const LeaderReviewScreen: React.FC = () => {
           </View>
         </View>
 
-        {reviews.map((item) => (
-          <View key={item.userId} style={styles.reviewCard}>
+        {reviews.length === 0 ? (
+          <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="documents-outline" size={48} color="#9CA3AF" />
+            <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 8, fontWeight: '500' }}>
+              Chưa có đề xuất thi đua nào cần duyệt trong đợt này.
+            </Text>
+          </View>
+        ) : (
+          reviews.map((item) => (
+            <View key={item.userId} style={styles.reviewCard}>
             <View style={styles.cardHeader}>
               <Text style={styles.userName}>{item.userName}</Text>
               <View style={styles.levelBadge}>
@@ -157,7 +272,7 @@ export const LeaderReviewScreen: React.FC = () => {
               placeholder="Nhập nhận xét về tinh thần làm việc, thái độ..."
             />
           </View>
-        ))}
+        )))}
 
         <TouchableOpacity style={styles.submitBtn} onPress={handleSubmitReviews}>
           <Ionicons name="send" size={18} color="#FFFFFF" />
