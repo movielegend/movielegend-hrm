@@ -401,6 +401,7 @@ export class LevelingService {
   public clearAllData() {
     this.departmentConfigs.clear();
     this.departmentProjects.clear();
+    this.projects = [];
     this.gmvConfigs.forEach((c) => {
       c.currentGmv = 0;
     });
@@ -409,6 +410,9 @@ export class LevelingService {
       if (fs.existsSync(CONFIG_STORAGE_FILE)) fs.unlinkSync(CONFIG_STORAGE_FILE);
       if (fs.existsSync(PROJECT_STORAGE_FILE)) fs.unlinkSync(PROJECT_STORAGE_FILE);
     } catch {}
+
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:data_reset', { resetAt: Date.now() });
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:config:updated', { reset: true, levels: [] });
 
     return { success: true, message: 'Đã xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án & GMV!' };
   }

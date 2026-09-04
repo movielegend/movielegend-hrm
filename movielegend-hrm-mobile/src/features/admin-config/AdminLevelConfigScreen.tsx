@@ -102,11 +102,18 @@ export const AdminLevelConfigScreen: React.FC = () => {
     void levelingApi
       .getAdminDepartmentConfig(selectedDeptId, selectedYear, activeDept.name)
       .then((data) => {
-        if (isMounted && Array.isArray(data) && data.length > 0) {
-          setDeptLevelConfigs((prev) => ({
-            ...prev,
-            [currentConfigKey]: data,
-          }));
+        if (isMounted) {
+          if (Array.isArray(data) && data.length > 0) {
+            setDeptLevelConfigs((prev) => ({
+              ...prev,
+              [currentConfigKey]: data,
+            }));
+          } else {
+            setDeptLevelConfigs((prev) => ({
+              ...prev,
+              [currentConfigKey]: createDefault12Levels(activeDept.name, selectedYear),
+            }));
+          }
         }
       })
       .catch(() => {});
@@ -132,12 +139,18 @@ export const AdminLevelConfigScreen: React.FC = () => {
       }
     };
 
+    const handleDataReset = () => {
+      setDeptLevelConfigs({});
+    };
+
     socket.on('level:config:updated', handleLevelConfigUpdated);
     socket.on('level:updated', handleLevelConfigUpdated);
+    socket.on('level:data_reset', handleDataReset);
 
     return () => {
       socket.off('level:config:updated', handleLevelConfigUpdated);
       socket.off('level:updated', handleLevelConfigUpdated);
+      socket.off('level:data_reset', handleDataReset);
     };
   }, [selectedDeptId, selectedYear, getSocket]);
 
