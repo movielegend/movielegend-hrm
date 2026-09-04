@@ -109,10 +109,7 @@ export function LeaderApprovalScreen() {
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
         <View style={[styles.header, shadows.sm]}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
-          </Pressable>
-          <View>
+          <View style={{ paddingVertical: 4 }}>
             <Text style={styles.headerTitle}>Phê duyệt Đơn từ</Text>
             <Text style={styles.headerSubtitle}>Xem xét và quyết định</Text>
           </View>

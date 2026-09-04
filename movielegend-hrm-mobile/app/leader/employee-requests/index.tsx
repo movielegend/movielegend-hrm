@@ -81,9 +81,6 @@ export default function LeaderRequestsScreen() {
     <Screen>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
-          </Pressable>
           <View>
             <Text style={styles.title}>Duyệt Yêu Cầu</Text>
             <View style={styles.dateSelector}>

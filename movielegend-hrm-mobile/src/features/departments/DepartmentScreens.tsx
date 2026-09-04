@@ -84,6 +84,7 @@ export function DepartmentListScreen() {
         <PageHeader
           title="Phòng ban"
           subtitle="Sơ đồ tổ chức công ty"
+          showBack={false}
           right={
             canCreate ? (
               <Pressable style={styles.addBtn} onPress={() => router.push(branchId ? `/admin/branches/${branchId}/departments/create` : '/admin/departments/create')}>

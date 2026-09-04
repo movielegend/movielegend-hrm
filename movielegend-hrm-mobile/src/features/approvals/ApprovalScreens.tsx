@@ -45,7 +45,7 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
   return (
     <Screen>
       <ScreenContainer>
-        <PageHeader title={title} subtitle="Quản lý và xét duyệt các yêu cầu đăng ký tài khoản mới của nhân viên." />
+        <PageHeader title={title} subtitle="Quản lý và xét duyệt các yêu cầu đăng ký tài khoản mới của nhân viên." showBack={false} />
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm theo tên, mã hoặc số điện thoại" />
         <View style={styles.filterRow}>
           {statuses.map((item) => <FilterChip key={item ?? 'ALL'} label={item ? (statusLabels[item] || item) : 'Tất cả'} selected={status === item} onPress={() => setStatus(item)} />)}
