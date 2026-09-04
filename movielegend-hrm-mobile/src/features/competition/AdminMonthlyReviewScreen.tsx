@@ -183,7 +183,16 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
     });
 
     // Save level to SecureStore & emit real-time socket event
-    void SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber));
+    void (async () => {
+      try {
+        const raw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
+        const existing = raw ? JSON.parse(raw) : [];
+        const updated = Array.from(new Set([...(Array.isArray(existing) ? existing : []), item.employeeId]));
+        await SecureStore.setItemAsync('ALL_APPROVED_USER_IDS', JSON.stringify(updated)).catch(() => {});
+        await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber)).catch(() => {});
+      } catch {}
+    })();
+
     const socket = getSocket();
     if (socket) {
       socket.emit('level:user_promoted', {
@@ -209,7 +218,16 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
     });
 
     // Save level to SecureStore & emit real-time socket event
-    void SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber));
+    void (async () => {
+      try {
+        const raw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
+        const existing = raw ? JSON.parse(raw) : [];
+        const updated = Array.from(new Set([...(Array.isArray(existing) ? existing : []), item.employeeId]));
+        await SecureStore.setItemAsync('ALL_APPROVED_USER_IDS', JSON.stringify(updated)).catch(() => {});
+        await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${item.employeeId}`, String(item.targetLevelNumber)).catch(() => {});
+      } catch {}
+    })();
+
     const socket = getSocket();
     if (socket) {
       socket.emit('level:user_promoted', {

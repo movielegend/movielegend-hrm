@@ -215,225 +215,55 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       }
     };
 
+    const handleDataReset = () => {
+      setApprovedLevelNumber(null);
+      setSelectedLevel(1);
+    };
+
     socket.on('level:config:updated', handleConfigUpdated);
     socket.on('level:user_promoted', handleUserPromoted);
+    socket.on('level:data_reset', handleDataReset);
     return () => {
       socket.off('level:config:updated', handleConfigUpdated);
       socket.off('level:user_promoted', handleUserPromoted);
+      socket.off('level:data_reset', handleDataReset);
     };
   }, [getSocket, userDeptId, userDeptName, setProjects, fetchProjects, user?.id]);
 
   const [selectedLevel, setSelectedLevel] = useState<number>(currentUserLevelNumber);
-
-  useEffect(() => {
-    setSelectedLevel(currentUserLevelNumber);
-  }, [currentUserLevelNumber]);
-
-  // Base definition templates for Staff (1 -> 5)
-  const staffLevelDefs = [
-    {
-      levelNumber: 1,
-      levelName: 'Level 1',
-      titleName: 'Cấp Khởi Động',
-      nextTierTitle: 'Level 2',
+  // Base definition templates for Staff (1 -> 12)
+  const staffLevelDefs = Array.from({ length: 12 }, (_, i) => {
+    const lvl = i + 1;
+    return {
+      levelNumber: lvl,
+      levelName: `Level ${lvl}`,
+      titleName: `Cấp Bậc Level ${lvl}`,
+      nextTierTitle: lvl < 12 ? `Level ${lvl + 1}` : 'Cấp Tối Đa',
       shiftCompletedText: 'Chỉ tiêu: Theo phân công phòng ban',
       slaPercentText: 'Yêu cầu SLA ca trực ≥ 90%',
       disciplineScoreText: 'Chuyên cần yêu cầu ≥ 85đ',
-      projectTitle: 'Nhập môn quy trình vận hành ca livestream',
-      projectSub: 'Nắm vững 100% kịch bản kiểm tra tín hiệu & thiết bị ca live',
-      perks: [
-        { id: 'sp1', title: 'Hệ số Ví Tết 1.0x', subtitle: 'Thưởng Tết cơ bản' },
-        { id: 'sp2', title: 'Phụ cấp gửi xe', subtitle: 'Hỗ trợ 100% chi phí' },
-        { id: 'sp3', title: 'Voucher sinh nhật', subtitle: 'Trị giá 200.000đ' },
-        { id: 'sp4', title: 'Chứng nhận Tân Binh', subtitle: 'Ghi nhận gia nhập' },
-      ],
-    },
-    {
-      levelNumber: 2,
-      levelName: 'Level 2',
-      titleName: 'Cấp Thâm Niên',
-      nextTierTitle: 'Level 3',
-      shiftCompletedText: 'Chỉ tiêu: Vận hành ca độc lập',
-      slaPercentText: 'Yêu cầu SLA ca trực ≥ 92%',
-      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 90đ',
-      projectTitle: 'Kỹ thuật vận hành độc lập ca live',
-      projectSub: 'Chủ động điều phối 100% ca Live không gián đoạn tín hiệu',
-      perks: [
-        { id: 'sp5', title: 'Thưởng nóng 1.000.000đ', subtitle: 'Chi trả vào lương' },
-        { id: 'sp6', title: 'Hệ số Ví Tết 1.1x', subtitle: 'Tăng 10% thưởng Tết' },
-        { id: 'sp7', title: 'Bảo hiểm Y tế / Tai nạn', subtitle: 'Bảo trợ toàn diện' },
-        { id: 'sp8', title: 'Kỷ niệm chương Thâm niên', subtitle: 'Khen thưởng quý' },
-      ],
-    },
-    {
-      levelNumber: 3,
-      levelName: 'Level 3',
-      titleName: 'Chuyên Viên Livestream',
-      nextTierTitle: 'Level 4',
-      shiftCompletedText: 'Chỉ tiêu: Dẫn dắt ca chuyên sâu',
-      slaPercentText: 'Yêu cầu SLA ca trực ≥ 95%',
-      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 90đ',
-      projectTitle: 'Tối ưu năng suất chuyên sâu & Kèm cặp nhân sự mới',
-      projectSub: 'Kèm cặp 1 nhân sự mới Level 1 & đề xuất 1 kịch bản chốt đơn',
-      perks: [
-        { id: 'sp9', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'sp10', title: 'Thưởng Nóng Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'sp12', title: 'Hệ số Ví Tết 1.25x', subtitle: 'Tăng 25% giá trị thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 4,
-      levelName: 'Level 4',
-      titleName: 'Chuyên Viên Cao Cấp',
-      nextTierTitle: 'Level 5',
-      shiftCompletedText: 'Chỉ tiêu: Ca trực đỉnh điểm toàn phòng',
-      slaPercentText: 'Yêu cầu SLA ca trực ≥ 96%',
-      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 95đ',
-      projectTitle: 'Dự án Level 4 thăng cấp',
-      projectSub: 'Thực hiện các mục tiêu theo phân công',
-      perks: [
-        { id: 'sp13', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'sp14', title: 'Thưởng Nóng Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'sp16', title: 'Hệ số Ví Tết 1.4x', subtitle: 'Tăng 40% giá trị thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 5,
-      levelName: 'Level 5',
-      titleName: 'Chuyên Gia Nòng Cốt',
-      nextTierTitle: 'Cấp Tối Đa',
-      shiftCompletedText: 'Chỉ tiêu: Chủ trì chiến dịch lớn',
-      slaPercentText: 'Yêu cầu SLA ca trực ≥ 98%',
-      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 95đ',
-      projectTitle: 'Dự án Level 5 thăng cấp',
-      projectSub: 'Thực hiện các mục tiêu theo phân công',
-      perks: [
-        { id: 'sp17', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'sp18', title: 'Thưởng Nóng Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'sp20', title: 'Hệ số Ví Tết 1.5x', subtitle: 'Tăng 50% giá trị thưởng Tết' },
-      ],
-    },
-  ];
+      projectTitle: `Dự Án Level ${lvl}`,
+      projectSub: 'Chưa giao việc con nào',
+      perks: [] as LevelPerkItem[],
+    };
+  });
 
-  // Base definition templates for Leader (1 -> 8)
-  const leaderLevelDefs = [
-    {
-      levelNumber: 1,
-      levelName: 'Level 1',
-      titleName: 'Cấp Khởi Động',
-      nextTierTitle: 'Level 2',
-      shiftCompletedText: 'Chỉ tiêu: Điều phối ca trực cơ bản',
+  // Base definition templates for Leader (1 -> 12)
+  const leaderLevelDefs = Array.from({ length: 12 }, (_, i) => {
+    const lvl = i + 1;
+    return {
+      levelNumber: lvl,
+      levelName: `Level ${lvl}`,
+      titleName: `Quản Trị Level ${lvl}`,
+      nextTierTitle: lvl < 12 ? `Level ${lvl + 1}` : 'Cấp Tối Đa',
+      shiftCompletedText: 'Chỉ tiêu: Điều phối ca trực',
       slaPercentText: 'Yêu cầu SLA ca trực ≥ 90%',
       disciplineScoreText: 'Chuyên cần yêu cầu ≥ 85đ',
-      projectTitle: 'Dự Án Level 1: Vận Hành Ca Live Cơ Bản',
-      projectSub: 'Thực hiện việc con chuẩn bị & vận hành phòng live',
-      perks: [
-        { id: 'lp01', title: 'Hệ số Ví Tết 1.0x', subtitle: 'Thưởng Tết cơ bản' },
-      ],
-    },
-    {
-      levelNumber: 2,
-      levelName: 'Level 2',
-      titleName: 'Cấp Thâm Niên',
-      nextTierTitle: 'Level 3',
-      shiftCompletedText: 'Chỉ tiêu: Điều phối ca trực độc lập',
-      slaPercentText: 'Yêu cầu SLA ca trực ≥ 92%',
-      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 90đ',
-      projectTitle: 'Dự Án Level 2',
-      projectSub: 'Thực hiện các việc con theo phân công',
-      perks: [
-        { id: 'lp05', title: 'Hệ số Ví Tết 1.1x', subtitle: 'Tăng 10% thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 3,
-      levelName: 'Level 3',
-      titleName: 'Cấp Tinh Anh',
-      nextTierTitle: 'Level 4',
-      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực',
-      slaPercentText: 'Yêu cầu SLA ca trực ≥ 95%',
-      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 95đ',
-      projectTitle: 'Dự Án Level 3',
-      projectSub: 'Thực hiện các việc con theo phân công',
-      perks: [
-        { id: 'lp07', title: 'Hệ số Ví Tết 1.25x', subtitle: 'Tăng 25% thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 4,
-      levelName: 'Level 4',
-      titleName: 'Key Leader Phòng Ban',
-      nextTierTitle: 'Level 5',
-      shiftCompletedText: 'Chỉ tiêu: Quản trị vận hành toàn team',
-      slaPercentText: 'Yêu cầu SLA toàn phòng ≥ 95%',
-      disciplineScoreText: 'Kỷ luật toàn team: 100% không sự cố',
-      projectTitle: 'Dự Án Level 4',
-      projectSub: 'Hoàn thành nhiệm vụ toàn team',
-      perks: [
-        { id: 'lp3', title: 'Hệ số Ví Tết Quản Trị 1.4x', subtitle: 'Tăng 40% thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 5,
-      levelName: 'Level 5',
-      titleName: 'Leader Nòng Cốt',
-      nextTierTitle: 'Level 6',
-      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực toàn phòng',
-      slaPercentText: 'Yêu cầu SLA toàn phòng ≥ 98%',
-      disciplineScoreText: 'Kỷ luật toàn team: 100% chuẩn quy trình',
-      projectTitle: 'Dự Án Level 5',
-      projectSub: 'Đảm nhận nhiệm vụ thăng cấp',
-      perks: [
-        { id: 'lp5', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'lp8', title: 'Hệ số Ví Tết Quản Trị 1.6x', subtitle: 'Tăng 60% thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 6,
-      levelName: 'Level 6',
-      titleName: 'Leader Quản Trị Cấp Cao',
-      nextTierTitle: 'Level 7',
-      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực chất lượng cao',
-      slaPercentText: 'Yêu cầu SLA Task toàn phòng ≥ 98%',
-      disciplineScoreText: 'Kỷ luật toàn team: Duy trì 100%',
-      projectTitle: 'Dự Án Level 6',
-      projectSub: 'Xây dựng quy trình chuẩn & đào tạo nhân sự',
-      perks: [
-        { id: 'lp9', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'lp12', title: 'Hệ số Ví Tết Quản Trị 2.0x', subtitle: 'Nhân đôi giá trị thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 7,
-      levelName: 'Level 7',
-      titleName: 'Quản Lý Chiến Lược',
-      nextTierTitle: 'Level 8',
-      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực quy mô lớn',
-      slaPercentText: 'Yêu cầu SLA Task toàn phòng: 100%',
-      disciplineScoreText: 'Kỷ luật: Đào tạo nhân sự nòng cốt',
-      projectTitle: 'Dự Án Level 7',
-      projectSub: 'Phát triển vận hành phòng live',
-      perks: [
-        { id: 'lp13', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'lp16', title: 'Hệ số Ví Tết Quản Trị 2.5x', subtitle: 'Gấp 2.5 lần thưởng Tết' },
-      ],
-    },
-    {
-      levelNumber: 8,
-      levelName: 'Level 8',
-      titleName: 'Thủ Lĩnh Tinh Anh',
-      nextTierTitle: 'Cấp Tối Đa',
-      shiftCompletedText: 'Chỉ tiêu: Quản trị ca trực toàn công ty',
-      slaPercentText: 'Duy trì hiệu suất SLA: 100%',
-      disciplineScoreText: 'Xây dựng đội ngũ kế thừa vững chắc',
-      projectTitle: 'Dự Án Level 8',
-      projectSub: 'Phát triển mô hình phòng live',
-      perks: [
-        { id: 'lp17', title: 'Quà Hiện Vật Thăng Cấp', subtitle: 'Theo cấu hình Admin' },
-        { id: 'lp20', title: 'Hệ số Ví Tết Quản Trị 3.0x', subtitle: 'Gấp 3 lần thưởng Tết' },
-      ],
-    },
-  ];
+      projectTitle: `Dự Án Level ${lvl}`,
+      projectSub: 'Chưa giao việc con nào',
+      perks: [] as LevelPerkItem[],
+    };
+  });
 
   // Dynamic mapper to inject real GMV & dynamic review dates
   const buildLevelTierList = (defs: Array<{
@@ -460,7 +290,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       const isPast = def.levelNumber < currentUserLevelNumber;
 
       const project = getProjectByLevel(def.levelNumber);
-      const totalTasks = project?.subTasks?.length || 10;
+      const totalTasks = project?.subTasks?.length || 0;
       const doneTasks = project?.subTasks?.filter((t) => t.status === 'LEADER_APPROVED').length || 0;
       const isProjCompleted = isPast || (totalTasks > 0 && doneTasks === totalTasks);
 
@@ -473,7 +303,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         progressSummaryText = `Đã hoàn thành xuất sắc cấp độ ${def.levelName}.`;
         reviewDateText = 'Đã xét duyệt';
       } else if (isCur) {
-        overallProgressPercent = Math.round(gPercent * 0.7 + (doneTasks / totalTasks) * 30);
+        overallProgressPercent = totalTasks > 0 ? Math.round(gPercent * 0.7 + (doneTasks / totalTasks) * 30) : gPercent;
         progressSummaryText =
           curGmv >= ceilGmv
             ? 'Đã hoàn thành mục tiêu GMV.'
@@ -484,6 +314,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         progressSummaryText = `Mục tiêu thăng cấp: Đạt ${ceilGmv} ${unit}`;
         reviewDateText = getNextReviewDateString(def.levelNumber - currentUserLevelNumber);
       }
+
 
       return {
         ...def,

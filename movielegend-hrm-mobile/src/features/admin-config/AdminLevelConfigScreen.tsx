@@ -12,9 +12,11 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { levelingApi } from '../../api/leveling.api';
+import { apiClient } from '../../api/client';
 
 import { AdminDeptOverviewPage, DepartmentSummaryItem } from './pages/AdminDeptOverviewPage';
 import { AdminLevelRewardsPage } from './pages/AdminLevelRewardsPage';
@@ -331,6 +333,53 @@ export const AdminLevelConfigScreen: React.FC = () => {
     }
   };
 
+  const handleResetAllData = () => {
+    Alert.alert(
+      'XÁC NHẬN XÓA SẠCH DỮ LIỆU TEST',
+      'Bạn có chắc chắn muốn xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án, Việc con & Duyệt thi đua để test lại từ đầu không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa Sạch Dữ Liệu Test',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.post('/leveling/admin/reset-data').catch(() => {});
+
+              // Delete all approved user level keys
+              const existingIdsRaw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
+              if (existingIdsRaw) {
+                try {
+                  const ids = JSON.parse(existingIdsRaw);
+                  if (Array.isArray(ids)) {
+                    for (const uid of ids) {
+                      await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${uid}`).catch(() => {});
+                    }
+                  }
+                } catch {}
+              }
+              await SecureStore.deleteItemAsync('ALL_APPROVED_USER_IDS').catch(() => {});
+              await SecureStore.deleteItemAsync('LEADER_ROUND1_SUBMITTED_USERS').catch(() => {});
+              await SecureStore.deleteItemAsync('ADMIN_PENDING_ROUND1_REVIEWS').catch(() => {});
+              await SecureStore.deleteItemAsync('ML_LEVEL_DEPARTMENT_PROJECTS_V6').catch(() => {});
+
+              const socket = getSocket();
+              if (socket) {
+                socket.emit('level:data_reset', {});
+              }
+
+              setDeptLevelConfigs({});
+              Alert.alert('Thành Công', 'Đã xóa sạch dữ liệu! Bạn có thể bắt đầu test lại từ đầu.');
+            } catch {
+              setDeptLevelConfigs({});
+              Alert.alert('Thành Công', 'Đã xóa sạch dữ liệu local và sẵn sàng test lại!');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Build Department Summaries for Page 1
   const deptSummaries: DepartmentSummaryItem[] = departments.map((d) => {
     const key = `${d.id}_${selectedYear}`;
@@ -352,8 +401,18 @@ export const AdminLevelConfigScreen: React.FC = () => {
       <SafeAreaView style={styles.headerSafeArea}>
         {/* Executive Header Card */}
         <View style={styles.executiveHeaderCard}>
-          <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
-          <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
+              <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
+            </View>
+            <TouchableOpacity
+              style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+              onPress={handleResetAllData}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>🗑 XÓA DATA TEST</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 3-Step Progress Stepper Navigation Bar */}

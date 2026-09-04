@@ -41,7 +41,12 @@ export class LevelingController {
       levels: any[];
     },
   ) {
-    return this.levelingService.saveAdminDepartmentConfig(body);
+  }
+
+  @Post('admin/reset-data')
+  @ApiOperation({ summary: 'Admin xóa sạch toàn bộ dữ liệu cấu hình Level & Dự án để test lại từ đầu' })
+  async clearAllData() {
+    return this.levelingService.clearAllData();
   }
 
   @Get('gmv')

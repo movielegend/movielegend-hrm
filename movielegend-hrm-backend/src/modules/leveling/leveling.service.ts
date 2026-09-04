@@ -397,4 +397,19 @@ export class LevelingService {
 
     return { success: true, subTask, completedSubTasks: project.completedSubTasks };
   }
+
+  public clearAllData() {
+    this.departmentConfigs.clear();
+    this.departmentProjects.clear();
+    this.gmvConfigs.forEach((c) => {
+      c.currentGmv = 0;
+    });
+
+    try {
+      if (fs.existsSync(CONFIG_STORAGE_FILE)) fs.unlinkSync(CONFIG_STORAGE_FILE);
+      if (fs.existsSync(PROJECT_STORAGE_FILE)) fs.unlinkSync(PROJECT_STORAGE_FILE);
+    } catch {}
+
+    return { success: true, message: 'Đã xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án & GMV!' };
+  }
 }
