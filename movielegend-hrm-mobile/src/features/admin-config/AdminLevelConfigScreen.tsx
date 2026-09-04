@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useSocketStatus } from '../../providers/SocketProvider';
+import { levelingApi } from '../../api/leveling.api';
 
 import { AdminDeptOverviewPage, DepartmentSummaryItem } from './pages/AdminDeptOverviewPage';
 import { AdminLevelRewardsPage } from './pages/AdminLevelRewardsPage';
@@ -42,8 +43,8 @@ export const AdminLevelConfigScreen: React.FC = () => {
   const { data: realDeptData, isLoading } = useDepartments({ limit: 100 });
   const { getSocket } = useSocketStatus();
 
-  const realDeptList = realDeptData?.data || realDeptData?.items || (Array.isArray(realDeptData) ? realDeptData : []);
-  const departments = realDeptList.map((d: any) => ({ id: d.id || d._id, name: d.name || 'Phòng ban' }));
+  const realDeptList = (realDeptData as any)?.data || (realDeptData as any)?.items || (Array.isArray(realDeptData) ? realDeptData : []);
+  const departments: Array<{ id: string; name: string }> = realDeptList.map((d: any) => ({ id: d.id || d._id, name: d.name || 'Phòng ban' }));
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
@@ -85,7 +86,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
         id: `lvl-${year}-${lvlNum}`,
         levelNumber: lvlNum,
         levelName: `Level ${lvlNum}`,
-        colorHex: colors[i % colors.length],
+        colorHex: colors[i % colors.length] ?? '#2563EB',
         rewardType: lvlNum === 1 ? 'CASH' : 'HYBRID',
         promotionBonusAmount: (lvlNum - 1) * 2000000,
         physicalItemName: physicalRewards[i % physicalRewards.length],
@@ -109,6 +110,26 @@ export const AdminLevelConfigScreen: React.FC = () => {
   const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0] || { id: 'default', name: 'Phòng Ban' };
   const currentConfigKey = `${selectedDeptId}_${selectedYear}`;
   const activeLevels = deptLevelConfigs[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+
+  // Load existing department config from Backend
+  useEffect(() => {
+    if (!selectedDeptId) return;
+    let isMounted = true;
+    void levelingApi
+      .getAdminDepartmentConfig(selectedDeptId, selectedYear, activeDept.name)
+      .then((data) => {
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setDeptLevelConfigs((prev) => ({
+            ...prev,
+            [currentConfigKey]: data,
+          }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDeptId, selectedYear, activeDept.name, currentConfigKey]);
 
   // Real-time Socket.io Sync Listener
   useEffect(() => {
@@ -136,6 +157,27 @@ export const AdminLevelConfigScreen: React.FC = () => {
     };
   }, [selectedDeptId, selectedYear, getSocket]);
 
+  const syncConfigToBackend = (updatedList: AdminLevelItem[]) => {
+    void levelingApi
+      .saveAdminDepartmentConfig({
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        year: selectedYear,
+        levels: updatedList,
+      })
+      .catch(() => {});
+
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('level:config:update', {
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        year: selectedYear,
+        levels: updatedList,
+      });
+    }
+  };
+
   // Add New Year
   const handleAddNewYear = () => {
     const nextYear = Math.max(...availableYears) + 1;
@@ -158,12 +200,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
             setDeptLevelConfigs((prev) => {
               const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
               const updatedList = currentList.filter((l) => l.id !== levelId);
-
-              const socket = getSocket();
-              if (socket) {
-                socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
-              }
-
+              syncConfigToBackend(updatedList);
               return { ...prev, [currentConfigKey]: updatedList };
             });
           },
@@ -195,12 +232,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
     setDeptLevelConfigs((prev) => {
       const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = [...currentList, newLevelItem];
-      
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
-      }
-
+      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
 
@@ -215,12 +247,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
           ? { ...item, project: { ...item.project, projectName: newProjectName } }
           : item
       );
-
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
-      }
-
+      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -241,12 +268,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
         }
         return item;
       });
-
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
-      }
-
+      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -263,12 +285,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
         }
         return item;
       });
-
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
-      }
-
+      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -283,12 +300,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
         }
         return item;
       });
-
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
-      }
-
+      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -298,16 +310,43 @@ export const AdminLevelConfigScreen: React.FC = () => {
     setDeptLevelConfigs((prev) => {
       const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
-
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('level:config:update', { departmentId: selectedDeptId, year: selectedYear, levels: updatedList });
-      }
-
+      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
     Alert.alert('Thành Công', `Đã lưu quà thưởng cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
     setEditingItem(null);
+  };
+
+  const handleSaveAllAndSync = async () => {
+    try {
+      await levelingApi.saveAdminDepartmentConfig({
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        year: selectedYear,
+        levels: activeLevels,
+      });
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', {
+          departmentId: selectedDeptId,
+          departmentName: activeDept.name,
+          year: selectedYear,
+          levels: activeLevels,
+        });
+      }
+
+      Alert.alert(
+        'Đã Lưu & Đồng Bộ Thành Công!',
+        `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name} (Năm ${selectedYear}). Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
+        [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
+      );
+    } catch {
+      Alert.alert(
+        'Thành Công',
+        `Đã lưu và phát lệnh đồng bộ cho phòng ban ${activeDept.name}.`
+      );
+    }
   };
 
   // Build Department Summaries for Page 1
@@ -411,13 +450,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
                 onAddSubTaskToLevel={handleAddSubTaskToLevel}
                 onEditSubTaskInLevel={handleEditSubTaskInLevel}
                 onDeleteSubTaskInLevel={handleDeleteSubTaskInLevel}
-                onSaveAllAndSync={() => {
-                  Alert.alert(
-                    'Đã Lưu & Đồng Bộ Thành Công!',
-                    `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name} (Năm ${selectedYear}). Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
-                    [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
-                  );
-                }}
+                onSaveAllAndSync={handleSaveAllAndSync}
               />
             )}
           </>

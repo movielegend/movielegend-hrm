@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -10,7 +10,7 @@ import { spacing } from '../../theme/spacing';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { TaskCard } from './TaskComponents';
 import { useAuth } from '../../providers/AuthProvider';
-import { RefreshControl } from 'react-native';
+import { roleBase } from '../../utils/notification-routing';
 
 type TabMode = 'ASSIGNEE' | 'ASSIGNER';
 
@@ -19,7 +19,10 @@ export function LeaderTasksScreen() {
 
   return (
     <Screen>
-      <PageHeader title="Công việc" subtitle={activeTab === 'ASSIGNEE' ? "Nhiệm vụ bạn cần thực hiện" : "Nhiệm vụ bạn đã giao"} />
+      <PageHeader 
+        title="Công việc" 
+        subtitle={activeTab === 'ASSIGNEE' ? "Nhiệm vụ bạn cần thực hiện" : "Nhiệm vụ bạn đã giao"} 
+      />
       
       {/* Top Tabs */}
       <View style={styles.tabContainer}>
@@ -62,8 +65,6 @@ export function LeaderTasksScreen() {
     </Screen>
   );
 }
-
-import { roleBase } from '../../utils/notification-routing';
 
 function AssigneeView() {
   const router = useRouter();

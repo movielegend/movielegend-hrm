@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ export interface UserOptInVaultItem {
 
 export const AdminOptInVaultScreen: React.FC = () => {
   const { data: realEmpData, isLoading } = useEmployees({ limit: 100 });
-  const realEmpList = realEmpData?.data || realEmpData?.items || (Array.isArray(realEmpData) ? realEmpData : []);
+  const realEmpList = (realEmpData as any)?.data || (realEmpData as any)?.items || (Array.isArray(realEmpData) ? realEmpData : []);
 
   const [users, setUsers] = useState<UserOptInVaultItem[]>([]);
   const [grantingUser, setGrantingUser] = useState<UserOptInVaultItem | null>(null);

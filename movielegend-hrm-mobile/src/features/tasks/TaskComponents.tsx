@@ -849,7 +849,175 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+
+  /* Subtask Styles */
+  subtaskCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  subtaskCardCompleted: {
+    borderColor: '#DCFCE7',
+    backgroundColor: '#F0FDF4',
+  },
+  subtaskHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  subtaskTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  subtaskCode: {
+    color: colors.muted,
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  subtaskAssigneeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  subtaskAssigneeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  subtaskAssigneeText: {
+    fontSize: 12,
+    color: colors.primaryDark,
+    fontWeight: '600',
+  },
+  subtaskDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  subtaskDateText: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  subtaskProgressWrap: {
+    marginTop: spacing.xs,
+  },
+  subtaskReviewNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    marginTop: spacing.sm,
+  },
+  subtaskReviewNoticeText: {
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '600',
+  },
+  subtaskReviewBtn: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  subtaskReviewBtnText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
 });
+
+export function SubtaskCardItem({
+  subtask,
+  onPress,
+  onReview,
+}: {
+  subtask: any;
+  onPress: () => void;
+  onReview?: () => void;
+}) {
+  const primaryAssignee = subtask.assignments?.[0]?.user;
+  const assigneeName = primaryAssignee?.profile?.fullName ?? primaryAssignee?.userCode ?? 'Chưa gán';
+  const assigneeProgress = subtask.assignments?.[0]?.progressPercent ?? 0;
+  const isWaitingReview = subtask.status === 'WAITING_REVIEW';
+  const isCompleted = subtask.status === 'COMPLETED';
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.subtaskCard,
+        pressed && { opacity: 0.8 },
+        isCompleted && styles.subtaskCardCompleted,
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.subtaskHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.subtaskTitle} numberOfLines={2}>{subtask.title}</Text>
+          <Text style={styles.subtaskCode}>{subtask.taskCode ?? 'Việc con'}</Text>
+        </View>
+        <TaskStatusBadge status={subtask.status} />
+      </View>
+
+      <View style={styles.subtaskAssigneeRow}>
+        <View style={styles.subtaskAssigneeBadge}>
+          <MaterialCommunityIcons name="account-circle-outline" size={16} color={colors.primary} />
+          <Text style={styles.subtaskAssigneeText} numberOfLines={1}>{assigneeName}</Text>
+        </View>
+        {subtask.dueAt ? (
+          <View style={styles.subtaskDateBadge}>
+            <MaterialCommunityIcons name="clock-outline" size={14} color={colors.muted} />
+            <Text style={styles.subtaskDateText}>{formatDateTime(subtask.dueAt)}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.subtaskProgressWrap}>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${Math.max(0, Math.min(100, assigneeProgress))}%`, backgroundColor: isCompleted ? colors.success : colors.primary },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>{assigneeProgress}%</Text>
+        </View>
+      </View>
+
+      {isWaitingReview && onReview ? (
+        <View style={styles.subtaskReviewNotice}>
+          <Text style={styles.subtaskReviewNoticeText}>Nhân viên đã nộp kết quả</Text>
+          <Pressable style={styles.subtaskReviewBtn} onPress={onReview}>
+            <Text style={styles.subtaskReviewBtnText}>Duyệt ngay</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
 
 export function TaskStepper({ currentStatus }: { currentStatus: string }) {
   const steps = [

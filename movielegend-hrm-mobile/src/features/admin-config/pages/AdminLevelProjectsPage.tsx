@@ -44,6 +44,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   const activeFocusedLevel = levels.find((l) => l.levelNumber === selectedLevelNum) || levels[0];
 
   const handleAddBulletSubmit = () => {
+    if (!activeFocusedLevel) return;
     if (!newBulletText.trim()) {
       Alert.alert('Thông báo', 'Vui lòng nhập nội dung việc con gạch đầu dòng!');
       return;
@@ -58,6 +59,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   };
 
   const handleSaveEditBullet = (index: number) => {
+    if (!activeFocusedLevel) return;
     if (!editingBulletText.trim()) {
       Alert.alert('Thông báo', 'Nội dung việc con không được để trống!');
       return;
@@ -68,6 +70,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   };
 
   const handleDeleteBullet = (index: number) => {
+    if (!activeFocusedLevel) return;
     Alert.alert(
       'Xác nhận xóa',
       'Bạn có chắc chắn muốn xóa đầu mục việc con này không?',
@@ -76,7 +79,11 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
         {
           text: 'Xóa',
           style: 'destructive',
-          onPress: () => onDeleteSubTaskInLevel(activeFocusedLevel.levelNumber, index),
+          onPress: () => {
+            if (activeFocusedLevel) {
+              onDeleteSubTaskInLevel(activeFocusedLevel.levelNumber, index);
+            }
+          },
         },
       ]
     );

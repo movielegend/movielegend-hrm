@@ -60,6 +60,7 @@ import {
   PriorityBadge,
   ProgressBar,
   ReviewActionSheet,
+  SubtaskCardItem,
   TargetPreview,
   TaskCard,
   TaskStatusBadge,
@@ -205,6 +206,19 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
     return relatedAssignment ? isSelfAssigned(relatedAssignment) : true;
   }) ?? [];
 
+  const isDepartmentTask = item.type === 'DEPARTMENT' || (item.targets?.some(t => t.targetType === 'DEPARTMENT') ?? false);
+  const isDepartmentLeader = hasAnyPermission(user, ['task.assign_department']) || Boolean(user?.roles?.includes('LEADER'));
+  const isGroupLeader = item.groupLeaderId === user?.id;
+  const isCreator = item.createdByUserId === user?.id;
+  const isAdmin = hasAnyPermission(user, ['task.assign_any']) || Boolean(user?.roles?.includes('ADMIN'));
+
+  const canManageSubtasks = (isDepartmentLeader || isGroupLeader || isCreator || isAdmin) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
+
+  const childTasks = item.childTasks ?? [];
+  const completedChildCount = childTasks.filter((c: any) => c.status === 'COMPLETED').length;
+  const totalChildCount = childTasks.length;
+  const subtasksProgressPercent = totalChildCount > 0 ? Math.round((completedChildCount / totalChildCount) * 100) : 0;
+
   async function run(action: () => Promise<unknown>, success: string) {
     try {
       await action();
@@ -234,6 +248,12 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           <View style={[styles.rowWrap, { marginTop: spacing.md }]}>
             <TaskStatusBadge status={item.status} />
             <PriorityBadge priority={item.priority} />
+            {isDepartmentTask ? (
+              <View style={styles.departmentBadgePill}>
+                <MaterialCommunityIcons name="domain" size={14} color={colors.primaryDark} />
+                <Text style={styles.departmentBadgePillText}>Dự án Phòng Ban</Text>
+              </View>
+            ) : null}
           </View>
           {item.description ? <Text style={[styles.body, { marginTop: spacing.md }]}>{item.description}</Text> : null}
           <View style={styles.heroDates}>
@@ -293,16 +313,24 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         </View>
 
         {assignment ? (
-          <SectionCard title="Nhiệm vụ của tôi">
+          <SectionCard title={isDepartmentTask ? "Tiếp nhận & Thực hiện Dự án" : "Nhiệm vụ của tôi"}>
             <TaskStepper currentStatus={assignment.status} />
             {!isReadOnlyStatus(item.status) ? (
               <>
                 {canAcceptAssignment(assignment.status) ? (
-                  <View style={{ backgroundColor: colors.primarySoft, padding: spacing.md, borderRadius: 8, alignItems: 'center' }}>
-                    <Text style={{ textAlign: 'center', marginBottom: spacing.sm, color: colors.primary, fontWeight: '700' }}>
-                      Bạn vừa được phân công công việc này. Hãy xác nhận để bắt đầu làm ngay!
+                  <View style={styles.receptionCardBox}>
+                    <MaterialCommunityIcons name="briefcase-check-outline" size={28} color={colors.primary} />
+                    <Text style={styles.receptionCardTitle}>
+                      {isDepartmentTask ? 'Dự án phân công cho Bộ phận của bạn' : 'Công việc mới được phân công'}
                     </Text>
-                    <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã nhận việc và bắt đầu làm')}>Nhận việc & Làm ngay</PrimaryButton>
+                    <Text style={styles.receptionCardDesc}>
+                      {isDepartmentTask
+                        ? 'Dự án này đã được Admin chỉ định cho bộ phận. Hãy bấm Tiếp nhận dự án để bắt đầu phân rã công việc con cho các nhân viên.'
+                        : 'Bạn vừa được phân công công việc này. Hãy xác nhận để bắt đầu làm ngay!'}
+                    </Text>
+                    <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), isDepartmentTask ? 'Đã tiếp nhận dự án thành công' : 'Đã nhận việc và bắt đầu làm')}>
+                      {isDepartmentTask ? 'Tiếp nhận Dự án & Triển khai' : 'Nhận việc & Làm ngay'}
+                    </PrimaryButton>
                   </View>
                 ) : null}
                 {(canUpdateProgress(assignment.status) || canSubmitAssignment(assignment.status)) ? (
@@ -378,33 +406,64 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
-        {(item.childTasks ?? []).length > 0 ? (
-          <SectionCard title="Công việc con (Subtasks)">
-            {(item.childTasks ?? []).map((child: any) => (
-              <Pressable key={child.id} style={[styles.inlinePanel, { flexDirection: 'column', alignItems: 'flex-start' }]} onPress={() => router.push(`/${area}/tasks/${child.id}`)}>
-                <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
-                  <Text style={[styles.titleText, { flex: 1 }]}>{child.title}</Text>
-                  <TaskStatusBadge status={child.status} />
+        {/* ===================================================================== */}
+        {/* SUBTASKS MANAGEMENT SECTION (DÀNH CHO LEADER / ADMIN & XEM TIẾN ĐỘ)    */}
+        {/* ===================================================================== */}
+        {(totalChildCount > 0 || canManageSubtasks) ? (
+          <SectionCard title={`Công việc con (Subtasks)${totalChildCount > 0 ? ` • ${completedChildCount}/${totalChildCount}` : ''}`}>
+            {totalChildCount > 0 ? (
+              <View style={styles.subtasksProgressHeader}>
+                <View style={styles.subtasksProgressTitleRow}>
+                  <Text style={styles.subtasksProgressLabel}>Tiến độ hoàn thành việc con</Text>
+                  <Text style={styles.subtasksProgressValue}>
+                    {completedChildCount}/{totalChildCount} việc ({subtasksProgressPercent}%)
+                  </Text>
                 </View>
-                <Text style={styles.metaSmall}>{child.taskCode}</Text>
-              </Pressable>
-            ))}
-          </SectionCard>
-        ) : null}
+                <ProgressBar value={subtasksProgressPercent} />
+              </View>
+            ) : (
+              <View style={styles.emptySubtasksBox}>
+                <MaterialCommunityIcons name="format-list-checks" size={28} color={colors.primary} />
+                <Text style={styles.emptySubtasksTitle}>Chưa có công việc con nào</Text>
+                <Text style={styles.emptySubtasksDesc}>
+                  Hãy chia nhỏ dự án này thành các đầu việc cụ thể và phân công cho từng nhân viên trong bộ phận để bắt đầu triển khai.
+                </Text>
+              </View>
+            )}
 
-        {item.groupLeaderId === user?.id && item.status !== 'COMPLETED' ? (
-          <SectionCard title="Quản lý Nhóm (Leader)">
-            <SecondaryButton onPress={() => router.push(`/${area}/tasks/create?parentTaskId=${item.id}`)}>
-              + Thêm công việc con
-            </SecondaryButton>
-            <View style={{ marginTop: spacing.md }}>
-              <PrimaryButton 
-                loading={completeTask.isPending}
-                onPress={() => void run(() => completeTask.mutateAsync(), 'Đã hoàn thành công việc nhóm')}
-              >
-                Hoàn thành Task Nhóm
-              </PrimaryButton>
-            </View>
+            {childTasks.map((child: any) => (
+              <SubtaskCardItem
+                key={child.id}
+                subtask={child}
+                onPress={() => router.push(`/${area}/tasks/${child.id}`)}
+              />
+            ))}
+
+            {canManageSubtasks ? (
+              <View style={styles.subtaskActionGroup}>
+                <SecondaryButton onPress={() => router.push(`/${area}/tasks/create?parentTaskId=${item.id}`)}>
+                  + Chia nhỏ việc con cho nhân sự
+                </SecondaryButton>
+
+                {item.status !== 'COMPLETED' ? (
+                  <PrimaryButton
+                    loading={completeTask.isPending}
+                    onPress={() => {
+                      showConfirm({
+                        title: 'Nghiệm thu & Hoàn thành Dự án',
+                        message: totalChildCount > 0 && completedChildCount < totalChildCount
+                          ? `Hiện tại có ${totalChildCount - completedChildCount} việc con chưa hoàn thành. Bạn có chắc chắn muốn báo cáo nghiệm thu và hoàn tất dự án này?`
+                          : 'Xác nhận hoàn thành toàn bộ dự án và gửi báo cáo nghiệm thu lên cấp trên?',
+                        confirmLabel: 'Xác nhận hoàn thành',
+                        onConfirm: () => void run(() => completeTask.mutateAsync(), 'Đã hoàn thành và nghiệm thu dự án thành công'),
+                      });
+                    }}
+                  >
+                    Báo cáo nghiệm thu & Hoàn thành Dự án
+                  </PrimaryButton>
+                ) : null}
+              </View>
+            ) : null}
           </SectionCard>
         ) : null}
 
@@ -565,6 +624,7 @@ export function ActionDatePicker({
 export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
   const router = useRouter();
   const { parentTaskId } = useLocalSearchParams<{ parentTaskId?: string }>();
+  const parentTaskQuery = useTask(parentTaskId);
   const { user } = useAuth();
   const { showAlert } = useAppAlert();
   const mutation = useCreateTask();
@@ -588,6 +648,12 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [leaderId, setLeaderId] = useState<string>('');
   const [memberModalVisible, setMemberModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (parentTaskQuery.data?.departmentContextId && !departmentContextId) {
+      setDepartmentContextId(parentTaskQuery.data.departmentContextId);
+    }
+  }, [parentTaskQuery.data?.departmentContextId]);
   
   const departmentId = departmentContextId || departmentIdFromUser(user);
   const usersQuery = useScopedEmployees(
@@ -626,7 +692,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         }
       }
       
-      showAlert('Thành công', 'Đã giao việc thành công!', () => router.back());
+      showAlert('Thành công', parentTaskId ? 'Đã tạo công việc con và phân công thành công!' : 'Đã giao việc thành công!', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
@@ -651,9 +717,26 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title={area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc (Leader)'} subtitle="Tạo và phân công công việc mới" />
+        <PageHeader 
+          title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc (Leader)'} 
+          subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : 'Tạo và phân công công việc mới'} 
+        />
+
+        {parentTaskId && parentTaskQuery.data ? (
+          <View style={styles.parentTaskBanner}>
+            <View style={styles.parentTaskTagRow}>
+              <MaterialCommunityIcons name="layers-outline" size={16} color={colors.primary} />
+              <Text style={styles.parentTaskTagText}>DỰ ÁN TRỰC THUỘC</Text>
+            </View>
+            <Text style={styles.parentTaskTitle}>{parentTaskQuery.data.title}</Text>
+            <Text style={styles.parentTaskSubInfo}>
+              Mã dự án: {parentTaskQuery.data.taskCode ?? 'Dự án'}
+              {parentTaskQuery.data.dueAt ? ` • Hạn chót dự án cha: ${formatDateTime(parentTaskQuery.data.dueAt)}` : ''}
+            </Text>
+          </View>
+        ) : null}
         
-        <SectionCard title="Thông tin công việc">
+        <SectionCard title={parentTaskId ? "Thông tin công việc con" : "Thông tin công việc"}>
           <FormField label="Tên công việc" value={title} onChangeText={setTitle} placeholder="Nhập tên công việc..." />
           <FormField label="Mô tả chi tiết" value={description} onChangeText={setDescription} multiline placeholder="Mô tả các yêu cầu cần làm..." />
           
@@ -1210,5 +1293,134 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '700',
-  }
+  },
+
+  /* Department Badge Pill */
+  departmentBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  departmentBadgePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+
+  /* Reception Card Box */
+  receptionCardBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    gap: 8,
+  },
+  receptionCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    textAlign: 'center',
+  },
+  receptionCardDesc: {
+    fontSize: 12,
+    color: '#3B82F6',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.xs,
+  },
+
+  /* Subtasks Progress Header & Empty Box */
+  subtasksProgressHeader: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  subtasksProgressTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  subtasksProgressLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  subtasksProgressValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  emptySubtasksBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: spacing.md,
+    gap: 6,
+  },
+  emptySubtasksTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
+  },
+  emptySubtasksDesc: {
+    fontSize: 12,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  subtaskActionGroup: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+
+  /* Parent Task Banner in CreateTaskScreen */
+  parentTaskBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  parentTaskTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  parentTaskTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  parentTaskTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 20,
+  },
+  parentTaskSubInfo: {
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 4,
+  },
 });

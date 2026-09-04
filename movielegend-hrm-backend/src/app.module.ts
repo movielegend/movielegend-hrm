@@ -63,6 +63,7 @@ import { FeedbackModule } from './modules/feedback/feedback.module';
 import { ShiftSwapsModule } from './modules/shift-swaps/shift-swaps.module';
 import { VoiceCallModule } from './modules/voice-call/voice-call.module';
 import { CompetitionModule } from './modules/competition/competition.module';
+import { LevelingModule } from './modules/leveling/leveling.module';
 
 @Module({
   imports: [
@@ -144,6 +145,7 @@ import { CompetitionModule } from './modules/competition/competition.module';
     FeedbackModule,
     VoiceCallModule,
     CompetitionModule,
+    LevelingModule,
   ],
   providers: [
     {

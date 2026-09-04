@@ -47,8 +47,15 @@ export class TasksService {
 
   async create(dto: CreateTaskDto, actor: AuthenticatedUser) {
     this.assertCanCreate(dto, actor);
-    if (dto.departmentContextId) this.scope.assertDepartmentAccess(actor, dto.departmentContextId);
-    const assigneeIds = await this.resolveAssignees(dto, actor);
+    let departmentContextId = dto.departmentContextId;
+    if (dto.parentTaskId) {
+      const parent = await this.prisma.task.findUnique({ where: { id: dto.parentTaskId } });
+      if (parent && !departmentContextId && parent.departmentContextId) {
+        departmentContextId = parent.departmentContextId;
+      }
+    }
+    if (departmentContextId) this.scope.assertDepartmentAccess(actor, departmentContextId);
+    const assigneeIds = await this.resolveAssignees({ ...dto, departmentContextId }, actor);
     if (!dto.isAdhocGroup && !assigneeIds.length) throw badRequest('TASK_TARGET_EMPTY', 'Task must have at least one assignee');
     const payload = await this.prisma.$transaction(async (tx) => {
       const taskCode = await this.prisma.nextTaskCode(tx);
@@ -59,7 +66,7 @@ export class TasksService {
           description: dto.description,
           type: dto.type ?? this.inferTaskType(dto),
           priority: dto.priority,
-          departmentContextId: dto.departmentContextId,
+          departmentContextId: departmentContextId,
           parentTaskId: dto.parentTaskId,
           startAt: dto.startAt ? new Date(dto.startAt) : undefined,
           dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
@@ -370,8 +377,15 @@ export class TasksService {
   async completeTask(id: string, actor: AuthenticatedUser) {
     const task = await this.prisma.task.findUnique({ where: { id }, include: { assignments: true } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
-    if (task.groupLeaderId !== actor.userId && !actor.roles.includes('ADMIN')) {
-      throw forbidden('NOT_GROUP_LEADER', 'Only the group leader can complete this task');
+    const canComplete =
+      actor.roles.includes('ADMIN') ||
+      task.groupLeaderId === actor.userId ||
+      task.createdByUserId === actor.userId ||
+      (task.departmentContextId &&
+        this.has(actor, 'task.assign_department') &&
+        (this.scope.visibleDepartmentIds(actor)?.includes(task.departmentContextId) ?? false));
+    if (!canComplete) {
+      throw forbidden('NOT_GROUP_LEADER', 'You do not have permission to complete this task');
     }
     return this.prisma.$transaction(async (tx) => {
       await tx.taskAssignment.updateMany({
@@ -969,16 +983,22 @@ export class TasksService {
   private taskDetailInclude() {
     return {
       childTasks: {
+        where: { deletedAt: null },
         select: {
           id: true,
           taskCode: true,
           title: true,
+          description: true,
           status: true,
           priority: true,
+          startAt: true,
+          dueAt: true,
+          createdAt: true,
           assignments: {
             include: { user: { select: this.safeUserSelect() } },
           },
         },
+        orderBy: { createdAt: 'asc' as const },
       },
       targets: true,
       departmentContext: { select: { id: true, code: true, name: true } },

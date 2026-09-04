@@ -163,6 +163,11 @@ export function EmployeeDashboardScreen() {
               onPress={() => router.push('/employee/leveling' as any)}
             />
             <GridItem
+              icon="briefcase-outline"
+              title="Dự án"
+              onPress={() => router.push('/employee/level-projects' as any)}
+            />
+            <GridItem
               icon="trophy-award"
               title="Thi đua"
               onPress={() => router.push('/employee/competition' as any)}

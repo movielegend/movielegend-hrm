@@ -82,6 +82,30 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
     return { ok: true };
   }
 
+  @SubscribeMessage('level:join_config_room')
+  handleLevelJoinConfigRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { departmentId?: string; year?: number },
+  ) {
+    if (payload?.departmentId) {
+      client.join(`department:${payload.departmentId}`);
+    }
+    client.join('level:config_room');
+    return { ok: true };
+  }
+
+  @SubscribeMessage('level:config:update')
+  handleLevelConfigUpdate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { departmentId: string; year: number; levels: any[] },
+  ) {
+    if (!payload?.departmentId) return { ok: false, code: 'DEPARTMENT_ID_REQUIRED' };
+    this.server.to(`department:${payload.departmentId}`).emit('level:config:updated', payload);
+    this.server.to('level:config_room').emit('level:config:updated', payload);
+    this.server.emit('level:config:updated', payload);
+    return { ok: true };
+  }
+
   private extractToken(client: Socket): string {
     const authToken = client.handshake.auth?.token;
     if (typeof authToken === 'string' && authToken) return authToken.replace(/^Bearer\s+/i, '');
