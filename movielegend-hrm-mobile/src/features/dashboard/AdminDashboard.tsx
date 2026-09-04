@@ -277,7 +277,8 @@ function TimelineItem({ icon, time, title, subtitle, isLast = false, color = '#1
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: 120,
     backgroundColor: '#FAFAFA',
     minHeight: '100%',
@@ -286,8 +287,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
-    marginTop: 16,
+    marginBottom: 16,
+    marginTop: 4,
   },
   userInfoWrapper: {
     flexDirection: 'row',

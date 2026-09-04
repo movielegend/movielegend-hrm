@@ -323,7 +323,8 @@ function TaskCard({ title, priority, priorityColor, dueDate, onPress, isComplete
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.xxl,
     backgroundColor: '#FAFAFA',
   },
@@ -331,8 +332,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    marginTop: spacing.xs,
   },
   avatar: {
     width: 52,
