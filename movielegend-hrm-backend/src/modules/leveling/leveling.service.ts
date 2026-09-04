@@ -7,6 +7,7 @@ import { RealtimeEventsService } from '../realtime/realtime-events.service';
 const STORAGE_DIR = path.join(process.cwd(), 'storage');
 const CONFIG_STORAGE_FILE = path.join(STORAGE_DIR, 'level_dept_configs.json');
 const PROJECT_STORAGE_FILE = path.join(STORAGE_DIR, 'level_dept_projects.json');
+const USER_LEVEL_STORAGE_FILE = path.join(STORAGE_DIR, 'level_user_levels.json');
 
 export interface LevelGmvItem {
   levelNumber: number;
@@ -64,6 +65,7 @@ export class LevelingService {
 
   private departmentConfigs = new Map<string, any>();
   private departmentProjects = new Map<string, LevelDepartmentProjectItem[]>();
+  private userLevels = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -92,6 +94,16 @@ export class LevelingService {
     } catch {
       // ignore
     }
+
+    try {
+      if (fs.existsSync(USER_LEVEL_STORAGE_FILE)) {
+        const raw = fs.readFileSync(USER_LEVEL_STORAGE_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        Object.entries(parsed).forEach(([k, v]) => this.userLevels.set(k, Number(v)));
+      }
+    } catch {
+      // ignore
+    }
   }
 
   private saveToStorage() {
@@ -104,6 +116,9 @@ export class LevelingService {
 
       const projectObj = Object.fromEntries(this.departmentProjects.entries());
       fs.writeFileSync(PROJECT_STORAGE_FILE, JSON.stringify(projectObj, null, 2), 'utf8');
+
+      const userLevelObj = Object.fromEntries(this.userLevels.entries());
+      fs.writeFileSync(USER_LEVEL_STORAGE_FILE, JSON.stringify(userLevelObj, null, 2), 'utf8');
     } catch {
       // ignore
     }
@@ -401,6 +416,7 @@ export class LevelingService {
   public clearAllData() {
     this.departmentConfigs.clear();
     this.departmentProjects.clear();
+    this.userLevels.clear();
     this.projects = [];
     this.gmvConfigs.forEach((c) => {
       c.currentGmv = 0;
@@ -409,11 +425,27 @@ export class LevelingService {
     try {
       if (fs.existsSync(CONFIG_STORAGE_FILE)) fs.unlinkSync(CONFIG_STORAGE_FILE);
       if (fs.existsSync(PROJECT_STORAGE_FILE)) fs.unlinkSync(PROJECT_STORAGE_FILE);
+      if (fs.existsSync(USER_LEVEL_STORAGE_FILE)) fs.unlinkSync(USER_LEVEL_STORAGE_FILE);
     } catch {}
 
     this.realtimeEvents.emitToRoom('level:config_room', 'level:data_reset', { resetAt: Date.now() });
     this.realtimeEvents.emitToRoom('level:config_room', 'level:config:updated', { reset: true, levels: [] });
 
-    return { success: true, message: 'Đã xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án & GMV!' };
+    return { success: true, message: 'Đã xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án, Level Nhân sự & GMV!' };
+  }
+
+  public getUserLevel(userId: string): number {
+    return this.userLevels.get(userId) || 1;
+  }
+
+  public updateUserLevel(userId: string, levelNumber: number) {
+    this.userLevels.set(userId, levelNumber);
+    this.saveToStorage();
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:user_promoted', {
+      userId,
+      targetLevelNumber: levelNumber,
+      targetLevelName: `Level ${levelNumber}`,
+    });
+    return { success: true, userId, levelNumber };
   }
 }

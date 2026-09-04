@@ -125,4 +125,15 @@ export const levelingApi = {
     const res = await apiClient.post('/leveling/admin/config', data);
     return extractData(res);
   },
+
+  // 4. User Level APIs
+  getUserLevel: async (userId: string): Promise<{ userId: string; levelNumber: number }> => {
+    const res = await apiClient.get(`/leveling/user-level/${userId}`);
+    return extractData(res);
+  },
+
+  updateUserLevel: async (userId: string, levelNumber: number): Promise<{ success: boolean; userId: string; levelNumber: number }> => {
+    const res = await apiClient.post(`/leveling/user-level/${userId}`, { levelNumber });
+    return extractData(res);
+  },
 };

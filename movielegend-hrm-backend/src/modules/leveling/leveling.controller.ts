@@ -174,4 +174,19 @@ export class LevelingController {
       body.departmentName,
     );
   }
+
+  @Get('user-level/:userId')
+  @ApiOperation({ summary: 'Lấy Level hiện tại của Nhân sự từ Backend' })
+  async getUserLevel(@Param('userId') userId: string) {
+    return { userId, levelNumber: this.levelingService.getUserLevel(userId) };
+  }
+
+  @Post('user-level/:userId')
+  @ApiOperation({ summary: 'Cập nhật hoặc đặt Level trực tiếp cho Nhân sự trên Backend' })
+  async updateUserLevel(
+    @Param('userId') userId: string,
+    @Body() body: { levelNumber: number },
+  ) {
+    return this.levelingService.updateUserLevel(userId, Number(body.levelNumber) || 1);
+  }
 }
