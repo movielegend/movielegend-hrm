@@ -10,13 +10,6 @@ import {
   Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-let AudioModule: any = null;
-try {
-  AudioModule = require('expo-av')?.Audio;
-} catch (e) {
-  console.warn('expo-av Audio module unavailable:', e);
-}
-
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface IncomingCallScreenProps {
@@ -39,8 +32,11 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
     let isMounted = true;
 
     async function playRingtone() {
-      if (!AudioModule) return;
       try {
+        const ExpoAv = require('expo-av');
+        const AudioModule = ExpoAv?.Audio;
+        if (!AudioModule) return;
+
         await AudioModule.setAudioModeAsync({
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
@@ -63,7 +59,7 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
           await newSound.unloadAsync();
         }
       } catch (error) {
-        console.warn('Failed to load ringtone:', error);
+        console.warn('Ringtone unavailable in current runtime:', error);
       }
     }
 
