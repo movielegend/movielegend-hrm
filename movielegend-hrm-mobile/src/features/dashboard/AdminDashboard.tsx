@@ -79,7 +79,7 @@ export function AdminDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={[styles.avatar, { backgroundColor: '#4338CA' }]}>
+            <View style={[styles.avatar, { backgroundColor: '#DC2626' }]}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
               ) : (
@@ -89,8 +89,8 @@ export function AdminDashboard() {
             <View style={styles.userInfo}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.greetingText}>Xin chào 👋</Text>
-                <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#C7D2FE' }}>
-                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#4338CA' }}>ADMIN QUẢN TRỊ</Text>
+                <View style={{ backgroundColor: '#FEF2F2', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#FCA5A5' }}>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#DC2626' }}>ADMIN QUẢN TRỊ</Text>
                 </View>
               </View>
               <Text style={styles.userName}>{user?.fullName || 'System Admin'}</Text>
@@ -129,7 +129,7 @@ export function AdminDashboard() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: '#DC2626', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
               <MaterialCommunityIcons name="check" size={16} color="#FFF" />
             </View>
             <Text style={styles.heroTitle}>Đã chấm công</Text>
@@ -250,8 +250,8 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
 function GridCard({ title, icon, onPress }: any) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <View style={[styles.cardIconBg, { backgroundColor: '#EEF2FF' }]}>
-        <MaterialCommunityIcons name={icon} size={26} color="#4338CA" />
+      <View style={[styles.cardIconBg, { backgroundColor: '#FEF2F2' }]}>
+        <MaterialCommunityIcons name={icon} size={26} color="#DC2626" />
       </View>
       <Text style={styles.cardTitle}>{title}</Text>
     </Pressable>

@@ -109,7 +109,7 @@ export function LeaderDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={[styles.avatar, { backgroundColor: '#D97706' }]}>
+            <View style={[styles.avatar, { backgroundColor: '#059669' }]}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
               ) : (
@@ -119,8 +119,8 @@ export function LeaderDashboard() {
             <View style={styles.greetingInfo}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.greetingText}>Xin chào 👋</Text>
-                <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#FDE68A' }}>
-                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#B45309' }}>LEADER QUẢN LÝ</Text>
+                <View style={{ backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#A7F3D0' }}>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#047857' }}>LEADER QUẢN LÝ</Text>
                 </View>
               </View>
               <Text style={styles.userName}>{user?.fullName || 'Quản lý'}</Text>
@@ -298,8 +298,8 @@ export function LeaderDashboard() {
 function GridItem({ icon, title, onPress, badge }: any) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
-      <View style={[styles.gridIconContainer, { backgroundColor: '#FFFBEB' }]}>
-        <MaterialCommunityIcons name={icon} size={26} color="#D97706" />
+      <View style={[styles.gridIconContainer, { backgroundColor: '#ECFDF5' }]}>
+        <MaterialCommunityIcons name={icon} size={26} color="#059669" />
         {badge && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge}</Text>
