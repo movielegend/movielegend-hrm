@@ -14,6 +14,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useLevelProjects } from '../leveling/levelProjectsStore';
 import { useSocketStatus } from '../../providers/SocketProvider';
+import { levelingApi } from '../../api/leveling.api';
 
 export interface SubTaskProgressItem {
   id: string;
@@ -182,9 +183,10 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
-    // Save level & approval timestamp to SecureStore & emit real-time socket event
+    // Save level & approval timestamp to Backend API & SecureStore
     void (async () => {
       try {
+        await levelingApi.updateUserLevel(item.employeeId, item.targetLevelNumber).catch(() => {});
         const raw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
         const existing = raw ? JSON.parse(raw) : [];
         const updated = Array.from(new Set([...(Array.isArray(existing) ? existing : []), item.employeeId]));
@@ -218,9 +220,10 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       return { ...prev, [selectedDeptId]: updatedList };
     });
 
-    // Save level & approval timestamp to SecureStore & emit real-time socket event
+    // Save level & approval timestamp to Backend API & SecureStore
     void (async () => {
       try {
+        await levelingApi.updateUserLevel(item.employeeId, item.targetLevelNumber).catch(() => {});
         const raw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
         const existing = raw ? JSON.parse(raw) : [];
         const updated = Array.from(new Set([...(Array.isArray(existing) ? existing : []), item.employeeId]));

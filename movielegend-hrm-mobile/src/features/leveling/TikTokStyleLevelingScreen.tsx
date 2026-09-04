@@ -140,13 +140,29 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Load level stored or approved from SecureStore
+  // Load level stored or approved from Backend API & SecureStore
   const [approvedLevelNumber, setApprovedLevelNumber] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
+    let isMounted = true;
     void (async () => {
       try {
+        // Fetch real level from Backend API first
+        const backendRes = await levelingApi.getUserLevel(user.id).catch(() => null);
+        if (isMounted && backendRes && typeof backendRes.levelNumber === 'number') {
+          const lvl = backendRes.levelNumber;
+          setApprovedLevelNumber(lvl > 1 ? lvl : null);
+          setSelectedLevel(lvl);
+          if (lvl === 1) {
+            await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+            await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => {});
+          } else {
+            await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${user.id}`, String(lvl)).catch(() => {});
+          }
+          return;
+        }
+
         const resetTimeStr = await SecureStore.getItemAsync('LAST_DATA_RESET_TIMESTAMP').catch(() => null);
         const approvalTimeStr = await SecureStore.getItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => null);
         const resetTime = resetTimeStr ? parseInt(resetTimeStr, 10) : 0;
@@ -156,20 +172,26 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
           // Data was reset after approval => Clear approved level!
           await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
           await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => {});
-          setApprovedLevelNumber(null);
-          setSelectedLevel(1);
+          if (isMounted) {
+            setApprovedLevelNumber(null);
+            setSelectedLevel(1);
+          }
           return;
         }
 
         const val = await SecureStore.getItemAsync(`USER_APPROVED_LEVEL_${user.id}`);
-        if (val) {
+        if (isMounted && val) {
           const num = parseInt(val, 10);
           if (!isNaN(num)) {
             setApprovedLevelNumber(num);
+            setSelectedLevel(num);
           }
         }
       } catch {}
     })();
+    return () => {
+      isMounted = false;
+    };
   }, [user?.id]);
 
   // Dynamic Level Calculation
