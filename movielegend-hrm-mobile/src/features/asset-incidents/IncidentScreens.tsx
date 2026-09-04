@@ -6,8 +6,19 @@ import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
 import ImageView from '../../components/ImageViewer/ImageViewer';
-import { Video, ResizeMode } from 'expo-av';
 import { uploadFile } from '../../api/uploads.api';
+
+let SafeVideoComponent: any = null;
+let ResizeModeEnum: any = { CONTAIN: 'contain' };
+try {
+  const av = require('expo-av');
+  SafeVideoComponent = av?.Video;
+  if (av?.ResizeMode) {
+    ResizeModeEnum = av.ResizeMode;
+  }
+} catch (e) {
+  console.warn('expo-av Video component unavailable in current runtime');
+}
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
@@ -391,12 +402,21 @@ export function IncidentDetailScreen() {
             <View style={{ marginTop: spacing.md }}>
               <Text style={styles.label}>Minh chứng sự cố:</Text>
               {item.evidenceUrl.match(/\.(mp4|mov|webm)$/i) ? (
-                <Video
-                  source={{ uri: item.evidenceUrl }}
-                  style={{ width: '100%', height: 250, borderRadius: 8, marginTop: spacing.sm, backgroundColor: colors.surface }}
-                  useNativeControls
-                  resizeMode={ResizeMode.CONTAIN}
-                />
+                SafeVideoComponent ? (
+                  <SafeVideoComponent
+                    source={{ uri: item.evidenceUrl }}
+                    style={{ width: '100%', height: 250, borderRadius: 8, marginTop: spacing.sm, backgroundColor: colors.surface }}
+                    useNativeControls
+                    resizeMode={ResizeModeEnum.CONTAIN}
+                  />
+                ) : (
+                  <Pressable
+                    onPress={() => Linking.openURL(item.evidenceUrl)}
+                    style={{ padding: spacing.md, backgroundColor: colors.surface, borderRadius: 8, marginTop: spacing.sm, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>Bấm để xem video minh chứng (Mở liên kết)</Text>
+                  </Pressable>
+                )
               ) : (
                 <Pressable onPress={() => setViewerVisible(true)}>
                   <Image
