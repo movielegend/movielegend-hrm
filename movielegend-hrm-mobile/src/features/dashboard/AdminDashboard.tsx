@@ -156,7 +156,7 @@ export function AdminDashboard() {
           <GridCard
             title="Quyền Ví Tết"
             icon="gift-outline"
-            onPress={() => router.navigate('/admin/vault-permissions' as any)}
+            onPress={() => router.navigate('/admin/tet-wallet' as any)}
           />
           <GridCard
             title="Chốt Level"
