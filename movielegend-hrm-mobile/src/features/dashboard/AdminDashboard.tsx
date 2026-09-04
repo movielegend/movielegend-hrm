@@ -79,21 +79,16 @@ export function AdminDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={[styles.avatar, { backgroundColor: '#DC2626' }]}>
+            <View style={styles.avatar}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
               ) : (
-                <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{getInitials(user?.fullName)}</Text>
+                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
               )}
             </View>
             <View style={styles.userInfo}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.greetingText}>Xin chào 👋</Text>
-                <View style={{ backgroundColor: '#FEF2F2', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#FCA5A5' }}>
-                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#DC2626' }}>ADMIN QUẢN TRỊ</Text>
-                </View>
-              </View>
-              <Text style={styles.userName}>{user?.fullName || 'System Admin'}</Text>
+              <Text style={styles.greetingText}>Xin chào 👋</Text>
+              <Text style={styles.userName}>{user?.fullName || 'Admin'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
@@ -129,7 +124,7 @@ export function AdminDashboard() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: '#DC2626', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
               <MaterialCommunityIcons name="check" size={16} color="#FFF" />
             </View>
             <Text style={styles.heroTitle}>Đã chấm công</Text>
@@ -250,8 +245,8 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
 function GridCard({ title, icon, onPress }: any) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <View style={[styles.cardIconBg, { backgroundColor: '#FEF2F2' }]}>
-        <MaterialCommunityIcons name={icon} size={26} color="#DC2626" />
+      <View style={styles.cardIconBg}>
+        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
       </View>
       <Text style={styles.cardTitle}>{title}</Text>
     </Pressable>
@@ -370,11 +365,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   heroButton: {
-    backgroundColor: appleTheme.card,
+    backgroundColor: '#FFF5F5',
     borderRadius: appleTheme.radiusCard,
     padding: 24,
     marginBottom: 24,
-    shadowColor: '#8a99af',
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
@@ -382,17 +377,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.05)',
+    borderColor: '#FEE2E2',
   },
 
   heroTopographicBg: {
     position: 'absolute',
-    right: -10,
-    bottom: -10,
-    top: -10,
-    width: '65%',
-    height: '120%',
-    opacity: 0.85,
+    right: 0,
+    left: 0,
+    bottom: 0,
+    top: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.95,
   },
   heroTitle: {
     color: '#0A2540',

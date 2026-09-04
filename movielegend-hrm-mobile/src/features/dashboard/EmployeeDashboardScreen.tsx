@@ -78,20 +78,15 @@ export function EmployeeDashboardScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-            <View style={[styles.avatar, { backgroundColor: '#2563EB' }]}>
+            <View style={styles.avatar}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
               ) : (
-                <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{getInitials(user?.fullName)}</Text>
+                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
               )}
             </View>
           <View style={styles.headerInfo}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' }}>
-                <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#1E40AF' }}>NHÂN VIÊN CHÍNH THỨC</Text>
-              </View>
-            </View>
+            <Text style={styles.greetingText}>Xin chào,</Text>
             <Text style={styles.userName}>{fullName}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -284,8 +279,8 @@ export function EmployeeDashboardScreen() {
 function GridItem({ icon, title, onPress, color, badge }: any) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
-      <View style={[styles.gridIconContainer, { backgroundColor: '#EFF6FF' }]}>
-        <MaterialCommunityIcons name={icon} size={26} color="#2563EB" />
+      <View style={styles.gridIconContainer}>
+        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
         {badge && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge}</Text>
@@ -379,7 +374,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F0F7FF',
     borderRadius: 24,
     padding: spacing.xl,
     marginBottom: spacing.xl,
@@ -390,16 +385,17 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#EFF6FF',
+    borderColor: '#DBEAFE',
   },
   heroTopographicBg: {
     position: 'absolute',
-    right: -10,
-    bottom: -10,
-    top: -10,
-    width: '65%',
-    height: '120%',
-    opacity: 0.85,
+    right: 0,
+    left: 0,
+    bottom: 0,
+    top: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.95,
   },
   statusBadge: {
     flexDirection: 'row',
