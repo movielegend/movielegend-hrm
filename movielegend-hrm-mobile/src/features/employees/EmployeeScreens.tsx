@@ -82,6 +82,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             <PageHeader
               title="Nhân viên"
               subtitle="Danh sách toàn bộ nhân sự công ty"
+              showBack={false}
               right={
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Pressable style={styles.addBtn} onPress={() => router.push(departmentId ? `/admin/employees/create?departmentId=${departmentId}` : '/admin/employees/create')}>
@@ -251,7 +252,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   return (
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={leaderReport.isRefetching} onRefresh={() => void leaderReport.refetch()} />}>
-        <PageHeader title="Nhân sự phòng ban" subtitle="Danh sách nhân viên thuộc sự quản lý của bạn" />
+        <PageHeader title="Nhân sự phòng ban" subtitle="Danh sách nhân viên thuộc sự quản lý của bạn" showBack={false} />
         <SearchInput value={filters.search ?? ''} onChangeText={(text) => setFilters(f => ({ ...f, search: text }))} placeholder="Tìm kiếm nhân sự..." />
         {leaderReport.isLoading ? <LoadingState /> : null}
         {leaderReport.isError ? <ErrorState error={leaderReport.error} onRetry={() => void leaderReport.refetch()} /> : null}
