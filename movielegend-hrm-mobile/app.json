@@ -87,7 +87,7 @@
             }
           },
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "16.4"
           }
         }
       ],
@@ -104,7 +104,6 @@
         "projectId": "4a5152ea-87fd-4faf-829b-63e01ed4de9d"
       }
     },
-    "runtimeVersion": "1.0.0",
-    "owner": "movielegend6868"
+    "runtimeVersion": "1.0.0"
   }
 }
