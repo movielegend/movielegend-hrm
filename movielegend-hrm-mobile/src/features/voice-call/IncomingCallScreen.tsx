@@ -10,7 +10,12 @@ import {
   Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+let AudioModule: any = null;
+try {
+  AudioModule = require('expo-av')?.Audio;
+} catch (e) {
+  console.warn('expo-av Audio module unavailable:', e);
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -27,22 +32,23 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
   const ringAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [sound, setSound] = useState<any | null>(null);
 
   useEffect(() => {
-    let currentSound: Audio.Sound | null = null;
+    let currentSound: any = null;
     let isMounted = true;
 
     async function playRingtone() {
+      if (!AudioModule) return;
       try {
-        await Audio.setAudioModeAsync({
+        await AudioModule.setAudioModeAsync({
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
           shouldDuckAndroid: true,
           playThroughEarpieceAndroid: false,
         });
 
-        const { sound: newSound } = await Audio.Sound.createAsync(
+        const { sound: newSound } = await AudioModule.Sound.createAsync(
           require('../../../assets/sounds/ringtone.wav'),
           { isLooping: true }
         );
