@@ -1707,7 +1707,9 @@ export function LeaderContractListScreen() {
 
   return (
     <Screen>
-      <PageHeader title="Quản lý hợp đồng" />
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs }}>
+        <PageHeader title="Quản lý hợp đồng" />
+      </View>
 
       <View
         style={{

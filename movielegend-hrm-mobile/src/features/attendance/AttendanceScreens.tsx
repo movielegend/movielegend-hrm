@@ -374,20 +374,15 @@ export function AttendanceHistoryScreen() {
   }, [history.data?.items, month, year, selectedDay]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
       <ScrollView 
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-              <Ionicons name="chevron-back" size={24} color="#111827" />
-            </Pressable>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>Lịch sử chấm công</Text>
-          </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 4 }}>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>Lịch sử chấm công</Text>
         </View>
 
         {/* Calendar Card */}

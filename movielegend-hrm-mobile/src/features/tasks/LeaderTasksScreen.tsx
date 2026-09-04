@@ -19,10 +19,12 @@ export function LeaderTasksScreen() {
 
   return (
     <Screen>
-      <PageHeader 
-        title="Công việc" 
-        subtitle={activeTab === 'ASSIGNEE' ? "Nhiệm vụ bạn cần thực hiện" : "Nhiệm vụ bạn đã giao"} 
-      />
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs }}>
+        <PageHeader 
+          title="Công việc" 
+          subtitle={activeTab === 'ASSIGNEE' ? "Nhiệm vụ bạn cần thực hiện" : "Nhiệm vụ bạn đã giao"} 
+        />
+      </View>
       
       {/* Top Tabs */}
       <View style={styles.tabContainer}>
