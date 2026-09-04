@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroCard: {
-    backgroundColor: '#F0F7FF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: spacing.xl,
     marginBottom: spacing.xl,
@@ -395,7 +395,6 @@ const styles = StyleSheet.create({
     top: 0,
     width: '100%',
     height: '100%',
-    opacity: 0.95,
   },
   statusBadge: {
     flexDirection: 'row',
