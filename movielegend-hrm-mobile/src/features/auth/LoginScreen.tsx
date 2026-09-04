@@ -2,9 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { z } from 'zod';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
@@ -92,11 +90,11 @@ export function LoginScreen() {
     <Screen>
       <View style={styles.container}>
 
-        <KeyboardAwareScrollView
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
-          enableOnAndroid={true}
-          extraScrollHeight={20}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
           <View style={styles.innerContent}>
 
@@ -236,7 +234,7 @@ export function LoginScreen() {
             </View>
 
           </View>
-        </KeyboardAwareScrollView>
+        </ScrollView>
       </View>
     </Screen>
   );
