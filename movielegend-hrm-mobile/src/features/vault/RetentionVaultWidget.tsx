@@ -145,6 +145,54 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const milestones: VestingMilestone[] = vault?.milestones || [];
   const transactions: VaultTransaction[] = vault?.transactions || [];
 
+  const now = new Date();
+  const currentYear = new Date().getFullYear();
+  const currentQuarterNum = Math.min(4, Math.floor(now.getMonth() / 3) + 1);
+
+  const qMeta = [
+    { q: 1, label: 'Quý 1', dateLabel: '31/03', unlockDate: new Date(currentYear, 2, 31), icon: 'file-document-check' },
+    { q: 2, label: 'Quý 2', dateLabel: '30/06', unlockDate: new Date(currentYear, 5, 30), icon: 'pot-steam' },
+    { q: 3, label: 'Quý 3', dateLabel: '30/09', unlockDate: new Date(currentYear, 8, 30), icon: 'moped' },
+    { q: 4, label: 'Quý 4 (Tết)', dateLabel: '31/12', unlockDate: new Date(currentYear, 11, 31), icon: 'home-variant' },
+  ];
+
+  const quarterSteps = qMeta.map((qm) => {
+    const found = milestones.find((m) => m.quarter === qm.q);
+    const unlockDate = found ? new Date(found.unlockDate) : qm.unlockDate;
+    const isPastOrToday = unlockDate <= now;
+    const points = found ? found.pointsToUnlock : Math.floor(stats.totalGrantedPoints / 4);
+    const cash = Number(found?.cashAmount || points * cashValuePerPoint);
+    const isWithdrawn = found ? Boolean(found.isWithdrawn) : false;
+    const isCurrentActive = qm.q === currentQuarterNum;
+
+    return {
+      quarter: qm.q,
+      label: qm.label,
+      dateLabel: qm.dateLabel,
+      unlockDate,
+      points,
+      cash,
+      isWithdrawn,
+      isUnlocked: isPastOrToday && !isWithdrawn && points > 0,
+      isLocked: !isPastOrToday && !isWithdrawn,
+      isPastOrToday,
+      isCurrentActive,
+      icon: qm.icon,
+    };
+  });
+
+  const nextUpcomingQuarter = quarterSteps.find((s) => !s.isPastOrToday);
+  const nextQuarterLabel = nextUpcomingQuarter
+    ? `Dự kiến mở khóa Quý ${nextUpcomingQuarter.quarter}: ${nextUpcomingQuarter.dateLabel}`
+    : `Đã hoàn tất mở khóa 4 Quý năm ${currentYear}`;
+
+  const allWithdrawn = quarterSteps.every((s) => s.isWithdrawn);
+  const trackerMainStatus = allWithdrawn
+    ? 'Đã giải ngân trọn vẹn quỹ thưởng 🎉'
+    : currentQuarterNum === 4
+    ? 'Đích đến: Mở khóa Thưởng Tết! 🧧'
+    : `Đang mở khóa đợt Quý ${currentQuarterNum}...`;
+
   return (
     <View style={styles.cardContainer}>
       {/* Header */}
@@ -210,62 +258,159 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         </View>
       </View>
 
-      {/* Vesting Milestone Timeline */}
-      <View style={styles.milestoneContainer}>
-        <Text style={styles.milestoneTitle}>Lịch Mở Khóa Thưởng Theo Quý (25%/Quý):</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.milestoneScroll}>
-          {milestones.length === 0 ? (
-            <Text style={styles.emptySubText}>Chưa có lịch giải ngân mốc quý</Text>
-          ) : (
-            milestones.map((m) => {
-              const unlockDate = new Date(m.unlockDate);
-              const isPast = unlockDate <= new Date();
-              const formattedDate = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
-              const cash = Number(m.cashAmount || m.pointsToUnlock * cashValuePerPoint);
+      {/* Shopee-style Vesting Delivery Stepper Tracker */}
+      <View style={styles.shopeeTrackerCard}>
+        {/* Top Header Row */}
+        <View style={styles.shopeeHeaderRow}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.shopeeEstTime}>{nextQuarterLabel}</Text>
+            <Text style={styles.shopeeMainStatus}>{trackerMainStatus}</Text>
+          </View>
+          <View style={styles.shopeeAvatarCircle}>
+            <MaterialCommunityIcons
+              name={currentQuarterNum === 4 ? 'gift' : 'moped'}
+              size={32}
+              color="#EE4D2D"
+            />
+          </View>
+        </View>
+
+        {/* Stepper Horizontal Progress Bar */}
+        <View style={styles.stepperContainer}>
+          {/* Icons & Connecting Lines Row */}
+          <View style={styles.stepperIconsRow}>
+            {quarterSteps.map((step, idx) => {
+              const isPassed = step.isPastOrToday || step.isWithdrawn;
+              const isCurrent = step.isCurrentActive;
+              const hasNext = idx < quarterSteps.length - 1;
+
+              const nextStep = quarterSteps[idx + 1];
+              const lineFilled = nextStep ? nextStep.isPastOrToday || nextStep.isWithdrawn : false;
+              const lineHalfFilled = isPassed && nextStep && !nextStep.isPastOrToday;
 
               return (
-                <View
-                  key={m.id || m.quarter}
-                  style={[
-                    styles.milestoneItem,
-                    m.isWithdrawn
-                      ? styles.milestoneWithdrawn
-                      : isPast
-                      ? styles.milestonePassed
-                      : styles.milestoneFuture,
-                  ]}
-                >
-                  <Text style={styles.milestoneQuarter}>
-                    Quý {m.quarter} ({formattedDate})
-                  </Text>
-                  <Ionicons
-                    name={
-                      m.isWithdrawn
-                        ? 'checkmark-done-circle'
-                        : isPast
-                        ? 'lock-open-outline'
-                        : 'time-outline'
-                    }
-                    size={20}
-                    color={m.isWithdrawn ? '#64748B' : isPast ? '#059669' : '#D97706'}
-                  />
+                <React.Fragment key={step.quarter}>
+                  {/* Milestone Node Icon */}
+                  <View style={styles.milestoneNodeCol}>
+                    <View
+                      style={[
+                        styles.milestoneIconWrap,
+                        step.isWithdrawn
+                          ? styles.milestoneIconWithdrawn
+                          : isPassed
+                          ? styles.milestoneIconActive
+                          : styles.milestoneIconInactive,
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={step.icon as any}
+                        size={22}
+                        color={
+                          step.isWithdrawn
+                            ? '#64748B'
+                            : isPassed
+                            ? '#EE4D2D'
+                            : '#94A3B8'
+                        }
+                      />
+                      {step.isWithdrawn && (
+                        <View style={styles.checkedBadge}>
+                          <MaterialCommunityIcons name="check" size={9} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Active Step Pointer Arrow */}
+                    <View style={styles.pointerSlot}>
+                      {isCurrent ? (
+                        <MaterialCommunityIcons name="chevron-down" size={18} color="#EE4D2D" />
+                      ) : null}
+                    </View>
+                  </View>
+
+                  {/* Connecting Line */}
+                  {hasNext && (
+                    <View style={styles.stepperLineWrapper}>
+                      {lineFilled ? (
+                        <View style={[styles.stepperLine, styles.stepperLineFull]} />
+                      ) : lineHalfFilled ? (
+                        <View style={styles.stepperLineHalfWrapper}>
+                          <View style={[styles.stepperLineHalf, { backgroundColor: '#EE4D2D' }]} />
+                          <View style={[styles.stepperLineHalf, { backgroundColor: '#E2E8F0' }]} />
+                        </View>
+                      ) : (
+                        <View style={[styles.stepperLine, styles.stepperLineInactive]} />
+                      )}
+                    </View>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </View>
+
+          {/* Stepper Labels & Dates Row */}
+          <View style={styles.stepperLabelsRow}>
+            {quarterSteps.map((step) => {
+              return (
+                <View key={step.quarter} style={styles.stepperLabelCol}>
                   <Text
                     style={[
-                      styles.milestoneStatus,
-                      { color: m.isWithdrawn ? '#64748B' : isPast ? '#059669' : '#B45309' },
+                      styles.stepperQuarterTitle,
+                      step.isCurrentActive && styles.stepperQuarterTitleActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {step.quarter === 4 ? 'Q4 (Tết)' : `Quý ${step.quarter}`}
+                  </Text>
+                  <Text style={styles.stepperDateText}>{step.dateLabel}</Text>
+                  <View
+                    style={[
+                      styles.stepperPointBadge,
+                      step.isWithdrawn
+                        ? styles.badgeWithdrawn
+                        : step.isPastOrToday
+                        ? styles.badgeUnlocked
+                        : styles.badgeLocked,
                     ]}
                   >
-                    {m.isWithdrawn
-                      ? 'Đã rút'
-                      : isPast
-                      ? `Khả dụng: ${m.pointsToUnlock.toLocaleString('vi-VN')} đ`
-                      : `${m.pointsToUnlock.toLocaleString('vi-VN')} đ (~${(cash / 1000000).toFixed(1)}tr)`}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.stepperPointBadgeText,
+                        step.isWithdrawn
+                          ? styles.badgeTextWithdrawn
+                          : step.isPastOrToday
+                          ? styles.badgeTextUnlocked
+                          : styles.badgeTextLocked,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {step.isWithdrawn
+                        ? 'Đã rút'
+                        : `${step.points.toLocaleString('vi-VN')} đ`}
+                    </Text>
+                  </View>
                 </View>
               );
-            })
-          )}
-        </ScrollView>
+            })}
+          </View>
+        </View>
+
+        {/* Milestone Detail Cards Horizontal Mini Bar */}
+        <View style={styles.milestoneMiniSummary}>
+          <View style={styles.miniSummaryItem}>
+            <Text style={styles.miniSummaryLabel}>Đã mở khóa:</Text>
+            <Text style={styles.miniSummaryValUnlocked}>
+              {stats.unlockedPoints.toLocaleString('vi-VN')} đ
+            </Text>
+          </View>
+          <View style={styles.miniSummaryDivider} />
+          <View style={styles.miniSummaryItem}>
+            <Text style={styles.miniSummaryLabel}>Chờ mở các quý sau:</Text>
+            <Text style={styles.miniSummaryValLocked}>
+              {stats.lockedQuarterPoints.toLocaleString('vi-VN')} đ
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Recent Transactions Ledger */}
@@ -601,61 +746,206 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 14,
   },
-  milestoneContainer: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
+  shopeeTrackerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 14,
+    borderColor: '#FEE2E2',
+    shadowColor: '#EE4D2D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  milestoneTitle: {
+  shopeeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  shopeeEstTime: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+    color: '#4B5563',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  shopeeMainStatus: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  shopeeAvatarCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FECDD3',
+  },
+  stepperContainer: {
     marginBottom: 8,
   },
-  milestoneScroll: {
+  stepperIconsRow: {
     flexDirection: 'row',
-  },
-  milestoneItem: {
-    width: 120,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 10,
     alignItems: 'center',
-    marginRight: 8,
+    justifyContent: 'space-between',
+  },
+  milestoneNodeCol: {
+    alignItems: 'center',
+    width: 38,
+  },
+  milestoneIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneIconActive: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1.5,
+    borderColor: '#FDA4AF',
+  },
+  milestoneIconWithdrawn: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  milestoneIconInactive: {
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 4,
   },
-  milestonePassed: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+  checkedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  milestoneWithdrawn: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#CBD5E1',
-    opacity: 0.75,
+  pointerSlot: {
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  milestoneFuture: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+  stepperLineWrapper: {
+    flex: 1,
+    height: 3.5,
+    marginBottom: 18,
+    marginHorizontal: 2,
   },
-  milestoneQuarter: {
+  stepperLine: {
+    height: 3.5,
+    borderRadius: 2,
+  },
+  stepperLineFull: {
+    backgroundColor: '#EE4D2D',
+  },
+  stepperLineInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  stepperLineHalfWrapper: {
+    flexDirection: 'row',
+    height: 3.5,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  stepperLineHalf: {
+    flex: 1,
+    height: 3.5,
+  },
+  stepperLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stepperLabelCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  stepperQuarterTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#4B5563',
+    marginBottom: 2,
   },
-  milestoneStatus: {
+  stepperQuarterTitleActive: {
+    color: '#EE4D2D',
+  },
+  stepperDateText: {
     fontSize: 10,
-    fontWeight: '600',
-    textAlign: 'center',
+    color: '#9CA3AF',
+    marginBottom: 4,
   },
-  emptySubText: {
+  stepperPointBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeUnlocked: {
+    backgroundColor: '#ECFDF5',
+  },
+  badgeWithdrawn: {
+    backgroundColor: '#F1F5F9',
+  },
+  badgeLocked: {
+    backgroundColor: '#FFFBEB',
+  },
+  stepperPointBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  badgeTextUnlocked: {
+    color: '#059669',
+  },
+  badgeTextWithdrawn: {
+    color: '#64748B',
+  },
+  badgeTextLocked: {
+    color: '#B45309',
+  },
+  milestoneMiniSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  miniSummaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  miniSummaryLabel: {
     fontSize: 11,
-    color: '#94A3B8',
-    fontStyle: 'italic',
+    color: '#64748B',
+  },
+  miniSummaryValUnlocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  miniSummaryValLocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  miniSummaryDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: '#E2E8F0',
   },
   txContainer: {
     backgroundColor: '#F8FAFC',
