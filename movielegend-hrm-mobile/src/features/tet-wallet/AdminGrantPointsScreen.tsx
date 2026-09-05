@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
   Alert,
   Modal,
+  BackHandler,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -85,6 +86,16 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [grantNote, setGrantNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Handle hardware / gesture back on Android to return to Quyền Ví Tết
+  useEffect(() => {
+    const onBackPress = () => {
+      onBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [onBack]);
 
   const currentDateObj = useMemo(() => {
     if (!startDateStr) return new Date();
@@ -230,8 +241,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           <PageHeader
             title="Trao Điểm Thưởng Dự Án"
             subtitle="Cấu hình hạn mức & chia đợt rút linh hoạt"
-            showBack={true}
-            onBack={onBack}
+            showBack={false}
             right={
               <View style={styles.headerIconBox}>
                 <MaterialCommunityIcons name="wallet-giftcard" size={26} color="#D97706" />
