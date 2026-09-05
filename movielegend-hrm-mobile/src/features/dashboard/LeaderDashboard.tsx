@@ -12,6 +12,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { getDashboardByRole, getLeaderActivities } from '../../api/dashboard.api';
+import { getMyVault } from '../../api/employees.api';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
@@ -69,6 +70,15 @@ export function LeaderDashboard() {
     createdById: user?.id,
     limit: 10 
   });
+
+  const { data: myVault } = useQuery({
+    queryKey: ['my-vault'],
+    queryFn: getMyVault,
+  });
+
+  const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
+  const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
+  const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
   
   const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0, checkedInCount: 0 };
   const checkedInCount = deptStats.checkedInCount || 0;
@@ -176,12 +186,49 @@ export function LeaderDashboard() {
           </View>
         </Pressable>
 
+        {/* Banner Ví Thưởng Tết & Nhân Tài (Hiển thị nổi bật khi Leader được mở quyền) */}
+        {isVaultEnabled && (
+          <Pressable
+            style={styles.vaultBanner}
+            onPress={() => router.push('/leader/vault' as any)}
+          >
+            <View style={styles.vaultBannerLeft}>
+              <View style={styles.vaultBannerIconWrap}>
+                <MaterialCommunityIcons name="gift" size={24} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <Text style={styles.vaultBannerTitle}>Ví Thưởng Tết & Giữ Chân</Text>
+                  <View style={styles.vipBadge}>
+                    <Text style={styles.vipBadgeText}>VIP</Text>
+                  </View>
+                </View>
+                <Text style={styles.vaultBannerPoints}>
+                  Khả dụng: <Text style={styles.vaultBannerPointsBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                  {totalGrantedPoints > 0 ? ` • Quỹ cam kết: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.vaultBannerRight}>
+              <Text style={styles.vaultBannerActionText}>Mở ví</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color="#D97706" />
+            </View>
+          </Pressable>
+        )}
+
         {/* Thao tác nhanh (Quick Actions - Leader Features) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
             <GridItem icon="star-circle-outline" title="Cấp của bạn" onPress={() => router.push('/leader/leveling' as any)} />
             <GridItem icon="briefcase-outline" title="Dự án" onPress={() => router.push('/leader/level-projects' as any)} />
+            <GridItem
+              icon="gift-outline"
+              title="Ví Thưởng Tết"
+              badge={isVaultEnabled ? 'VIP' : undefined}
+              badgeColor="#D97706"
+              onPress={() => router.push('/leader/vault' as any)}
+            />
             <GridItem icon="clipboard-check-outline" title="Duyệt Vòng 1" onPress={() => router.push('/employee/competition/review' as any)} />
             <GridItem icon="file-document-multiple" title="Duyệt đơn" onPress={() => router.push('/leader/(tabs)/approvals' as any)} />
             <GridItem icon="calendar-clock" title="Lịch sử công" onPress={() => router.push('/leader/attendance-history' as any)} />
@@ -291,13 +338,13 @@ export function LeaderDashboard() {
   );
 }
 
-function GridItem({ icon, title, onPress, badge }: any) {
+function GridItem({ icon, title, onPress, color, badge, badgeColor }: any) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
       <View style={styles.gridIconContainer}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+        <MaterialCommunityIcons name={icon} size={28} color={color || "#111827"} />
         {badge && (
-          <View style={styles.badge}>
+          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
@@ -773,5 +820,77 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 999,
-  }
+  },
+  vaultBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: spacing.xl,
+    borderWidth: 1.5,
+    borderColor: '#FCD34D',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  vaultBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  vaultBannerIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vaultBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  vipBadge: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  vipBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  vaultBannerPoints: {
+    fontSize: 12,
+    color: '#78350F',
+  },
+  vaultBannerPointsBold: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  vaultBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vaultBannerActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
 });
