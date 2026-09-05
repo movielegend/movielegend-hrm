@@ -305,8 +305,7 @@ export function AdminTetWalletScreen() {
           <PageHeader
             title="Quyền Ví Tết"
             subtitle="Quản lý hạn mức, thưởng dự án & trao điểm nhân sự"
-            showBack={true}
-            onBack={() => router.back()}
+            showBack={false}
             right={
               <View style={styles.headerIconBox}>
                 <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
