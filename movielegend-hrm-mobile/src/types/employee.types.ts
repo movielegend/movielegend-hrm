@@ -57,6 +57,7 @@ export interface EmployeeUser {
   accountStatus: AccountStatus;
   approvalStatus: ApprovalStatus;
   isActive: boolean;
+  isRewardVaultEnabled?: boolean;
   createdAt?: string;
   updatedAt?: string;
   profile?: EmployeeProfile | null;
@@ -92,6 +93,7 @@ export interface ScopedEmployee {
   employmentStatus?: string | null;
   accountStatus?: AccountStatus;
   isActive: boolean;
+  isRewardVaultEnabled?: boolean;
 }
 
 export interface ScopedEmployeeFilters {
@@ -110,4 +112,5 @@ export interface UpdateEmployeePayload {
   positionId?: string;
   accountStatus?: AccountStatus;
   isActive?: boolean;
+  isRewardVaultEnabled?: boolean;
 }

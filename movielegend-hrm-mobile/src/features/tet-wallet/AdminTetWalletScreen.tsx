@@ -10,6 +10,10 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Switch,
+  Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -23,18 +27,25 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { Department } from '../../types/department.types';
 import type { EmployeeUser } from '../../types/employee.types';
+import { useQueryClient } from '@tanstack/react-query';
+import { updateEmployee as apiUpdateEmployee } from '../../api/employees.api';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 type ViewMode = 'BY_DEPARTMENT' | 'ALL_EMPLOYEES';
+type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
 
 export function AdminTetWalletScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('BY_DEPARTMENT');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
   const [search, setSearch] = useState('');
   const [expandedDeptIds, setExpandedDeptIds] = useState<Record<string, boolean>>({});
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeUser | null>(null);
+  const [togglingEmpId, setTogglingEmpId] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
   const departmentsQuery = useDepartments({ limit: 100 });
   const employeesQuery = useEmployees({ limit: 1000 });
 
@@ -59,6 +70,12 @@ export function AdminTetWalletScreen() {
     return map;
   }, [employees]);
 
+  // Statistics
+  const totalEmployees = employees.length;
+  const enabledCount = employees.filter((e) => Boolean(e.isRewardVaultEnabled)).length;
+  const disabledCount = totalEmployees - enabledCount;
+  const enabledPercent = totalEmployees > 0 ? Math.round((enabledCount / totalEmployees) * 100) : 0;
+
   // Toggle department collapse/expand
   const toggleDepartment = (deptId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -78,37 +95,101 @@ export function AdminTetWalletScreen() {
     setExpandedDeptIds(updated);
   };
 
-  // Filter departments based on search keyword
+  // Mutate single employee vault permission
+  const handleToggleVault = async (emp: EmployeeUser, nextState: boolean) => {
+    try {
+      setTogglingEmpId(emp.id);
+      await apiUpdateEmployee(emp.id, { isRewardVaultEnabled: nextState });
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      
+      if (selectedEmployee?.id === emp.id) {
+        setSelectedEmployee((prev) => (prev ? { ...prev, isRewardVaultEnabled: nextState } : null));
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Tết lúc này.');
+    } finally {
+      setTogglingEmpId(null);
+    }
+  };
+
+  // Bulk toggle for department
+  const handleBulkDeptToggle = (dept: Department, enable: boolean) => {
+    const deptMembers = employeesByDept[dept.id] || [];
+    const targets = deptMembers.filter((e) => Boolean(e.isRewardVaultEnabled) !== enable);
+
+    if (targets.length === 0) {
+      Alert.alert('Thông báo', `Tất cả nhân viên trong phòng ${dept.name} đã ${enable ? 'được cấp quyền' : 'ở trạng thái chưa cấp quyền'}.`);
+      return;
+    }
+
+    Alert.alert(
+      enable ? 'Cấp quyền toàn bộ phòng ban' : 'Thu hồi quyền toàn bộ',
+      `Bạn có chắc chắn muốn ${enable ? 'CẤP QUYỀN' : 'THU HỒI QUYỀN'} Ví Tết cho ${targets.length} nhân sự thuộc phòng "${dept.name}"?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: enable ? 'Cấp quyền tất cả' : 'Thu hồi tất cả',
+          style: enable ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              await Promise.all(
+                targets.map((t) => apiUpdateEmployee(t.id, { isRewardVaultEnabled: enable }))
+              );
+              await queryClient.invalidateQueries({ queryKey: ['employees'] });
+              Alert.alert('Thành công', `Đã cập nhật quyền Ví Tết cho toàn bộ phòng ${dept.name}.`);
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.message || 'Không thể cập nhật đồng loạt.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Filter helper for status
+  const filterByStatus = (emp: EmployeeUser) => {
+    if (filterStatus === 'ENABLED') return Boolean(emp.isRewardVaultEnabled);
+    if (filterStatus === 'DISABLED') return !emp.isRewardVaultEnabled;
+    return true;
+  };
+
+  // Filter departments based on search keyword & status
   const filteredDepartments = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return departments;
 
     return departments.filter((dept) => {
-      const matchDeptName = dept.name.toLowerCase().includes(q) || dept.code.toLowerCase().includes(q);
-      const deptEmployees = employeesByDept[dept.id] || [];
+      const matchDeptName = !q || dept.name.toLowerCase().includes(q) || dept.code.toLowerCase().includes(q);
+      const deptEmployees = (employeesByDept[dept.id] || []).filter(filterByStatus);
       const matchEmployee = deptEmployees.some(
         (emp) =>
+          !q ||
           emp.profile?.fullName?.toLowerCase().includes(q) ||
           emp.userCode?.toLowerCase().includes(q) ||
           emp.phone?.toLowerCase().includes(q)
       );
+
+      if (filterStatus !== 'ALL') {
+        return deptEmployees.length > 0 && (matchDeptName || matchEmployee);
+      }
       return matchDeptName || matchEmployee;
     });
-  }, [departments, employeesByDept, search]);
+  }, [departments, employeesByDept, search, filterStatus]);
 
   // Filter flat employee list
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return employees;
 
     return employees.filter((emp) => {
+      if (!filterByStatus(emp)) return false;
+      if (!q) return true;
+
       const name = emp.profile?.fullName?.toLowerCase() || '';
       const code = emp.userCode?.toLowerCase() || '';
       const phone = emp.phone?.toLowerCase() || '';
       const deptName = emp.departmentLinks?.[0]?.department?.name?.toLowerCase() || '';
       return name.includes(q) || code.includes(q) || phone.includes(q) || deptName.includes(q);
     });
-  }, [employees, search]);
+  }, [employees, search, filterStatus]);
 
   return (
     <Screen>
@@ -128,6 +209,33 @@ export function AdminTetWalletScreen() {
             </View>
           }
         />
+
+        {/* Live Statistics Cards */}
+        <View style={styles.statsCardWrapper}>
+          <View style={styles.statBox}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#EEF2FF' }]}>
+              <MaterialCommunityIcons name="account-group" size={20} color="#4F46E5" />
+            </View>
+            <Text style={styles.statValue}>{totalEmployees}</Text>
+            <Text style={styles.statLabel}>Tổng nhân sự</Text>
+          </View>
+
+          <View style={styles.statBox}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#ECFDF5' }]}>
+              <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#059669" />
+            </View>
+            <Text style={[styles.statValue, { color: '#059669' }]}>{enabledCount}</Text>
+            <Text style={styles.statLabel}>Đã cấp quyền</Text>
+          </View>
+
+          <View style={styles.statBox}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
+              <MaterialCommunityIcons name="percent" size={20} color="#D97706" />
+            </View>
+            <Text style={[styles.statValue, { color: '#D97706' }]}>{enabledPercent}%</Text>
+            <Text style={styles.statLabel}>Tỷ lệ cấp</Text>
+          </View>
+        </View>
 
         {/* View Mode Selector Tabs */}
         <View style={styles.segmentedWrapper}>
@@ -160,6 +268,36 @@ export function AdminTetWalletScreen() {
           </Pressable>
         </View>
 
+        {/* Status Filter Chips */}
+        <View style={styles.filterChipRow}>
+          <Pressable
+            style={[styles.filterChip, filterStatus === 'ALL' && styles.filterChipActive]}
+            onPress={() => setFilterStatus('ALL')}
+          >
+            <Text style={[styles.filterChipText, filterStatus === 'ALL' && styles.filterChipTextActive]}>
+              Tất cả ({totalEmployees})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.filterChip, filterStatus === 'ENABLED' && styles.filterChipActiveSuccess]}
+            onPress={() => setFilterStatus('ENABLED')}
+          >
+            <Text style={[styles.filterChipText, filterStatus === 'ENABLED' && styles.filterChipTextActiveSuccess]}>
+              ✓ Đã cấp ({enabledCount})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.filterChip, filterStatus === 'DISABLED' && styles.filterChipActiveMuted]}
+            onPress={() => setFilterStatus('DISABLED')}
+          >
+            <Text style={[styles.filterChipText, filterStatus === 'DISABLED' && styles.filterChipTextActiveMuted]}>
+              Chưa cấp ({disabledCount})
+            </Text>
+          </Pressable>
+        </View>
+
         {/* Search Bar */}
         <View style={{ marginBottom: 16 }}>
           <SearchInput
@@ -174,7 +312,7 @@ export function AdminTetWalletScreen() {
         </View>
 
         {isLoading ? (
-          <LoadingState label="Đang tải dữ liệu nhân sự & phòng ban..." />
+          <LoadingState label="Đang tải dữ liệu nhân sự & phòng ban thực tế..." />
         ) : viewMode === 'BY_DEPARTMENT' ? (
           /* ==================================================== */
           /* 1. CHẾ ĐỘ XEM THEO PHÒNG BAN                         */
@@ -196,10 +334,12 @@ export function AdminTetWalletScreen() {
             </View>
 
             {filteredDepartments.length === 0 ? (
-              <EmptyState title="Không tìm thấy phòng ban nào" message="Thử tìm kiếm với từ khóa khác" />
+              <EmptyState title="Không tìm thấy phòng ban nào" message="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" />
             ) : (
               filteredDepartments.map((dept) => {
-                const deptMembers = employeesByDept[dept.id] || [];
+                const deptMembers = (employeesByDept[dept.id] || []).filter(filterByStatus);
+                const totalDeptMembers = (employeesByDept[dept.id] || []).length;
+                const deptEnabledCount = (employeesByDept[dept.id] || []).filter((e) => Boolean(e.isRewardVaultEnabled)).length;
                 const isExpanded = !!expandedDeptIds[dept.id] || !!search.trim();
 
                 return (
@@ -215,7 +355,9 @@ export function AdminTetWalletScreen() {
 
                       <View style={styles.deptInfo}>
                         <Text style={styles.deptName}>{dept.name}</Text>
-                        <Text style={styles.deptCode}>Mã: {dept.code}</Text>
+                        <Text style={styles.deptCode}>
+                          Mã: {dept.code} • Đã cấp: <Text style={{ fontWeight: '700', color: deptEnabledCount > 0 ? '#059669' : '#64748B' }}>{deptEnabledCount}/{totalDeptMembers}</Text>
+                        </Text>
                       </View>
 
                       <View style={styles.memberBadge}>
@@ -231,13 +373,36 @@ export function AdminTetWalletScreen() {
                       />
                     </Pressable>
 
+                    {/* Department Actions Toolbar */}
+                    {isExpanded && (
+                      <View style={styles.deptToolbar}>
+                        <Pressable
+                          style={styles.deptActionToolBtn}
+                          onPress={() => handleBulkDeptToggle(dept, true)}
+                        >
+                          <MaterialCommunityIcons name="check-all" size={16} color="#059669" />
+                          <Text style={[styles.deptActionToolText, { color: '#059669' }]}>Cấp cả phòng</Text>
+                        </Pressable>
+
+                        <View style={styles.deptActionDivider} />
+
+                        <Pressable
+                          style={styles.deptActionToolBtn}
+                          onPress={() => handleBulkDeptToggle(dept, false)}
+                        >
+                          <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
+                          <Text style={[styles.deptActionToolText, { color: '#DC2626' }]}>Thu hồi cả phòng</Text>
+                        </Pressable>
+                      </View>
+                    )}
+
                     {/* Expandable Employee List */}
                     {isExpanded && (
                       <View style={styles.employeeListContainer}>
                         {deptMembers.length === 0 ? (
                           <View style={styles.emptyMembersBox}>
                             <Text style={styles.emptyMembersText}>
-                              Chưa có nhân viên nào trong phòng ban này
+                              Chưa có nhân viên nào phù hợp bộ lọc
                             </Text>
                           </View>
                         ) : (
@@ -245,6 +410,9 @@ export function AdminTetWalletScreen() {
                             <EmployeeRowItem
                               key={emp.id}
                               employee={emp}
+                              isToggling={togglingEmpId === emp.id}
+                              onToggle={(val) => handleToggleVault(emp, val)}
+                              onPress={() => setSelectedEmployee(emp)}
                               isLast={index === deptMembers.length - 1}
                             />
                           ))
@@ -266,7 +434,7 @@ export function AdminTetWalletScreen() {
             </Text>
 
             {filteredEmployees.length === 0 ? (
-              <EmptyState title="Không tìm thấy nhân viên" message="Vui lòng thử lại với từ khóa khác" />
+              <EmptyState title="Không tìm thấy nhân viên" message="Vui lòng thử lại với từ khóa hoặc bộ lọc khác" />
             ) : (
               <View style={styles.flatListCard}>
                 {filteredEmployees.map((emp, index) => (
@@ -274,6 +442,9 @@ export function AdminTetWalletScreen() {
                     key={emp.id}
                     employee={emp}
                     showDeptTag={true}
+                    isToggling={togglingEmpId === emp.id}
+                    onToggle={(val) => handleToggleVault(emp, val)}
+                    onPress={() => setSelectedEmployee(emp)}
                     isLast={index === filteredEmployees.length - 1}
                   />
                 ))}
@@ -282,6 +453,110 @@ export function AdminTetWalletScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Employee Detail & Permission Modal */}
+      {selectedEmployee && (
+        <Modal
+          visible={Boolean(selectedEmployee)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedEmployee(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={styles.modalIconBadge}>
+                    <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
+                  </View>
+                  <View>
+                    <Text style={styles.modalTitle}>Chi tiết Quyền Ví Tết</Text>
+                    <Text style={styles.modalSubtitle}>{selectedEmployee.userCode}</Text>
+                  </View>
+                </View>
+                <Pressable onPress={() => setSelectedEmployee(null)} style={styles.closeBtn}>
+                  <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+                </Pressable>
+              </View>
+
+              {/* Employee Basic Info */}
+              <View style={styles.modalEmpCard}>
+                <View style={styles.modalAvatarContainer}>
+                  {selectedEmployee.profile?.avatarUrl ? (
+                    <Image source={{ uri: selectedEmployee.profile.avatarUrl }} style={styles.modalAvatarImg} />
+                  ) : (
+                    <View style={styles.modalAvatarFallback}>
+                      <Text style={styles.modalAvatarFallbackText}>
+                        {(selectedEmployee.profile?.fullName || 'NV').slice(0, 2).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalEmpName}>{selectedEmployee.profile?.fullName || 'Chưa cập nhật tên'}</Text>
+                  <Text style={styles.modalEmpMeta}>
+                    {selectedEmployee.departmentLinks?.[0]?.position?.name || 'Nhân viên'} • {selectedEmployee.departmentLinks?.[0]?.department?.name || 'Chưa phân phòng'}
+                  </Text>
+                  <Text style={styles.modalEmpPhone}>SĐT: {selectedEmployee.phone || 'Chưa có'}</Text>
+                </View>
+              </View>
+
+              {/* Vault Permission Switch Card */}
+              <View style={styles.modalPermissionBox}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.modalPermTitle}>Đặc quyền Ví Thưởng Tết</Text>
+                  <Text style={styles.modalPermDesc}>
+                    {selectedEmployee.isRewardVaultEnabled
+                      ? 'Nhân viên này đang ĐƯỢC PHÉP truy cập và nhận điểm thưởng Ví Tết.'
+                      : 'Nhân sự này CHƯA ĐƯỢC CẤP quyền sử dụng Ví Thưởng Tết.'}
+                  </Text>
+                </View>
+                {togglingEmpId === selectedEmployee.id ? (
+                  <ActivityIndicator size="small" color="#D97706" />
+                ) : (
+                  <Switch
+                    value={Boolean(selectedEmployee.isRewardVaultEnabled)}
+                    onValueChange={(val) => handleToggleVault(selectedEmployee, val)}
+                    trackColor={{ false: '#D1D5DB', true: '#FDE68A' }}
+                    thumbColor={selectedEmployee.isRewardVaultEnabled ? '#D97706' : '#9CA3AF'}
+                  />
+                )}
+              </View>
+
+              {/* Status Notice */}
+              <View style={[
+                styles.modalNoticeBox,
+                selectedEmployee.isRewardVaultEnabled ? styles.noticeSuccess : styles.noticeMuted
+              ]}>
+                <MaterialCommunityIcons
+                  name={selectedEmployee.isRewardVaultEnabled ? 'shield-check' : 'shield-alert'}
+                  size={18}
+                  color={selectedEmployee.isRewardVaultEnabled ? '#059669' : '#6B7280'}
+                />
+                <Text style={[
+                  styles.noticeText,
+                  { color: selectedEmployee.isRewardVaultEnabled ? '#065F46' : '#4B5563' }
+                ]}>
+                  {selectedEmployee.isRewardVaultEnabled
+                    ? 'Quyền Ví Tết đang HOẠT ĐỘNG trên ứng dụng nhân viên.'
+                    : 'Tính năng Ví Tết đang TẮT đối với nhân sự này.'}
+                </Text>
+              </View>
+
+              {/* Modal Buttons */}
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={styles.modalConfirmBtn}
+                  onPress={() => setSelectedEmployee(null)}
+                >
+                  <Text style={styles.modalConfirmBtnText}>Đóng</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </Screen>
   );
 }
@@ -290,9 +565,19 @@ interface EmployeeRowItemProps {
   employee: EmployeeUser;
   showDeptTag?: boolean;
   isLast?: boolean;
+  isToggling?: boolean;
+  onToggle?: (value: boolean) => void;
+  onPress?: () => void;
 }
 
-function EmployeeRowItem({ employee, showDeptTag = false, isLast = false }: EmployeeRowItemProps) {
+function EmployeeRowItem({
+  employee,
+  showDeptTag = false,
+  isLast = false,
+  isToggling = false,
+  onToggle,
+  onPress,
+}: EmployeeRowItemProps) {
   const fullName = employee.profile?.fullName || 'Chưa cập nhật tên';
   const positionName = employee.departmentLinks?.[0]?.position?.name || employee.profile?.position?.name || 'Nhân viên';
   const deptName = employee.departmentLinks?.[0]?.department?.name || 'Chưa phân phòng ban';
@@ -306,9 +591,13 @@ function EmployeeRowItem({ employee, showDeptTag = false, isLast = false }: Empl
     .toUpperCase();
 
   const isActive = employee.accountStatus === 'ACTIVE';
+  const isVaultEnabled = Boolean(employee.isRewardVaultEnabled);
 
   return (
-    <View style={[styles.employeeRow, isLast && { borderBottomWidth: 0 }]}>
+    <Pressable
+      style={[styles.employeeRow, isLast && { borderBottomWidth: 0 }]}
+      onPress={onPress}
+    >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
         {avatarUrl ? (
@@ -347,12 +636,36 @@ function EmployeeRowItem({ employee, showDeptTag = false, isLast = false }: Empl
         )}
       </View>
 
-      {/* Tet Wallet Badge */}
-      <View style={styles.walletBadge}>
-        <MaterialCommunityIcons name="wallet-giftcard" size={16} color="#D97706" />
-        <Text style={styles.walletBadgeText}>Ví Tết</Text>
+      {/* Tet Wallet Switch & Badge */}
+      <View style={styles.walletRightGroup}>
+        {isToggling ? (
+          <ActivityIndicator size="small" color="#D97706" style={{ marginHorizontal: 8 }} />
+        ) : (
+          <Switch
+            value={isVaultEnabled}
+            onValueChange={onToggle}
+            trackColor={{ false: '#E5E7EB', true: '#FDE68A' }}
+            thumbColor={isVaultEnabled ? '#D97706' : '#9CA3AF'}
+            style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : undefined}
+          />
+        )}
+        <View
+          style={[
+            styles.walletBadge,
+            isVaultEnabled ? styles.walletBadgeActive : styles.walletBadgeInactive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.walletBadgeText,
+              isVaultEnabled ? styles.walletBadgeTextActive : styles.walletBadgeTextInactive,
+            ]}
+          >
+            {isVaultEnabled ? 'Đã cấp' : 'Chưa cấp'}
+          </Text>
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -372,12 +685,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  statsCardWrapper: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  statIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
   segmentedWrapper: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
     borderRadius: 12,
     padding: 4,
-    marginBottom: 16,
+    marginBottom: 12,
     gap: 4,
   },
   segmentBtn: {
@@ -400,25 +751,66 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: colors.muted,
   },
   segmentTextActive: {
     color: '#0F172A',
     fontWeight: '700',
+  },
+  filterChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  filterChipActive: {
+    backgroundColor: '#1E293B',
+    borderColor: '#1E293B',
+  },
+  filterChipActiveSuccess: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  filterChipActiveMuted: {
+    backgroundColor: '#64748B',
+    borderColor: '#64748B',
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  filterChipTextActiveSuccess: {
+    color: '#FFFFFF',
+  },
+  filterChipTextActiveMuted: {
+    color: '#FFFFFF',
   },
   deptSection: {
     gap: 12,
   },
   deptHeaderSummary: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 4,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#334155',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   quickExpandRow: {
     flexDirection: 'row',
@@ -430,12 +822,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   quickActionText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#2563EB',
+    color: colors.primary,
   },
   quickActionDivider: {
-    color: '#94A3B8',
+    fontSize: 12,
+    color: colors.border,
   },
   deptCard: {
     backgroundColor: '#FFFFFF',
@@ -444,9 +837,9 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
     elevation: 1,
   },
   deptCardHeader: {
@@ -456,9 +849,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   deptIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -481,26 +874,51 @@ const styles = StyleSheet.create({
   memberBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 8,
+    gap: 4,
   },
   memberBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#334155',
   },
-  employeeListContainer: {
+  deptToolbar: {
+    flexDirection: 'row',
     backgroundColor: '#F8FAFC',
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
     paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  deptActionToolBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  deptActionToolText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  deptActionDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#E2E8F0',
+  },
+  employeeListContainer: {
+    backgroundColor: '#FAFAFA',
+    borderTopWidth: 1,
+    borderColor: '#F1F5F9',
   },
   emptyMembersBox: {
-    paddingVertical: 16,
+    padding: 20,
     alignItems: 'center',
   },
   emptyMembersText: {
@@ -516,31 +934,29 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    overflow: 'hidden',
   },
   employeeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
   },
   avatarContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
     marginRight: 12,
   },
   avatarImg: {
-    width: '100%',
-    height: '100%',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   avatarFallback: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#E0E7FF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -548,10 +964,11 @@ const styles = StyleSheet.create({
   avatarFallbackText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#3730A3',
+    color: '#4338CA',
   },
   empInfo: {
     flex: 1,
+    marginRight: 8,
   },
   empNameRow: {
     flexDirection: 'row',
@@ -561,8 +978,9 @@ const styles = StyleSheet.create({
   },
   empName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#0F172A',
+    flexShrink: 1,
   },
   statusDot: {
     width: 7,
@@ -572,52 +990,207 @@ const styles = StyleSheet.create({
   empMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   empCode: {
     fontSize: 12,
     color: '#64748B',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   empMetaDivider: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: '#CBD5E1',
   },
   empPosition: {
     fontSize: 12,
-    color: '#475569',
-    fontWeight: '500',
-    flex: 1,
+    color: '#64748B',
+    flexShrink: 1,
   },
   deptTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
+    marginTop: 3,
   },
   deptTagText: {
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
   },
+  walletRightGroup: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
   walletBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 2,
+  },
+  walletBadgeActive: {
+    backgroundColor: '#ECFDF5',
+  },
+  walletBadgeInactive: {
+    backgroundColor: '#F1F5F9',
   },
   walletBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
+  },
+  walletBadgeTextActive: {
+    color: '#059669',
+  },
+  walletBadgeTextInactive: {
+    color: '#94A3B8',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalEmpCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    marginBottom: 16,
+    gap: 12,
+  },
+  modalAvatarContainer: {},
+  modalAvatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  modalAvatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAvatarFallbackText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  modalEmpName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  modalEmpMeta: {
+    fontSize: 12,
+    color: '#475569',
+    marginBottom: 2,
+  },
+  modalEmpPhone: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  modalPermissionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 12,
+  },
+  modalPermTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  modalPermDesc: {
+    fontSize: 12,
     color: '#B45309',
+    lineHeight: 16,
+  },
+  modalNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 10,
+    gap: 8,
+    marginBottom: 18,
+  },
+  noticeSuccess: {
+    backgroundColor: '#ECFDF5',
+  },
+  noticeMuted: {
+    backgroundColor: '#F1F5F9',
+  },
+  noticeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: 'row',
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
