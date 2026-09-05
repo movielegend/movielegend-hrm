@@ -8,7 +8,9 @@ export function QueryProvider({ children }: PropsWithChildren) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
+            staleTime: 60_000,
+            gcTime: 1_800_000,
+            refetchOnWindowFocus: false,
             retry: (failureCount, error) => {
               const normalized = normalizeApiError(error);
               if (['unauthorized', 'forbidden', 'business', 'validation', 'rate_limited'].includes(normalized.category)) {

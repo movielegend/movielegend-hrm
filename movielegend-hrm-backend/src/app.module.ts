@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { CacheModule } from '@nestjs/cache-manager';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import appConfig from './config/app.config';
@@ -92,6 +93,7 @@ import { LevelingModule } from './modules/leveling/leveling.module';
       },
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    CacheModule.register({ isGlobal: true, ttl: 300_000 }),
     ScheduleModule.forRoot(),
     DatabaseModule,
     StorageModule,
