@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  RefreshControl,
   Image,
   Alert,
   Modal,
@@ -22,7 +21,6 @@ import Toast from 'react-native-toast-message';
 import { SearchInput } from '../../components/SearchInput';
 import { LoadingState } from '../../components/LoadingState';
 import { EmptyState } from '../../components/EmptyState';
-import { colors } from '../../theme/colors';
 import {
   getVaultWithdrawalRequests,
   adminApproveWithdrawal,
@@ -32,7 +30,6 @@ import {
 import type {
   RewardWithdrawalRequest,
   WithdrawalRequestsResponse,
-  WithdrawalRequestStatus,
 } from '../../types/employee.types';
 
 type FilterTab = 'ALL' | 'PENDING_ADMIN' | 'PENDING_ACCOUNTANT' | 'PAID' | 'REJECTED';
@@ -76,7 +73,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isRefetching, refetch } = useQuery<WithdrawalRequestsResponse>({
+  const { data, isLoading, refetch } = useQuery<WithdrawalRequestsResponse>({
     queryKey: ['vault-withdrawals', activeTab, search],
     queryFn: () =>
       getVaultWithdrawalRequests({
@@ -94,21 +91,6 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
   };
 
   const requests: RewardWithdrawalRequest[] = data?.items || [];
-
-  // Financial summary calculations
-  const stats = useMemo(() => {
-    let pendingAdminSum = 0;
-    let pendingAccountantSum = 0;
-    let paidSum = 0;
-
-    requests.forEach((item) => {
-      if (item.status === 'PENDING_ADMIN') pendingAdminSum += item.cashAmount;
-      if (item.status === 'PENDING_ACCOUNTANT') pendingAccountantSum += item.cashAmount;
-      if (item.status === 'PAID') paidSum += item.cashAmount;
-    });
-
-    return { pendingAdminSum, pendingAccountantSum, paidSum };
-  }, [requests]);
 
   // Copy helper with Toast notification
   const copyToClipboard = async (text: string, label: string) => {
@@ -220,7 +202,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc me.');
+      Alert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc này.');
     } finally {
       setIsSubmitting(false);
     }
@@ -233,121 +215,124 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
 
   return (
     <View style={styles.container}>
-      {/* Overview Financial Summary Cards */}
-      <View style={styles.summaryGrid}>
-        <View style={[styles.summaryCard, { backgroundColor: '#FFFBEB', borderColor: '#FCD34D' }]}>
-          <View style={styles.summaryCardIconBox}>
-            <MaterialCommunityIcons name="shield-clock" size={20} color="#D97706" />
-          </View>
-          <Text style={styles.summaryCardLabel}>Chờ Admin duyệt</Text>
-          <Text style={[styles.summaryCardCount, { color: '#B45309' }]}>{counts.PENDING_ADMIN} đơn</Text>
-        </View>
-
-        <View style={[styles.summaryCard, { backgroundColor: '#EFF6FF', borderColor: '#93C5FD' }]}>
-          <View style={styles.summaryCardIconBox}>
-            <MaterialCommunityIcons name="bank-transfer-out" size={20} color="#2563EB" />
-          </View>
-          <Text style={styles.summaryCardLabel}>Chờ Kế toán chi</Text>
-          <Text style={[styles.summaryCardCount, { color: '#1D4ED8' }]}>{counts.PENDING_ACCOUNTANT} đơn</Text>
-        </View>
-
-        <View style={[styles.summaryCard, { backgroundColor: '#ECFDF5', borderColor: '#6EE7B7' }]}>
-          <View style={styles.summaryCardIconBox}>
-            <MaterialCommunityIcons name="check-decagram" size={20} color="#059669" />
-          </View>
-          <Text style={styles.summaryCardLabel}>Đã chi tiền</Text>
-          <Text style={[styles.summaryCardCount, { color: '#047857' }]}>{counts.PAID} đơn</Text>
-        </View>
-      </View>
-
-      {/* Filter Tabs Bar */}
+      {/* Unified Stat & Filter Tab Cards */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterTabsWrapper}
+        contentContainerStyle={styles.unifiedTabsWrapper}
       >
+        {/* Tab 1: Pending Admin */}
         <Pressable
-          style={[styles.filterTabBtn, activeTab === 'PENDING_ADMIN' && styles.filterTabBtnActiveAdmin]}
+          style={[
+            styles.statTabCard,
+            activeTab === 'PENDING_ADMIN' && styles.statTabCardActiveAdmin,
+          ]}
           onPress={() => setActiveTab('PENDING_ADMIN')}
         >
-          <MaterialCommunityIcons
-            name="account-clock-outline"
-            size={16}
-            color={activeTab === 'PENDING_ADMIN' ? '#D97706' : '#64748B'}
-          />
-          <Text
-            style={[
-              styles.filterTabText,
-              activeTab === 'PENDING_ADMIN' && styles.filterTabTextActiveAdmin,
-            ]}
-          >
+          <View style={styles.statTabTopRow}>
+            <MaterialCommunityIcons
+              name="account-clock-outline"
+              size={18}
+              color={activeTab === 'PENDING_ADMIN' ? '#D97706' : '#64748B'}
+            />
+            <View style={[styles.statTabBadge, activeTab === 'PENDING_ADMIN' ? styles.badgeOrange : styles.badgeSlate]}>
+              <Text style={styles.statTabBadgeText}>{counts.PENDING_ADMIN}</Text>
+            </View>
+          </View>
+          <Text style={[styles.statTabLabel, activeTab === 'PENDING_ADMIN' && styles.statTabLabelActiveAdmin]}>
             Chờ Admin duyệt
           </Text>
-          {counts.PENDING_ADMIN > 0 && (
-            <View style={styles.badgeOrange}>
-              <Text style={styles.badgeTextWhite}>{counts.PENDING_ADMIN}</Text>
-            </View>
-          )}
         </Pressable>
 
+        {/* Tab 2: Pending Accountant */}
         <Pressable
-          style={[styles.filterTabBtn, activeTab === 'PENDING_ACCOUNTANT' && styles.filterTabBtnActiveAcc]}
+          style={[
+            styles.statTabCard,
+            activeTab === 'PENDING_ACCOUNTANT' && styles.statTabCardActiveAcc,
+          ]}
           onPress={() => setActiveTab('PENDING_ACCOUNTANT')}
         >
-          <MaterialCommunityIcons
-            name="bank-transfer-out"
-            size={16}
-            color={activeTab === 'PENDING_ACCOUNTANT' ? '#2563EB' : '#64748B'}
-          />
-          <Text
-            style={[
-              styles.filterTabText,
-              activeTab === 'PENDING_ACCOUNTANT' && styles.filterTabTextActiveAcc,
-            ]}
-          >
+          <View style={styles.statTabTopRow}>
+            <MaterialCommunityIcons
+              name="bank-transfer-out"
+              size={18}
+              color={activeTab === 'PENDING_ACCOUNTANT' ? '#2563EB' : '#64748B'}
+            />
+            <View style={[styles.statTabBadge, activeTab === 'PENDING_ACCOUNTANT' ? styles.badgeBlue : styles.badgeSlate]}>
+              <Text style={styles.statTabBadgeText}>{counts.PENDING_ACCOUNTANT}</Text>
+            </View>
+          </View>
+          <Text style={[styles.statTabLabel, activeTab === 'PENDING_ACCOUNTANT' && styles.statTabLabelActiveAcc]}>
             Chờ Kế toán chi
           </Text>
-          {counts.PENDING_ACCOUNTANT > 0 && (
-            <View style={styles.badgeBlue}>
-              <Text style={styles.badgeTextWhite}>{counts.PENDING_ACCOUNTANT}</Text>
-            </View>
-          )}
         </Pressable>
 
+        {/* Tab 3: Paid */}
         <Pressable
-          style={[styles.filterTabBtn, activeTab === 'PAID' && styles.filterTabBtnActivePaid]}
+          style={[
+            styles.statTabCard,
+            activeTab === 'PAID' && styles.statTabCardActivePaid,
+          ]}
           onPress={() => setActiveTab('PAID')}
         >
-          <MaterialCommunityIcons
-            name="check-circle-outline"
-            size={16}
-            color={activeTab === 'PAID' ? '#059669' : '#64748B'}
-          />
-          <Text style={[styles.filterTabText, activeTab === 'PAID' && styles.filterTabTextActivePaid]}>
-            Đã chi ({counts.PAID})
+          <View style={styles.statTabTopRow}>
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={18}
+              color={activeTab === 'PAID' ? '#059669' : '#64748B'}
+            />
+            <View style={[styles.statTabBadge, activeTab === 'PAID' ? styles.badgeGreen : styles.badgeSlate]}>
+              <Text style={styles.statTabBadgeText}>{counts.PAID}</Text>
+            </View>
+          </View>
+          <Text style={[styles.statTabLabel, activeTab === 'PAID' && styles.statTabLabelActivePaid]}>
+            Đã chi tiền
           </Text>
         </Pressable>
 
+        {/* Tab 4: Rejected */}
         <Pressable
-          style={[styles.filterTabBtn, activeTab === 'REJECTED' && styles.filterTabBtnActiveRejected]}
+          style={[
+            styles.statTabCard,
+            activeTab === 'REJECTED' && styles.statTabCardActiveRejected,
+          ]}
           onPress={() => setActiveTab('REJECTED')}
         >
-          <MaterialCommunityIcons
-            name="close-circle-outline"
-            size={16}
-            color={activeTab === 'REJECTED' ? '#DC2626' : '#64748B'}
-          />
-          <Text style={[styles.filterTabText, activeTab === 'REJECTED' && styles.filterTabTextActiveRejected]}>
-            Đã từ chối ({counts.REJECTED})
+          <View style={styles.statTabTopRow}>
+            <MaterialCommunityIcons
+              name="close-circle-outline"
+              size={18}
+              color={activeTab === 'REJECTED' ? '#DC2626' : '#64748B'}
+            />
+            <View style={[styles.statTabBadge, activeTab === 'REJECTED' ? styles.badgeRed : styles.badgeSlate]}>
+              <Text style={styles.statTabBadgeText}>{counts.REJECTED}</Text>
+            </View>
+          </View>
+          <Text style={[styles.statTabLabel, activeTab === 'REJECTED' && styles.statTabLabelActiveRejected]}>
+            Đã từ chối
           </Text>
         </Pressable>
 
+        {/* Tab 5: All */}
         <Pressable
-          style={[styles.filterTabBtn, activeTab === 'ALL' && styles.filterTabBtnActiveAll]}
+          style={[
+            styles.statTabCard,
+            activeTab === 'ALL' && styles.statTabCardActiveAll,
+          ]}
           onPress={() => setActiveTab('ALL')}
         >
-          <Text style={[styles.filterTabText, activeTab === 'ALL' && styles.filterTabTextActiveAll]}>
-            Tất cả ({counts.TOTAL})
+          <View style={styles.statTabTopRow}>
+            <MaterialCommunityIcons
+              name="format-list-bulleted"
+              size={18}
+              color={activeTab === 'ALL' ? '#1E293B' : '#64748B'}
+            />
+            <View style={[styles.statTabBadge, activeTab === 'ALL' ? styles.badgeDark : styles.badgeSlate]}>
+              <Text style={styles.statTabBadgeText}>{counts.TOTAL}</Text>
+            </View>
+          </View>
+          <Text style={[styles.statTabLabel, activeTab === 'ALL' && styles.statTabLabelActiveAll]}>
+            Tất cả yêu cầu
           </Text>
         </Pressable>
       </ScrollView>
@@ -381,7 +366,6 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
             const isPendingAdmin = ticket.status === 'PENDING_ADMIN';
             const isPendingAcc = ticket.status === 'PENDING_ACCOUNTANT';
             const isPaid = ticket.status === 'PAID';
-            const isRejected = ticket.status === 'REJECTED';
 
             const statusBg = isPaid
               ? '#ECFDF5'
@@ -932,113 +916,92 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* Financial Summary Grid */
-  summaryGrid: {
+  /* Unified Stat & Filter Tab Cards */
+  unifiedTabsWrapper: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    paddingBottom: 14,
+    alignItems: 'flex-start',
   },
-  summaryCard: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
+  statTabCard: {
+    width: 125,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statTabTopRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  summaryCardIconBox: {
-    marginBottom: 4,
+  statTabBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
-  summaryCardLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  summaryCardCount: {
-    fontSize: 13,
+  statTabBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '800',
-    marginTop: 2,
+  },
+  statTabLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
   },
 
-  /* Filter Tabs Bar */
-  filterTabsWrapper: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 12,
-  },
-  filterTabBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  filterTabBtnActiveAdmin: {
+  /* Active Card Variants */
+  statTabCardActiveAdmin: {
     backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+    borderColor: '#F59E0B',
   },
-  filterTabBtnActiveAcc: {
+  statTabLabelActiveAdmin: {
+    color: '#B45309',
+  },
+  statTabCardActiveAcc: {
     backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+    borderColor: '#3B82F6',
   },
-  filterTabBtnActivePaid: {
+  statTabLabelActiveAcc: {
+    color: '#1D4ED8',
+  },
+  statTabCardActivePaid: {
     backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    borderColor: '#10B981',
   },
-  filterTabBtnActiveRejected: {
+  statTabLabelActivePaid: {
+    color: '#047857',
+  },
+  statTabCardActiveRejected: {
     backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    borderColor: '#EF4444',
   },
-  filterTabBtnActiveAll: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#CBD5E1',
+  statTabLabelActiveRejected: {
+    color: '#B91C1C',
   },
-  filterTabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+  statTabCardActiveAll: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#475569',
   },
-  filterTabTextActiveAdmin: {
-    color: '#D97706',
-    fontWeight: '700',
+  statTabLabelActiveAll: {
+    color: '#0F172A',
   },
-  filterTabTextActiveAcc: {
-    color: '#2563EB',
-    fontWeight: '700',
-  },
-  filterTabTextActivePaid: {
-    color: '#059669',
-    fontWeight: '700',
-  },
-  filterTabTextActiveRejected: {
-    color: '#DC2626',
-    fontWeight: '700',
-  },
-  filterTabTextActiveAll: {
-    color: '#1E293B',
-    fontWeight: '700',
-  },
-  badgeOrange: {
-    backgroundColor: '#D97706',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  badgeBlue: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  badgeTextWhite: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-  },
+
+  /* Badge Color Variants */
+  badgeOrange: { backgroundColor: '#D97706' },
+  badgeBlue: { backgroundColor: '#2563EB' },
+  badgeGreen: { backgroundColor: '#059669' },
+  badgeRed: { backgroundColor: '#DC2626' },
+  badgeDark: { backgroundColor: '#334155' },
+  badgeSlate: { backgroundColor: '#94A3B8' },
 
   /* Tickets List */
   ticketList: {
