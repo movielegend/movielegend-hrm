@@ -11,11 +11,18 @@ import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 
-import { GrantVaultPointsDto, BulkGrantVaultPointsDto } from './dto/grant-vault-points.dto';
+import {
+  GrantVaultPointsDto,
+  BulkGrantVaultPointsDto,
+  AdminApproveWithdrawalDto,
+  AccountantConfirmWithdrawalDto,
+  RejectWithdrawalDto,
+  WithdrawalQueryDto,
+} from './dto/grant-vault-points.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@Roles('ADMIN', 'LEADER')
+@Roles('ADMIN', 'LEADER', 'ACCOUNTANT')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -84,5 +91,41 @@ export class AdminController {
   @Post('talent-vault/bulk-grant')
   bulkGrantVaultPoints(@Body() dto: BulkGrantVaultPointsDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.bulkGrantVaultPoints(dto, actor);
+  }
+
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @Get('vault/withdrawals')
+  getVaultWithdrawalRequests(@Query() query: WithdrawalQueryDto) {
+    return this.adminService.getVaultWithdrawalRequests(query);
+  }
+
+  @Roles('ADMIN')
+  @Post('vault/withdrawals/:id/admin-approve')
+  adminApproveWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: AdminApproveWithdrawalDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.adminService.adminApproveWithdrawal(id, dto, actor);
+  }
+
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @Post('vault/withdrawals/:id/accountant-confirm')
+  accountantConfirmWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: AccountantConfirmWithdrawalDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.adminService.accountantConfirmWithdrawal(id, dto, actor);
+  }
+
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @Post('vault/withdrawals/:id/reject')
+  rejectWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: RejectWithdrawalDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.adminService.rejectWithdrawal(id, dto, actor);
   }
 }

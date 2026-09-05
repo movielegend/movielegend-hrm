@@ -9,7 +9,16 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
-import { GrantVaultPointsDto, BulkGrantVaultPointsDto, GrantVaultType, WithdrawVaultPointsDto } from './dto/grant-vault-points.dto';
+import {
+  GrantVaultPointsDto,
+  BulkGrantVaultPointsDto,
+  GrantVaultType,
+  WithdrawVaultPointsDto,
+  AdminApproveWithdrawalDto,
+  AccountantConfirmWithdrawalDto,
+  RejectWithdrawalDto,
+  WithdrawalQueryDto,
+} from './dto/grant-vault-points.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -932,15 +941,34 @@ export class AdminService {
           bankName: dto.bankName,
           bankAccountNumber: dto.bankAccountNumber,
           bankAccountName: dto.bankAccountName,
-          status: 'PENDING',
+          note: dto.note || undefined,
+          status: 'PENDING_ADMIN',
         },
       });
 
-      // 5. Send Notification
+      // 5. Send Notifications
+      // 5.1 Notify Admins
+      const adminUsers = await tx.userRole.findMany({
+        where: { role: { code: 'ADMIN' } },
+        select: { userId: true },
+      });
+      const adminIds = [...new Set(adminUsers.map((u) => u.userId))];
+      const employeeName = user.profile?.fullName || user.userCode;
+
+      if (adminIds.length > 0) {
+        const adminNotif = await this.notifications.createForUsers(tx as any, adminIds, {
+          type: 'SYSTEM' as NotificationType,
+          title: 'Yêu cầu rút Ví Thưởng mới ⏳',
+          body: `Nhân viên ${employeeName} vừa gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}. Vui lòng phê duyệt.`,
+        });
+        if (adminNotif) this.notifications.emitCreated(adminNotif);
+      }
+
+      // 5.2 Notify Employee
       const notif = await this.notifications.createForUsers(tx as any, [userId], {
         type: 'SYSTEM' as NotificationType,
         title: 'Yêu cầu rút điểm Ví Tết đã được gửi 💸',
-        body: `Bạn đã gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}.`,
+        body: `Bạn đã gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}. Yêu cầu đang được chuyển đến Ban Giám Đốc để phê duyệt.`,
       });
       if (notif) this.notifications.emitCreated(notif);
 
@@ -961,6 +989,350 @@ export class AdminService {
     });
   }
 
+  async getVaultWithdrawalRequests(query: WithdrawalQueryDto) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.max(1, Math.min(100, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.RewardWithdrawalRequestWhereInput = {};
+
+    if (query.status && query.status !== 'ALL') {
+      where.status = query.status as any;
+    }
+
+    if (query.search) {
+      where.OR = [
+        { bankAccountName: { contains: query.search, mode: 'insensitive' } },
+        { bankAccountNumber: { contains: query.search, mode: 'insensitive' } },
+        { bankName: { contains: query.search, mode: 'insensitive' } },
+        { user: { userCode: { contains: query.search, mode: 'insensitive' } } },
+        { user: { profile: { fullName: { contains: query.search, mode: 'insensitive' } } } },
+      ];
+    }
+
+    const [items, total, pendingAdminCount, pendingAccountantCount, paidCount, rejectedCount] = await Promise.all([
+      this.prisma.rewardWithdrawalRequest.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              email: true,
+              phone: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  position: true,
+                },
+              },
+              departmentLinks: {
+                where: { leftAt: null, isPrimary: true },
+                include: { department: true, position: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.rewardWithdrawalRequest.count({ where }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PENDING_ADMIN' } }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PENDING_ACCOUNTANT' } }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PAID' } }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'REJECTED' } }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      counts: {
+        PENDING_ADMIN: pendingAdminCount,
+        PENDING_ACCOUNTANT: pendingAccountantCount,
+        PAID: paidCount,
+        REJECTED: rejectedCount,
+        TOTAL: pendingAdminCount + pendingAccountantCount + paidCount + rejectedCount,
+      },
+    };
+  }
+
+  async adminApproveWithdrawal(id: string, dto: AdminApproveWithdrawalDto, actor: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.rewardWithdrawalRequest.findUnique({
+        where: { id },
+        include: {
+          user: {
+            include: { profile: true },
+          },
+        },
+      });
+      if (!request) throw notFound('REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu rút tiền');
+      if (request.status !== 'PENDING_ADMIN') {
+        throw badRequest('INVALID_STATUS', `Chỉ có thể phê duyệt yêu cầu ở trạng thái Chờ Admin duyệt (Hiện tại: ${request.status})`);
+      }
+
+      const updated = await tx.rewardWithdrawalRequest.update({
+        where: { id },
+        data: {
+          status: 'PENDING_ACCOUNTANT',
+          adminApprovedBy: actor.userId,
+          adminApprovedAt: new Date(),
+          adminNote: dto.note || undefined,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } },
+            },
+          },
+        },
+      });
+
+      // Audit Log
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'admin.vault.approve_withdrawal',
+          entityType: 'RewardWithdrawalRequest',
+          entityId: id,
+          metadata: {
+            requestId: id,
+            userId: request.userId,
+            points: request.pointsWithdrawn,
+            cashAmount: request.cashAmount,
+            note: dto.note,
+          },
+        },
+      });
+
+      // Notify Accountants & Admins
+      const accountantUsers = await tx.userRole.findMany({
+        where: { role: { code: { in: ['ACCOUNTANT', 'ADMIN'] } } },
+        select: { userId: true },
+      });
+      const accountantIds = [...new Set(accountantUsers.map((u) => u.userId))];
+
+      const empName = request.user.profile?.fullName || request.user.userCode;
+      const cashFormatted = Number(request.cashAmount).toLocaleString('vi-VN');
+
+      if (accountantIds.length > 0) {
+        const notifAccountants = await this.notifications.createForUsers(tx as any, accountantIds, {
+          type: 'SYSTEM' as NotificationType,
+          title: 'Lệnh chi tiền Ví Thưởng Tết 💼',
+          body: `Admin đã phê duyệt yêu cầu rút tiền của ${empName} (~${cashFormatted} VNĐ). Vui lòng thực hiện chuyển khoản vào TK ${request.bankName} - ${request.bankAccountNumber} (${request.bankAccountName}) và xác nhận.`,
+        });
+        if (notifAccountants) this.notifications.emitCreated(notifAccountants);
+      }
+
+      // Notify Employee
+      const notifEmployee = await this.notifications.createForUsers(tx as any, [request.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Yêu cầu rút tiền đã được Ban Giám Đốc duyệt ✅',
+        body: `Ban Giám Đốc đã phê duyệt yêu cầu rút ${cashFormatted} VNĐ của bạn. Yêu cầu đang được chuyển sang bộ phận Kế toán để thực hiện chi trả 💸.`,
+      });
+      if (notifEmployee) this.notifications.emitCreated(notifEmployee);
+
+      return updated;
+    });
+  }
+
+  async accountantConfirmWithdrawal(id: string, dto: AccountantConfirmWithdrawalDto, actor: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.rewardWithdrawalRequest.findUnique({
+        where: { id },
+        include: {
+          user: {
+            include: { profile: true },
+          },
+        },
+      });
+      if (!request) throw notFound('REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu rút tiền');
+      if (request.status !== 'PENDING_ACCOUNTANT') {
+        throw badRequest('INVALID_STATUS', `Chỉ có thể xác nhận chi tiền cho yêu cầu ở trạng thái Chờ Kế toán chi tiền (Hiện tại: ${request.status})`);
+      }
+
+      const updated = await tx.rewardWithdrawalRequest.update({
+        where: { id },
+        data: {
+          status: 'PAID',
+          accountantConfirmedBy: actor.userId,
+          accountantConfirmedAt: new Date(),
+          accountantNote: dto.note || undefined,
+          transactionReference: dto.transactionReference || undefined,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } },
+            },
+          },
+        },
+      });
+
+      // Audit Log
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'accountant.vault.confirm_paid',
+          entityType: 'RewardWithdrawalRequest',
+          entityId: id,
+          metadata: {
+            requestId: id,
+            userId: request.userId,
+            points: request.pointsWithdrawn,
+            cashAmount: request.cashAmount,
+            transactionReference: dto.transactionReference,
+            note: dto.note,
+          },
+        },
+      });
+
+      // Notify Employee
+      const cashFormatted = Number(request.cashAmount).toLocaleString('vi-VN');
+      const notifPaid = await this.notifications.createForUsers(tx as any, [request.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Chuyển tiền thưởng thành công 🎉💸',
+        body: `Bộ phận Kế toán đã hoàn tất chuyển ${cashFormatted} VNĐ về tài khoản ${request.bankName} (${request.bankAccountNumber} - ${request.bankAccountName})${dto.transactionReference ? ` [Mã GD: ${dto.transactionReference}]` : ''}. Vui lòng kiểm tra tài khoản ngân hàng!`,
+      });
+      if (notifPaid) this.notifications.emitCreated(notifPaid);
+
+      return updated;
+    });
+  }
+
+  async rejectWithdrawal(id: string, dto: RejectWithdrawalDto, actor: AuthenticatedUser) {
+    const currentYear = new Date().getFullYear();
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.rewardWithdrawalRequest.findUnique({
+        where: { id },
+        include: {
+          user: {
+            include: { profile: true },
+          },
+        },
+      });
+      if (!request) throw notFound('REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu rút tiền');
+      if (request.status === 'PAID' || request.status === 'REJECTED') {
+        throw badRequest('INVALID_STATUS', `Không thể từ chối yêu cầu đã ở trạng thái ${request.status}`);
+      }
+
+      const updated = await tx.rewardWithdrawalRequest.update({
+        where: { id },
+        data: {
+          status: 'REJECTED',
+          rejectedBy: actor.userId,
+          rejectedAt: new Date(),
+          rejectReason: dto.reason,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } },
+            },
+          },
+        },
+      });
+
+      // Refund points to user's vault
+      const vault = await tx.talentRetentionVault.findFirst({
+        where: { userId: request.userId, year: currentYear },
+        include: { milestones: { orderBy: { quarter: 'asc' } } },
+      });
+
+      if (vault) {
+        const cashValuePerPoint = Number(vault.cashValuePerPoint || 1000);
+        let pointsToRefund = request.pointsWithdrawn;
+
+        // Refund to milestones in forward quarter order Q1 -> Q2 -> Q3 -> Q4
+        const milestones = vault.milestones || [];
+        const quarterAlloc = Math.floor(vault.grantedPoints / 4);
+
+        for (const m of milestones) {
+          if (pointsToRefund <= 0) break;
+          const targetPoints = m.quarter === 4 ? vault.grantedPoints - quarterAlloc * 3 : quarterAlloc;
+          const currentPoints = m.pointsToUnlock;
+          const shortfall = Math.max(0, targetPoints - currentPoints);
+
+          if (shortfall > 0) {
+            const addPts = Math.min(pointsToRefund, shortfall);
+            pointsToRefund -= addPts;
+            const newPts = currentPoints + addPts;
+            await tx.vestingMilestone.update({
+              where: { id: m.id },
+              data: {
+                pointsToUnlock: newPts,
+                cashAmount: newPts * cashValuePerPoint,
+                isWithdrawn: false,
+                withdrawnAt: null,
+              },
+            });
+          }
+        }
+
+        // If any points remaining to refund, add to instantBonusPoints
+        if (pointsToRefund > 0) {
+          await tx.talentRetentionVault.update({
+            where: { id: vault.id },
+            data: {
+              instantBonusPoints: (vault.instantBonusPoints || 0) + pointsToRefund,
+            },
+          });
+        }
+
+        // Create Refund Transaction
+        await tx.vaultTransaction.create({
+          data: {
+            vaultId: vault.id,
+            userId: request.userId,
+            type: 'REFUND_WITHDRAWAL',
+            points: request.pointsWithdrawn,
+            cashAmount: request.cashAmount,
+            note: `Hoàn trả yêu cầu rút tiền bị từ chối: ${dto.reason}`,
+          },
+        });
+      }
+
+      // Audit Log
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'admin.vault.reject_withdrawal',
+          entityType: 'RewardWithdrawalRequest',
+          entityId: id,
+          metadata: {
+            requestId: id,
+            userId: request.userId,
+            points: request.pointsWithdrawn,
+            cashAmount: request.cashAmount,
+            reason: dto.reason,
+          },
+        },
+      });
+
+      // Notify Employee
+      const cashFormatted = Number(request.cashAmount).toLocaleString('vi-VN');
+      const notifReject = await this.notifications.createForUsers(tx as any, [request.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Yêu cầu rút tiền bị từ chối ❌',
+        body: `Yêu cầu rút ${cashFormatted} VNĐ của bạn đã bị từ chối. Lý do: "${dto.reason}". Số điểm tương ứng (${request.pointsWithdrawn.toLocaleString('vi-VN')} điểm) đã được hoàn trả lại vào ví của bạn.`,
+      });
+      if (notifReject) this.notifications.emitCreated(notifReject);
+
+      return updated;
+    });
+  }
+
   async getMyVault(userId: string) {
     const currentYear = new Date().getFullYear();
     const user = await this.prisma.user.findUnique({
@@ -969,18 +1341,26 @@ export class AdminService {
     });
     if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy người dùng');
 
-    const vault = await this.prisma.talentRetentionVault.findFirst({
-      where: { userId, year: currentYear },
-      include: {
-        milestones: { orderBy: { quarter: 'asc' } },
-        transactions: { orderBy: { createdAt: 'desc' }, take: 20 },
-      },
-    });
+    const [vault, withdrawalRequests] = await Promise.all([
+      this.prisma.talentRetentionVault.findFirst({
+        where: { userId, year: currentYear },
+        include: {
+          milestones: { orderBy: { quarter: 'asc' } },
+          transactions: { orderBy: { createdAt: 'desc' }, take: 20 },
+        },
+      }),
+      this.prisma.rewardWithdrawalRequest.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+    ]);
 
     if (!vault) {
       return {
         isVaultEnabled: Boolean(user.isRewardVaultEnabled),
         vault: null,
+        withdrawalRequests: withdrawalRequests || [],
         stats: {
           totalGrantedPoints: 0,
           instantBonusPoints: 0,
@@ -1016,6 +1396,7 @@ export class AdminService {
     return {
       isVaultEnabled: Boolean(user.isRewardVaultEnabled),
       vault,
+      withdrawalRequests: withdrawalRequests || [],
       stats: {
         totalGrantedPoints: vault.grantedPoints,
         instantBonusPoints,

@@ -107,3 +107,52 @@ export class WithdrawVaultPointsDto {
   @IsString()
   note?: string;
 }
+
+export class AdminApproveWithdrawalDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class AccountantConfirmWithdrawalDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  transactionReference?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class RejectWithdrawalDto {
+  @ApiProperty()
+  @IsString()
+  reason!: string;
+}
+
+export class WithdrawalQueryDto {
+  @ApiPropertyOptional({ enum: ['ALL', 'PENDING_ADMIN', 'PENDING_ACCOUNTANT', 'PAID', 'REJECTED'] })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  limit?: number = 20;
+}

@@ -819,6 +819,7 @@ model User {
   chatGroupMembers                ChatGroupMember[]
   approvedNewsfeedPosts           NewsfeedPost[]               @relation("PostApprover")
   sentFeedbacks                   Feedback[]                   @relation("FeedbackSender")
+  rewardWithdrawalRequests        RewardWithdrawalRequest[]
 
   @@map("users")
 }
@@ -3087,10 +3088,10 @@ enum CompetitionReviewStatus {
 }
 
 enum WithdrawalRequestStatus {
-  PENDING
-  APPROVED
+  PENDING_ADMIN
+  PENDING_ACCOUNTANT
+  PAID
   REJECTED
-  COMPLETED
 }
 
 model EmployeeLevel {
@@ -3115,6 +3116,7 @@ enum VaultTransactionType {
   GRANT_PROJECT_VESTING
   WITHDRAW_REGULAR
   WITHDRAW_ADVANCE
+  REFUND_WITHDRAWAL
 }
 
 model TalentRetentionVault {
@@ -3170,17 +3172,36 @@ model VaultTransaction {
 }
 
 model RewardWithdrawalRequest {
-  id                String                  @id @default(uuid()) @db.Uuid
-  userId            String                  @db.Uuid
-  pointsWithdrawn   Int
-  cashAmount        Decimal                 @db.Decimal(15, 2)
-  bankAccountName   String
-  bankAccountNumber String
-  bankName          String
-  status            WithdrawalRequestStatus @default(PENDING)
-  approvedBy        String?                 @db.Uuid
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  id                    String                  @id @default(uuid()) @db.Uuid
+  userId                String                  @db.Uuid
+  pointsWithdrawn       Int
+  cashAmount            Decimal                 @db.Decimal(15, 2)
+  bankAccountName       String
+  bankAccountNumber     String
+  bankName              String
+  note                  String?
+  status                WithdrawalRequestStatus @default(PENDING_ADMIN)
+
+  // Step 1: Admin Approval
+  adminApprovedBy       String?                 @db.Uuid
+  adminApprovedAt       DateTime?
+  adminNote             String?
+
+  // Step 2: Accountant Payment Confirmation
+  accountantConfirmedBy String?                 @db.Uuid
+  accountantConfirmedAt DateTime?
+  accountantNote        String?
+  transactionReference  String?
+
+  // Rejection (by Admin or Accountant)
+  rejectedBy            String?                 @db.Uuid
+  rejectedAt            DateTime?
+  rejectReason          String?
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("reward_withdrawal_requests")
 }
