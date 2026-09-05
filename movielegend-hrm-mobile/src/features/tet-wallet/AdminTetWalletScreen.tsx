@@ -750,47 +750,86 @@ export function AdminTetWalletScreen() {
 
                 {/* 1. Select Grant Type (3 Modes) */}
                 <Text style={styles.inputSectionTitle}>Hình thức trao điểm:</Text>
-                <View style={styles.grantTypeTabRow}>
+                <View style={styles.grantTypeCardGroup}>
+                  {/* Option 1: Cam kết 4 Quý */}
                   <Pressable
-                    style={[styles.grantTypeTab, grantType === 'ANNUAL' && styles.grantTypeTabActive]}
+                    style={[styles.grantOptionCard, grantType === 'ANNUAL' && styles.grantOptionCardActiveAnnual]}
                     onPress={() => setGrantType('ANNUAL')}
                   >
+                    <View style={[styles.grantOptionIconBox, { backgroundColor: grantType === 'ANNUAL' ? '#FEF3C7' : '#F1F5F9' }]}>
+                      <MaterialCommunityIcons
+                        name="wallet-giftcard"
+                        size={20}
+                        color={grantType === 'ANNUAL' ? '#D97706' : '#64748B'}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.grantOptionTitle, grantType === 'ANNUAL' && styles.grantOptionTitleActiveAnnual]}>
+                        Cam kết 4 Quý (Ví Tết)
+                      </Text>
+                      <Text style={styles.grantOptionDesc}>
+                        Mở khóa 25%/quý vào cuối các quý 1, 2, 3, 4
+                      </Text>
+                    </View>
                     <MaterialCommunityIcons
-                      name="wallet-giftcard"
-                      size={16}
-                      color={grantType === 'ANNUAL' ? '#B45309' : '#64748B'}
+                      name={grantType === 'ANNUAL' ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={20}
+                      color={grantType === 'ANNUAL' ? '#D97706' : '#94A3B8'}
                     />
-                    <Text style={[styles.grantTypeTabText, grantType === 'ANNUAL' && styles.grantTypeTabTextActive]}>
-                      Cam kết 4 Quý
-                    </Text>
                   </Pressable>
 
+                  {/* Option 2: Thưởng nóng (Rút ngay) */}
                   <Pressable
-                    style={[styles.grantTypeTab, grantType === 'PROJECT_INSTANT' && styles.grantTypeTabActiveInstant]}
+                    style={[styles.grantOptionCard, grantType === 'PROJECT_INSTANT' && styles.grantOptionCardActiveInstant]}
                     onPress={() => setGrantType('PROJECT_INSTANT')}
                   >
+                    <View style={[styles.grantOptionIconBox, { backgroundColor: grantType === 'PROJECT_INSTANT' ? '#D1FAE5' : '#F1F5F9' }]}>
+                      <MaterialCommunityIcons
+                        name="lightning-bolt"
+                        size={20}
+                        color={grantType === 'PROJECT_INSTANT' ? '#059669' : '#64748B'}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.grantOptionTitle, grantType === 'PROJECT_INSTANT' && styles.grantOptionTitleActiveInstant]}>
+                        Thưởng nóng Dự án (Rút ngay)
+                      </Text>
+                      <Text style={styles.grantOptionDesc}>
+                        Mở khóa 100% điểm, nhân viên có thể rút tiền ngay
+                      </Text>
+                    </View>
                     <MaterialCommunityIcons
-                      name="lightning-bolt"
-                      size={16}
-                      color={grantType === 'PROJECT_INSTANT' ? '#059669' : '#64748B'}
+                      name={grantType === 'PROJECT_INSTANT' ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={20}
+                      color={grantType === 'PROJECT_INSTANT' ? '#059669' : '#94A3B8'}
                     />
-                    <Text style={[styles.grantTypeTabText, grantType === 'PROJECT_INSTANT' && styles.grantTypeTabTextActiveInstant]}>
-                      Thưởng nóng (Rút ngay)
-                    </Text>
                   </Pressable>
 
+                  {/* Option 3: Dự án tích lũy */}
                   <Pressable
-                    style={[styles.grantTypeTab, grantType === 'PROJECT_VESTING' && styles.grantTypeTabActiveVesting]}
+                    style={[styles.grantOptionCard, grantType === 'PROJECT_VESTING' && styles.grantOptionCardActiveVesting]}
                     onPress={() => setGrantType('PROJECT_VESTING')}
                   >
+                    <View style={[styles.grantOptionIconBox, { backgroundColor: grantType === 'PROJECT_VESTING' ? '#DBEAFE' : '#F1F5F9' }]}>
+                      <MaterialCommunityIcons
+                        name="chart-timeline-variant-shimmer"
+                        size={20}
+                        color={grantType === 'PROJECT_VESTING' ? '#2563EB' : '#64748B'}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.grantOptionTitle, grantType === 'PROJECT_VESTING' && styles.grantOptionTitleActiveVesting]}>
+                        Thưởng Dự án Tích lũy
+                      </Text>
+                      <Text style={styles.grantOptionDesc}>
+                        Tự động chia đều vào các quý còn lại trong năm
+                      </Text>
+                    </View>
                     <MaterialCommunityIcons
-                      name="chart-timeline-variant-shimmer"
-                      size={16}
-                      color={grantType === 'PROJECT_VESTING' ? '#2563EB' : '#64748B'}
+                      name={grantType === 'PROJECT_VESTING' ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={20}
+                      color={grantType === 'PROJECT_VESTING' ? '#2563EB' : '#94A3B8'}
                     />
-                    <Text style={[styles.grantTypeTabText, grantType === 'PROJECT_VESTING' && styles.grantTypeTabTextActiveVesting]}>
-                      Dự án tích lũy
-                    </Text>
                   </Pressable>
                 </View>
 
@@ -1808,53 +1847,57 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
   },
-  grantTypeTabRow: {
-    flexDirection: 'row',
-    gap: 6,
+  grantTypeCardGroup: {
+    gap: 8,
     marginBottom: 12,
   },
-  grantTypeTab: {
-    flex: 1,
+  grantOptionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    gap: 10,
   },
-  grantTypeTabActive: {
-    backgroundColor: '#FEF3C7',
+  grantOptionCardActiveAnnual: {
+    backgroundColor: '#FFFBEB',
     borderColor: '#D97706',
   },
-  grantTypeTabActiveInstant: {
+  grantOptionCardActiveInstant: {
     backgroundColor: '#ECFDF5',
     borderColor: '#059669',
   },
-  grantTypeTabActiveVesting: {
+  grantOptionCardActiveVesting: {
     backgroundColor: '#EFF6FF',
     borderColor: '#2563EB',
   },
-  grantTypeTabText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-    textAlign: 'center',
+  grantOptionIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  grantTypeTabTextActive: {
+  grantOptionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 2,
+  },
+  grantOptionTitleActiveAnnual: {
     color: '#92400E',
-    fontWeight: '700',
   },
-  grantTypeTabTextActiveInstant: {
+  grantOptionTitleActiveInstant: {
     color: '#065F46',
-    fontWeight: '700',
   },
-  grantTypeTabTextActiveVesting: {
+  grantOptionTitleActiveVesting: {
     color: '#1E40AF',
-    fontWeight: '700',
+  },
+  grantOptionDesc: {
+    fontSize: 11,
+    color: '#64748B',
   },
   inputSectionTitle: {
     fontSize: 12,
