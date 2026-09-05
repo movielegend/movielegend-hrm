@@ -12,6 +12,8 @@ import { UserQueryDto } from './dto/user-query.dto';
 import {
   GrantVaultPointsDto,
   BulkGrantVaultPointsDto,
+  GrantProjectPackageDto,
+  BulkGrantProjectPackageDto,
   GrantVaultType,
   WithdrawVaultPointsDto,
   AdminApproveWithdrawalDto,
@@ -786,18 +788,192 @@ export class AdminService {
       throw badRequest('NO_USERS_FOUND', 'Không tìm thấy nhân sự phù hợp để trao điểm');
     }
 
+    return {
+      success: true,
+      totalGrantedUsers: targetUserIds.length,
+      pointsPerUser: dto.points,
+      grantType: dto.grantType || 'ANNUAL',
+    };
+  }
+
+  async grantProjectPackage(dto: GrantProjectPackageDto, actor: AuthenticatedUser) {
+    const year = dto.year || new Date().getFullYear();
+    const cashValuePerPoint = dto.cashValuePerPoint || 1000;
+    const points = dto.points;
+    const durationMonths = dto.durationMonths && dto.durationMonths > 0 ? dto.durationMonths : 12;
+    const intervalMonths = dto.intervalMonths && dto.intervalMonths > 0 ? dto.intervalMonths : 3;
+    const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
+    const title = dto.title.trim();
+    const note = dto.note || `Trao gói thưởng: ${title}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: dto.userId },
+        include: { profile: true },
+      });
+      if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy nhân viên');
+
+      let vault = await tx.talentRetentionVault.findUnique({
+        where: { userId_year: { userId: dto.userId, year } },
+      });
+
+      if (!vault) {
+        vault = await tx.talentRetentionVault.create({
+          data: {
+            userId: dto.userId,
+            year,
+            grantedPoints: points,
+            instantBonusPoints: 0,
+            cashValuePerPoint,
+            status: 'ACTIVE',
+          },
+        });
+      } else {
+        vault = await tx.talentRetentionVault.update({
+          where: { id: vault.id },
+          data: {
+            grantedPoints: { increment: points },
+            cashValuePerPoint,
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      // Create ProjectGrantPackage
+      const pkg = await tx.projectGrantPackage.create({
+        data: {
+          vaultId: vault.id,
+          userId: dto.userId,
+          title,
+          totalPoints: points,
+          cashValuePerPoint,
+          startDate,
+          durationMonths,
+          intervalMonths,
+          status: 'ACTIVE',
+          note: dto.note,
+        },
+      });
+
+      // Calculate milestones
+      const N = Math.max(1, Math.floor(durationMonths / intervalMonths));
+      const pointsPerMilestone = Math.floor(points / N);
+      const now = new Date();
+
+      for (let i = 1; i <= N; i++) {
+        const pts = i === N ? points - pointsPerMilestone * (N - 1) : pointsPerMilestone;
+        const milestoneUnlockDate = new Date(startDate);
+        milestoneUnlockDate.setMonth(milestoneUnlockDate.getMonth() + i * intervalMonths);
+        const isUnlocked = milestoneUnlockDate <= now;
+
+        await tx.grantMilestone.create({
+          data: {
+            packageId: pkg.id,
+            milestoneIndex: i,
+            title: `Đợt ${i} (Sau ${i * intervalMonths} tháng)`,
+            unlockDate: milestoneUnlockDate,
+            pointsToUnlock: pts,
+            cashAmount: pts * cashValuePerPoint,
+            withdrawnPoints: 0,
+            isUnlocked,
+            isWithdrawn: false,
+          },
+        });
+      }
+
+      // Record transaction
+      await tx.vaultTransaction.create({
+        data: {
+          vaultId: vault.id,
+          userId: dto.userId,
+          type: 'GRANT_PROJECT_VESTING',
+          points,
+          cashAmount: points * cashValuePerPoint,
+          quarterTarget: `${title} (${N} đợt)`,
+          note,
+        },
+      });
+
+      // Enable Vault
+      await tx.user.update({
+        where: { id: dto.userId },
+        data: { isRewardVaultEnabled: true },
+      });
+
+      // Audit Log
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'admin.vault.grant_package',
+          entityType: 'ProjectGrantPackage',
+          entityId: pkg.id,
+          metadata: {
+            userId: dto.userId,
+            userCode: user.userCode,
+            title,
+            points,
+            year,
+            durationMonths,
+            intervalMonths,
+            startDate: startDate.toISOString(),
+            milestonesCount: N,
+          },
+        },
+      });
+
+      // Send Notification
+      const totalCashFormatted = (points * cashValuePerPoint).toLocaleString('vi-VN');
+      const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: `Trao gói thưởng: ${title} 🎁`,
+        body: `Bạn vừa được trao gói thưởng "${title}" với ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ), chia thành ${N} đợt rút trong ${durationMonths} tháng!`,
+      });
+      if (notif) this.notifications.emitCreated(notif);
+
+      return tx.talentRetentionVault.findUnique({
+        where: { id: vault.id },
+        include: {
+          packages: {
+            include: { milestones: { orderBy: { milestoneIndex: 'asc' } } },
+            orderBy: { createdAt: 'desc' },
+          },
+          milestones: { orderBy: { quarter: 'asc' } },
+          transactions: { orderBy: { createdAt: 'desc' }, take: 10 },
+        },
+      });
+    });
+  }
+
+  async bulkGrantProjectPackage(dto: BulkGrantProjectPackageDto, actor: AuthenticatedUser) {
+    let targetUserIds: string[] = dto.userIds || [];
+
+    if (dto.departmentId) {
+      const members = await this.prisma.departmentMember.findMany({
+        where: { departmentId: dto.departmentId, leftAt: null },
+        select: { userId: true },
+      });
+      targetUserIds = members.map((m) => m.userId);
+    }
+
+    if (targetUserIds.length === 0) {
+      throw badRequest('NO_USERS_FOUND', 'Không tìm thấy nhân sự phù hợp để trao gói thưởng');
+    }
+
     const results = [];
     for (const uId of targetUserIds) {
-      const res = await this.grantVaultPoints(
+      const res = await this.grantProjectPackage(
         {
           userId: uId,
+          title: dto.title,
           points: dto.points,
           year: dto.year,
           cashValuePerPoint: dto.cashValuePerPoint,
-          grantType: dto.grantType,
+          startDate: dto.startDate,
+          durationMonths: dto.durationMonths,
+          intervalMonths: dto.intervalMonths,
           note: dto.note,
         },
-        actor
+        actor,
       );
       results.push(res);
     }
@@ -806,7 +982,7 @@ export class AdminService {
       success: true,
       totalGrantedUsers: results.length,
       pointsPerUser: dto.points,
-      grantType: dto.grantType || 'ANNUAL',
+      title: dto.title,
     };
   }
 
@@ -824,26 +1000,52 @@ export class AdminService {
 
       const vault = await tx.talentRetentionVault.findFirst({
         where: { userId, year: currentYear },
-        include: { milestones: { orderBy: { quarter: 'asc' } } },
+        include: {
+          packages: {
+            where: { status: 'ACTIVE' },
+            orderBy: [{ startDate: 'asc' }, { createdAt: 'asc' }],
+            include: {
+              milestones: { orderBy: { milestoneIndex: 'asc' } },
+            },
+          },
+          milestones: { orderBy: { quarter: 'asc' } },
+        },
       });
       if (!vault) throw notFound('VAULT_NOT_FOUND', 'Chưa tìm thấy ví thưởng của năm hiện tại');
 
       const instantBonusPoints = vault.instantBonusPoints || 0;
       const cashValuePerPoint = Number(vault.cashValuePerPoint || 1000);
-      const unwithdrawnMilestones = vault.milestones.filter((m) => !m.isWithdrawn && m.pointsToUnlock > 0);
-      const totalMilestonePoints = unwithdrawnMilestones.reduce((s, m) => s + m.pointsToUnlock, 0);
-      const maxWithdrawable = instantBonusPoints + totalMilestonePoints;
+      const now = new Date();
+
+      // Calculate total available points across packages and legacy milestones
+      let packageAvailablePoints = 0;
+      for (const pkg of vault.packages || []) {
+        for (const m of pkg.milestones) {
+          if (!m.isWithdrawn) {
+            const unwithdrawn = m.pointsToUnlock - m.withdrawnPoints;
+            if (unwithdrawn > 0) {
+              packageAvailablePoints += unwithdrawn;
+            }
+          }
+        }
+      }
+
+      const unwithdrawnLegacyMilestones = (vault.milestones || []).filter(
+        (m) => !m.isWithdrawn && m.pointsToUnlock > 0,
+      );
+      const legacyMilestonePoints = unwithdrawnLegacyMilestones.reduce((s, m) => s + m.pointsToUnlock, 0);
+
+      const maxWithdrawable = instantBonusPoints + packageAvailablePoints + legacyMilestonePoints;
 
       if (dto.points > maxWithdrawable) {
         throw badRequest(
           'EXCEEDS_MAX_WITHDRAWABLE',
-          `Số điểm yêu cầu rút (${dto.points.toLocaleString('vi-VN')} điểm) vượt quá tổng hạn mức khả dụng (${maxWithdrawable.toLocaleString('vi-VN')} điểm)`
+          `Số điểm yêu cầu rút (${dto.points.toLocaleString('vi-VN')} điểm) vượt quá tổng hạn mức khả dụng (${maxWithdrawable.toLocaleString('vi-VN')} điểm)`,
         );
       }
 
       let remainingToDeduct = dto.points;
       let deductedInstant = 0;
-      const now = new Date();
 
       // 1. Deduct from Instant Bonus Points
       if (remainingToDeduct > 0 && instantBonusPoints > 0) {
@@ -866,40 +1068,123 @@ export class AdminService {
         });
       }
 
-      // 2. Deduct from currently unlocked milestones (unlockDate <= now)
-      const unlockedMilestones = vault.milestones.filter(
-        (m) => !m.isWithdrawn && m.pointsToUnlock > 0 && new Date(m.unlockDate) <= now
-      );
-      for (const m of unlockedMilestones) {
-        if (remainingToDeduct <= 0) break;
-        const pts = Math.min(remainingToDeduct, m.pointsToUnlock);
-        remainingToDeduct -= pts;
-        const nextPts = m.pointsToUnlock - pts;
-        await tx.vestingMilestone.update({
-          where: { id: m.id },
-          data: {
-            pointsToUnlock: nextPts,
-            cashAmount: nextPts * cashValuePerPoint,
-            isWithdrawn: nextPts === 0,
-            withdrawnAt: nextPts === 0 ? new Date() : undefined,
-          },
-        });
-        await tx.vaultTransaction.create({
-          data: {
-            vaultId: vault.id,
-            userId,
-            type: 'WITHDRAW_REGULAR',
-            points: -pts,
-            cashAmount: pts * cashValuePerPoint,
-            quarterTarget: `Q${m.quarter}`,
-            note: dto.note || `Rút hạn mức Quý ${m.quarter}`,
-          },
-        });
+      // 2. Sequential FIFO Deduction: Unlocked Milestones in Packages (unlockDate <= now)
+      // Packages are already sorted by startDate ASC, createdAt ASC
+      if (remainingToDeduct > 0) {
+        for (const pkg of vault.packages || []) {
+          if (remainingToDeduct <= 0) break;
+          const unlockedMilestones = (pkg.milestones || []).filter(
+            (m) => !m.isWithdrawn && (m.pointsToUnlock - m.withdrawnPoints > 0) && new Date(m.unlockDate) <= now,
+          );
+          for (const m of unlockedMilestones) {
+            if (remainingToDeduct <= 0) break;
+            const availableInMilestone = m.pointsToUnlock - m.withdrawnPoints;
+            const pts = Math.min(remainingToDeduct, availableInMilestone);
+            remainingToDeduct -= pts;
+            const newWithdrawn = m.withdrawnPoints + pts;
+            const isFullyWithdrawn = newWithdrawn >= m.pointsToUnlock;
+
+            await tx.grantMilestone.update({
+              where: { id: m.id },
+              data: {
+                withdrawnPoints: newWithdrawn,
+                isWithdrawn: isFullyWithdrawn,
+                isUnlocked: true,
+                withdrawnAt: isFullyWithdrawn ? new Date() : m.withdrawnAt,
+              },
+            });
+
+            await tx.vaultTransaction.create({
+              data: {
+                vaultId: vault.id,
+                userId,
+                type: 'WITHDRAW_REGULAR',
+                points: -pts,
+                cashAmount: pts * cashValuePerPoint,
+                quarterTarget: `${pkg.title} - ${m.title}`,
+                note: dto.note || `Rút hạn mức ${pkg.title} (${m.title})`,
+              },
+            });
+          }
+        }
       }
 
-      // 3. Reverse Waterfall: Deduct from future locked quarters starting from highest quarter downwards (Q4 -> Q3 -> Q2 -> Q1)
+      // 2.1 Deduct from unlocked legacy milestones if any
       if (remainingToDeduct > 0) {
-        const futureMilestones = vault.milestones
+        const unlockedLegacy = (vault.milestones || []).filter(
+          (m) => !m.isWithdrawn && m.pointsToUnlock > 0 && new Date(m.unlockDate) <= now,
+        );
+        for (const m of unlockedLegacy) {
+          if (remainingToDeduct <= 0) break;
+          const pts = Math.min(remainingToDeduct, m.pointsToUnlock);
+          remainingToDeduct -= pts;
+          const nextPts = m.pointsToUnlock - pts;
+          await tx.vestingMilestone.update({
+            where: { id: m.id },
+            data: {
+              pointsToUnlock: nextPts,
+              cashAmount: nextPts * cashValuePerPoint,
+              isWithdrawn: nextPts === 0,
+              withdrawnAt: nextPts === 0 ? new Date() : undefined,
+            },
+          });
+          await tx.vaultTransaction.create({
+            data: {
+              vaultId: vault.id,
+              userId,
+              type: 'WITHDRAW_REGULAR',
+              points: -pts,
+              cashAmount: pts * cashValuePerPoint,
+              quarterTarget: `Q${m.quarter}`,
+              note: dto.note || `Rút hạn mức Quý ${m.quarter}`,
+            },
+          });
+        }
+      }
+
+      // 3. Advance Withdrawal from future locked milestones (Reverse Waterfall: last milestone to first)
+      if (remainingToDeduct > 0) {
+        for (const pkg of [...(vault.packages || [])].reverse()) {
+          if (remainingToDeduct <= 0) break;
+          const futureMilestones = (pkg.milestones || [])
+            .filter((m) => !m.isWithdrawn && (m.pointsToUnlock - m.withdrawnPoints > 0) && new Date(m.unlockDate) > now)
+            .sort((a, b) => b.milestoneIndex - a.milestoneIndex);
+
+          for (const m of futureMilestones) {
+            if (remainingToDeduct <= 0) break;
+            const availableInMilestone = m.pointsToUnlock - m.withdrawnPoints;
+            const pts = Math.min(remainingToDeduct, availableInMilestone);
+            remainingToDeduct -= pts;
+            const newWithdrawn = m.withdrawnPoints + pts;
+            const isFullyWithdrawn = newWithdrawn >= m.pointsToUnlock;
+
+            await tx.grantMilestone.update({
+              where: { id: m.id },
+              data: {
+                withdrawnPoints: newWithdrawn,
+                isWithdrawn: isFullyWithdrawn,
+                withdrawnAt: isFullyWithdrawn ? new Date() : m.withdrawnAt,
+              },
+            });
+
+            await tx.vaultTransaction.create({
+              data: {
+                vaultId: vault.id,
+                userId,
+                type: 'WITHDRAW_ADVANCE',
+                points: -pts,
+                cashAmount: pts * cashValuePerPoint,
+                quarterTarget: `${pkg.title} - ${m.title}`,
+                note: `Rút ứng trước từ ${pkg.title} (${m.title})${dto.note ? ': ' + dto.note : ''}`,
+              },
+            });
+          }
+        }
+      }
+
+      // 3.1 Advance withdrawal from legacy future milestones if still needed
+      if (remainingToDeduct > 0) {
+        const futureMilestones = (vault.milestones || [])
           .filter((m) => !m.isWithdrawn && m.pointsToUnlock > 0 && new Date(m.unlockDate) > now)
           .sort((a, b) => b.quarter - a.quarter);
 
@@ -981,6 +1266,9 @@ export class AdminService {
         vault: await tx.talentRetentionVault.findUnique({
           where: { id: vault.id },
           include: {
+            packages: {
+              include: { milestones: { orderBy: { milestoneIndex: 'asc' } } },
+            },
             milestones: { orderBy: { quarter: 'asc' } },
             transactions: { orderBy: { createdAt: 'desc' }, take: 10 },
           },
@@ -1345,6 +1633,14 @@ export class AdminService {
       this.prisma.talentRetentionVault.findFirst({
         where: { userId, year: currentYear },
         include: {
+          packages: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              milestones: {
+                orderBy: { milestoneIndex: 'asc' },
+              },
+            },
+          },
           milestones: { orderBy: { quarter: 'asc' } },
           transactions: { orderBy: { createdAt: 'desc' }, take: 20 },
         },
@@ -1379,7 +1675,24 @@ export class AdminService {
 
     let unlockedQuarterPoints = 0;
     let lockedQuarterPoints = 0;
+    let totalPackagePoints = 0;
 
+    // Tally package milestones
+    (vault.packages || []).forEach((pkg) => {
+      totalPackagePoints += pkg.totalPoints;
+      (pkg.milestones || []).forEach((m) => {
+        const remaining = Math.max(0, m.pointsToUnlock - m.withdrawnPoints);
+        if (remaining > 0) {
+          if (new Date(m.unlockDate) <= now) {
+            unlockedQuarterPoints += remaining;
+          } else {
+            lockedQuarterPoints += remaining;
+          }
+        }
+      });
+    });
+
+    // Tally legacy milestones if any
     (vault.milestones || []).forEach((m) => {
       if (!m.isWithdrawn && m.pointsToUnlock > 0) {
         if (new Date(m.unlockDate) <= now) {
@@ -1390,6 +1703,7 @@ export class AdminService {
       }
     });
 
+    const totalGrantedPoints = totalPackagePoints > 0 ? totalPackagePoints : vault.grantedPoints;
     const unlockedPoints = instantBonusPoints + unlockedQuarterPoints;
     const maxWithdrawable = unlockedPoints + lockedQuarterPoints;
 
@@ -1398,7 +1712,7 @@ export class AdminService {
       vault,
       withdrawalRequests: withdrawalRequests || [],
       stats: {
-        totalGrantedPoints: vault.grantedPoints,
+        totalGrantedPoints,
         instantBonusPoints,
         unlockedQuarterPoints,
         lockedQuarterPoints,

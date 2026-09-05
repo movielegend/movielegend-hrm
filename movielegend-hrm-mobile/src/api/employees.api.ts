@@ -102,6 +102,37 @@ export async function bulkGrantVaultPoints(payload: {
   return unwrapData(response);
 }
 
+export async function grantProjectPackage(payload: {
+  userId: string;
+  title: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  startDate?: string;
+  durationMonths?: number;
+  intervalMonths?: number;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/grant-package', payload);
+  return unwrapData(response);
+}
+
+export async function bulkGrantProjectPackage(payload: {
+  departmentId?: string;
+  userIds?: string[];
+  title: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  startDate?: string;
+  durationMonths?: number;
+  intervalMonths?: number;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/bulk-grant-package', payload);
+  return unwrapData(response);
+}
+
 export async function getMyVault(): Promise<MyVaultResponse> {
   const response = await apiClient.get<ApiResponse<MyVaultResponse>>('/employees/vault/my-vault');
   return unwrapData(response);

@@ -15,7 +15,13 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMyVault, withdrawVaultPoints } from '../../api/employees.api';
-import type { MyVaultResponse, VestingMilestone, VaultTransaction } from '../../types/employee.types';
+import type {
+  MyVaultResponse,
+  VestingMilestone,
+  ProjectGrantPackage,
+  GrantMilestone,
+  VaultTransaction,
+} from '../../types/employee.types';
 
 export interface RetentionVaultWidgetProps {
   isVaultEnabled?: boolean;
@@ -132,7 +138,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
       Alert.alert(
         'Gửi Yêu Cầu Rút Tiền Thành Công! 💸',
         isAdvanceWithdrawal
-          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các quý tương lai). Kế toán sẽ phê duyệt chuyển khoản cho bạn sớm nhất!`
+          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các đợt tương lai). Kế toán sẽ phê duyệt chuyển khoản cho bạn sớm nhất!`
           : `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Kế toán sẽ phê duyệt chuyển khoản cho bạn sớm nhất!`
       );
     } catch (err: any) {
@@ -142,7 +148,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
     }
   };
 
-  const milestones: VestingMilestone[] = vault?.milestones || [];
+  const packages: ProjectGrantPackage[] = vault?.packages || [];
+  const legacyMilestones: VestingMilestone[] = vault?.milestones || [];
   const transactions: VaultTransaction[] = vault?.transactions || [];
 
   const now = new Date();
@@ -156,8 +163,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
     { q: 4, label: 'Quý 4 (Tết)', dateLabel: '31/12', unlockDate: new Date(currentYear, 11, 31), icon: 'gift' },
   ];
 
-  const quarterSteps = qMeta.map((qm) => {
-    const found = milestones.find((m) => m.quarter === qm.q);
+  const legacyQuarterSteps = qMeta.map((qm) => {
+    const found = legacyMilestones.find((m) => m.quarter === qm.q);
     const unlockDate = found ? new Date(found.unlockDate) : qm.unlockDate;
     const isPastOrToday = unlockDate <= now;
     const points = found ? found.pointsToUnlock : Math.floor(stats.totalGrantedPoints / 4);
@@ -180,18 +187,6 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
       icon: qm.icon,
     };
   });
-
-  const nextUpcomingQuarter = quarterSteps.find((s) => !s.isPastOrToday);
-  const nextQuarterLabel = nextUpcomingQuarter
-    ? `Dự kiến mở khóa Quý ${nextUpcomingQuarter.quarter}: ${nextUpcomingQuarter.dateLabel}`
-    : `Đã hoàn tất mở khóa 4 Quý năm ${currentYear}`;
-
-  const allWithdrawn = quarterSteps.every((s) => s.isWithdrawn);
-  const trackerMainStatus = allWithdrawn
-    ? 'Đã giải ngân trọn vẹn quỹ thưởng 🎉'
-    : currentQuarterNum === 4
-    ? 'Đích đến: Mở khóa Thưởng Tết! 🧧'
-    : `Đang mở khóa đợt Quý ${currentQuarterNum}...`;
 
   return (
     <View style={styles.cardContainer}>
@@ -240,7 +235,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         {/* Sub-metrics: 2 Equal Columns */}
         <View style={styles.vipMetricsGrid}>
           <View style={styles.vipMetricCol}>
-            <Text style={styles.vipMetricLabel}>Tổng Quỹ Cam Kết Năm</Text>
+            <Text style={styles.vipMetricLabel}>Tổng Quỹ Cam Kết</Text>
             <Text style={styles.vipMetricValue}>{totalGrantedCash.toLocaleString('vi-VN')} đ</Text>
             <Text style={styles.vipMetricSub}>{stats.totalGrantedPoints.toLocaleString('vi-VN')} điểm</Text>
           </View>
@@ -266,165 +261,223 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.vipFooterNote}>
           <MaterialCommunityIcons name="shield-check-outline" size={14} color="#92400E" />
           <Text style={styles.vipFooterNoteText}>
-            Hệ thống hỗ trợ rút ứng trước từ các quý tương lai (ưu tiên khấu trừ từ Quý 4).
+            Hệ thống khấu trừ theo thứ tự (FIFO): Dự án mở trước rút trước, hỗ trợ rút ứng trước từ các đợt sau.
           </Text>
         </View>
       </View>
 
-      {/* Shopee-style Vesting Delivery Stepper Tracker */}
-      <View style={styles.shopeeTrackerCard}>
-        {/* Top Header Row */}
-        <View style={styles.shopeeHeaderRow}>
-          <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.shopeeEstTime}>{nextQuarterLabel}</Text>
-            <Text style={styles.shopeeMainStatus}>{trackerMainStatus}</Text>
+      {/* Render Separate Cards for Each ProjectGrantPackage */}
+      {packages.length > 0 && (
+        <View style={styles.packageListContainer}>
+          <View style={styles.packageListHeader}>
+            <MaterialCommunityIcons name="briefcase-outline" size={18} color="#92400E" />
+            <Text style={styles.packageListTitle}>Các Gói Thưởng Dự Án Đang Tham Gia ({packages.length}):</Text>
           </View>
-          <View style={styles.shopeeAvatarCircle}>
-            <MaterialCommunityIcons
-              name="wallet-giftcard"
-              size={28}
-              color="#EE4D2D"
-            />
-          </View>
-        </View>
 
-        {/* Stepper Horizontal Progress Bar */}
-        <View style={styles.stepperContainer}>
-          {/* Icons & Connecting Lines Row */}
-          <View style={styles.stepperIconsRow}>
-            {quarterSteps.map((step, idx) => {
-              const isPassed = step.isPastOrToday || step.isWithdrawn;
-              const isCurrent = step.isCurrentActive;
-              const hasNext = idx < quarterSteps.length - 1;
+          {packages.map((pkg, pIdx) => {
+            const milestones = pkg.milestones || [];
+            const pkgTotalCash = pkg.totalPoints * cashValuePerPoint;
+            const pkgWithdrawnPoints = milestones.reduce((s, m) => s + (m.withdrawnPoints || 0), 0);
+            const pkgWithdrawnCash = pkgWithdrawnPoints * cashValuePerPoint;
 
-              const nextStep = quarterSteps[idx + 1];
-              const lineFilled = nextStep ? nextStep.isPastOrToday || nextStep.isWithdrawn : false;
-              const lineHalfFilled = isPassed && nextStep && !nextStep.isPastOrToday;
+            let pkgUnlockedPoints = 0;
+            let pkgLockedPoints = 0;
+            milestones.forEach((m) => {
+              const remaining = Math.max(0, m.pointsToUnlock - m.withdrawnPoints);
+              if (remaining > 0) {
+                if (new Date(m.unlockDate) <= now) {
+                  pkgUnlockedPoints += remaining;
+                } else {
+                  pkgLockedPoints += remaining;
+                }
+              }
+            });
 
-              return (
-                <React.Fragment key={step.quarter}>
-                  {/* Milestone Node Icon */}
-                  <View style={styles.milestoneNodeCol}>
-                    <View
-                      style={[
-                        styles.milestoneIconWrap,
-                        step.isWithdrawn
-                          ? styles.milestoneIconWithdrawn
-                          : isPassed
-                          ? styles.milestoneIconActive
-                          : styles.milestoneIconInactive,
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={step.icon as any}
-                        size={22}
-                        color={
-                          step.isWithdrawn
-                            ? '#64748B'
-                            : isPassed
-                            ? '#EE4D2D'
-                            : '#94A3B8'
-                        }
-                      />
-                      {step.isWithdrawn && (
-                        <View style={styles.checkedBadge}>
-                          <MaterialCommunityIcons name="check" size={9} color="#FFFFFF" />
-                        </View>
-                      )}
+            return (
+              <View key={pkg.id || pIdx} style={styles.packageCard}>
+                {/* Package Card Header */}
+                <View style={styles.packageCardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <View style={styles.pkgIconBadge}>
+                        <MaterialCommunityIcons name="gift" size={16} color="#B45309" />
+                      </View>
+                      <Text style={styles.packageCardTitle} numberOfLines={1}>
+                        {pkg.title}
+                      </Text>
                     </View>
-
-                    {/* Active Step Pointer Arrow */}
-                    <View style={styles.pointerSlot}>
-                      {isCurrent ? (
-                        <MaterialCommunityIcons name="chevron-down" size={18} color="#EE4D2D" />
-                      ) : null}
-                    </View>
+                    <Text style={styles.packageCardMeta}>
+                      Thời hạn: {pkg.durationMonths} tháng • Chu kỳ: {pkg.intervalMonths} tháng/đợt ({milestones.length} đợt)
+                    </Text>
                   </View>
-
-                  {/* Connecting Line */}
-                  {hasNext && (
-                    <View style={styles.stepperLineWrapper}>
-                      {lineFilled ? (
-                        <View style={[styles.stepperLine, styles.stepperLineFull]} />
-                      ) : lineHalfFilled ? (
-                        <View style={styles.stepperLineHalfWrapper}>
-                          <View style={[styles.stepperLineHalf, { backgroundColor: '#EE4D2D' }]} />
-                          <View style={[styles.stepperLineHalf, { backgroundColor: '#E2E8F0' }]} />
-                        </View>
-                      ) : (
-                        <View style={[styles.stepperLine, styles.stepperLineInactive]} />
-                      )}
-                    </View>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </View>
-
-          {/* Stepper Labels & Dates Row */}
-          <View style={styles.stepperLabelsRow}>
-            {quarterSteps.map((step) => {
-              return (
-                <View key={step.quarter} style={styles.stepperLabelCol}>
-                  <Text
-                    style={[
-                      styles.stepperQuarterTitle,
-                      step.isCurrentActive && styles.stepperQuarterTitleActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {step.quarter === 4 ? 'Q4 (Tết)' : `Quý ${step.quarter}`}
-                  </Text>
-                  <Text style={styles.stepperDateText}>{step.dateLabel}</Text>
-                  <View
-                    style={[
-                      styles.stepperPointBadge,
-                      step.isWithdrawn
-                        ? styles.badgeWithdrawn
-                        : step.isPastOrToday
-                        ? styles.badgeUnlocked
-                        : styles.badgeLocked,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.stepperPointBadgeText,
-                        step.isWithdrawn
-                          ? styles.badgeTextWithdrawn
-                          : step.isPastOrToday
-                          ? styles.badgeTextUnlocked
-                          : styles.badgeTextLocked,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {step.isWithdrawn
-                        ? 'Đã rút'
-                        : `${step.points.toLocaleString('vi-VN')} đ`}
+                  <View style={styles.packageTotalBadge}>
+                    <Text style={styles.packageTotalPoints}>
+                      {pkg.totalPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                    <Text style={styles.packageTotalCash}>
+                      ~{pkgTotalCash.toLocaleString('vi-VN')} VNĐ
                     </Text>
                   </View>
                 </View>
-              );
-            })}
-          </View>
-        </View>
 
-        {/* Milestone Detail Cards Horizontal Mini Bar */}
-        <View style={styles.milestoneMiniSummary}>
-          <View style={styles.miniSummaryItem}>
-            <Text style={styles.miniSummaryLabel}>Đã mở khóa:</Text>
-            <Text style={styles.miniSummaryValUnlocked}>
-              {stats.unlockedPoints.toLocaleString('vi-VN')} đ
-            </Text>
+                {/* Milestones Stepper / Grid */}
+                <View style={styles.pkgMilestoneList}>
+                  {milestones.map((m, mIdx) => {
+                    const unlockDate = new Date(m.unlockDate);
+                    const isPassed = unlockDate <= now;
+                    const remaining = Math.max(0, m.pointsToUnlock - m.withdrawnPoints);
+                    const isFullyWithdrawn = m.isWithdrawn || remaining === 0;
+                    const isUnlockedAvailable = isPassed && !isFullyWithdrawn;
+                    const isFutureLocked = !isPassed && !isFullyWithdrawn;
+
+                    const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}/${unlockDate.getFullYear()}`;
+
+                    return (
+                      <View
+                        key={m.id || mIdx}
+                        style={[
+                          styles.pkgMilestoneRow,
+                          isFullyWithdrawn && styles.pkgMilestoneRowWithdrawn,
+                          isUnlockedAvailable && styles.pkgMilestoneRowUnlocked,
+                          isFutureLocked && styles.pkgMilestoneRowLocked,
+                        ]}
+                      >
+                        <View style={styles.milestoneLeftInfo}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <MaterialCommunityIcons
+                              name={
+                                isFullyWithdrawn
+                                  ? 'check-circle'
+                                  : isUnlockedAvailable
+                                  ? 'lock-open-variant'
+                                  : 'lock'
+                              }
+                              size={16}
+                              color={
+                                isFullyWithdrawn
+                                  ? '#64748B'
+                                  : isUnlockedAvailable
+                                  ? '#059669'
+                                  : '#D97706'
+                              }
+                            />
+                            <Text
+                              style={[
+                                styles.pkgMilestoneTitle,
+                                isFullyWithdrawn && { color: '#64748B', textDecorationLine: 'line-through' },
+                                isUnlockedAvailable && { color: '#065F46', fontWeight: '700' },
+                              ]}
+                            >
+                              {m.title}
+                            </Text>
+                          </View>
+                          <Text style={styles.pkgMilestoneDate}>Mở khóa: {dateFormatted}</Text>
+                        </View>
+
+                        <View style={styles.milestoneRightInfo}>
+                          <Text style={styles.pkgMilestonePoints}>
+                            {m.pointsToUnlock.toLocaleString('vi-VN')} đ
+                          </Text>
+                          <View
+                            style={[
+                              styles.milestoneStatusPill,
+                              isFullyWithdrawn && styles.pillWithdrawn,
+                              isUnlockedAvailable && styles.pillUnlocked,
+                              isFutureLocked && styles.pillLocked,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.milestoneStatusPillText,
+                                isFullyWithdrawn && styles.pillTextWithdrawn,
+                                isUnlockedAvailable && styles.pillTextUnlocked,
+                                isFutureLocked && styles.pillTextLocked,
+                              ]}
+                            >
+                              {isFullyWithdrawn
+                                ? 'Đã rút hết'
+                                : isUnlockedAvailable
+                                ? `Khả dụng: ${remaining.toLocaleString('vi-VN')} đ`
+                                : `Khóa đến ${dateFormatted}`}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Package Bottom Summary */}
+                <View style={styles.packageBottomSummary}>
+                  <View style={styles.pkgSummaryItem}>
+                    <Text style={styles.pkgSummaryLabel}>Đã rút:</Text>
+                    <Text style={styles.pkgSummaryValWithdrawn}>
+                      {pkgWithdrawnPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                  </View>
+                  <View style={styles.pkgSummaryDivider} />
+                  <View style={styles.pkgSummaryItem}>
+                    <Text style={styles.pkgSummaryLabel}>Khả dụng:</Text>
+                    <Text style={styles.pkgSummaryValUnlocked}>
+                      {pkgUnlockedPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                  </View>
+                  <View style={styles.pkgSummaryDivider} />
+                  <View style={styles.pkgSummaryItem}>
+                    <Text style={styles.pkgSummaryLabel}>Đang khóa:</Text>
+                    <Text style={styles.pkgSummaryValLocked}>
+                      {pkgLockedPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Graceful Fallback: Legacy Vesting Stepper if no Project Packages */}
+      {packages.length === 0 && legacyMilestones.length > 0 && (
+        <View style={styles.shopeeTrackerCard}>
+          <View style={styles.shopeeHeaderRow}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={styles.shopeeEstTime}>Lộ trình Ví Thưởng Năm {currentYear}</Text>
+              <Text style={styles.shopeeMainStatus}>Phân bổ 4 Quý</Text>
+            </View>
+            <View style={styles.shopeeAvatarCircle}>
+              <MaterialCommunityIcons name="wallet-giftcard" size={28} color="#EE4D2D" />
+            </View>
           </View>
-          <View style={styles.miniSummaryDivider} />
-          <View style={styles.miniSummaryItem}>
-            <Text style={styles.miniSummaryLabel}>Chờ mở các quý sau:</Text>
-            <Text style={styles.miniSummaryValLocked}>
-              {stats.lockedQuarterPoints.toLocaleString('vi-VN')} đ
-            </Text>
+
+          {/* Stepper Horizontal Progress Bar */}
+          <View style={styles.stepperContainer}>
+            <View style={styles.stepperIconsRow}>
+              {legacyQuarterSteps.map((step) => (
+                <View key={step.quarter} style={styles.milestoneNodeCol}>
+                  <View
+                    style={[
+                      styles.milestoneIconWrap,
+                      step.isWithdrawn
+                        ? styles.milestoneIconWithdrawn
+                        : step.isPastOrToday
+                        ? styles.milestoneIconActive
+                        : styles.milestoneIconInactive,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={step.icon as any}
+                      size={20}
+                      color={step.isWithdrawn ? '#64748B' : step.isPastOrToday ? '#EE4D2D' : '#94A3B8'}
+                    />
+                  </View>
+                  <Text style={styles.stepperQuarterTitle}>Q{step.quarter}</Text>
+                  <Text style={styles.stepperDateText}>{step.dateLabel}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
-      </View>
+      )}
 
       {/* Withdrawal Requests History */}
       {data?.withdrawalRequests && data.withdrawalRequests.length > 0 && (
@@ -1523,5 +1576,195 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#92400E',
+  },
+  packageListContainer: {
+    marginTop: 10,
+    marginBottom: 16,
+    gap: 12,
+  },
+  packageListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  packageListTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  packageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  packageCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FEF3C7',
+    marginBottom: 10,
+    gap: 8,
+  },
+  pkgIconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  packageCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  packageCardMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  packageTotalBadge: {
+    alignItems: 'flex-end',
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  packageTotalPoints: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  packageTotalCash: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  pkgMilestoneList: {
+    gap: 6,
+    marginBottom: 10,
+  },
+  pkgMilestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pkgMilestoneRowWithdrawn: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    opacity: 0.75,
+  },
+  pkgMilestoneRowUnlocked: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  pkgMilestoneRowLocked: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  milestoneLeftInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  milestoneRightInfo: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  pkgMilestoneTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  pkgMilestoneDate: {
+    fontSize: 10,
+    color: '#64748B',
+    marginLeft: 22,
+  },
+  pkgMilestonePoints: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  milestoneStatusPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  pillWithdrawn: {
+    backgroundColor: '#E2E8F0',
+  },
+  pillUnlocked: {
+    backgroundColor: '#D1FAE5',
+  },
+  pillLocked: {
+    backgroundColor: '#FEF3C7',
+  },
+  milestoneStatusPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  pillTextWithdrawn: {
+    color: '#64748B',
+  },
+  pillTextUnlocked: {
+    color: '#065F46',
+  },
+  pillTextLocked: {
+    color: '#92400E',
+  },
+  packageBottomSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+    backgroundColor: '#FFFDF5',
+    borderRadius: 8,
+    paddingVertical: 6,
+  },
+  pkgSummaryItem: {
+    alignItems: 'center',
+  },
+  pkgSummaryLabel: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+  pkgSummaryValWithdrawn: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  pkgSummaryValUnlocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  pkgSummaryValLocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  pkgSummaryDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#FDE68A',
   },
 });

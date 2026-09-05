@@ -14,6 +14,8 @@ import { UserQueryDto } from './dto/user-query.dto';
 import {
   GrantVaultPointsDto,
   BulkGrantVaultPointsDto,
+  GrantProjectPackageDto,
+  BulkGrantProjectPackageDto,
   AdminApproveWithdrawalDto,
   AccountantConfirmWithdrawalDto,
   RejectWithdrawalDto,
@@ -91,6 +93,18 @@ export class AdminController {
   @Post('talent-vault/bulk-grant')
   bulkGrantVaultPoints(@Body() dto: BulkGrantVaultPointsDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.bulkGrantVaultPoints(dto, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/grant-package')
+  grantProjectPackage(@Body() dto: GrantProjectPackageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.grantProjectPackage(dto, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/bulk-grant-package')
+  bulkGrantProjectPackage(@Body() dto: BulkGrantProjectPackageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.bulkGrantProjectPackage(dto, actor);
   }
 
   @Roles('ADMIN', 'ACCOUNTANT')

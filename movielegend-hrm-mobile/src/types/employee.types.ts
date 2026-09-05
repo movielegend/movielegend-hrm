@@ -83,6 +83,39 @@ export interface VestingMilestone {
   withdrawnAt?: string | null;
 }
 
+export interface GrantMilestone {
+  id: string;
+  packageId: string;
+  milestoneIndex: number;
+  title: string;
+  unlockDate: string;
+  pointsToUnlock: number;
+  cashAmount: number;
+  withdrawnPoints: number;
+  isUnlocked: boolean;
+  isWithdrawn: boolean;
+  withdrawnAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectGrantPackage {
+  id: string;
+  vaultId: string;
+  userId: string;
+  title: string;
+  totalPoints: number;
+  cashValuePerPoint: number;
+  startDate: string;
+  durationMonths: number;
+  intervalMonths: number;
+  status: string;
+  note?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  milestones?: GrantMilestone[];
+}
+
 export interface TalentRetentionVault {
   id: string;
   userId: string;
@@ -92,7 +125,33 @@ export interface TalentRetentionVault {
   cashValuePerPoint: number;
   status: string;
   milestones?: VestingMilestone[];
+  packages?: ProjectGrantPackage[];
   transactions?: VaultTransaction[];
+}
+
+export interface GrantProjectPackagePayload {
+  userId: string;
+  title: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  startDate?: string;
+  durationMonths?: number;
+  intervalMonths?: number;
+  note?: string;
+}
+
+export interface BulkGrantProjectPackagePayload {
+  departmentId?: string;
+  userIds?: string[];
+  title: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  startDate?: string;
+  durationMonths?: number;
+  intervalMonths?: number;
+  note?: string;
 }
 
 export interface MyVaultStats {
