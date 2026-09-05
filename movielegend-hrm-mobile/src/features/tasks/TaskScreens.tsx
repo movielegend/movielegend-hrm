@@ -207,12 +207,13 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   }) ?? [];
 
   const isDepartmentTask = item.type === 'DEPARTMENT' || (item.targets?.some(t => t.targetType === 'DEPARTMENT') ?? false);
+  const isGroupTask = item.type === 'GROUP';
   const isDepartmentLeader = hasAnyPermission(user, ['task.assign_department']) || Boolean(user?.roles?.includes('LEADER'));
   const isGroupLeader = item.groupLeaderId === user?.id;
   const isCreator = item.createdByUserId === user?.id;
   const isAdmin = hasAnyPermission(user, ['task.assign_any']) || Boolean(user?.roles?.includes('ADMIN'));
 
-  const canManageSubtasks = (isDepartmentLeader || isGroupLeader || isCreator || isAdmin) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
+  const canManageSubtasks = (isDepartmentTask || isGroupTask) && (isDepartmentLeader || isGroupLeader || isCreator || isAdmin) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
 
   const childTasks = item.childTasks ?? [];
   const completedChildCount = childTasks.filter((c: any) => c.status === 'COMPLETED').length;
