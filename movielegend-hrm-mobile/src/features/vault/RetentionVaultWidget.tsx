@@ -426,6 +426,120 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         </View>
       </View>
 
+      {/* Withdrawal Requests History */}
+      {data?.withdrawalRequests && data.withdrawalRequests.length > 0 && (
+        <View style={styles.withdrawalHistoryContainer}>
+          <View style={styles.withdrawalHistoryHeader}>
+            <MaterialCommunityIcons name="clipboard-text-clock-outline" size={18} color="#92400E" />
+            <Text style={styles.withdrawalHistoryTitle}>Yêu Cầu Rút Tiền Đang Xử Lý & Gần Đây</Text>
+          </View>
+          {data.withdrawalRequests.map((req) => {
+            const isPendingAdmin = req.status === 'PENDING_ADMIN';
+            const isPendingAcc = req.status === 'PENDING_ACCOUNTANT';
+            const isPaid = req.status === 'PAID';
+            const isRejected = req.status === 'REJECTED';
+
+            const statusBg = isPaid
+              ? '#ECFDF5'
+              : isPendingAcc
+              ? '#EFF6FF'
+              : isPendingAdmin
+              ? '#FFFBEB'
+              : '#FEF2F2';
+
+            const statusBorder = isPaid
+              ? '#A7F3D0'
+              : isPendingAcc
+              ? '#BFDBFE'
+              : isPendingAdmin
+              ? '#FDE68A'
+              : '#FECACA';
+
+            const statusColor = isPaid
+              ? '#059669'
+              : isPendingAcc
+              ? '#2563EB'
+              : isPendingAdmin
+              ? '#D97706'
+              : '#DC2626';
+
+            const statusLabel = isPaid
+              ? '✅ Đã chuyển tiền thành công'
+              : isPendingAcc
+              ? '💼 Chờ Kế toán chuyển tiền'
+              : isPendingAdmin
+              ? '⏳ Chờ Admin duyệt'
+              : '❌ Đã từ chối (Đã hoàn điểm)';
+
+            return (
+              <View key={req.id} style={[styles.withdrawalReqCard, { borderColor: statusBorder }]}>
+                <View style={styles.withdrawalReqTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.withdrawalReqAmount}>
+                      {req.cashAmount.toLocaleString('vi-VN')} VNĐ
+                    </Text>
+                    <Text style={styles.withdrawalReqPoints}>
+                      ({req.pointsWithdrawn.toLocaleString('vi-VN')} điểm)
+                    </Text>
+                  </View>
+                  <View style={[styles.withdrawalStatusBadge, { backgroundColor: statusBg, borderColor: statusBorder }]}>
+                    <Text style={[styles.withdrawalStatusText, { color: statusColor }]}>
+                      {statusLabel}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Bank details summary */}
+                <View style={styles.withdrawalBankRow}>
+                  <MaterialCommunityIcons name="bank-outline" size={14} color="#64748B" />
+                  <Text style={styles.withdrawalBankText}>
+                    {req.bankName} • STK: <Text style={{ fontWeight: '700', color: '#1E293B' }}>{req.bankAccountNumber}</Text> ({req.bankAccountName})
+                  </Text>
+                </View>
+
+                {/* Timestamp & Notes */}
+                <View style={styles.withdrawalFooterRow}>
+                  <Text style={styles.withdrawalDateText}>
+                    {new Date(req.createdAt).toLocaleDateString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                  {req.note ? (
+                    <Text style={styles.withdrawalNoteText} numberOfLines={1}>
+                      • {req.note}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Additional audit notes for Paid or Rejected */}
+                {isPaid && req.transactionReference && (
+                  <View style={styles.withdrawalAuditBoxSuccess}>
+                    <MaterialCommunityIcons name="check-decagram" size={14} color="#059669" />
+                    <Text style={styles.withdrawalAuditTextSuccess}>
+                      Mã GD / UNC: <Text style={{ fontWeight: '700' }}>{req.transactionReference}</Text>
+                      {req.accountantNote ? ` (${req.accountantNote})` : ''}
+                    </Text>
+                  </View>
+                )}
+
+                {isRejected && req.rejectReason && (
+                  <View style={styles.withdrawalAuditBoxReject}>
+                    <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
+                    <Text style={styles.withdrawalAuditTextReject}>
+                      Lý do: <Text style={{ fontWeight: '600' }}>{req.rejectReason}</Text>
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       {/* Recent Transactions Ledger */}
       {transactions.length > 0 && (
         <View style={styles.txContainer}>
@@ -446,6 +560,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                         ? 'lightning-bolt'
                         : tx.type === 'WITHDRAW_ADVANCE'
                         ? 'arrow-up-bold-box-outline'
+                        : tx.type === 'REFUND_WITHDRAWAL'
+                        ? 'cash-refund'
                         : isPositive
                         ? 'plus'
                         : 'minus'
@@ -466,6 +582,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                       ? 'Thưởng nóng'
                       : tx.type === 'GRANT_PROJECT_VESTING'
                       ? 'Thưởng tích lũy'
+                      : tx.type === 'REFUND_WITHDRAWAL'
+                      ? 'Hoàn điểm'
                       : 'Thưởng năm'}
                   </Text>
                 </View>
@@ -1027,6 +1145,124 @@ const styles = StyleSheet.create({
     width: 1,
     height: 14,
     backgroundColor: '#E2E8F0',
+  },
+  withdrawalHistoryContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  withdrawalHistoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  withdrawalHistoryTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.2,
+  },
+  withdrawalReqCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  withdrawalReqTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  withdrawalReqAmount: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  withdrawalReqPoints: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  withdrawalStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  withdrawalStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  withdrawalBankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 6,
+  },
+  withdrawalBankText: {
+    fontSize: 11,
+    color: '#475569',
+    flex: 1,
+  },
+  withdrawalFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  withdrawalDateText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  withdrawalNoteText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontStyle: 'italic',
+    flex: 1,
+  },
+  withdrawalAuditBoxSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    padding: 6,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  withdrawalAuditTextSuccess: {
+    fontSize: 10,
+    color: '#065F46',
+    flex: 1,
+  },
+  withdrawalAuditBoxReject: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    padding: 6,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  withdrawalAuditTextReject: {
+    fontSize: 10,
+    color: '#991B1B',
+    flex: 1,
   },
   txContainer: {
     backgroundColor: '#F8FAFC',

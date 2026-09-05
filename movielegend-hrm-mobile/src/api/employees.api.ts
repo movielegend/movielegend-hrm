@@ -118,3 +118,31 @@ export async function withdrawVaultPoints(payload: {
   return unwrapData(response);
 }
 
+export async function getVaultWithdrawalRequests(params?: {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<any> {
+  const response = await apiClient.get<ApiResponse<any>>('/admin/vault/withdrawals', { params });
+  return unwrapData(response);
+}
+
+export async function adminApproveWithdrawal(id: string, payload?: { note?: string }): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>(`/admin/vault/withdrawals/${id}/admin-approve`, payload || {});
+  return unwrapData(response);
+}
+
+export async function accountantConfirmWithdrawal(id: string, payload?: {
+  transactionReference?: string;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>(`/admin/vault/withdrawals/${id}/accountant-confirm`, payload || {});
+  return unwrapData(response);
+}
+
+export async function rejectWithdrawal(id: string, payload: { reason: string }): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>(`/admin/vault/withdrawals/${id}/reject`, payload);
+  return unwrapData(response);
+}
+
