@@ -25,5 +25,6 @@ export interface AuthUser {
   position?: PositionSummary | null;
   hasFaceData: boolean;
   accountStatus?: string;
+  isRewardVaultEnabled?: boolean;
   deletionScheduledAt?: string | null;
 }

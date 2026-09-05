@@ -46,7 +46,24 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   }
 
   if (!data?.isVaultEnabled) {
-    return null; // Opt-in Feature: Hidden if disabled for current user
+    return (
+      <View style={styles.disabledCard}>
+        <View style={styles.disabledIconContainer}>
+          <MaterialCommunityIcons name="lock-alert-outline" size={48} color="#D97706" />
+        </View>
+        <Text style={styles.disabledTitle}>Ví Thưởng Chưa Được Kích Hoạt</Text>
+        <Text style={styles.disabledDescription}>
+          Tính năng Ví Thưởng Tết & Giữ Chân Nhân Tài là đặc quyền dành riêng cho nhân sự được phê duyệt. Tài khoản của bạn hiện chưa được mở quyền này.
+        </Text>
+        <Text style={styles.disabledHint}>
+          Vui lòng liên hệ Quản trị viên / Ban Giám Đốc để được kích hoạt và phân bổ quỹ thưởng.
+        </Text>
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => refetch()} activeOpacity={0.8}>
+          <Ionicons name="reload" size={16} color="#B45309" />
+          <Text style={styles.refreshBtnText}>Kiểm tra lại trạng thái</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   const vault = data?.vault;
@@ -832,5 +849,72 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  disabledCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  disabledIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  disabledTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  disabledDescription: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  disabledHint: {
+    fontSize: 12,
+    color: '#B45309',
+    textAlign: 'center',
+    backgroundColor: '#FFFBEB',
+    padding: 10,
+    borderRadius: 8,
+    lineHeight: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  refreshBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
   },
 });

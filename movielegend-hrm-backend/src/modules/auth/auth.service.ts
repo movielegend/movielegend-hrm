@@ -490,6 +490,7 @@ export class AuthService {
       accountStatus: user.accountStatus,
       approvalStatus: user.approvalStatus,
       isActive: user.isActive,
+      isRewardVaultEnabled: Boolean((user as any).isRewardVaultEnabled),
       deletionScheduledAt: (user as any).deletionScheduledAt ? (user as any).deletionScheduledAt.toISOString() : null,
     };
   }

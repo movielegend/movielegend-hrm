@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert, Image, RefreshControl } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
@@ -9,6 +9,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useMySchedule } from '../../hooks/useShifts';
 import { useMyTasks } from '../../hooks/useTasks';
+import { getMyVault } from '../../api/employees.api';
 import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
 import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
@@ -27,6 +28,14 @@ export function EmployeeDashboardScreen() {
   const { data: myTasks } = useMyTasks({ limit: 100 });
   const { data: unreadData } = useUnreadNotificationCount();
   const unreadCount = unreadData?.count || 0;
+  const { data: myVault } = useQuery({
+    queryKey: ['my-vault'],
+    queryFn: getMyVault,
+  });
+
+  const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
+  const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
+  const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
 
   useEffect(() => {
     if (schedule && schedule.length > 0) {
@@ -150,7 +159,35 @@ export function EmployeeDashboardScreen() {
           </View>
         </Pressable>
 
-
+        {/* Banner Ví Thưởng Tết & Nhân Tài (Hiển thị nổi bật khi được mở quyền) */}
+        {isVaultEnabled && (
+          <Pressable
+            style={styles.vaultBanner}
+            onPress={() => router.push('/employee/vault' as any)}
+          >
+            <View style={styles.vaultBannerLeft}>
+              <View style={styles.vaultBannerIconWrap}>
+                <MaterialCommunityIcons name="gift" size={24} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <Text style={styles.vaultBannerTitle}>Ví Thưởng Tết & Giữ Chân</Text>
+                  <View style={styles.vipBadge}>
+                    <Text style={styles.vipBadgeText}>VIP</Text>
+                  </View>
+                </View>
+                <Text style={styles.vaultBannerPoints}>
+                  Khả dụng: <Text style={styles.vaultBannerPointsBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                  {totalGrantedPoints > 0 ? ` • Quỹ cam kết: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.vaultBannerRight}>
+              <Text style={styles.vaultBannerActionText}>Mở ví</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color="#D97706" />
+            </View>
+          </Pressable>
+        )}
 
         {/* Tiện ích (Grid) */}
         <View style={styles.section}>
@@ -170,6 +207,8 @@ export function EmployeeDashboardScreen() {
             <GridItem
               icon="gift-outline"
               title="Ví Thưởng Tết"
+              badge={isVaultEnabled ? 'VIP' : undefined}
+              badgeColor="#D97706"
               onPress={() => router.push('/employee/vault' as any)}
             />
             <GridItem
@@ -276,13 +315,13 @@ export function EmployeeDashboardScreen() {
   );
 }
 
-function GridItem({ icon, title, onPress, color, badge }: any) {
+function GridItem({ icon, title, onPress, color, badge, badgeColor }: any) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
       <View style={styles.gridIconContainer}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+        <MaterialCommunityIcons name={icon} size={28} color={color || "#111827"} />
         {badge && (
-          <View style={styles.badge}>
+          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
@@ -572,5 +611,77 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 999,
-  }
+  },
+  vaultBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: spacing.xl,
+    borderWidth: 1.5,
+    borderColor: '#FCD34D',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  vaultBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  vaultBannerIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vaultBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  vipBadge: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  vipBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  vaultBannerPoints: {
+    fontSize: 12,
+    color: '#78350F',
+  },
+  vaultBannerPointsBold: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  vaultBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vaultBannerActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
 });
