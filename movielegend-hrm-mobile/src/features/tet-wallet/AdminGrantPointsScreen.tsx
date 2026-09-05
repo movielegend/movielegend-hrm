@@ -312,7 +312,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   };
 
   return (
-    <Screen>
+    <Screen backgroundColor="#F8FAFC">
       <Stack.Screen options={{ gestureEnabled: false }} />
       <Animated.View
         style={[
@@ -323,11 +323,11 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
         ]}
         {...panResponder.panHandlers}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
+        <ScrollView
+          style={{ flex: 1, backgroundColor: '#F8FAFC' }}
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <PageHeader
               title="Trao Điểm Thưởng Dự Án"
@@ -675,7 +675,6 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               )}
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
       </Animated.View>
 
       {/* Date Picker Component / Modal */}
@@ -1167,10 +1166,5 @@ const styles = StyleSheet.create({
   animatedContainer: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-    shadowColor: '#000',
-    shadowOffset: { width: -4, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 8,
   },
 });

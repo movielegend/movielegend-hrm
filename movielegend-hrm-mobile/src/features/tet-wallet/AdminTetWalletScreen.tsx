@@ -294,9 +294,10 @@ export function AdminTetWalletScreen() {
   }
 
   return (
-    <Screen>
-      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+    <Screen backgroundColor="#F8FAFC">
+      <View style={{ flex: 1, backgroundColor: '#F8FAFC' }} {...panResponder.panHandlers}>
         <ScrollView
+          style={{ flex: 1, backgroundColor: '#F8FAFC' }}
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />}
