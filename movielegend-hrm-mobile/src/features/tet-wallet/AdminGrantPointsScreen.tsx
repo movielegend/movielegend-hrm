@@ -11,7 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
@@ -78,8 +80,41 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const [durationMonths, setDurationMonths] = useState<number>(12);
   const [intervalMonths, setIntervalMonths] = useState<number>(3);
   const [startDateStr, setStartDateStr] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [grantNote, setGrantNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const currentDateObj = useMemo(() => {
+    if (!startDateStr) return new Date();
+    const parts = startDateStr.split('-').map((v) => parseInt(v, 10));
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    const d = new Date(startDateStr);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }, [startDateStr]);
+
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate && event.type !== 'dismissed') {
+      const y = selectedDate.getFullYear();
+      const m = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+      const d = selectedDate.getDate().toString().padStart(2, '0');
+      setStartDateStr(`${y}-${m}-${d}`);
+    }
+  };
+
+  const formattedSelectedDate = useMemo(() => {
+    if (!startDateStr) return '';
+    const parts = startDateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const d = new Date(startDateStr);
+    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+  }, [startDateStr]);
 
   // Live calculation of milestones
   const calculatedMilestones = useMemo(() => {
@@ -374,6 +409,31 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             </View>
 
             <Text style={styles.inputFieldLabel}>Ngày bắt đầu tính hạn mức:</Text>
+            
+            {/* Direct date picker tap card */}
+            <Pressable
+              style={styles.datePickerBtnCard}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <View style={styles.datePickerBtnLeft}>
+                <View style={styles.calendarIconBox}>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#D97706" />
+                </View>
+                <View>
+                  <Text style={styles.datePickerBtnLabel}>Ngày bắt đầu áp dụng:</Text>
+                  <Text style={styles.datePickerBtnVal}>{formattedSelectedDate || startDateStr}</Text>
+                </View>
+              </View>
+              <View style={styles.datePickerChangeChip}>
+                <MaterialCommunityIcons name="calendar-edit" size={15} color="#D97706" />
+                <Text style={styles.datePickerChangeChipText}>Chọn ngày</Text>
+              </View>
+            </Pressable>
+
+            {/* Quick preset chips */}
+            <Text style={[styles.inputFieldLabel, { marginTop: 10, fontSize: 11, color: '#64748B' }]}>
+              Hoặc chọn nhanh mốc thời gian:
+            </Text>
             <View style={styles.presetChipsWrap}>
               {[
                 { label: 'Hôm nay', value: new Date().toISOString().slice(0, 10) },
@@ -495,6 +555,41 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Date Picker Component / Modal */}
+      {showDatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={currentDateObj}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+        />
+      )}
+
+      {Platform.OS === 'ios' && (
+        <Modal visible={showDatePicker} transparent animationType="slide">
+          <View style={styles.datePickerModalOverlay}>
+            <View style={styles.datePickerModalContent}>
+              <View style={styles.datePickerModalHeader}>
+                <Pressable onPress={() => setShowDatePicker(false)}>
+                  <Text style={styles.datePickerCancelText}>Hủy</Text>
+                </Pressable>
+                <Text style={styles.datePickerModalTitle}>Chọn Ngày Bắt Đầu</Text>
+                <Pressable onPress={() => setShowDatePicker(false)}>
+                  <Text style={styles.datePickerDoneText}>Xong</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={currentDateObj}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                style={styles.iosDatePicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </Screen>
   );
 }
@@ -849,5 +944,98 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  datePickerBtnCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  datePickerBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  calendarIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  datePickerBtnLabel: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  datePickerBtnVal: {
+    fontSize: 15,
+    color: '#78350F',
+    fontWeight: '800',
+  },
+  datePickerChangeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+  datePickerChangeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  datePickerModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  datePickerModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 30,
+  },
+  datePickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  datePickerModalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  datePickerCancelText: {
+    fontSize: 15,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  datePickerDoneText: {
+    fontSize: 15,
+    color: '#D97706',
+    fontWeight: '700',
+  },
+  iosDatePicker: {
+    height: 200,
+    marginTop: 8,
   },
 });
