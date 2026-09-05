@@ -49,6 +49,27 @@ export interface FaceProfile {
   images: FaceRegistrationImage[];
 }
 
+export type VaultTransactionType =
+  | 'GRANT_ANNUAL'
+  | 'GRANT_PROJECT_INSTANT'
+  | 'GRANT_PROJECT_VESTING'
+  | 'WITHDRAW_REGULAR'
+  | 'WITHDRAW_ADVANCE';
+
+export type GrantVaultType = 'ANNUAL' | 'PROJECT_INSTANT' | 'PROJECT_VESTING';
+
+export interface VaultTransaction {
+  id: string;
+  vaultId: string;
+  userId: string;
+  type: VaultTransactionType;
+  points: number;
+  cashAmount: number;
+  quarterTarget?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
 export interface VestingMilestone {
   id: string;
   vaultId: string;
@@ -66,9 +87,27 @@ export interface TalentRetentionVault {
   userId: string;
   year: number;
   grantedPoints: number;
+  instantBonusPoints?: number;
   cashValuePerPoint: number;
   status: string;
   milestones?: VestingMilestone[];
+  transactions?: VaultTransaction[];
+}
+
+export interface MyVaultStats {
+  totalGrantedPoints: number;
+  instantBonusPoints: number;
+  unlockedQuarterPoints: number;
+  lockedQuarterPoints: number;
+  unlockedPoints: number;
+  maxWithdrawable: number;
+  cashValuePerPoint: number;
+}
+
+export interface MyVaultResponse {
+  isVaultEnabled: boolean;
+  vault: TalentRetentionVault | null;
+  stats: MyVaultStats;
 }
 
 export interface EmployeeUser {

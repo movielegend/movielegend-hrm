@@ -8,5 +8,6 @@ import { RealtimeModule } from '../realtime/realtime.module';
   imports: [NotificationsModule, RealtimeModule],
   controllers: [AdminController],
   providers: [AdminService],
+  exports: [AdminService],
 })
 export class AdminModule {}

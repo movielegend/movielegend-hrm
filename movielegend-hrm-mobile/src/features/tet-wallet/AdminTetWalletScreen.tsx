@@ -28,7 +28,7 @@ import { useEmployees } from '../../hooks/useEmployees';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { Department } from '../../types/department.types';
-import type { EmployeeUser } from '../../types/employee.types';
+import type { EmployeeUser, GrantVaultType } from '../../types/employee.types';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   updateEmployee as apiUpdateEmployee,
@@ -68,8 +68,10 @@ export function AdminTetWalletScreen() {
 
   // Grant Modal State
   const [grantTarget, setGrantTarget] = useState<GrantTarget | null>(null);
+  const [grantType, setGrantType] = useState<GrantVaultType>('ANNUAL');
   const [grantPoints, setGrantPoints] = useState<number>(50000);
   const [customPointsInput, setCustomPointsInput] = useState<string>('50000');
+  const [grantNote, setGrantNote] = useState<string>('');
   const [isSubmittingGrant, setIsSubmittingGrant] = useState<boolean>(false);
 
   const queryClient = useQueryClient();
@@ -116,7 +118,9 @@ export function AdminTetWalletScreen() {
   const totalPointsGranted = useMemo(() => {
     return employees.reduce((sum, emp) => {
       const vault = emp.retentionVaults?.[0];
-      return sum + (vault ? Number(vault.grantedPoints || 0) : 0);
+      const annualPts = vault ? Number(vault.grantedPoints || 0) : 0;
+      const instantPts = vault ? Number(vault.instantBonusPoints || 0) : 0;
+      return sum + annualPts + instantPts;
     }, 0);
   }, [employees]);
 
@@ -161,6 +165,8 @@ export function AdminTetWalletScreen() {
     const currentPoints = emp.retentionVaults?.[0]?.grantedPoints || 50000;
     setGrantPoints(currentPoints);
     setCustomPointsInput(currentPoints.toString());
+    setGrantType('ANNUAL');
+    setGrantNote('');
     setGrantTarget({
       type: 'SINGLE',
       employee: emp,
@@ -172,6 +178,8 @@ export function AdminTetWalletScreen() {
     const deptMembers = employeesByDept[dept.id] || [];
     setGrantPoints(50000);
     setCustomPointsInput('50000');
+    setGrantType('ANNUAL');
+    setGrantNote('');
     setGrantTarget({
       type: 'DEPARTMENT',
       department: dept,
@@ -198,10 +206,18 @@ export function AdminTetWalletScreen() {
           points: pts,
           year: currentYear,
           cashValuePerPoint: 1000,
+          grantType,
+          note: grantNote.trim() || undefined,
         });
+        const typeLabel =
+          grantType === 'PROJECT_INSTANT'
+            ? 'thưởng nóng dự án'
+            : grantType === 'PROJECT_VESTING'
+            ? 'thưởng dự án cộng dồn quý'
+            : 'thưởng cam kết năm';
         Alert.alert(
           'Trao điểm thành công',
-          `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) Ví Tết năm ${currentYear} cho ${grantTarget.employee.profile?.fullName || grantTarget.employee.userCode}.`
+          `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ - ${typeLabel}) cho ${grantTarget.employee.profile?.fullName || grantTarget.employee.userCode}.`
         );
       } else if (grantTarget.type === 'DEPARTMENT' && grantTarget.department) {
         await apiBulkGrantVaultPoints({
@@ -209,6 +225,8 @@ export function AdminTetWalletScreen() {
           points: pts,
           year: currentYear,
           cashValuePerPoint: 1000,
+          grantType,
+          note: grantNote.trim() || undefined,
         });
         Alert.alert(
           'Trao điểm thành công',
@@ -314,7 +332,7 @@ export function AdminTetWalletScreen() {
         {/* Header */}
         <PageHeader
           title="Quyền Ví Tết"
-          subtitle="Quản lý hạn mức & trao điểm Ví Tết cho nhân sự"
+          subtitle="Quản lý hạn mức, thưởng dự án & trao điểm nhân sự"
           showBack={false}
           right={
             <View style={styles.headerIconBox}>
@@ -463,7 +481,9 @@ export function AdminTetWalletScreen() {
                   // Total points granted in department
                   const deptTotalPoints = (employeesByDept[dept.id] || []).reduce((sum, emp) => {
                     const v = emp.retentionVaults?.[0];
-                    return sum + (v ? Number(v.grantedPoints || 0) : 0);
+                    const ann = v ? Number(v.grantedPoints || 0) : 0;
+                    const inst = v ? Number(v.instantBonusPoints || 0) : 0;
+                    return sum + ann + inst;
                   }, 0);
 
                   return (
@@ -661,7 +681,7 @@ export function AdminTetWalletScreen() {
                   </View>
                   <View>
                     <Text style={styles.modalTitle}>
-                      {grantTarget.type === 'SINGLE' ? 'Trao Điểm Ví Tết' : 'Trao Điểm Toàn Bộ Phòng'}
+                      {grantTarget.type === 'SINGLE' ? 'Trao Điểm Thưởng' : 'Trao Điểm Toàn Bộ Phòng'}
                     </Text>
                     <Text style={styles.modalSubtitle}>Năm thưởng {new Date().getFullYear()}</Text>
                   </View>
@@ -671,7 +691,7 @@ export function AdminTetWalletScreen() {
                 </Pressable>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
                 {/* Target Information */}
                 {grantTarget.type === 'SINGLE' && grantTarget.employee && (
                   <View style={styles.grantTargetCard}>
@@ -698,10 +718,15 @@ export function AdminTetWalletScreen() {
                         {grantTarget.employee.departmentLinks?.[0]?.position?.name || 'Nhân viên'}
                       </Text>
                       <Text style={styles.currentPointsLabel}>
-                        Điểm hiện tại:{' '}
+                        Cam kết 4 Quý:{' '}
                         <Text style={{ fontWeight: '700', color: '#D97706' }}>
-                          {(grantTarget.employee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} điểm
+                          {(grantTarget.employee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} đ
                         </Text>
+                        {(grantTarget.employee.retentionVaults?.[0]?.instantBonusPoints || 0) > 0 && (
+                          <Text style={{ color: '#059669', fontWeight: '700' }}>
+                            {' '}• Thưởng nóng: {grantTarget.employee.retentionVaults?.[0]?.instantBonusPoints?.toLocaleString('vi-VN')} đ
+                          </Text>
+                        )}
                       </Text>
                     </View>
                   </View>
@@ -719,15 +744,76 @@ export function AdminTetWalletScreen() {
                       <Text style={[styles.modalEmpMeta, { color: '#3B82F6' }]}>
                         Mã: {grantTarget.department.code} • Áp dụng cho: {grantTarget.memberCount} nhân sự
                       </Text>
-                      <Text style={styles.currentPointsLabel}>
-                        Mỗi nhân viên trong phòng sẽ nhận đủ mức điểm đã chọn.
-                      </Text>
                     </View>
                   </View>
                 )}
 
-                {/* Preset Points Section */}
-                <Text style={styles.inputSectionTitle}>Chọn hạn mức trao điểm:</Text>
+                {/* 1. Select Grant Type (3 Modes) */}
+                <Text style={styles.inputSectionTitle}>Hình thức trao điểm:</Text>
+                <View style={styles.grantTypeTabRow}>
+                  <Pressable
+                    style={[styles.grantTypeTab, grantType === 'ANNUAL' && styles.grantTypeTabActive]}
+                    onPress={() => setGrantType('ANNUAL')}
+                  >
+                    <MaterialCommunityIcons
+                      name="wallet-giftcard"
+                      size={16}
+                      color={grantType === 'ANNUAL' ? '#B45309' : '#64748B'}
+                    />
+                    <Text style={[styles.grantTypeTabText, grantType === 'ANNUAL' && styles.grantTypeTabTextActive]}>
+                      Cam kết 4 Quý
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.grantTypeTab, grantType === 'PROJECT_INSTANT' && styles.grantTypeTabActiveInstant]}
+                    onPress={() => setGrantType('PROJECT_INSTANT')}
+                  >
+                    <MaterialCommunityIcons
+                      name="lightning-bolt"
+                      size={16}
+                      color={grantType === 'PROJECT_INSTANT' ? '#059669' : '#64748B'}
+                    />
+                    <Text style={[styles.grantTypeTabText, grantType === 'PROJECT_INSTANT' && styles.grantTypeTabTextActiveInstant]}>
+                      Thưởng nóng (Rút ngay)
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.grantTypeTab, grantType === 'PROJECT_VESTING' && styles.grantTypeTabActiveVesting]}
+                    onPress={() => setGrantType('PROJECT_VESTING')}
+                  >
+                    <MaterialCommunityIcons
+                      name="chart-timeline-variant-shimmer"
+                      size={16}
+                      color={grantType === 'PROJECT_VESTING' ? '#2563EB' : '#64748B'}
+                    />
+                    <Text style={[styles.grantTypeTabText, grantType === 'PROJECT_VESTING' && styles.grantTypeTabTextActiveVesting]}>
+                      Dự án tích lũy
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* 2. Note / Project Name Input */}
+                <Text style={styles.inputSectionTitle}>Tên dự án / Lý do khen thưởng:</Text>
+                <View style={styles.customInputWrapper}>
+                  <TextInput
+                    style={[styles.customTextInput, { fontWeight: '500', fontSize: 13 }]}
+                    value={grantNote}
+                    onChangeText={setGrantNote}
+                    placeholder={
+                      grantType === 'PROJECT_INSTANT'
+                        ? 'VD: Thưởng dự án ERP MovieLegend, KPI vượt trội...'
+                        : grantType === 'PROJECT_VESTING'
+                        ? 'VD: Thưởng dự án App HRM Mobile...'
+                        : 'VD: Cấp hạn mức Ví Tết 2026...'
+                    }
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+
+                {/* 3. Preset Points Section */}
+                <Text style={styles.inputSectionTitle}>Chọn số điểm trao:</Text>
                 <View style={styles.presetChipsContainer}>
                   {PRESET_POINTS.map((preset) => {
                     const isSelected = parseInt(customPointsInput, 10) === preset.value;
@@ -741,7 +827,7 @@ export function AdminTetWalletScreen() {
                         }}
                       >
                         <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                          {preset.label} điểm
+                          {preset.label} đ
                         </Text>
                         <Text style={[styles.presetChipDesc, isSelected && styles.presetChipDescActive]}>
                           ~ {preset.desc}
@@ -751,7 +837,7 @@ export function AdminTetWalletScreen() {
                   })}
                 </View>
 
-                {/* Custom Points Input */}
+                {/* 4. Custom Points Input */}
                 <Text style={styles.inputSectionTitle}>Hoặc nhập số điểm tùy chỉnh:</Text>
                 <View style={styles.customInputWrapper}>
                   <TextInput
@@ -787,34 +873,65 @@ export function AdminTetWalletScreen() {
                   </View>
                 )}
 
-                {/* Vesting Milestone Schedule Preview */}
+                {/* Dynamic Distribution Preview based on Grant Type */}
                 {Boolean(parseInt(customPointsInput, 10)) && (
                   <View style={styles.vestingPreviewCard}>
-                    <View style={styles.vestingTitleRow}>
-                      <MaterialCommunityIcons name="calendar-clock" size={16} color="#4B5563" />
-                      <Text style={styles.vestingTitle}>Lộ trình mở khóa 4 Quý (25%/quý):</Text>
-                    </View>
+                    {grantType === 'ANNUAL' && (
+                      <>
+                        <View style={styles.vestingTitleRow}>
+                          <MaterialCommunityIcons name="calendar-clock" size={16} color="#4B5563" />
+                          <Text style={styles.vestingTitle}>Lộ trình mở khóa 4 Quý (25%/quý):</Text>
+                        </View>
+                        {[
+                          { q: 'Quý 1', date: '31/03/2026', pct: '25%' },
+                          { q: 'Quý 2', date: '30/06/2026', pct: '25%' },
+                          { q: 'Quý 3', date: '30/09/2026', pct: '25%' },
+                          { q: 'Quý 4', date: '31/12/2026', pct: '25%' },
+                        ].map((item, idx) => {
+                          const quarterlyPoints = Math.round((parseInt(customPointsInput, 10) || 0) / 4);
+                          const quarterlyCash = quarterlyPoints * 1000;
+                          return (
+                            <View key={idx} style={styles.vestingMilestoneRow}>
+                              <View style={styles.milestoneBadge}>
+                                <Text style={styles.milestoneBadgeText}>{item.q}</Text>
+                              </View>
+                              <Text style={styles.milestoneDate}>{item.date}</Text>
+                              <Text style={styles.milestoneAmount}>
+                                {quarterlyPoints.toLocaleString('vi-VN')} đ ({quarterlyCash.toLocaleString('vi-VN')} VNĐ)
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </>
+                    )}
 
-                    {[
-                      { q: 'Quý 1', date: '31/03/2026', pct: '25%' },
-                      { q: 'Quý 2', date: '30/06/2026', pct: '25%' },
-                      { q: 'Quý 3', date: '30/09/2026', pct: '25%' },
-                      { q: 'Quý 4', date: '31/12/2026', pct: '25%' },
-                    ].map((item, idx) => {
-                      const quarterlyPoints = Math.round((parseInt(customPointsInput, 10) || 0) / 4);
-                      const quarterlyCash = quarterlyPoints * 1000;
-                      return (
-                        <View key={idx} style={styles.vestingMilestoneRow}>
-                          <View style={styles.milestoneBadge}>
-                            <Text style={styles.milestoneBadgeText}>{item.q}</Text>
-                          </View>
-                          <Text style={styles.milestoneDate}>{item.date}</Text>
-                          <Text style={styles.milestoneAmount}>
-                            {quarterlyPoints.toLocaleString('vi-VN')} điểm ({quarterlyCash.toLocaleString('vi-VN')} đ)
+                    {grantType === 'PROJECT_INSTANT' && (
+                      <View style={{ gap: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <MaterialCommunityIcons name="lightning-bolt" size={18} color="#059669" />
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#065F46' }}>
+                            Mở khóa ngay 100% (Khả dụng rút tức thì)
                           </Text>
                         </View>
-                      );
-                    })}
+                        <Text style={{ fontSize: 11, color: '#047857', lineHeight: 16 }}>
+                          Nhân viên nhận đủ {(parseInt(customPointsInput, 10) || 0).toLocaleString('vi-VN')} điểm ({((parseInt(customPointsInput, 10) || 0) * 1000).toLocaleString('vi-VN')} VNĐ) và có thể gửi yêu cầu rút tiền về tài khoản ngân hàng ngay lập tức.
+                        </Text>
+                      </View>
+                    )}
+
+                    {grantType === 'PROJECT_VESTING' && (
+                      <View style={{ gap: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <MaterialCommunityIcons name="chart-timeline-variant-shimmer" size={18} color="#2563EB" />
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E40AF' }}>
+                            Tái phân bổ chia đều các Quý còn lại
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: '#1D4ED8', lineHeight: 16 }}>
+                          Số điểm {(parseInt(customPointsInput, 10) || 0).toLocaleString('vi-VN')} điểm sẽ tự động được chia đều và cộng thêm vào các quý chưa rút trong năm để gắn kết nhân sự.
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </ScrollView>
@@ -901,12 +1018,22 @@ export function AdminTetWalletScreen() {
               <View style={styles.vaultPointSummaryCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View>
-                    <Text style={styles.vaultPointSummaryLabel}>Điểm Ví Tết năm {new Date().getFullYear()}:</Text>
+                    <Text style={styles.vaultPointSummaryLabel}>Tổng điểm Ví thưởng năm {new Date().getFullYear()}:</Text>
                     <Text style={styles.vaultPointSummaryValue}>
-                      {(selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} điểm
+                      {(
+                        (selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0) +
+                        (selectedEmployee.retentionVaults?.[0]?.instantBonusPoints || 0)
+                      ).toLocaleString('vi-VN')}{' '}
+                      điểm
                     </Text>
                     <Text style={styles.vaultCashSummaryValue}>
-                      ~ {((selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0) * 1000).toLocaleString('vi-VN')} VNĐ
+                      ~{' '}
+                      {(
+                        ((selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0) +
+                          (selectedEmployee.retentionVaults?.[0]?.instantBonusPoints || 0)) *
+                        1000
+                      ).toLocaleString('vi-VN')}{' '}
+                      VNĐ
                     </Text>
                   </View>
                   <Pressable
@@ -1015,7 +1142,10 @@ function EmployeeRowItem({
 
   const isActive = employee.accountStatus === 'ACTIVE';
   const isVaultEnabled = Boolean(employee.isRewardVaultEnabled);
-  const grantedPoints = employee.retentionVaults?.[0]?.grantedPoints || 0;
+  const vault = employee.retentionVaults?.[0];
+  const annualPoints = vault?.grantedPoints || 0;
+  const instantPoints = vault?.instantBonusPoints || 0;
+  const totalPoints = annualPoints + instantPoints;
 
   return (
     <Pressable
@@ -1061,12 +1191,22 @@ function EmployeeRowItem({
 
         {/* Granted Points Badge */}
         <View style={styles.pointsBadgeRow}>
-          {grantedPoints > 0 ? (
-            <View style={styles.grantedPointTag}>
-              <MaterialCommunityIcons name="star" size={12} color="#D97706" />
-              <Text style={styles.grantedPointText}>
-                {grantedPoints.toLocaleString('vi-VN')} đ ({(grantedPoints * 1000).toLocaleString('vi-VN')} VNĐ)
-              </Text>
+          {totalPoints > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+              <View style={styles.grantedPointTag}>
+                <MaterialCommunityIcons name="star" size={12} color="#D97706" />
+                <Text style={styles.grantedPointText}>
+                  {totalPoints.toLocaleString('vi-VN')} đ ({(totalPoints * 1000).toLocaleString('vi-VN')} VNĐ)
+                </Text>
+              </View>
+              {instantPoints > 0 && (
+                <View style={[styles.grantedPointTag, { backgroundColor: '#ECFDF5' }]}>
+                  <MaterialCommunityIcons name="lightning-bolt" size={12} color="#059669" />
+                  <Text style={[styles.grantedPointText, { color: '#065F46' }]}>
+                    +{instantPoints.toLocaleString('vi-VN')} nóng
+                  </Text>
+                </View>
+              )}
             </View>
           ) : (
             <Text style={styles.noPointsText}>Chưa cấp điểm</Text>
@@ -1545,7 +1685,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   modalContent: {
     width: '100%',
@@ -1561,10 +1701,10 @@ const styles = StyleSheet.create({
   },
   grantModalCard: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 440,
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
-    padding: 20,
+    padding: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
@@ -1583,7 +1723,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   modalIconBadge: {
     width: 40,
@@ -1613,13 +1753,13 @@ const styles = StyleSheet.create({
   grantTargetCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 14,
-    gap: 12,
+    marginBottom: 12,
+    gap: 10,
   },
   modalEmpCard: {
     flexDirection: 'row',
@@ -1632,20 +1772,20 @@ const styles = StyleSheet.create({
   },
   modalAvatarContainer: {},
   modalAvatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   modalAvatarFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#E0E7FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalAvatarFallbackText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#4338CA',
   },
@@ -1668,23 +1808,71 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
   },
+  grantTypeTabRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 12,
+  },
+  grantTypeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  grantTypeTabActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#D97706',
+  },
+  grantTypeTabActiveInstant: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#059669',
+  },
+  grantTypeTabActiveVesting: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+  },
+  grantTypeTabText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  grantTypeTabTextActive: {
+    color: '#92400E',
+    fontWeight: '700',
+  },
+  grantTypeTabTextActiveInstant: {
+    color: '#065F46',
+    fontWeight: '700',
+  },
+  grantTypeTabTextActiveVesting: {
+    color: '#1E40AF',
+    fontWeight: '700',
+  },
   inputSectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#334155',
-    marginBottom: 8,
-    marginTop: 4,
+    marginBottom: 6,
+    marginTop: 2,
   },
   presetChipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
+    gap: 6,
+    marginBottom: 10,
   },
   presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -1695,7 +1883,7 @@ const styles = StyleSheet.create({
     borderColor: '#D97706',
   },
   presetChipPoints: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#334155',
   },
@@ -1703,9 +1891,8 @@ const styles = StyleSheet.create({
     color: '#92400E',
   },
   presetChipDesc: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#64748B',
-    marginTop: 1,
   },
   presetChipDescActive: {
     color: '#B45309',
@@ -1719,17 +1906,17 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
     borderRadius: 12,
     paddingHorizontal: 12,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   customTextInput: {
     flex: 1,
-    height: 44,
-    fontSize: 15,
+    height: 42,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
   customInputUnit: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -1742,7 +1929,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FDE68A',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   conversionFormula: {
     fontSize: 11,
@@ -1760,13 +1947,13 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   vestingTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   vestingTitle: {
     fontSize: 11,
@@ -1806,7 +1993,7 @@ const styles = StyleSheet.create({
   grantModalActions: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 10,
+    marginTop: 6,
   },
   cancelGrantBtn: {
     flex: 1,

@@ -1,6 +1,15 @@
 import { apiClient, unwrapData } from './client';
 import type { ApiResponse } from '../types/api.types';
-import type { EmployeeListFilters, EmployeeProfile, EmployeeUser, ScopedEmployee, ScopedEmployeeFilters, UpdateEmployeePayload } from '../types/employee.types';
+import type {
+  EmployeeListFilters,
+  EmployeeProfile,
+  EmployeeUser,
+  ScopedEmployee,
+  ScopedEmployeeFilters,
+  UpdateEmployeePayload,
+  GrantVaultType,
+  MyVaultResponse,
+} from '../types/employee.types';
 import { normalizePagination, type PaginatedResult } from '../types/pagination.types';
 
 export async function getEmployees(filters: EmployeeListFilters): Promise<PaginatedResult<EmployeeUser>> {
@@ -73,6 +82,8 @@ export async function grantVaultPoints(payload: {
   points: number;
   year?: number;
   cashValuePerPoint?: number;
+  grantType?: GrantVaultType;
+  note?: string;
 }): Promise<any> {
   const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/grant', payload);
   return unwrapData(response);
@@ -84,7 +95,26 @@ export async function bulkGrantVaultPoints(payload: {
   points: number;
   year?: number;
   cashValuePerPoint?: number;
+  grantType?: GrantVaultType;
+  note?: string;
 }): Promise<any> {
   const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/bulk-grant', payload);
   return unwrapData(response);
 }
+
+export async function getMyVault(): Promise<MyVaultResponse> {
+  const response = await apiClient.get<ApiResponse<MyVaultResponse>>('/employees/vault/my-vault');
+  return unwrapData(response);
+}
+
+export async function withdrawVaultPoints(payload: {
+  points: number;
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/employees/vault/withdraw', payload);
+  return unwrapData(response);
+}
+

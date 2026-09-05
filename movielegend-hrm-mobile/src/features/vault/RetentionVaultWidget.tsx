@@ -8,52 +8,125 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getMyVault, withdrawVaultPoints } from '../../api/employees.api';
+import type { MyVaultResponse, VestingMilestone, VaultTransaction } from '../../types/employee.types';
 
 export interface RetentionVaultWidgetProps {
-  isVaultEnabled: boolean;
-  totalGrantedPoints?: number;
-  unlockedPoints?: number;
-  lockedPoints?: number;
-  cashValuePerPoint?: number;
-  onRequestWithdrawal?: (amount: number, bankName: string, bankAccount: string, accountName: string) => void;
+  isVaultEnabled?: boolean;
 }
 
-export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = ({
-  isVaultEnabled,
-  totalGrantedPoints = 50000,
-  unlockedPoints = 12500,
-  lockedPoints = 37500,
-  cashValuePerPoint = 1000,
-  onRequestWithdrawal,
-}) => {
+export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
+  const queryClient = useQueryClient();
+  const { data, isLoading, refetch } = useQuery<MyVaultResponse>({
+    queryKey: ['my-vault'],
+    queryFn: getMyVault,
+  });
+
   const [modalVisible, setModalVisible] = useState(false);
+  const [withdrawPointsInput, setWithdrawPointsInput] = useState('');
   const [bankName, setBankName] = useState('Techcombank');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [withdrawNote, setWithdrawNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isVaultEnabled) {
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color="#D97706" />
+        <Text style={styles.loadingText}>Đang tải dữ liệu Ví Thưởng...</Text>
+      </View>
+    );
+  }
+
+  if (!data?.isVaultEnabled) {
     return null; // Opt-in Feature: Hidden if disabled for current user
   }
 
-  const unlockedCash = unlockedPoints * cashValuePerPoint;
-  const lockedCash = lockedPoints * cashValuePerPoint;
+  const vault = data?.vault;
+  const stats = data?.stats || {
+    totalGrantedPoints: 0,
+    instantBonusPoints: 0,
+    unlockedQuarterPoints: 0,
+    lockedQuarterPoints: 0,
+    unlockedPoints: 0,
+    maxWithdrawable: 0,
+    cashValuePerPoint: 1000,
+  };
 
-  const handleWithdrawSubmit = () => {
-    if (!accountNumber.trim() || !accountName.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Số tài khoản và Tên chủ tài khoản!');
+  const cashValuePerPoint = stats.cashValuePerPoint || 1000;
+  const unlockedCash = stats.unlockedPoints * cashValuePerPoint;
+  const maxWithdrawableCash = stats.maxWithdrawable * cashValuePerPoint;
+  const instantCash = stats.instantBonusPoints * cashValuePerPoint;
+  const totalGrantedCash = stats.totalGrantedPoints * cashValuePerPoint;
+
+  const openWithdrawModal = () => {
+    // Default withdraw amount to unlocked points if > 0, otherwise max withdrawable
+    const defaultPts = stats.unlockedPoints > 0 ? stats.unlockedPoints : stats.maxWithdrawable;
+    setWithdrawPointsInput(defaultPts.toString());
+    setWithdrawNote('');
+    setModalVisible(true);
+  };
+
+  const pointsToWithdraw = parseInt(withdrawPointsInput, 10) || 0;
+  const cashToWithdraw = pointsToWithdraw * cashValuePerPoint;
+  const isAdvanceWithdrawal = pointsToWithdraw > stats.unlockedPoints;
+  const advancePoints = Math.max(0, pointsToWithdraw - stats.unlockedPoints);
+  const advanceCash = advancePoints * cashValuePerPoint;
+
+  const handleWithdrawSubmit = async () => {
+    if (!accountNumber.trim() || !accountName.trim() || !bankName.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Số tài khoản, Ngân hàng và Tên chủ tài khoản!');
       return;
     }
-    if (onRequestWithdrawal) {
-      onRequestWithdrawal(unlockedCash, bankName, accountNumber, accountName);
+
+    if (pointsToWithdraw <= 0) {
+      Alert.alert('Lỗi', 'Vui lòng nhập số điểm muốn rút lớn hơn 0!');
+      return;
     }
-    Alert.alert(
-      'Gửi Yêu Cầu Rút Tiền Thành Công!',
-      `Yêu cầu rút ${unlockedCash.toLocaleString('vi-VN')} VNĐ đã được gửi cho Kế toán phê duyệt.`,
-      [{ text: 'Đóng', onPress: () => setModalVisible(false) }]
-    );
+
+    if (pointsToWithdraw > stats.maxWithdrawable) {
+      Alert.alert(
+        'Vượt quá hạn mức',
+        `Số điểm rút (${pointsToWithdraw.toLocaleString('vi-VN')} đ) vượt quá tổng hạn mức có thể rút (${stats.maxWithdrawable.toLocaleString('vi-VN')} đ).`
+      );
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await withdrawVaultPoints({
+        points: pointsToWithdraw,
+        bankName: bankName.trim(),
+        bankAccountNumber: accountNumber.trim(),
+        bankAccountName: accountName.trim().toUpperCase(),
+        note: withdrawNote.trim() || undefined,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['my-vault'] });
+      setModalVisible(false);
+
+      Alert.alert(
+        'Gửi Yêu Cầu Rút Tiền Thành Công! 💸',
+        isAdvanceWithdrawal
+          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các quý tương lai). Kế toán sẽ phê duyệt chuyển khoản cho bạn sớm nhất!`
+          : `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Kế toán sẽ phê duyệt chuyển khoản cho bạn sớm nhất!`
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const milestones: VestingMilestone[] = vault?.milestones || [];
+  const transactions: VaultTransaction[] = vault?.transactions || [];
 
   return (
     <View style={styles.cardContainer}>
@@ -61,51 +134,62 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = ({
       <View style={styles.headerRow}>
         <View style={styles.headerTitleGroup}>
           <Ionicons name="gift-sharp" size={24} color="#D97706" />
-          <Text style={styles.cardTitle}>Ví Thưởng Giữ Chân Nhân Tài</Text>
+          <Text style={styles.cardTitle}>Ví Thưởng Giữ Chân & Tết {new Date().getFullYear()}</Text>
         </View>
         <View style={styles.badgeOptIn}>
-          <Text style={styles.badgeOptInText}>Đặc Quyền Cốt Cán</Text>
+          <Text style={styles.badgeOptInText}>Đặc Quyền Nhân Tài</Text>
         </View>
       </View>
 
       <Text style={styles.subSubtitle}>
-        Tổng Quỹ Thưởng Năm: <Text style={styles.boldText}>{totalGrantedPoints.toLocaleString('vi-VN')} điểm</Text> ({(totalGrantedPoints * cashValuePerPoint).toLocaleString('vi-VN')} VNĐ)
+        Tổng Quỹ Cam Kết Năm: <Text style={styles.boldText}>{stats.totalGrantedPoints.toLocaleString('vi-VN')} điểm</Text> ({totalGrantedCash.toLocaleString('vi-VN')} VNĐ)
       </Text>
 
-      {/* Balance Summary */}
+      {/* Balance Summary Grid */}
       <View style={styles.balanceGrid}>
-        {/* Unlocked */}
+        {/* 1. Unlocked & Ready to Withdraw */}
         <View style={[styles.balanceBox, styles.unlockedBox]}>
           <View style={styles.boxHeaderRow}>
             <Ionicons name="lock-open-outline" size={18} color="#059669" />
-            <Text style={styles.boxLabelUnlocked}>Đã Mở Khóa (Khả Dụng)</Text>
+            <Text style={styles.boxLabelUnlocked}>Khả Dụng Tức Thì</Text>
           </View>
           <Text style={styles.unlockedAmountText}>
             {unlockedCash.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
           </Text>
-          <Text style={styles.unlockedPointSub}>{unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
-          
+          <Text style={styles.unlockedPointSub}>{stats.unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
+
+          {stats.instantBonusPoints > 0 && (
+            <View style={styles.instantTagBadge}>
+              <MaterialCommunityIcons name="lightning-bolt" size={12} color="#059669" />
+              <Text style={styles.instantTagText}>
+                Gồm {stats.instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
             style={styles.withdrawBtn}
-            onPress={() => setModalVisible(true)}
+            onPress={openWithdrawModal}
             activeOpacity={0.8}
           >
             <Ionicons name="cash-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.withdrawBtnText}>Rút Tiền Về Ngân Hàng</Text>
+            <Text style={styles.withdrawBtnText}>Rút Tiền Ngay</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Locked */}
+        {/* 2. Locked & Max Advance Limit */}
         <View style={[styles.balanceBox, styles.lockedBox]}>
           <View style={styles.boxHeaderRow}>
-            <Ionicons name="lock-closed-outline" size={18} color="#D97706" />
-            <Text style={styles.boxLabelLocked}>Đang Khóa (Vesting)</Text>
+            <Ionicons name="shield-outline" size={18} color="#D97706" />
+            <Text style={styles.boxLabelLocked}>Hạn Mức Tối Đa (Kèm ứng)</Text>
           </View>
           <Text style={styles.lockedAmountText}>
-            {lockedCash.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
+            {maxWithdrawableCash.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
           </Text>
-          <Text style={styles.lockedPointSub}>{lockedPoints.toLocaleString('vi-VN')} điểm</Text>
-          <Text style={styles.vestingNote}>Mở khóa 25%/Quý vào cuối Q2, Q3, Q4</Text>
+          <Text style={styles.lockedPointSub}>{stats.maxWithdrawable.toLocaleString('vi-VN')} điểm</Text>
+          <Text style={styles.vestingNote}>
+            Cho phép ứng trước hạn mức từ các quý tương lai (ưu tiên trừ từ Q4).
+          </Text>
         </View>
       </View>
 
@@ -113,84 +197,247 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = ({
       <View style={styles.milestoneContainer}>
         <Text style={styles.milestoneTitle}>Lịch Mở Khóa Thưởng Theo Quý (25%/Quý):</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.milestoneScroll}>
-          <View style={[styles.milestoneItem, styles.milestonePassed]}>
-            <Text style={styles.milestoneQuarter}>Quý 1 (31/03)</Text>
-            <Ionicons name="checkmark-circle" size={20} color="#059669" />
-            <Text style={styles.milestoneStatus}>Đã mở khóa 25%</Text>
-          </View>
-          <View style={styles.milestoneItem}>
-            <Text style={styles.milestoneQuarter}>Quý 2 (30/06)</Text>
-            <Ionicons name="time-outline" size={20} color="#D97706" />
-            <Text style={styles.milestoneStatus}>Chờ mở 12.5tr</Text>
-          </View>
-          <View style={styles.milestoneItem}>
-            <Text style={styles.milestoneQuarter}>Quý 3 (30/09)</Text>
-            <Ionicons name="time-outline" size={20} color="#D97706" />
-            <Text style={styles.milestoneStatus}>Chờ mở 12.5tr</Text>
-          </View>
-          <View style={styles.milestoneItem}>
-            <Text style={styles.milestoneQuarter}>Quý 4 (31/12)</Text>
-            <Ionicons name="time-outline" size={20} color="#D97706" />
-            <Text style={styles.milestoneStatus}>Chờ mở 12.5tr</Text>
-          </View>
+          {milestones.length === 0 ? (
+            <Text style={styles.emptySubText}>Chưa có lịch giải ngân mốc quý</Text>
+          ) : (
+            milestones.map((m) => {
+              const unlockDate = new Date(m.unlockDate);
+              const isPast = unlockDate <= new Date();
+              const formattedDate = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
+              const cash = Number(m.cashAmount || m.pointsToUnlock * cashValuePerPoint);
+
+              return (
+                <View
+                  key={m.id || m.quarter}
+                  style={[
+                    styles.milestoneItem,
+                    m.isWithdrawn
+                      ? styles.milestoneWithdrawn
+                      : isPast
+                      ? styles.milestonePassed
+                      : styles.milestoneFuture,
+                  ]}
+                >
+                  <Text style={styles.milestoneQuarter}>
+                    Quý {m.quarter} ({formattedDate})
+                  </Text>
+                  <Ionicons
+                    name={
+                      m.isWithdrawn
+                        ? 'checkmark-done-circle'
+                        : isPast
+                        ? 'lock-open-outline'
+                        : 'time-outline'
+                    }
+                    size={20}
+                    color={m.isWithdrawn ? '#64748B' : isPast ? '#059669' : '#D97706'}
+                  />
+                  <Text
+                    style={[
+                      styles.milestoneStatus,
+                      { color: m.isWithdrawn ? '#64748B' : isPast ? '#059669' : '#B45309' },
+                    ]}
+                  >
+                    {m.isWithdrawn
+                      ? 'Đã rút'
+                      : isPast
+                      ? `Khả dụng: ${m.pointsToUnlock.toLocaleString('vi-VN')} đ`
+                      : `${m.pointsToUnlock.toLocaleString('vi-VN')} đ (~${(cash / 1000000).toFixed(1)}tr)`}
+                  </Text>
+                </View>
+              );
+            })
+          )}
         </ScrollView>
       </View>
 
+      {/* Recent Transactions Ledger */}
+      {transactions.length > 0 && (
+        <View style={styles.txContainer}>
+          <Text style={styles.txTitle}>Lịch sử biến động điểm gần đây:</Text>
+          {transactions.slice(0, 5).map((tx) => {
+            const isPositive = tx.points > 0;
+            return (
+              <View key={tx.id} style={styles.txRow}>
+                <View
+                  style={[
+                    styles.txIconBadge,
+                    { backgroundColor: isPositive ? '#ECFDF5' : '#FEF2F2' },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={
+                      tx.type === 'GRANT_PROJECT_INSTANT'
+                        ? 'lightning-bolt'
+                        : tx.type === 'WITHDRAW_ADVANCE'
+                        ? 'arrow-up-bold-box-outline'
+                        : isPositive
+                        ? 'plus'
+                        : 'minus'
+                    }
+                    size={16}
+                    color={isPositive ? '#059669' : '#DC2626'}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.txNote} numberOfLines={1}>
+                    {tx.note || (isPositive ? 'Thưởng điểm' : 'Rút tiền thưởng')}
+                  </Text>
+                  <Text style={styles.txDate}>
+                    {new Date(tx.createdAt).toLocaleDateString('vi-VN')} •{' '}
+                    {tx.type === 'WITHDRAW_ADVANCE'
+                      ? 'Rút ứng trước'
+                      : tx.type === 'GRANT_PROJECT_INSTANT'
+                      ? 'Thưởng nóng'
+                      : tx.type === 'GRANT_PROJECT_VESTING'
+                      ? 'Thưởng tích lũy'
+                      : 'Thưởng năm'}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.txPoints,
+                    { color: isPositive ? '#059669' : '#DC2626' },
+                  ]}
+                >
+                  {isPositive ? '+' : ''}
+                  {tx.points.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       {/* Modal Withdrawal Form */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Yêu Cầu Rút Tiền Thưởng</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.modalHeaderBadge}>
+                  <Ionicons name="cash-outline" size={20} color="#D97706" />
+                </View>
+                <Text style={styles.modalTitle}>Yêu Cầu Rút Tiền Thưởng</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalSub}>
-              Số tiền khả dụng rút: <Text style={{ color: '#059669', fontWeight: 'bold' }}>{unlockedCash.toLocaleString('vi-VN')} VNĐ</Text>
-            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+              {/* Point Input */}
+              <Text style={styles.inputLabel}>Số điểm muốn rút (Tối đa {stats.maxWithdrawable.toLocaleString('vi-VN')} đ):</Text>
+              <View style={styles.pointsInputRow}>
+                <TextInput
+                  style={styles.pointsTextInput}
+                  value={withdrawPointsInput}
+                  onChangeText={(v) => setWithdrawPointsInput(v.replace(/[^0-9]/g, ''))}
+                  placeholder="Nhập số điểm..."
+                  keyboardType="numeric"
+                />
+                <TouchableOpacity
+                  style={styles.maxBtn}
+                  onPress={() => setWithdrawPointsInput(stats.maxWithdrawable.toString())}
+                >
+                  <Text style={styles.maxBtnText}>Rút hết</Text>
+                </TouchableOpacity>
+              </View>
 
-            <Text style={styles.inputLabel}>Ngân hàng thụ hưởng:</Text>
-            <TextInput
-              style={styles.input}
-              value={bankName}
-              onChangeText={setBankName}
-              placeholder="Nhập tên ngân hàng (TCB, VCB...)"
-            />
+              {/* Conversion Preview */}
+              <View style={styles.conversionBox}>
+                <Text style={styles.conversionFormula}>Quy đổi thành tiền:</Text>
+                <Text style={styles.conversionTotal}>
+                  {cashToWithdraw.toLocaleString('vi-VN')} VNĐ
+                </Text>
+              </View>
 
-            <Text style={styles.inputLabel}>Số tài khoản ngân hàng:</Text>
-            <TextInput
-              style={styles.input}
-              value={accountNumber}
-              onChangeText={setAccountNumber}
-              placeholder="Nhập số tài khoản..."
-              keyboardType="number-pad"
-            />
+              {/* Reverse Waterfall Advance Warning */}
+              {isAdvanceWithdrawal && (
+                <View style={styles.advanceWarningBox}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#B45309" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.advanceWarningTitle}>Ứng trước từ Quý tương lai</Text>
+                    <Text style={styles.advanceWarningDesc}>
+                      Bạn đang rút vượt mức khả dụng {advancePoints.toLocaleString('vi-VN')} điểm (~{advanceCash.toLocaleString('vi-VN')} VNĐ). Hệ thống sẽ tự động khấu trừ ưu tiên từ Quý 4 (31/12) về trước.
+                    </Text>
+                  </View>
+                </View>
+              )}
 
-            <Text style={styles.inputLabel}>Tên chủ tài khoản (In hoa):</Text>
-            <TextInput
-              style={styles.input}
-              value={accountName}
-              onChangeText={setAccountName}
-              placeholder="NGUYEN VAN A"
-              autoCapitalize="characters"
-            />
+              {/* Bank Inputs */}
+              <Text style={styles.inputLabel}>Ngân hàng thụ hưởng:</Text>
+              <TextInput
+                style={styles.input}
+                value={bankName}
+                onChangeText={setBankName}
+                placeholder="VD: Techcombank, Vietcombank, MB Bank..."
+              />
 
-            <TouchableOpacity style={styles.submitWithdrawBtn} onPress={handleWithdrawSubmit}>
-              <Text style={styles.submitWithdrawText}>XÁC NHẬN RÚT {unlockedCash.toLocaleString('vi-VN')} VNĐ</Text>
+              <Text style={styles.inputLabel}>Số tài khoản ngân hàng:</Text>
+              <TextInput
+                style={styles.input}
+                value={accountNumber}
+                onChangeText={setAccountNumber}
+                placeholder="Nhập số tài khoản ngân hàng..."
+                keyboardType="number-pad"
+              />
+
+              <Text style={styles.inputLabel}>Tên chủ tài khoản (In hoa không dấu):</Text>
+              <TextInput
+                style={styles.input}
+                value={accountName}
+                onChangeText={(v) => setAccountName(v.toUpperCase())}
+                placeholder="NGUYEN VAN A"
+                autoCapitalize="characters"
+              />
+
+              <Text style={styles.inputLabel}>Ghi chú rút tiền (Tùy chọn):</Text>
+              <TextInput
+                style={styles.input}
+                value={withdrawNote}
+                onChangeText={setWithdrawNote}
+                placeholder="VD: Rút chi tiêu cá nhân, sắm Tết..."
+              />
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.submitWithdrawBtn, isSubmitting && { opacity: 0.7 }]}
+              onPress={handleWithdrawSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitWithdrawText}>
+                  XÁC NHẬN RÚT {cashToWithdraw.toLocaleString('vi-VN')} VNĐ
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+  },
   cardContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginVertical: 10,
     borderWidth: 1,
@@ -198,51 +445,58 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   headerTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#92400E',
+    flexShrink: 1,
   },
   badgeOptIn: {
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   badgeOptInText: {
-    fontSize: 11,
-    fontWeight: 'bold',
     color: '#B45309',
+    fontSize: 10,
+    fontWeight: '700',
   },
   subSubtitle: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginTop: 6,
-    marginBottom: 12,
+    fontSize: 13,
+    color: '#475569',
+    marginBottom: 14,
   },
   boldText: {
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   balanceGrid: {
+    flexDirection: 'row',
     gap: 10,
+    marginBottom: 16,
   },
   balanceBox: {
+    flex: 1,
+    borderRadius: 12,
     padding: 12,
-    borderRadius: 8,
     borderWidth: 1,
   },
   unlockedBox: {
@@ -257,150 +511,326 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginBottom: 4,
   },
   boxLabelUnlocked: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#047857',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
   },
   boxLabelLocked: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#B45309',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
   },
   unlockedAmountText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '800',
     color: '#059669',
-    marginTop: 4,
   },
   lockedAmountText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '800',
     color: '#D97706',
-    marginTop: 4,
   },
   currencyUnit: {
-    fontSize: 14,
-    fontWeight: 'normal',
+    fontSize: 10,
+    fontWeight: '500',
   },
   unlockedPointSub: {
-    fontSize: 12,
-    color: '#059669',
-    marginTop: 2,
+    fontSize: 11,
+    color: '#047857',
+    marginTop: 1,
+    marginBottom: 6,
   },
   lockedPointSub: {
-    fontSize: 12,
-    color: '#D97706',
-    marginTop: 2,
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 1,
+  },
+  instantTagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  instantTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#065F46',
   },
   withdrawBtn: {
     backgroundColor: '#059669',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 6,
-    marginTop: 10,
+    gap: 4,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginTop: 4,
   },
   withdrawBtnText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '700',
   },
   vestingNote: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#92400E',
-    fontStyle: 'italic',
-    marginTop: 6,
+    marginTop: 4,
+    lineHeight: 14,
   },
   milestoneContainer: {
-    marginTop: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
   },
   milestoneTitle: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#334155',
     marginBottom: 8,
   },
   milestoneScroll: {
     flexDirection: 'row',
   },
   milestoneItem: {
-    backgroundColor: '#F3F4F6',
+    width: 120,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
     padding: 10,
-    borderRadius: 8,
-    marginRight: 8,
     alignItems: 'center',
-    minWidth: 110,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 4,
   },
   milestonePassed: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  milestoneWithdrawn: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+    opacity: 0.75,
+  },
+  milestoneFuture: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
   },
   milestoneQuarter: {
     fontSize: 11,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   milestoneStatus: {
     fontSize: 10,
-    color: '#4B5563',
-    marginTop: 4,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptySubText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  txContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  txTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  txIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  txNote: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  txDate: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+  txPoints: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    padding: 20,
+    alignItems: 'center',
+    padding: 16,
   },
   modalContent: {
+    width: '100%',
+    maxWidth: 420,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2937',
+  modalHeaderBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalSub: {
-    fontSize: 13,
-    color: '#4B5563',
-    marginBottom: 16,
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginTop: 8,
+    fontWeight: '600',
+    color: '#334155',
     marginBottom: 4,
+    marginTop: 8,
+  },
+  pointsInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 6,
+  },
+  pointsTextInput: {
+    flex: 1,
+    height: 42,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  maxBtn: {
+    backgroundColor: '#E0E7FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  maxBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  conversionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ECFDF5',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 8,
+  },
+  conversionFormula: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  conversionTotal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  advanceWarningBox: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 8,
+  },
+  advanceWarningTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  advanceWarningDesc: {
+    fontSize: 10,
+    color: '#B45309',
+    lineHeight: 14,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 6,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    height: 40,
+    fontSize: 13,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 4,
+    color: '#0F172A',
   },
   submitWithdrawBtn: {
     backgroundColor: '#059669',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
+    marginTop: 14,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitWithdrawText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

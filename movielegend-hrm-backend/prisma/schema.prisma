@@ -759,6 +759,7 @@ model User {
   issuedMaterialIssues            MaterialIssue[]              @relation("MaterialIssueIssuer")
   materialReturns                 MaterialReturn[]             @relation("MaterialReturnUser")
   retentionVaults                 TalentRetentionVault[]
+  vaultTransactions               VaultTransaction[]
   receivedMaterialReturns         MaterialReturn[]             @relation("MaterialReturnReceiver")
   requestedStockTransfers         StockTransfer[]              @relation("StockTransferRequester")
   approvedStockTransfers          StockTransfer[]              @relation("StockTransferApprover")
@@ -3108,18 +3109,28 @@ model EmployeeLevel {
   @@map("employee_levels")
 }
 
-model TalentRetentionVault {
-  id                String             @id @default(uuid()) @db.Uuid
-  userId            String             @db.Uuid
-  year              Int                @default(2026)
-  grantedPoints     Int                @default(0)
-  cashValuePerPoint Decimal            @default(1000) @db.Decimal(10, 2)
-  status            String             @default("ACTIVE") // ACTIVE, COMPLETED, FORFEITED
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+enum VaultTransactionType {
+  GRANT_ANNUAL
+  GRANT_PROJECT_INSTANT
+  GRANT_PROJECT_VESTING
+  WITHDRAW_REGULAR
+  WITHDRAW_ADVANCE
+}
 
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  milestones        VestingMilestone[]
+model TalentRetentionVault {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @db.Uuid
+  year               Int                @default(2026)
+  grantedPoints      Int                @default(0)
+  instantBonusPoints Int                @default(0)
+  cashValuePerPoint  Decimal            @default(1000) @db.Decimal(10, 2)
+  status             String             @default("ACTIVE") // ACTIVE, COMPLETED, FORFEITED
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones         VestingMilestone[]
+  transactions       VaultTransaction[]
 
   @@unique([userId, year])
   @@map("talent_retention_vaults")
@@ -3139,6 +3150,23 @@ model VestingMilestone {
   vault          TalentRetentionVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
 
   @@map("vesting_milestones")
+}
+
+model VaultTransaction {
+  id            String               @id @default(uuid()) @db.Uuid
+  vaultId       String               @db.Uuid
+  userId        String               @db.Uuid
+  type          VaultTransactionType
+  points        Int                  // Points delta (+ or -)
+  cashAmount    Decimal              @db.Decimal(15, 2)
+  quarterTarget String?              // "Q1", "Q2", "Q3", "Q4", "INSTANT", "ALL"
+  note          String?              // Project name or withdrawal note
+  createdAt     DateTime             @default(now())
+
+  vault         TalentRetentionVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("vault_transactions")
 }
 
 model RewardWithdrawalRequest {

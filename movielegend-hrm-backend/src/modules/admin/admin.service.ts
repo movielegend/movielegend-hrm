@@ -9,7 +9,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
-import { GrantVaultPointsDto, BulkGrantVaultPointsDto } from './dto/grant-vault-points.dto';
+import { GrantVaultPointsDto, BulkGrantVaultPointsDto, GrantVaultType, WithdrawVaultPointsDto } from './dto/grant-vault-points.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -526,6 +526,14 @@ export class AdminService {
     const year = dto.year || 2026;
     const cashValuePerPoint = dto.cashValuePerPoint || 1000;
     const points = dto.points;
+    const grantType = dto.grantType || GrantVaultType.ANNUAL;
+    const note = dto.note || (
+      grantType === GrantVaultType.PROJECT_INSTANT
+        ? 'Thưởng nóng dự án'
+        : grantType === GrantVaultType.PROJECT_VESTING
+        ? 'Thưởng dự án cộng dồn quý'
+        : 'Cấp điểm Ví Tết đầu năm'
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
@@ -534,65 +542,176 @@ export class AdminService {
       });
       if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy nhân viên');
 
-      // 1. Upsert TalentRetentionVault
-      const vault = await tx.talentRetentionVault.upsert({
-        where: {
-          userId_year: {
+      let vault = await tx.talentRetentionVault.findUnique({
+        where: { userId_year: { userId: dto.userId, year } },
+        include: { milestones: { orderBy: { quarter: 'asc' } } },
+      });
+
+      if (!vault) {
+        vault = await tx.talentRetentionVault.create({
+          data: {
             userId: dto.userId,
             year,
+            grantedPoints: grantType === GrantVaultType.PROJECT_INSTANT ? 0 : points,
+            instantBonusPoints: grantType === GrantVaultType.PROJECT_INSTANT ? points : 0,
+            cashValuePerPoint,
+            status: 'ACTIVE',
           },
-        },
-        create: {
-          userId: dto.userId,
-          year,
-          grantedPoints: points,
-          cashValuePerPoint,
-          status: 'ACTIVE',
-        },
-        update: {
-          grantedPoints: points,
-          cashValuePerPoint,
-          status: 'ACTIVE',
-        },
-      });
+          include: { milestones: { orderBy: { quarter: 'asc' } } },
+        });
+      }
 
-      // 2. Re-create the 4 quarterly vesting milestones
-      await tx.vestingMilestone.deleteMany({
-        where: { vaultId: vault.id },
-      });
+      if (grantType === GrantVaultType.ANNUAL) {
+        // Mode 1: ANNUAL VESTING (4 Quarters Evenly)
+        vault = await tx.talentRetentionVault.update({
+          where: { id: vault.id },
+          data: {
+            grantedPoints: points,
+            cashValuePerPoint,
+            status: 'ACTIVE',
+          },
+          include: { milestones: { orderBy: { quarter: 'asc' } } },
+        });
 
-      const qPoints = Math.floor(points / 4);
-      const qRemainder = points - qPoints * 3; // remainder in last quarter
-      const qDates = [
-        new Date(year, 2, 31),  // Q1: March 31
-        new Date(year, 5, 30),  // Q2: June 30
-        new Date(year, 8, 30),  // Q3: September 30
-        new Date(year, 11, 31), // Q4: December 31
-      ];
+        await tx.vestingMilestone.deleteMany({
+          where: { vaultId: vault.id },
+        });
 
-      for (let q = 1; q <= 4; q++) {
-        const pts = q === 4 ? qRemainder : qPoints;
-        const cash = pts * cashValuePerPoint;
-        await tx.vestingMilestone.create({
+        const qPoints = Math.floor(points / 4);
+        const qRemainder = points - qPoints * 3;
+        const qDates = [
+          new Date(year, 2, 31),  // Q1: March 31
+          new Date(year, 5, 30),  // Q2: June 30
+          new Date(year, 8, 30),  // Q3: September 30
+          new Date(year, 11, 31), // Q4: December 31
+        ];
+
+        for (let q = 1; q <= 4; q++) {
+          const pts = q === 4 ? qRemainder : qPoints;
+          const cash = pts * cashValuePerPoint;
+          await tx.vestingMilestone.create({
+            data: {
+              vaultId: vault.id,
+              quarter: q,
+              unlockDate: qDates[q - 1],
+              pointsToUnlock: pts,
+              cashAmount: cash,
+              isUnlocked: false,
+              isWithdrawn: false,
+            },
+          });
+        }
+
+        await tx.vaultTransaction.create({
           data: {
             vaultId: vault.id,
-            quarter: q,
-            unlockDate: qDates[q - 1],
-            pointsToUnlock: pts,
-            cashAmount: cash,
-            isUnlocked: false,
-            isWithdrawn: false,
+            userId: dto.userId,
+            type: 'GRANT_ANNUAL',
+            points,
+            cashAmount: points * cashValuePerPoint,
+            quarterTarget: 'ALL',
+            note,
+          },
+        });
+      } else if (grantType === GrantVaultType.PROJECT_INSTANT) {
+        // Mode 2: INSTANT BONUS (Available immediately)
+        vault = await tx.talentRetentionVault.update({
+          where: { id: vault.id },
+          data: {
+            instantBonusPoints: { increment: points },
+            cashValuePerPoint,
+          },
+          include: { milestones: { orderBy: { quarter: 'asc' } } },
+        });
+
+        await tx.vaultTransaction.create({
+          data: {
+            vaultId: vault.id,
+            userId: dto.userId,
+            type: 'GRANT_PROJECT_INSTANT',
+            points,
+            cashAmount: points * cashValuePerPoint,
+            quarterTarget: 'INSTANT',
+            note,
+          },
+        });
+      } else if (grantType === GrantVaultType.PROJECT_VESTING) {
+        // Mode 3: PACED PROJECT VESTING (Divided evenly among remaining unwithdrawn quarters)
+        let unwithdrawnMilestones = (vault.milestones || []).filter((m) => !m.isWithdrawn);
+
+        if (unwithdrawnMilestones.length === 0) {
+          // If no milestones exist yet, create 4 quarters
+          const qDates = [
+            new Date(year, 2, 31),
+            new Date(year, 5, 30),
+            new Date(year, 8, 30),
+            new Date(year, 11, 31),
+          ];
+          for (let q = 1; q <= 4; q++) {
+            await tx.vestingMilestone.create({
+              data: {
+                vaultId: vault.id,
+                quarter: q,
+                unlockDate: qDates[q - 1],
+                pointsToUnlock: 0,
+                cashAmount: 0,
+                isUnlocked: false,
+                isWithdrawn: false,
+              },
+            });
+          }
+          unwithdrawnMilestones = await tx.vestingMilestone.findMany({
+            where: { vaultId: vault.id },
+            orderBy: { quarter: 'asc' },
+          });
+        }
+
+        const K = unwithdrawnMilestones.length;
+        const ptsPerQ = Math.floor(points / K);
+        const remainder = points - ptsPerQ * (K - 1);
+
+        for (let i = 0; i < K; i++) {
+          const m = unwithdrawnMilestones[i];
+          const ptsToAdd = i === K - 1 ? remainder : ptsPerQ;
+          const nextPts = m.pointsToUnlock + ptsToAdd;
+          await tx.vestingMilestone.update({
+            where: { id: m.id },
+            data: {
+              pointsToUnlock: nextPts,
+              cashAmount: nextPts * cashValuePerPoint,
+            },
+          });
+        }
+
+        vault = await tx.talentRetentionVault.update({
+          where: { id: vault.id },
+          data: {
+            grantedPoints: { increment: points },
+            cashValuePerPoint,
+          },
+          include: { milestones: { orderBy: { quarter: 'asc' } } },
+        });
+
+        await tx.vaultTransaction.create({
+          data: {
+            vaultId: vault.id,
+            userId: dto.userId,
+            type: 'GRANT_PROJECT_VESTING',
+            points,
+            cashAmount: points * cashValuePerPoint,
+            quarterTarget: 'FUTURE_QUARTERS',
+            note,
           },
         });
       }
 
-      // 3. Ensure isRewardVaultEnabled is set to true
+      // Ensure isRewardVaultEnabled is set to true
       await tx.user.update({
         where: { id: dto.userId },
         data: { isRewardVaultEnabled: true },
       });
 
-      // 4. Audit Log
+      // Audit Log
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -604,23 +723,41 @@ export class AdminService {
             userCode: user.userCode,
             points,
             year,
+            grantType,
+            note,
             totalCash: points * cashValuePerPoint,
           },
         },
       });
 
-      // 5. Send notification to user
+      // Send notification to user
       const totalCashFormatted = (points * cashValuePerPoint).toLocaleString('vi-VN');
+      const title =
+        grantType === GrantVaultType.PROJECT_INSTANT
+          ? 'Thưởng nóng Dự án ⚡'
+          : grantType === GrantVaultType.PROJECT_VESTING
+          ? 'Thưởng dự án Tích lũy 📈'
+          : 'Trao thưởng Đặc quyền Ví Tết 🧧';
+      const body =
+        grantType === GrantVaultType.PROJECT_INSTANT
+          ? `Bạn vừa được thưởng nóng ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ) từ "${note}". Số điểm này có thể rút ngay về ngân hàng!`
+          : grantType === GrantVaultType.PROJECT_VESTING
+          ? `Bạn vừa được thưởng dự án ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ) từ "${note}", phân bổ đều vào các quý còn lại trong năm!`
+          : `Ban Giám Đốc vừa trao tặng bạn ${points.toLocaleString('vi-VN')} điểm thưởng Ví Tết (~${totalCashFormatted} VNĐ)!`;
+
       const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
         type: 'SYSTEM' as NotificationType,
-        title: 'Trao thưởng Đặc quyền Ví Tết 🧧',
-        body: `Ban Giám Đốc vừa trao tặng bạn ${points.toLocaleString('vi-VN')} điểm thưởng Ví Tết (~${totalCashFormatted} VNĐ)!`,
+        title,
+        body,
       });
       if (notif) this.notifications.emitCreated(notif);
 
       return tx.talentRetentionVault.findUnique({
         where: { id: vault.id },
-        include: { milestones: { orderBy: { quarter: 'asc' } } },
+        include: {
+          milestones: { orderBy: { quarter: 'asc' } },
+          transactions: { orderBy: { createdAt: 'desc' }, take: 10 },
+        },
       });
     });
   }
@@ -648,6 +785,8 @@ export class AdminService {
           points: dto.points,
           year: dto.year,
           cashValuePerPoint: dto.cashValuePerPoint,
+          grantType: dto.grantType,
+          note: dto.note,
         },
         actor
       );
@@ -658,6 +797,234 @@ export class AdminService {
       success: true,
       totalGrantedUsers: results.length,
       pointsPerUser: dto.points,
+      grantType: dto.grantType || 'ANNUAL',
+    };
+  }
+
+  async withdrawVaultPoints(dto: WithdrawVaultPointsDto, userId: string) {
+    const currentYear = new Date().getFullYear();
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        include: { profile: true },
+      });
+      if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy người dùng');
+      if (!user.isRewardVaultEnabled) {
+        throw badRequest('VAULT_DISABLED', 'Tính năng Ví Tết chưa được kích hoạt cho tài khoản này');
+      }
+
+      const vault = await tx.talentRetentionVault.findFirst({
+        where: { userId, year: currentYear },
+        include: { milestones: { orderBy: { quarter: 'asc' } } },
+      });
+      if (!vault) throw notFound('VAULT_NOT_FOUND', 'Chưa tìm thấy ví thưởng của năm hiện tại');
+
+      const instantBonusPoints = vault.instantBonusPoints || 0;
+      const cashValuePerPoint = Number(vault.cashValuePerPoint || 1000);
+      const unwithdrawnMilestones = vault.milestones.filter((m) => !m.isWithdrawn && m.pointsToUnlock > 0);
+      const totalMilestonePoints = unwithdrawnMilestones.reduce((s, m) => s + m.pointsToUnlock, 0);
+      const maxWithdrawable = instantBonusPoints + totalMilestonePoints;
+
+      if (dto.points > maxWithdrawable) {
+        throw badRequest(
+          'EXCEEDS_MAX_WITHDRAWABLE',
+          `Số điểm yêu cầu rút (${dto.points.toLocaleString('vi-VN')} điểm) vượt quá tổng hạn mức khả dụng (${maxWithdrawable.toLocaleString('vi-VN')} điểm)`
+        );
+      }
+
+      let remainingToDeduct = dto.points;
+      let deductedInstant = 0;
+      const now = new Date();
+
+      // 1. Deduct from Instant Bonus Points
+      if (remainingToDeduct > 0 && instantBonusPoints > 0) {
+        deductedInstant = Math.min(remainingToDeduct, instantBonusPoints);
+        remainingToDeduct -= deductedInstant;
+        await tx.talentRetentionVault.update({
+          where: { id: vault.id },
+          data: { instantBonusPoints: instantBonusPoints - deductedInstant },
+        });
+        await tx.vaultTransaction.create({
+          data: {
+            vaultId: vault.id,
+            userId,
+            type: 'WITHDRAW_REGULAR',
+            points: -deductedInstant,
+            cashAmount: deductedInstant * cashValuePerPoint,
+            quarterTarget: 'INSTANT',
+            note: dto.note || 'Rút điểm thưởng nóng dự án',
+          },
+        });
+      }
+
+      // 2. Deduct from currently unlocked milestones (unlockDate <= now)
+      const unlockedMilestones = vault.milestones.filter(
+        (m) => !m.isWithdrawn && m.pointsToUnlock > 0 && new Date(m.unlockDate) <= now
+      );
+      for (const m of unlockedMilestones) {
+        if (remainingToDeduct <= 0) break;
+        const pts = Math.min(remainingToDeduct, m.pointsToUnlock);
+        remainingToDeduct -= pts;
+        const nextPts = m.pointsToUnlock - pts;
+        await tx.vestingMilestone.update({
+          where: { id: m.id },
+          data: {
+            pointsToUnlock: nextPts,
+            cashAmount: nextPts * cashValuePerPoint,
+            isWithdrawn: nextPts === 0,
+            withdrawnAt: nextPts === 0 ? new Date() : undefined,
+          },
+        });
+        await tx.vaultTransaction.create({
+          data: {
+            vaultId: vault.id,
+            userId,
+            type: 'WITHDRAW_REGULAR',
+            points: -pts,
+            cashAmount: pts * cashValuePerPoint,
+            quarterTarget: `Q${m.quarter}`,
+            note: dto.note || `Rút hạn mức Quý ${m.quarter}`,
+          },
+        });
+      }
+
+      // 3. Reverse Waterfall: Deduct from future locked quarters starting from highest quarter downwards (Q4 -> Q3 -> Q2 -> Q1)
+      if (remainingToDeduct > 0) {
+        const futureMilestones = vault.milestones
+          .filter((m) => !m.isWithdrawn && m.pointsToUnlock > 0 && new Date(m.unlockDate) > now)
+          .sort((a, b) => b.quarter - a.quarter);
+
+        for (const m of futureMilestones) {
+          if (remainingToDeduct <= 0) break;
+          const pts = Math.min(remainingToDeduct, m.pointsToUnlock);
+          remainingToDeduct -= pts;
+          const nextPts = m.pointsToUnlock - pts;
+          await tx.vestingMilestone.update({
+            where: { id: m.id },
+            data: {
+              pointsToUnlock: nextPts,
+              cashAmount: nextPts * cashValuePerPoint,
+              isWithdrawn: nextPts === 0,
+              withdrawnAt: nextPts === 0 ? new Date() : undefined,
+            },
+          });
+          await tx.vaultTransaction.create({
+            data: {
+              vaultId: vault.id,
+              userId,
+              type: 'WITHDRAW_ADVANCE',
+              points: -pts,
+              cashAmount: pts * cashValuePerPoint,
+              quarterTarget: `Q${m.quarter}`,
+              note: `Rút ứng trước từ Quý ${m.quarter}${dto.note ? ': ' + dto.note : ''}`,
+            },
+          });
+        }
+      }
+
+      // 4. Create Withdrawal Request
+      const totalCash = dto.points * cashValuePerPoint;
+      const request = await tx.rewardWithdrawalRequest.create({
+        data: {
+          userId,
+          pointsWithdrawn: dto.points,
+          cashAmount: totalCash,
+          bankName: dto.bankName,
+          bankAccountNumber: dto.bankAccountNumber,
+          bankAccountName: dto.bankAccountName,
+          status: 'PENDING',
+        },
+      });
+
+      // 5. Send Notification
+      const notif = await this.notifications.createForUsers(tx as any, [userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Yêu cầu rút điểm Ví Tết đã được gửi 💸',
+        body: `Bạn đã gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}.`,
+      });
+      if (notif) this.notifications.emitCreated(notif);
+
+      return {
+        success: true,
+        requestId: request.id,
+        pointsWithdrawn: dto.points,
+        cashAmount: totalCash,
+        remainingInstantPoints: instantBonusPoints - deductedInstant,
+        vault: await tx.talentRetentionVault.findUnique({
+          where: { id: vault.id },
+          include: {
+            milestones: { orderBy: { quarter: 'asc' } },
+            transactions: { orderBy: { createdAt: 'desc' }, take: 10 },
+          },
+        }),
+      };
+    });
+  }
+
+  async getMyVault(userId: string) {
+    const currentYear = new Date().getFullYear();
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, userCode: true, isRewardVaultEnabled: true },
+    });
+    if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy người dùng');
+
+    const vault = await this.prisma.talentRetentionVault.findFirst({
+      where: { userId, year: currentYear },
+      include: {
+        milestones: { orderBy: { quarter: 'asc' } },
+        transactions: { orderBy: { createdAt: 'desc' }, take: 20 },
+      },
+    });
+
+    if (!vault) {
+      return {
+        isVaultEnabled: Boolean(user.isRewardVaultEnabled),
+        vault: null,
+        stats: {
+          totalGrantedPoints: 0,
+          instantBonusPoints: 0,
+          unlockedQuarterPoints: 0,
+          lockedQuarterPoints: 0,
+          unlockedPoints: 0,
+          maxWithdrawable: 0,
+          cashValuePerPoint: 1000,
+        },
+      };
+    }
+
+    const now = new Date();
+    const instantBonusPoints = vault.instantBonusPoints || 0;
+    const cashValuePerPoint = Number(vault.cashValuePerPoint || 1000);
+
+    let unlockedQuarterPoints = 0;
+    let lockedQuarterPoints = 0;
+
+    (vault.milestones || []).forEach((m) => {
+      if (!m.isWithdrawn && m.pointsToUnlock > 0) {
+        if (new Date(m.unlockDate) <= now) {
+          unlockedQuarterPoints += m.pointsToUnlock;
+        } else {
+          lockedQuarterPoints += m.pointsToUnlock;
+        }
+      }
+    });
+
+    const unlockedPoints = instantBonusPoints + unlockedQuarterPoints;
+    const maxWithdrawable = unlockedPoints + lockedQuarterPoints;
+
+    return {
+      isVaultEnabled: Boolean(user.isRewardVaultEnabled),
+      vault,
+      stats: {
+        totalGrantedPoints: vault.grantedPoints,
+        instantBonusPoints,
+        unlockedQuarterPoints,
+        lockedQuarterPoints,
+        unlockedPoints,
+        maxWithdrawable,
+        cashValuePerPoint,
+      },
     };
   }
 }

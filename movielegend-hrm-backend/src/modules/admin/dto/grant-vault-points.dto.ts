@@ -1,6 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, IsUUID, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+
+export enum GrantVaultType {
+  ANNUAL = 'ANNUAL',
+  PROJECT_INSTANT = 'PROJECT_INSTANT',
+  PROJECT_VESTING = 'PROJECT_VESTING',
+}
 
 export class GrantVaultPointsDto {
   @ApiProperty()
@@ -25,6 +31,16 @@ export class GrantVaultPointsDto {
   @IsNumber()
   @Min(1)
   cashValuePerPoint?: number = 1000;
+
+  @ApiPropertyOptional({ enum: GrantVaultType, default: GrantVaultType.ANNUAL })
+  @IsOptional()
+  @IsEnum(GrantVaultType)
+  grantType?: GrantVaultType = GrantVaultType.ANNUAL;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class BulkGrantVaultPointsDto {
@@ -55,4 +71,39 @@ export class BulkGrantVaultPointsDto {
   @IsNumber()
   @Min(1)
   cashValuePerPoint?: number = 1000;
+
+  @ApiPropertyOptional({ enum: GrantVaultType, default: GrantVaultType.ANNUAL })
+  @IsOptional()
+  @IsEnum(GrantVaultType)
+  grantType?: GrantVaultType = GrantVaultType.ANNUAL;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class WithdrawVaultPointsDto {
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  points!: number;
+
+  @ApiProperty()
+  @IsString()
+  bankName!: string;
+
+  @ApiProperty()
+  @IsString()
+  bankAccountNumber!: string;
+
+  @ApiProperty()
+  @IsString()
+  bankAccountName!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
