@@ -68,6 +68,8 @@ const INTERVAL_OPTIONS = [
   { label: 'Mỗi 12 tháng', value: 12 },
 ];
 
+const WEEKDAYS_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
 export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrantPointsScreenProps) {
   const queryClient = useQueryClient();
 
@@ -106,15 +108,25 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
     }
   };
 
+  // Full Vietnamese formatted date: "Thứ Bảy, ngày 05/09/2026"
   const formattedSelectedDate = useMemo(() => {
     if (!startDateStr) return '';
-    const parts = startDateStr.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    const d = new Date(startDateStr);
-    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-  }, [startDateStr]);
+    const d = currentDateObj;
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    const weekday = WEEKDAYS_VI[d.getDay()] || '';
+    return `${weekday}, ngày ${day}/${month}/${year}`;
+  }, [startDateStr, currentDateObj]);
+
+  const shortSelectedDate = useMemo(() => {
+    if (!startDateStr) return '';
+    const d = currentDateObj;
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }, [startDateStr, currentDateObj]);
 
   // Live calculation of milestones
   const calculatedMilestones = useMemo(() => {
@@ -132,11 +144,17 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
       const unlock = new Date(start);
       unlock.setMonth(unlock.getMonth() + i * intv);
       const isUnlocked = unlock <= now;
+      const day = unlock.getDate().toString().padStart(2, '0');
+      const month = (unlock.getMonth() + 1).toString().padStart(2, '0');
+      const year = unlock.getFullYear();
+      const weekday = WEEKDAYS_VI[unlock.getDay()] || '';
+
       list.push({
         index: i,
         title: `Đợt ${i} (Sau ${i * intv} tháng)`,
         unlockDate: unlock,
-        dateFormatted: `${unlock.getDate().toString().padStart(2, '0')}/${(unlock.getMonth() + 1).toString().padStart(2, '0')}/${unlock.getFullYear()}`,
+        dateFormatted: `${day}/${month}/${year}`,
+        dateFullFormatted: `${weekday}, ngày ${day}/${month}/${year}`,
         points: mPts,
         cash: mPts * 1000,
         isUnlocked,
@@ -417,16 +435,16 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             >
               <View style={styles.datePickerBtnLeft}>
                 <View style={styles.calendarIconBox}>
-                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#D97706" />
+                  <MaterialCommunityIcons name="calendar-month-outline" size={22} color="#D97706" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.datePickerBtnLabel}>Ngày bắt đầu áp dụng:</Text>
-                  <Text style={styles.datePickerBtnVal}>{formattedSelectedDate || startDateStr}</Text>
+                  <Text style={styles.datePickerBtnVal}>{formattedSelectedDate}</Text>
                 </View>
               </View>
               <View style={styles.datePickerChangeChip}>
-                <MaterialCommunityIcons name="calendar-edit" size={15} color="#D97706" />
-                <Text style={styles.datePickerChangeChipText}>Chọn ngày</Text>
+                <MaterialCommunityIcons name="calendar-edit" size={15} color="#92400E" />
+                <Text style={styles.datePickerChangeChipText}>Đổi ngày</Text>
               </View>
             </Pressable>
 
@@ -500,7 +518,9 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                           {m.title}
                         </Text>
                       </View>
-                      <Text style={styles.milestoneTableDate}>Ngày mở khóa: {m.dateFormatted}</Text>
+                      <Text style={styles.milestoneTableDate}>
+                        Ngày mở khóa: {m.dateFullFormatted || m.dateFormatted}
+                      </Text>
                     </View>
 
                     <View style={styles.milestoneTableRight}>
@@ -562,6 +582,9 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           value={currentDateObj}
           mode="date"
           display="default"
+          locale="vi-VN"
+          positiveButton={{ label: 'Xác nhận', textColor: '#D97706' }}
+          negativeButton={{ label: 'Hủy bỏ', textColor: '#64748B' }}
           onChange={handleDateChange}
         />
       )}
@@ -572,17 +595,18 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             <View style={styles.datePickerModalContent}>
               <View style={styles.datePickerModalHeader}>
                 <Pressable onPress={() => setShowDatePicker(false)}>
-                  <Text style={styles.datePickerCancelText}>Hủy</Text>
+                  <Text style={styles.datePickerCancelText}>Hủy bỏ</Text>
                 </Pressable>
                 <Text style={styles.datePickerModalTitle}>Chọn Ngày Bắt Đầu</Text>
                 <Pressable onPress={() => setShowDatePicker(false)}>
-                  <Text style={styles.datePickerDoneText}>Xong</Text>
+                  <Text style={styles.datePickerDoneText}>Xác nhận</Text>
                 </Pressable>
               </View>
               <DateTimePicker
                 value={currentDateObj}
                 mode="date"
                 display="spinner"
+                locale="vi-VN"
                 onChange={handleDateChange}
                 style={styles.iosDatePicker}
               />
