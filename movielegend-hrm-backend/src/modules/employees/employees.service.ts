@@ -42,6 +42,7 @@ export class EmployeesService {
             accountStatus: true,
             approvalStatus: true,
             isActive: true,
+            isRewardVaultEnabled: true,
             lastLoginAt: true,
             createdAt: true,
             updatedAt: true,
@@ -122,6 +123,7 @@ export class EmployeesService {
           userCode: true,
           accountStatus: true,
           isActive: true,
+          isRewardVaultEnabled: true,
           profile: { select: { fullName: true, avatarUrl: true, employmentStatus: true } },
           departmentLinks: {
             where: { leftAt: null, ...(query.departmentId ? { departmentId: query.departmentId } : {}) },
@@ -154,6 +156,7 @@ export class EmployeesService {
           employmentStatus: item.profile?.employmentStatus ?? null,
           accountStatus: item.accountStatus,
           isActive: item.isActive,
+          isRewardVaultEnabled: item.isRewardVaultEnabled ?? false,
           roles: item.roles,
         };
       }),

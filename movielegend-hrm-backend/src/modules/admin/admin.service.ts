@@ -383,6 +383,7 @@ export class AdminService {
           email: dto.email,
           accountStatus: dto.accountStatus,
           isActive: dto.isActive,
+          isRewardVaultEnabled: dto.isRewardVaultEnabled,
           profile: dto.fullName || dto.positionId
             ? {
                 update: {
