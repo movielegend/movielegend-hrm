@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,11 @@ import {
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
+  PanResponder,
+  Dimensions,
+  BackHandler,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
@@ -50,6 +54,47 @@ export function AdminTetWalletScreen() {
 
   // Grant Target State
   const [grantTarget, setGrantTarget] = useState<GrantTarget | null>(null);
+
+  const router = useRouter();
+  const screenWidth = Dimensions.get('window').width;
+
+  // Handle hardware back on Android to return to Home/Dashboard
+  useEffect(() => {
+    const onBackPress = () => {
+      if (grantTarget) {
+        setGrantTarget(null);
+        return true;
+      }
+      if (selectedEmployee) {
+        setSelectedEmployee(null);
+        return true;
+      }
+      router.back();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [grantTarget, selectedEmployee, router]);
+
+  // Swipe gesture from left edge to return to Home/Dashboard
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+          return (
+            evt.nativeEvent.pageX <= 65 &&
+            gestureState.dx > 10 &&
+            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2
+          );
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+          if (gestureState.dx > screenWidth * 0.2 || gestureState.vx > 0.25) {
+            router.back();
+          }
+        },
+      }),
+    [router, screenWidth]
+  );
 
   const queryClient = useQueryClient();
   const departmentsQuery = useDepartments({ limit: 100 });
@@ -250,22 +295,24 @@ export function AdminTetWalletScreen() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />}
-      >
-        {/* Header */}
-        <PageHeader
-          title="Quyền Ví Tết"
-          subtitle="Quản lý hạn mức, thưởng dự án & trao điểm nhân sự"
-          showBack={false}
-          right={
-            <View style={styles.headerIconBox}>
-              <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
-            </View>
-          }
-        />
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />}
+        >
+          {/* Header */}
+          <PageHeader
+            title="Quyền Ví Tết"
+            subtitle="Quản lý hạn mức, thưởng dự án & trao điểm nhân sự"
+            showBack={true}
+            onBack={() => router.back()}
+            right={
+              <View style={styles.headerIconBox}>
+                <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
+              </View>
+            }
+          />
 
         {/* Live Statistics Cards */}
         <View style={styles.statsCardWrapper}>
@@ -725,6 +772,7 @@ export function AdminTetWalletScreen() {
           </View>
         </Modal>
       )}
+      </View>
     </Screen>
   );
 }
