@@ -13,7 +13,9 @@ import {
   Alert,
   Modal,
   BackHandler,
+  PanResponder,
 } from 'react-native';
+import { Stack } from 'expo-router';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -96,6 +98,27 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
   }, [onBack]);
+
+  // Swipe gesture from left-edge to right to return to Quyền Ví Tết
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+          // Detect swipe from left edge (x <= 50, dx > 30, predominantly horizontal)
+          return (
+            evt.nativeEvent.pageX <= 50 &&
+            gestureState.dx > 30 &&
+            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
+          );
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+          if (gestureState.dx > 45) {
+            onBack();
+          }
+        },
+      }),
+    [onBack]
+  );
 
   const currentDateObj = useMemo(() => {
     if (!startDateStr) return new Date();
@@ -232,359 +255,362 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <PageHeader
-            title="Trao Điểm Thưởng Dự Án"
-            subtitle="Cấu hình hạn mức & chia đợt rút linh hoạt"
-            showBack={false}
-            right={
-              <View style={styles.headerIconBox}>
-                <MaterialCommunityIcons name="wallet-giftcard" size={26} color="#D97706" />
-              </View>
-            }
-          />
+      <Stack.Screen options={{ gestureEnabled: false }} />
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <PageHeader
+              title="Trao Điểm Thưởng Dự Án"
+              subtitle="Cấu hình hạn mức & chia đợt rút linh hoạt"
+              showBack={false}
+              right={
+                <View style={styles.headerIconBox}>
+                  <MaterialCommunityIcons name="wallet-giftcard" size={26} color="#D97706" />
+                </View>
+              }
+            />
 
-          {/* 1. Target Card */}
-          {target.type === 'SINGLE' && target.employee && (
-            <View style={styles.targetBannerCard}>
-              <View style={styles.avatarContainer}>
-                {target.employee.profile?.avatarUrl ? (
-                  <Image source={{ uri: target.employee.profile.avatarUrl }} style={styles.avatarImg} />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarFallbackText}>
-                      {(target.employee.profile?.fullName || 'NV').slice(0, 2).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.targetName}>
-                  {target.employee.profile?.fullName || 'Chưa cập nhật tên'}
-                </Text>
-                <Text style={styles.targetMeta}>
-                  Mã: <Text style={{ fontWeight: '700', color: '#1E293B' }}>{target.employee.userCode}</Text> •{' '}
-                  {target.employee.departmentLinks?.[0]?.position?.name || 'Nhân viên'} •{' '}
-                  {target.employee.departmentLinks?.[0]?.department?.name || 'Chưa phân phòng'}
-                </Text>
-                <View style={styles.currentVaultStatsRow}>
-                  <Text style={styles.currentVaultStat}>
-                    Đã cấp: <Text style={{ fontWeight: '700', color: '#B45309' }}>
-                      {(target.employee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} đ
-                    </Text>
-                  </Text>
-                  {(target.employee.retentionVaults?.[0]?.instantBonusPoints || 0) > 0 && (
-                    <Text style={[styles.currentVaultStat, { color: '#059669' }]}>
-                      {' '}• Thưởng nóng: {target.employee.retentionVaults?.[0]?.instantBonusPoints?.toLocaleString('vi-VN')} đ
-                    </Text>
+            {/* 1. Target Card */}
+            {target.type === 'SINGLE' && target.employee && (
+              <View style={styles.targetBannerCard}>
+                <View style={styles.avatarContainer}>
+                  {target.employee.profile?.avatarUrl ? (
+                    <Image source={{ uri: target.employee.profile.avatarUrl }} style={styles.avatarImg} />
+                  ) : (
+                    <View style={styles.avatarFallback}>
+                      <Text style={styles.avatarFallbackText}>
+                        {(target.employee.profile?.fullName || 'NV').slice(0, 2).toUpperCase()}
+                      </Text>
+                    </View>
                   )}
                 </View>
-              </View>
-            </View>
-          )}
-
-          {target.type === 'DEPARTMENT' && target.department && (
-            <View style={[styles.targetBannerCard, styles.targetDeptCard]}>
-              <View style={styles.deptIconBox}>
-                <MaterialCommunityIcons name="domain" size={28} color="#1D4ED8" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.targetName, { color: '#1E3A8A' }]}>
-                  {target.department.name}
-                </Text>
-                <Text style={[styles.targetMeta, { color: '#3B82F6' }]}>
-                  Mã phòng: {target.department.code} • Áp dụng cho toàn bộ {target.memberCount} nhân sự
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* 2. Form Card: Package Name & Note */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionTitleRow}>
-              <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#D97706" />
-              <Text style={styles.sectionTitle}>1. Thông tin Gói Thưởng / Dự Án</Text>
-            </View>
-
-            <Text style={styles.inputFieldLabel}>Tên gói thưởng / Tên dự án *</Text>
-            <View style={styles.inputWrapper}>
-              <MaterialCommunityIcons name="tag-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
-              <TextInput
-                style={styles.textInput}
-                value={grantTitle}
-                onChangeText={setGrantTitle}
-                placeholder="VD: Thưởng Dự án ERP, Thưởng Tết 2026, Thưởng Quý..."
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <Text style={styles.inputFieldLabel}>Ghi chú / Điều khoản cam kết kèm theo (Tùy chọn)</Text>
-            <View style={[styles.inputWrapper, { height: 72, alignItems: 'flex-start', paddingTop: 8 }]}>
-              <TextInput
-                style={[styles.textInput, { height: 56, textAlignVertical: 'top' }]}
-                value={grantNote}
-                onChangeText={setGrantNote}
-                multiline
-                placeholder="VD: Trao thưởng theo cam kết hoàn thành dự án xuất sắc..."
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-          </View>
-
-          {/* 3. Form Card: Points & Cash Amount */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionTitleRow}>
-              <MaterialCommunityIcons name="star-shooting-outline" size={20} color="#D97706" />
-              <Text style={styles.sectionTitle}>2. Số Điểm Trao Thưởng</Text>
-            </View>
-
-            <Text style={styles.inputFieldLabel}>Chọn nhanh số điểm:</Text>
-            <View style={styles.presetChipsWrap}>
-              {PRESET_POINTS.map((preset) => {
-                const isSelected = parseInt(customPointsInput, 10) === preset.value;
-                return (
-                  <Pressable
-                    key={preset.value}
-                    style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                    onPress={() => setCustomPointsInput(preset.value.toString())}
-                  >
-                    <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                      {preset.label} đ
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.targetName}>
+                    {target.employee.profile?.fullName || 'Chưa cập nhật tên'}
+                  </Text>
+                  <Text style={styles.targetMeta}>
+                    Mã: <Text style={{ fontWeight: '700', color: '#1E293B' }}>{target.employee.userCode}</Text> •{' '}
+                    {target.employee.departmentLinks?.[0]?.position?.name || 'Nhân viên'} •{' '}
+                    {target.employee.departmentLinks?.[0]?.department?.name || 'Chưa phân phòng'}
+                  </Text>
+                  <View style={styles.currentVaultStatsRow}>
+                    <Text style={styles.currentVaultStat}>
+                      Đã cấp: <Text style={{ fontWeight: '700', color: '#B45309' }}>
+                        {(target.employee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} đ
+                      </Text>
                     </Text>
-                    <Text style={[styles.presetChipDesc, isSelected && styles.presetChipDescActive]}>
-                      ~ {preset.desc}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                    {(target.employee.retentionVaults?.[0]?.instantBonusPoints || 0) > 0 && (
+                      <Text style={[styles.currentVaultStat, { color: '#059669' }]}>
+                        {' '}• Thưởng nóng: {target.employee.retentionVaults?.[0]?.instantBonusPoints?.toLocaleString('vi-VN')} đ
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            )}
 
-            <Text style={styles.inputFieldLabel}>Hoặc nhập số điểm tùy chỉnh:</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.textInput, { fontSize: 16, fontWeight: '700', color: '#0F172A' }]}
-                keyboardType="numeric"
-                value={customPointsInput}
-                onChangeText={(val) => setCustomPointsInput(val.replace(/[^0-9]/g, ''))}
-                placeholder="VD: 50000"
-                placeholderTextColor="#94A3B8"
-              />
-              <Text style={styles.inputUnitText}>điểm</Text>
-            </View>
-
-            {/* Cash conversion card */}
-            {Boolean(parseInt(customPointsInput, 10)) && (
-              <View style={styles.cashConversionBanner}>
-                <View style={styles.conversionIconBox}>
-                  <MaterialCommunityIcons name="cash-multiple" size={24} color="#B45309" />
+            {target.type === 'DEPARTMENT' && target.department && (
+              <View style={[styles.targetBannerCard, styles.targetDeptCard]}>
+                <View style={styles.deptIconBox}>
+                  <MaterialCommunityIcons name="domain" size={28} color="#1D4ED8" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.conversionLabel}>Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ</Text>
-                  <Text style={styles.conversionAmount}>
-                    {(parseInt(customPointsInput, 10) * 1000).toLocaleString('vi-VN')} VNĐ
+                  <Text style={[styles.targetName, { color: '#1E3A8A' }]}>
+                    {target.department.name}
+                  </Text>
+                  <Text style={[styles.targetMeta, { color: '#3B82F6' }]}>
+                    Mã phòng: {target.department.code} • Áp dụng cho toàn bộ {target.memberCount} nhân sự
                   </Text>
                 </View>
               </View>
             )}
-          </View>
 
-          {/* 4. Form Card: Duration & Interval Configuration */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionTitleRow}>
-              <MaterialCommunityIcons name="calendar-clock-outline" size={20} color="#D97706" />
-              <Text style={styles.sectionTitle}>3. Cấu Hình Thời Hạn & Chu Kỳ Mở Khóa Rút</Text>
-            </View>
-
-            <Text style={styles.inputFieldLabel}>Thời hạn cam kết rút (Số tháng):</Text>
-            <View style={styles.presetChipsWrap}>
-              {DURATION_OPTIONS.map((opt) => {
-                const isSelected = durationMonths === opt.value;
-                return (
-                  <Pressable
-                    key={opt.value}
-                    style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                    onPress={() => setDurationMonths(opt.value)}
-                  >
-                    <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.inputFieldLabel}>Chu kỳ mở khóa rút (Khoảng cách giữa các lần rút):</Text>
-            <View style={styles.presetChipsWrap}>
-              {INTERVAL_OPTIONS.map((opt) => {
-                const isSelected = intervalMonths === opt.value;
-                return (
-                  <Pressable
-                    key={opt.value}
-                    style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                    onPress={() => setIntervalMonths(opt.value)}
-                  >
-                    <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.inputFieldLabel}>Ngày bắt đầu tính hạn mức:</Text>
-            
-            {/* Direct date picker tap card */}
-            <Pressable
-              style={styles.datePickerBtnCard}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <View style={styles.datePickerBtnLeft}>
-                <View style={styles.calendarIconBox}>
-                  <MaterialCommunityIcons name="calendar-month-outline" size={22} color="#D97706" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.datePickerBtnLabel}>Ngày bắt đầu áp dụng:</Text>
-                  <Text style={styles.datePickerBtnVal}>{formattedSelectedDate}</Text>
-                </View>
+            {/* 2. Form Card: Package Name & Note */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionTitleRow}>
+                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#D97706" />
+                <Text style={styles.sectionTitle}>1. Thông tin Gói Thưởng / Dự Án</Text>
               </View>
-              <View style={styles.datePickerChangeChip}>
-                <MaterialCommunityIcons name="calendar-edit" size={15} color="#92400E" />
-                <Text style={styles.datePickerChangeChipText}>Đổi ngày</Text>
+
+              <Text style={styles.inputFieldLabel}>Tên gói thưởng / Tên dự án *</Text>
+              <View style={styles.inputWrapper}>
+                <MaterialCommunityIcons name="tag-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.textInput}
+                  value={grantTitle}
+                  onChangeText={setGrantTitle}
+                  placeholder="VD: Thưởng Dự án ERP, Thưởng Tết 2026, Thưởng Quý..."
+                  placeholderTextColor="#94A3B8"
+                />
               </View>
-            </Pressable>
 
-            {/* Quick preset chips */}
-            <Text style={[styles.inputFieldLabel, { marginTop: 10, fontSize: 11, color: '#64748B' }]}>
-              Hoặc chọn nhanh mốc thời gian:
-            </Text>
-            <View style={styles.presetChipsWrap}>
-              {[
-                { label: 'Hôm nay', value: new Date().toISOString().slice(0, 10) },
-                {
-                  label: 'Đầu tháng này',
-                  value: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
-                },
-                {
-                  label: 'Đầu năm nay',
-                  value: new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
-                },
-              ].map((preset) => {
-                const isSelected = startDateStr === preset.value;
-                return (
-                  <Pressable
-                    key={preset.label}
-                    style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                    onPress={() => setStartDateStr(preset.value)}
-                  >
-                    <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                      {preset.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              <Text style={styles.inputFieldLabel}>Ghi chú / Điều khoản cam kết kèm theo (Tùy chọn)</Text>
+              <View style={[styles.inputWrapper, { height: 72, alignItems: 'flex-start', paddingTop: 8 }]}>
+                <TextInput
+                  style={[styles.textInput, { height: 56, textAlignVertical: 'top' }]}
+                  value={grantNote}
+                  onChangeText={setGrantNote}
+                  multiline
+                  placeholder="VD: Trao thưởng theo cam kết hoàn thành dự án xuất sắc..."
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
             </View>
-          </View>
 
-          {/* 5. Live Calculated Milestones Table */}
-          {calculatedMilestones.length > 0 && (
-            <View style={[styles.sectionCard, styles.milestonePreviewCard]}>
-              <View style={styles.previewHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <MaterialCommunityIcons name="timeline-check" size={20} color="#D97706" />
-                    <Text style={styles.previewTitle}>Lộ Trình Giải Ngân Chi Tiết</Text>
+            {/* 3. Form Card: Points & Cash Amount */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionTitleRow}>
+                <MaterialCommunityIcons name="star-shooting-outline" size={20} color="#D97706" />
+                <Text style={styles.sectionTitle}>2. Số Điểm Trao Thưởng</Text>
+              </View>
+
+              <Text style={styles.inputFieldLabel}>Chọn nhanh số điểm:</Text>
+              <View style={styles.presetChipsWrap}>
+                {PRESET_POINTS.map((preset) => {
+                  const isSelected = parseInt(customPointsInput, 10) === preset.value;
+                  return (
+                    <Pressable
+                      key={preset.value}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                      onPress={() => setCustomPointsInput(preset.value.toString())}
+                    >
+                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
+                        {preset.label} đ
+                      </Text>
+                      <Text style={[styles.presetChipDesc, isSelected && styles.presetChipDescActive]}>
+                        ~ {preset.desc}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.inputFieldLabel}>Hoặc nhập số điểm tùy chỉnh:</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.textInput, { fontSize: 16, fontWeight: '700', color: '#0F172A' }]}
+                  keyboardType="numeric"
+                  value={customPointsInput}
+                  onChangeText={(val) => setCustomPointsInput(val.replace(/[^0-9]/g, ''))}
+                  placeholder="VD: 50000"
+                  placeholderTextColor="#94A3B8"
+                />
+                <Text style={styles.inputUnitText}>điểm</Text>
+              </View>
+
+              {/* Cash conversion card */}
+              {Boolean(parseInt(customPointsInput, 10)) && (
+                <View style={styles.cashConversionBanner}>
+                  <View style={styles.conversionIconBox}>
+                    <MaterialCommunityIcons name="cash-multiple" size={24} color="#B45309" />
                   </View>
-                  <Text style={styles.previewSubtitle}>
-                    Tự động chia thành {calculatedMilestones.length} đợt trong thời hạn {durationMonths} tháng
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.conversionLabel}>Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ</Text>
+                    <Text style={styles.conversionAmount}>
+                      {(parseInt(customPointsInput, 10) * 1000).toLocaleString('vi-VN')} VNĐ
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.previewTotalPill}>
-                  <Text style={styles.previewTotalPillText}>{calculatedMilestones.length} đợt rút</Text>
-                </View>
+              )}
+            </View>
+
+            {/* 4. Form Card: Duration & Interval Configuration */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionTitleRow}>
+                <MaterialCommunityIcons name="calendar-clock-outline" size={20} color="#D97706" />
+                <Text style={styles.sectionTitle}>3. Cấu Hình Thời Hạn & Chu Kỳ Mở Khóa Rút</Text>
               </View>
 
-              <View style={styles.milestoneTable}>
-                {calculatedMilestones.map((m) => (
-                  <View
-                    key={m.index}
-                    style={[
-                      styles.milestoneTableRow,
-                      m.isUnlocked && styles.milestoneTableRowUnlocked,
-                    ]}
-                  >
-                    <View style={styles.milestoneTableLeft}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <MaterialCommunityIcons
-                          name={m.isUnlocked ? 'lock-open-variant' : 'lock-clock'}
-                          size={16}
-                          color={m.isUnlocked ? '#059669' : '#D97706'}
-                        />
-                        <Text style={[styles.milestoneTableTitle, m.isUnlocked && { color: '#065F46' }]}>
-                          {m.title}
+              <Text style={styles.inputFieldLabel}>Thời hạn cam kết rút (Số tháng):</Text>
+              <View style={styles.presetChipsWrap}>
+                {DURATION_OPTIONS.map((opt) => {
+                  const isSelected = durationMonths === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                      onPress={() => setDurationMonths(opt.value)}
+                    >
+                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.inputFieldLabel}>Chu kỳ mở khóa rút (Khoảng cách giữa các lần rút):</Text>
+              <View style={styles.presetChipsWrap}>
+                {INTERVAL_OPTIONS.map((opt) => {
+                  const isSelected = intervalMonths === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                      onPress={() => setIntervalMonths(opt.value)}
+                    >
+                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.inputFieldLabel}>Ngày bắt đầu tính hạn mức:</Text>
+              
+              {/* Direct date picker tap card */}
+              <Pressable
+                style={styles.datePickerBtnCard}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <View style={styles.datePickerBtnLeft}>
+                  <View style={styles.calendarIconBox}>
+                    <MaterialCommunityIcons name="calendar-month-outline" size={22} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.datePickerBtnLabel}>Ngày bắt đầu áp dụng:</Text>
+                    <Text style={styles.datePickerBtnVal}>{formattedSelectedDate}</Text>
+                  </View>
+                </View>
+                <View style={styles.datePickerChangeChip}>
+                  <MaterialCommunityIcons name="calendar-edit" size={15} color="#92400E" />
+                  <Text style={styles.datePickerChangeChipText}>Đổi ngày</Text>
+                </View>
+              </Pressable>
+
+              {/* Quick preset chips */}
+              <Text style={[styles.inputFieldLabel, { marginTop: 10, fontSize: 11, color: '#64748B' }]}>
+                Hoặc chọn nhanh mốc thời gian:
+              </Text>
+              <View style={styles.presetChipsWrap}>
+                {[
+                  { label: 'Hôm nay', value: new Date().toISOString().slice(0, 10) },
+                  {
+                    label: 'Đầu tháng này',
+                    value: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
+                  },
+                  {
+                    label: 'Đầu năm nay',
+                    value: new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
+                  },
+                ].map((preset) => {
+                  const isSelected = startDateStr === preset.value;
+                  return (
+                    <Pressable
+                      key={preset.label}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                      onPress={() => setStartDateStr(preset.value)}
+                    >
+                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* 5. Live Calculated Milestones Table */}
+            {calculatedMilestones.length > 0 && (
+              <View style={[styles.sectionCard, styles.milestonePreviewCard]}>
+                <View style={styles.previewHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <MaterialCommunityIcons name="timeline-check" size={20} color="#D97706" />
+                      <Text style={styles.previewTitle}>Lộ Trình Giải Ngân Chi Tiết</Text>
+                    </View>
+                    <Text style={styles.previewSubtitle}>
+                      Tự động chia thành {calculatedMilestones.length} đợt trong thời hạn {durationMonths} tháng
+                    </Text>
+                  </View>
+                  <View style={styles.previewTotalPill}>
+                    <Text style={styles.previewTotalPillText}>{calculatedMilestones.length} đợt rút</Text>
+                  </View>
+                </View>
+
+                <View style={styles.milestoneTable}>
+                  {calculatedMilestones.map((m) => (
+                    <View
+                      key={m.index}
+                      style={[
+                        styles.milestoneTableRow,
+                        m.isUnlocked && styles.milestoneTableRowUnlocked,
+                      ]}
+                    >
+                      <View style={styles.milestoneTableLeft}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <MaterialCommunityIcons
+                            name={m.isUnlocked ? 'lock-open-variant' : 'lock-clock'}
+                            size={16}
+                            color={m.isUnlocked ? '#059669' : '#D97706'}
+                          />
+                          <Text style={[styles.milestoneTableTitle, m.isUnlocked && { color: '#065F46' }]}>
+                            {m.title}
+                          </Text>
+                        </View>
+                        <Text style={styles.milestoneTableDate}>
+                          Ngày mở khóa: {m.dateFullFormatted || m.dateFormatted}
                         </Text>
                       </View>
-                      <Text style={styles.milestoneTableDate}>
-                        Ngày mở khóa: {m.dateFullFormatted || m.dateFormatted}
-                      </Text>
-                    </View>
 
-                    <View style={styles.milestoneTableRight}>
-                      <Text style={styles.milestoneTablePoints}>
-                        {m.points.toLocaleString('vi-VN')} đ
-                      </Text>
-                      <View
-                        style={[
-                          styles.milestoneStatusTag,
-                          m.isUnlocked ? styles.tagUnlocked : styles.tagLocked,
-                        ]}
-                      >
-                        <Text
+                      <View style={styles.milestoneTableRight}>
+                        <Text style={styles.milestoneTablePoints}>
+                          {m.points.toLocaleString('vi-VN')} đ
+                        </Text>
+                        <View
                           style={[
-                            styles.milestoneStatusTagText,
-                            m.isUnlocked ? styles.tagTextUnlocked : styles.tagTextLocked,
+                            styles.milestoneStatusTag,
+                            m.isUnlocked ? styles.tagUnlocked : styles.tagLocked,
                           ]}
                         >
-                          {m.isUnlocked ? 'Mở khóa ngay' : `Khóa đến ${m.dateFormatted}`}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.milestoneStatusTagText,
+                              m.isUnlocked ? styles.tagTextUnlocked : styles.tagTextLocked,
+                            ]}
+                          >
+                            {m.isUnlocked ? 'Mở khóa ngay' : `Khóa đến ${m.dateFormatted}`}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ))}
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
-
-          {/* Spacer for bottom CTA */}
-          <View style={{ height: 20 }} />
-        </ScrollView>
-
-        {/* Bottom Sticky Action Bar */}
-        <View style={styles.stickyBottomBar}>
-          <Pressable style={styles.backButton} onPress={onBack} disabled={isSubmitting}>
-            <Text style={styles.backButtonText}>Quay lại</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.submitButton, isSubmitting && { opacity: 0.7 }]}
-            onPress={handleConfirmGrant}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <MaterialCommunityIcons name="check-decagram" size={20} color="#FFFFFF" />
-                <Text style={styles.submitButtonText}>XÁC NHẬN TRAO GÓI THƯỞNG</Text>
-              </>
             )}
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+
+            {/* Spacer for bottom CTA */}
+            <View style={{ height: 20 }} />
+          </ScrollView>
+
+          {/* Bottom Sticky Action Bar */}
+          <View style={styles.stickyBottomBar}>
+            <Pressable style={styles.backButton} onPress={onBack} disabled={isSubmitting}>
+              <Text style={styles.backButtonText}>Quay lại</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.submitButton, isSubmitting && { opacity: 0.7 }]}
+              onPress={handleConfirmGrant}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="check-decagram" size={20} color="#FFFFFF" />
+                  <Text style={styles.submitButtonText}>XÁC NHẬN TRAO GÓI THƯỞNG</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
 
       {/* Date Picker Component / Modal */}
       {showDatePicker && Platform.OS === 'android' && (
