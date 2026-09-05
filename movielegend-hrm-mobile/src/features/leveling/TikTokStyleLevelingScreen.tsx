@@ -136,6 +136,194 @@ const getNextReviewDateString = (monthOffset = 0) => {
   return `Kỳ kế tiếp: ${formattedDate}`;
 };
 
+export interface MetalTheme {
+  name: string;
+  badgeName: string;
+  bgDark: string;
+  bgSecondary: string;
+  borderColor: string;
+  accentColor: string;
+  tagBg: string;
+  tagTextColor: string;
+  cardBannerBg: string;
+  cardBannerBorder: string;
+  iconName: keyof typeof Ionicons.glyphMap;
+}
+
+export const getMetalTheme = (level: number): MetalTheme => {
+  switch (level) {
+    case 1:
+      return {
+        name: 'Sắt',
+        badgeName: 'Hạng Sắt',
+        bgDark: '#1E232A',
+        bgSecondary: '#2E3440',
+        borderColor: '#475569',
+        accentColor: '#94A3B8',
+        tagBg: '#F1F5F9',
+        tagTextColor: '#475569',
+        cardBannerBg: '#F8FAFC',
+        cardBannerBorder: '#64748B',
+        iconName: 'hardware-chip-outline',
+      };
+    case 2:
+      return {
+        name: 'Đồng',
+        badgeName: 'Hạng Đồng',
+        bgDark: '#2E1A11',
+        bgSecondary: '#4A2A1B',
+        borderColor: '#92400E',
+        accentColor: '#F59E0B',
+        tagBg: '#FFF7ED',
+        tagTextColor: '#C2410C',
+        cardBannerBg: '#FFFBFA',
+        cardBannerBorder: '#EA580C',
+        iconName: 'shield-outline',
+      };
+    case 3:
+      return {
+        name: 'Bạc',
+        badgeName: 'Hạng Bạc',
+        bgDark: '#1E293B',
+        bgSecondary: '#334155',
+        borderColor: '#94A3B8',
+        accentColor: '#38BDF8',
+        tagBg: '#F0F9FF',
+        tagTextColor: '#0284C7',
+        cardBannerBg: '#F8FAFC',
+        cardBannerBorder: '#0284C7',
+        iconName: 'ribbon-outline',
+      };
+    case 4:
+      return {
+        name: 'Vàng',
+        badgeName: 'Hạng Vàng',
+        bgDark: '#3A2807',
+        bgSecondary: '#593E0A',
+        borderColor: '#D97706',
+        accentColor: '#FBBF24',
+        tagBg: '#FEF3C7',
+        tagTextColor: '#B45309',
+        cardBannerBg: '#FFFDF5',
+        cardBannerBorder: '#D97706',
+        iconName: 'trophy-outline',
+      };
+    case 5:
+      return {
+        name: 'Bạch Kim',
+        badgeName: 'Hạng Bạch Kim',
+        bgDark: '#0F172A',
+        bgSecondary: '#1E293B',
+        borderColor: '#38BDF8',
+        accentColor: '#38BDF8',
+        tagBg: '#F0F9FF',
+        tagTextColor: '#0369A1',
+        cardBannerBg: '#F0F9FF',
+        cardBannerBorder: '#0284C7',
+        iconName: 'medal-outline',
+      };
+    case 6:
+      return {
+        name: 'Kim Cương',
+        badgeName: 'Hạng Kim Cương',
+        bgDark: '#064E3B',
+        bgSecondary: '#065F46',
+        borderColor: '#10B981',
+        accentColor: '#34D399',
+        tagBg: '#ECFDF5',
+        tagTextColor: '#047857',
+        cardBannerBg: '#F0FDF4',
+        cardBannerBorder: '#10B981',
+        iconName: 'diamond-outline',
+      };
+    case 7:
+      return {
+        name: 'Titan',
+        badgeName: 'Hạng Titan',
+        bgDark: '#3B0764',
+        bgSecondary: '#581C87',
+        borderColor: '#A855F7',
+        accentColor: '#C084FC',
+        tagBg: '#F3E8FF',
+        tagTextColor: '#7E22CE',
+        cardBannerBg: '#FAF5FF',
+        cardBannerBorder: '#9333EA',
+        iconName: 'sparkles-outline',
+      };
+    case 8:
+      return {
+        name: 'Ngọc Bích',
+        badgeName: 'Hạng Ngọc Bích',
+        bgDark: '#064E3B',
+        bgSecondary: '#047857',
+        borderColor: '#059669',
+        accentColor: '#10B981',
+        tagBg: '#ECFDF5',
+        tagTextColor: '#047857',
+        cardBannerBg: '#F0FDF4',
+        cardBannerBorder: '#059669',
+        iconName: 'planet-outline',
+      };
+    case 9:
+      return {
+        name: 'Hồng Ngọc',
+        badgeName: 'Hạng Hồng Ngọc',
+        bgDark: '#4C0519',
+        bgSecondary: '#881337',
+        borderColor: '#E11D48',
+        accentColor: '#FB7185',
+        tagBg: '#FFE4E6',
+        tagTextColor: '#BE123C',
+        cardBannerBg: '#FFF1F2',
+        cardBannerBorder: '#E11D48',
+        iconName: 'heart-circle-outline',
+      };
+    case 10:
+      return {
+        name: 'Tinh Thể',
+        badgeName: 'Hạng Tinh Thể',
+        bgDark: '#1E1B4B',
+        bgSecondary: '#312E81',
+        borderColor: '#6366F1',
+        accentColor: '#818CF8',
+        tagBg: '#EEF2FF',
+        tagTextColor: '#4338CA',
+        cardBannerBg: '#EEF2FF',
+        cardBannerBorder: '#6366F1',
+        iconName: 'prism-outline',
+      };
+    case 11:
+      return {
+        name: 'Nguyệt Thạch',
+        badgeName: 'Hạng Nguyệt Thạch',
+        bgDark: '#0C4A6E',
+        bgSecondary: '#0369A1',
+        borderColor: '#0EA5E9',
+        accentColor: '#38BDF8',
+        tagBg: '#E0F2FE',
+        tagTextColor: '#0369A1',
+        cardBannerBg: '#F0F9FF',
+        cardBannerBorder: '#0EA5E9',
+        iconName: 'moon-outline',
+      };
+    case 12:
+    default:
+      return {
+        name: 'Huyền Thoại',
+        badgeName: 'Hạng Huyền Thoại',
+        bgDark: '#18181B',
+        bgSecondary: '#27272A',
+        borderColor: '#F59E0B',
+        accentColor: '#FBBF24',
+        tagBg: '#FEF3C7',
+        tagTextColor: '#92400E',
+        cardBannerBg: '#FFFDF5',
+        cardBannerBorder: '#F59E0B',
+        iconName: 'crown-outline',
+      };
+  }
+};
+
 export const TikTokStyleLevelingScreen: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
@@ -506,68 +694,104 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         {/* ===================================================================== */}
         {/* 1. VIP MEMBERSHIP CARD                                                */}
         {/* ===================================================================== */}
-        <View style={styles.cardSection}>
-          <View style={styles.vipCardContainer}>
-            {/* Top row: Back button, Level Name, User Name, and Perks Link */}
-            <View style={styles.vipCardTop}>
-              <View style={styles.vipCardHeaderLeft}>
-                <View style={styles.rankTitleRow}>
+        {(() => {
+          const currentMetal = getMetalTheme(currentActiveTier.levelNumber);
+          return (
+            <View style={styles.cardSection}>
+              <View style={[
+                styles.vipCardContainer, 
+                { backgroundColor: currentMetal.bgDark, borderColor: currentMetal.borderColor }
+              ]}>
+                {/* Top row: Back button, Level Name, Metal Badge, User Name, and Perks Link */}
+                <View style={styles.vipCardTop}>
+                  <View style={styles.vipCardHeaderLeft}>
+                    <View style={styles.rankTitleRow}>
+                      <TouchableOpacity
+                        style={styles.cardBackBtn}
+                        onPress={() => router.back()}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                      </TouchableOpacity>
+                      <Text style={styles.vipRankTitle}>{currentActiveTier.levelName}</Text>
+                      
+                      {/* Metal Tier Badge Pill */}
+                      <View style={[styles.metalBadgePill, { borderColor: currentMetal.accentColor, backgroundColor: 'rgba(255, 255, 255, 0.12)' }]}>
+                        <Ionicons name={currentMetal.iconName} size={12} color={currentMetal.accentColor} />
+                        <Text style={[styles.metalBadgeText, { color: currentMetal.accentColor }]}>
+                          {currentMetal.badgeName}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.vipUserName}>{userDisplayName}</Text>
+                  </View>
+
                   <TouchableOpacity
-                    style={styles.cardBackBtn}
-                    onPress={() => router.back()}
+                    style={styles.tierBenefitsBtn}
+                    onPress={() => setAllLevelsModalVisible(true)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                    <Text style={styles.tierBenefitsBtnText}>Ưu đãi mỗi Level</Text>
+                    <Ionicons name="chevron-forward" size={13} color="#E2E8F0" />
                   </TouchableOpacity>
-                  <Text style={styles.vipRankTitle}>{currentActiveTier.levelName}</Text>
                 </View>
-                <Text style={styles.vipUserName}>{userDisplayName}</Text>
-              </View>
 
-              <TouchableOpacity
-                style={styles.tierBenefitsBtn}
-                onPress={() => setAllLevelsModalVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.tierBenefitsBtnText}>Ưu đãi mỗi Level</Text>
-                <Ionicons name="chevron-forward" size={13} color="#E2E8F0" />
-              </TouchableOpacity>
+                {/* Inner Floating White Card */}
+                <View style={styles.whiteFloatingCard}>
+                  <View style={styles.upgradeNoticeHeaderRow}>
+                    <View style={[styles.upgradeNoticePill, { backgroundColor: currentMetal.tagBg }]}>
+                      <Ionicons name="trending-up" size={14} color={currentMetal.tagTextColor} />
+                      <Text style={[styles.upgradeHeaderNoticeText, { color: currentMetal.tagTextColor }]}>
+                        Mục tiêu thăng cấp lên {currentActiveTier.nextTierTitle}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Tên Dự Án Ở Giữa Card */}
+                  <View style={[
+                    styles.cardProjectBanner, 
+                    { backgroundColor: currentMetal.cardBannerBg, borderLeftColor: currentMetal.cardBannerBorder }
+                  ]}>
+                    <View style={styles.cardProjectTagRow}>
+                      <Text style={[styles.cardProjectTagText, { color: currentMetal.cardBannerBorder }]}>
+                        DỰ ÁN {currentActiveTier.levelName.toUpperCase()}
+                      </Text>
+                      <View style={[styles.cardProjectStatusBadge, { backgroundColor: currentMetal.tagBg }]}>
+                        <Text style={[styles.cardProjectStatusBadgeText, { color: currentMetal.tagTextColor }]}>
+                          Đang thực hiện
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.cardProjectMainTitle}>
+                      {currentActiveTier.projectTitle}
+                    </Text>
+                    <Text style={styles.cardProjectSubText}>
+                      • {currentActiveTier.projectSub}
+                    </Text>
+                  </View>
+
+                  {/* Card Footer: Date & Details link */}
+                  <View style={styles.cardFooterRow}>
+                    <View style={styles.cardFooterDateRow}>
+                      <Ionicons name="calendar-outline" size={14} color="#64748B" />
+                      <Text style={styles.cardFooterDate}>
+                        Kỳ xét duyệt: 30.09.2026 (Còn 28 ngày)
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.cardFooterDetailLink}
+                      onPress={() => setInfoModalVisible(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.cardFooterDetailText, { color: currentMetal.cardBannerBorder }]}>Chi Tiết</Text>
+                      <Ionicons name="chevron-forward" size={14} color={currentMetal.cardBannerBorder} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
             </View>
-
-            {/* Inner Floating White Card */}
-            <View style={styles.whiteFloatingCard}>
-              <Text style={styles.upgradeHeaderNotice}>
-                Mục tiêu thăng cấp lên {currentActiveTier.nextTierTitle}
-              </Text>
-
-              {/* Tên Dự Án Ở Giữa Card */}
-              <View style={styles.cardProjectBanner}>
-                <Text style={styles.cardProjectTagText}>DỰ ÁN {currentActiveTier.levelName.toUpperCase()}</Text>
-                <Text style={styles.cardProjectMainTitle}>
-                  {currentActiveTier.projectTitle}
-                </Text>
-                <Text style={styles.cardProjectSubText}>
-                  • {currentActiveTier.projectSub}
-                </Text>
-              </View>
-
-              {/* Card Footer: Date & Details link */}
-              <View style={styles.cardFooterRow}>
-                <Text style={styles.cardFooterDate}>
-                  Kỳ xét duyệt: 30.09.2026 (Còn 28 ngày)
-                </Text>
-                <TouchableOpacity
-                  style={styles.cardFooterDetailLink}
-                  onPress={() => setInfoModalVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cardFooterDetailText}>Chi Tiết</Text>
-                  <Ionicons name="chevron-forward" size={13} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
+          );
+        })()}
 
         {/* ===================================================================== */}
         {/* 2. LEVEL MILESTONES (Thanh nấc thang chọn xem các cấp trong lộ trình)  */}
@@ -578,13 +802,18 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
             {myLevelList.map((tier) => {
               const isSelected = selectedLevel === tier.levelNumber;
               const isCurrent = tier.isCurrent;
+              const tierMetal = getMetalTheme(tier.levelNumber);
 
               return (
                 <TouchableOpacity
                   key={tier.levelNumber}
                   style={[
                     styles.stepChip,
-                    isSelected && styles.stepChipSelected,
+                    isSelected && {
+                      backgroundColor: tierMetal.bgDark,
+                      borderColor: tierMetal.accentColor,
+                      borderWidth: 1.5,
+                    },
                     isCurrent && !isSelected && styles.stepChipCurrent,
                   ]}
                   onPress={() => setSelectedLevel(tier.levelNumber)}
@@ -594,25 +823,25 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.stepChipLevelText,
-                        isSelected && styles.stepChipTextSelected,
+                        isSelected && { color: tierMetal.accentColor, fontWeight: '800' },
                         isCurrent && !isSelected && styles.stepChipTextCurrent,
                       ]}
                     >
                       {tier.levelName}
                     </Text>
                     {isCurrent && (
-                      <View style={styles.currentDot} />
+                      <View style={[styles.currentDot, { backgroundColor: tierMetal.accentColor }]} />
                     )}
                   </View>
 
                   <Text
                     style={[
                       styles.stepChipSubText,
-                      isSelected && styles.stepChipSubSelected,
+                      isSelected && { color: '#E2E8F0', fontWeight: '600' },
                     ]}
                     numberOfLines={1}
                   >
-                    {isCurrent ? 'Hiện tại' : 'Mục tiêu'}
+                    {isCurrent ? `${tierMetal.name}` : tierMetal.name}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1252,6 +1481,22 @@ const styles = StyleSheet.create({
   rankTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  metalBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  metalBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 
   scrollBody: {
@@ -1267,22 +1512,22 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   vipCardContainer: {
-    backgroundColor: '#262A32',
-    borderRadius: 18,
+    backgroundColor: '#1E232A',
+    borderRadius: 20,
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#374151',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: '#475569',
   },
   vipCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   vipCardHeaderLeft: {
     flex: 1,
@@ -1295,17 +1540,17 @@ const styles = StyleSheet.create({
   },
   vipUserName: {
     fontSize: 13,
-    color: '#CBD5E1',
-    marginTop: 2,
+    color: '#E2E8F0',
+    marginTop: 4,
     fontWeight: '500',
   },
   tierBenefitsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 14,
   },
   tierBenefitsBtnText: {
@@ -1317,42 +1562,67 @@ const styles = StyleSheet.create({
   /* Inner White Floating Card */
   whiteFloatingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  upgradeHeaderNotice: {
-    fontSize: 12,
+  upgradeNoticeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  upgradeNoticePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  upgradeHeaderNoticeText: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#EA580C',
-    marginBottom: 8,
   },
 
   /* Tên Dự Án Ở Giữa Card */
   cardProjectBanner: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 12,
-    borderLeftWidth: 3,
+    borderLeftWidth: 3.5,
     borderLeftColor: '#2563EB',
+  },
+  cardProjectTagRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   cardProjectTagText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#2563EB',
     letterSpacing: 0.5,
-    marginBottom: 3,
+  },
+  cardProjectStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  cardProjectStatusBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
   },
   cardProjectMainTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
-    lineHeight: 18,
+    lineHeight: 19,
   },
   cardProjectSubText: {
     fontSize: 11,
@@ -1364,13 +1634,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#F1F5F9',
+  },
+  cardFooterDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   cardFooterDate: {
     fontSize: 10.5,
-    color: '#6B7280',
+    color: '#64748B',
+    fontWeight: '500',
   },
   cardFooterDetailLink: {
     flexDirection: 'row',
@@ -1378,9 +1654,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   cardFooterDetailText: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   /* ============================================================ */
