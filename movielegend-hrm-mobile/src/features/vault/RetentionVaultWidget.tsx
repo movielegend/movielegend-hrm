@@ -150,10 +150,10 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const currentQuarterNum = Math.min(4, Math.floor(now.getMonth() / 3) + 1);
 
   const qMeta = [
-    { q: 1, label: 'Quý 1', dateLabel: '31/03', unlockDate: new Date(currentYear, 2, 31), icon: 'file-document-check' },
-    { q: 2, label: 'Quý 2', dateLabel: '30/06', unlockDate: new Date(currentYear, 5, 30), icon: 'pot-steam' },
-    { q: 3, label: 'Quý 3', dateLabel: '30/09', unlockDate: new Date(currentYear, 8, 30), icon: 'moped' },
-    { q: 4, label: 'Quý 4 (Tết)', dateLabel: '31/12', unlockDate: new Date(currentYear, 11, 31), icon: 'home-variant' },
+    { q: 1, label: 'Quý 1', dateLabel: '31/03', unlockDate: new Date(currentYear, 2, 31), icon: 'handshake' },
+    { q: 2, label: 'Quý 2', dateLabel: '30/06', unlockDate: new Date(currentYear, 5, 30), icon: 'trending-up' },
+    { q: 3, label: 'Quý 3', dateLabel: '30/09', unlockDate: new Date(currentYear, 8, 30), icon: 'trophy-award' },
+    { q: 4, label: 'Quý 4 (Tết)', dateLabel: '31/12', unlockDate: new Date(currentYear, 11, 31), icon: 'gift' },
   ];
 
   const quarterSteps = qMeta.map((qm) => {
@@ -268,8 +268,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           </View>
           <View style={styles.shopeeAvatarCircle}>
             <MaterialCommunityIcons
-              name={currentQuarterNum === 4 ? 'gift' : 'moped'}
-              size={32}
+              name="wallet-giftcard"
+              size={28}
               color="#EE4D2D"
             />
           </View>
