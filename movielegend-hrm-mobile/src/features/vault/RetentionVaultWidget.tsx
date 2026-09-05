@@ -195,65 +195,78 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
   return (
     <View style={styles.cardContainer}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerTitleGroup}>
-          <Ionicons name="gift-sharp" size={24} color="#D97706" />
-          <Text style={styles.cardTitle}>Ví Thưởng Giữ Chân & Tết {new Date().getFullYear()}</Text>
-        </View>
-        <View style={styles.badgeOptIn}>
-          <Text style={styles.badgeOptInText}>Đặc Quyền Nhân Tài</Text>
-        </View>
-      </View>
-
-      <Text style={styles.subSubtitle}>
-        Tổng Quỹ Cam Kết Năm: <Text style={styles.boldText}>{stats.totalGrantedPoints.toLocaleString('vi-VN')} điểm</Text> ({totalGrantedCash.toLocaleString('vi-VN')} VNĐ)
-      </Text>
-
-      {/* Balance Summary Grid */}
-      <View style={styles.balanceGrid}>
-        {/* 1. Unlocked & Ready to Withdraw */}
-        <View style={[styles.balanceBox, styles.unlockedBox]}>
-          <View style={styles.boxHeaderRow}>
-            <Ionicons name="lock-open-outline" size={18} color="#059669" />
-            <Text style={styles.boxLabelUnlocked}>Khả Dụng Tức Thì</Text>
-          </View>
-          <Text style={styles.unlockedAmountText}>
-            {unlockedCash.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
-          </Text>
-          <Text style={styles.unlockedPointSub}>{stats.unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
-
-          {stats.instantBonusPoints > 0 && (
-            <View style={styles.instantTagBadge}>
-              <MaterialCommunityIcons name="lightning-bolt" size={12} color="#059669" />
-              <Text style={styles.instantTagText}>
-                Gồm {stats.instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
-              </Text>
+      {/* VIP Premium Fintech Hero Card */}
+      <View style={styles.vipHeroCard}>
+        {/* Card Header */}
+        <View style={styles.vipHeroHeader}>
+          <View style={styles.vipHeroTitleGroup}>
+            <View style={styles.vipHeroIconBadge}>
+              <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#D97706" />
             </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.withdrawBtn}
-            onPress={openWithdrawModal}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="cash-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.withdrawBtnText}>Rút Tiền Ngay</Text>
-          </TouchableOpacity>
+            <View>
+              <Text style={styles.vipHeroTitle}>Ví Thưởng Giữ Chân & Tết {currentYear}</Text>
+              <Text style={styles.vipHeroSubtitle}>Đặc Quyền Nhân Tài Doanh Nghiệp</Text>
+            </View>
+          </View>
+          <View style={styles.vipBadgeChip}>
+            <MaterialCommunityIcons name="crown" size={13} color="#B45309" />
+            <Text style={styles.vipBadgeChipText}>VIP</Text>
+          </View>
         </View>
 
-        {/* 2. Locked & Max Advance Limit */}
-        <View style={[styles.balanceBox, styles.lockedBox]}>
-          <View style={styles.boxHeaderRow}>
-            <Ionicons name="shield-outline" size={18} color="#D97706" />
-            <Text style={styles.boxLabelLocked}>Hạn Mức Tối Đa (Kèm ứng)</Text>
+        {/* Main Available Balance Centerpiece */}
+        <View style={styles.vipBalanceCenterpiece}>
+          <Text style={styles.vipBalanceLabel}>SỐ DƯ KHẢ DỤNG TỨC THÌ</Text>
+          <View style={styles.vipAmountRow}>
+            <Text style={styles.vipAmountNumber}>{unlockedCash.toLocaleString('vi-VN')}</Text>
+            <Text style={styles.vipCurrency}>VNĐ</Text>
           </View>
-          <Text style={styles.lockedAmountText}>
-            {maxWithdrawableCash.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
-          </Text>
-          <Text style={styles.lockedPointSub}>{stats.maxWithdrawable.toLocaleString('vi-VN')} điểm</Text>
-          <Text style={styles.vestingNote}>
-            Cho phép ứng trước hạn mức từ các quý tương lai (ưu tiên trừ từ Q4).
+          <View style={styles.vipPillRow}>
+            <View style={styles.vipPointPill}>
+              <MaterialCommunityIcons name="star-four-points" size={12} color="#059669" />
+              <Text style={styles.vipPointPillText}>{stats.unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
+            </View>
+            {stats.instantBonusPoints > 0 && (
+              <View style={styles.vipInstantPill}>
+                <MaterialCommunityIcons name="lightning-bolt" size={12} color="#D97706" />
+                <Text style={styles.vipInstantPillText}>
+                  Đã gồm {stats.instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Sub-metrics: 2 Equal Columns */}
+        <View style={styles.vipMetricsGrid}>
+          <View style={styles.vipMetricCol}>
+            <Text style={styles.vipMetricLabel}>Tổng Quỹ Cam Kết Năm</Text>
+            <Text style={styles.vipMetricValue}>{totalGrantedCash.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSub}>{stats.totalGrantedPoints.toLocaleString('vi-VN')} điểm</Text>
+          </View>
+          <View style={styles.vipMetricDivider} />
+          <View style={styles.vipMetricCol}>
+            <Text style={styles.vipMetricLabel}>Hạn Mức Tối Đa (Kèm ứng)</Text>
+            <Text style={styles.vipMetricValueGold}>{maxWithdrawableCash.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSubGold}>{stats.maxWithdrawable.toLocaleString('vi-VN')} điểm</Text>
+          </View>
+        </View>
+
+        {/* Primary CTA Withdraw Button */}
+        <TouchableOpacity
+          style={styles.vipWithdrawActionBtn}
+          onPress={openWithdrawModal}
+          activeOpacity={0.85}
+        >
+          <MaterialCommunityIcons name="bank-transfer-out" size={20} color="#FFFFFF" />
+          <Text style={styles.vipWithdrawActionText}>RÚT TIỀN VỀ TÀI KHOẢN NGÂN HÀNG</Text>
+        </TouchableOpacity>
+
+        {/* Advance Note Footer */}
+        <View style={styles.vipFooterNote}>
+          <MaterialCommunityIcons name="shield-check-outline" size={14} color="#92400E" />
+          <Text style={styles.vipFooterNoteText}>
+            Hệ thống hỗ trợ rút ứng trước từ các quý tương lai (ưu tiên khấu trừ từ Quý 4).
           </Text>
         </View>
       </View>
@@ -598,37 +611,127 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   cardContainer: {
+    marginVertical: 4,
+  },
+  vipHeroCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  vipHeroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  vipHeroTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  vipHeroIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vipHeroTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  vipHeroSubtitle: {
+    fontSize: 11,
+    color: '#78350F',
+    marginTop: 1,
+  },
+  vipBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vipBadgeChipText: {
+    color: '#B45309',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  vipBalanceCenterpiece: {
+    backgroundColor: '#ECFDF5',
     borderRadius: 16,
     padding: 16,
-    marginVertical: 10,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  vipBalanceLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  vipAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
     marginBottom: 8,
   },
-  headerTitleGroup: {
+  vipAmountNumber: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#047857',
+    letterSpacing: -0.5,
+  },
+  vipCurrency: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  vipPillRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
-  cardTitle: {
-    fontSize: 15,
+  vipPointPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  vipPointPillText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
-    flexShrink: 1,
+    color: '#065F46',
   },
-  badgeOptIn: {
+  vipInstantPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -636,115 +739,93 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
-  badgeOptInText: {
-    color: '#B45309',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  subSubtitle: {
-    fontSize: 13,
-    color: '#475569',
-    marginBottom: 14,
-  },
-  boldText: {
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  balanceGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  balanceBox: {
-    flex: 1,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-  },
-  unlockedBox: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  lockedBox: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  boxHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  boxLabelUnlocked: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#065F46',
-  },
-  boxLabelLocked: {
+  vipInstantPillText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#92400E',
   },
-  unlockedAmountText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#059669',
+  vipMetricsGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  lockedAmountText: {
-    fontSize: 16,
+  vipMetricCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  vipMetricLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  vipMetricValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  vipMetricSub: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  vipMetricValueGold: {
+    fontSize: 14,
     fontWeight: '800',
     color: '#D97706',
   },
-  currencyUnit: {
+  vipMetricSubGold: {
     fontSize: 10,
-    fontWeight: '500',
-  },
-  unlockedPointSub: {
-    fontSize: 11,
-    color: '#047857',
-    marginTop: 1,
-    marginBottom: 6,
-  },
-  lockedPointSub: {
-    fontSize: 11,
     color: '#B45309',
     marginTop: 1,
   },
-  instantTagBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 8,
+  vipMetricDivider: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 8,
   },
-  instantTagText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#065F46',
-  },
-  withdrawBtn: {
-    backgroundColor: '#059669',
+  vipWithdrawActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 7,
-    borderRadius: 8,
-    marginTop: 4,
+    gap: 8,
+    backgroundColor: '#059669',
+    paddingVertical: 13,
+    borderRadius: 12,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  withdrawBtnText: {
+  vipWithdrawActionText: {
+    fontSize: 13,
+    fontWeight: '800',
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  vestingNote: {
-    fontSize: 10,
+  vipFooterNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  vipFooterNoteText: {
+    fontSize: 11,
     color: '#92400E',
-    marginTop: 4,
-    lineHeight: 14,
+    flex: 1,
+    lineHeight: 16,
   },
   shopeeTrackerCard: {
     backgroundColor: '#FFFFFF',
