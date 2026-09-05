@@ -9,6 +9,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
+import { GrantVaultPointsDto, BulkGrantVaultPointsDto } from './dto/grant-vault-points.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -339,6 +340,10 @@ export class AdminService {
             where: { leftAt: null },
             include: { department: true, position: true } 
           },
+          retentionVaults: {
+            include: { milestones: { orderBy: { quarter: 'asc' } } },
+            orderBy: { year: 'desc' },
+          },
         },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -366,6 +371,10 @@ export class AdminService {
         departmentLinks: { 
           where: { leftAt: null },
           include: { department: true, position: true } 
+        },
+        retentionVaults: {
+          include: { milestones: { orderBy: { quarter: 'asc' } } },
+          orderBy: { year: 'desc' },
         },
       },
     });
@@ -511,5 +520,144 @@ export class AdminService {
 
       return { deleted: true, id };
     });
+  }
+
+  async grantVaultPoints(dto: GrantVaultPointsDto, actor: AuthenticatedUser) {
+    const year = dto.year || 2026;
+    const cashValuePerPoint = dto.cashValuePerPoint || 1000;
+    const points = dto.points;
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: dto.userId },
+        include: { profile: true },
+      });
+      if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy nhân viên');
+
+      // 1. Upsert TalentRetentionVault
+      const vault = await tx.talentRetentionVault.upsert({
+        where: {
+          userId_year: {
+            userId: dto.userId,
+            year,
+          },
+        },
+        create: {
+          userId: dto.userId,
+          year,
+          grantedPoints: points,
+          cashValuePerPoint,
+          status: 'ACTIVE',
+        },
+        update: {
+          grantedPoints: points,
+          cashValuePerPoint,
+          status: 'ACTIVE',
+        },
+      });
+
+      // 2. Re-create the 4 quarterly vesting milestones
+      await tx.vestingMilestone.deleteMany({
+        where: { vaultId: vault.id },
+      });
+
+      const qPoints = Math.floor(points / 4);
+      const qRemainder = points - qPoints * 3; // remainder in last quarter
+      const qDates = [
+        new Date(year, 2, 31),  // Q1: March 31
+        new Date(year, 5, 30),  // Q2: June 30
+        new Date(year, 8, 30),  // Q3: September 30
+        new Date(year, 11, 31), // Q4: December 31
+      ];
+
+      for (let q = 1; q <= 4; q++) {
+        const pts = q === 4 ? qRemainder : qPoints;
+        const cash = pts * cashValuePerPoint;
+        await tx.vestingMilestone.create({
+          data: {
+            vaultId: vault.id,
+            quarter: q,
+            unlockDate: qDates[q - 1],
+            pointsToUnlock: pts,
+            cashAmount: cash,
+            isUnlocked: false,
+            isWithdrawn: false,
+          },
+        });
+      }
+
+      // 3. Ensure isRewardVaultEnabled is set to true
+      await tx.user.update({
+        where: { id: dto.userId },
+        data: { isRewardVaultEnabled: true },
+      });
+
+      // 4. Audit Log
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'admin.vault.grant_points',
+          entityType: 'TalentRetentionVault',
+          entityId: vault.id,
+          metadata: {
+            userId: dto.userId,
+            userCode: user.userCode,
+            points,
+            year,
+            totalCash: points * cashValuePerPoint,
+          },
+        },
+      });
+
+      // 5. Send notification to user
+      const totalCashFormatted = (points * cashValuePerPoint).toLocaleString('vi-VN');
+      const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Trao thưởng Đặc quyền Ví Tết 🧧',
+        body: `Ban Giám Đốc vừa trao tặng bạn ${points.toLocaleString('vi-VN')} điểm thưởng Ví Tết (~${totalCashFormatted} VNĐ)!`,
+      });
+      if (notif) this.notifications.emitCreated(notif);
+
+      return tx.talentRetentionVault.findUnique({
+        where: { id: vault.id },
+        include: { milestones: { orderBy: { quarter: 'asc' } } },
+      });
+    });
+  }
+
+  async bulkGrantVaultPoints(dto: BulkGrantVaultPointsDto, actor: AuthenticatedUser) {
+    let targetUserIds: string[] = dto.userIds || [];
+
+    if (dto.departmentId) {
+      const members = await this.prisma.departmentMember.findMany({
+        where: { departmentId: dto.departmentId, leftAt: null },
+        select: { userId: true },
+      });
+      targetUserIds = members.map((m) => m.userId);
+    }
+
+    if (targetUserIds.length === 0) {
+      throw badRequest('NO_USERS_FOUND', 'Không tìm thấy nhân sự phù hợp để trao điểm');
+    }
+
+    const results = [];
+    for (const uId of targetUserIds) {
+      const res = await this.grantVaultPoints(
+        {
+          userId: uId,
+          points: dto.points,
+          year: dto.year,
+          cashValuePerPoint: dto.cashValuePerPoint,
+        },
+        actor
+      );
+      results.push(res);
+    }
+
+    return {
+      success: true,
+      totalGrantedUsers: results.length,
+      pointsPerUser: dto.points,
+    };
   }
 }

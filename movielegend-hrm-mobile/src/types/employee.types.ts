@@ -49,6 +49,28 @@ export interface FaceProfile {
   images: FaceRegistrationImage[];
 }
 
+export interface VestingMilestone {
+  id: string;
+  vaultId: string;
+  quarter: number;
+  unlockDate: string;
+  pointsToUnlock: number;
+  cashAmount: number;
+  isUnlocked: boolean;
+  isWithdrawn: boolean;
+  withdrawnAt?: string | null;
+}
+
+export interface TalentRetentionVault {
+  id: string;
+  userId: string;
+  year: number;
+  grantedPoints: number;
+  cashValuePerPoint: number;
+  status: string;
+  milestones?: VestingMilestone[];
+}
+
 export interface EmployeeUser {
   id: string;
   userCode: string;
@@ -58,6 +80,7 @@ export interface EmployeeUser {
   approvalStatus: ApprovalStatus;
   isActive: boolean;
   isRewardVaultEnabled?: boolean;
+  retentionVaults?: TalentRetentionVault[];
   createdAt?: string;
   updatedAt?: string;
   profile?: EmployeeProfile | null;

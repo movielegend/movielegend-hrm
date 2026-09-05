@@ -11,6 +11,8 @@ import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 
+import { GrantVaultPointsDto, BulkGrantVaultPointsDto } from './dto/grant-vault-points.dto';
+
 @ApiTags('Users')
 @ApiBearerAuth()
 @Roles('ADMIN', 'LEADER')
@@ -70,5 +72,17 @@ export class AdminController {
   @Delete('users/:id')
   deleteUser(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.deleteUser(id, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/grant')
+  grantVaultPoints(@Body() dto: GrantVaultPointsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.grantVaultPoints(dto, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/bulk-grant')
+  bulkGrantVaultPoints(@Body() dto: BulkGrantVaultPointsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.bulkGrantVaultPoints(dto, actor);
   }
 }

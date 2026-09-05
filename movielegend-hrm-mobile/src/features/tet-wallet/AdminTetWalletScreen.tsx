@@ -14,6 +14,8 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -28,7 +30,11 @@ import { spacing } from '../../theme/spacing';
 import type { Department } from '../../types/department.types';
 import type { EmployeeUser } from '../../types/employee.types';
 import { useQueryClient } from '@tanstack/react-query';
-import { updateEmployee as apiUpdateEmployee } from '../../api/employees.api';
+import {
+  updateEmployee as apiUpdateEmployee,
+  grantVaultPoints as apiGrantVaultPoints,
+  bulkGrantVaultPoints as apiBulkGrantVaultPoints,
+} from '../../api/employees.api';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -37,6 +43,21 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 type ViewMode = 'BY_DEPARTMENT' | 'ALL_EMPLOYEES';
 type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
 
+interface GrantTarget {
+  type: 'SINGLE' | 'DEPARTMENT';
+  employee?: EmployeeUser;
+  department?: Department;
+  memberCount?: number;
+}
+
+const PRESET_POINTS = [
+  { label: '10.000', value: 10000, desc: '10 triệu' },
+  { label: '20.000', value: 20000, desc: '20 triệu' },
+  { label: '50.000', value: 50000, desc: '50 triệu' },
+  { label: '100.000', value: 100000, desc: '100 triệu' },
+  { label: '200.000', value: 200000, desc: '200 triệu' },
+];
+
 export function AdminTetWalletScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('BY_DEPARTMENT');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
@@ -44,6 +65,12 @@ export function AdminTetWalletScreen() {
   const [expandedDeptIds, setExpandedDeptIds] = useState<Record<string, boolean>>({});
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeUser | null>(null);
   const [togglingEmpId, setTogglingEmpId] = useState<string | null>(null);
+
+  // Grant Modal State
+  const [grantTarget, setGrantTarget] = useState<GrantTarget | null>(null);
+  const [grantPoints, setGrantPoints] = useState<number>(50000);
+  const [customPointsInput, setCustomPointsInput] = useState<string>('50000');
+  const [isSubmittingGrant, setIsSubmittingGrant] = useState<boolean>(false);
 
   const queryClient = useQueryClient();
   const departmentsQuery = useDepartments({ limit: 100 });
@@ -84,7 +111,14 @@ export function AdminTetWalletScreen() {
   const totalEmployees = employees.length;
   const enabledCount = employees.filter((e) => Boolean(e.isRewardVaultEnabled)).length;
   const disabledCount = totalEmployees - enabledCount;
-  const enabledPercent = totalEmployees > 0 ? Math.round((enabledCount / totalEmployees) * 100) : 0;
+
+  // Calculate total points granted across all employees
+  const totalPointsGranted = useMemo(() => {
+    return employees.reduce((sum, emp) => {
+      const vault = emp.retentionVaults?.[0];
+      return sum + (vault ? Number(vault.grantedPoints || 0) : 0);
+    }, 0);
+  }, [employees]);
 
   // Toggle department collapse/expand
   const toggleDepartment = (deptId: string) => {
@@ -111,7 +145,7 @@ export function AdminTetWalletScreen() {
       setTogglingEmpId(emp.id);
       await apiUpdateEmployee(emp.id, { isRewardVaultEnabled: nextState });
       await queryClient.invalidateQueries({ queryKey: ['employees'] });
-      
+
       if (selectedEmployee?.id === emp.id) {
         setSelectedEmployee((prev) => (prev ? { ...prev, isRewardVaultEnabled: nextState } : null));
       }
@@ -119,6 +153,75 @@ export function AdminTetWalletScreen() {
       Alert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Tết lúc này.');
     } finally {
       setTogglingEmpId(null);
+    }
+  };
+
+  // Open Grant Modal for Single Employee
+  const openGrantForEmployee = (emp: EmployeeUser) => {
+    const currentPoints = emp.retentionVaults?.[0]?.grantedPoints || 50000;
+    setGrantPoints(currentPoints);
+    setCustomPointsInput(currentPoints.toString());
+    setGrantTarget({
+      type: 'SINGLE',
+      employee: emp,
+    });
+  };
+
+  // Open Grant Modal for Department
+  const openGrantForDepartment = (dept: Department) => {
+    const deptMembers = employeesByDept[dept.id] || [];
+    setGrantPoints(50000);
+    setCustomPointsInput('50000');
+    setGrantTarget({
+      type: 'DEPARTMENT',
+      department: dept,
+      memberCount: deptMembers.length,
+    });
+  };
+
+  // Submit Grant Points
+  const handleConfirmGrantPoints = async () => {
+    if (!grantTarget) return;
+    const pts = parseInt(customPointsInput, 10);
+    if (isNaN(pts) || pts <= 0) {
+      Alert.alert('Số điểm không hợp lệ', 'Vui lòng nhập số điểm lớn hơn 0.');
+      return;
+    }
+
+    try {
+      setIsSubmittingGrant(true);
+      const currentYear = new Date().getFullYear();
+
+      if (grantTarget.type === 'SINGLE' && grantTarget.employee) {
+        await apiGrantVaultPoints({
+          userId: grantTarget.employee.id,
+          points: pts,
+          year: currentYear,
+          cashValuePerPoint: 1000,
+        });
+        Alert.alert(
+          'Trao điểm thành công',
+          `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) Ví Tết năm ${currentYear} cho ${grantTarget.employee.profile?.fullName || grantTarget.employee.userCode}.`
+        );
+      } else if (grantTarget.type === 'DEPARTMENT' && grantTarget.department) {
+        await apiBulkGrantVaultPoints({
+          departmentId: grantTarget.department.id,
+          points: pts,
+          year: currentYear,
+          cashValuePerPoint: 1000,
+        });
+        Alert.alert(
+          'Trao điểm thành công',
+          `Đã trao ${pts.toLocaleString('vi-VN')} điểm/nhân sự cho toàn bộ phòng ban "${grantTarget.department.name}".`
+        );
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setGrantTarget(null);
+    } catch (err: any) {
+      Alert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
+    } finally {
+      setIsSubmittingGrant(false);
     }
   };
 
@@ -211,7 +314,7 @@ export function AdminTetWalletScreen() {
         {/* Header */}
         <PageHeader
           title="Quyền Ví Tết"
-          subtitle="Quản lý hạn mức & phân quyền ví Tết nhân sự"
+          subtitle="Quản lý hạn mức & trao điểm Ví Tết cho nhân sự"
           showBack={false}
           right={
             <View style={styles.headerIconBox}>
@@ -224,7 +327,7 @@ export function AdminTetWalletScreen() {
         <View style={styles.statsCardWrapper}>
           <View style={styles.statBox}>
             <View style={[styles.statIconBadge, { backgroundColor: '#EEF2FF' }]}>
-              <MaterialCommunityIcons name="account-group" size={20} color="#4F46E5" />
+              <MaterialCommunityIcons name="account-group" size={18} color="#4F46E5" />
             </View>
             <Text style={styles.statValue}>{totalEmployees}</Text>
             <Text style={styles.statLabel}>Tổng nhân sự</Text>
@@ -232,7 +335,7 @@ export function AdminTetWalletScreen() {
 
           <View style={styles.statBox}>
             <View style={[styles.statIconBadge, { backgroundColor: '#ECFDF5' }]}>
-              <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#059669" />
+              <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
             </View>
             <Text style={[styles.statValue, { color: '#059669' }]}>{enabledCount}</Text>
             <Text style={styles.statLabel}>Đã cấp quyền</Text>
@@ -240,10 +343,14 @@ export function AdminTetWalletScreen() {
 
           <View style={styles.statBox}>
             <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
-              <MaterialCommunityIcons name="percent" size={20} color="#D97706" />
+              <MaterialCommunityIcons name="star-shooting" size={18} color="#D97706" />
             </View>
-            <Text style={[styles.statValue, { color: '#D97706' }]}>{enabledPercent}%</Text>
-            <Text style={styles.statLabel}>Tỷ lệ cấp</Text>
+            <Text style={[styles.statValue, { color: '#D97706' }]} numberOfLines={1}>
+              {totalPointsGranted >= 1000000
+                ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
+                : totalPointsGranted.toLocaleString('vi-VN')}
+            </Text>
+            <Text style={styles.statLabel}>Tổng điểm trao</Text>
           </View>
         </View>
 
@@ -294,7 +401,7 @@ export function AdminTetWalletScreen() {
             onPress={() => setFilterStatus('ENABLED')}
           >
             <Text style={[styles.filterChipText, filterStatus === 'ENABLED' && styles.filterChipTextActiveSuccess]}>
-              ✓ Đã cấp ({enabledCount})
+              ✓ Đã cấp quyền ({enabledCount})
             </Text>
           </Pressable>
 
@@ -353,6 +460,12 @@ export function AdminTetWalletScreen() {
                   const deptEnabledCount = (employeesByDept[dept.id] || []).filter((e) => Boolean(e.isRewardVaultEnabled)).length;
                   const isExpanded = expandedDeptIds[dept.id] !== undefined ? expandedDeptIds[dept.id] : true;
 
+                  // Total points granted in department
+                  const deptTotalPoints = (employeesByDept[dept.id] || []).reduce((sum, emp) => {
+                    const v = emp.retentionVaults?.[0];
+                    return sum + (v ? Number(v.grantedPoints || 0) : 0);
+                  }, 0);
+
                   return (
                     <View key={dept.id} style={styles.deptCard}>
                       {/* Department Header Row - Click to Toggle */}
@@ -368,6 +481,9 @@ export function AdminTetWalletScreen() {
                           <Text style={styles.deptName}>{dept.name}</Text>
                           <Text style={styles.deptCode}>
                             Mã: {dept.code} • Đã cấp: <Text style={{ fontWeight: '700', color: deptEnabledCount > 0 ? '#059669' : '#64748B' }}>{deptEnabledCount}/{totalDeptMembers}</Text>
+                            {deptTotalPoints > 0 && (
+                              <Text style={{ color: '#D97706', fontWeight: '700' }}> • {deptTotalPoints.toLocaleString('vi-VN')} đ</Text>
+                            )}
                           </Text>
                         </View>
 
@@ -389,10 +505,20 @@ export function AdminTetWalletScreen() {
                         <View style={styles.deptToolbar}>
                           <Pressable
                             style={styles.deptActionToolBtn}
+                            onPress={() => openGrantForDepartment(dept)}
+                          >
+                            <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
+                            <Text style={[styles.deptActionToolText, { color: '#D97706' }]}>Trao điểm cả phòng</Text>
+                          </Pressable>
+
+                          <View style={styles.deptActionDivider} />
+
+                          <Pressable
+                            style={styles.deptActionToolBtn}
                             onPress={() => handleBulkDeptToggle(dept, true)}
                           >
                             <MaterialCommunityIcons name="check-all" size={16} color="#059669" />
-                            <Text style={[styles.deptActionToolText, { color: '#059669' }]}>Cấp cả phòng</Text>
+                            <Text style={[styles.deptActionToolText, { color: '#059669' }]}>Cấp quyền tất cả</Text>
                           </Pressable>
 
                           <View style={styles.deptActionDivider} />
@@ -402,7 +528,7 @@ export function AdminTetWalletScreen() {
                             onPress={() => handleBulkDeptToggle(dept, false)}
                           >
                             <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
-                            <Text style={[styles.deptActionToolText, { color: '#DC2626' }]}>Thu hồi cả phòng</Text>
+                            <Text style={[styles.deptActionToolText, { color: '#DC2626' }]}>Thu hồi quyền</Text>
                           </Pressable>
                         </View>
                       )}
@@ -423,6 +549,7 @@ export function AdminTetWalletScreen() {
                                 employee={emp}
                                 isToggling={togglingEmpId === emp.id}
                                 onToggle={(val) => handleToggleVault(emp, val)}
+                                onGrantPoints={() => openGrantForEmployee(emp)}
                                 onPress={() => setSelectedEmployee(emp)}
                                 isLast={index === deptMembers.length - 1}
                               />
@@ -470,6 +597,7 @@ export function AdminTetWalletScreen() {
                             employee={emp}
                             isToggling={togglingEmpId === emp.id}
                             onToggle={(val) => handleToggleVault(emp, val)}
+                            onGrantPoints={() => openGrantForEmployee(emp)}
                             onPress={() => setSelectedEmployee(emp)}
                             isLast={index === arr.length - 1}
                           />
@@ -501,6 +629,7 @@ export function AdminTetWalletScreen() {
                     showDeptTag={true}
                     isToggling={togglingEmpId === emp.id}
                     onToggle={(val) => handleToggleVault(emp, val)}
+                    onGrantPoints={() => openGrantForEmployee(emp)}
                     onPress={() => setSelectedEmployee(emp)}
                     isLast={index === filteredEmployees.length - 1}
                   />
@@ -510,6 +639,215 @@ export function AdminTetWalletScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Trao Điểm Modal (Grant Points Modal) */}
+      {grantTarget && (
+        <Modal
+          visible={Boolean(grantTarget)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setGrantTarget(null)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalOverlay}
+          >
+            <View style={styles.grantModalCard}>
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={styles.grantHeaderBadge}>
+                    <MaterialCommunityIcons name="star-shooting" size={22} color="#D97706" />
+                  </View>
+                  <View>
+                    <Text style={styles.modalTitle}>
+                      {grantTarget.type === 'SINGLE' ? 'Trao Điểm Ví Tết' : 'Trao Điểm Toàn Bộ Phòng'}
+                    </Text>
+                    <Text style={styles.modalSubtitle}>Năm thưởng {new Date().getFullYear()}</Text>
+                  </View>
+                </View>
+                <Pressable onPress={() => setGrantTarget(null)} style={styles.closeBtn}>
+                  <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+                </Pressable>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+                {/* Target Information */}
+                {grantTarget.type === 'SINGLE' && grantTarget.employee && (
+                  <View style={styles.grantTargetCard}>
+                    <View style={styles.modalAvatarContainer}>
+                      {grantTarget.employee.profile?.avatarUrl ? (
+                        <Image
+                          source={{ uri: grantTarget.employee.profile.avatarUrl }}
+                          style={styles.modalAvatarImg}
+                        />
+                      ) : (
+                        <View style={styles.modalAvatarFallback}>
+                          <Text style={styles.modalAvatarFallbackText}>
+                            {(grantTarget.employee.profile?.fullName || 'NV').slice(0, 2).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.modalEmpName}>
+                        {grantTarget.employee.profile?.fullName || 'Chưa cập nhật tên'}
+                      </Text>
+                      <Text style={styles.modalEmpMeta}>
+                        {grantTarget.employee.userCode} •{' '}
+                        {grantTarget.employee.departmentLinks?.[0]?.position?.name || 'Nhân viên'}
+                      </Text>
+                      <Text style={styles.currentPointsLabel}>
+                        Điểm hiện tại:{' '}
+                        <Text style={{ fontWeight: '700', color: '#D97706' }}>
+                          {(grantTarget.employee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} điểm
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {grantTarget.type === 'DEPARTMENT' && grantTarget.department && (
+                  <View style={[styles.grantTargetCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+                    <View style={[styles.deptIconBox, { backgroundColor: '#DBEAFE' }]}>
+                      <MaterialCommunityIcons name="domain" size={24} color="#1D4ED8" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.modalEmpName, { color: '#1E3A8A' }]}>
+                        {grantTarget.department.name}
+                      </Text>
+                      <Text style={[styles.modalEmpMeta, { color: '#3B82F6' }]}>
+                        Mã: {grantTarget.department.code} • Áp dụng cho: {grantTarget.memberCount} nhân sự
+                      </Text>
+                      <Text style={styles.currentPointsLabel}>
+                        Mỗi nhân viên trong phòng sẽ nhận đủ mức điểm đã chọn.
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Preset Points Section */}
+                <Text style={styles.inputSectionTitle}>Chọn hạn mức trao điểm:</Text>
+                <View style={styles.presetChipsContainer}>
+                  {PRESET_POINTS.map((preset) => {
+                    const isSelected = parseInt(customPointsInput, 10) === preset.value;
+                    return (
+                      <Pressable
+                        key={preset.value}
+                        style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                        onPress={() => {
+                          setGrantPoints(preset.value);
+                          setCustomPointsInput(preset.value.toString());
+                        }}
+                      >
+                        <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
+                          {preset.label} điểm
+                        </Text>
+                        <Text style={[styles.presetChipDesc, isSelected && styles.presetChipDescActive]}>
+                          ~ {preset.desc}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Custom Points Input */}
+                <Text style={styles.inputSectionTitle}>Hoặc nhập số điểm tùy chỉnh:</Text>
+                <View style={styles.customInputWrapper}>
+                  <TextInput
+                    style={styles.customTextInput}
+                    keyboardType="numeric"
+                    value={customPointsInput}
+                    onChangeText={(val) => {
+                      const clean = val.replace(/[^0-9]/g, '');
+                      setCustomPointsInput(clean);
+                      setGrantPoints(clean ? parseInt(clean, 10) : 0);
+                    }}
+                    placeholder="VD: 50000"
+                    placeholderTextColor="#94A3B8"
+                  />
+                  <Text style={styles.customInputUnit}>điểm</Text>
+                </View>
+
+                {/* Real-time VNĐ Conversion Calculation */}
+                {Boolean(parseInt(customPointsInput, 10)) && (
+                  <View style={styles.conversionBox}>
+                    <MaterialCommunityIcons name="calculator-variant" size={20} color="#D97706" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.conversionFormula}>
+                        Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ
+                      </Text>
+                      <Text style={styles.conversionTotal}>
+                        Tổng giá trị:{' '}
+                        <Text style={{ fontWeight: '800', color: '#B45309' }}>
+                          {(parseInt(customPointsInput, 10) * 1000).toLocaleString('vi-VN')} VNĐ
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Vesting Milestone Schedule Preview */}
+                {Boolean(parseInt(customPointsInput, 10)) && (
+                  <View style={styles.vestingPreviewCard}>
+                    <View style={styles.vestingTitleRow}>
+                      <MaterialCommunityIcons name="calendar-clock" size={16} color="#4B5563" />
+                      <Text style={styles.vestingTitle}>Lộ trình mở khóa 4 Quý (25%/quý):</Text>
+                    </View>
+
+                    {[
+                      { q: 'Quý 1', date: '31/03/2026', pct: '25%' },
+                      { q: 'Quý 2', date: '30/06/2026', pct: '25%' },
+                      { q: 'Quý 3', date: '30/09/2026', pct: '25%' },
+                      { q: 'Quý 4', date: '31/12/2026', pct: '25%' },
+                    ].map((item, idx) => {
+                      const quarterlyPoints = Math.round((parseInt(customPointsInput, 10) || 0) / 4);
+                      const quarterlyCash = quarterlyPoints * 1000;
+                      return (
+                        <View key={idx} style={styles.vestingMilestoneRow}>
+                          <View style={styles.milestoneBadge}>
+                            <Text style={styles.milestoneBadgeText}>{item.q}</Text>
+                          </View>
+                          <Text style={styles.milestoneDate}>{item.date}</Text>
+                          <Text style={styles.milestoneAmount}>
+                            {quarterlyPoints.toLocaleString('vi-VN')} điểm ({quarterlyCash.toLocaleString('vi-VN')} đ)
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Modal Actions */}
+              <View style={styles.grantModalActions}>
+                <Pressable
+                  style={styles.cancelGrantBtn}
+                  onPress={() => setGrantTarget(null)}
+                  disabled={isSubmittingGrant}
+                >
+                  <Text style={styles.cancelGrantBtnText}>Hủy</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.confirmGrantBtn, isSubmittingGrant && { opacity: 0.7 }]}
+                  onPress={handleConfirmGrantPoints}
+                  disabled={isSubmittingGrant}
+                >
+                  {isSubmittingGrant ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="check-decagram" size={18} color="#FFFFFF" />
+                      <Text style={styles.confirmGrantBtnText}>Xác nhận trao điểm</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
 
       {/* Employee Detail & Permission Modal */}
       {selectedEmployee && (
@@ -556,6 +894,32 @@ export function AdminTetWalletScreen() {
                     {selectedEmployee.departmentLinks?.[0]?.position?.name || 'Nhân viên'} • {selectedEmployee.departmentLinks?.[0]?.department?.name || 'Chưa phân phòng'}
                   </Text>
                   <Text style={styles.modalEmpPhone}>SĐT: {selectedEmployee.phone || 'Chưa có'}</Text>
+                </View>
+              </View>
+
+              {/* Points Vault Info Card */}
+              <View style={styles.vaultPointSummaryCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View>
+                    <Text style={styles.vaultPointSummaryLabel}>Điểm Ví Tết năm {new Date().getFullYear()}:</Text>
+                    <Text style={styles.vaultPointSummaryValue}>
+                      {(selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} điểm
+                    </Text>
+                    <Text style={styles.vaultCashSummaryValue}>
+                      ~ {((selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0) * 1000).toLocaleString('vi-VN')} VNĐ
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={styles.modalGrantShortcutBtn}
+                    onPress={() => {
+                      const emp = selectedEmployee;
+                      setSelectedEmployee(null);
+                      openGrantForEmployee(emp);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
+                    <Text style={styles.modalGrantShortcutText}>Trao điểm</Text>
+                  </Pressable>
                 </View>
               </View>
 
@@ -624,6 +988,7 @@ interface EmployeeRowItemProps {
   isLast?: boolean;
   isToggling?: boolean;
   onToggle?: (value: boolean) => void;
+  onGrantPoints?: () => void;
   onPress?: () => void;
 }
 
@@ -633,6 +998,7 @@ function EmployeeRowItem({
   isLast = false,
   isToggling = false,
   onToggle,
+  onGrantPoints,
   onPress,
 }: EmployeeRowItemProps) {
   const fullName = employee.profile?.fullName || 'Chưa cập nhật tên';
@@ -649,6 +1015,7 @@ function EmployeeRowItem({
 
   const isActive = employee.accountStatus === 'ACTIVE';
   const isVaultEnabled = Boolean(employee.isRewardVaultEnabled);
+  const grantedPoints = employee.retentionVaults?.[0]?.grantedPoints || 0;
 
   return (
     <Pressable
@@ -691,35 +1058,64 @@ function EmployeeRowItem({
             </Text>
           </View>
         )}
+
+        {/* Granted Points Badge */}
+        <View style={styles.pointsBadgeRow}>
+          {grantedPoints > 0 ? (
+            <View style={styles.grantedPointTag}>
+              <MaterialCommunityIcons name="star" size={12} color="#D97706" />
+              <Text style={styles.grantedPointText}>
+                {grantedPoints.toLocaleString('vi-VN')} đ ({(grantedPoints * 1000).toLocaleString('vi-VN')} VNĐ)
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.noPointsText}>Chưa cấp điểm</Text>
+          )}
+        </View>
       </View>
 
-      {/* Tet Wallet Switch & Badge */}
+      {/* Right Controls: Grant Button & Switch */}
       <View style={styles.walletRightGroup}>
-        {isToggling ? (
-          <ActivityIndicator size="small" color="#D97706" style={{ marginHorizontal: 8 }} />
-        ) : (
-          <Switch
-            value={isVaultEnabled}
-            onValueChange={onToggle}
-            trackColor={{ false: '#E5E7EB', true: '#FDE68A' }}
-            thumbColor={isVaultEnabled ? '#D97706' : '#9CA3AF'}
-            style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : undefined}
-          />
-        )}
-        <View
-          style={[
-            styles.walletBadge,
-            isVaultEnabled ? styles.walletBadgeActive : styles.walletBadgeInactive,
-          ]}
+        {/* Trao điểm Action Button */}
+        <Pressable
+          style={styles.rowGrantBtn}
+          onPress={(e) => {
+            e.stopPropagation();
+            onGrantPoints?.();
+          }}
         >
-          <Text
+          <MaterialCommunityIcons name="gift-outline" size={14} color="#B45309" />
+          <Text style={styles.rowGrantBtnText}>Trao điểm</Text>
+        </Pressable>
+
+        {/* Permission Switch & Status */}
+        <View style={styles.switchRow}>
+          {isToggling ? (
+            <ActivityIndicator size="small" color="#D97706" style={{ marginHorizontal: 4 }} />
+          ) : (
+            <Switch
+              value={isVaultEnabled}
+              onValueChange={onToggle}
+              trackColor={{ false: '#E5E7EB', true: '#FDE68A' }}
+              thumbColor={isVaultEnabled ? '#D97706' : '#9CA3AF'}
+              style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] } : undefined}
+            />
+          )}
+          <View
             style={[
-              styles.walletBadgeText,
-              isVaultEnabled ? styles.walletBadgeTextActive : styles.walletBadgeTextInactive,
+              styles.walletBadge,
+              isVaultEnabled ? styles.walletBadgeActive : styles.walletBadgeInactive,
             ]}
           >
-            {isVaultEnabled ? 'Đã cấp' : 'Chưa cấp'}
-          </Text>
+            <Text
+              style={[
+                styles.walletBadgeText,
+                isVaultEnabled ? styles.walletBadgeTextActive : styles.walletBadgeTextInactive,
+              ]}
+            >
+              {isVaultEnabled ? 'Đã cấp' : 'Tắt'}
+            </Text>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -762,23 +1158,24 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     fontWeight: '500',
+    textAlign: 'center',
   },
   segmentedWrapper: {
     flexDirection: 'row',
@@ -948,7 +1345,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: '#F1F5F9',
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -956,13 +1353,13 @@ const styles = StyleSheet.create({
   deptActionToolBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
   deptActionToolText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   deptActionDivider: {
     width: 1,
@@ -1074,15 +1471,58 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
+  pointsBadgeRow: {
+    marginTop: 4,
+  },
+  grantedPointTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    gap: 3,
+  },
+  grantedPointText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  noPointsText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
   walletRightGroup: {
     alignItems: 'flex-end',
-    gap: 2,
+    gap: 6,
+  },
+  rowGrantBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  rowGrantBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   walletBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    marginTop: 2,
   },
   walletBadgeActive: {
     backgroundColor: '#ECFDF5',
@@ -1119,11 +1559,31 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
+  grantModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  grantHeaderBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   modalIconBadge: {
     width: 40,
@@ -1150,36 +1610,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  grantTargetCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+    gap: 12,
+  },
   modalEmpCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     backgroundColor: '#F8FAFC',
     borderRadius: 14,
-    marginBottom: 16,
+    marginBottom: 14,
     gap: 12,
   },
   modalAvatarContainer: {},
   modalAvatarImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   modalAvatarFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#E0E7FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalAvatarFallbackText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#4338CA',
   },
   modalEmpName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 2,
@@ -1193,27 +1664,244 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
   },
-  modalPermissionBox: {
+  currentPointsLabel: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  inputSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  presetChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  presetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+  },
+  presetChipActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#D97706',
+  },
+  presetChipPoints: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  presetChipPointsActive: {
+    color: '#92400E',
+  },
+  presetChipDesc: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  presetChipDescActive: {
+    color: '#B45309',
+    fontWeight: '600',
+  },
+  customInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  customTextInput: {
+    flex: 1,
+    height: 44,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  customInputUnit: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  conversionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
     backgroundColor: '#FFFBEB',
-    borderRadius: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 10,
+    marginBottom: 12,
+  },
+  conversionFormula: {
+    fontSize: 11,
+    color: '#92400E',
+  },
+  conversionTotal: {
+    fontSize: 13,
+    color: '#78350F',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  vestingPreviewCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  vestingTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  vestingTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  vestingMilestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  milestoneBadge: {
+    backgroundColor: '#E0E7FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  milestoneBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  milestoneDate: {
+    fontSize: 11,
+    color: '#64748B',
+    marginRight: 6,
+  },
+  milestoneAmount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+    marginLeft: 'auto',
+  },
+  grantModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  cancelGrantBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelGrantBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  confirmGrantBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D97706',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  confirmGrantBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  vaultPointSummaryCard: {
+    backgroundColor: '#FFFBEB',
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FDE68A',
     marginBottom: 12,
   },
-  modalPermTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  vaultPointSummaryLabel: {
+    fontSize: 11,
     color: '#92400E',
+    fontWeight: '500',
+  },
+  vaultPointSummaryValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#B45309',
+    marginTop: 2,
+  },
+  vaultCashSummaryValue: {
+    fontSize: 11,
+    color: '#78350F',
+    fontWeight: '600',
+  },
+  modalGrantShortcutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 4,
+  },
+  modalGrantShortcutText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  modalPermissionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  modalPermTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
     marginBottom: 2,
   },
   modalPermDesc: {
-    fontSize: 12,
-    color: '#B45309',
-    lineHeight: 16,
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 15,
   },
   modalNoticeBox: {
     flexDirection: 'row',
@@ -1221,7 +1909,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     gap: 8,
-    marginBottom: 18,
+    marginBottom: 14,
   },
   noticeSuccess: {
     backgroundColor: '#ECFDF5',

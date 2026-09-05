@@ -67,3 +67,24 @@ export async function updateEmployeeAccountStatus(id: string, status: string): P
   const response = await apiClient.patch<ApiResponse<any>>(`/employees/${id}/account-status`, { status });
   return unwrapData(response);
 }
+
+export async function grantVaultPoints(payload: {
+  userId: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/grant', payload);
+  return unwrapData(response);
+}
+
+export async function bulkGrantVaultPoints(payload: {
+  departmentId?: string;
+  userIds?: string[];
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/bulk-grant', payload);
+  return unwrapData(response);
+}
