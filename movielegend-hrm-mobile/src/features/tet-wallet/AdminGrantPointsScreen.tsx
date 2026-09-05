@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,9 @@ import {
   Modal,
   BackHandler,
   PanResponder,
+  Animated,
+  Dimensions,
+  Easing,
 } from 'react-native';
 import { Stack } from 'expo-router';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -89,35 +92,90 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const [grantNote, setGrantNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Handle hardware / gesture back on Android to return to Quyền Ví Tết
+  const screenWidth = Dimensions.get('window').width;
+  const translateX = useRef(new Animated.Value(screenWidth)).current;
+
+  // Slide in smoothly on screen mount
+  useEffect(() => {
+    Animated.timing(translateX, {
+      toValue: 0,
+      duration: 260,
+      easing: Easing.out(Easing.poly(4)),
+      useNativeDriver: true,
+    }).start();
+  }, [translateX]);
+
+  // Smooth slide-out exit animation to return to Quyền Ví Tết
+  const smoothExit = useCallback(() => {
+    Animated.timing(translateX, {
+      toValue: screenWidth,
+      duration: 200,
+      easing: Easing.out(Easing.poly(4)),
+      useNativeDriver: true,
+    }).start(() => {
+      onBack();
+    });
+  }, [translateX, onBack, screenWidth]);
+
+  // Handle hardware back on Android with smooth transition
   useEffect(() => {
     const onBackPress = () => {
-      onBack();
+      smoothExit();
       return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [onBack]);
+  }, [smoothExit]);
 
-  // Swipe gesture from left-edge to right to return to Quyền Ví Tết
+  // Real-time finger-following swipe gesture from left edge
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (evt, gestureState) => {
-          // Detect swipe from left edge (x <= 50, dx > 30, predominantly horizontal)
+          // Starts near left edge (x <= 55) and moving horizontally right
           return (
-            evt.nativeEvent.pageX <= 50 &&
-            gestureState.dx > 30 &&
-            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
+            evt.nativeEvent.pageX <= 55 &&
+            gestureState.dx > 8 &&
+            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.3
           );
         },
-        onPanResponderRelease: (evt, gestureState) => {
-          if (gestureState.dx > 45) {
-            onBack();
+        onPanResponderMove: (evt, gestureState) => {
+          // Track finger in real time
+          if (gestureState.dx > 0) {
+            translateX.setValue(gestureState.dx);
           }
         },
+        onPanResponderRelease: (evt, gestureState) => {
+          // If swiped past 28% of screen width or swiped with horizontal velocity
+          if (gestureState.dx > screenWidth * 0.28 || gestureState.vx > 0.35) {
+            Animated.timing(translateX, {
+              toValue: screenWidth,
+              duration: 180,
+              easing: Easing.out(Easing.poly(4)),
+              useNativeDriver: true,
+            }).start(() => {
+              onBack();
+            });
+          } else {
+            // Spring back into position smoothly
+            Animated.spring(translateX, {
+              toValue: 0,
+              bounciness: 0,
+              speed: 18,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateX, {
+            toValue: 0,
+            bounciness: 0,
+            speed: 18,
+            useNativeDriver: true,
+          }).start();
+        },
       }),
-    [onBack]
+    [onBack, screenWidth, translateX]
   );
 
   const currentDateObj = useMemo(() => {
@@ -256,7 +314,15 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   return (
     <Screen>
       <Stack.Screen options={{ gestureEnabled: false }} />
-      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+      <Animated.View
+        style={[
+          styles.animatedContainer,
+          {
+            transform: [{ translateX }],
+          },
+        ]}
+        {...panResponder.panHandlers}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
@@ -590,7 +656,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 
           {/* Bottom Sticky Action Bar */}
           <View style={styles.stickyBottomBar}>
-            <Pressable style={styles.backButton} onPress={onBack} disabled={isSubmitting}>
+            <Pressable style={styles.backButton} onPress={smoothExit} disabled={isSubmitting}>
               <Text style={styles.backButtonText}>Quay lại</Text>
             </Pressable>
 
@@ -610,7 +676,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             </Pressable>
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </Animated.View>
 
       {/* Date Picker Component / Modal */}
       {showDatePicker && Platform.OS === 'android' && (
@@ -1097,5 +1163,14 @@ const styles = StyleSheet.create({
   iosDatePicker: {
     height: 200,
     marginTop: 8,
+  },
+  animatedContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    shadowColor: '#000',
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 8,
   },
 });
