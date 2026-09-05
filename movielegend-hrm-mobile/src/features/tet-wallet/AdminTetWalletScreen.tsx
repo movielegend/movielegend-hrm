@@ -28,21 +28,18 @@ import { useEmployees } from '../../hooks/useEmployees';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { Department } from '../../types/department.types';
-import type { EmployeeUser, GrantVaultType, WithdrawalRequestsResponse } from '../../types/employee.types';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { EmployeeUser, GrantVaultType } from '../../types/employee.types';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   updateEmployee as apiUpdateEmployee,
   grantVaultPoints as apiGrantVaultPoints,
   bulkGrantVaultPoints as apiBulkGrantVaultPoints,
-  getVaultWithdrawalRequests as apiGetVaultWithdrawalRequests,
 } from '../../api/employees.api';
-import { WithdrawalRequestsManager } from './WithdrawalRequestsManager';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-type MainSectionTab = 'VAULT_MANAGEMENT' | 'WITHDRAWAL_APPROVALS';
 type ViewMode = 'BY_DEPARTMENT' | 'ALL_EMPLOYEES';
 type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
 
@@ -62,7 +59,6 @@ const PRESET_POINTS = [
 ];
 
 export function AdminTetWalletScreen() {
-  const [mainSectionTab, setMainSectionTab] = useState<MainSectionTab>('VAULT_MANAGEMENT');
   const [viewMode, setViewMode] = useState<ViewMode>('BY_DEPARTMENT');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
   const [search, setSearch] = useState('');
@@ -81,22 +77,13 @@ export function AdminTetWalletScreen() {
   const queryClient = useQueryClient();
   const departmentsQuery = useDepartments({ limit: 100 });
   const employeesQuery = useEmployees({ limit: 500 });
-  const withdrawalsCountQuery = useQuery<WithdrawalRequestsResponse>({
-    queryKey: ['vault-withdrawals', 'COUNTS_POLL'],
-    queryFn: () => apiGetVaultWithdrawalRequests({ limit: 1 }),
-    refetchInterval: 15000,
-  });
 
-  const pendingCount =
-    (withdrawalsCountQuery.data?.counts?.PENDING_ADMIN || 0) +
-    (withdrawalsCountQuery.data?.counts?.PENDING_ACCOUNTANT || 0);
-
-  const isRefetching = departmentsQuery.isRefetching || employeesQuery.isRefetching || withdrawalsCountQuery.isRefetching;
+  const isRefetching = departmentsQuery.isRefetching || employeesQuery.isRefetching;
   const isLoading = departmentsQuery.isLoading || employeesQuery.isLoading;
 
   const onRefresh = useCallback(async () => {
-    await Promise.all([departmentsQuery.refetch(), employeesQuery.refetch(), withdrawalsCountQuery.refetch()]);
-  }, [departmentsQuery, employeesQuery, withdrawalsCountQuery]);
+    await Promise.all([departmentsQuery.refetch(), employeesQuery.refetch()]);
+  }, [departmentsQuery, employeesQuery]);
 
   const departments: Department[] = departmentsQuery.data?.items || [];
   const employees: EmployeeUser[] = employeesQuery.data?.items || [];
@@ -344,8 +331,8 @@ export function AdminTetWalletScreen() {
       >
         {/* Header */}
         <PageHeader
-          title="Quyền Ví Tết & Rút Tiền"
-          subtitle="Quản lý hạn mức, duyệt rút tiền & trao điểm nhân sự"
+          title="Quyền Ví Tết"
+          subtitle="Quản lý hạn mức, thưởng dự án & trao điểm nhân sự"
           showBack={false}
           right={
             <View style={styles.headerIconBox}>
@@ -354,98 +341,36 @@ export function AdminTetWalletScreen() {
           }
         />
 
-        {/* Main Navigation Segment */}
-        <View style={styles.mainNavSegmentWrapper}>
-          <Pressable
-            style={[
-              styles.mainNavSegmentBtn,
-              mainSectionTab === 'VAULT_MANAGEMENT' && styles.mainNavSegmentBtnActive,
-            ]}
-            onPress={() => setMainSectionTab('VAULT_MANAGEMENT')}
-          >
-            <MaterialCommunityIcons
-              name="wallet-giftcard"
-              size={18}
-              color={mainSectionTab === 'VAULT_MANAGEMENT' ? '#D97706' : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.mainNavSegmentText,
-                mainSectionTab === 'VAULT_MANAGEMENT' && styles.mainNavSegmentTextActiveVault,
-              ]}
-            >
-              Quỹ Thưởng & Nhân Sự
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.mainNavSegmentBtn,
-              mainSectionTab === 'WITHDRAWAL_APPROVALS' && styles.mainNavSegmentBtnActive,
-            ]}
-            onPress={() => setMainSectionTab('WITHDRAWAL_APPROVALS')}
-          >
-            <MaterialCommunityIcons
-              name="clipboard-check-outline"
-              size={18}
-              color={mainSectionTab === 'WITHDRAWAL_APPROVALS' ? '#2563EB' : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.mainNavSegmentText,
-                mainSectionTab === 'WITHDRAWAL_APPROVALS' && styles.mainNavSegmentTextActiveApproval,
-              ]}
-            >
-              Duyệt Rút Tiền
-            </Text>
-            {pendingCount > 0 && (
-              <View style={styles.mainNavBadge}>
-                <Text style={styles.mainNavBadgeText}>{pendingCount}</Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
-
-        {mainSectionTab === 'WITHDRAWAL_APPROVALS' ? (
-          /* ==================================================== */
-          /* CHẾ ĐỘ DUYỆT RÚT TIỀN (ADMIN & KẾ TOÁN)              */
-          /* ==================================================== */
-          <WithdrawalRequestsManager />
-        ) : (
-          /* ==================================================== */
-          /* CHẾ ĐỘ QUẢN LÝ QUỸ & TRAO ĐIỂM                       */
-          /* ==================================================== */
-          <>
-            {/* Live Statistics Cards */}
-            <View style={styles.statsCardWrapper}>
-              <View style={styles.statBox}>
-                <View style={[styles.statIconBadge, { backgroundColor: '#EEF2FF' }]}>
-                  <MaterialCommunityIcons name="account-group" size={18} color="#4F46E5" />
-                </View>
-                <Text style={styles.statValue}>{totalEmployees}</Text>
-                <Text style={styles.statLabel}>Tổng nhân sự</Text>
-              </View>
-
-              <View style={styles.statBox}>
-                <View style={[styles.statIconBadge, { backgroundColor: '#ECFDF5' }]}>
-                  <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
-                </View>
-                <Text style={[styles.statValue, { color: '#059669' }]}>{enabledCount}</Text>
-                <Text style={styles.statLabel}>Đã cấp quyền</Text>
-              </View>
-
-              <View style={styles.statBox}>
-                <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
-                  <MaterialCommunityIcons name="star-shooting" size={18} color="#D97706" />
-                </View>
-                <Text style={[styles.statValue, { color: '#D97706' }]} numberOfLines={1}>
-                  {totalPointsGranted >= 1000000
-                    ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
-                    : totalPointsGranted.toLocaleString('vi-VN')}
-                </Text>
-                <Text style={styles.statLabel}>Tổng điểm trao</Text>
-              </View>
+        {/* Live Statistics Cards */}
+        <View style={styles.statsCardWrapper}>
+          <View style={styles.statBox}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#EEF2FF' }]}>
+              <MaterialCommunityIcons name="account-group" size={18} color="#4F46E5" />
             </View>
+            <Text style={styles.statValue}>{totalEmployees}</Text>
+            <Text style={styles.statLabel}>Tổng nhân sự</Text>
+          </View>
+
+          <View style={styles.statBox}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#ECFDF5' }]}>
+              <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
+            </View>
+            <Text style={[styles.statValue, { color: '#059669' }]}>{enabledCount}</Text>
+            <Text style={styles.statLabel}>Đã cấp quyền</Text>
+          </View>
+
+          <View style={styles.statBox}>
+            <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
+              <MaterialCommunityIcons name="star-shooting" size={18} color="#D97706" />
+            </View>
+            <Text style={[styles.statValue, { color: '#D97706' }]} numberOfLines={1}>
+              {totalPointsGranted >= 1000000
+                ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
+                : totalPointsGranted.toLocaleString('vi-VN')}
+            </Text>
+            <Text style={styles.statLabel}>Tổng điểm trao</Text>
+          </View>
+        </View>
 
         {/* View Mode Selector Tabs */}
         <View style={styles.segmentedWrapper}>
@@ -733,9 +658,7 @@ export function AdminTetWalletScreen() {
             )}
           </View>
         )}
-      </>
-    )}
-  </ScrollView>
+      </ScrollView>
 
       {/* Trao Điểm Modal (Grant Points Modal) */}
       {grantTarget && (
@@ -1393,64 +1316,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  mainNavSegmentWrapper: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-    gap: 4,
-  },
-  mainNavSegmentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 6,
-  },
-  mainNavSegmentBtnActive: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  mainNavSegmentText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  mainNavSegmentTextActiveVault: {
-    color: '#D97706',
-    fontWeight: '800',
-  },
-  mainNavSegmentTextActiveApproval: {
-    color: '#2563EB',
-    fontWeight: '800',
-  },
-  mainNavBadge: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  mainNavBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
   },
   statsCardWrapper: {
     flexDirection: 'row',
