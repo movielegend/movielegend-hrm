@@ -47,7 +47,7 @@ export function AdminTetWalletScreen() {
 
   const queryClient = useQueryClient();
   const departmentsQuery = useDepartments({ limit: 100 });
-  const employeesQuery = useEmployees({ limit: 1000 });
+  const employeesQuery = useEmployees({ limit: 500 });
 
   const isRefetching = departmentsQuery.isRefetching || employeesQuery.isRefetching;
   const isLoading = departmentsQuery.isLoading || employeesQuery.isLoading;
@@ -63,9 +63,19 @@ export function AdminTetWalletScreen() {
   const employeesByDept = useMemo(() => {
     const map: Record<string, EmployeeUser[]> = {};
     employees.forEach((emp) => {
-      const deptId = emp.departmentLinks?.[0]?.departmentId || 'UNASSIGNED';
-      if (!map[deptId]) map[deptId] = [];
-      map[deptId].push(emp);
+      const links = emp.departmentLinks || [];
+      if (links.length === 0) {
+        if (!map['UNASSIGNED']) map['UNASSIGNED'] = [];
+        map['UNASSIGNED'].push(emp);
+      } else {
+        links.forEach((link) => {
+          const deptId = link.departmentId;
+          if (!map[deptId]) map[deptId] = [];
+          if (!map[deptId].some((e) => e.id === emp.id)) {
+            map[deptId].push(emp);
+          }
+        });
+      }
     });
     return map;
   }, [employees]);
@@ -336,92 +346,139 @@ export function AdminTetWalletScreen() {
             {filteredDepartments.length === 0 ? (
               <EmptyState title="Không tìm thấy phòng ban nào" message="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" />
             ) : (
-              filteredDepartments.map((dept) => {
-                const deptMembers = (employeesByDept[dept.id] || []).filter(filterByStatus);
-                const totalDeptMembers = (employeesByDept[dept.id] || []).length;
-                const deptEnabledCount = (employeesByDept[dept.id] || []).filter((e) => Boolean(e.isRewardVaultEnabled)).length;
-                const isExpanded = !!expandedDeptIds[dept.id] || !!search.trim();
+              <>
+                {filteredDepartments.map((dept) => {
+                  const deptMembers = (employeesByDept[dept.id] || []).filter(filterByStatus);
+                  const totalDeptMembers = (employeesByDept[dept.id] || []).length;
+                  const deptEnabledCount = (employeesByDept[dept.id] || []).filter((e) => Boolean(e.isRewardVaultEnabled)).length;
+                  const isExpanded = expandedDeptIds[dept.id] !== undefined ? expandedDeptIds[dept.id] : true;
 
-                return (
-                  <View key={dept.id} style={styles.deptCard}>
-                    {/* Department Header Row - Click to Toggle */}
+                  return (
+                    <View key={dept.id} style={styles.deptCard}>
+                      {/* Department Header Row - Click to Toggle */}
+                      <Pressable
+                        style={styles.deptCardHeader}
+                        onPress={() => toggleDepartment(dept.id)}
+                      >
+                        <View style={styles.deptIconBox}>
+                          <MaterialCommunityIcons name="domain" size={22} color="#2563EB" />
+                        </View>
+
+                        <View style={styles.deptInfo}>
+                          <Text style={styles.deptName}>{dept.name}</Text>
+                          <Text style={styles.deptCode}>
+                            Mã: {dept.code} • Đã cấp: <Text style={{ fontWeight: '700', color: deptEnabledCount > 0 ? '#059669' : '#64748B' }}>{deptEnabledCount}/{totalDeptMembers}</Text>
+                          </Text>
+                        </View>
+
+                        <View style={styles.memberBadge}>
+                          <MaterialCommunityIcons name="account-outline" size={14} color="#4B5563" />
+                          <Text style={styles.memberBadgeText}>{deptMembers.length} NV</Text>
+                        </View>
+
+                        <MaterialCommunityIcons
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={22}
+                          color="#64748B"
+                          style={{ marginLeft: 8 }}
+                        />
+                      </Pressable>
+
+                      {/* Department Actions Toolbar */}
+                      {isExpanded && deptMembers.length > 0 && (
+                        <View style={styles.deptToolbar}>
+                          <Pressable
+                            style={styles.deptActionToolBtn}
+                            onPress={() => handleBulkDeptToggle(dept, true)}
+                          >
+                            <MaterialCommunityIcons name="check-all" size={16} color="#059669" />
+                            <Text style={[styles.deptActionToolText, { color: '#059669' }]}>Cấp cả phòng</Text>
+                          </Pressable>
+
+                          <View style={styles.deptActionDivider} />
+
+                          <Pressable
+                            style={styles.deptActionToolBtn}
+                            onPress={() => handleBulkDeptToggle(dept, false)}
+                          >
+                            <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
+                            <Text style={[styles.deptActionToolText, { color: '#DC2626' }]}>Thu hồi cả phòng</Text>
+                          </Pressable>
+                        </View>
+                      )}
+
+                      {/* Expandable Employee List */}
+                      {isExpanded && (
+                        <View style={styles.employeeListContainer}>
+                          {deptMembers.length === 0 ? (
+                            <View style={styles.emptyMembersBox}>
+                              <Text style={styles.emptyMembersText}>
+                                {totalDeptMembers === 0 ? 'Phòng ban này hiện chưa có nhân sự' : 'Không có nhân sự nào phù hợp bộ lọc'}
+                              </Text>
+                            </View>
+                          ) : (
+                            deptMembers.map((emp, index) => (
+                              <EmployeeRowItem
+                                key={emp.id}
+                                employee={emp}
+                                isToggling={togglingEmpId === emp.id}
+                                onToggle={(val) => handleToggleVault(emp, val)}
+                                onPress={() => setSelectedEmployee(emp)}
+                                isLast={index === deptMembers.length - 1}
+                              />
+                            ))
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+
+                {/* Unassigned Employees Section if any */}
+                {((employeesByDept['UNASSIGNED'] || []).filter(filterByStatus)).length > 0 && (
+                  <View style={[styles.deptCard, { borderColor: '#CBD5E1' }]}>
                     <Pressable
                       style={styles.deptCardHeader}
-                      onPress={() => toggleDepartment(dept.id)}
+                      onPress={() => toggleDepartment('UNASSIGNED')}
                     >
-                      <View style={styles.deptIconBox}>
-                        <MaterialCommunityIcons name="domain" size={22} color="#2563EB" />
+                      <View style={[styles.deptIconBox, { backgroundColor: '#F1F5F9' }]}>
+                        <MaterialCommunityIcons name="account-question-outline" size={22} color="#64748B" />
                       </View>
-
                       <View style={styles.deptInfo}>
-                        <Text style={styles.deptName}>{dept.name}</Text>
-                        <Text style={styles.deptCode}>
-                          Mã: {dept.code} • Đã cấp: <Text style={{ fontWeight: '700', color: deptEnabledCount > 0 ? '#059669' : '#64748B' }}>{deptEnabledCount}/{totalDeptMembers}</Text>
-                        </Text>
+                        <Text style={styles.deptName}>Chưa xếp phòng ban</Text>
+                        <Text style={styles.deptCode}>Nhân sự tự do / tài khoản hệ thống</Text>
                       </View>
-
                       <View style={styles.memberBadge}>
                         <MaterialCommunityIcons name="account-outline" size={14} color="#4B5563" />
-                        <Text style={styles.memberBadgeText}>{deptMembers.length} NV</Text>
+                        <Text style={styles.memberBadgeText}>
+                          {(employeesByDept['UNASSIGNED'] || []).filter(filterByStatus).length} NV
+                        </Text>
                       </View>
-
                       <MaterialCommunityIcons
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        name={expandedDeptIds['UNASSIGNED'] !== false ? 'chevron-up' : 'chevron-down'}
                         size={22}
                         color="#64748B"
                         style={{ marginLeft: 8 }}
                       />
                     </Pressable>
 
-                    {/* Department Actions Toolbar */}
-                    {isExpanded && (
-                      <View style={styles.deptToolbar}>
-                        <Pressable
-                          style={styles.deptActionToolBtn}
-                          onPress={() => handleBulkDeptToggle(dept, true)}
-                        >
-                          <MaterialCommunityIcons name="check-all" size={16} color="#059669" />
-                          <Text style={[styles.deptActionToolText, { color: '#059669' }]}>Cấp cả phòng</Text>
-                        </Pressable>
-
-                        <View style={styles.deptActionDivider} />
-
-                        <Pressable
-                          style={styles.deptActionToolBtn}
-                          onPress={() => handleBulkDeptToggle(dept, false)}
-                        >
-                          <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
-                          <Text style={[styles.deptActionToolText, { color: '#DC2626' }]}>Thu hồi cả phòng</Text>
-                        </Pressable>
-                      </View>
-                    )}
-
-                    {/* Expandable Employee List */}
-                    {isExpanded && (
+                    {expandedDeptIds['UNASSIGNED'] !== false && (
                       <View style={styles.employeeListContainer}>
-                        {deptMembers.length === 0 ? (
-                          <View style={styles.emptyMembersBox}>
-                            <Text style={styles.emptyMembersText}>
-                              Chưa có nhân viên nào phù hợp bộ lọc
-                            </Text>
-                          </View>
-                        ) : (
-                          deptMembers.map((emp, index) => (
-                            <EmployeeRowItem
-                              key={emp.id}
-                              employee={emp}
-                              isToggling={togglingEmpId === emp.id}
-                              onToggle={(val) => handleToggleVault(emp, val)}
-                              onPress={() => setSelectedEmployee(emp)}
-                              isLast={index === deptMembers.length - 1}
-                            />
-                          ))
-                        )}
+                        {(employeesByDept['UNASSIGNED'] || []).filter(filterByStatus).map((emp, index, arr) => (
+                          <EmployeeRowItem
+                            key={emp.id}
+                            employee={emp}
+                            isToggling={togglingEmpId === emp.id}
+                            onToggle={(val) => handleToggleVault(emp, val)}
+                            onPress={() => setSelectedEmployee(emp)}
+                            isLast={index === arr.length - 1}
+                          />
+                        ))}
                       </View>
                     )}
                   </View>
-                );
-              })
+                )}
+              </>
             )}
           </View>
         ) : (
