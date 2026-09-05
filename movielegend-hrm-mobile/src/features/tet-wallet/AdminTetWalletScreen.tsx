@@ -28,15 +28,10 @@ import { useEmployees } from '../../hooks/useEmployees';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { Department } from '../../types/department.types';
-import type { EmployeeUser, GrantVaultType } from '../../types/employee.types';
+import type { EmployeeUser } from '../../types/employee.types';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  updateEmployee as apiUpdateEmployee,
-  grantVaultPoints as apiGrantVaultPoints,
-  bulkGrantVaultPoints as apiBulkGrantVaultPoints,
-  grantProjectPackage as apiGrantProjectPackage,
-  bulkGrantProjectPackage as apiBulkGrantProjectPackage,
-} from '../../api/employees.api';
+import { updateEmployee as apiUpdateEmployee } from '../../api/employees.api';
+import { AdminGrantPointsScreen, type GrantTarget } from './AdminGrantPointsScreen';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -44,40 +39,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 type ViewMode = 'BY_DEPARTMENT' | 'ALL_EMPLOYEES';
 type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
-
-interface GrantTarget {
-  type: 'SINGLE' | 'DEPARTMENT';
-  employee?: EmployeeUser;
-  department?: Department;
-  memberCount?: number;
-}
-
-const PRESET_POINTS = [
-  { label: '10.000', value: 10000, desc: '10 triệu' },
-  { label: '20.000', value: 20000, desc: '20 triệu' },
-  { label: '50.000', value: 50000, desc: '50 triệu' },
-  { label: '100.000', value: 100000, desc: '100 triệu' },
-  { label: '200.000', value: 200000, desc: '200 triệu' },
-];
-
-const DURATION_OPTIONS = [
-  { label: '3 tháng', value: 3 },
-  { label: '6 tháng', value: 6 },
-  { label: '9 tháng', value: 9 },
-  { label: '12 tháng (1 năm)', value: 12 },
-  { label: '18 tháng', value: 18 },
-  { label: '24 tháng (2 năm)', value: 24 },
-  { label: '36 tháng (3 năm)', value: 36 },
-];
-
-const INTERVAL_OPTIONS = [
-  { label: 'Mỗi 1 tháng', value: 1 },
-  { label: 'Mỗi 2 tháng', value: 2 },
-  { label: 'Mỗi 3 tháng (Quý)', value: 3 },
-  { label: 'Mỗi 4 tháng', value: 4 },
-  { label: 'Mỗi 6 tháng', value: 6 },
-  { label: 'Mỗi 12 tháng', value: 12 },
-];
 
 export function AdminTetWalletScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('BY_DEPARTMENT');
@@ -87,16 +48,8 @@ export function AdminTetWalletScreen() {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeUser | null>(null);
   const [togglingEmpId, setTogglingEmpId] = useState<string | null>(null);
 
-  // Grant Modal State
+  // Grant Target State
   const [grantTarget, setGrantTarget] = useState<GrantTarget | null>(null);
-  const [grantTitle, setGrantTitle] = useState<string>('Thưởng Dự án');
-  const [grantPoints, setGrantPoints] = useState<number>(50000);
-  const [customPointsInput, setCustomPointsInput] = useState<string>('50000');
-  const [durationMonths, setDurationMonths] = useState<number>(12);
-  const [intervalMonths, setIntervalMonths] = useState<number>(3);
-  const [startDateStr, setStartDateStr] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [grantNote, setGrantNote] = useState<string>('');
-  const [isSubmittingGrant, setIsSubmittingGrant] = useState<boolean>(false);
 
   const queryClient = useQueryClient();
   const departmentsQuery = useDepartments({ limit: 100 });
@@ -148,34 +101,24 @@ export function AdminTetWalletScreen() {
     }, 0);
   }, [employees]);
 
-  // Calculate live preview milestones for Grant Modal
-  const calculatedMilestones = useMemo(() => {
-    const pts = parseInt(customPointsInput, 10) || 0;
-    const dur = durationMonths > 0 ? durationMonths : 12;
-    const intv = intervalMonths > 0 ? intervalMonths : 3;
-    const N = Math.max(1, Math.floor(dur / intv));
-    const ptsPerMilestone = Math.floor(pts / N);
-    const start = startDateStr ? new Date(startDateStr) : new Date();
-    const now = new Date();
-    const list = [];
+  // Open Grant Screen for Single Employee
+  const openGrantForEmployee = (emp: EmployeeUser) => {
+    setSelectedEmployee(null);
+    setGrantTarget({
+      type: 'SINGLE',
+      employee: emp,
+    });
+  };
 
-    for (let i = 1; i <= N; i++) {
-      const mPts = i === N ? pts - ptsPerMilestone * (N - 1) : ptsPerMilestone;
-      const unlock = new Date(start);
-      unlock.setMonth(unlock.getMonth() + i * intv);
-      const isUnlocked = unlock <= now;
-      list.push({
-        index: i,
-        title: `Đợt ${i} (Sau ${i * intv} tháng)`,
-        unlockDate: unlock,
-        dateFormatted: `${unlock.getDate().toString().padStart(2, '0')}/${(unlock.getMonth() + 1).toString().padStart(2, '0')}/${unlock.getFullYear()}`,
-        points: mPts,
-        cash: mPts * 1000,
-        isUnlocked,
-      });
-    }
-    return list;
-  }, [customPointsInput, durationMonths, intervalMonths, startDateStr]);
+  // Open Grant Screen for Department
+  const openGrantForDepartment = (dept: Department) => {
+    const deptMembers = employeesByDept[dept.id] || [];
+    setGrantTarget({
+      type: 'DEPARTMENT',
+      department: dept,
+      memberCount: deptMembers.length,
+    });
+  };
 
   // Toggle department collapse/expand
   const toggleDepartment = (deptId: string) => {
@@ -210,96 +153,6 @@ export function AdminTetWalletScreen() {
       Alert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Tết lúc này.');
     } finally {
       setTogglingEmpId(null);
-    }
-  };
-
-  // Open Grant Modal for Single Employee
-  const openGrantForEmployee = (emp: EmployeeUser) => {
-    const currentPoints = emp.retentionVaults?.[0]?.grantedPoints || 50000;
-    setGrantTitle('Thưởng Dự án');
-    setDurationMonths(12);
-    setIntervalMonths(3);
-    setStartDateStr(new Date().toISOString().slice(0, 10));
-    setGrantPoints(currentPoints);
-    setCustomPointsInput(currentPoints.toString());
-    setGrantNote('');
-    setGrantTarget({
-      type: 'SINGLE',
-      employee: emp,
-    });
-  };
-
-  // Open Grant Modal for Department
-  const openGrantForDepartment = (dept: Department) => {
-    const deptMembers = employeesByDept[dept.id] || [];
-    setGrantTitle(`Thưởng Phòng ${dept.name}`);
-    setDurationMonths(12);
-    setIntervalMonths(3);
-    setStartDateStr(new Date().toISOString().slice(0, 10));
-    setGrantPoints(50000);
-    setCustomPointsInput('50000');
-    setGrantNote('');
-    setGrantTarget({
-      type: 'DEPARTMENT',
-      department: dept,
-      memberCount: deptMembers.length,
-    });
-  };
-
-  // Submit Grant Points
-  const handleConfirmGrantPoints = async () => {
-    if (!grantTarget) return;
-    const pts = parseInt(customPointsInput, 10);
-    if (isNaN(pts) || pts <= 0) {
-      Alert.alert('Số điểm không hợp lệ', 'Vui lòng nhập số điểm lớn hơn 0.');
-      return;
-    }
-    const title = grantTitle.trim() || 'Thưởng Dự án';
-
-    try {
-      setIsSubmittingGrant(true);
-      const currentYear = new Date().getFullYear();
-
-      if (grantTarget.type === 'SINGLE' && grantTarget.employee) {
-        await apiGrantProjectPackage({
-          userId: grantTarget.employee.id,
-          title,
-          points: pts,
-          year: currentYear,
-          cashValuePerPoint: 1000,
-          startDate: new Date(startDateStr).toISOString(),
-          durationMonths,
-          intervalMonths,
-          note: grantNote.trim() || undefined,
-        });
-        Alert.alert(
-          'Trao gói thưởng thành công 🎉',
-          `Đã trao gói "${title}" với ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) chia thành ${calculatedMilestones.length} đợt trong ${durationMonths} tháng cho ${grantTarget.employee.profile?.fullName || grantTarget.employee.userCode}.`
-        );
-      } else if (grantTarget.type === 'DEPARTMENT' && grantTarget.department) {
-        await apiBulkGrantProjectPackage({
-          departmentId: grantTarget.department.id,
-          title,
-          points: pts,
-          year: currentYear,
-          cashValuePerPoint: 1000,
-          startDate: new Date(startDateStr).toISOString(),
-          durationMonths,
-          intervalMonths,
-          note: grantNote.trim() || undefined,
-        });
-        Alert.alert(
-          'Trao gói thưởng thành công 🎉',
-          `Đã trao gói "${title}" (${pts.toLocaleString('vi-VN')} điểm/nhân sự) cho toàn bộ phòng ban "${grantTarget.department.name}".`
-        );
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['employees'] });
-      setGrantTarget(null);
-    } catch (err: any) {
-      Alert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
-    } finally {
-      setIsSubmittingGrant(false);
     }
   };
 
@@ -381,6 +234,19 @@ export function AdminTetWalletScreen() {
       return name.includes(q) || code.includes(q) || phone.includes(q) || deptName.includes(q);
     });
   }, [employees, search, filterStatus]);
+
+  if (grantTarget) {
+    return (
+      <AdminGrantPointsScreen
+        target={grantTarget}
+        onBack={() => setGrantTarget(null)}
+        onSuccess={() => {
+          setGrantTarget(null);
+          queryClient.invalidateQueries({ queryKey: ['employees'] });
+        }}
+      />
+    );
+  }
 
   return (
     <Screen>
@@ -719,302 +585,6 @@ export function AdminTetWalletScreen() {
           </View>
         )}
       </ScrollView>
-
-      {/* Trao Điểm Modal (Grant Points Modal) */}
-      {grantTarget && (
-        <Modal
-          visible={Boolean(grantTarget)}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setGrantTarget(null)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalOverlay}
-          >
-            <View style={styles.grantModalCard}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={styles.grantHeaderBadge}>
-                    <MaterialCommunityIcons name="star-shooting" size={22} color="#D97706" />
-                  </View>
-                  <View>
-                    <Text style={styles.modalTitle}>
-                      {grantTarget.type === 'SINGLE' ? 'Trao Điểm Thưởng' : 'Trao Điểm Toàn Bộ Phòng'}
-                    </Text>
-                    <Text style={styles.modalSubtitle}>Năm thưởng {new Date().getFullYear()}</Text>
-                  </View>
-                </View>
-                <Pressable onPress={() => setGrantTarget(null)} style={styles.closeBtn}>
-                  <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
-                </Pressable>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
-                {/* Target Information */}
-                {grantTarget.type === 'SINGLE' && grantTarget.employee && (
-                  <View style={styles.grantTargetCard}>
-                    <View style={styles.modalAvatarContainer}>
-                      {grantTarget.employee.profile?.avatarUrl ? (
-                        <Image
-                          source={{ uri: grantTarget.employee.profile.avatarUrl }}
-                          style={styles.modalAvatarImg}
-                        />
-                      ) : (
-                        <View style={styles.modalAvatarFallback}>
-                          <Text style={styles.modalAvatarFallbackText}>
-                            {(grantTarget.employee.profile?.fullName || 'NV').slice(0, 2).toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.modalEmpName}>
-                        {grantTarget.employee.profile?.fullName || 'Chưa cập nhật tên'}
-                      </Text>
-                      <Text style={styles.modalEmpMeta}>
-                        {grantTarget.employee.userCode} •{' '}
-                        {grantTarget.employee.departmentLinks?.[0]?.position?.name || 'Nhân viên'}
-                      </Text>
-                      <Text style={styles.currentPointsLabel}>
-                        Cam kết 4 Quý:{' '}
-                        <Text style={{ fontWeight: '700', color: '#D97706' }}>
-                          {(grantTarget.employee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} đ
-                        </Text>
-                        {(grantTarget.employee.retentionVaults?.[0]?.instantBonusPoints || 0) > 0 && (
-                          <Text style={{ color: '#059669', fontWeight: '700' }}>
-                            {' '}• Thưởng nóng: {grantTarget.employee.retentionVaults?.[0]?.instantBonusPoints?.toLocaleString('vi-VN')} đ
-                          </Text>
-                        )}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {grantTarget.type === 'DEPARTMENT' && grantTarget.department && (
-                  <View style={[styles.grantTargetCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-                    <View style={[styles.deptIconBox, { backgroundColor: '#DBEAFE' }]}>
-                      <MaterialCommunityIcons name="domain" size={24} color="#1D4ED8" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.modalEmpName, { color: '#1E3A8A' }]}>
-                        {grantTarget.department.name}
-                      </Text>
-                      <Text style={[styles.modalEmpMeta, { color: '#3B82F6' }]}>
-                        Mã: {grantTarget.department.code} • Áp dụng cho: {grantTarget.memberCount} nhân sự
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* 1. Project Title Input */}
-                <Text style={styles.inputSectionTitle}>Tên gói thưởng / Tên dự án:</Text>
-                <View style={styles.customInputWrapper}>
-                  <TextInput
-                    style={[styles.customTextInput, { fontWeight: '600', fontSize: 13 }]}
-                    value={grantTitle}
-                    onChangeText={setGrantTitle}
-                    placeholder="VD: Thưởng Dự án ERP, Thưởng Tết 2026, Thưởng Quý..."
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
-
-                {/* 2. Preset Points Section */}
-                <Text style={styles.inputSectionTitle}>Chọn số điểm trao:</Text>
-                <View style={styles.presetChipsContainer}>
-                  {PRESET_POINTS.map((preset) => {
-                    const isSelected = parseInt(customPointsInput, 10) === preset.value;
-                    return (
-                      <Pressable
-                        key={preset.value}
-                        style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                        onPress={() => {
-                          setGrantPoints(preset.value);
-                          setCustomPointsInput(preset.value.toString());
-                        }}
-                      >
-                        <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                          {preset.label} đ
-                        </Text>
-                        <Text style={[styles.presetChipDesc, isSelected && styles.presetChipDescActive]}>
-                          ~ {preset.desc}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* 3. Custom Points Input */}
-                <Text style={styles.inputSectionTitle}>Hoặc nhập số điểm tùy chỉnh:</Text>
-                <View style={styles.customInputWrapper}>
-                  <TextInput
-                    style={styles.customTextInput}
-                    keyboardType="numeric"
-                    value={customPointsInput}
-                    onChangeText={(val) => {
-                      const clean = val.replace(/[^0-9]/g, '');
-                      setCustomPointsInput(clean);
-                      setGrantPoints(clean ? parseInt(clean, 10) : 0);
-                    }}
-                    placeholder="VD: 50000"
-                    placeholderTextColor="#94A3B8"
-                  />
-                  <Text style={styles.customInputUnit}>điểm</Text>
-                </View>
-
-                {/* Real-time VNĐ Conversion Calculation */}
-                {Boolean(parseInt(customPointsInput, 10)) && (
-                  <View style={styles.conversionBox}>
-                    <MaterialCommunityIcons name="calculator-variant" size={20} color="#D97706" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.conversionFormula}>
-                        Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ
-                      </Text>
-                      <Text style={styles.conversionTotal}>
-                        Tổng giá trị:{' '}
-                        <Text style={{ fontWeight: '800', color: '#B45309' }}>
-                          {(parseInt(customPointsInput, 10) * 1000).toLocaleString('vi-VN')} VNĐ
-                        </Text>
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* 4. Duration Selector (Thời hạn cam kết) */}
-                <Text style={styles.inputSectionTitle}>Thời hạn cam kết rút:</Text>
-                <View style={styles.presetChipsContainer}>
-                  {DURATION_OPTIONS.map((opt) => {
-                    const isSelected = durationMonths === opt.value;
-                    return (
-                      <Pressable
-                        key={opt.value}
-                        style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                        onPress={() => setDurationMonths(opt.value)}
-                      >
-                        <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* 5. Interval Selector (Chu kỳ rút) */}
-                <Text style={styles.inputSectionTitle}>Chu kỳ mở khóa rút (khoảng cách giữa các lần rút):</Text>
-                <View style={styles.presetChipsContainer}>
-                  {INTERVAL_OPTIONS.map((opt) => {
-                    const isSelected = intervalMonths === opt.value;
-                    return (
-                      <Pressable
-                        key={opt.value}
-                        style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                        onPress={() => setIntervalMonths(opt.value)}
-                      >
-                        <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* 6. Start Date Preset Selector */}
-                <Text style={styles.inputSectionTitle}>Ngày bắt đầu tính hạn mức:</Text>
-                <View style={styles.presetChipsContainer}>
-                  {[
-                    { label: 'Hôm nay', value: new Date().toISOString().slice(0, 10) },
-                    {
-                      label: 'Đầu tháng này',
-                      value: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
-                    },
-                    {
-                      label: 'Đầu năm nay',
-                      value: new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
-                    },
-                  ].map((preset) => {
-                    const isSelected = startDateStr === preset.value;
-                    return (
-                      <Pressable
-                        key={preset.label}
-                        style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                        onPress={() => setStartDateStr(preset.value)}
-                      >
-                        <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                          {preset.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* 7. Note / Reason Input */}
-                <Text style={styles.inputSectionTitle}>Ghi chú thêm (tùy chọn):</Text>
-                <View style={styles.customInputWrapper}>
-                  <TextInput
-                    style={[styles.customTextInput, { fontWeight: '500', fontSize: 13 }]}
-                    value={grantNote}
-                    onChangeText={setGrantNote}
-                    placeholder="VD: Trao thưởng theo cam kết hoàn thành dự án xuất sắc..."
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
-
-                {/* 8. Live Calculated Milestones Preview */}
-                {calculatedMilestones.length > 0 && (
-                  <View style={styles.vestingPreviewCard}>
-                    <View style={styles.vestingTitleRow}>
-                      <MaterialCommunityIcons name="timeline-clock" size={18} color="#D97706" />
-                      <Text style={styles.vestingTitle}>
-                        Lộ trình giải ngân ({calculatedMilestones.length} đợt trong {durationMonths} tháng):
-                      </Text>
-                    </View>
-                    {calculatedMilestones.map((m) => (
-                      <View key={m.index} style={styles.vestingMilestoneRow}>
-                        <View style={[styles.milestoneBadge, m.isUnlocked && { backgroundColor: '#D1FAE5' }]}>
-                          <Text style={[styles.milestoneBadgeText, m.isUnlocked && { color: '#065F46' }]}>
-                            {m.title}
-                          </Text>
-                        </View>
-                        <Text style={styles.milestoneDate}>{m.dateFormatted}</Text>
-                        <Text style={styles.milestoneAmount}>
-                          {m.points.toLocaleString('vi-VN')} đ ({m.cash.toLocaleString('vi-VN')} VNĐ)
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </ScrollView>
-
-              {/* Modal Actions */}
-              <View style={styles.grantModalActions}>
-                <Pressable
-                  style={styles.cancelGrantBtn}
-                  onPress={() => setGrantTarget(null)}
-                  disabled={isSubmittingGrant}
-                >
-                  <Text style={styles.cancelGrantBtnText}>Hủy</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.confirmGrantBtn, isSubmittingGrant && { opacity: 0.7 }]}
-                  onPress={handleConfirmGrantPoints}
-                  disabled={isSubmittingGrant}
-                >
-                  {isSubmittingGrant ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <MaterialCommunityIcons name="check-decagram" size={18} color="#FFFFFF" />
-                      <Text style={styles.confirmGrantBtnText}>Xác nhận trao điểm</Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      )}
 
       {/* Employee Detail & Permission Modal */}
       {selectedEmployee && (
