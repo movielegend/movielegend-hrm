@@ -164,7 +164,7 @@ export function LeaderDashboard() {
           }}
         >
           <LinearGradient
-            colors={['#10B981', '#059669', '#047857']}
+            colors={['#ECFDF5', '#D1FAE5']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFillObject}
@@ -177,13 +177,13 @@ export function LeaderDashboard() {
           {/* Top Status Header */}
           <View style={styles.heroHeaderRow}>
             <View style={styles.heroStatusPill}>
-              <View style={[styles.heroStatusDot, currentAttendance?.state === 'CHECKED_IN' ? { backgroundColor: '#4ADE80' } : { backgroundColor: '#FDE047' }]} />
+              <View style={[styles.heroStatusDot, currentAttendance?.state === 'CHECKED_IN' ? { backgroundColor: '#059669' } : { backgroundColor: '#F59E0B' }]} />
               <Text style={styles.heroStatusText}>
                 {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
               </Text>
             </View>
             <View style={styles.heroActionBtn}>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#FFFFFF" />
+              <MaterialCommunityIcons name="chevron-right" size={18} color="#059669" />
             </View>
           </View>
 
@@ -195,14 +195,14 @@ export function LeaderDashboard() {
           {/* Bottom Row */}
           <View style={styles.heroFooterRow}>
             <View style={styles.locationWrapper}>
-              <MaterialCommunityIcons name="map-marker" size={16} color="rgba(255, 255, 255, 0.95)" />
+              <MaterialCommunityIcons name="map-marker" size={16} color="#059669" />
               <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
             </View>
             <View style={styles.actionHintBadge}>
               <Text style={styles.actionHintText}>
                 {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
               </Text>
-              <MaterialCommunityIcons name="arrow-right" size={13} color="#FFFFFF" />
+              <MaterialCommunityIcons name="arrow-right" size={13} color="#059669" />
             </View>
           </View>
         </Pressable>
@@ -528,11 +528,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
     marginBottom: spacing.xl,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -544,8 +546,8 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     borderWidth: 20,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(16, 185, 129, 0.06)',
+    backgroundColor: 'rgba(16, 185, 129, 0.02)',
   },
   glassRingSmall: {
     position: 'absolute',
@@ -555,7 +557,7 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 70,
     borderWidth: 14,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(16, 185, 129, 0.04)',
     backgroundColor: 'transparent',
   },
   heroHeaderRow: {
@@ -569,12 +571,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: '#A7F3D0',
   },
   heroStatusDot: {
     width: 8,
@@ -582,7 +584,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   heroStatusText: {
-    color: '#FFFFFF',
+    color: '#065F46',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -591,9 +593,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: '#A7F3D0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -604,7 +606,7 @@ const styles = StyleSheet.create({
   heroTimeText: {
     fontSize: 44,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#064E3B',
     letterSpacing: -1,
   },
   timeAmPm: {
@@ -625,7 +627,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   locationText: {
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: '#065F46',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -633,15 +635,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: '#A7F3D0',
   },
   actionHintText: {
-    color: '#FFFFFF',
+    color: '#065F46',
     fontSize: 12,
     fontWeight: '700',
   },

@@ -113,19 +113,19 @@ export function AdminDashboard() {
           </View>
         </View>
 
-        {/* Hero Card - Admin (Red) */}
+        {/* Hero Card - Admin (Soft Pastel Red) */}
         <Pressable
           style={styles.heroButton}
           onPress={() => router.navigate('/admin/attendance')}
         >
           <LinearGradient
-            colors={['#EF4444', '#DC2626', '#991B1B']}
+            colors={['#FFF1F2', '#FFE4E6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFillObject}
           />
 
-          {/* Decorative geometric glass rings (Revolut / Apple Card style) */}
+          {/* Decorative geometric glass rings */}
           <View style={styles.glassRingLarge} />
           <View style={styles.glassRingSmall} />
 
@@ -136,7 +136,7 @@ export function AdminDashboard() {
               <Text style={styles.heroStatusText}>Đã chấm công</Text>
             </View>
             <View style={styles.heroActionBtn}>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#FFFFFF" />
+              <MaterialCommunityIcons name="chevron-right" size={18} color="#E11D48" />
             </View>
           </View>
 
@@ -148,12 +148,12 @@ export function AdminDashboard() {
           {/* Bottom Row */}
           <View style={styles.heroFooterRow}>
             <View style={styles.locationWrapper}>
-              <MaterialCommunityIcons name="map-marker" size={16} color="rgba(255, 255, 255, 0.95)" />
+              <MaterialCommunityIcons name="map-marker" size={16} color="#E11D48" />
               <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
             </View>
             <View style={styles.actionHintBadge}>
               <Text style={styles.actionHintText}>Chi tiết</Text>
-              <MaterialCommunityIcons name="arrow-right" size={13} color="#FFFFFF" />
+              <MaterialCommunityIcons name="arrow-right" size={13} color="#E11D48" />
             </View>
           </View>
         </Pressable>
@@ -411,11 +411,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    shadowColor: '#F43F5E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -427,8 +429,8 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     borderWidth: 20,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(225, 29, 72, 0.06)',
+    backgroundColor: 'rgba(225, 29, 72, 0.02)',
   },
   glassRingSmall: {
     position: 'absolute',
@@ -438,7 +440,7 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 70,
     borderWidth: 14,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(225, 29, 72, 0.04)',
     backgroundColor: 'transparent',
   },
   heroHeaderRow: {
@@ -452,21 +454,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: '#FECDD3',
   },
   heroStatusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#4ADE80',
+    backgroundColor: '#E11D48',
   },
   heroStatusText: {
-    color: '#FFFFFF',
+    color: '#BE123C',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -475,9 +477,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: '#FECDD3',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -486,7 +488,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   heroTimeText: {
-    color: '#FFFFFF',
+    color: '#9F1239',
     fontSize: 44,
     fontWeight: '900',
     letterSpacing: -1,
@@ -503,7 +505,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   locationText: {
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: '#9F1239',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -511,15 +513,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: '#FECDD3',
   },
   actionHintText: {
-    color: '#FFFFFF',
+    color: '#BE123C',
     fontSize: 12,
     fontWeight: '700',
   },
