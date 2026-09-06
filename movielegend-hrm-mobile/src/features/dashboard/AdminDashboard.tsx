@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,6 +11,9 @@ import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
+
+const { width } = Dimensions.get('window');
+const GRID_ITEM_WIDTH = (width - 32 - 12 * 3) / 4;
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -140,77 +143,71 @@ export function AdminDashboard() {
           </View>
         </Pressable>
 
-        {/* Thao tác nhanh - Modern Executive 4x2 Grid */}
-        <View style={styles.quickActionsContainer}>
-          <View style={styles.quickActionsHeader}>
-            <Text style={styles.sectionTitleFolder}>Thao tác nhanh</Text>
-            <View style={styles.badgeExecutive}>
-              <Text style={styles.badgeExecutiveText}>8 TÍNH NĂNG</Text>
-            </View>
-          </View>
-
-          <View style={styles.quickGrid}>
-            <QuickActionItem
+        {/* Tiện ích (Leader-style layout with vibrant colors) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tiện ích</Text>
+          <View style={styles.gridContainer}>
+            <GridItem
+              icon="crown-outline"
               title="Cấu hình Level"
-              icon="crown"
-              iconColor="#D97706"
-              bgColor="#FEF3C7"
-              onPress={() => router.navigate('/admin/levels' as any)}
+              color="#D97706"
+              iconBg="#FEF3C7"
+              onPress={() => router.push('/admin/levels' as any)}
             />
-            <QuickActionItem
+            <GridItem
+              icon="shield-check-outline"
               title="Duyệt Level"
-              icon="shield-check"
-              iconColor="#4F46E5"
-              bgColor="#EEF2FF"
-              onPress={() => router.navigate('/admin/competition/review' as any)}
+              color="#4F46E5"
+              iconBg="#EEF2FF"
+              onPress={() => router.push('/admin/competition/review' as any)}
             />
-            <QuickActionItem
+            <GridItem
+              icon="gift-outline"
               title="Ví Điểm Thưởng"
-              icon="wallet-giftcard"
-              iconColor="#059669"
-              bgColor="#ECFDF5"
-              onPress={() => router.navigate('/admin/tet-wallet' as any)}
+              color="#059669"
+              iconBg="#ECFDF5"
+              onPress={() => router.push('/admin/tet-wallet' as any)}
             />
-            <QuickActionItem
+            <GridItem
+              icon="clock-outline"
               title="Chấm công"
-              icon="clock-check"
-              iconColor="#2563EB"
-              bgColor="#DBEAFE"
-              onPress={() => router.navigate('/admin/attendance')}
+              color="#2563EB"
+              iconBg="#DBEAFE"
+              onPress={() => router.push('/admin/attendance')}
             />
-            <QuickActionItem
+            <GridItem
+              icon="file-document-multiple"
               title="Duyệt đơn"
-              icon="clipboard-text-clock"
-              iconColor="#EA580C"
-              bgColor="#FFEDD5"
-              onPress={() => router.navigate('/leader/approvals')}
+              color="#EA580C"
+              iconBg="#FFEDD5"
+              onPress={() => router.push('/leader/approvals')}
             />
-            <QuickActionItem
+            <GridItem
+              icon="briefcase-outline"
               title="Công việc"
-              icon="briefcase-check"
-              iconColor="#0284C7"
-              bgColor="#E0F2FE"
-              onPress={() => router.navigate('/admin/tasks')}
+              color="#0284C7"
+              iconBg="#E0F2FE"
+              onPress={() => router.push('/admin/tasks')}
             />
-            <QuickActionItem
-              title="Cơ cấu PB"
+            <GridItem
               icon="domain"
-              iconColor="#475569"
-              bgColor="#F1F5F9"
-              onPress={() => router.navigate('/admin/branches')}
+              title="Cơ cấu PB"
+              color="#7C3AED"
+              iconBg="#EDE9FE"
+              onPress={() => router.push('/admin/branches')}
             />
-            <QuickActionItem
+            <GridItem
+              icon="message-draw"
               title="Góp ý"
-              icon="message-alert"
-              iconColor="#E11D48"
-              bgColor="#FFE4E6"
-              onPress={() => router.navigate('/admin/feedbacks')}
+              color="#E11D48"
+              iconBg="#FFE4E6"
+              onPress={() => router.push('/admin/feedbacks')}
             />
           </View>
         </View>
 
         {/* Tổng quan hôm nay */}
-        <Text style={[styles.sectionTitleFolder, { marginTop: 8 }]}>Tổng quan hôm nay</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Tổng quan hôm nay</Text>
         <View style={styles.summaryGrid}>
           <SummaryCard
             label="Chấm công"
@@ -224,7 +221,7 @@ export function AdminDashboard() {
 
         {/* Góp ý mới nhất */}
         <View style={[styles.sectionHeader, { marginTop: 16 }]}>
-          <Text style={styles.sectionTitleFolder}>Góp ý mới nhất</Text>
+          <Text style={styles.sectionTitle}>Góp ý mới nhất</Text>
           <Pressable onPress={() => router.navigate('/admin/feedbacks')}>
             <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500' }}>Xem tất cả</Text>
           </Pressable>
@@ -261,35 +258,24 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
   );
 }
 
-interface QuickActionItemProps {
-  title: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  iconColor: string;
-  bgColor: string;
-  badge?: number | string;
-  onPress: () => void;
-}
-
-function QuickActionItem({ title, icon, iconColor, bgColor, badge, onPress }: QuickActionItemProps) {
+function GridItem({ icon, title, onPress, color, iconBg, badge, badgeColor }: any) {
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.quickItem,
+        styles.gridItem,
         pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
       ]}
       onPress={onPress}
     >
-      <View style={[styles.quickIconBox, { backgroundColor: bgColor }]}>
-        <MaterialCommunityIcons name={icon} size={26} color={iconColor} />
-        {badge !== undefined && (
-          <View style={styles.quickBadge}>
-            <Text style={styles.quickBadgeText}>{badge}</Text>
+      <View style={[styles.gridIconContainer, iconBg ? { backgroundColor: iconBg } : undefined]}>
+        <MaterialCommunityIcons name={icon} size={28} color={color || '#111827'} />
+        {badge && (
+          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
+            <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
       </View>
-      <Text style={styles.quickTitle} numberOfLines={2}>
-        {title}
-      </Text>
+      <Text style={styles.gridTitle} numberOfLines={2}>{title}</Text>
     </Pressable>
   );
 }
@@ -442,69 +428,53 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -1,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  section: {
+    marginBottom: 24,
   },
-  sectionTitleFolder: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '800',
-    color: appleTheme.textPrimary,
-    marginBottom: 12,
-  },
-  quickActionsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 16,
-    paddingBottom: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  quickActionsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    color: '#111827',
     marginBottom: 14,
   },
-  badgeExecutive: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  badgeExecutiveText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.5,
-  },
-  quickGrid: {
+  gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 12,
   },
-  quickItem: {
-    width: '25%',
+  gridItem: {
+    width: GRID_ITEM_WIDTH,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 8,
     alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+    aspectRatio: 1,
   },
-  quickIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+  gridIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
     position: 'relative',
   },
-  quickBadge: {
+  gridTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  badge: {
     position: 'absolute',
     top: -4,
     right: -4,
@@ -514,22 +484,14 @@ const styles = StyleSheet.create({
     height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    paddingHorizontal: 3,
   },
-  quickBadgeText: {
+  badgeText: {
     fontSize: 9,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#FFFFFF',
-  },
-  quickTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-    textAlign: 'center',
-    lineHeight: 15,
-    maxWidth: 76,
   },
   summaryGrid: {
     flexDirection: 'row',
