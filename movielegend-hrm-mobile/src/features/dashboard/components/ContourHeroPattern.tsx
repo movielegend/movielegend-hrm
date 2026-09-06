@@ -57,16 +57,16 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
       <Svg
         width="100%"
         height="100%"
-        viewBox="0 0 360 160"
+        viewBox="0 0 360 175"
         preserveAspectRatio="xMaxYMid slice"
       >
         {/* Layer 1: Outermost broad ambient wave */}
         <Path
-          d="M 175 -35
-             C 285 -55, 425 -5, 405 110
-             C 385 200, 275 220, 175 200
-             C 115 185, 120 75, 150 20
-             C 160 -10, 165 -30, 175 -35 Z"
+          d="M 135 -40
+             C 255 -65, 435 -10, 415 120
+             C 395 220, 260 240, 135 215
+             C 65 195, 75 75, 110 15
+             C 120 -15, 125 -35, 135 -40 Z"
           fill={palette.level1.fill}
           fillOpacity={0.4}
           stroke={palette.level1.stroke}
@@ -76,11 +76,11 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
 
         {/* Layer 2: Outermost organic ripple */}
         <Path
-          d="M 215 -15
-             C 300 -30, 405 10, 390 100
-             C 375 175, 290 192, 210 178
-             C 160 165, 165 80, 190 30
-             C 200 8, 205 -10, 215 -15 Z"
+          d="M 175 -20
+             C 275 -40, 415 5, 395 110
+             C 380 195, 275 215, 180 192
+             C 120 175, 130 80, 160 25
+             C 168 5, 170 -15, 175 -20 Z"
           fill={palette.level2.fill}
           fillOpacity={0.6}
           stroke={palette.level2.stroke}
@@ -90,11 +90,11 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
 
         {/* Layer 3: Medium topographic contour */}
         <Path
-          d="M 250 8
-             C 315 -5, 385 25, 375 92
-             C 365 150, 305 165, 245 155
-             C 205 145, 208 80, 230 40
-             C 238 22, 240 10, 250 8 Z"
+          d="M 215 5
+             C 295 -15, 395 20, 385 100
+             C 375 168, 295 185, 222 170
+             C 170 155, 175 82, 200 38
+             C 208 20, 210 8, 215 5 Z"
           fill={palette.level3.fill}
           fillOpacity={0.75}
           stroke={palette.level3.stroke}
@@ -104,11 +104,11 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
 
         {/* Layer 4: Inner contour wave */}
         <Path
-          d="M 285 28
-             C 330 20, 365 42, 360 85
-             C 355 125, 320 138, 280 132
-             C 248 126, 252 82, 268 52
-             C 275 38, 275 30, 285 28 Z"
+          d="M 255 25
+             C 315 15, 375 38, 368 92
+             C 362 142, 312 152, 265 144
+             C 222 135, 225 85, 245 52
+             C 250 35, 252 26, 255 25 Z"
           fill={palette.level4.fill}
           fillOpacity={0.9}
           stroke={palette.level4.stroke}
@@ -118,11 +118,11 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
 
         {/* Layer 5: Organic center nucleus / blob */}
         <Path
-          d="M 315 48
-             C 335 44, 348 58, 345 80
-             C 342 98, 332 112, 312 110
-             C 295 108, 290 88, 298 68
-             C 304 54, 305 50, 315 48 Z"
+          d="M 295 48
+             C 328 42, 355 56, 350 85
+             C 346 115, 322 128, 295 122
+             C 270 116, 265 92, 276 68
+             C 282 52, 286 49, 295 48 Z"
           fill={palette.level5.fill}
           fillOpacity={1.0}
           stroke={palette.level5.stroke}
