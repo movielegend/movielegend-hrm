@@ -113,47 +113,49 @@ export function AdminDashboard() {
           </View>
         </View>
 
-        {/* Hero Card - Admin (Soft Pastel Red) */}
+        {/* Hero Card - Admin (Màu loang & Bóng đổ) */}
         <Pressable
           style={styles.heroButton}
           onPress={() => router.navigate('/admin/attendance')}
         >
-          <LinearGradient
-            colors={['#FFF1F2', '#FFE4E6']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
+          <View style={styles.heroCardInner}>
+            <LinearGradient
+              colors={['#FFF5F5', '#FFE4E6', '#FECDD3', '#FFE4E6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
 
-          {/* Decorative geometric glass rings */}
-          <View style={styles.glassRingLarge} />
-          <View style={styles.glassRingSmall} />
+            {/* Vùng màu loang mềm mại */}
+            <View style={styles.ambientGlowOrbTop} />
+            <View style={styles.ambientGlowOrbBottom} />
 
-          {/* Top Status Header */}
-          <View style={styles.heroHeaderRow}>
-            <View style={styles.heroStatusPill}>
-              <MaterialCommunityIcons name="shield-crown-outline" size={15} color="#E11D48" />
-              <Text style={styles.heroStatusText}>Quản trị hệ thống</Text>
+            {/* Top Status Header */}
+            <View style={styles.heroHeaderRow}>
+              <View style={styles.heroStatusPill}>
+                <MaterialCommunityIcons name="shield-crown-outline" size={15} color="#E11D48" />
+                <Text style={styles.heroStatusText}>Quản trị hệ thống</Text>
+              </View>
+              <View style={styles.heroActionBtn}>
+                <MaterialCommunityIcons name="chevron-right" size={18} color="#E11D48" />
+              </View>
             </View>
-            <View style={styles.heroActionBtn}>
-              <MaterialCommunityIcons name="chevron-right" size={18} color="#E11D48" />
-            </View>
-          </View>
 
-          {/* Main Clock */}
-          <View style={styles.heroTimeWrapper}>
-            <LiveClock style={styles.heroTimeText} />
-          </View>
-
-          {/* Bottom Row */}
-          <View style={styles.heroFooterRow}>
-            <View style={styles.locationWrapper}>
-              <MaterialCommunityIcons name="map-marker" size={16} color="#E11D48" />
-              <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+            {/* Main Clock */}
+            <View style={styles.heroTimeWrapper}>
+              <LiveClock style={styles.heroTimeText} />
             </View>
-            <View style={styles.actionHintBadge}>
-              <Text style={styles.actionHintText}>Chi tiết</Text>
-              <MaterialCommunityIcons name="arrow-right" size={13} color="#E11D48" />
+
+            {/* Bottom Row */}
+            <View style={styles.heroFooterRow}>
+              <View style={styles.locationWrapper}>
+                <MaterialCommunityIcons name="map-marker" size={16} color="#E11D48" />
+                <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+              </View>
+              <View style={styles.actionHintBadge}>
+                <Text style={styles.actionHintText}>Chi tiết</Text>
+                <MaterialCommunityIcons name="arrow-right" size={13} color="#E11D48" />
+              </View>
             </View>
           </View>
         </Pressable>
@@ -409,39 +411,39 @@ const styles = StyleSheet.create({
   },
   heroButton: {
     borderRadius: 24,
-    padding: 20,
     marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  heroCardInner: {
+    borderRadius: 24,
+    padding: 20,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#FECDD3',
-    shadowColor: '#F43F5E',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
     position: 'relative',
-    overflow: 'hidden',
   },
-  glassRingLarge: {
+  ambientGlowOrbTop: {
     position: 'absolute',
-    top: -60,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 20,
-    borderColor: 'rgba(225, 29, 72, 0.06)',
-    backgroundColor: 'rgba(225, 29, 72, 0.02)',
+    top: -50,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(254, 205, 211, 0.55)',
   },
-  glassRingSmall: {
+  ambientGlowOrbBottom: {
     position: 'absolute',
-    bottom: -50,
-    left: -40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 14,
-    borderColor: 'rgba(225, 29, 72, 0.04)',
-    backgroundColor: 'transparent',
+    bottom: -40,
+    left: -30,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'rgba(255, 228, 230, 0.7)',
   },
   heroHeaderRow: {
     flexDirection: 'row',
