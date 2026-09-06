@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert, Image, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ContourHeroPattern } from './components/ContourHeroPattern';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -136,28 +137,19 @@ export function EmployeeDashboardScreen() {
           }}
         >
           <View style={styles.heroCardInner}>
-            <LinearGradient
-              colors={['#F0F9FF', '#EFF6FF', '#DBEAFE', '#BFDBFE']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
+            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
+            <ContourHeroPattern variant="blue" />
 
-            {/* Vùng màu loang mềm mại */}
-            <View style={styles.ambientGlowOrbTop} />
-            <View style={styles.ambientGlowOrbBottom} />
-            
             {/* Top Status Header */}
             <View style={styles.heroHeaderRow}>
-              <View style={styles.heroStatusPill}>
-                <View style={[styles.heroStatusDot, currentAttendance?.state === 'CHECKED_IN' ? { backgroundColor: '#2563EB' } : { backgroundColor: '#3B82F6' }]} />
-                <Text style={styles.heroStatusText}>
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
-                </Text>
-              </View>
-              <View style={styles.heroActionBtn}>
-                <MaterialCommunityIcons name="chevron-right" size={18} color="#2563EB" />
-              </View>
+              <MaterialCommunityIcons 
+                name={currentAttendance?.state === 'CHECKED_IN' ? 'check-circle' : 'check-circle'} 
+                size={18} 
+                color="#2563EB" 
+              />
+              <Text style={styles.heroStatusText}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              </Text>
             </View>
 
             {/* Main Clock */}
@@ -168,14 +160,8 @@ export function EmployeeDashboardScreen() {
             {/* Bottom Row */}
             <View style={styles.heroFooterRow}>
               <View style={styles.locationWrapper}>
-                <MaterialCommunityIcons name="map-marker" size={16} color="#2563EB" />
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
                 <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
-              </View>
-              <View style={styles.actionHintBadge}>
-                <Text style={styles.actionHintText}>
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
-                </Text>
-                <MaterialCommunityIcons name="arrow-right" size={13} color="#2563EB" />
               </View>
             </View>
           </View>
@@ -440,123 +426,59 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     backgroundColor: '#FFFFFF',
     shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 3,
   },
   heroCardInner: {
     borderRadius: 24,
-    padding: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#E0F2FE',
+    backgroundColor: '#FFFFFF',
     position: 'relative',
-  },
-  ambientGlowOrbTop: {
-    position: 'absolute',
-    top: -50,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(191, 219, 254, 0.55)',
-  },
-  ambientGlowOrbBottom: {
-    position: 'absolute',
-    bottom: -40,
-    left: -30,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(224, 242, 254, 0.7)',
+    minHeight: 144,
+    justifyContent: 'space-between',
   },
   heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    zIndex: 1,
-  },
-  heroStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 7,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  heroStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    zIndex: 2,
   },
   heroStatusText: {
     color: '#1E40AF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  heroActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    alignItems: 'center',
-    justifyContent: 'center',
+    letterSpacing: -0.2,
   },
   heroTimeWrapper: {
-    marginBottom: 18,
-    zIndex: 1,
+    marginVertical: 4,
+    zIndex: 2,
   },
   heroTimeText: {
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: '900',
-    color: '#1E3A8A',
-    letterSpacing: -1,
-  },
-  timeAmPm: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    marginLeft: 8,
+    color: '#0F172A',
+    letterSpacing: -1.5,
   },
   heroFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 1,
+    zIndex: 2,
   },
   locationWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   locationText: {
-    color: '#1E40AF',
+    color: '#64748B',
     fontSize: 13,
     fontWeight: '600',
-  },
-  actionHintBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  actionHintText: {
-    color: '#1E40AF',
-    fontSize: 12,
-    fontWeight: '700',
   },
   section: {
     marginBottom: spacing.xl,

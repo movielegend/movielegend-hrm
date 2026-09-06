@@ -12,6 +12,7 @@ import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ContourHeroPattern } from './components/ContourHeroPattern';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = Math.floor((width - 32 - 12 * 2) / 3);
@@ -113,32 +114,19 @@ export function AdminDashboard() {
           </View>
         </View>
 
-        {/* Hero Card - Admin (Màu loang & Bóng đổ) */}
+        {/* Hero Card - Admin (Vân địa hình & Bóng đổ) */}
         <Pressable
           style={styles.heroButton}
           onPress={() => router.navigate('/admin/attendance')}
         >
           <View style={styles.heroCardInner}>
-            <LinearGradient
-              colors={['#FFF5F5', '#FFE4E6', '#FECDD3', '#FFE4E6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-
-            {/* Vùng màu loang mềm mại */}
-            <View style={styles.ambientGlowOrbTop} />
-            <View style={styles.ambientGlowOrbBottom} />
+            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
+            <ContourHeroPattern variant="red" />
 
             {/* Top Status Header */}
             <View style={styles.heroHeaderRow}>
-              <View style={styles.heroStatusPill}>
-                <MaterialCommunityIcons name="shield-crown-outline" size={15} color="#E11D48" />
-                <Text style={styles.heroStatusText}>Quản trị hệ thống</Text>
-              </View>
-              <View style={styles.heroActionBtn}>
-                <MaterialCommunityIcons name="chevron-right" size={18} color="#E11D48" />
-              </View>
+              <MaterialCommunityIcons name="shield-check" size={18} color="#E11D48" />
+              <Text style={styles.heroStatusText}>Quản trị hệ thống</Text>
             </View>
 
             {/* Main Clock */}
@@ -149,12 +137,8 @@ export function AdminDashboard() {
             {/* Bottom Row */}
             <View style={styles.heroFooterRow}>
               <View style={styles.locationWrapper}>
-                <MaterialCommunityIcons name="map-marker" size={16} color="#E11D48" />
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
                 <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
-              </View>
-              <View style={styles.actionHintBadge}>
-                <Text style={styles.actionHintText}>Chi tiết</Text>
-                <MaterialCommunityIcons name="arrow-right" size={13} color="#E11D48" />
               </View>
             </View>
           </View>
@@ -414,118 +398,59 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: '#FFFFFF',
     shadowColor: '#E11D48',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 3,
   },
   heroCardInner: {
     borderRadius: 24,
-    padding: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: '#FFE4E6',
+    backgroundColor: '#FFFFFF',
     position: 'relative',
-  },
-  ambientGlowOrbTop: {
-    position: 'absolute',
-    top: -50,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(254, 205, 211, 0.55)',
-  },
-  ambientGlowOrbBottom: {
-    position: 'absolute',
-    bottom: -40,
-    left: -30,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(255, 228, 230, 0.7)',
+    minHeight: 144,
+    justifyContent: 'space-between',
   },
   heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    zIndex: 1,
-  },
-  heroStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 7,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-  },
-  heroStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E11D48',
+    zIndex: 2,
   },
   heroStatusText: {
-    color: '#BE123C',
-    fontSize: 13,
+    color: '#9F1239',
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  heroActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-    alignItems: 'center',
-    justifyContent: 'center',
+    letterSpacing: -0.2,
   },
   heroTimeWrapper: {
-    marginBottom: 18,
-    zIndex: 1,
+    marginVertical: 4,
+    zIndex: 2,
   },
   heroTimeText: {
-    color: '#9F1239',
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: '900',
-    letterSpacing: -1,
+    color: '#0F172A',
+    letterSpacing: -1.5,
   },
   heroFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 1,
+    zIndex: 2,
   },
   locationWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   locationText: {
-    color: '#9F1239',
+    color: '#64748B',
     fontSize: 13,
     fontWeight: '600',
-  },
-  actionHintBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-  },
-  actionHintText: {
-    color: '#BE123C',
-    fontSize: 12,
-    fontWeight: '700',
   },
   section: {
     marginBottom: 24,

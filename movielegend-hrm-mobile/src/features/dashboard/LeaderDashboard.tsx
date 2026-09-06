@@ -18,6 +18,7 @@ import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ContourHeroPattern } from './components/ContourHeroPattern';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { Dimensions } from 'react-native';
 
@@ -164,46 +165,31 @@ export function LeaderDashboard() {
           }}
         >
           <View style={styles.heroCardInner}>
-            <LinearGradient
-              colors={['#F0FDF4', '#DCFCE7', '#BBF7D0', '#DCFCE7']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
+            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
+            <ContourHeroPattern variant="green" />
 
-            {/* Vùng màu loang mềm mại */}
-            <View style={styles.ambientGlowOrbTop} />
-            <View style={styles.ambientGlowOrbBottom} />
-            
             {/* Top Status Header */}
             <View style={styles.heroHeaderRow}>
-              <View style={styles.heroStatusPill}>
-                <View style={[styles.heroStatusDot, currentAttendance?.state === 'CHECKED_IN' ? { backgroundColor: '#059669' } : { backgroundColor: '#F59E0B' }]} />
-                <Text style={styles.heroStatusText}>
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
-                </Text>
-              </View>
-              <View style={styles.heroActionBtn}>
-                <MaterialCommunityIcons name="chevron-right" size={18} color="#059669" />
-              </View>
+              <MaterialCommunityIcons 
+                name={currentAttendance?.state === 'CHECKED_IN' ? 'check-circle' : 'check-circle'} 
+                size={18} 
+                color="#059669" 
+              />
+              <Text style={styles.heroStatusText}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              </Text>
             </View>
 
             {/* Main Clock */}
             <View style={styles.heroTimeWrapper}>
-              <Text style={styles.heroTimeText}>{timeString}</Text>
+              <LiveClock style={styles.heroTimeText} />
             </View>
 
             {/* Bottom Row */}
             <View style={styles.heroFooterRow}>
               <View style={styles.locationWrapper}>
-                <MaterialCommunityIcons name="map-marker" size={16} color="#059669" />
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
                 <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
-              </View>
-              <View style={styles.actionHintBadge}>
-                <Text style={styles.actionHintText}>
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
-                </Text>
-                <MaterialCommunityIcons name="arrow-right" size={13} color="#059669" />
               </View>
             </View>
           </View>
@@ -531,123 +517,59 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     backgroundColor: '#FFFFFF',
     shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 3,
   },
   heroCardInner: {
     borderRadius: 24,
-    padding: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#DCFCE7',
+    backgroundColor: '#FFFFFF',
     position: 'relative',
-  },
-  ambientGlowOrbTop: {
-    position: 'absolute',
-    top: -50,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(187, 247, 208, 0.55)',
-  },
-  ambientGlowOrbBottom: {
-    position: 'absolute',
-    bottom: -40,
-    left: -30,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(220, 252, 231, 0.7)',
+    minHeight: 144,
+    justifyContent: 'space-between',
   },
   heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    zIndex: 1,
-  },
-  heroStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 7,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  heroStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    zIndex: 2,
   },
   heroStatusText: {
     color: '#065F46',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  heroActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    letterSpacing: -0.2,
   },
   heroTimeWrapper: {
-    marginBottom: 18,
-    zIndex: 1,
+    marginVertical: 4,
+    zIndex: 2,
   },
   heroTimeText: {
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: '900',
-    color: '#064E3B',
-    letterSpacing: -1,
-  },
-  timeAmPm: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    marginLeft: 8,
+    color: '#0F172A',
+    letterSpacing: -1.5,
   },
   heroFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 1,
+    zIndex: 2,
   },
   locationWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   locationText: {
-    color: '#065F46',
+    color: '#64748B',
     fontSize: 13,
     fontWeight: '600',
-  },
-  actionHintBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  actionHintText: {
-    color: '#065F46',
-    fontSize: 12,
-    fontWeight: '700',
   },
   section: {
     marginBottom: spacing.xl,

@@ -12,6 +12,7 @@ import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ContourHeroPattern } from './components/ContourHeroPattern';
 import { spacing } from '../../theme/spacing';
 
 const appleTheme = {
@@ -117,7 +118,7 @@ export function HRDashboard() {
           </View>
         </View>
 
-        {/* Hero Card - Chấm công */}
+        {/* Hero Card (Đã chấm công) */}
         <Pressable
           style={styles.heroButton}
           onPress={async () => {
@@ -137,28 +138,19 @@ export function HRDashboard() {
           }}
         >
           <View style={styles.heroCardInner}>
-            <LinearGradient
-              colors={['#F8FAFC', '#F1F5F9', '#E2E8F0', '#F1F5F9']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-
-            {/* Vùng màu loang mềm mại */}
-            <View style={styles.ambientGlowOrbTop} />
-            <View style={styles.ambientGlowOrbBottom} />
+            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
+            <ContourHeroPattern variant="slate" />
 
             {/* Top Status Header */}
             <View style={styles.heroHeaderRow}>
-              <View style={styles.heroStatusPill}>
-                <View style={[styles.heroStatusDot, currentAttendance?.state === 'CHECKED_IN' ? { backgroundColor: '#10B981' } : { backgroundColor: '#475569' }]} />
-                <Text style={styles.heroStatusText}>
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
-                </Text>
-              </View>
-              <View style={styles.heroActionBtn}>
-                <MaterialCommunityIcons name="chevron-right" size={18} color="#1E293B" />
-              </View>
+              <MaterialCommunityIcons 
+                name={currentAttendance?.state === 'CHECKED_IN' ? 'check-circle' : 'check-circle'} 
+                size={18} 
+                color="#475569" 
+              />
+              <Text style={styles.heroStatusText}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              </Text>
             </View>
 
             {/* Main Clock */}
@@ -169,14 +161,8 @@ export function HRDashboard() {
             {/* Bottom Row */}
             <View style={styles.heroFooterRow}>
               <View style={styles.locationWrapper}>
-                <MaterialCommunityIcons name="map-marker" size={16} color="#475569" />
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
                 <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
-              </View>
-              <View style={styles.actionHintBadge}>
-                <Text style={styles.actionHintText}>
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
-                </Text>
-                <MaterialCommunityIcons name="arrow-right" size={13} color="#1E293B" />
               </View>
             </View>
           </View>
@@ -496,117 +482,59 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: '#FFFFFF',
     shadowColor: '#475569',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 3,
   },
   heroCardInner: {
     borderRadius: 24,
-    padding: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     position: 'relative',
-  },
-  ambientGlowOrbTop: {
-    position: 'absolute',
-    top: -50,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(226, 232, 240, 0.65)',
-  },
-  ambientGlowOrbBottom: {
-    position: 'absolute',
-    bottom: -40,
-    left: -30,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(241, 245, 249, 0.8)',
+    minHeight: 144,
+    justifyContent: 'space-between',
   },
   heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    zIndex: 1,
-  },
-  heroStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 7,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  heroStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    zIndex: 2,
   },
   heroStatusText: {
-    color: '#1E293B',
-    fontSize: 13,
+    color: '#334155',
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  heroActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    letterSpacing: -0.2,
   },
   heroTimeWrapper: {
-    marginBottom: 18,
-    zIndex: 1,
+    marginVertical: 4,
+    zIndex: 2,
   },
   heroTimeText: {
-    color: '#0F172A',
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: '900',
-    letterSpacing: -1,
+    color: '#0F172A',
+    letterSpacing: -1.5,
   },
   heroFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 1,
+    zIndex: 2,
   },
   locationWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   locationText: {
-    color: '#334155',
+    color: '#64748B',
     fontSize: 13,
     fontWeight: '600',
-  },
-  actionHintBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  actionHintText: {
-    color: '#1E293B',
-    fontSize: 12,
-    fontWeight: '700',
   },
   sectionHeader: {
     flexDirection: 'row',
