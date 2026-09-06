@@ -15,37 +15,37 @@ const PALETTES: Record<ContourVariant, {
   level4: { fill: string; stroke: string };
   level5: { fill: string; stroke: string };
 }> = {
-  // Leader: Emerald / Mint Topo
+  // Leader: Emerald / Mint Topo (Exact match to reference mockup)
   green: {
-    level1: { fill: '#E8FDF0', stroke: '#BBF7D0' },
-    level2: { fill: '#DCFCE7', stroke: '#86EFAC' },
-    level3: { fill: '#BBF7D0', stroke: '#4ADE80' },
-    level4: { fill: '#86EFAC', stroke: '#22C55E' },
-    level5: { fill: '#4ADE80', stroke: '#16A34A' },
+    level1: { fill: '#DCFCE7', stroke: '#86EFAC' },
+    level2: { fill: '#BBF7D0', stroke: '#4ADE80' },
+    level3: { fill: '#86EFAC', stroke: '#22C55E' },
+    level4: { fill: '#4ADE80', stroke: '#16A34A' },
+    level5: { fill: '#22C55E', stroke: '#15803D' },
   },
   // Admin: Ruby / Rose Topo
   red: {
-    level1: { fill: '#FFF1F2', stroke: '#FECDD3' },
-    level2: { fill: '#FFE4E6', stroke: '#FDA4AF' },
-    level3: { fill: '#FECDD3', stroke: '#FB7185' },
-    level4: { fill: '#FDA4AF', stroke: '#F43F5E' },
-    level5: { fill: '#FB7185', stroke: '#E11D48' },
+    level1: { fill: '#FFE4E6', stroke: '#FECDD3' },
+    level2: { fill: '#FECDD3', stroke: '#FDA4AF' },
+    level3: { fill: '#FDA4AF', stroke: '#FB7185' },
+    level4: { fill: '#FB7185', stroke: '#F43F5E' },
+    level5: { fill: '#F43F5E', stroke: '#BE123C' },
   },
   // Employee: Sky / Azure Topo
   blue: {
-    level1: { fill: '#F0F9FF', stroke: '#BAE6FD' },
-    level2: { fill: '#E0F2FE', stroke: '#7DD3FC' },
-    level3: { fill: '#BAE6FD', stroke: '#38BDF8' },
-    level4: { fill: '#7DD3FC', stroke: '#0EA5E9' },
-    level5: { fill: '#38BDF8', stroke: '#2563EB' },
+    level1: { fill: '#E0F2FE', stroke: '#BAE6FD' },
+    level2: { fill: '#BAE6FD', stroke: '#7DD3FC' },
+    level3: { fill: '#7DD3FC', stroke: '#38BDF8' },
+    level4: { fill: '#38BDF8', stroke: '#0EA5E9' },
+    level5: { fill: '#0EA5E9', stroke: '#1D4ED8' },
   },
   // HR: Slate / Charcoal Topo
   slate: {
-    level1: { fill: '#F8FAFC', stroke: '#E2E8F0' },
-    level2: { fill: '#F1F5F9', stroke: '#CBD5E1' },
-    level3: { fill: '#E2E8F0', stroke: '#94A3B8' },
-    level4: { fill: '#CBD5E1', stroke: '#64748B' },
-    level5: { fill: '#94A3B8', stroke: '#475569' },
+    level1: { fill: '#F1F5F9', stroke: '#E2E8F0' },
+    level2: { fill: '#E2E8F0', stroke: '#CBD5E1' },
+    level3: { fill: '#CBD5E1', stroke: '#94A3B8' },
+    level4: { fill: '#94A3B8', stroke: '#64748B' },
+    level5: { fill: '#64748B', stroke: '#334155' },
   },
 };
 
@@ -57,30 +57,30 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
       <Svg
         width="100%"
         height="100%"
-        viewBox="0 0 360 175"
+        viewBox="0 0 360 150"
         preserveAspectRatio="xMaxYMid slice"
       >
-        {/* Layer 1: Outermost broad ambient wave */}
+        {/* Layer 1: Outermost broad ambient contour */}
         <Path
-          d="M 135 -40
-             C 255 -65, 435 -10, 415 120
-             C 395 220, 260 240, 135 215
-             C 65 195, 75 75, 110 15
-             C 120 -15, 125 -35, 135 -40 Z"
+          d="M 230 -35
+             C 345 -50, 420 5, 410 80
+             C 395 160, 320 185, 230 175
+             C 150 165, 125 105, 140 45
+             C 152 8, 175 -25, 230 -35 Z"
           fill={palette.level1.fill}
           fillOpacity={0.4}
           stroke={palette.level1.stroke}
-          strokeWidth={0.8}
-          strokeOpacity={0.4}
+          strokeWidth={0.9}
+          strokeOpacity={0.45}
         />
 
-        {/* Layer 2: Outermost organic ripple */}
+        {/* Layer 2: Outer contour wave */}
         <Path
-          d="M 175 -20
-             C 275 -40, 415 5, 395 110
-             C 380 195, 275 215, 180 192
-             C 120 175, 130 80, 160 25
-             C 168 5, 170 -15, 175 -20 Z"
+          d="M 240 -15
+             C 330 -25, 390 15, 380 78
+             C 368 140, 310 162, 240 152
+             C 178 142, 158 98, 170 52
+             C 180 20, 195 -8, 240 -15 Z"
           fill={palette.level2.fill}
           fillOpacity={0.6}
           stroke={palette.level2.stroke}
@@ -90,11 +90,11 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
 
         {/* Layer 3: Medium topographic contour */}
         <Path
-          d="M 215 5
-             C 295 -15, 395 20, 385 100
-             C 375 168, 295 185, 222 170
-             C 170 155, 175 82, 200 38
-             C 208 20, 210 8, 215 5 Z"
+          d="M 252 6
+             C 315 -2, 360 28, 350 75
+             C 340 120, 300 138, 252 132
+             C 205 125, 192 92, 202 58
+             C 208 30, 218 12, 252 6 Z"
           fill={palette.level3.fill}
           fillOpacity={0.75}
           stroke={palette.level3.stroke}
@@ -102,13 +102,13 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
           strokeOpacity={0.75}
         />
 
-        {/* Layer 4: Inner contour wave */}
+        {/* Layer 4: Inner contour wave around nucleus */}
         <Path
-          d="M 255 25
-             C 315 15, 375 38, 368 92
-             C 362 142, 312 152, 265 144
-             C 222 135, 225 85, 245 52
-             C 250 35, 252 26, 255 25 Z"
+          d="M 262 25
+             C 300 18, 330 42, 324 74
+             C 318 104, 292 116, 262 112
+             C 232 108, 222 88, 228 62
+             C 232 40, 238 28, 262 25 Z"
           fill={palette.level4.fill}
           fillOpacity={0.9}
           stroke={palette.level4.stroke}
@@ -116,13 +116,13 @@ export const ContourHeroPattern: React.FC<ContourHeroPatternProps> = ({ variant 
           strokeOpacity={0.9}
         />
 
-        {/* Layer 5: Organic center nucleus / blob */}
+        {/* Layer 5: Prominent center organic nucleus blob */}
         <Path
-          d="M 295 48
-             C 328 42, 355 56, 350 85
-             C 346 115, 322 128, 295 122
-             C 270 116, 265 92, 276 68
-             C 282 52, 286 49, 295 48 Z"
+          d="M 270 44
+             C 294 38, 310 52, 304 74
+             C 298 90, 286 98, 270 96
+             C 252 94, 246 80, 250 62
+             C 254 50, 258 45, 270 44 Z"
           fill={palette.level5.fill}
           fillOpacity={1.0}
           stroke={palette.level5.stroke}
