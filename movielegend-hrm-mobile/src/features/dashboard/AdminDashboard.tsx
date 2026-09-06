@@ -121,13 +121,13 @@ export function AdminDashboard() {
           <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: appleTheme.radiusCard, overflow: 'hidden' }}>
             <Image
               source={require('../../../assets/topographic-contour-admin-v2.png')}
-              style={styles.heroTopographicBg}
+              style={[styles.heroTopographicBg, { tintColor: '#FFFFFF', opacity: 0.15 }]}
               resizeMode="cover"
             />
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: '#EF4444', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
               <MaterialCommunityIcons name="check" size={16} color="#FFF" />
             </View>
             <Text style={styles.heroTitle}>Đã chấm công</Text>
@@ -138,8 +138,8 @@ export function AdminDashboard() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 }}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color={appleTheme.textSecondary} />
-            <Text style={{ color: appleTheme.textSecondary, fontSize: 13 }}>Văn phòng Hà Nội</Text>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color="rgba(255, 255, 255, 0.85)" />
+            <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 13, fontWeight: '500' }}>Văn phòng Hà Nội</Text>
           </View>
         </Pressable>
 
@@ -393,19 +393,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   heroButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#DC2626',
     borderRadius: appleTheme.radiusCard,
     padding: 24,
     marginBottom: 24,
-    shadowColor: '#EF4444',
+    shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 3,
+    elevation: 5,
     position: 'relative',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
   },
 
   heroTopographicBg: {
@@ -418,12 +416,12 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   heroTitle: {
-    color: '#DC2626',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
   },
   heroSubtitle: {
-    color: appleTheme.textPrimary,
+    color: '#FFFFFF',
     fontSize: 36,
     fontWeight: '800',
     letterSpacing: -1,

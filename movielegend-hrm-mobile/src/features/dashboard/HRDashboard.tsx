@@ -118,7 +118,7 @@ export function HRDashboard() {
 
         {/* Hero Card - Chấm công */}
         <Pressable
-          style={[styles.heroButton, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
+          style={styles.heroButton}
           onPress={async () => {
             try {
               if (currentAttendance?.state === 'CHECKED_IN') {
@@ -139,27 +139,27 @@ export function HRDashboard() {
           <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: appleTheme.radiusCard, overflow: 'hidden' }}>
             <Image
               source={require('../../../assets/topographic-contour-admin-v2.png')}
-              style={[styles.heroTopographicBg, { tintColor: '#111827' }]}
+              style={[styles.heroTopographicBg, { tintColor: '#FFFFFF', opacity: 0.15 }]}
               resizeMode="cover"
             />
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: currentAttendance?.state === 'CHECKED_IN' ? '#FFF' : '#111827', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-              <MaterialCommunityIcons name="check" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#F59E0B' : '#FFF'} />
+            <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="check" size={16} color="#FFF" />
             </View>
-            <Text style={[styles.heroTitle, { color: currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#111827' }]}>
+            <Text style={styles.heroTitle}>
               {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
             </Text>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20, zIndex: 1 }}>
-            <LiveClock style={[styles.heroSubtitle, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]} />
+            <LiveClock style={styles.heroSubtitle} />
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 }}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FEF3C7' : appleTheme.textSecondary} />
-            <Text style={{ color: currentAttendance?.state === 'CHECKED_IN' ? '#FEF3C7' : appleTheme.textSecondary, fontSize: 13 }}>Văn phòng Hà Nội</Text>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color="rgba(255, 255, 255, 0.85)" />
+            <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 13, fontWeight: '500' }}>Văn phòng Hà Nội</Text>
           </View>
         </Pressable>
 
@@ -473,19 +473,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   heroButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#111827',
     borderRadius: appleTheme.radiusCard,
     padding: 24,
     marginBottom: 24,
     shadowColor: '#111827',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.35,
     shadowRadius: 16,
-    elevation: 3,
+    elevation: 6,
     position: 'relative',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
 
   heroTopographicBg: {
@@ -498,12 +496,12 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   heroTitle: {
-    color: '#111827',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
   },
   heroSubtitle: {
-    color: appleTheme.textPrimary,
+    color: '#FFFFFF',
     fontSize: 36,
     fontWeight: '800',
     letterSpacing: -1,

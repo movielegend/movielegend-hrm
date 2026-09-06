@@ -138,24 +138,24 @@ export function EmployeeDashboardScreen() {
           <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24, overflow: 'hidden' }}>
             <Image
               source={require('../../../assets/topographic-contour-employee-v2.png')}
-              style={styles.heroTopographicBg}
+              style={[styles.heroTopographicBg, { tintColor: '#FFFFFF', opacity: 0.15 }]}
               resizeMode="cover"
             />
           </View>
           
 
           <View style={styles.statusBadge}>
-            <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#3B82F6'} />
-            <Text style={[styles.statusBadgeText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>
+            <MaterialCommunityIcons name="check-circle" size={16} color="#FFFFFF" />
+            <Text style={styles.statusBadgeText}>
               {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
             </Text>
           </View>
           <View style={styles.timeContainer}>
-            <Text style={[styles.timeValue, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>{timeString}</Text>
+            <Text style={styles.timeValue}>{timeString}</Text>
           </View>
           <View style={styles.locationContainer}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FEF3C7' : '#6B7280'} />
-            <Text style={[styles.locationText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FEF3C7' }]}>Văn phòng Hà Nội</Text>
+            <MaterialCommunityIcons name="map-marker-outline" size={16} color="rgba(255, 255, 255, 0.85)" />
+            <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
           </View>
         </Pressable>
 
@@ -414,18 +414,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2563EB',
     borderRadius: 24,
     padding: spacing.xl,
     marginBottom: spacing.xl,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 5,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
   },
   heroTopographicBg: {
     position: 'absolute',
@@ -445,7 +443,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#FFFFFF',
   },
   timeContainer: {
     flexDirection: 'row',
@@ -455,7 +453,7 @@ const styles = StyleSheet.create({
   timeValue: {
     fontSize: 48,
     fontWeight: '800',
-    color: '#111827',
+    color: '#FFFFFF',
     letterSpacing: -1,
   },
   timeAmPm: {
