@@ -132,8 +132,8 @@ export function AdminDashboard() {
           {/* Top Status Header */}
           <View style={styles.heroHeaderRow}>
             <View style={styles.heroStatusPill}>
-              <View style={styles.heroStatusDot} />
-              <Text style={styles.heroStatusText}>Đã chấm công</Text>
+              <MaterialCommunityIcons name="shield-crown-outline" size={15} color="#E11D48" />
+              <Text style={styles.heroStatusText}>Quản trị hệ thống</Text>
             </View>
             <View style={styles.heroActionBtn}>
               <MaterialCommunityIcons name="chevron-right" size={18} color="#E11D48" />
