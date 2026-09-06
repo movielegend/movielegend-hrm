@@ -7,7 +7,9 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import type { AdminLevelItem } from '../AdminLevelConfigScreen';
 
 interface AdminLevelProjectsPageProps {
@@ -90,7 +92,17 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scroll}
+      enableOnAndroid={true}
+      enableAutomaticScroll={true}
+      extraScrollHeight={Platform.OS === 'ios' ? 120 : 140}
+      extraHeight={Platform.OS === 'ios' ? 120 : 140}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      enableResetScrollToCoords={false}
+    >
       {/* Year Selector Bar */}
       <Text style={styles.yearSubLabel}>CHỌN NĂM GIAO DỰ ÁN (NĂM {selectedYear}):</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScrollRow}>
@@ -217,8 +229,8 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
         <Text style={styles.saveSyncBtnText}>HOÀN TẤT & ĐỒNG BỘ CẤU HÌNH</Text>
       </TouchableOpacity>
 
-      <View style={{ height: 20 }} />
-    </ScrollView>
+      <View style={{ height: 40 }} />
+    </KeyboardAwareScrollView>
   );
 };
 
