@@ -201,17 +201,20 @@ export class WithdrawVaultPointsDto {
   @Min(1)
   points!: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  bankName!: string;
+  bankName?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  bankAccountNumber!: string;
+  bankAccountNumber?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  bankAccountName!: string;
+  bankAccountName?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

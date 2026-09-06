@@ -104,11 +104,6 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const advanceCash = advancePoints * cashValuePerPoint;
 
   const handleWithdrawSubmit = async () => {
-    if (!accountNumber.trim() || !accountName.trim() || !bankName.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Số tài khoản, Ngân hàng và Tên chủ tài khoản!');
-      return;
-    }
-
     if (pointsToWithdraw <= 0) {
       Alert.alert('Lỗi', 'Vui lòng nhập số điểm muốn rút lớn hơn 0!');
       return;
@@ -126,9 +121,6 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
       setIsSubmitting(true);
       await withdrawVaultPoints({
         points: pointsToWithdraw,
-        bankName: bankName.trim(),
-        bankAccountNumber: accountNumber.trim(),
-        bankAccountName: accountName.trim().toUpperCase(),
         note: withdrawNote.trim() || undefined,
       });
 
@@ -136,10 +128,10 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
       setModalVisible(false);
 
       Alert.alert(
-        'Gửi Yêu Cầu Rút Tiền Thành Công! 💸',
+        'Gửi Yêu Cầu Rút Điểm Thành Công! 💸',
         isAdvanceWithdrawal
-          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các đợt tương lai). Kế toán sẽ phê duyệt chuyển khoản cho bạn sớm nhất!`
-          : `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Kế toán sẽ phê duyệt chuyển khoản cho bạn sớm nhất!`
+          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các đợt tương lai). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
+          : `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
       );
     } catch (err: any) {
       Alert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
@@ -749,39 +741,23 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 </View>
               )}
 
-              {/* Bank Inputs */}
-              <Text style={styles.inputLabel}>Ngân hàng thụ hưởng:</Text>
-              <TextInput
-                style={styles.input}
-                value={bankName}
-                onChangeText={setBankName}
-                placeholder="VD: Techcombank, Vietcombank, MB Bank..."
-              />
+              {/* Direct Internal Payout Notice */}
+              <View style={styles.directPayoutNoticeBox}>
+                <MaterialCommunityIcons name="cash-multiple" size={22} color="#D97706" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.directPayoutTitle}>Hình thức nhận quy đổi:</Text>
+                  <Text style={styles.directPayoutDesc}>
+                    Quy đổi & nhận trực tiếp nội bộ tại công ty (Tiền mặt hoặc phương thức quy đổi trao đổi trực tiếp với Ban Giám Đốc / Kế toán).
+                  </Text>
+                </View>
+              </View>
 
-              <Text style={styles.inputLabel}>Số tài khoản ngân hàng:</Text>
-              <TextInput
-                style={styles.input}
-                value={accountNumber}
-                onChangeText={setAccountNumber}
-                placeholder="Nhập số tài khoản ngân hàng..."
-                keyboardType="number-pad"
-              />
-
-              <Text style={styles.inputLabel}>Tên chủ tài khoản (In hoa không dấu):</Text>
-              <TextInput
-                style={styles.input}
-                value={accountName}
-                onChangeText={(v) => setAccountName(v.toUpperCase())}
-                placeholder="NGUYEN VAN A"
-                autoCapitalize="characters"
-              />
-
-              <Text style={styles.inputLabel}>Ghi chú rút tiền (Tùy chọn):</Text>
+              <Text style={styles.inputLabel}>Ghi chú rút điểm (Tùy chọn):</Text>
               <TextInput
                 style={styles.input}
                 value={withdrawNote}
                 onChangeText={setWithdrawNote}
-                placeholder="VD: Rút chi tiêu cá nhân, sắm Tết..."
+                placeholder="VD: Rút chi tiêu cá nhân, tạm ứng đợt 1..."
               />
             </ScrollView>
 
@@ -1515,6 +1491,28 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#B45309',
     lineHeight: 14,
+  },
+  directPayoutNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFBEB',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginVertical: 10,
+  },
+  directPayoutTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  directPayoutDesc: {
+    fontSize: 11,
+    color: '#B45309',
+    lineHeight: 15,
   },
   input: {
     borderWidth: 1,

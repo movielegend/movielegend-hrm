@@ -140,9 +140,9 @@ export async function getMyVault(): Promise<MyVaultResponse> {
 
 export async function withdrawVaultPoints(payload: {
   points: number;
-  bankName: string;
-  bankAccountNumber: string;
-  bankAccountName: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
   note?: string;
 }): Promise<any> {
   const response = await apiClient.post<ApiResponse<any>>('/employees/vault/withdraw', payload);

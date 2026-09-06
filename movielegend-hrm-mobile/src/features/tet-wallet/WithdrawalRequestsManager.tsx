@@ -454,82 +454,100 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
                   </View>
                 </View>
 
-                {/* Banking Information Card with One-Tap Copy & VietQR */}
-                <View style={styles.bankInfoContainer}>
-                  <View style={styles.bankHeaderRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <MaterialCommunityIcons name="bank" size={18} color="#4338CA" />
-                      <Text style={styles.bankHeaderTitle}>Tài khoản nhận tiền</Text>
-                    </View>
-
-                    {/* Quick VietQR Modal Trigger */}
-                    <Pressable
-                      style={styles.vietQrQuickBtn}
-                      onPress={() => openVietQRModal(ticket)}
-                    >
-                      <MaterialCommunityIcons name="qrcode-scan" size={14} color="#0284C7" />
-                      <Text style={styles.vietQrQuickBtnText}>Quét VietQR</Text>
-                    </Pressable>
-                  </View>
-
-                  <View style={styles.bankDetailsGrid}>
-                    <View style={styles.bankDetailRow}>
-                      <Text style={styles.bankFieldLabel}>Ngân hàng:</Text>
-                      <Text style={styles.bankFieldValueBold}>{ticket.bankName}</Text>
-                    </View>
-
-                    <View style={styles.bankDetailRow}>
-                      <Text style={styles.bankFieldLabel}>Số tài khoản:</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={styles.stkHighlight}>{ticket.bankAccountNumber}</Text>
-                        <Pressable
-                          hitSlop={8}
-                          onPress={() => copyToClipboard(ticket.bankAccountNumber, 'Số tài khoản')}
-                          style={styles.copyIconButton}
-                        >
-                          <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
-                        </Pressable>
+                {/* Banking or Direct Payout Card */}
+                {ticket.bankAccountNumber && ticket.bankAccountNumber !== 'N/A' ? (
+                  <View style={styles.bankInfoContainer}>
+                    <View style={styles.bankHeaderRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <MaterialCommunityIcons name="bank" size={18} color="#4338CA" />
+                        <Text style={styles.bankHeaderTitle}>Tài khoản nhận tiền</Text>
                       </View>
+
+                      {/* Quick VietQR Modal Trigger */}
+                      <Pressable
+                        style={styles.vietQrQuickBtn}
+                        onPress={() => openVietQRModal(ticket)}
+                      >
+                        <MaterialCommunityIcons name="qrcode-scan" size={14} color="#0284C7" />
+                        <Text style={styles.vietQrQuickBtnText}>Quét VietQR</Text>
+                      </Pressable>
                     </View>
 
-                    <View style={styles.bankDetailRow}>
-                      <Text style={styles.bankFieldLabel}>Chủ tài khoản:</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={styles.bankFieldValueBold}>{ticket.bankAccountName}</Text>
-                        <Pressable
-                          hitSlop={8}
-                          onPress={() => copyToClipboard(ticket.bankAccountName, 'Tên chủ tài khoản')}
-                          style={styles.copyIconButton}
-                        >
-                          <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
-                        </Pressable>
-                      </View>
-                    </View>
-
-                    <View style={styles.bankDetailRow}>
-                      <Text style={styles.bankFieldLabel}>Nội dung CK:</Text>
-                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                        <Text style={styles.memoText} numberOfLines={1}>
-                          {transferMemo}
-                        </Text>
-                        <Pressable
-                          hitSlop={8}
-                          onPress={() => copyToClipboard(transferMemo, 'Nội dung chuyển khoản')}
-                          style={styles.copyIconButton}
-                        >
-                          <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
-                        </Pressable>
-                      </View>
-                    </View>
-
-                    {ticket.note ? (
+                    <View style={styles.bankDetailsGrid}>
                       <View style={styles.bankDetailRow}>
+                        <Text style={styles.bankFieldLabel}>Ngân hàng:</Text>
+                        <Text style={styles.bankFieldValueBold}>{ticket.bankName}</Text>
+                      </View>
+
+                      <View style={styles.bankDetailRow}>
+                        <Text style={styles.bankFieldLabel}>Số tài khoản:</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={styles.stkHighlight}>{ticket.bankAccountNumber}</Text>
+                          <Pressable
+                            hitSlop={8}
+                            onPress={() => copyToClipboard(ticket.bankAccountNumber, 'Số tài khoản')}
+                            style={styles.copyIconButton}
+                          >
+                            <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
+                          </Pressable>
+                        </View>
+                      </View>
+
+                      <View style={styles.bankDetailRow}>
+                        <Text style={styles.bankFieldLabel}>Chủ tài khoản:</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={styles.bankFieldValueBold}>{ticket.bankAccountName}</Text>
+                          <Pressable
+                            hitSlop={8}
+                            onPress={() => copyToClipboard(ticket.bankAccountName, 'Tên chủ tài khoản')}
+                            style={styles.copyIconButton}
+                          >
+                            <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
+                          </Pressable>
+                        </View>
+                      </View>
+
+                      <View style={styles.bankDetailRow}>
+                        <Text style={styles.bankFieldLabel}>Nội dung CK:</Text>
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                          <Text style={styles.memoText} numberOfLines={1}>
+                            {transferMemo}
+                          </Text>
+                          <Pressable
+                            hitSlop={8}
+                            onPress={() => copyToClipboard(transferMemo, 'Nội dung chuyển khoản')}
+                            style={styles.copyIconButton}
+                          >
+                            <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
+                          </Pressable>
+                        </View>
+                      </View>
+
+                      {ticket.note ? (
+                        <View style={styles.bankDetailRow}>
+                          <Text style={styles.bankFieldLabel}>Ghi chú rút:</Text>
+                          <Text style={styles.bankFieldValue}>{ticket.note}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : (
+                  <View style={[styles.bankInfoContainer, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', padding: 12 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <MaterialCommunityIcons name="cash-multiple" size={18} color="#D97706" />
+                      <Text style={[styles.bankHeaderTitle, { color: '#0F172A' }]}>Hình thức: Quy đổi ngoài / Trực tiếp</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                      Thanh toán tiền mặt hoặc trao đổi phương thức quy đổi trực tiếp với nhân viên.
+                    </Text>
+                    {ticket.note ? (
+                      <View style={[styles.bankDetailRow, { marginTop: 6, borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 6 }]}>
                         <Text style={styles.bankFieldLabel}>Ghi chú rút:</Text>
                         <Text style={styles.bankFieldValue}>{ticket.note}</Text>
                       </View>
                     ) : null}
                   </View>
-                </View>
+                )}
 
                 {/* Audit & Workflow History Timeline */}
                 <View style={styles.auditContainer}>

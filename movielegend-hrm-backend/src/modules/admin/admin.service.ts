@@ -1218,14 +1218,15 @@ export class AdminService {
 
       // 4. Create Withdrawal Request
       const totalCash = dto.points * cashValuePerPoint;
+      const employeeName = user.profile?.fullName || user.userCode;
       const request = await tx.rewardWithdrawalRequest.create({
         data: {
           userId,
           pointsWithdrawn: dto.points,
           cashAmount: totalCash,
-          bankName: dto.bankName,
-          bankAccountNumber: dto.bankAccountNumber,
-          bankAccountName: dto.bankAccountName,
+          bankName: dto.bankName || 'Quy đổi ngoài (Nội bộ)',
+          bankAccountNumber: dto.bankAccountNumber || 'N/A',
+          bankAccountName: (dto.bankAccountName || employeeName).toUpperCase(),
           note: dto.note || undefined,
           status: 'PENDING_ADMIN',
         },
@@ -1238,13 +1239,12 @@ export class AdminService {
         select: { userId: true },
       });
       const adminIds = [...new Set(adminUsers.map((u) => u.userId))];
-      const employeeName = user.profile?.fullName || user.userCode;
 
       if (adminIds.length > 0) {
         const adminNotif = await this.notifications.createForUsers(tx as any, adminIds, {
           type: 'SYSTEM' as NotificationType,
           title: 'Yêu cầu rút Ví Thưởng mới ⏳',
-          body: `Nhân viên ${employeeName} vừa gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}. Vui lòng phê duyệt.`,
+          body: `Nhân viên ${employeeName} vừa gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ)${dto.note ? ` (Ghi chú: ${dto.note})` : ''}. Vui lòng phê duyệt.`,
         });
         if (adminNotif) this.notifications.emitCreated(adminNotif);
       }
