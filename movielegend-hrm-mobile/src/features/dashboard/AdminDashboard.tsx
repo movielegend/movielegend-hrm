@@ -140,58 +140,77 @@ export function AdminDashboard() {
           </View>
         </Pressable>
 
-        {/* Thao tác nhanh */}
-        <Text style={styles.sectionTitleFolder}>Thao tác nhanh</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 16 }}
-          style={{ marginHorizontal: -16 }}
-        >
-          <GridCard
-            title="Cấu hình Level"
-            icon="crown-outline"
-            onPress={() => router.navigate('/admin/levels' as any)}
-          />
-          <GridCard
-            title="Ví Điểm Thưởng"
-            icon="gift-outline"
-            onPress={() => router.navigate('/admin/tet-wallet' as any)}
-          />
-          <GridCard
-            title="Duyệt Level"
-            icon="shield-check-outline"
-            onPress={() => router.navigate('/admin/competition/review' as any)}
-          />
-          <GridCard
-            title="Chấm công"
-            icon="clock-outline"
-            onPress={() => router.navigate('/admin/attendance')}
-          />
-          <GridCard
-            title="Duyệt đơn"
-            icon="calendar-outline"
-            onPress={() => router.navigate('/leader/approvals')}
-          />
-          <GridCard
-            title="Công việc"
-            icon="calendar-check-outline"
-            onPress={() => router.navigate('/admin/tasks')}
-          />
-          <GridCard
-            title="Quản lý"
-            icon="wallet-outline"
-            onPress={() => router.navigate('/admin/branches')}
-          />
-          <GridCard
-            title="Góp ý"
-            icon="message-alert-outline"
-            onPress={() => router.navigate('/admin/feedbacks')}
-          />
-        </ScrollView>
+        {/* Thao tác nhanh - Modern Executive 4x2 Grid */}
+        <View style={styles.quickActionsContainer}>
+          <View style={styles.quickActionsHeader}>
+            <Text style={styles.sectionTitleFolder}>Thao tác nhanh</Text>
+            <View style={styles.badgeExecutive}>
+              <Text style={styles.badgeExecutiveText}>8 TÍNH NĂNG</Text>
+            </View>
+          </View>
+
+          <View style={styles.quickGrid}>
+            <QuickActionItem
+              title="Cấu hình Level"
+              icon="crown"
+              iconColor="#D97706"
+              bgColor="#FEF3C7"
+              onPress={() => router.navigate('/admin/levels' as any)}
+            />
+            <QuickActionItem
+              title="Duyệt Level"
+              icon="shield-check"
+              iconColor="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.navigate('/admin/competition/review' as any)}
+            />
+            <QuickActionItem
+              title="Ví Điểm Thưởng"
+              icon="wallet-giftcard"
+              iconColor="#059669"
+              bgColor="#ECFDF5"
+              onPress={() => router.navigate('/admin/tet-wallet' as any)}
+            />
+            <QuickActionItem
+              title="Chấm công"
+              icon="clock-check"
+              iconColor="#2563EB"
+              bgColor="#DBEAFE"
+              onPress={() => router.navigate('/admin/attendance')}
+            />
+            <QuickActionItem
+              title="Duyệt đơn"
+              icon="clipboard-text-clock"
+              iconColor="#EA580C"
+              bgColor="#FFEDD5"
+              onPress={() => router.navigate('/leader/approvals')}
+            />
+            <QuickActionItem
+              title="Công việc"
+              icon="briefcase-check"
+              iconColor="#0284C7"
+              bgColor="#E0F2FE"
+              onPress={() => router.navigate('/admin/tasks')}
+            />
+            <QuickActionItem
+              title="Cơ cấu PB"
+              icon="domain"
+              iconColor="#475569"
+              bgColor="#F1F5F9"
+              onPress={() => router.navigate('/admin/branches')}
+            />
+            <QuickActionItem
+              title="Góp ý"
+              icon="message-alert"
+              iconColor="#E11D48"
+              bgColor="#FFE4E6"
+              onPress={() => router.navigate('/admin/feedbacks')}
+            />
+          </View>
+        </View>
 
         {/* Tổng quan hôm nay */}
-        <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan hôm nay</Text>
+        <Text style={[styles.sectionTitleFolder, { marginTop: 8 }]}>Tổng quan hôm nay</Text>
         <View style={styles.summaryGrid}>
           <SummaryCard
             label="Chấm công"
@@ -242,13 +261,35 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
   );
 }
 
-function GridCard({ title, icon, onPress }: any) {
+interface QuickActionItemProps {
+  title: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  iconColor: string;
+  bgColor: string;
+  badge?: number | string;
+  onPress: () => void;
+}
+
+function QuickActionItem({ title, icon, iconColor, bgColor, badge, onPress }: QuickActionItemProps) {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.cardIconBg}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+    <Pressable
+      style={({ pressed }) => [
+        styles.quickItem,
+        pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+      ]}
+      onPress={onPress}
+    >
+      <View style={[styles.quickIconBox, { backgroundColor: bgColor }]}>
+        <MaterialCommunityIcons name={icon} size={26} color={iconColor} />
+        {badge !== undefined && (
+          <View style={styles.quickBadge}>
+            <Text style={styles.quickBadgeText}>{badge}</Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.cardTitle}>{title}</Text>
+      <Text style={styles.quickTitle} numberOfLines={2}>
+        {title}
+      </Text>
     </Pressable>
   );
 }
@@ -413,39 +454,82 @@ const styles = StyleSheet.create({
     color: appleTheme.textPrimary,
     marginBottom: 12,
   },
-  grid: {
+  quickActionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 16,
+    paddingBottom: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  quickActionsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  card: {
-    width: 85,
-    backgroundColor: appleTheme.card,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
     alignItems: 'center',
-    shadowColor: '#8a99af',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    marginBottom: 14,
   },
-  cardIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#F3F4F6',
+  badgeExecutive: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgeExecutiveText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  quickItem: {
+    width: '25%',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  quickIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 6,
+    position: 'relative',
   },
-  cardTitle: {
+  quickBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  quickBadgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  quickTitle: {
     fontSize: 11,
-    fontWeight: '500',
-    color: appleTheme.textSecondary,
+    fontWeight: '600',
+    color: '#334155',
     textAlign: 'center',
+    lineHeight: 15,
+    maxWidth: 76,
   },
   summaryGrid: {
     flexDirection: 'row',
