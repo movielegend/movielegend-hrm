@@ -358,7 +358,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
               ? 'Không có yêu cầu nào chờ Kế toán chi'
               : 'Không tìm thấy yêu cầu rút tiền nào'
           }
-          message="Các yêu cầu rút điểm từ Ví Tết & Giữ chân nhân tài sẽ hiển thị tại đây."
+          message="Các yêu cầu rút điểm từ Ví Điểm Thưởng sẽ hiển thị tại đây."
         />
       ) : (
         <View style={styles.ticketList}>

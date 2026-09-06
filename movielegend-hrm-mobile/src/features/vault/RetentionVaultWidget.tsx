@@ -57,9 +57,9 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.disabledIconContainer}>
           <MaterialCommunityIcons name="lock-alert-outline" size={48} color="#D97706" />
         </View>
-        <Text style={styles.disabledTitle}>Ví Thưởng Chưa Được Kích Hoạt</Text>
+        <Text style={styles.disabledTitle}>Ví Điểm Thưởng Chưa Được Kích Hoạt</Text>
         <Text style={styles.disabledDescription}>
-          Tính năng Ví Thưởng Tết & Giữ Chân Nhân Tài là đặc quyền dành riêng cho nhân sự được phê duyệt. Tài khoản của bạn hiện chưa được mở quyền này.
+          Tính năng Ví Điểm Thưởng & Giữ Chân Nhân Tài là đặc quyền dành riêng cho nhân sự được phê duyệt. Tài khoản của bạn hiện chưa được mở quyền này.
         </Text>
         <Text style={styles.disabledHint}>
           Vui lòng liên hệ Quản trị viên / Ban Giám Đốc để được kích hoạt và phân bổ quỹ thưởng.
@@ -199,7 +199,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
               <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#D97706" />
             </View>
             <View>
-              <Text style={styles.vipHeroTitle}>Ví Thưởng Giữ Chân & Tết {currentYear}</Text>
+              <Text style={styles.vipHeroTitle}>Ví Điểm Thưởng & Giữ Chân {currentYear}</Text>
               <Text style={styles.vipHeroSubtitle}>Đặc Quyền Nhân Tài Doanh Nghiệp</Text>
             </View>
           </View>

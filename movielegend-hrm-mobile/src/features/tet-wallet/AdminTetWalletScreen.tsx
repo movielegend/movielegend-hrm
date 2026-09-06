@@ -195,7 +195,7 @@ export function AdminTetWalletScreen() {
         setSelectedEmployee((prev) => (prev ? { ...prev, isRewardVaultEnabled: nextState } : null));
       }
     } catch (err: any) {
-      Alert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Tết lúc này.');
+      Alert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Điểm Thưởng lúc này.');
     } finally {
       setTogglingEmpId(null);
     }
@@ -213,7 +213,7 @@ export function AdminTetWalletScreen() {
 
     Alert.alert(
       enable ? 'Cấp quyền toàn bộ phòng ban' : 'Thu hồi quyền toàn bộ',
-      `Bạn có chắc chắn muốn ${enable ? 'CẤP QUYỀN' : 'THU HỒI QUYỀN'} Ví Tết cho ${targets.length} nhân sự thuộc phòng "${dept.name}"?`,
+      `Bạn có chắc chắn muốn ${enable ? 'CẤP QUYỀN' : 'THU HỒI QUYỀN'} Ví Điểm Thưởng cho ${targets.length} nhân sự thuộc phòng "${dept.name}"?`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
@@ -225,7 +225,7 @@ export function AdminTetWalletScreen() {
                 targets.map((t) => apiUpdateEmployee(t.id, { isRewardVaultEnabled: enable }))
               );
               await queryClient.invalidateQueries({ queryKey: ['employees'] });
-              Alert.alert('Thành công', `Đã cập nhật quyền Ví Tết cho toàn bộ phòng ${dept.name}.`);
+              Alert.alert('Thành công', `Đã cập nhật quyền Ví Điểm Thưởng cho toàn bộ phòng ${dept.name}.`);
             } catch (err: any) {
               Alert.alert('Lỗi', err?.message || 'Không thể cập nhật đồng loạt.');
             }
@@ -304,7 +304,7 @@ export function AdminTetWalletScreen() {
         >
           {/* Header */}
           <PageHeader
-            title="Quyền Ví Tết"
+            title="Ví Điểm Thưởng"
             subtitle="Quản lý hạn mức, thưởng dự án & trao điểm nhân sự"
             showBack={false}
             right={
@@ -650,7 +650,7 @@ export function AdminTetWalletScreen() {
                     <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
                   </View>
                   <View>
-                    <Text style={styles.modalTitle}>Chi tiết Quyền Ví Tết</Text>
+                    <Text style={styles.modalTitle}>Chi tiết Ví Điểm Thưởng</Text>
                     <Text style={styles.modalSubtitle}>{selectedEmployee.userCode}</Text>
                   </View>
                 </View>
@@ -720,11 +720,11 @@ export function AdminTetWalletScreen() {
               {/* Vault Permission Switch Card */}
               <View style={styles.modalPermissionBox}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={styles.modalPermTitle}>Đặc quyền Ví Thưởng Tết</Text>
+                  <Text style={styles.modalPermTitle}>Đặc quyền Ví Điểm Thưởng</Text>
                   <Text style={styles.modalPermDesc}>
                     {selectedEmployee.isRewardVaultEnabled
-                      ? 'Nhân viên này đang ĐƯỢC PHÉP truy cập và nhận điểm thưởng Ví Tết.'
-                      : 'Nhân sự này CHƯA ĐƯỢC CẤP quyền sử dụng Ví Thưởng Tết.'}
+                      ? 'Nhân viên này đang ĐƯỢC PHÉP truy cập và nhận điểm từ Ví Điểm Thưởng.'
+                      : 'Nhân sự này CHƯA ĐƯỢC CẤP quyền sử dụng Ví Điểm Thưởng.'}
                   </Text>
                 </View>
                 {togglingEmpId === selectedEmployee.id ? (
@@ -754,8 +754,8 @@ export function AdminTetWalletScreen() {
                   { color: selectedEmployee.isRewardVaultEnabled ? '#065F46' : '#4B5563' }
                 ]}>
                   {selectedEmployee.isRewardVaultEnabled
-                    ? 'Quyền Ví Tết đang HOẠT ĐỘNG trên ứng dụng nhân viên.'
-                    : 'Tính năng Ví Tết đang TẮT đối với nhân sự này.'}
+                    ? 'Quyền Ví Điểm Thưởng đang HOẠT ĐỘNG trên ứng dụng nhân viên.'
+                    : 'Tính năng Ví Điểm Thưởng đang TẮT đối với nhân sự này.'}
                 </Text>
               </View>
 

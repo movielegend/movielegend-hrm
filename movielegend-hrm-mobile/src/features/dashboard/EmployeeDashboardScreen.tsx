@@ -171,7 +171,7 @@ export function EmployeeDashboardScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Thưởng Tết & Giữ Chân</Text>
+                  <Text style={styles.vaultBannerTitle}>Ví Điểm Thưởng & Giữ Chân</Text>
                   <View style={styles.vipBadge}>
                     <Text style={styles.vipBadgeText}>VIP</Text>
                   </View>
@@ -206,7 +206,7 @@ export function EmployeeDashboardScreen() {
 
             <GridItem
               icon="gift-outline"
-              title="Ví Thưởng Tết"
+              title="Ví Điểm Thưởng"
               badge={isVaultEnabled ? 'VIP' : undefined}
               badgeColor="#D97706"
               onPress={() => router.push('/employee/vault' as any)}
