@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E3A8A',
+    color: '#2563EB',
   },
   timeContainer: {
     flexDirection: 'row',

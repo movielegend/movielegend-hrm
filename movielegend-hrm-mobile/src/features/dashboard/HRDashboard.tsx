@@ -145,10 +145,10 @@ export function HRDashboard() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: currentAttendance?.state === 'CHECKED_IN' ? '#FFF' : appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: currentAttendance?.state === 'CHECKED_IN' ? '#FFF' : '#111827', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
               <MaterialCommunityIcons name="check" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#F59E0B' : '#FFF'} />
             </View>
-            <Text style={[styles.heroTitle, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>
+            <Text style={[styles.heroTitle, { color: currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#111827' }]}>
               {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
             </Text>
           </View>
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     borderRadius: appleTheme.radiusCard,
     padding: 24,
     marginBottom: 24,
-    shadowColor: '#64748B',
+    shadowColor: '#111827',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
   },
 
   heroTopographicBg: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   heroTitle: {
-    color: '#0A2540',
+    color: '#111827',
     fontSize: 15,
     fontWeight: '800',
   },

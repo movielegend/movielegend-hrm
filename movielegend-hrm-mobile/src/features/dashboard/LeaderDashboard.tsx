@@ -172,7 +172,7 @@ export function LeaderDashboard() {
           </View>
           
           <View style={styles.statusBadge}>
-            <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#3B82F6'} />
+            <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#10B981'} />
             <Text style={[styles.statusBadgeText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>
               {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
             </Text>
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E3A8A',
+    color: '#059669',
   },
   timeContainer: {
     flexDirection: 'row',

@@ -127,7 +127,7 @@ export function AdminDashboard() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: '#EF4444', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
               <MaterialCommunityIcons name="check" size={16} color="#FFF" />
             </View>
             <Text style={styles.heroTitle}>Đã chấm công</Text>
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   heroTitle: {
-    color: '#0A2540',
+    color: '#DC2626',
     fontSize: 15,
     fontWeight: '800',
   },
