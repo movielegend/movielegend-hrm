@@ -326,9 +326,10 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                     const unlockDate = new Date(m.unlockDate);
                     const isPassed = unlockDate <= now;
                     const remaining = Math.max(0, m.pointsToUnlock - m.withdrawnPoints);
-                    const isFullyWithdrawn = m.isWithdrawn || remaining === 0;
-                    const isUnlockedAvailable = isPassed && !isFullyWithdrawn;
-                    const isFutureLocked = !isPassed && !isFullyWithdrawn;
+                    const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                    const isPartiallyWithdrawn = m.withdrawnPoints > 0 && remaining > 0;
+                    const isUnlockedAvailable = isPassed && remaining > 0;
+                    const isFutureLocked = !isPassed && remaining > 0 && !isFullyWithdrawn;
 
                     const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}/${unlockDate.getFullYear()}`;
 
@@ -352,32 +353,64 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                                   ? 'lock-open-variant'
                                   : 'lock'
                               }
-                              size={16}
+                              size={17}
                               color={
                                 isFullyWithdrawn
-                                  ? '#64748B'
+                                  ? '#DC2626'
                                   : isUnlockedAvailable
-                                  ? '#059669'
+                                  ? '#16A34A'
                                   : '#D97706'
                               }
                             />
                             <Text
                               style={[
                                 styles.pkgMilestoneTitle,
-                                isFullyWithdrawn && { color: '#64748B', textDecorationLine: 'line-through' },
+                                isFullyWithdrawn && { color: '#991B1B', fontWeight: '700' },
                                 isUnlockedAvailable && { color: '#065F46', fontWeight: '700' },
+                                isFutureLocked && { color: '#334155' },
                               ]}
                             >
                               {m.title}
                             </Text>
                           </View>
-                          <Text style={styles.pkgMilestoneDate}>Mở khóa: {dateFormatted}</Text>
+                          <Text
+                            style={[
+                              styles.pkgMilestoneDate,
+                              isFullyWithdrawn && { color: '#DC2626' },
+                              isUnlockedAvailable && { color: '#059669' },
+                            ]}
+                          >
+                            {isFullyWithdrawn
+                              ? `Đã rút đợt này • Mở ngày: ${dateFormatted}`
+                              : `Mở khóa: ${dateFormatted}`}
+                          </Text>
                         </View>
 
                         <View style={styles.milestoneRightInfo}>
-                          <Text style={styles.pkgMilestonePoints}>
-                            {m.pointsToUnlock.toLocaleString('vi-VN')} đ
-                          </Text>
+                          {isFullyWithdrawn ? (
+                            <Text style={styles.pkgMilestonePointsWithdrawn}>
+                              -{m.withdrawnPoints.toLocaleString('vi-VN')} đ
+                            </Text>
+                          ) : isPartiallyWithdrawn ? (
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={styles.pkgMilestonePointsUnlocked}>
+                                {remaining.toLocaleString('vi-VN')} đ
+                              </Text>
+                              <Text style={styles.pkgMilestonePointsDeducted}>
+                                (-{m.withdrawnPoints.toLocaleString('vi-VN')} đ)
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text
+                              style={[
+                                styles.pkgMilestonePoints,
+                                isUnlockedAvailable && { color: '#16A34A', fontWeight: '800' },
+                              ]}
+                            >
+                              {m.pointsToUnlock.toLocaleString('vi-VN')} đ
+                            </Text>
+                          )}
+
                           <View
                             style={[
                               styles.milestoneStatusPill,
@@ -395,9 +428,11 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                               ]}
                             >
                               {isFullyWithdrawn
-                                ? 'Đã rút hết'
-                                : isUnlockedAvailable
+                                ? `Đã rút hết (-${m.withdrawnPoints.toLocaleString('vi-VN')} đ)`
+                                : isPartiallyWithdrawn
                                 ? `Khả dụng: ${remaining.toLocaleString('vi-VN')} đ`
+                                : isUnlockedAvailable
+                                ? `Đã mở khóa • Sẵn sàng rút`
                                 : `Khóa đến ${dateFormatted}`}
                             </Text>
                           </View>
@@ -1667,17 +1702,19 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   pkgMilestoneRowWithdrawn: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#E2E8F0',
-    opacity: 0.75,
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECDD3',
+    borderWidth: 1.5,
   },
   pkgMilestoneRowUnlocked: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+    borderWidth: 1.5,
   },
   pkgMilestoneRowLocked: {
     backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',
+    borderWidth: 1,
   },
   milestoneLeftInfo: {
     flex: 1,
@@ -1695,36 +1732,57 @@ const styles = StyleSheet.create({
   pkgMilestoneDate: {
     fontSize: 10,
     color: '#64748B',
-    marginLeft: 22,
+    marginLeft: 23,
   },
   pkgMilestonePoints: {
     fontSize: 12,
     fontWeight: '700',
     color: '#1E293B',
   },
+  pkgMilestonePointsWithdrawn: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  pkgMilestonePointsUnlocked: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  pkgMilestonePointsDeducted: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
   milestoneStatusPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   pillWithdrawn: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
   },
   pillUnlocked: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
   },
   pillLocked: {
     backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   milestoneStatusPillText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   pillTextWithdrawn: {
-    color: '#64748B',
+    color: '#DC2626',
   },
   pillTextUnlocked: {
-    color: '#065F46',
+    color: '#15803D',
   },
   pillTextLocked: {
     color: '#92400E',
