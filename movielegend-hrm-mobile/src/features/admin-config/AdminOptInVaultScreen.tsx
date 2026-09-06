@@ -72,7 +72,6 @@ export const AdminOptInVaultScreen: React.FC = () => {
         
         {/* Executive Header Card */}
         <View style={styles.executiveHeaderCard}>
-          <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
           <Text style={styles.title}>Quản Lý Cấp Quyền Ví Thưởng Tết</Text>
           <Text style={styles.sub}>Kích hoạt tính năng Opt-in & Cấp Quỹ Thưởng Giữ Chân Nhân Tài</Text>
         </View>
