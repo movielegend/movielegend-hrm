@@ -436,7 +436,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
         <View style={styles.executiveHeaderCard}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.executiveBadgeTitle}>ADMIN CONTROL CENTER</Text>
               <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
             </View>
             <TouchableOpacity
