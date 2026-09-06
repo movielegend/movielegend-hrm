@@ -17,6 +17,7 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { Dimensions } from 'react-native';
 
@@ -162,27 +163,55 @@ export function LeaderDashboard() {
             }
           }}
         >
+          <LinearGradient
+            colors={['#10B981', '#059669', '#047857']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* Ambient glowing lighting orbs */}
+          <View style={styles.ambientOrbTop} />
+          <View style={styles.ambientOrbBottom} />
+
           {/* Decorative topographic wood grain background asset */}
           <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24, overflow: 'hidden' }}>
             <Image
               source={require('../../../assets/topographic-contour-leader-v2.png')}
-              style={[styles.heroTopographicBg, { tintColor: '#FFFFFF', opacity: 0.15 }]}
+              style={[styles.heroTopographicBg, { tintColor: '#FFFFFF', opacity: 0.16 }]}
               resizeMode="cover"
             />
           </View>
           
-          <View style={styles.statusBadge}>
-            <MaterialCommunityIcons name="check-circle" size={16} color="#FFFFFF" />
-            <Text style={styles.statusBadgeText}>
-              {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
-            </Text>
+          {/* Top Status Header */}
+          <View style={styles.heroHeaderRow}>
+            <View style={styles.heroPill}>
+              <View style={styles.glowingDot}>
+                <MaterialCommunityIcons name="check" size={12} color="#FFF" />
+              </View>
+              <Text style={styles.heroTitle}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              </Text>
+            </View>
+            <View style={styles.heroActionCircle}>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#FFF" />
+            </View>
           </View>
-          <View style={styles.timeContainer}>
+
+          {/* Main Clock */}
+          <View style={styles.heroTimeWrapper}>
             <Text style={styles.timeValue}>{timeString}</Text>
           </View>
-          <View style={styles.locationContainer}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color="rgba(255, 255, 255, 0.85)" />
-            <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+
+          {/* Bottom Row */}
+          <View style={styles.heroFooterRow}>
+            <View style={styles.locationWrapper}>
+              <MaterialCommunityIcons name="map-marker" size={15} color="rgba(255, 255, 255, 0.9)" />
+              <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+            </View>
+            <Text style={styles.heroActionHint}>
+              {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca ›' : 'Chấm công ›'}
+            </Text>
           </View>
         </Pressable>
 
@@ -504,16 +533,34 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   heroCard: {
-    backgroundColor: '#059669',
     borderRadius: 24,
-    padding: spacing.xl,
+    padding: 20,
     marginBottom: spacing.xl,
     shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 8,
+    position: 'relative',
     overflow: 'hidden',
+  },
+  ambientOrbTop: {
+    position: 'absolute',
+    top: -50,
+    right: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  ambientOrbBottom: {
+    position: 'absolute',
+    bottom: -40,
+    left: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   heroTopographicBg: {
     position: 'absolute',
@@ -524,25 +571,55 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  statusBadge: {
+  heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: spacing.md,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    zIndex: 1,
   },
-  statusBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  timeContainer: {
+  heroPill: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.sm,
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  glowingDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  heroActionCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTimeWrapper: {
+    marginBottom: 14,
+    zIndex: 1,
   },
   timeValue: {
-    fontSize: 48,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -1,
   },
@@ -552,15 +629,26 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginLeft: 8,
   },
-  locationContainer: {
+  heroFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    zIndex: 1,
+  },
+  locationWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   locationText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  heroActionHint: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 12,
+    fontWeight: '700',
   },
   section: {
     marginBottom: spacing.xl,

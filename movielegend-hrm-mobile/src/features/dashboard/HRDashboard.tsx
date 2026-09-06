@@ -11,6 +11,7 @@ import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/u
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
+import { LinearGradient } from 'expo-linear-gradient';
 import { spacing } from '../../theme/spacing';
 
 const appleTheme = {
@@ -135,31 +136,55 @@ export function HRDashboard() {
             }
           }}
         >
+          <LinearGradient
+            colors={['#374151', '#1F2937', '#111827']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* Ambient glowing lighting orbs */}
+          <View style={styles.ambientOrbTop} />
+          <View style={styles.ambientOrbBottom} />
+
           {/* Decorative topographic wood grain background asset */}
-          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: appleTheme.radiusCard, overflow: 'hidden' }}>
+          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24, overflow: 'hidden' }}>
             <Image
               source={require('../../../assets/topographic-contour-admin-v2.png')}
-              style={[styles.heroTopographicBg, { tintColor: '#FFFFFF', opacity: 0.15 }]}
+              style={[styles.heroTopographicBg, { tintColor: '#FFFFFF', opacity: 0.16 }]}
               resizeMode="cover"
             />
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-              <MaterialCommunityIcons name="check" size={16} color="#FFF" />
+          {/* Top Status Header */}
+          <View style={styles.heroHeaderRow}>
+            <View style={styles.heroPill}>
+              <View style={styles.glowingDot}>
+                <MaterialCommunityIcons name="check" size={12} color="#FFF" />
+              </View>
+              <Text style={styles.heroTitle}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              </Text>
             </View>
-            <Text style={styles.heroTitle}>
-              {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
-            </Text>
+            <View style={styles.heroActionCircle}>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#FFF" />
+            </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20, zIndex: 1 }}>
+          {/* Main Clock */}
+          <View style={styles.heroTimeWrapper}>
             <LiveClock style={styles.heroSubtitle} />
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 }}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color="rgba(255, 255, 255, 0.85)" />
-            <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 13, fontWeight: '500' }}>Văn phòng Hà Nội</Text>
+          {/* Bottom Row */}
+          <View style={styles.heroFooterRow}>
+            <View style={styles.locationWrapper}>
+              <MaterialCommunityIcons name="map-marker" size={15} color="rgba(255, 255, 255, 0.9)" />
+              <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+            </View>
+            <Text style={styles.heroActionHint}>
+              {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca ›' : 'Chấm công ›'}
+            </Text>
           </View>
         </Pressable>
 
@@ -473,19 +498,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   heroButton: {
-    backgroundColor: '#111827',
-    borderRadius: appleTheme.radiusCard,
-    padding: 24,
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 24,
     shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+    elevation: 8,
     position: 'relative',
     overflow: 'hidden',
   },
-
+  ambientOrbTop: {
+    position: 'absolute',
+    top: -50,
+    right: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  ambientOrbBottom: {
+    position: 'absolute',
+    bottom: -40,
+    left: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
   heroTopographicBg: {
     position: 'absolute',
     right: 0,
@@ -495,16 +536,78 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    zIndex: 1,
+  },
+  heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  glowingDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   heroTitle: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  heroActionCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTimeWrapper: {
+    marginBottom: 14,
+    zIndex: 1,
   },
   heroSubtitle: {
     color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '900',
     letterSpacing: -1,
+  },
+  heroFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 1,
+  },
+  locationWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  locationText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  heroActionHint: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 12,
+    fontWeight: '700',
   },
   sectionHeader: {
     flexDirection: 'row',
