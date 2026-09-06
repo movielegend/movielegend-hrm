@@ -220,24 +220,25 @@ export function LeaderDashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
-            <GridItem icon="star-circle-outline" title="Cấp của bạn" onPress={() => router.push('/leader/leveling' as any)} />
-            <GridItem icon="briefcase-outline" title="Dự án" onPress={() => router.push('/leader/level-projects' as any)} />
+            <GridItem icon="star-circle-outline" title="Cấp của bạn" color="#F59E0B" onPress={() => router.push('/leader/leveling' as any)} />
+            <GridItem icon="briefcase-outline" title="Dự án" color="#3B82F6" onPress={() => router.push('/leader/level-projects' as any)} />
             <GridItem
               icon="gift-outline"
               title="Ví Điểm Thưởng"
+              color="#059669"
               badge={isVaultEnabled ? 'VIP' : undefined}
               badgeColor="#D97706"
               onPress={() => router.push('/leader/vault' as any)}
             />
-            <GridItem icon="clipboard-check-outline" title="Duyệt Vòng 1" onPress={() => router.push('/employee/competition/review' as any)} />
-            <GridItem icon="file-document-multiple" title="Duyệt đơn" onPress={() => router.push('/leader/(tabs)/approvals' as any)} />
-            <GridItem icon="calendar-clock" title="Lịch sử công" onPress={() => router.push('/leader/attendance-history' as any)} />
-            <GridItem icon="swap-horizontal" title="Chấm công" onPress={() => router.push('/leader/attendance' as any)} />
-            <GridItem icon="view-grid-outline" title="Phân ca" onPress={() => router.push('/leader/shift-management' as any)} />
-            <GridItem icon="account-tie-outline" title="Nhân sự" onPress={() => router.push('/leader/employees' as any)} />
-            <GridItem icon="file-document-outline" title="Hợp đồng" onPress={() => router.push('/leader/contracts' as any)} />
-            <GridItem icon="laptop" title="Tài sản" onPress={() => router.push('/leader/assets' as any)} />
-            <GridItem icon="message-draw" title="Góp ý" onPress={() => router.push('/leader/feedbacks' as any)} />
+            <GridItem icon="clipboard-check-outline" title="Duyệt Vòng 1" color="#8B5CF6" onPress={() => router.push('/employee/competition/review' as any)} />
+            <GridItem icon="file-document-multiple" title="Duyệt đơn" color="#EA580C" onPress={() => router.push('/leader/(tabs)/approvals' as any)} />
+            <GridItem icon="calendar-clock" title="Lịch sử công" color="#6366F1" onPress={() => router.push('/leader/attendance-history' as any)} />
+            <GridItem icon="swap-horizontal" title="Chấm công" color="#2563EB" onPress={() => router.push('/leader/attendance' as any)} />
+            <GridItem icon="view-grid-outline" title="Phân ca" color="#EC4899" onPress={() => router.push('/leader/shift-management' as any)} />
+            <GridItem icon="account-tie-outline" title="Nhân sự" color="#10B981" onPress={() => router.push('/leader/employees' as any)} />
+            <GridItem icon="file-document-outline" title="Hợp đồng" color="#0D9488" onPress={() => router.push('/leader/contracts' as any)} />
+            <GridItem icon="laptop" title="Tài sản" color="#64748B" onPress={() => router.push('/leader/assets' as any)} />
+            <GridItem icon="message-draw" title="Góp ý" color="#E11D48" onPress={() => router.push('/leader/feedbacks' as any)} />
           </View>
         </View>
 

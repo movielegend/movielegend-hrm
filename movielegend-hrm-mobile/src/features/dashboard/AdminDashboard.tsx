@@ -13,7 +13,7 @@ import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 
 const { width } = Dimensions.get('window');
-const GRID_ITEM_WIDTH = (width - 32 - 12 * 3) / 4;
+const GRID_ITEM_WIDTH = Math.floor((width - 32 - 12 * 2) / 3);
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -151,56 +151,56 @@ export function AdminDashboard() {
               icon="crown-outline"
               title="Cấu hình Level"
               color="#D97706"
-              iconBg="#FEF3C7"
               onPress={() => router.push('/admin/levels' as any)}
             />
             <GridItem
               icon="shield-check-outline"
               title="Duyệt Level"
               color="#4F46E5"
-              iconBg="#EEF2FF"
               onPress={() => router.push('/admin/competition/review' as any)}
             />
             <GridItem
               icon="gift-outline"
               title="Ví Điểm Thưởng"
               color="#059669"
-              iconBg="#ECFDF5"
+              badge="VIP"
+              badgeColor="#D97706"
               onPress={() => router.push('/admin/tet-wallet' as any)}
             />
             <GridItem
-              icon="clock-outline"
-              title="Chấm công"
-              color="#2563EB"
-              iconBg="#DBEAFE"
-              onPress={() => router.push('/admin/attendance')}
-            />
-            <GridItem
-              icon="file-document-multiple"
+              icon="clipboard-check-outline"
               title="Duyệt đơn"
               color="#EA580C"
-              iconBg="#FFEDD5"
               onPress={() => router.push('/leader/approvals')}
+            />
+            <GridItem
+              icon="swap-horizontal"
+              title="Chấm công"
+              color="#2563EB"
+              onPress={() => router.push('/admin/attendance')}
             />
             <GridItem
               icon="briefcase-outline"
               title="Công việc"
               color="#0284C7"
-              iconBg="#E0F2FE"
               onPress={() => router.push('/admin/tasks')}
             />
             <GridItem
               icon="domain"
               title="Cơ cấu PB"
               color="#7C3AED"
-              iconBg="#EDE9FE"
               onPress={() => router.push('/admin/branches')}
+            />
+            <GridItem
+              icon="file-document-outline"
+              title="Hợp đồng"
+              color="#0D9488"
+              onPress={() => router.push('/admin/contracts')}
             />
             <GridItem
               icon="message-draw"
               title="Góp ý"
               color="#E11D48"
-              iconBg="#FFE4E6"
               onPress={() => router.push('/admin/feedbacks')}
             />
           </View>
@@ -258,17 +258,17 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
   );
 }
 
-function GridItem({ icon, title, onPress, color, iconBg, badge, badgeColor }: any) {
+function GridItem({ icon, title, onPress, color, badge, badgeColor }: any) {
   return (
     <Pressable
       style={({ pressed }) => [
         styles.gridItem,
-        pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+        pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
       ]}
       onPress={onPress}
     >
-      <View style={[styles.gridIconContainer, iconBg ? { backgroundColor: iconBg } : undefined]}>
-        <MaterialCommunityIcons name={icon} size={28} color={color || '#111827'} />
+      <View style={styles.gridIconContainer}>
+        <MaterialCommunityIcons name={icon} size={30} color={color || '#111827'} />
         {badge && (
           <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
             <Text style={styles.badgeText}>{badge}</Text>
