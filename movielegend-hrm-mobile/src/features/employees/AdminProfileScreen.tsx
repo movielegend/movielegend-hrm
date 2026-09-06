@@ -92,12 +92,14 @@ export function AdminProfileScreen() {
           <Text style={styles.sectionTitle}>Tính năng Nhân sự</Text>
           <View style={styles.infoCard}>
             {!isHR && <ActionRow icon="domain" title="Cơ cấu Tổ chức" onPress={() => router.push('/admin/branches')} />}
+            <ActionRow icon="crown-outline" title="Cấu hình Level" onPress={() => router.push('/admin/levels' as any)} />
+            <ActionRow icon="shield-check-outline" title="Duyệt Level" onPress={() => router.push('/admin/competition/review' as any)} />
+            <ActionRow icon="wallet-giftcard" title="Ví Điểm Thưởng" onPress={() => router.push('/admin/tet-wallet' as any)} />
             <ActionRow icon="clock-check-outline" title="Dữ liệu Chấm công" onPress={() => router.push('/admin/attendance')} />
             {!isHR && <ActionRow icon="calendar-clock" title="Ca làm việc" onPress={() => router.push('/admin/shifts')} />}
             <ActionRow icon="clipboard-check-outline" title="Duyệt đơn" onPress={() => router.push('/leader/employee-requests')} />
             <ActionRow icon="account-check-outline" title="Duyệt tài khoản" onPress={() => router.push('/admin/approvals')} />
             <ActionRow icon="swap-horizontal" title="Luân chuyển PB" onPress={() => router.push('/admin/cross-department')} />
-            <ActionRow icon="wallet-giftcard" title="Ví Điểm Thưởng" onPress={() => router.push('/admin/tet-wallet' as any)} />
             <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} isLast={isHR} />
             {!isHR && <ActionRow icon="message-draw" title="Quản lý Góp ý" onPress={() => router.push('/admin/feedbacks' as any)} isLast />}
           </View>

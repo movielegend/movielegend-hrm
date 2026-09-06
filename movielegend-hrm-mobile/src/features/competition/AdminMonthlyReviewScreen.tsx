@@ -265,7 +265,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       {/* Top Header Safe Area (Navy Blue #1E293B) */}
       <SafeAreaView style={styles.headerSafeArea}>
         <View style={styles.executiveHeaderCard}>
-          <Text style={styles.title}>Chốt Duyệt Level Cuối Tháng</Text>
+          <Text style={styles.title}>Duyệt Level Cuối Tháng</Text>
           <Text style={styles.subTitle}>Kiểm tra tiến độ, phê duyệt thăng cấp Level & trao quà thưởng</Text>
         </View>
 

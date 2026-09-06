@@ -159,7 +159,7 @@ export function AdminDashboard() {
             onPress={() => router.navigate('/admin/tet-wallet' as any)}
           />
           <GridCard
-            title="Chốt Level"
+            title="Duyệt Level"
             icon="shield-check-outline"
             onPress={() => router.navigate('/admin/competition/review' as any)}
           />
