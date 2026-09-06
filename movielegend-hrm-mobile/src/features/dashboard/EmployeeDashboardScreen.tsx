@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 28,
     marginTop: spacing.xs,
   },
   avatar: {
