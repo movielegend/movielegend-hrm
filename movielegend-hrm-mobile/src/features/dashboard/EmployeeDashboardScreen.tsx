@@ -179,7 +179,7 @@ export function EmployeeDashboardScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Điểm Thưởng & Giữ Chân</Text>
+                  <Text style={styles.vaultBannerTitle}>Ví Điểm Thưởng</Text>
                   <View style={styles.vipBadge}>
                     <Text style={styles.vipBadgeText}>VIP</Text>
                   </View>
