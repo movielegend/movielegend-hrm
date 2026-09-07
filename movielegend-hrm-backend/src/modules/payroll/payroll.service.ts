@@ -386,6 +386,10 @@ export class PayrollService {
       include: {
         profile: { include: { position: true } },
         departmentLinks: { include: { department: true } },
+        salaryProfiles: {
+          orderBy: { effectiveFrom: 'desc' },
+          take: 1,
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -396,6 +400,9 @@ export class PayrollService {
         payrolls: true,
       },
     });
+
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
     const results = await Promise.all(
       users.map(async (u) => {
@@ -424,19 +431,28 @@ export class PayrollService {
           }
         }
 
+        const baseSalary = payroll ? Number(payroll.baseSalary) : (u.salaryProfiles?.[0]?.baseSalary ? Number(u.salaryProfiles[0].baseSalary) : 0);
+        const actualWorkingDays = payroll ? Number(payroll.actualWorkingDays) : await this.prisma.attendanceRecord.count({
+          where: {
+            userId: u.id,
+            workDate: { gte: startOfMonth, lte: endOfMonth },
+            status: { in: ['CHECKED_OUT', 'CHECKED_IN', 'ADJUSTED'] },
+          },
+        });
+
         return {
           userId: u.id,
           userCode: u.userCode,
           fullName: u.profile?.fullName || 'Nhân sự',
           departmentName: u.departmentLinks?.[0]?.department?.name || 'Chưa có phòng ban',
           positionName: u.profile?.position?.name || 'Nhân viên',
-          baseSalary: payroll ? Number(payroll.baseSalary) : 0,
-          grossSalary: payroll ? Number(payroll.grossSalary) : 0,
-          netSalary: payroll ? Number(payroll.netSalary) : 0,
-          actualWorkingDays: payroll ? Number(payroll.actualWorkingDays) : 0,
+          baseSalary,
+          grossSalary: payroll ? Number(payroll.grossSalary) : baseSalary,
+          netSalary: payroll ? Number(payroll.netSalary) : baseSalary,
+          actualWorkingDays,
           standardWorkingDays: payroll ? Number(payroll.standardWorkingDays) : 26,
-          status: payroll ? payroll.status : 'UNAVAILABLE',
-          hasData: !!payroll,
+          status: payroll ? payroll.status : 'ACTIVE',
+          hasData: !!payroll || baseSalary > 0,
           finalOfficialImageUrl,
           employeeAcknowledgedAt: payroll?.employeeAcknowledgedAt?.toISOString() || null,
         };

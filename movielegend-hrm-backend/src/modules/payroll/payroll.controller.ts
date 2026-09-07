@@ -87,19 +87,56 @@ export class PayrollsController {
   }
 
   @Get('company-payslips')
-  @AnyPermissions('payroll.read_all', 'payroll.calculate', 'payroll.review', 'payroll.approve', 'payroll.manage')
+  @AnyPermissions(
+    'payroll.read_all',
+    'payroll.read',
+    'payroll.read_own',
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'salary_profile.read',
+    'salary_component.read',
+    'report.payroll.summary',
+    'report.payroll.detail',
+    'attendance.read',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
   getCompanyMonthlyPayslips(@CurrentUser() actor: AuthenticatedUser, @Query() query: CompanyPayslipsQueryDto) {
     return this.payroll.getCompanyMonthlyPayslips(actor, query);
   }
 
   @Post('import')
-  @AnyPermissions('payroll.calculate', 'payroll.review', 'payroll.approve', 'payroll.manage')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'salary_profile.read',
+  )
   importPayrolls(@Body() dto: ImportPayrollDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payroll.importPayrolls(actor, dto);
   }
 
   @Post('upload-image')
-  @AnyPermissions('payroll.calculate', 'payroll.review', 'payroll.approve', 'payroll.manage')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'payroll.read_own',
+    'salary_profile.read',
+    'salary_component.read',
+    'report.payroll.summary',
+    'report.payroll.detail',
+    'attendance.read',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
   uploadPayslipImage(@Body() dto: UploadPayslipImageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payroll.uploadOfficialImage(actor, dto);
   }
