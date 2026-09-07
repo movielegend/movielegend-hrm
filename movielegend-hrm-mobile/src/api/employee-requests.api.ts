@@ -38,12 +38,19 @@ function cleanMyRequestParams(filters: EmployeeRequestFilters): Omit<EmployeeReq
   };
 }
 
-export async function approveEmployeeRequest(id: string): Promise<EmployeeRequest> {
-  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/approve`);
+export async function approveEmployeeRequest(
+  id: string,
+  payload?: { note?: string; disbursementProofUrl?: string }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/approve`, payload);
   return unwrapData(response);
 }
 
-export async function rejectEmployeeRequest(id: string): Promise<EmployeeRequest> {
-  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/reject`);
+export async function rejectEmployeeRequest(
+  id: string,
+  payload?: { reason?: string }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/reject`, payload);
   return unwrapData(response);
 }
+

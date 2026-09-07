@@ -9,7 +9,7 @@ export class DepartmentScopeService {
   constructor(private readonly prisma: PrismaService) {}
 
   canAccessDepartment(actor: AuthenticatedUser, departmentId: string): boolean {
-    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR')) return true;
+    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return true;
     return actor.scopes.some(
       (scope) =>
         scope.role === 'LEADER' &&
@@ -19,7 +19,7 @@ export class DepartmentScopeService {
   }
 
   visibleDepartmentIds(actor: AuthenticatedUser): string[] | null {
-    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR')) return null;
+    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return null;
     return actor.scopes
       .filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
       .map((scope) => scope.scopeId as string);

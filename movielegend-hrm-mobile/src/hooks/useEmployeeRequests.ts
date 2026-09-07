@@ -40,7 +40,12 @@ export function useEmployeeRequestById(id: string) {
 export function useApproveEmployeeRequest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => approveEmployeeRequest(id),
+    mutationFn: (arg: { id: string; payload?: { note?: string; disbursementProofUrl?: string } } | string) => {
+      if (typeof arg === 'string') {
+        return approveEmployeeRequest(arg);
+      }
+      return approveEmployeeRequest(arg.id, arg.payload);
+    },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ['employee-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['employee-request', data.id] });
@@ -51,10 +56,16 @@ export function useApproveEmployeeRequest() {
 export function useRejectEmployeeRequest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => rejectEmployeeRequest(id),
+    mutationFn: (arg: { id: string; payload?: { reason?: string } } | string) => {
+      if (typeof arg === 'string') {
+        return rejectEmployeeRequest(arg);
+      }
+      return rejectEmployeeRequest(arg.id, arg.payload);
+    },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ['employee-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['employee-request', data.id] });
     },
   });
 }
+
