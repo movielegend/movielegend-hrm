@@ -510,10 +510,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   utilitySection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
   sectionTitle: {
     fontSize: 17,
