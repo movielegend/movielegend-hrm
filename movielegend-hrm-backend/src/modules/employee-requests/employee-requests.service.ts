@@ -124,8 +124,10 @@ export class EmployeeRequestsService {
     return request;
   }
 
-  findAll(actor: AuthenticatedUser, departmentId?: string) {
-    const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
+  async findAll(actor: AuthenticatedUser, departmentId?: string) {
+    const isAccountant = await this.isAccountantActor(actor);
+    const isHr = await this.isHrActor(actor);
+    const visibleDepartmentIds = (isAccountant || isHr) ? null : this.scope.visibleDepartmentIds(actor);
     const departmentFilter = this.departmentFilter(departmentId, visibleDepartmentIds);
     return this.prisma.employeeRequest.findMany({
       where: departmentFilter ? { departmentId: departmentFilter } : {},
@@ -178,7 +180,9 @@ export class EmployeeRequestsService {
     }
 
     const isOwner = request.userId === actor.userId;
-    const canApprove = actor.permissions.includes('employee.request.approve') || actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
+    const isAccountant = await this.isAccountantActor(actor);
+    const isHr = await this.isHrActor(actor);
+    const canApprove = actor.permissions.includes('employee.request.approve') || actor.roles.includes('ADMIN') || actor.roles.includes('LEADER') || isHr || isAccountant;
 
     if (!isOwner && !canApprove) {
       throw forbidden('FORBIDDEN', 'Bạn không có quyền xem yêu cầu này');
@@ -242,8 +246,11 @@ export class EmployeeRequestsService {
     const currentStage = currentMeta.stage || 'PENDING';
     const amount = Number(request.amount || 0);
 
+    const isAccountant = await this.isAccountantActor(actor);
+    const isHr = await this.isHrActor(actor);
+
     const actorProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
-    const actorName = actorProfile?.fullName || (actor.roles.includes('ADMIN') ? 'Ban Giám Đốc' : actor.roles.includes('HR') ? 'Trưởng phòng HR' : actor.roles.includes('ACCOUNTANT') ? 'Kế toán' : 'Trưởng bộ phận');
+    const actorName = actorProfile?.fullName || (actor.roles.includes('ADMIN') ? 'Ban Giám Đốc' : isHr ? 'Trưởng phòng HR' : isAccountant ? 'Kế toán' : 'Trưởng bộ phận');
     const existingSteps = Array.isArray(currentMeta.approvalSteps) ? currentMeta.approvalSteps : [];
 
     // --- STANDARD / NON-FINANCIAL REQUEST APPROVAL ---
@@ -330,8 +337,7 @@ export class EmployeeRequestsService {
 
       // 2. HR Verification & Decision stage -> Branch based on 5.000.000 VNĐ
       if (currentStage === 'PENDING_HR') {
-        const isHrOrAdmin = actor.roles.includes('HR') || actor.roles.includes('ADMIN');
-        if (!isHrOrAdmin) {
+        if (!isHr && !actor.roles.includes('ADMIN')) {
           throw forbidden('FORBIDDEN', 'Chỉ Leader HR hoặc Quản trị viên mới có quyền đối chứng và duyệt bước này.');
         }
 
@@ -435,8 +441,7 @@ export class EmployeeRequestsService {
 
       // 4. Accountant Disbursement stage -> Final DISBURSED
       if (currentStage === 'PENDING_DISBURSEMENT') {
-        const isAccountantOrAdmin = actor.roles.includes('ACCOUNTANT') || actor.roles.includes('ADMIN');
-        if (!isAccountantOrAdmin) {
+        if (!isAccountant && !actor.roles.includes('ADMIN')) {
           throw forbidden('FORBIDDEN', 'Chỉ Kế toán hoặc Quản trị viên mới có quyền xác nhận giải ngân.');
         }
 
@@ -560,6 +565,70 @@ export class EmployeeRequestsService {
     if (financialTypes.has(dto.type) && (dto.amount === undefined || dto.amount <= 0)) {
       throw badRequest('EMPLOYEE_REQUEST_AMOUNT_REQUIRED', 'Yêu cầu tài chính phải có số tiền hợp lệ');
     }
+  }
+
+  private async isAccountantActor(actor: AuthenticatedUser): Promise<boolean> {
+    if (actor.roles.some((r) => ['ADMIN', 'ACCOUNTANT', 'ACCOUNTING', 'ACC', 'DIRECTOR'].includes(r))) {
+      return true;
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: {
+        ledDepartments: {
+          select: { name: true, code: true },
+        },
+        departmentLinks: {
+          select: { department: { select: { name: true, code: true } } },
+        },
+      },
+    });
+    if (!user) return false;
+    const isLed = user.ledDepartments.some(
+      (d) =>
+        d.name.toLowerCase().includes('kế toán') ||
+        d.name.toLowerCase().includes('tài chính') ||
+        ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(d.code?.toUpperCase() || ''),
+    );
+    if (isLed) return true;
+    const isMember = user.departmentLinks.some(
+      (l) =>
+        l.department.name.toLowerCase().includes('kế toán') ||
+        l.department.name.toLowerCase().includes('tài chính') ||
+        ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(l.department.code?.toUpperCase() || ''),
+    );
+    return isMember;
+  }
+
+  private async isHrActor(actor: AuthenticatedUser): Promise<boolean> {
+    if (actor.roles.some((r) => ['ADMIN', 'HR', 'HUMAN_RESOURCE', 'HR_MANAGER', 'DIRECTOR'].includes(r))) {
+      return true;
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: {
+        ledDepartments: {
+          select: { name: true, code: true },
+        },
+        departmentLinks: {
+          select: { department: { select: { name: true, code: true } } },
+        },
+      },
+    });
+    if (!user) return false;
+    const isLed = user.ledDepartments.some(
+      (d) =>
+        d.name.toLowerCase().includes('nhân sự') ||
+        d.name.toLowerCase().includes('hr') ||
+        ['HR', 'NS', 'NHAN_SU'].includes(d.code?.toUpperCase() || ''),
+    );
+    if (isLed) return true;
+    const isMember = user.departmentLinks.some(
+      (l) =>
+        l.department.name.toLowerCase().includes('nhân sự') ||
+        l.department.name.toLowerCase().includes('hr') ||
+        ['HR', 'NS', 'NHAN_SU'].includes(l.department.code?.toUpperCase() || ''),
+    );
+    return isMember;
   }
 
   private async findAccountantUserIds(tx: Prisma.TransactionClient | PrismaService): Promise<string[]> {
