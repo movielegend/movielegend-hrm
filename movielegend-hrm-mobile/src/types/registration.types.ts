@@ -34,7 +34,7 @@ export interface RegisterPayload {
   dateOfBirth?: string | undefined;
   gender?: Gender | undefined;
   requestedDepartmentId: string;
-  faceImages: Array<{ pose: FacePose; imageUrl: string; fileId?: string | undefined }>;
+  faceImages?: Array<{ pose: FacePose; imageUrl: string; fileId?: string | undefined }>;
 }
 
 export interface RegisterResult {
