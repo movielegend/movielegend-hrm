@@ -375,7 +375,7 @@ export function MonthlyTimesheetScreen() {
             onPress={() => setActiveTab('COMPANY')}
           >
             <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
-              Toàn công ty ({companyTimesheet.length})
+              Toàn công ty
             </Text>
           </Pressable>
         </View>
@@ -461,25 +461,6 @@ export function MonthlyTimesheetScreen() {
                       <MaterialCommunityIcons name="image-off-outline" size={24} color="#94A3B8" />
                       <Text style={styles.noImageText}>Chưa có ảnh bảng công chốt chính thức từ HR cho tháng này</Text>
                     </View>
-                  )}
-
-                  {isHR && (
-                    <Pressable
-                      style={styles.uploadImageBtn}
-                      onPress={() => handleUploadUserTimesheetImage(user?.id, 'bạn')}
-                      disabled={uploadingUserId === 'MY' || uploadingUserId === user?.id}
-                    >
-                      {uploadingUserId === 'MY' || uploadingUserId === user?.id ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <>
-                          <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
-                          <Text style={styles.uploadImageBtnText}>
-                            {myTimesheet?.finalOfficialImageUrl ? 'Thay đổi ảnh chốt của bạn' : 'Tải lên ảnh bảng công của bạn'}
-                          </Text>
-                        </>
-                      )}
-                    </Pressable>
                   )}
                 </View>
               </View>

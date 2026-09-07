@@ -332,7 +332,7 @@ export function EmployeePayslipScreen() {
             onPress={() => setActiveTab('COMPANY')}
           >
             <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
-              Bảng lương nhân sự ({companyPayslips.length})
+              Toàn công ty
             </Text>
           </Pressable>
         </View>
@@ -402,26 +402,6 @@ export function EmployeePayslipScreen() {
                   <MaterialCommunityIcons name="image-off-outline" size={24} color="#94A3B8" />
                   <Text style={styles.noImageText}>Chưa có ảnh chụp phiếu lương chốt từ Kế toán</Text>
                 </View>
-              )}
-
-              {/* Nút upload ảnh dành cho Kế toán / Leader */}
-              {isAccountant && (
-                <Pressable
-                  style={styles.uploadImageBtn}
-                  onPress={() => handleUploadUserPayslipImage(user?.id, 'bạn')}
-                  disabled={uploadingUserId === 'MY' || uploadingUserId === user?.id}
-                >
-                  {uploadingUserId === 'MY' || uploadingUserId === user?.id ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
-                      <Text style={styles.uploadImageBtnText}>
-                        {payslip?.finalOfficialImageUrl ? 'Thay đổi ảnh phiếu lương của bạn' : 'Tải lên ảnh phiếu lương của bạn'}
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
               )}
             </View>
           </View>
