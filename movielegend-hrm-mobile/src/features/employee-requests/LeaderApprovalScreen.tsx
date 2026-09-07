@@ -155,6 +155,58 @@ export function LeaderApprovalScreen() {
   const stage = meta.stage || 'PENDING';
   const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
 
+  const isAdmin = currentUser?.roles?.includes('ADMIN');
+  const isHr = currentUser?.roles?.includes('HR') ||
+    currentUser?.department?.name?.toLowerCase().includes('nhân sự') ||
+    currentUser?.department?.code?.toUpperCase() === 'HR';
+  const isAccountant = currentUser?.roles?.includes('ACCOUNTANT') ||
+    currentUser?.department?.name?.toLowerCase().includes('kế toán') ||
+    currentUser?.department?.name?.toLowerCase().includes('tài chính') ||
+    ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(currentUser?.department?.code?.toUpperCase() || '');
+  const isDeptLeader = request.department?.leaderUserId === currentUser?.id ||
+    (currentUser?.roles?.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === request.department?.id));
+
+  // Determine if current user can perform an approval/reject action at the current stage
+  let canActOnCurrentStage = false;
+  let waitingStageDescription = '';
+
+  if (request.status !== 'PENDING') {
+    canActOnCurrentStage = false;
+  } else if (!isFinancial) {
+    if (isAdmin || isHr || isDeptLeader) {
+      canActOnCurrentStage = true;
+    } else {
+      waitingStageDescription = 'Đang chờ Trưởng bộ phận hoặc Quản trị viên phê duyệt.';
+    }
+  } else {
+    // Financial workflow
+    if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
+      if (isDeptLeader || isAdmin || isHr) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = `Đang chờ Trưởng bộ phận (${userDept}) duyệt sơ bộ.`;
+      }
+    } else if (stage === 'PENDING_HR') {
+      if (isHr || isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Trưởng bộ phận đã duyệt. Đang chờ HR đối chứng hồ sơ.';
+      }
+    } else if (stage === 'PENDING_ADMIN') {
+      if (isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'HR đã đối chứng hồ sơ. Đang chờ Ban Giám Đốc phê duyệt hạn mức.';
+      }
+    } else if (stage === 'PENDING_DISBURSEMENT') {
+      if (isAccountant || isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Đơn đã được duyệt. Đang chờ Kế toán thực hiện giải ngân.';
+      }
+    }
+  }
+
   // Determine role-based action text
   let approveButtonLabel = 'Phê duyệt';
   let approveSubtext = '';
@@ -331,82 +383,93 @@ export function LeaderApprovalScreen() {
 
       {/* 4. Action Area */}
       {request.status === 'PENDING' ? (
-      <View style={[styles.footerAction, shadows.sm]}>
-        
-        {/* Cho phép kế toán tải lên ủy nhiệm chi khi giải ngân */}
-        {stage === 'PENDING_DISBURSEMENT' && (
-          <View style={{ marginBottom: 12 }}>
-            <Pressable 
-              onPress={handlePickDisbursementProof}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#EFF6FF',
-                borderWidth: 1,
-                borderColor: '#93C5FD',
-                borderRadius: 8,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-              }}
-            >
-              <MaterialCommunityIcons name="file-upload-outline" size={20} color="#2563EB" />
-              <Text style={{ marginLeft: 6, color: '#2563EB', fontWeight: '600', fontSize: 13 }}>
-                {disbursementProofUri ? 'Đã chọn ảnh ủy nhiệm chi (Bấm để đổi)' : 'Tải lên ảnh Ủy nhiệm chi / Biên lai giải ngân'}
-              </Text>
-            </Pressable>
-            {disbursementProofUri && (
-              <View style={{ marginTop: 8, alignItems: 'center' }}>
-                <Image source={{ uri: disbursementProofUri }} style={{ width: 120, height: 80, borderRadius: 6 }} />
-              </View>
-            )}
-          </View>
-        )}
-
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Nhập ghi chú / ý kiến / lý do (nếu có)..."
-          placeholderTextColor="#9CA3AF"
-          multiline
-          value={comment}
-          onChangeText={setComment}
-          textAlignVertical="top"
-          onFocus={() => {
-            setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-          }}
-        />
-        <View style={styles.actionRow}>
-          <Pressable 
-            style={[styles.rejectBtn, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
-            onPress={handleReject}
-            disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
-          >
-            {rejectMutation.isPending ? <ActivityIndicator color="#111827" /> : (
-              <Text style={styles.rejectBtnText}>Từ chối</Text>
-            )}
-          </Pressable>
-          <Pressable 
-            style={[styles.approveBtn, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
-            onPress={handleApprove}
-            disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
-          >
-            {approveMutation.isPending || isUploadingProof ? <ActivityIndicator color="#fff" /> : (
-              <View style={{ alignItems: 'center' }}>
-                <Text style={styles.approveBtnText}>{approveButtonLabel}</Text>
-                {approveSubtext ? (
-                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
-                    {approveSubtext}
+        canActOnCurrentStage ? (
+          <View style={[styles.footerAction, shadows.sm]}>
+            {/* Cho phép kế toán tải lên ủy nhiệm chi khi giải ngân */}
+            {stage === 'PENDING_DISBURSEMENT' && (
+              <View style={{ marginBottom: 12 }}>
+                <Pressable 
+                  onPress={handlePickDisbursementProof}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#EFF6FF',
+                    borderWidth: 1,
+                    borderColor: '#93C5FD',
+                    borderRadius: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  <MaterialCommunityIcons name="file-upload-outline" size={20} color="#2563EB" />
+                  <Text style={{ marginLeft: 6, color: '#2563EB', fontWeight: '600', fontSize: 13 }}>
+                    {disbursementProofUri ? 'Đã chọn ảnh ủy nhiệm chi (Bấm để đổi)' : 'Tải lên ảnh Ủy nhiệm chi / Biên lai giải ngân'}
                   </Text>
-                ) : null}
+                </Pressable>
+                {disbursementProofUri && (
+                  <View style={{ marginTop: 8, alignItems: 'center' }}>
+                    <Image source={{ uri: disbursementProofUri }} style={{ width: 120, height: 80, borderRadius: 6 }} />
+                  </View>
+                )}
               </View>
             )}
-          </Pressable>
-        </View>
-      </View>
+
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Nhập ghi chú / ý kiến / lý do (nếu có)..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              value={comment}
+              onChangeText={setComment}
+              textAlignVertical="top"
+              onFocus={() => {
+                setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+              }}
+            />
+            <View style={styles.actionRow}>
+              <Pressable 
+                style={[styles.rejectBtn, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                onPress={handleReject}
+                disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
+              >
+                {rejectMutation.isPending ? <ActivityIndicator color="#111827" /> : (
+                  <Text style={styles.rejectBtnText}>Từ chối</Text>
+                )}
+              </Pressable>
+              <Pressable 
+                style={[styles.approveBtn, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                onPress={handleApprove}
+                disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+              >
+                {approveMutation.isPending || isUploadingProof ? <ActivityIndicator color="#fff" /> : (
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={styles.approveBtnText}>{approveButtonLabel}</Text>
+                    {approveSubtext ? (
+                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                        {approveSubtext}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.footerAction, shadows.sm, { paddingVertical: 18, paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#F0F9FF', borderTopWidth: 1, borderTopColor: '#BAE6FD' }]}>
+            <MaterialCommunityIcons name="clock-time-four-outline" size={24} color="#0284C7" style={{ marginBottom: 6 }} />
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#0369A1', textAlign: 'center', marginBottom: 4 }}>
+              {waitingStageDescription || 'Đang chờ cấp có thẩm quyền xử lý'}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#64748B', textAlign: 'center' }}>
+              Bạn không cần thực hiện thao tác ở giai đoạn này.
+            </Text>
+          </View>
+        )
       ) : (
         <View style={[styles.footerAction, shadows.sm, { paddingVertical: 24, alignItems: 'center' }]}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: request.status === 'APPROVED' ? '#10B981' : '#EF4444' }}>
-            Đơn từ đã được {request.status === 'APPROVED' ? 'Phê duyệt / Giải ngân' : 'Từ chối'}
+            Đơn từ đã được {request.status === 'APPROVED' ? (meta.disbursementProofUrl || stage === 'DISBURSED' ? 'Giải ngân thành công' : 'Phê duyệt') : 'Từ chối'}
           </Text>
         </View>
       )}

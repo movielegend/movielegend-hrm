@@ -64,13 +64,35 @@ export default function LeaderRequestsScreen() {
     }
   });
 
-  const getStatusColor = (status: EmployeeRequestStatus) => {
-    switch (status) {
-      case 'PENDING': return colors.warning;
-      case 'APPROVED': return colors.success;
-      case 'REJECTED': return colors.danger;
-      default: return colors.muted;
+  const getStatusDisplay = (item: any) => {
+    const status = item?.status;
+    const meta = (typeof item?.attachmentMetadata === 'object' && item?.attachmentMetadata !== null) ? item.attachmentMetadata : {};
+    const stage = meta.stage;
+
+    if (status === 'REJECTED') {
+      return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
     }
+    if (status === 'APPROVED') {
+      if (meta.disbursementProofUrl || stage === 'DISBURSED') {
+        return { text: 'Đã giải ngân', color: '#10B981', bg: '#D1FAE5' };
+      }
+      return { text: 'Đã duyệt', color: '#10B981', bg: '#D1FAE5' };
+    }
+    if (status === 'PENDING') {
+      switch (stage) {
+        case 'PENDING_LEADER':
+          return { text: 'Chờ Leader duyệt', color: '#D97706', bg: '#FEF3C7' };
+        case 'PENDING_HR':
+          return { text: 'Chờ HR đối chứng', color: '#2563EB', bg: '#DBEAFE' };
+        case 'PENDING_ADMIN':
+          return { text: 'Chờ Admin duyệt', color: '#7C3AED', bg: '#EDE9FE' };
+        case 'PENDING_DISBURSEMENT':
+          return { text: 'Chờ giải ngân', color: '#EA580C', bg: '#FFEDD5' };
+        default:
+          return { text: 'Chờ xử lý', color: '#D97706', bg: '#FEF3C7' };
+      }
+    }
+    return { text: 'Không rõ', color: '#6B7280', bg: '#F3F4F6' };
   };
 
   const getTypeConfig = (type: EmployeeRequestType) => {
@@ -81,12 +103,19 @@ export default function LeaderRequestsScreen() {
     <Screen>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View>
-            <Text style={styles.title}>Duyệt Yêu Cầu</Text>
-            <View style={styles.dateSelector}>
-              <Text style={styles.dateText}>Quản lý yêu cầu của nhân sự</Text>
-            </View>
+          <Text style={styles.title}>Duyệt Yêu Cầu</Text>
+          <View style={styles.dateSelector}>
+            <Text style={styles.dateText}>Quản lý yêu cầu của nhân sự</Text>
           </View>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable 
+            style={styles.createBtn} 
+            onPress={() => router.push('/employee/requests/create' as any)}
+          >
+            <MaterialCommunityIcons name="plus" size={18} color="#fff" />
+            <Text style={styles.createBtnText}>Tạo đơn</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -159,6 +188,7 @@ export default function LeaderRequestsScreen() {
             const config = getTypeConfig(item.type);
             const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
             const userName = item.user?.profile?.fullName || item.user?.email || 'Unknown User';
+            const statusObj = getStatusDisplay(item);
             
             return (
               <Pressable 
@@ -175,44 +205,28 @@ export default function LeaderRequestsScreen() {
                     <Text style={styles.cardSubtitle}>{config.label} • {dateStr}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={styles.statusPill}>
-                      <Text style={styles.statusPillText}>
-                         {item.status === 'PENDING' ? 'Chờ xử lý' : item.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
+                    <View style={[styles.statusPill, { backgroundColor: statusObj.bg, borderColor: statusObj.bg }]}>
+                      <Text style={[styles.statusPillText, { color: statusObj.color, fontWeight: '700' }]}>
+                        {statusObj.text}
                       </Text>
                     </View>
-                    <View style={styles.blackDot} />
                   </View>
                 </View>
                 
                 <Text style={styles.cardTitle}>{item.title || config.label}</Text>
-                <Text style={styles.cardContent} numberOfLines={3}>{item.content}</Text>
+                <Text style={styles.cardContent} numberOfLines={2}>{item.content}</Text>
                 
                 {item.amount != null && (
                   <Text style={styles.cardAmount}>
-                    Số tiền đề xuất: {Number(item.amount).toLocaleString('vi-VN')} đ
+                    Số tiền: {Number(item.amount).toLocaleString('vi-VN')} VNĐ
                   </Text>
                 )}
 
-                {item.status === 'PENDING' && (
-                  <View style={styles.actionButtons}>
-                    <Pressable 
-                      style={[styles.btnAction, styles.btnReject]} 
-                      onPress={() => rejectMutation.mutate(item.id)}
-                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                    >
-                      <MaterialCommunityIcons name="close-circle-outline" size={20} color={colors.danger} style={{ marginRight: 6 }} />
-                      <Text style={styles.btnRejectText}>Từ chối</Text>
-                    </Pressable>
-                    <Pressable 
-                      style={[styles.btnAction, styles.btnApprove]} 
-                      onPress={() => approveMutation.mutate(item.id)}
-                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                    >
-                      <MaterialCommunityIcons name="check-circle-outline" size={20} color="#fff" style={{ marginRight: 6 }} />
-                      <Text style={styles.btnApproveText}>Duyệt</Text>
-                    </Pressable>
-                  </View>
-                )}
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+                  <Text style={{ fontSize: 13, color: '#2563EB', fontWeight: '600' }}>
+                    Xem chi tiết & xử lý →
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
@@ -251,6 +265,20 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 14,
     color: colors.muted,
+  },
+  createBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111827',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  createBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   tabs: {
     flexDirection: 'row',
