@@ -141,8 +141,29 @@ export function LeaderApprovalScreen() {
     );
   }
 
+  const getStageLabelVi = (stageStr?: string, action?: string) => {
+    if (action === 'DISBURSED' || stageStr === 'DISBURSED') return 'Kế toán giải ngân';
+    if (action === 'REJECTED' || stageStr === 'REJECTED') return 'Từ chối';
+    switch (stageStr) {
+      case 'PENDING_LEADER':
+      case 'LEADER':
+        return 'Trưởng bộ phận duyệt';
+      case 'PENDING_HR':
+      case 'HR':
+        return 'HR đối chứng & duyệt';
+      case 'PENDING_ADMIN':
+      case 'ADMIN':
+        return 'Ban Giám Đốc duyệt';
+      case 'PENDING_DISBURSEMENT':
+      case 'ACCOUNTANT':
+        return 'Kế toán giải ngân';
+      default:
+        return 'Cấp duyệt';
+    }
+  };
+
   const config = getTypeConfig(request.type);
-  const userName = request.user?.profile?.fullName || request.user?.email || 'Unknown';
+  const userName = request.user?.profile?.fullName || request.user?.email || 'Nhân viên';
   const userDept = request.department?.name || 'Không rõ phòng ban';
   const userPos = request.user?.profile?.position?.name || 'Nhân viên';
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
@@ -366,7 +387,7 @@ export function LeaderApprovalScreen() {
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>
-                      {step.actorName || 'Cấp duyệt'} ({step.stage})
+                      {step.actorName || 'Cấp duyệt'} • <Text style={{ color: '#2563EB', fontWeight: '600' }}>{getStageLabelVi(step.stage, step.action)}</Text>
                     </Text>
                     <Text style={{ fontSize: 12, color: '#6B7280' }}>
                       {step.at ? new Date(step.at).toLocaleString('vi-VN') : ''}
