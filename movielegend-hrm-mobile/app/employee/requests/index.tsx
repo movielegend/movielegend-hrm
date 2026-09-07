@@ -37,13 +37,35 @@ export default function RequestsScreen() {
   });
   const requests = data?.items || [];
 
-  const getStatusColor = (status: EmployeeRequestStatus) => {
-    switch (status) {
-      case 'PENDING': return colors.warning;
-      case 'APPROVED': return colors.success;
-      case 'REJECTED': return colors.danger;
-      default: return colors.muted;
+  const getStatusDisplay = (item: any) => {
+    const status = item?.status;
+    const meta = (typeof item?.attachmentMetadata === 'object' && item?.attachmentMetadata !== null) ? item.attachmentMetadata : {};
+    const stage = meta.stage;
+
+    if (status === 'REJECTED') {
+      return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
     }
+    if (status === 'APPROVED') {
+      if (meta.disbursementProofUrl || stage === 'DISBURSED') {
+        return { text: 'Đã giải ngân', color: '#10B981', bg: '#D1FAE5' };
+      }
+      return { text: 'Đã duyệt', color: '#10B981', bg: '#D1FAE5' };
+    }
+    if (status === 'PENDING') {
+      switch (stage) {
+        case 'PENDING_LEADER':
+          return { text: 'Chờ Leader duyệt', color: '#D97706', bg: '#FEF3C7' };
+        case 'PENDING_HR':
+          return { text: 'Chờ HR đối chứng', color: '#2563EB', bg: '#DBEAFE' };
+        case 'PENDING_ADMIN':
+          return { text: 'Chờ Admin duyệt', color: '#7C3AED', bg: '#EDE9FE' };
+        case 'PENDING_DISBURSEMENT':
+          return { text: 'Chờ giải ngân', color: '#EA580C', bg: '#FFEDD5' };
+        default:
+          return { text: 'Chờ xử lý', color: '#D97706', bg: '#FEF3C7' };
+      }
+    }
+    return { text: 'Không rõ', color: '#6B7280', bg: '#F3F4F6' };
   };
 
   const getTypeConfig = (type: EmployeeRequestType) => {
@@ -140,6 +162,7 @@ export default function RequestsScreen() {
           {requests.map((item: EmployeeRequest) => {
             const config = getTypeConfig(item.type);
             const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
+            const statusObj = getStatusDisplay(item);
             return (
               <Pressable 
                 key={item.id} 
@@ -154,12 +177,16 @@ export default function RequestsScreen() {
                     <Text style={styles.cardTitle}>{item.title}</Text>
                     <Text style={styles.cardSubtitle}>{config.label} • {dateStr}</Text>
                   </View>
-                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+                  <View style={[styles.statusBadge, { backgroundColor: statusObj.bg }]}>
+                    <Text style={[styles.statusBadgeText, { color: statusObj.color }]}>
+                      {statusObj.text}
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.cardContent} numberOfLines={2}>{item.content}</Text>
                 {item.amount != null && (
                   <Text style={styles.cardAmount}>
-                    Số tiền: {Number(item.amount).toLocaleString('vi-VN')} đ
+                    Số tiền: {Number(item.amount).toLocaleString('vi-VN')} VNĐ
                   </Text>
                 )}
               </Pressable>
@@ -327,11 +354,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.muted,
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     marginLeft: spacing.sm,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   cardContent: {
     fontSize: 14,
