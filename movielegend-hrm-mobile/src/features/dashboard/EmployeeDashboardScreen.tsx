@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   utilitySection: {
-    marginBottom: spacing.xs,
+    marginBottom: -12,
   },
   sectionTitle: {
     fontSize: 17,
