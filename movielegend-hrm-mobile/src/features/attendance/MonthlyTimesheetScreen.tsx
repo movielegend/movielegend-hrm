@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import ImageViewing from 'react-native-image-viewing';
 import { useAuth } from '../../providers/AuthProvider';
@@ -26,6 +27,7 @@ import {
 } from '../../api/attendance.api';
 import { uploadFile } from '../../api/uploads.api';
 import { ImportTimesheetModal } from './components/ImportTimesheetModal';
+import { VietnameseDatePickerModal } from '../../components/VietnameseDatePickerModal';
 
 export function MonthlyTimesheetScreen() {
   const insets = useSafeAreaInsets();
@@ -35,6 +37,7 @@ export function MonthlyTimesheetScreen() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeTab, setActiveTab] = useState<'MY' | 'COMPANY'>('MY');
 
   const [myTimesheet, setMyTimesheet] = useState<MonthlyTimesheetData | null>(null);
@@ -257,20 +260,24 @@ export function MonthlyTimesheetScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
+      <StatusBar style="dark" backgroundColor="#fff" />
+
       {/* Top Header */}
-      <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
-        </Pressable>
-        <Text style={styles.topTitle}>Bảng Chấm Công</Text>
-        {isHR ? (
-          <Pressable style={styles.importIconBtn} onPress={() => setShowImportModal(true)}>
-            <MaterialCommunityIcons name="file-excel" size={22} color="#10B981" />
-          </Pressable>
-        ) : (
-          <View style={{ width: 36 }} />
-        )}
+      <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
+        <View style={styles.topBar}>
+          <View style={styles.topBarLeft}>
+            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
+            </Pressable>
+            <Text style={styles.topTitle}>Bảng Chấm Công</Text>
+          </View>
+          {isHR ? (
+            <Pressable style={styles.importIconBtn} onPress={() => setShowImportModal(true)}>
+              <MaterialCommunityIcons name="file-excel" size={22} color="#10B981" />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       {/* Role HR Tabs */}
@@ -293,15 +300,10 @@ export function MonthlyTimesheetScreen() {
 
       {/* Month Picker Bar */}
       <View style={styles.monthSelectorBar}>
-        <Pressable onPress={() => changeMonth(-1)} style={styles.monthNavBtn}>
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#374151" />
-        </Pressable>
-        <View style={styles.monthDisplay}>
-          <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#111827" />
+        <Pressable onPress={() => setShowDatePicker(true)} style={styles.monthDisplayBtn}>
+          <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#0F172A" />
           <Text style={styles.monthTitle}>Tháng {selectedMonth} / {selectedYear}</Text>
-        </View>
-        <Pressable onPress={() => changeMonth(1)} style={styles.monthNavBtn}>
-          <MaterialCommunityIcons name="chevron-right" size={24} color="#374151" />
+          <MaterialCommunityIcons name="chevron-down" size={18} color="#64748B" />
         </Pressable>
       </View>
 
@@ -475,6 +477,21 @@ export function MonthlyTimesheetScreen() {
         onSuccess={fetchTimesheet}
       />
 
+      {/* Vietnamese DatePicker Modal */}
+      <VietnameseDatePickerModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        title="Chọn tháng / năm"
+        initialDate={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`}
+        onSelect={(dateStr) => {
+          const parts = dateStr.split('-');
+          if (parts.length >= 2 && parts[0] && parts[1]) {
+            setSelectedYear(Number(parts[0]));
+            setSelectedMonth(Number(parts[1]));
+          }
+        }}
+      />
+
       {/* Fullscreen Zoomable ImageViewing */}
       {myTimesheet?.finalOfficialImageUrl ? (
         <ImageViewing
@@ -493,18 +510,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  topBarWrapper: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   backBtn: {
-    padding: 6,
+    padding: 4,
   },
   topTitle: {
     fontSize: 18,
@@ -544,27 +568,27 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   monthSelectorBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  monthNavBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-  },
-  monthDisplay: {
+  monthDisplayBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   monthTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
