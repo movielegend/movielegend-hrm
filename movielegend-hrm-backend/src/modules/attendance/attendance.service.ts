@@ -3,6 +3,7 @@ import {
   AttendanceAdjustmentStatus,
   AttendanceStatus,
   AttendanceVerificationType,
+  NotificationType,
   Prisma,
   UploadedFileStatus,
   UploadPurpose,
@@ -17,6 +18,7 @@ import { BusinessTimeService } from '../time/business-time.service';
 import { StorageService } from '../storage/storage.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { ImageProcessingService } from '../uploads/image-processing.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   AttendanceQueryDto,
   CheckInDto,
@@ -40,6 +42,7 @@ export class AttendanceService {
     private readonly imageProcessing: ImageProcessingService,
     private readonly storage: StorageService,
     private readonly uploads: UploadsService,
+    private readonly notifications: NotificationsService,
     private readonly businessTime: BusinessTimeService = new BusinessTimeService(),
   ) { }
 
@@ -1374,6 +1377,37 @@ export class AttendanceService {
         },
       },
     });
+
+    // Gửi thông báo đến nhân sự
+    try {
+      let targetUserIds: string[] = [];
+      if (userId) {
+        targetUserIds = [userId];
+      } else {
+        const activeUsers = await this.prisma.user.findMany({
+          where: { isActive: true, deletedAt: null },
+          select: { id: true },
+        });
+        targetUserIds = activeUsers.map((u) => u.id);
+      }
+
+      const payload = await this.notifications.createForUsers(this.prisma, targetUserIds, {
+        type: NotificationType.SYSTEM,
+        title: `Bảng chấm công tháng ${month}/${year}`,
+        body: `HR đã cập nhật ảnh bảng công chốt chính thức tháng ${month}/${year}. Vui lòng vào kiểm tra.`,
+        metadata: {
+          screen: 'MonthlyTimesheet',
+          month,
+          year,
+          type: 'TIMESHEET_OFFICIAL_IMAGE',
+        },
+      });
+      if (payload) {
+        this.notifications.emitCreated(payload);
+      }
+    } catch (e) {
+      // Do not fail upload if notification fails
+    }
 
     return {
       success: true,

@@ -106,6 +106,25 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     return `${base}/vault`;
   }
 
+  if (
+    notification.type === 'PAYSLIP_AVAILABLE' ||
+    notification.type === 'PAYROLL_APPROVED' ||
+    stringMeta(notification.metadata, 'screen') === 'EmployeePayslip' ||
+    stringMeta(notification.metadata, 'type') === 'PAYSLIP_OFFICIAL_IMAGE' ||
+    t.includes('phiếu lương')
+  ) {
+    return `${base}/payslip`;
+  }
+
+  if (
+    stringMeta(notification.metadata, 'screen') === 'MonthlyTimesheet' ||
+    stringMeta(notification.metadata, 'type') === 'TIMESHEET_OFFICIAL_IMAGE' ||
+    t.includes('bảng chấm công') ||
+    t.includes('bảng công')
+  ) {
+    return `${base}/timesheet`;
+  }
+
   if (notification.type === 'SYSTEM' && (t.includes('phân ca mới') || t.includes('phân ca làm việc mới'))) {
     return `${base}/schedule`;
   }

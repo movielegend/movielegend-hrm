@@ -355,6 +355,37 @@ export class PayrollService {
       },
     });
 
+    // Gửi thông báo đến nhân sự
+    try {
+      let targetUserIds: string[] = [];
+      if (userId) {
+        targetUserIds = [userId];
+      } else {
+        const activeUsers = await this.prisma.user.findMany({
+          where: { isActive: true, deletedAt: null },
+          select: { id: true },
+        });
+        targetUserIds = activeUsers.map((u) => u.id);
+      }
+
+      const payload = await this.notifications.createForUsers(this.prisma, targetUserIds, {
+        type: NotificationType.PAYSLIP_AVAILABLE,
+        title: `Phiếu lương tháng ${month}/${year}`,
+        body: `Phòng Kế toán đã phát hành ảnh phiếu lương chốt tháng ${month}/${year}. Vui lòng vào kiểm tra và xác nhận.`,
+        metadata: {
+          screen: 'EmployeePayslip',
+          month,
+          year,
+          type: 'PAYSLIP_OFFICIAL_IMAGE',
+        },
+      });
+      if (payload) {
+        this.notifications.emitCreated(payload);
+      }
+    } catch (e) {
+      // Do not fail upload if notification fails
+    }
+
     return {
       success: true,
       message: 'Đã lưu ảnh phiếu lương chốt chính thức thành công',
