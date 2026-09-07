@@ -273,33 +273,6 @@ export function EmployeeDashboardScreen() {
           </View>
         </View>
 
-        {/* Tổng quan cá nhân hôm nay (Today's Stats) */}
-        <View style={[styles.section, styles.statsSection]}>
-          <Text style={styles.sectionTitle}>Tổng quan hôm nay</Text>
-          <View style={styles.statsRow}>
-            <StatCard
-              title="Giờ vào"
-              value={currentAttendance?.firstCheckInAt ? currentAttendance.firstCheckInAt.slice(11, 16) : '--:--'}
-              color="#10B981"
-            />
-            <StatCard
-              title="Giờ ra"
-              value={currentAttendance?.lastCheckOutAt ? currentAttendance.lastCheckOutAt.slice(11, 16) : '--:--'}
-              color="#2563EB"
-            />
-            <StatCard
-              title="Cần làm"
-              value={uncompletedTasksCount}
-              color="#F59E0B"
-            />
-            <StatCard
-              title="Trạng thái"
-              value={currentAttendance?.state === 'CHECKED_IN' ? 'Đang làm' : 'Chưa vào'}
-              color={currentAttendance?.state === 'CHECKED_IN' ? '#10B981' : '#6B7280'}
-            />
-          </View>
-        </View>
-
         {/* Công việc của tôi */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Công việc của tôi</Text>
@@ -314,17 +287,26 @@ export function EmployeeDashboardScreen() {
                   return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
                 })
                 .slice(0, 5)
-                .map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    title={task.title}
-                    priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
-                    priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
-                    dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
-                    onPress={() => router.push(`/employee/tasks/${task.id}`)}
-                    isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
-                  />
-                ))
+                .map((task) => {
+                  let formattedDueDate = 'Không có hạn';
+                  if (task.dueDate) {
+                    const parsed = new Date(task.dueDate);
+                    if (!isNaN(parsed.getTime())) {
+                      formattedDueDate = parsed.toLocaleDateString('vi-VN');
+                    }
+                  }
+                  return (
+                    <TaskCard
+                      key={task.id}
+                      title={task.title}
+                      priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
+                      priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
+                      dueDate={formattedDueDate}
+                      onPress={() => router.push(`/employee/tasks/${task.id}`)}
+                      isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
+                    />
+                  );
+                })
             ) : (
               <TaskCard
                 title="Cập nhật báo cáo tiến độ tuần"
@@ -392,15 +374,6 @@ function TaskCard({ title, priority, priorityColor, dueDate, onPress, isComplete
         </View>
       </View>
     </Pressable>
-  );
-}
-
-function StatCard({ title, value, color }: any) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statTitle}>{title}</Text>
-      <Text style={[styles.statValue, { color: color || '#111827' }]}>{value}</Text>
-    </View>
   );
 }
 
@@ -477,41 +450,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#EF4444',
   },
-  statsSection: {
-    marginTop: 0,
-    marginBottom: spacing.lg,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-  statTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
   heroCard: {
     borderRadius: 24,
     marginBottom: spacing.xl,
@@ -572,10 +510,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   utilitySection: {
-    marginBottom: -6,
+    marginBottom: spacing.lg,
   },
   sectionTitle: {
     fontSize: 17,
