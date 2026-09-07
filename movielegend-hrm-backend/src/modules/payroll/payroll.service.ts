@@ -18,7 +18,7 @@ import { badRequest, conflict, forbidden, notFound } from '../../common/utils/er
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
-import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
+import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, CompanyPayslipsQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
 import { PayrollPolicyService } from './payroll-policy.service';
 
 @Injectable()
@@ -219,14 +219,18 @@ export class PayrollService {
       orderBy: { calculatedAt: 'desc' },
     });
 
-    // Lấy ảnh phiếu lương chốt chính thức từ Leader Kế toán (nếu có)
-    const imageLog = await this.prisma.auditLog.findFirst({
+    // Lấy ảnh phiếu lương chốt chính thức từ Leader Kế toán (ưu tiên ảnh riêng của nhân sự này)
+    const specificImageLog = await this.prisma.auditLog.findFirst({
       where: {
         action: 'PAYROLL_OFFICIAL_IMAGE',
-        OR: [
-          { entityId: actor.userId },
-          { entityId: null },
-        ],
+        entityId: actor.userId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const imageLog = specificImageLog || await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'PAYROLL_OFFICIAL_IMAGE',
+        entityId: null,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -353,6 +357,93 @@ export class PayrollService {
       imageUrl,
       month,
       year,
+    };
+  }
+
+  async getCompanyMonthlyPayslips(actor: AuthenticatedUser, query: CompanyPayslipsQueryDto) {
+    const now = new Date();
+    const month = query.month ? Number(query.month) : now.getMonth() + 1;
+    const year = query.year ? Number(query.year) : now.getFullYear();
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        ...(query.departmentId ? { departmentLinks: { some: { departmentId: query.departmentId } } } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                { profile: { fullName: { contains: query.search, mode: 'insensitive' } } },
+                { userCode: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        profile: { include: { position: true } },
+        departmentLinks: { include: { department: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const period = await this.prisma.payrollPeriod.findFirst({
+      where: { month, year },
+      include: {
+        payrolls: true,
+      },
+    });
+
+    const results = await Promise.all(
+      users.map(async (u) => {
+        const payroll = period?.payrolls.find((p) => p.userId === u.id);
+
+        const specificImageLog = await this.prisma.auditLog.findFirst({
+          where: {
+            action: 'PAYROLL_OFFICIAL_IMAGE',
+            entityId: u.id,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        const imageLog = specificImageLog || await this.prisma.auditLog.findFirst({
+          where: {
+            action: 'PAYROLL_OFFICIAL_IMAGE',
+            entityId: null,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        let finalOfficialImageUrl: string | null = null;
+        if (imageLog?.metadata && typeof imageLog.metadata === 'object') {
+          const meta = imageLog.metadata as any;
+          if (meta.month === month && meta.year === year) {
+            finalOfficialImageUrl = meta.imageUrl || null;
+          }
+        }
+
+        return {
+          userId: u.id,
+          userCode: u.userCode,
+          fullName: u.profile?.fullName || 'Nhân sự',
+          departmentName: u.departmentLinks?.[0]?.department?.name || 'Chưa có phòng ban',
+          positionName: u.profile?.position?.name || 'Nhân viên',
+          baseSalary: payroll ? Number(payroll.baseSalary) : 0,
+          grossSalary: payroll ? Number(payroll.grossSalary) : 0,
+          netSalary: payroll ? Number(payroll.netSalary) : 0,
+          actualWorkingDays: payroll ? Number(payroll.actualWorkingDays) : 0,
+          standardWorkingDays: payroll ? Number(payroll.standardWorkingDays) : 26,
+          status: payroll ? payroll.status : 'UNAVAILABLE',
+          hasData: !!payroll,
+          finalOfficialImageUrl,
+          employeeAcknowledgedAt: payroll?.employeeAcknowledgedAt?.toISOString() || null,
+        };
+      }),
+    );
+
+    return {
+      month,
+      year,
+      totalEmployees: results.length,
+      items: results,
     };
   }
 

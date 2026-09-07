@@ -1307,14 +1307,18 @@ export class AttendanceService {
 
     const otHours = Number((totalOtMinutes / 60).toFixed(1));
 
-    // Lấy ảnh bảng công chốt chính thức gần nhất từ Leader HR (nếu có)
-    const imageLog = await this.prisma.auditLog.findFirst({
+    // Lấy ảnh bảng công chốt chính thức gần nhất từ Leader HR (ưu tiên ảnh riêng của nhân sự này)
+    const specificImageLog = await this.prisma.auditLog.findFirst({
       where: {
         action: 'TIMESHEET_OFFICIAL_IMAGE',
-        OR: [
-          { entityId: userId },
-          { entityId: null },
-        ],
+        entityId: userId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const imageLog = specificImageLog || await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'TIMESHEET_OFFICIAL_IMAGE',
+        entityId: null,
       },
       orderBy: { createdAt: 'desc' },
     });

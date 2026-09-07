@@ -4,7 +4,7 @@ import { AnyPermissions } from '../../common/decorators/any-permissions.decorato
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
+import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, CompanyPayslipsQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
 import { PayrollService } from './payroll.service';
 
 @ApiTags('Payroll Periods')
@@ -84,6 +84,12 @@ export class PayrollsController {
   @AnyPermissions('payroll.read_own', 'payroll.read_all')
   getMyPayslip(@CurrentUser() actor: AuthenticatedUser, @Query() query: MyPayslipQueryDto) {
     return this.payroll.getMyPayslip(actor, query);
+  }
+
+  @Get('company-payslips')
+  @AnyPermissions('payroll.read_all', 'payroll.calculate', 'payroll.review', 'payroll.approve', 'payroll.manage')
+  getCompanyMonthlyPayslips(@CurrentUser() actor: AuthenticatedUser, @Query() query: CompanyPayslipsQueryDto) {
+    return this.payroll.getCompanyMonthlyPayslips(actor, query);
   }
 
   @Post('import')

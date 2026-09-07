@@ -50,6 +50,18 @@ export class MyPayslipQueryDto {
   year?: number;
 }
 
+export class CompanyPayslipsQueryDto extends MyPayslipQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
 export class ImportPayrollItemDetailDto {
   @ApiProperty()
   @IsString()

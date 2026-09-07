@@ -6,12 +6,13 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,30 +26,47 @@ import {
   CompanyTimesheetEmployee,
   uploadTimesheetOfficialImage,
 } from '../../api/attendance.api';
+import { getDepartments } from '../../api/departments.api';
+import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
-import { ImportTimesheetModal } from './components/ImportTimesheetModal';
-import { VietnameseDatePickerModal } from '../../components/VietnameseDatePickerModal';
 
 export function MonthlyTimesheetScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { user } = useAuth();
 
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeTab, setActiveTab] = useState<'MY' | 'COMPANY'>('MY');
 
   const [myTimesheet, setMyTimesheet] = useState<MonthlyTimesheetData | null>(null);
   const [companyTimesheet, setCompanyTimesheet] = useState<CompanyTimesheetEmployee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
 
-  const isHR = user?.roles?.some((r) => String(r).toUpperCase().includes('HR') || String(r).toUpperCase().includes('ADMIN'));
+  const isHR = user?.roles?.some(
+    (r) =>
+      String(r).toUpperCase().includes('HR') ||
+      String(r).toUpperCase().includes('ADMIN') ||
+      (String(r).toUpperCase().includes('LEADER') && (user?.department?.name || '').toLowerCase().includes('nhân sự'))
+  );
+
+  useEffect(() => {
+    if (isHR) {
+      getDepartments()
+        .then((res) => {
+          setDepartments(res.items || []);
+        })
+        .catch(() => {});
+    }
+  }, [isHR]);
 
   const fetchTimesheet = useCallback(async () => {
     try {
@@ -62,6 +80,8 @@ export function MonthlyTimesheetScreen() {
         const data = await getCompanyMonthlyTimesheet({
           month: selectedMonth,
           year: selectedYear,
+          departmentId: selectedDepartmentId !== 'ALL' ? selectedDepartmentId : undefined,
+          search: searchQuery.trim() ? searchQuery.trim() : undefined,
         });
         setCompanyTimesheet(data.items || []);
       }
@@ -71,74 +91,7 @@ export function MonthlyTimesheetScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [selectedMonth, selectedYear, activeTab]);
-
-  const processImageUpload = async (uri: string) => {
-    try {
-      setIsUploadingImage(true);
-      const uploaded = await uploadFile({
-        uri,
-        name: `timesheet_snapshot_${selectedMonth}_${selectedYear}.jpg`,
-        mimeType: 'image/jpeg',
-        purpose: 'ATTENDANCE',
-      });
-      await uploadTimesheetOfficialImage({
-        month: selectedMonth,
-        year: selectedYear,
-        imageUrl: uploaded.url,
-      });
-      Alert.alert('Thành công', 'Đã lưu ảnh bảng công chốt chính thức');
-      fetchTimesheet();
-    } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh bảng công chốt');
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
-
-  const handleUploadOfficialImage = () => {
-    Alert.alert(
-      'Ảnh bảng công chốt chính thức',
-      'Chọn phương thức tải ảnh chốt bảng công từ Leader HR:',
-      [
-        {
-          text: 'Chụp ảnh mới',
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await processImageUpload(result.assets[0].uri);
-            }
-          },
-        },
-        {
-          text: 'Chọn từ thư viện',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await processImageUpload(result.assets[0].uri);
-            }
-          },
-        },
-        { text: 'Huỷ', style: 'cancel' },
-      ]
-    );
-  };
+  }, [selectedMonth, selectedYear, activeTab, selectedDepartmentId, searchQuery]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -162,6 +115,81 @@ export function MonthlyTimesheetScreen() {
     }
     setSelectedMonth(newMonth);
     setSelectedYear(newYear);
+  };
+
+  const openViewer = (uri: string) => {
+    setViewerImages([{ uri }]);
+    setIsImageViewerVisible(true);
+  };
+
+  const doUploadTimesheetImage = async (uri: string, targetUserId?: string, targetUserName?: string) => {
+    try {
+      setUploadingUserId(targetUserId || 'MY');
+      const uploaded = await uploadFile({
+        uri,
+        name: `timesheet_${targetUserId || 'my'}_${selectedMonth}_${selectedYear}.jpg`,
+        mimeType: 'image/jpeg',
+        purpose: 'ATTENDANCE',
+      });
+      await uploadTimesheetOfficialImage({
+        userId: targetUserId,
+        month: selectedMonth,
+        year: selectedYear,
+        imageUrl: uploaded.url,
+      });
+      Alert.alert('Thành công', `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`);
+      fetchTimesheet();
+    } catch (err: any) {
+      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh bảng công');
+    } finally {
+      setUploadingUserId(null);
+    }
+  };
+
+  const handleUploadUserTimesheetImage = (targetUserId?: string, targetUserName?: string) => {
+    const isPersonal = !targetUserId || targetUserId === user?.id;
+    const title = isPersonal ? 'Bảng công của bạn' : `Bảng công: ${targetUserName || 'Nhân sự'}`;
+    Alert.alert(
+      title,
+      'Chọn phương thức tải ảnh chốt bảng công:',
+      [
+        {
+          text: 'Chụp ảnh mới',
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.85,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              await doUploadTimesheetImage(result.assets[0].uri, targetUserId, targetUserName);
+            }
+          },
+        },
+        {
+          text: 'Chọn từ thư viện',
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.85,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              await doUploadTimesheetImage(result.assets[0].uri, targetUserId, targetUserName);
+            }
+          },
+        },
+        { text: 'Huỷ', style: 'cancel' },
+      ]
+    );
   };
 
   const renderDailyItem = ({ item }: { item: MonthlyTimesheetDailyRecord }) => {
@@ -224,6 +252,7 @@ export function MonthlyTimesheetScreen() {
   };
 
   const renderCompanyItem = ({ item }: { item: CompanyTimesheetEmployee }) => {
+    const isThisUploading = uploadingUserId === item.userId;
     return (
       <View style={styles.companyEmpCard}>
         <View style={styles.empHeader}>
@@ -234,14 +263,20 @@ export function MonthlyTimesheetScreen() {
             <Text style={styles.empName}>{item.fullName}</Text>
             <Text style={styles.empDept}>{item.userCode} • {item.departmentName}</Text>
           </View>
+          <View style={[styles.empImageBadge, item.finalOfficialImageUrl ? styles.empImageBadgeDone : styles.empImageBadgePending]}>
+            <Text style={[styles.empImageBadgeText, item.finalOfficialImageUrl ? styles.empImageBadgeTextDone : styles.empImageBadgeTextPending]}>
+              {item.finalOfficialImageUrl ? 'Đã có ảnh' : 'Chưa có ảnh'}
+            </Text>
+          </View>
         </View>
+
         <View style={styles.empMetricsGrid}>
           <View style={styles.empMetricItem}>
             <Text style={styles.empMetricLabel}>Công thực tế</Text>
             <Text style={styles.empMetricVal}>{item.actualWorkingDays}/{item.standardWorkingDays}</Text>
           </View>
           <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Giờ tăng ca</Text>
+            <Text style={styles.empMetricLabel}>Tăng ca</Text>
             <Text style={[styles.empMetricVal, { color: '#D97706' }]}>{item.otHours}h</Text>
           </View>
           <View style={styles.empMetricItem}>
@@ -255,6 +290,64 @@ export function MonthlyTimesheetScreen() {
             </Text>
           </View>
         </View>
+
+        <View style={styles.empImageActionRow}>
+          {item.finalOfficialImageUrl ? (
+            <View style={styles.empUploadedImageRow}>
+              <Pressable
+                style={styles.empThumbPressable}
+                onPress={() => openViewer(item.finalOfficialImageUrl!)}
+              >
+                <Image
+                  source={{ uri: item.finalOfficialImageUrl }}
+                  style={styles.empThumbImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.empThumbOverlay}>
+                  <MaterialCommunityIcons name="magnify-plus" size={14} color="#fff" />
+                </View>
+              </Pressable>
+              <View style={{ flex: 1, gap: 6 }}>
+                <Pressable
+                  style={styles.empViewBtn}
+                  onPress={() => openViewer(item.finalOfficialImageUrl!)}
+                >
+                  <MaterialCommunityIcons name="eye-outline" size={16} color="#059669" />
+                  <Text style={styles.empViewBtnText}>Xem ảnh bảng công</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.empReuploadBtn}
+                  onPress={() => handleUploadUserTimesheetImage(item.userId, item.fullName)}
+                  disabled={isThisUploading}
+                >
+                  {isThisUploading ? (
+                    <ActivityIndicator size="small" color="#64748B" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="camera-retake-outline" size={15} color="#475569" />
+                      <Text style={styles.empReuploadBtnText}>Đổi ảnh khác</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              style={styles.empUploadNewBtn}
+              onPress={() => handleUploadUserTimesheetImage(item.userId, item.fullName)}
+              disabled={isThisUploading}
+            >
+              {isThisUploading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
+                  <Text style={styles.empUploadNewBtnText}>Tải ảnh bảng công cho nhân sự này</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
       </View>
     );
   };
@@ -263,37 +356,31 @@ export function MonthlyTimesheetScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" backgroundColor="#fff" />
 
-      {/* Top Header */}
       <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
           <Text style={styles.topTitle}>Bảng Chấm Công</Text>
-          {isHR ? (
-            <Pressable style={styles.importIconBtn} onPress={() => setShowImportModal(true)}>
-              <MaterialCommunityIcons name="file-excel" size={22} color="#10B981" />
-            </Pressable>
-          ) : null}
         </View>
       </View>
 
-      {/* Role HR Tabs */}
       {isHR && (
         <View style={styles.tabBar}>
           <Pressable
             style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
             onPress={() => setActiveTab('MY')}
           >
-            <Text style={[styles.tabText, activeTab === 'MY' && styles.tabTextActive]}>Bảng công cá nhân</Text>
+            <Text style={[styles.tabText, activeTab === 'MY' && styles.tabTextActive]}>Cá nhân</Text>
           </Pressable>
           <Pressable
             style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
             onPress={() => setActiveTab('COMPANY')}
           >
-            <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>Toàn công ty ({companyTimesheet.length})</Text>
+            <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
+              Toàn công ty ({companyTimesheet.length})
+            </Text>
           </Pressable>
         </View>
       )}
 
-      {/* Month Selector Bar with previous/next buttons */}
       <View style={styles.monthSelectorBar}>
         <Pressable onPress={() => changeMonth(-1)} style={styles.monthNavBtn}>
           <MaterialCommunityIcons name="chevron-left" size={24} color="#374151" />
@@ -307,7 +394,6 @@ export function MonthlyTimesheetScreen() {
         </Pressable>
       </View>
 
-      {/* Main Content */}
       {isLoading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color="#111827" />
@@ -322,7 +408,6 @@ export function MonthlyTimesheetScreen() {
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
           ListHeaderComponent={
             <View style={styles.summaryContainer}>
-              {/* Card Bảng công chốt chính thức (Snapshot / Bản cứng từ HR) */}
               <View style={styles.officialSnapshotCard}>
                 <View style={styles.officialCardHeader}>
                   <View style={styles.officialBadgeRow}>
@@ -331,7 +416,7 @@ export function MonthlyTimesheetScreen() {
                   </View>
                   <View style={[styles.officialTag, myTimesheet?.finalOfficialImageUrl ? styles.officialTagDone : styles.officialTagPending]}>
                     <Text style={[styles.officialTagText, myTimesheet?.finalOfficialImageUrl ? styles.officialTagTextDone : styles.officialTagTextPending]}>
-                      {myTimesheet?.finalOfficialImageUrl ? 'Đã chốt' : 'Chờ chốt'}
+                      {myTimesheet?.finalOfficialImageUrl ? 'Đã có ảnh chốt' : 'Chờ HR gửi ảnh'}
                     </Text>
                   </View>
                 </View>
@@ -351,7 +436,7 @@ export function MonthlyTimesheetScreen() {
                     <View style={styles.imagePreviewWrap}>
                       <Pressable
                         style={styles.imagePressable}
-                        onPress={() => setIsImageViewerVisible(true)}
+                        onPress={() => openViewer(myTimesheet.finalOfficialImageUrl!)}
                       >
                         <Image
                           source={{ uri: myTimesheet.finalOfficialImageUrl }}
@@ -365,7 +450,7 @@ export function MonthlyTimesheetScreen() {
                       </Pressable>
                       <Pressable
                         style={styles.viewFullBtn}
-                        onPress={() => setIsImageViewerVisible(true)}
+                        onPress={() => openViewer(myTimesheet.finalOfficialImageUrl!)}
                       >
                         <MaterialCommunityIcons name="fullscreen" size={18} color="#059669" />
                         <Text style={styles.viewFullBtnText}>Xem toàn màn hình & Phóng to</Text>
@@ -378,20 +463,19 @@ export function MonthlyTimesheetScreen() {
                     </View>
                   )}
 
-                  {/* Nút upload ảnh dành cho HR / Leader */}
                   {isHR && (
                     <Pressable
                       style={styles.uploadImageBtn}
-                      onPress={handleUploadOfficialImage}
-                      disabled={isUploadingImage}
+                      onPress={() => handleUploadUserTimesheetImage(user?.id, 'bạn')}
+                      disabled={uploadingUserId === 'MY' || uploadingUserId === user?.id}
                     >
-                      {isUploadingImage ? (
+                      {uploadingUserId === 'MY' || uploadingUserId === user?.id ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
                         <>
                           <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
                           <Text style={styles.uploadImageBtnText}>
-                            {myTimesheet?.finalOfficialImageUrl ? 'Thay đổi ảnh chốt chính thức' : 'Tải lên ảnh bảng công chốt'}
+                            {myTimesheet?.finalOfficialImageUrl ? 'Thay đổi ảnh chốt của bạn' : 'Tải lên ảnh bảng công của bạn'}
                           </Text>
                         </>
                       )}
@@ -400,7 +484,6 @@ export function MonthlyTimesheetScreen() {
                 </View>
               </View>
 
-              {/* Main Stat Card (Hệ thống tính tự động) */}
               <View style={styles.mainStatCard}>
                 <View style={styles.mainStatLeft}>
                   <Text style={styles.mainStatLabel}>Ghi nhận trên App / Chuẩn</Text>
@@ -416,17 +499,16 @@ export function MonthlyTimesheetScreen() {
                   <View style={styles.otBadgeBox}>
                     <Text style={styles.otBadgeLabel}>Tăng ca (OT)</Text>
                     <Text style={styles.otBadgeVal}>{myTimesheet?.otHours || 0}h</Text>
-                    <Text style={styles.otMultiplierHint}>Hệ số PB: x{myTimesheet?.departmentOtMultiplier || 1.5}</Text>
+                    <Text style={styles.otMultiplierHint}>x{myTimesheet?.departmentOtMultiplier || 1.5}</Text>
                   </View>
                 </View>
               </View>
 
-              {/* Minor Stats Grid */}
               <View style={styles.statsGrid}>
                 <View style={styles.statBox}>
                   <MaterialCommunityIcons name="calendar-check" size={20} color="#3B82F6" />
                   <Text style={styles.statBoxVal}>{myTimesheet?.paidLeaveDays || 0} ngày</Text>
-                  <Text style={styles.statBoxLabel}>Nghỉ phép hưởng lương</Text>
+                  <Text style={styles.statBoxLabel}>Nghỉ phép</Text>
                 </View>
                 <View style={styles.statBox}>
                   <MaterialCommunityIcons name="calendar-remove" size={20} color="#6B7280" />
@@ -436,19 +518,11 @@ export function MonthlyTimesheetScreen() {
                 <View style={styles.statBox}>
                   <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#EF4444" />
                   <Text style={[styles.statBoxVal, { color: (myTimesheet?.totalLateMinutes || 0) > 0 ? '#EF4444' : '#10B981' }]}>
-                    {myTimesheet?.totalLateMinutes || 0} phút
+                    {myTimesheet?.totalLateMinutes || 0} p
                   </Text>
                   <Text style={styles.statBoxLabel}>Đi muộn / Về sớm</Text>
                 </View>
               </View>
-
-              <Text style={styles.sectionHeader}>Chi tiết chấm công từng ngày (App)</Text>
-            </View>
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <MaterialCommunityIcons name="calendar-blank-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyText}>Chưa có dữ liệu chấm công tháng này</Text>
             </View>
           }
         />
@@ -459,43 +533,64 @@ export function MonthlyTimesheetScreen() {
           renderItem={renderCompanyItem}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          ListHeaderComponent={
+            <View style={styles.companyFilterWrap}>
+              <View style={styles.searchBarWrap}>
+                <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm theo tên hoặc mã nhân viên..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="search"
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                    <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                  </Pressable>
+                )}
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.deptFilterScroll}
+              >
+                <Pressable
+                  style={[styles.deptPill, selectedDepartmentId === 'ALL' && styles.deptPillActive]}
+                  onPress={() => setSelectedDepartmentId('ALL')}
+                >
+                  <Text style={[styles.deptPillText, selectedDepartmentId === 'ALL' && styles.deptPillTextActive]}>
+                    Tất cả PB
+                  </Text>
+                </Pressable>
+                {departments.map((d) => (
+                  <Pressable
+                    key={d.id}
+                    style={[styles.deptPill, selectedDepartmentId === d.id && styles.deptPillActive]}
+                    onPress={() => setSelectedDepartmentId(d.id)}
+                  >
+                    <Text style={[styles.deptPillText, selectedDepartmentId === d.id && styles.deptPillTextActive]}>
+                      {d.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          }
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <MaterialCommunityIcons name="account-group-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyText}>Không có dữ liệu nhân sự</Text>
+              <Text style={styles.emptyText}>Không có dữ liệu nhân sự phù hợp</Text>
             </View>
           }
         />
       )}
 
-      {/* Modal Import Excel cho HR */}
-      <ImportTimesheetModal
-        visible={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        month={selectedMonth}
-        year={selectedYear}
-        onSuccess={fetchTimesheet}
-      />
-
-      {/* Vietnamese DatePicker Modal */}
-      <VietnameseDatePickerModal
-        visible={showDatePicker}
-        onClose={() => setShowDatePicker(false)}
-        title="Chọn tháng / năm"
-        initialDate={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`}
-        onSelect={(dateStr) => {
-          const parts = dateStr.split('-');
-          if (parts.length >= 2 && parts[0] && parts[1]) {
-            setSelectedYear(Number(parts[0]));
-            setSelectedMonth(Number(parts[1]));
-          }
-        }}
-      />
-
-      {/* Fullscreen Zoomable ImageViewing */}
-      {myTimesheet?.finalOfficialImageUrl ? (
+      {viewerImages.length > 0 ? (
         <ImageViewing
-          images={[{ uri: myTimesheet.finalOfficialImageUrl }]}
+          images={viewerImages}
           imageIndex={0}
           visible={isImageViewerVisible}
           onRequestClose={() => setIsImageViewerVisible(false)}
@@ -522,25 +617,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backBtn: {
-    padding: 4,
-  },
   topTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
-  },
-  importIconBtn: {
-    padding: 6,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
   },
   tabBar: {
     flexDirection: 'row',
@@ -606,6 +686,50 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+  companyFilterWrap: {
+    marginBottom: 14,
+    gap: 10,
+  },
+  searchBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    padding: 0,
+  },
+  deptFilterScroll: {
+    gap: 8,
+  },
+  deptPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  deptPillActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  deptPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  deptPillTextActive: {
+    color: '#fff',
+  },
   summaryContainer: {
     marginBottom: 16,
   },
@@ -660,13 +784,13 @@ const styles = StyleSheet.create({
     color: '#D97706',
   },
   officialCardBody: {
-    gap: 12,
+    gap: 10,
   },
   officialDaysRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -677,34 +801,36 @@ const styles = StyleSheet.create({
     color: '#065F46',
   },
   officialDaysVal: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#059669',
   },
   officialDaysSub: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#047857',
+    color: '#065F46',
   },
   imagePreviewWrap: {
     gap: 8,
+    marginTop: 4,
   },
   imagePressable: {
+    position: 'relative',
     borderRadius: 12,
     overflow: 'hidden',
-    height: 180,
-    backgroundColor: '#E2E8F0',
-    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
   snapshotImage: {
     width: '100%',
-    height: '100%',
+    height: 160,
+    backgroundColor: '#F1F5F9',
   },
   imageOverlayBadge: {
     position: 'absolute',
     bottom: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -723,56 +849,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#ECFDF5',
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#A7F3D0',
   },
   viewFullBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#059669',
   },
   noImageNotice: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
     backgroundColor: '#F8FAFC',
     borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
   },
   noImageText: {
     fontSize: 12,
     color: '#64748B',
     textAlign: 'center',
-    paddingHorizontal: 16,
   },
   uploadImageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: '#059669',
     paddingVertical: 10,
     borderRadius: 10,
     marginTop: 4,
   },
   uploadImageBtnText: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '700',
+    color: '#fff',
   },
   mainStatCard: {
-    flexDirection: 'row',
     backgroundColor: '#0F172A',
     borderRadius: 20,
     padding: 18,
-    marginBottom: 12,
-    alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   mainStatLeft: {
     flex: 1,
@@ -780,63 +904,59 @@ const styles = StyleSheet.create({
   mainStatLabel: {
     fontSize: 12,
     color: '#94A3B8',
-    fontWeight: '500',
+    marginBottom: 4,
   },
   mainStatVal: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: '#fff',
-    marginTop: 2,
   },
   mainStatTotal: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '500',
     color: '#64748B',
-    fontWeight: '600',
   },
   mainStatSub: {
     fontSize: 12,
     color: '#38BDF8',
     marginTop: 4,
-    fontWeight: '600',
   },
   mainStatRight: {
     alignItems: 'flex-end',
   },
   otBadgeBox: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#1E293B',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: '#334155',
   },
   otBadgeLabel: {
-    fontSize: 10,
-    color: '#FDE68A',
-    fontWeight: '600',
+    fontSize: 11,
+    color: '#94A3B8',
   },
   otBadgeVal: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FBBF24',
-    marginTop: 1,
+    color: '#F59E0B',
+    marginVertical: 2,
   },
   otMultiplierHint: {
     fontSize: 9,
-    color: '#94A3B8',
-    marginTop: 2,
+    color: '#64748B',
   },
   statsGrid: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   statBox: {
     flex: 1,
     backgroundColor: '#fff',
     borderRadius: 14,
-    padding: 12,
+    padding: 10,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -845,19 +965,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
-    marginTop: 6,
+    marginTop: 4,
   },
   statBoxLabel: {
     fontSize: 10,
     color: '#64748B',
     marginTop: 2,
-    textAlign: 'center',
-  },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 8,
   },
   dailyRow: {
     flexDirection: 'row',
@@ -945,7 +1058,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     padding: 14,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -953,7 +1066,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   empAvatarBg: {
     width: 38,
@@ -978,12 +1091,34 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
+  empImageBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  empImageBadgeDone: {
+    backgroundColor: '#D1FAE5',
+  },
+  empImageBadgePending: {
+    backgroundColor: '#F1F5F9',
+  },
+  empImageBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  empImageBadgeTextDone: {
+    color: '#059669',
+  },
+  empImageBadgeTextPending: {
+    color: '#64748B',
+  },
   empMetricsGrid: {
     flexDirection: 'row',
     backgroundColor: '#F8FAFC',
     borderRadius: 10,
     padding: 8,
     justifyContent: 'space-around',
+    marginBottom: 10,
   },
   empMetricItem: {
     alignItems: 'center',
@@ -997,5 +1132,80 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  empImageActionRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+  },
+  empUploadedImageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  empThumbPressable: {
+    position: 'relative',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  empThumbImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F1F5F9',
+  },
+  empThumbOverlay: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 4,
+    padding: 2,
+  },
+  empViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    alignSelf: 'flex-start',
+  },
+  empViewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  empReuploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  empReuploadBtnText: {
+    fontSize: 11,
+    color: '#475569',
+  },
+  empUploadNewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#059669',
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  empUploadNewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

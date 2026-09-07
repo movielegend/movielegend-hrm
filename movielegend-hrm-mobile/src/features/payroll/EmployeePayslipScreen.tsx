@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,11 +21,14 @@ import { useAuth } from '../../providers/AuthProvider';
 import {
   acknowledgePayslip,
   getMyPayslip,
+  getCompanyMonthlyPayslips,
   MonthlyPayslipData,
+  CompanyPayslipEmployee,
   uploadPayslipOfficialImage,
 } from '../../api/payroll.api';
+import { getDepartments } from '../../api/departments.api';
+import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
-import { ImportPayslipModal } from './components/ImportPayslipModal';
 
 export function EmployeePayslipScreen() {
   const insets = useSafeAreaInsets();
@@ -32,14 +37,20 @@ export function EmployeePayslipScreen() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [activeTab, setActiveTab] = useState<'MY' | 'COMPANY'>('MY');
 
   const [payslip, setPayslip] = useState<MonthlyPayslipData | null>(null);
+  const [companyPayslips, setCompanyPayslips] = useState<CompanyPayslipEmployee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
 
   const isAccountant = user?.roles?.some(
     (r) =>
@@ -48,87 +59,38 @@ export function EmployeePayslipScreen() {
       (String(r).toUpperCase().includes('LEADER') && (user?.department?.name || '').toLowerCase().includes('kế toán'))
   );
 
+  useEffect(() => {
+    if (isAccountant) {
+      getDepartments()
+        .then((res) => setDepartments(res.items || []))
+        .catch(() => {});
+    }
+  }, [isAccountant]);
+
   const fetchPayslip = useCallback(async () => {
     try {
-      const data = await getMyPayslip({
-        month: selectedMonth,
-        year: selectedYear,
-      });
-      setPayslip(data);
+      if (activeTab === 'MY') {
+        const data = await getMyPayslip({
+          month: selectedMonth,
+          year: selectedYear,
+        });
+        setPayslip(data);
+      } else {
+        const data = await getCompanyMonthlyPayslips({
+          month: selectedMonth,
+          year: selectedYear,
+          departmentId: selectedDepartmentId !== 'ALL' ? selectedDepartmentId : undefined,
+          search: searchQuery.trim() ? searchQuery.trim() : undefined,
+        });
+        setCompanyPayslips(data.items || []);
+      }
     } catch (err: any) {
       Alert.alert('Thông báo', err.message || 'Không thể tải dữ liệu phiếu lương');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [selectedMonth, selectedYear]);
-
-  const processImageUpload = async (uri: string) => {
-    try {
-      setIsUploadingImage(true);
-      const uploaded = await uploadFile({
-        uri,
-        name: `payslip_snapshot_${selectedMonth}_${selectedYear}.jpg`,
-        mimeType: 'image/jpeg',
-        purpose: 'EMPLOYEE_DOCUMENT',
-      });
-      await uploadPayslipOfficialImage({
-        month: selectedMonth,
-        year: selectedYear,
-        imageUrl: uploaded.url,
-      });
-      Alert.alert('Thành công', 'Đã lưu ảnh phiếu lương chốt chính thức');
-      fetchPayslip();
-    } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh phiếu lương chốt');
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
-
-  const handleUploadOfficialImage = () => {
-    Alert.alert(
-      'Ảnh phiếu lương chốt chính thức',
-      'Chọn phương thức tải ảnh chốt phiếu lương từ Leader Kế toán:',
-      [
-        {
-          text: 'Chụp ảnh mới',
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await processImageUpload(result.assets[0].uri);
-            }
-          },
-        },
-        {
-          text: 'Chọn từ thư viện',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await processImageUpload(result.assets[0].uri);
-            }
-          },
-        },
-        { text: 'Huỷ', style: 'cancel' },
-      ]
-    );
-  };
+  }, [selectedMonth, selectedYear, activeTab, selectedDepartmentId, searchQuery]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -154,6 +116,81 @@ export function EmployeePayslipScreen() {
     setSelectedYear(newYear);
   };
 
+  const openViewer = (uri: string) => {
+    setViewerImages([{ uri }]);
+    setIsImageViewerVisible(true);
+  };
+
+  const doUploadPayslipImage = async (uri: string, targetUserId?: string, targetUserName?: string) => {
+    try {
+      setUploadingUserId(targetUserId || 'MY');
+      const uploaded = await uploadFile({
+        uri,
+        name: `payslip_${targetUserId || 'my'}_${selectedMonth}_${selectedYear}.jpg`,
+        mimeType: 'image/jpeg',
+        purpose: 'EMPLOYEE_DOCUMENT',
+      });
+      await uploadPayslipOfficialImage({
+        userId: targetUserId,
+        month: selectedMonth,
+        year: selectedYear,
+        imageUrl: uploaded.url,
+      });
+      Alert.alert('Thành công', `Đã lưu ảnh phiếu lương cho ${targetUserName || 'bạn'} thành công!`);
+      fetchPayslip();
+    } catch (err: any) {
+      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh phiếu lương chốt');
+    } finally {
+      setUploadingUserId(null);
+    }
+  };
+
+  const handleUploadUserPayslipImage = (targetUserId?: string, targetUserName?: string) => {
+    const isPersonal = !targetUserId || targetUserId === user?.id;
+    const title = isPersonal ? 'Phiếu lương của bạn' : `Phiếu lương: ${targetUserName || 'Nhân sự'}`;
+    Alert.alert(
+      title,
+      'Chọn phương thức tải ảnh chốt phiếu lương từ Leader Kế toán:',
+      [
+        {
+          text: 'Chụp ảnh mới',
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.85,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              await doUploadPayslipImage(result.assets[0].uri, targetUserId, targetUserName);
+            }
+          },
+        },
+        {
+          text: 'Chọn từ thư viện',
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.85,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              await doUploadPayslipImage(result.assets[0].uri, targetUserId, targetUserName);
+            }
+          },
+        },
+        { text: 'Huỷ', style: 'cancel' },
+      ]
+    );
+  };
+
   const handleAcknowledge = async () => {
     if (!payslip?.id) return;
     try {
@@ -172,6 +209,104 @@ export function EmployeePayslipScreen() {
     return new Intl.NumberFormat('vi-VN').format(val || 0) + ' đ';
   };
 
+  const renderCompanyPayslipItem = ({ item }: { item: CompanyPayslipEmployee }) => {
+    const isThisUploading = uploadingUserId === item.userId;
+    return (
+      <View style={styles.companyEmpCard}>
+        <View style={styles.empHeader}>
+          <View style={styles.empAvatarBg}>
+            <Text style={styles.empAvatarText}>{item.fullName.charAt(0)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.empName}>{item.fullName}</Text>
+            <Text style={styles.empDept}>{item.userCode} • {item.departmentName}</Text>
+          </View>
+          <View style={[styles.empImageBadge, item.employeeAcknowledgedAt ? styles.empBadgeAck : item.finalOfficialImageUrl ? styles.empImageBadgeDone : styles.empImageBadgePending]}>
+            <Text style={[styles.empImageBadgeText, item.employeeAcknowledgedAt ? styles.empBadgeAckText : item.finalOfficialImageUrl ? styles.empImageBadgeTextDone : styles.empImageBadgeTextPending]}>
+              {item.employeeAcknowledgedAt ? 'Đã xác nhận' : item.finalOfficialImageUrl ? 'Đã có ảnh' : 'Chưa có ảnh'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.empMetricsGrid}>
+          <View style={styles.empMetricItem}>
+            <Text style={styles.empMetricLabel}>Thực lĩnh</Text>
+            <Text style={[styles.empMetricVal, { color: '#059669', fontSize: 13 }]}>
+              {item.hasData ? formatCurrency(item.netSalary) : 'Chưa tính'}
+            </Text>
+          </View>
+          <View style={styles.empMetricItem}>
+            <Text style={styles.empMetricLabel}>Ngày công</Text>
+            <Text style={styles.empMetricVal}>{item.actualWorkingDays}/{item.standardWorkingDays}</Text>
+          </View>
+          <View style={styles.empMetricItem}>
+            <Text style={styles.empMetricLabel}>Chức vụ</Text>
+            <Text style={styles.empMetricVal} numberOfLines={1}>{item.positionName}</Text>
+          </View>
+        </View>
+
+        {/* Action Upload / View Individual Payslip Image */}
+        <View style={styles.empImageActionRow}>
+          {item.finalOfficialImageUrl ? (
+            <View style={styles.empUploadedImageRow}>
+              <Pressable
+                style={styles.empThumbPressable}
+                onPress={() => openViewer(item.finalOfficialImageUrl!)}
+              >
+                <Image
+                  source={{ uri: item.finalOfficialImageUrl }}
+                  style={styles.empThumbImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.empThumbOverlay}>
+                  <MaterialCommunityIcons name="magnify-plus" size={14} color="#fff" />
+                </View>
+              </Pressable>
+              <View style={{ flex: 1, gap: 6 }}>
+                <Pressable
+                  style={styles.empViewBtn}
+                  onPress={() => openViewer(item.finalOfficialImageUrl!)}
+                >
+                  <MaterialCommunityIcons name="eye-outline" size={16} color="#059669" />
+                  <Text style={styles.empViewBtnText}>Xem ảnh phiếu lương</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.empReuploadBtn}
+                  onPress={() => handleUploadUserPayslipImage(item.userId, item.fullName)}
+                  disabled={isThisUploading}
+                >
+                  {isThisUploading ? (
+                    <ActivityIndicator size="small" color="#64748B" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="camera-retake-outline" size={15} color="#475569" />
+                      <Text style={styles.empReuploadBtnText}>Đổi ảnh khác</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              style={styles.empUploadNewBtn}
+              onPress={() => handleUploadUserPayslipImage(item.userId, item.fullName)}
+              disabled={isThisUploading}
+            >
+              {isThisUploading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
+                  <Text style={styles.empUploadNewBtnText}>Tải ảnh phiếu lương cho nhân sự này</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" backgroundColor="#fff" />
@@ -179,14 +314,29 @@ export function EmployeePayslipScreen() {
       {/* Top Bar */}
       <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
-          <Text style={styles.topTitle}>Phiếu Lương Cá Nhân</Text>
-          {isAccountant ? (
-            <Pressable style={styles.importIconBtn} onPress={() => setShowImportModal(true)}>
-              <MaterialCommunityIcons name="file-excel" size={22} color="#059669" />
-            </Pressable>
-          ) : null}
+          <Text style={styles.topTitle}>Phiếu Lương</Text>
         </View>
       </View>
+
+      {/* Role Accountant Tabs */}
+      {isAccountant && (
+        <View style={styles.tabBar}>
+          <Pressable
+            style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('MY')}
+          >
+            <Text style={[styles.tabText, activeTab === 'MY' && styles.tabTextActive]}>Cá nhân</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('COMPANY')}
+          >
+            <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
+              Bảng lương nhân sự ({companyPayslips.length})
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Month Selector Bar with previous/next buttons */}
       <View style={styles.monthSelectorBar}>
@@ -194,7 +344,6 @@ export function EmployeePayslipScreen() {
           <MaterialCommunityIcons name="chevron-left" size={24} color="#374151" />
         </Pressable>
         <View style={styles.monthDisplay}>
-          <MaterialCommunityIcons name="cash-multiple" size={20} color="#059669" />
           <Text style={styles.monthTitle}>Tháng {selectedMonth} / {selectedYear}</Text>
         </View>
         <Pressable onPress={() => changeMonth(1)} style={styles.monthNavBtn}>
@@ -205,9 +354,9 @@ export function EmployeePayslipScreen() {
       {isLoading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color="#059669" />
-          <Text style={styles.loadingText}>Đang tải phiếu lương...</Text>
+          <Text style={styles.loadingText}>Đang tải dữ liệu lương...</Text>
         </View>
-      ) : (
+      ) : activeTab === 'MY' ? (
         <ScrollView
           style={styles.scrollBody}
           contentContainerStyle={styles.scrollContent}
@@ -221,11 +370,6 @@ export function EmployeePayslipScreen() {
                 <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
                 <Text style={styles.officialCardTitle}>Phiếu lương chốt chính thức (Kế toán)</Text>
               </View>
-              <View style={[styles.officialTag, payslip?.finalOfficialImageUrl ? styles.officialTagDone : styles.officialTagPending]}>
-                <Text style={[styles.officialTagText, payslip?.finalOfficialImageUrl ? styles.officialTagTextDone : styles.officialTagTextPending]}>
-                  {payslip?.finalOfficialImageUrl ? 'Đã có bản chốt' : 'Chờ kế toán gửi ảnh'}
-                </Text>
-              </View>
             </View>
 
             <View style={styles.officialCardBody}>
@@ -233,7 +377,7 @@ export function EmployeePayslipScreen() {
                 <View style={styles.imagePreviewWrap}>
                   <Pressable
                     style={styles.imagePressable}
-                    onPress={() => setIsImageViewerVisible(true)}
+                    onPress={() => openViewer(payslip.finalOfficialImageUrl!)}
                   >
                     <Image
                       source={{ uri: payslip.finalOfficialImageUrl }}
@@ -247,7 +391,7 @@ export function EmployeePayslipScreen() {
                   </Pressable>
                   <Pressable
                     style={styles.viewFullBtn}
-                    onPress={() => setIsImageViewerVisible(true)}
+                    onPress={() => openViewer(payslip.finalOfficialImageUrl!)}
                   >
                     <MaterialCommunityIcons name="fullscreen" size={18} color="#059669" />
                     <Text style={styles.viewFullBtnText}>Xem toàn màn hình & Phóng to</Text>
@@ -256,7 +400,7 @@ export function EmployeePayslipScreen() {
               ) : (
                 <View style={styles.noImageNotice}>
                   <MaterialCommunityIcons name="image-off-outline" size={24} color="#94A3B8" />
-                  <Text style={styles.noImageText}>Chưa có ảnh chụp phiếu lương chốt chính thức từ Kế toán cho tháng này</Text>
+                  <Text style={styles.noImageText}>Chưa có ảnh chụp phiếu lương chốt từ Kế toán</Text>
                 </View>
               )}
 
@@ -264,16 +408,16 @@ export function EmployeePayslipScreen() {
               {isAccountant && (
                 <Pressable
                   style={styles.uploadImageBtn}
-                  onPress={handleUploadOfficialImage}
-                  disabled={isUploadingImage}
+                  onPress={() => handleUploadUserPayslipImage(user?.id, 'bạn')}
+                  disabled={uploadingUserId === 'MY' || uploadingUserId === user?.id}
                 >
-                  {isUploadingImage ? (
+                  {uploadingUserId === 'MY' || uploadingUserId === user?.id ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <>
                       <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
                       <Text style={styles.uploadImageBtnText}>
-                        {payslip?.finalOfficialImageUrl ? 'Thay đổi ảnh phiếu lương chốt' : 'Tải lên ảnh phiếu lương chốt'}
+                        {payslip?.finalOfficialImageUrl ? 'Thay đổi ảnh phiếu lương của bạn' : 'Tải lên ảnh phiếu lương của bạn'}
                       </Text>
                     </>
                   )}
@@ -298,24 +442,26 @@ export function EmployeePayslipScreen() {
             <View style={styles.heroDivider} />
 
             <View style={styles.heroEmpRow}>
-              <View style={styles.heroEmpInfo}>
-                <Text style={styles.heroEmpName}>{payslip?.employee.fullName || user?.fullName}</Text>
-                <Text style={styles.heroEmpCode}>{payslip?.employee.userCode || user?.userCode} • {payslip?.employee.departmentName || user?.department?.name || 'Công ty'}</Text>
+              <View>
+                <Text style={styles.heroEmpName}>{payslip?.employee.fullName || user?.fullName || '---'}</Text>
+                <Text style={styles.heroEmpCode}>
+                  {payslip?.employee.userCode || user?.userCode} • {payslip?.employee.departmentName || user?.department?.name}
+                </Text>
               </View>
-              <View style={styles.heroWorkDays}>
+              <View style={styles.workDaysBadge}>
                 <Text style={styles.workDaysLabel}>Ngày công</Text>
-                <Text style={styles.workDaysVal}>{payslip?.actualWorkingDays || 0} / {payslip?.standardWorkingDays || 26}</Text>
+                <Text style={styles.workDaysVal}>
+                  {payslip?.actualWorkingDays || 0} / {payslip?.standardWorkingDays || 26}
+                </Text>
               </View>
             </View>
           </View>
 
-          {/* Section: Thu nhập (Earnings) */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconBgGreen}>
-                <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#059669" />
-              </View>
-              <Text style={styles.sectionTitle}>Thu nhập (Earnings)</Text>
+          {/* Income Breakdown Card */}
+          <View style={styles.breakdownCard}>
+            <View style={styles.cardHeaderRow}>
+              <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#059669" />
+              <Text style={styles.cardSectionTitle}>Thu nhập (Earnings)</Text>
             </View>
 
             <View style={styles.itemRow}>
@@ -324,34 +470,34 @@ export function EmployeePayslipScreen() {
             </View>
 
             <View style={styles.itemRow}>
-              <View>
-                <Text style={styles.itemLabel}>Lương thực tế theo ngày công</Text>
-                <Text style={styles.itemSubLabel}>({payslip?.actualWorkingDays || 0}/{payslip?.standardWorkingDays || 26} ngày)</Text>
-              </View>
+              <Text style={styles.itemLabel}>
+                Lương thực tế theo ngày công{'\n'}
+                <Text style={styles.itemLabelSub}>({payslip?.actualWorkingDays || 0}/{payslip?.standardWorkingDays || 26} ngày)</Text>
+              </Text>
               <Text style={styles.itemVal}>{formatCurrency(payslip?.actualSalary)}</Text>
             </View>
 
-            {(payslip?.overtimeHours || 0) > 0 || (payslip?.overtimeAmount || 0) > 0 ? (
+            {(payslip?.overtimeAmount || 0) > 0 && (
               <View style={styles.itemRow}>
-                <View>
-                  <Text style={styles.itemLabel}>Làm thêm giờ (Tăng ca OT)</Text>
-                  <Text style={[styles.itemSubLabel, { color: '#D97706' }]}>({payslip?.overtimeHours || 0} giờ làm thêm)</Text>
-                </View>
-                <Text style={[styles.itemVal, { color: '#D97706' }]}>+{formatCurrency(payslip?.overtimeAmount)}</Text>
+                <Text style={styles.itemLabel}>
+                  Tiền làm thêm giờ (OT){'\n'}
+                  <Text style={styles.itemLabelSub}>({payslip?.overtimeHours || 0} giờ)</Text>
+                </Text>
+                <Text style={styles.itemValGreen}>+{formatCurrency(payslip?.overtimeAmount)}</Text>
               </View>
-            ) : null}
+            )}
 
             {(payslip?.allowanceAmount || 0) > 0 && (
               <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Phụ cấp (Ăn trưa, đi lại, trách nhiệm)</Text>
-                <Text style={styles.itemVal}>+{formatCurrency(payslip?.allowanceAmount)}</Text>
+                <Text style={styles.itemLabel}>Phụ cấp</Text>
+                <Text style={styles.itemValGreen}>+{formatCurrency(payslip?.allowanceAmount)}</Text>
               </View>
             )}
 
             {(payslip?.bonusAmount || 0) > 0 && (
               <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Thưởng KPI & Hiệu quả</Text>
-                <Text style={[styles.itemVal, { color: '#059669', fontWeight: '700' }]}>+{formatCurrency(payslip?.bonusAmount)}</Text>
+                <Text style={styles.itemLabel}>Thưởng hiệu quả / Dự án</Text>
+                <Text style={styles.itemValGreen}>+{formatCurrency(payslip?.bonusAmount)}</Text>
               </View>
             )}
 
@@ -361,35 +507,22 @@ export function EmployeePayslipScreen() {
             </View>
           </View>
 
-          {/* Section: Giảm trừ (Deductions) */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconBgRed}>
-                <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#DC2626" />
-              </View>
-              <Text style={styles.sectionTitle}>Các khoản giảm trừ (Deductions)</Text>
+          {/* Deductions Breakdown Card */}
+          <View style={styles.breakdownCard}>
+            <View style={styles.cardHeaderRow}>
+              <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#DC2626" />
+              <Text style={styles.cardSectionTitle}>Các khoản giảm trừ (Deductions)</Text>
             </View>
 
-            {(payslip?.insuranceAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Khấu trừ BHXH, BHYT, BHTN (10.5%)</Text>
-                <Text style={styles.itemValRed}>-{formatCurrency(payslip?.insuranceAmount)}</Text>
-              </View>
-            )}
+            <View style={styles.itemRow}>
+              <Text style={styles.itemLabel}>Bảo hiểm (BHXH, BHYT, BHTN)</Text>
+              <Text style={styles.itemValRed}>-{formatCurrency(payslip?.insuranceAmount)}</Text>
+            </View>
 
-            {(payslip?.taxAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Thuế thu nhập cá nhân (TNCN)</Text>
-                <Text style={styles.itemValRed}>-{formatCurrency(payslip?.taxAmount)}</Text>
-              </View>
-            )}
-
-            {(payslip?.advanceAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Tạm ứng lương trong kỳ</Text>
-                <Text style={styles.itemValRed}>-{formatCurrency(payslip?.advanceAmount)}</Text>
-              </View>
-            )}
+            <View style={styles.itemRow}>
+              <Text style={styles.itemLabel}>Thuế TNCN</Text>
+              <Text style={styles.itemValRed}>-{formatCurrency(payslip?.taxAmount)}</Text>
+            </View>
 
             {(payslip?.latePenaltyAmount || 0) > 0 && (
               <View style={styles.itemRow}>
@@ -435,7 +568,7 @@ export function EmployeePayslipScreen() {
                   ) : (
                     <>
                       <MaterialCommunityIcons name="check-circle-outline" size={20} color="#fff" />
-                      <Text style={styles.ackBtnText}>Xác nhận đã nhận & đồng ý phiếu lương</Text>
+                      <Text style={styles.ackBtnText}>Xác nhận đã nhận & đồng ý</Text>
                     </>
                   )}
                 </Pressable>
@@ -443,21 +576,74 @@ export function EmployeePayslipScreen() {
             </View>
           )}
         </ScrollView>
+      ) : (
+        <FlatList
+          data={companyPayslips}
+          keyExtractor={(item) => item.userId}
+          renderItem={renderCompanyPayslipItem}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          ListHeaderComponent={
+            <View style={styles.companyFilterWrap}>
+              {/* Search Bar */}
+              <View style={styles.searchBarWrap}>
+                <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm theo tên hoặc mã nhân viên..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="search"
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                    <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Department Pills */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.deptFilterScroll}
+              >
+                <Pressable
+                  style={[styles.deptPill, selectedDepartmentId === 'ALL' && styles.deptPillActive]}
+                  onPress={() => setSelectedDepartmentId('ALL')}
+                >
+                  <Text style={[styles.deptPillText, selectedDepartmentId === 'ALL' && styles.deptPillTextActive]}>
+                    Tất cả PB
+                  </Text>
+                </Pressable>
+                {departments.map((d) => (
+                  <Pressable
+                    key={d.id}
+                    style={[styles.deptPill, selectedDepartmentId === d.id && styles.deptPillActive]}
+                    onPress={() => setSelectedDepartmentId(d.id)}
+                  >
+                    <Text style={[styles.deptPillText, selectedDepartmentId === d.id && styles.deptPillTextActive]}>
+                      {d.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <MaterialCommunityIcons name="account-group-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyText}>Không có dữ liệu phiếu lương nhân sự</Text>
+            </View>
+          }
+        />
       )}
 
-      {/* Modal Import Excel dành riêng cho Kế toán */}
-      <ImportPayslipModal
-        visible={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        month={selectedMonth}
-        year={selectedYear}
-        onSuccess={fetchPayslip}
-      />
-
       {/* Fullscreen Zoomable ImageViewing */}
-      {payslip?.finalOfficialImageUrl ? (
+      {viewerImages.length > 0 ? (
         <ImageViewing
-          images={[{ uri: payslip.finalOfficialImageUrl }]}
+          images={viewerImages}
           imageIndex={0}
           visible={isImageViewerVisible}
           onRequestClose={() => setIsImageViewerVisible(false)}
@@ -489,43 +675,53 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  importIconBtn: {
-    padding: 6,
-    backgroundColor: '#ECFDF5',
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
+    backgroundColor: '#F1F5F9',
+  },
+  tabBtnActive: {
+    backgroundColor: '#059669',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  tabTextActive: {
+    color: '#fff',
   },
   monthSelectorBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   monthNavBtn: {
-    padding: 8,
+    padding: 6,
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
   },
   monthDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   monthTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -545,6 +741,59 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
+  },
+  companyFilterWrap: {
+    marginBottom: 14,
+    gap: 10,
+  },
+  searchBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    padding: 0,
+  },
+  deptFilterScroll: {
+    gap: 8,
+  },
+  deptPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  deptPillActive: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  deptPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  deptPillTextActive: {
+    color: '#fff',
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 10,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#94A3B8',
   },
   officialSnapshotCard: {
     backgroundColor: '#fff',
@@ -575,27 +824,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#065F46',
   },
-  officialTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  officialTagDone: {
-    backgroundColor: '#D1FAE5',
-  },
-  officialTagPending: {
-    backgroundColor: '#FEF3C7',
-  },
-  officialTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  officialTagTextDone: {
-    color: '#059669',
-  },
-  officialTagTextPending: {
-    color: '#D97706',
-  },
   officialCardBody: {
     gap: 12,
   },
@@ -603,21 +831,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   imagePressable: {
+    position: 'relative',
     borderRadius: 12,
     overflow: 'hidden',
-    height: 180,
-    backgroundColor: '#E2E8F0',
-    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
   snapshotImage: {
     width: '100%',
-    height: '100%',
+    height: 160,
+    backgroundColor: '#F1F5F9',
   },
   imageOverlayBadge: {
     position: 'absolute',
     bottom: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -636,54 +865,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#ECFDF5',
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#A7F3D0',
   },
   viewFullBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#059669',
   },
   noImageNotice: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
     backgroundColor: '#F8FAFC',
     borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
   },
   noImageText: {
     fontSize: 12,
     color: '#64748B',
     textAlign: 'center',
-    paddingHorizontal: 16,
   },
   uploadImageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: '#059669',
     paddingVertical: 10,
     borderRadius: 10,
     marginTop: 4,
   },
   uploadImageBtnText: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '700',
+    color: '#fff',
   },
   heroCard: {
     backgroundColor: '#064E3B',
-    borderRadius: 22,
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
+    marginBottom: 14,
+    shadowColor: '#064E3B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -693,17 +920,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   heroSub: {
+    color: '#A7F3D0',
     fontSize: 11,
     fontWeight: '700',
-    color: '#A7F3D0',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   statusTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 12,
   },
   statusTagApproved: {
@@ -713,7 +940,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   statusTagText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   statusTagTextApproved: {
@@ -724,109 +951,91 @@ const styles = StyleSheet.create({
   },
   heroNetAmount: {
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#fff',
-    marginVertical: 4,
+    marginVertical: 6,
   },
   heroDivider: {
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    marginVertical: 14,
+    marginVertical: 10,
   },
   heroEmpRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  heroEmpInfo: {
-    flex: 1,
-  },
   heroEmpName: {
-    fontSize: 15,
-    fontWeight: '700',
     color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   heroEmpCode: {
+    color: '#A7F3D0',
     fontSize: 12,
-    color: '#D1FAE5',
     marginTop: 2,
   },
-  heroWorkDays: {
+  workDaysBadge: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     alignItems: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
   },
   workDaysLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#A7F3D0',
   },
   workDaysVal: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#fff',
-    marginTop: 1,
   },
-  sectionCard: {
+  breakdownCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  sectionHeader: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 10,
   },
-  sectionIconBgGreen: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#ECFDF5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionIconBgRed: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 15,
+  cardSectionTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
+    alignItems: 'flex-start',
+    paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: '#F8FAFC',
   },
   itemLabel: {
     fontSize: 13,
     color: '#475569',
+    flex: 1,
   },
-  itemSubLabel: {
+  itemLabelSub: {
     fontSize: 11,
     color: '#94A3B8',
-    marginTop: 1,
   },
   itemVal: {
     fontSize: 13,
     fontWeight: '600',
     color: '#0F172A',
+  },
+  itemValGreen: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#059669',
   },
   itemValRed: {
     fontSize: 13,
@@ -837,23 +1046,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 10,
     marginTop: 4,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
   totalLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
   totalValGreen: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#059669',
   },
   totalValRed: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#DC2626',
   },
@@ -861,42 +1070,206 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 20,
   },
-  acknowledgedBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  ackTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#065F46',
-  },
-  ackTime: {
-    fontSize: 12,
-    color: '#047857',
-    marginTop: 2,
-  },
   ackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#059669',
-    borderRadius: 14,
     paddingVertical: 14,
+    borderRadius: 12,
     shadowColor: '#059669',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 3,
   },
   ackBtnText: {
+    color: '#fff',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  acknowledgedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    padding: 14,
+    borderRadius: 12,
+  },
+  ackTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  ackTime: {
+    fontSize: 11,
+    color: '#047857',
+    marginTop: 2,
+  },
+  companyEmpCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  empHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  empAvatarBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#064E3B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  empAvatarText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  empName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  empDept: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  empImageBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  empImageBadgeDone: {
+    backgroundColor: '#D1FAE5',
+  },
+  empImageBadgePending: {
+    backgroundColor: '#F1F5F9',
+  },
+  empBadgeAck: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  empBadgeAckText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  empImageBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  empImageBadgeTextDone: {
+    color: '#059669',
+  },
+  empImageBadgeTextPending: {
+    color: '#64748B',
+  },
+  empMetricsGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 8,
+    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  empMetricItem: {
+    alignItems: 'center',
+  },
+  empMetricLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  empMetricVal: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  empImageActionRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+  },
+  empUploadedImageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  empThumbPressable: {
+    position: 'relative',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  empThumbImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F1F5F9',
+  },
+  empThumbOverlay: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 4,
+    padding: 2,
+  },
+  empViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    alignSelf: 'flex-start',
+  },
+  empViewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  empReuploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  empReuploadBtnText: {
+    fontSize: 11,
+    color: '#475569',
+  },
+  empUploadNewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#059669',
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  empUploadNewBtnText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#fff',
   },

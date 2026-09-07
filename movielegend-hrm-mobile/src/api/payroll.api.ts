@@ -127,3 +127,39 @@ export async function uploadPayslipOfficialImage(payload: UploadPayslipImagePayl
   const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; imageUrl: string }>>('/payrolls/upload-image', payload);
   return unwrapData(response);
 }
+
+export interface CompanyPayslipEmployee {
+  userId: string;
+  userCode: string;
+  fullName: string;
+  departmentName: string;
+  positionName: string;
+  baseSalary: number;
+  grossSalary: number;
+  netSalary: number;
+  actualWorkingDays: number;
+  standardWorkingDays: number;
+  status: string;
+  hasData: boolean;
+  finalOfficialImageUrl?: string | null;
+  employeeAcknowledgedAt?: string | null;
+}
+
+export interface CompanyPayslipsResponse {
+  month: number;
+  year: number;
+  totalEmployees: number;
+  items: CompanyPayslipEmployee[];
+}
+
+export async function getCompanyMonthlyPayslips(params?: {
+  month?: number;
+  year?: number;
+  departmentId?: string;
+  search?: string;
+}): Promise<CompanyPayslipsResponse> {
+  const response = await apiClient.get<ApiResponse<CompanyPayslipsResponse>>('/payrolls/company-payslips', {
+    params,
+  });
+  return unwrapData(response);
+}
