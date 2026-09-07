@@ -114,20 +114,22 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
         
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />
         
-        <View style={styles.actionRow}>
-          {createRoute ? (
-            <Pressable style={styles.actionBtnPrimary} onPress={() => router.push(createRoute)}>
-              <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-              <Text style={styles.actionBtnTextPrimary}>Thêm công việc</Text>
-            </Pressable>
-          ) : null}
-          {reviewRoute ? (
-            <Pressable style={styles.actionBtnSecondary} onPress={() => router.push(reviewRoute)}>
-              <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.text} />
-              <Text style={styles.actionBtnTextSecondary}>Hàng đợi duyệt</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        {(createRoute || reviewRoute) ? (
+          <View style={styles.actionRow}>
+            {createRoute ? (
+              <Pressable style={styles.actionBtnPrimary} onPress={() => router.push(createRoute)}>
+                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                <Text style={styles.actionBtnTextPrimary}>Thêm công việc</Text>
+              </Pressable>
+            ) : null}
+            {reviewRoute ? (
+              <Pressable style={styles.actionBtnSecondary} onPress={() => router.push(reviewRoute)}>
+                <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.text} />
+                <Text style={styles.actionBtnTextSecondary}>Hàng đợi duyệt</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.tabsContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
@@ -1221,16 +1223,16 @@ const styles = StyleSheet.create({
   pickerModalDone: { fontSize: 16, fontWeight: '600', color: colors.primary },
   
   // List UI
-  actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md, marginTop: spacing.sm },
-  actionBtnPrimary: { flex: 1, backgroundColor: '#1C1C1E', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8 },
-  actionBtnTextPrimary: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  actionBtnSecondary: { flex: 1, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8, borderWidth: 1, borderColor: colors.border },
-  actionBtnTextSecondary: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  tabsContainer: { marginHorizontal: -spacing.lg, marginBottom: spacing.lg },
-  tabsScroll: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  tabPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border },
+  actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm, marginTop: spacing.xs },
+  actionBtnPrimary: { flex: 1, backgroundColor: '#1C1C1E', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 8 },
+  actionBtnTextPrimary: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  actionBtnSecondary: { flex: 1, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 8, borderWidth: 1, borderColor: colors.border },
+  actionBtnTextSecondary: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  tabsContainer: { marginHorizontal: -spacing.lg, marginBottom: spacing.md, marginTop: spacing.xs },
+  tabsScroll: { paddingHorizontal: spacing.lg, gap: spacing.xs },
+  tabPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border },
   tabPillActive: { backgroundColor: '#1C1C1E', borderColor: '#1C1C1E' },
-  tabText: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  tabText: { fontSize: 13, fontWeight: '600', color: colors.muted },
   tabTextActive: { color: '#fff' },
   
   heroCard: {

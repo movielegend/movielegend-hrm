@@ -36,10 +36,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
     borderColor: '#E5E7EB',
-    borderRadius: 26,
+    borderRadius: 24,
     borderWidth: 1,
-    minHeight: 52,
-    paddingHorizontal: 16,
+    minHeight: 46,
+    paddingHorizontal: 14,
   },
   containerFocused: {
     borderColor: '#111827',
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: '#111827',
-    fontSize: 16,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+    fontSize: 15,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
   },
 });

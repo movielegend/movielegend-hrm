@@ -38,12 +38,12 @@ export function PageHeader({ title, subtitle, right, showBack = false, onBack }:
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
-    marginTop: 4,
+    marginBottom: 12,
+    marginTop: 2,
   },
   copy: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
   titleRow: {
     flexDirection: 'row',
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    marginBottom: 12,
+    marginBottom: 10,
     padding: 8,
     alignSelf: 'flex-start',
     backgroundColor: '#F3F4F6',
@@ -59,12 +59,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: '#6B7280',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
   title: {
     color: '#111827',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
