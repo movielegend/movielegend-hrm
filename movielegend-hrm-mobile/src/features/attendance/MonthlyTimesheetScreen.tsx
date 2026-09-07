@@ -266,12 +266,7 @@ export function MonthlyTimesheetScreen() {
       {/* Top Header */}
       <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
-            </Pressable>
-            <Text style={styles.topTitle}>Bảng Chấm Công</Text>
-          </View>
+          <Text style={styles.topTitle}>Bảng Chấm Công</Text>
           {isHR ? (
             <Pressable style={styles.importIconBtn} onPress={() => setShowImportModal(true)}>
               <MaterialCommunityIcons name="file-excel" size={22} color="#10B981" />
@@ -298,12 +293,17 @@ export function MonthlyTimesheetScreen() {
         </View>
       )}
 
-      {/* Month Picker Bar */}
+      {/* Month Selector Bar with previous/next buttons */}
       <View style={styles.monthSelectorBar}>
-        <Pressable onPress={() => setShowDatePicker(true)} style={styles.monthDisplayBtn}>
-          <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#0F172A" />
+        <Pressable onPress={() => changeMonth(-1)} style={styles.monthNavBtn}>
+          <MaterialCommunityIcons name="chevron-left" size={24} color="#374151" />
+        </Pressable>
+        <View style={styles.monthDisplay}>
+          <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#111827" />
           <Text style={styles.monthTitle}>Tháng {selectedMonth} / {selectedYear}</Text>
-          <MaterialCommunityIcons name="chevron-down" size={18} color="#64748B" />
+        </View>
+        <Pressable onPress={() => changeMonth(1)} style={styles.monthNavBtn}>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#374151" />
         </Pressable>
       </View>
 
@@ -568,27 +568,27 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   monthSelectorBar: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  monthDisplayBtn: {
+  monthNavBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  monthDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   monthTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
   },

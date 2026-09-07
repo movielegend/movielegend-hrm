@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,17 +24,14 @@ import {
 } from '../../api/payroll.api';
 import { uploadFile } from '../../api/uploads.api';
 import { ImportPayslipModal } from './components/ImportPayslipModal';
-import { VietnameseDatePickerModal } from '../../components/VietnameseDatePickerModal';
 
 export function EmployeePayslipScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { user } = useAuth();
 
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [payslip, setPayslip] = useState<MonthlyPayslipData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -183,12 +179,7 @@ export function EmployeePayslipScreen() {
       {/* Top Bar */}
       <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
-            </Pressable>
-            <Text style={styles.topTitle}>Phiếu Lương Cá Nhân</Text>
-          </View>
+          <Text style={styles.topTitle}>Phiếu Lương Cá Nhân</Text>
           {isAccountant ? (
             <Pressable style={styles.importIconBtn} onPress={() => setShowImportModal(true)}>
               <MaterialCommunityIcons name="file-excel" size={22} color="#059669" />
@@ -197,12 +188,17 @@ export function EmployeePayslipScreen() {
         </View>
       </View>
 
-      {/* Month Selector Bar */}
+      {/* Month Selector Bar with previous/next buttons */}
       <View style={styles.monthSelectorBar}>
-        <Pressable onPress={() => setShowDatePicker(true)} style={styles.monthDisplayBtn}>
-          <MaterialCommunityIcons name="cash-multiple" size={18} color="#059669" />
+        <Pressable onPress={() => changeMonth(-1)} style={styles.monthNavBtn}>
+          <MaterialCommunityIcons name="chevron-left" size={24} color="#374151" />
+        </Pressable>
+        <View style={styles.monthDisplay}>
+          <MaterialCommunityIcons name="cash-multiple" size={20} color="#059669" />
           <Text style={styles.monthTitle}>Tháng {selectedMonth} / {selectedYear}</Text>
-          <MaterialCommunityIcons name="chevron-down" size={18} color="#64748B" />
+        </View>
+        <Pressable onPress={() => changeMonth(1)} style={styles.monthNavBtn}>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#374151" />
         </Pressable>
       </View>
 
@@ -458,21 +454,6 @@ export function EmployeePayslipScreen() {
         onSuccess={fetchPayslip}
       />
 
-      {/* Vietnamese DatePicker Modal */}
-      <VietnameseDatePickerModal
-        visible={showDatePicker}
-        onClose={() => setShowDatePicker(false)}
-        title="Chọn tháng / năm"
-        initialDate={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`}
-        onSelect={(dateStr) => {
-          const parts = dateStr.split('-');
-          if (parts.length >= 2 && parts[0] && parts[1]) {
-            setSelectedYear(Number(parts[0]));
-            setSelectedMonth(Number(parts[1]));
-          }
-        }}
-      />
-
       {/* Fullscreen Zoomable ImageViewing */}
       {payslip?.finalOfficialImageUrl ? (
         <ImageViewing
@@ -503,14 +484,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backBtn: {
-    padding: 4,
-  },
   topTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -524,15 +497,23 @@ const styles = StyleSheet.create({
     borderColor: '#A7F3D0',
   },
   monthSelectorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  monthDisplayBtn: {
+  monthNavBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  monthDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
