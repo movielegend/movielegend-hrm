@@ -103,19 +103,13 @@ export default function LeaderRequestsScreen() {
     <Screen>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>Duyệt Yêu Cầu</Text>
-          <View style={styles.dateSelector}>
+          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
+          </Pressable>
+          <View>
+            <Text style={styles.title}>Duyệt Yêu Cầu</Text>
             <Text style={styles.dateText}>Quản lý yêu cầu của nhân sự</Text>
           </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Pressable 
-            style={styles.createBtn} 
-            onPress={() => router.push('/employee/requests/create' as any)}
-          >
-            <MaterialCommunityIcons name="plus" size={18} color="#fff" />
-            <Text style={styles.createBtnText}>Tạo đơn</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -232,6 +226,15 @@ export default function LeaderRequestsScreen() {
           })}
         </ScrollView>
       )}
+
+      {/* Floating Action Bubble (Bong bóng tạo đơn) */}
+      <Pressable 
+        style={styles.fabBubble} 
+        onPress={() => router.push('/employee/requests/create' as any)}
+      >
+        <MaterialCommunityIcons name="plus" size={22} color="#fff" />
+        <Text style={styles.fabText}>Tạo đơn</Text>
+      </Pressable>
     </Screen>
   );
 }
@@ -240,13 +243,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     padding: spacing.md,
     backgroundColor: '#fff',
   },
   headerLeft: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   iconBtn: {
     padding: spacing.xs,
@@ -263,22 +266,31 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.muted,
   },
-  createBtn: {
+  fabBubble: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    backgroundColor: '#111827',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 999,
   },
-  createBtnText: {
+  fabText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   tabs: {
     flexDirection: 'row',
