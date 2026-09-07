@@ -16,7 +16,7 @@ import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../ser
 import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
-
+import { LiveClock } from '../../components/LiveClock';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
@@ -60,16 +60,13 @@ export function EmployeeDashboardScreen() {
     return name.charAt(0).toUpperCase();
   };
 
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentDate(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
   const fullName = user?.fullName || user?.userCode || 'Nhân viên';
-  const timeString = currentDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-  const dateString = currentDate.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dateString = new Date().toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 
   const uncompletedTasksCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
 
@@ -89,6 +86,7 @@ export function EmployeeDashboardScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
+          <View style={styles.headerLeft}>
             <View style={styles.avatar}>
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
@@ -96,20 +94,16 @@ export function EmployeeDashboardScreen() {
                 <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
               )}
             </View>
-          <View style={styles.headerInfo}>
-            <Text style={styles.greetingText}>Xin chào,</Text>
-            <Text style={styles.userName}>{fullName}</Text>
+            <View style={styles.greetingInfo}>
+              <Text style={styles.greetingText}>Xin chào 👋</Text>
+              <Text style={styles.userName}>{fullName}</Text>
+              <Text style={styles.dateText}>{dateString}</Text>
+            </View>
           </View>
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/(tabs)/newsfeed')}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/(tabs)/chat')}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
@@ -154,7 +148,7 @@ export function EmployeeDashboardScreen() {
 
             {/* Main Clock */}
             <View style={styles.heroTimeWrapper}>
-              <Text style={styles.heroTimeText}>{timeString}</Text>
+              <LiveClock style={styles.heroTimeText} />
             </View>
 
             {/* Bottom Row */}
@@ -199,76 +193,109 @@ export function EmployeeDashboardScreen() {
 
         {/* Tiện ích (Grid) */}
         <View style={[styles.section, styles.utilitySection]}>
-          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
+          <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
             <GridItem
               icon="star-circle-outline"
               title="Cấp của bạn"
+              color="#F59E0B"
               onPress={() => router.push('/employee/leveling' as any)}
             />
             <GridItem
               icon="briefcase-outline"
               title="Dự án"
+              color="#3B82F6"
               onPress={() => router.push('/employee/level-projects' as any)}
             />
-
             <GridItem
               icon="gift-outline"
               title="Ví Thưởng Tết"
+              color="#059669"
               badge={isVaultEnabled ? 'TẾT' : undefined}
               badgeColor="#D97706"
               onPress={() => router.push('/employee/vault' as any)}
             />
             <GridItem
-              icon="history"
-              title="Lịch sử chấm công"
+              icon="calendar-clock"
+              title="Lịch sử công"
+              color="#6366F1"
               onPress={() => router.push('/employee/attendance/history' as any)}
             />
             <GridItem
-              icon="calendar-clock"
+              icon="view-grid-outline"
               title="Ca làm việc"
+              color="#EC4899"
               onPress={() => router.push('/employee/schedule')}
             />
             <GridItem
               icon="format-list-checks"
               title="Công việc"
+              color="#10B981"
               badge={uncompletedTasksCount > 0 ? String(uncompletedTasksCount) : undefined}
               onPress={() => router.push('/employee/tasks')}
             />
             <GridItem
               icon="file-document-edit-outline"
               title="Đơn từ"
+              color="#EA580C"
               onPress={() => router.push('/employee/requests')}
             />
             <GridItem
               icon="transit-connection-variant"
-              title="Yêu cầu Liên phòng"
+              title="Liên phòng"
+              color="#0D9488"
               onPress={() => router.push('/employee/cross-department')}
             />
             <GridItem
-              icon="cash-multiple"
-              title="Phiếu lương"
-              onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')}
-            />
-            <GridItem
-              icon="text-box-check-outline"
+              icon="file-document-outline"
               title="Hợp đồng"
+              color="#8B5CF6"
               onPress={() => router.push('/employee/contracts')}
             />
             <GridItem
               icon="message-draw"
               title="Góp ý"
+              color="#E11D48"
               onPress={() => router.push('/employee/feedbacks' as any)}
             />
             <GridItem
               icon="laptop"
               title="Tài sản"
+              color="#64748B"
               onPress={() => router.push('/employee/assets')}
             />
             <GridItem
               icon="swap-horizontal"
               title="Đổi ca"
+              color="#2563EB"
               onPress={() => router.push('/employee/shift-swaps')}
+            />
+          </View>
+        </View>
+
+        {/* Tổng quan cá nhân hôm nay (Today's Stats) */}
+        <View style={[styles.section, styles.statsSection]}>
+          <Text style={styles.sectionTitle}>Tổng quan hôm nay</Text>
+          <View style={styles.statsRow}>
+            <StatCard
+              title="Giờ vào"
+              value={currentAttendance?.firstCheckInAt ? currentAttendance.firstCheckInAt.slice(11, 16) : '--:--'}
+              color="#10B981"
+            />
+            <StatCard
+              title="Giờ ra"
+              value={currentAttendance?.lastCheckOutAt ? currentAttendance.lastCheckOutAt.slice(11, 16) : '--:--'}
+              color="#2563EB"
+            />
+            <StatCard
+              title="Cần làm"
+              value={uncompletedTasksCount}
+              color="#F59E0B"
+            />
+            <StatCard
+              title="Trạng thái"
+              value={currentAttendance?.state === 'CHECKED_IN' ? 'Đang làm' : 'Chưa vào'}
+              color={currentAttendance?.state === 'CHECKED_IN' ? '#10B981' : '#6B7280'}
             />
           </View>
         </View>
@@ -368,6 +395,15 @@ function TaskCard({ title, priority, priorityColor, dueDate, onPress, isComplete
   );
 }
 
+function StatCard({ title, value, color }: any) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statTitle}>{title}</Text>
+      <Text style={[styles.statValue, { color: color || '#111827' }]}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
@@ -381,6 +417,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
     marginTop: spacing.xs,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   avatar: {
     width: 52,
@@ -396,19 +437,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
-  headerInfo: {
+  greetingInfo: {
     flex: 1,
-    justifyContent: 'center',
   },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   userName: {
     fontSize: 20,
     fontWeight: '800',
     color: '#111827',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    marginTop: 1,
   },
   headerRight: {
     flexDirection: 'row',
@@ -420,6 +466,51 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+  },
+  statsSection: {
+    marginTop: 0,
+    marginBottom: spacing.lg,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  statTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '800',
   },
   heroCard: {
     borderRadius: 24,
