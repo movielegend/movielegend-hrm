@@ -54,6 +54,8 @@ export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void
   const now = useMinuteTicker();
   const overdue = isOverdue(task.dueAt, task.status, now);
   const averageProgress = averageAssignmentProgress(task);
+  const isCompletedOrCancelled = task.status === 'COMPLETED' || task.status === 'CANCELLED';
+
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.card}>
       <View style={styles.row}>
@@ -68,10 +70,10 @@ export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void
       </View>
       <View style={[styles.rowWrap, { marginTop: 2, marginBottom: 4 }]}>
         <StatusBadge label={translateStatus(task.status)} tone={toneForStatus(task.status)} />
-        {overdue ? <StatusBadge label="Quá hạn" tone="danger" /> : null}
+        {!isCompletedOrCancelled && overdue ? <StatusBadge label="Quá hạn" tone="danger" /> : null}
         {task.status === 'NEW' ? <StatusBadge label="Mới" tone="info" /> : null}
       </View>
-      <DeadlineLabel dueAt={task.dueAt} />
+      {!isCompletedOrCancelled ? <DeadlineLabel dueAt={task.dueAt} status={task.status} /> : null}
       <View style={{ marginVertical: 6 }}>
         <ProgressBar value={averageProgress} />
       </View>
@@ -101,9 +103,12 @@ export function ProgressBar({ value }: { value: number }) {
   );
 }
 
-export function DeadlineLabel({ dueAt }: { dueAt?: string | null | undefined }) {
+export function DeadlineLabel({ dueAt, status }: { dueAt?: string | null | undefined; status?: string }) {
   const now = useMinuteTicker();
-  return <Text style={[styles.meta, isOverdue(dueAt, undefined, now) && styles.dangerText]}>{taskDeadlineLabel(dueAt, now)}</Text>;
+  if (status === 'COMPLETED' || status === 'CANCELLED') return null;
+  const label = taskDeadlineLabel(dueAt, now, status as any);
+  if (!label) return null;
+  return <Text style={[styles.meta, isOverdue(dueAt, status as any, now) && styles.dangerText]}>{label}</Text>;
 }
 
 export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefined }) {
