@@ -127,10 +127,52 @@ export class EmployeeRequestsService {
   async findAll(actor: AuthenticatedUser, departmentId?: string) {
     const isAccountant = await this.isAccountantActor(actor);
     const isHr = await this.isHrActor(actor);
-    const visibleDepartmentIds = (isAccountant || isHr) ? null : this.scope.visibleDepartmentIds(actor);
-    const departmentFilter = this.departmentFilter(departmentId, visibleDepartmentIds);
+    const isAdmin = actor.roles.includes('ADMIN');
+
+    let where: Prisma.EmployeeRequestWhereInput = {};
+
+    if (isAdmin || isHr) {
+      if (departmentId) {
+        where = { departmentId };
+      }
+    } else if (isAccountant) {
+      // Accountant: can see ALL financial requests across all departments,
+      // PLUS any requests within their own department(s)
+      const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor) || [];
+      const financialTypes: EmployeeRequestType[] = [
+        EmployeeRequestType.ADVANCE,
+        EmployeeRequestType.EXPENSE,
+        EmployeeRequestType.PURCHASE,
+      ];
+
+      if (departmentId) {
+        if (visibleDepartmentIds.includes(departmentId)) {
+          where = { departmentId };
+        } else {
+          where = {
+            departmentId,
+            type: { in: financialTypes },
+          };
+        }
+      } else {
+        const orConditions: Prisma.EmployeeRequestWhereInput[] = [
+          { type: { in: financialTypes } },
+        ];
+        if (visibleDepartmentIds.length > 0) {
+          orConditions.push({ departmentId: { in: visibleDepartmentIds } });
+        }
+        where = { OR: orConditions };
+      }
+    } else {
+      const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
+      const departmentFilter = this.departmentFilter(departmentId, visibleDepartmentIds);
+      if (departmentFilter) {
+        where = { departmentId: departmentFilter };
+      }
+    }
+
     return this.prisma.employeeRequest.findMany({
-      where: departmentFilter ? { departmentId: departmentFilter } : {},
+      where,
       include: {
         user: {
           select: {
@@ -171,7 +213,7 @@ export class EmployeeRequestsService {
             },
           },
         },
-        department: { select: { name: true, leaderUserId: true } },
+        department: { select: { id: true, name: true, leaderUserId: true } },
       },
     });
 
@@ -182,9 +224,22 @@ export class EmployeeRequestsService {
     const isOwner = request.userId === actor.userId;
     const isAccountant = await this.isAccountantActor(actor);
     const isHr = await this.isHrActor(actor);
-    const canApprove = actor.permissions.includes('employee.request.approve') || actor.roles.includes('ADMIN') || actor.roles.includes('LEADER') || isHr || isAccountant;
+    const isAdmin = actor.roles.includes('ADMIN');
+    const isFinancial =
+      request.type === EmployeeRequestType.ADVANCE ||
+      request.type === EmployeeRequestType.EXPENSE ||
+      request.type === EmployeeRequestType.PURCHASE;
 
-    if (!isOwner && !canApprove) {
+    let canView = false;
+    if (isOwner || isAdmin || isHr) {
+      canView = true;
+    } else if (isFinancial && isAccountant) {
+      canView = true;
+    } else if (request.departmentId && this.scope.canAccessDepartment(actor, request.departmentId)) {
+      canView = true;
+    }
+
+    if (!canView) {
       throw forbidden('FORBIDDEN', 'Bạn không có quyền xem yêu cầu này');
     }
 
@@ -256,7 +311,11 @@ export class EmployeeRequestsService {
     // --- STANDARD / NON-FINANCIAL REQUEST APPROVAL ---
     if (!isFinancial) {
       if (!isAccountDeletion) {
-        this.scope.assertDepartmentAccess(actor, request.departmentId);
+        const isAdmin = actor.roles.includes('ADMIN');
+        const canDeptAccess = request.departmentId ? this.scope.canAccessDepartment(actor, request.departmentId) : false;
+        if (!isAdmin && !isHr && !canDeptAccess) {
+          throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền duyệt yêu cầu của phòng ban này');
+        }
       }
 
       return this.prisma.$transaction(async (tx) => {
@@ -489,10 +548,52 @@ export class EmployeeRequestsService {
   }
 
   async reject(id: string, actor: AuthenticatedUser, payload?: RejectEmployeeRequestDto) {
-    const request = await this.prisma.employeeRequest.findUnique({ where: { id } });
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: { department: true },
+    });
     if (!request) throw notFound('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
     if (request.status !== EmployeeRequestStatus.PENDING) {
       throw badRequest('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn ở trạng thái chờ xử lý');
+    }
+
+    const isFinancial =
+      request.type === EmployeeRequestType.ADVANCE ||
+      request.type === EmployeeRequestType.EXPENSE ||
+      request.type === EmployeeRequestType.PURCHASE;
+    const isAccountant = await this.isAccountantActor(actor);
+    const isHr = await this.isHrActor(actor);
+    const isAdmin = actor.roles.includes('ADMIN');
+
+    if (!isFinancial) {
+      const canDeptAccess = request.departmentId ? this.scope.canAccessDepartment(actor, request.departmentId) : false;
+      if (!isAdmin && !isHr && !canDeptAccess) {
+        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền từ chối yêu cầu của phòng ban này');
+      }
+    } else {
+      const currentMeta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+        ? { ...(request.attachmentMetadata as Record<string, any>) }
+        : {};
+      const currentStage = currentMeta.stage || 'PENDING';
+
+      if (currentStage === 'PENDING_LEADER') {
+        const isLeader = request.department?.leaderUserId === actor.userId || (request.departmentId && this.scope.canAccessDepartment(actor, request.departmentId));
+        if (!isLeader && !isAdmin && !isHr) {
+          throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc HR/Admin mới có quyền từ chối bước này.');
+        }
+      } else if (currentStage === 'PENDING_HR') {
+        if (!isHr && !isAdmin) {
+          throw forbidden('FORBIDDEN', 'Chỉ HR hoặc Quản trị viên mới có quyền từ chối bước này.');
+        }
+      } else if (currentStage === 'PENDING_ADMIN') {
+        if (!isAdmin) {
+          throw forbidden('FORBIDDEN', 'Chỉ Quản trị viên mới có quyền từ chối bước này.');
+        }
+      } else if (currentStage === 'PENDING_DISBURSEMENT') {
+        if (!isAccountant && !isAdmin) {
+          throw forbidden('FORBIDDEN', 'Chỉ Kế toán hoặc Quản trị viên mới có quyền từ chối bước này.');
+        }
+      }
     }
 
     const currentMeta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
@@ -502,7 +603,7 @@ export class EmployeeRequestsService {
     const existingSteps = Array.isArray(currentMeta.approvalSteps) ? currentMeta.approvalSteps : [];
 
     const actorProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
-    const actorName = actorProfile?.fullName || 'Người duyệt';
+    const actorName = actorProfile?.fullName || (actor.roles.includes('ADMIN') ? 'Ban Giám Đốc' : isHr ? 'Trưởng phòng HR' : isAccountant ? 'Kế toán' : 'Người duyệt');
 
     const newStep = {
       stage: currentStage,
