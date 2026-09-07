@@ -360,26 +360,38 @@ export function MonthlyTimesheetScreen() {
         <View style={styles.topBar}>
           <Text style={styles.topTitle}>Bảng Chấm Công</Text>
         </View>
-      </View>
 
-      {isHR && (
-        <View style={styles.tabBar}>
-          <Pressable
-            style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('MY')}
-          >
-            <Text style={[styles.tabText, activeTab === 'MY' && styles.tabTextActive]}>Cá nhân</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('COMPANY')}
-          >
-            <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
-              Toàn công ty
-            </Text>
-          </Pressable>
-        </View>
-      )}
+        {isHR && (
+          <View style={styles.tabContainer}>
+            <View style={styles.segmentedControl}>
+              <Pressable
+                style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('MY')}
+              >
+                <MaterialCommunityIcons
+                  name="account-outline"
+                  size={17}
+                  color={activeTab === 'MY' ? '#0F172A' : '#64748B'}
+                />
+                <Text style={[styles.tabText, activeTab === 'MY' && styles.tabTextActive]}>Cá nhân</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('COMPANY')}
+              >
+                <MaterialCommunityIcons
+                  name="domain"
+                  size={17}
+                  color={activeTab === 'COMPANY' ? '#0F172A' : '#64748B'}
+                />
+                <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
+                  Toàn công ty
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
 
       <View style={styles.monthSelectorBar}>
         <Pressable onPress={() => changeMonth(-1)} style={styles.monthNavBtn}>
@@ -590,43 +602,57 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
+    paddingBottom: 10,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
   },
   topTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#0F172A',
   },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+  tabContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 8,
+    paddingTop: 4,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 3,
+    gap: 4,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    gap: 6,
   },
   tabBtnActive: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '600',
     color: '#64748B',
   },
   tabTextActive: {
-    color: '#fff',
+    color: '#0F172A',
+    fontWeight: '700',
   },
   monthSelectorBar: {
     flexDirection: 'row',
