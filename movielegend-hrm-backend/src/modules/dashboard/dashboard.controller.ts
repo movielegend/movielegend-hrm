@@ -18,14 +18,14 @@ export class DashboardController {
 
   @Get('admin')
   @Permissions('dashboard.admin.read')
-  admin() {
-    return this.adminDashboard.summary();
+  admin(@CurrentUser() actor: AuthenticatedUser) {
+    return this.adminDashboard.summary(actor);
   }
 
   @Get('admin/chart')
   @Permissions('dashboard.admin.read')
-  adminChart(@Query() query: ChartQueryDto) {
-    return this.adminDashboard.chartStats(query);
+  adminChart(@CurrentUser() actor: AuthenticatedUser, @Query() query: ChartQueryDto) {
+    return this.adminDashboard.chartStats(query, actor);
   }
 
   @Get('admin/activities')

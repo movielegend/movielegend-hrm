@@ -30,6 +30,13 @@ export function AdminProfileScreen() {
 
   const openEdit = () => setIsEditing(true);
 
+  // BUG-06 fix: dùng scopes thay vì hard-code phone
+  const regionScope = user?.scopes?.find(
+    (s) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId,
+  );
+  const isSuperAdmin = user?.roles?.includes('ADMIN') && !regionScope;
+  const adminRoleLabel = isSuperAdmin ? 'Super Admin' : isHR ? 'Nhân sự (HR)' : 'Admin Vùng';
+
   const handleLogout = () => {
     showConfirm({
       title: "Đăng xuất",
@@ -59,7 +66,7 @@ export function AdminProfileScreen() {
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
           <AvatarPicker getInitials={getInitials} />
           <Text style={styles.userName}>{user?.fullName || 'Quản trị viên'}</Text>
-          <Text style={styles.userRole}>System Admin</Text>
+          <Text style={styles.userRole}>{adminRoleLabel}</Text>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>Đang hoạt động</Text>

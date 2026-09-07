@@ -5,13 +5,16 @@ import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
 
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+
 @Injectable()
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEventsService,
     private readonly notifications: NotificationsService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly scopes: DepartmentScopeService
   ) {}
 
   // Get or Create group for a department
@@ -30,7 +33,8 @@ export class ChatService {
     });
   }
 
-  async getMessages(groupId: string, userId: string, isAdmin: boolean = false, skip: number = 0, take: number = 50) {
+  async getMessages(groupId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, skip: number = 0, take: number = 50) {
+    const userId = actor.userId;
     const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Chat group not found');
 
@@ -44,18 +48,33 @@ export class ChatService {
         throw new ForbiddenException('You do not have permission to read this direct chat');
       }
       
-      if (!isAdmin) {
+      const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
+      let hasAccess = false;
+
+      if (isGlobalAdmin) {
+        hasAccess = true;
+      } else {
         if (group.type === 'CUSTOM' || group.type === 'TASK') {
-          throw new ForbiddenException('You do not have permission to read this chat');
-        }
-        if (group.type === 'DEPARTMENT' && group.departmentId) {
-          const deptMember = await this.prisma.departmentMember.findUnique({
-            where: { departmentId_userId: { userId, departmentId: group.departmentId } }
-          });
-          if (!deptMember || deptMember.leftAt) {
-            throw new ForbiddenException('You do not have permission to read this chat');
+          // Regional admins can view CUSTOM/TASK if they are in the group, but we already know they are not a member here.
+          // Let's see if we should allow regional admin to view TASK. For now, deny.
+          hasAccess = false;
+        } else if (group.type === 'DEPARTMENT' && group.departmentId) {
+          const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+          if (visibleDepts && visibleDepts.includes(group.departmentId)) {
+            hasAccess = true;
+          } else {
+            const deptMember = await this.prisma.departmentMember.findUnique({
+              where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+            });
+            if (deptMember && !deptMember.leftAt) {
+              hasAccess = true;
+            }
           }
         }
+      }
+
+      if (!hasAccess) {
+        throw new ForbiddenException('You do not have permission to read this chat');
       }
     }
 
@@ -95,7 +114,8 @@ export class ChatService {
     return { success: true };
   }
 
-  async sendMessage(userId: string, groupId: string, dto: CreateChatMessageDto) {
+  async sendMessage(actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, groupId: string, dto: CreateChatMessageDto) {
+    const userId = actor.userId;
     const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Chat group not found');
 
@@ -103,22 +123,28 @@ export class ChatService {
       where: { id: userId },
       include: { roles: { include: { role: true } } }
     });
-    const isAdminUser = senderUser?.roles?.some(r => r.role?.code?.toUpperCase().includes('ADMIN'));
+    
+    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
 
     const member = await this.prisma.chatGroupMember.findUnique({
       where: { groupId_userId: { groupId, userId } }
     });
 
-    if (!member && !isAdminUser) {
+    if (!member && !isGlobalAdmin) {
       if (group.type === 'DIRECT' || group.type === 'CUSTOM' || group.type === 'TASK') {
         throw new ForbiddenException('You do not have permission to send messages to this chat');
       }
       if (group.type === 'DEPARTMENT' && group.departmentId) {
-        const deptMember = await this.prisma.departmentMember.findUnique({
-          where: { departmentId_userId: { userId, departmentId: group.departmentId } }
-        });
-        if (!deptMember || deptMember.leftAt) {
-          throw new ForbiddenException('You do not have permission to send messages to this chat');
+        const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+        if (visibleDepts && visibleDepts.includes(group.departmentId)) {
+          // Regional admin has access
+        } else {
+          const deptMember = await this.prisma.departmentMember.findUnique({
+            where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+          });
+          if (!deptMember || deptMember.leftAt) {
+            throw new ForbiddenException('You do not have permission to send messages to this chat');
+          }
         }
       }
     }
@@ -374,7 +400,22 @@ export class ChatService {
     });
   }
 
-  async getAllGroups(userId: string, search?: string) {
+  async getAllGroups(actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, search?: string) {
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    
+    // Nếu là Global Admin (visibleDepts = null), xem mọi nhóm.
+    // Nếu là Regional Admin (visibleDepts != null), xem nhóm CUSTOM/TASK, và chỉ DEPARTMENT thuộc miền.
+    const groupTypesFilter: any[] = [];
+    
+    if (visibleDepts === null) {
+      groupTypesFilter.push({ type: { in: ['DEPARTMENT', 'TASK', 'CUSTOM'] } });
+    } else {
+      groupTypesFilter.push({ type: { in: ['TASK', 'CUSTOM'] } });
+      if (visibleDepts.length > 0) {
+        groupTypesFilter.push({ type: 'DEPARTMENT', departmentId: { in: visibleDepts } });
+      }
+    }
+
     const groups = await this.prisma.chatGroup.findMany({
       where: {
         AND: [
@@ -386,8 +427,8 @@ export class ChatService {
           } : {},
           {
             OR: [
-              { type: { in: ['DEPARTMENT', 'TASK', 'CUSTOM'] } },
-              { members: { some: { userId } } }
+              ...groupTypesFilter,
+              { members: { some: { userId: actor.userId } } }
             ]
           }
         ]
@@ -462,7 +503,8 @@ export class ChatService {
     return { success: true, markedCount: targetIdsToUpdate.length };
   }
 
-  async deleteGroup(groupId: string, userId: string, isAdmin: boolean) {
+  async deleteGroup(groupId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const userId = actor.userId;
     const group = await this.prisma.chatGroup.findUnique({
       where: { id: groupId },
       include: { members: true }
@@ -472,16 +514,22 @@ export class ChatService {
 
     const isMember = group.members.some(m => m.userId === userId);
 
-    if (!isAdmin && !isMember) {
+    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor) ?? [];
+    const isRegionalAdminWithAccess = group.type === 'DEPARTMENT' && group.departmentId && visibleDepts.includes(group.departmentId);
+    
+    const hasAdminAccess = isGlobalAdmin || !!isRegionalAdminWithAccess;
+
+    if (!hasAdminAccess && !isMember) {
       throw new ForbiddenException('You do not have permission to delete this group');
     }
 
-    if (!isAdmin && group.type !== 'DIRECT') {
+    if (!hasAdminAccess && group.type !== 'DIRECT') {
       throw new ForbiddenException('Only admin can delete non-direct chat groups');
     }
 
     await this.prisma.$transaction(async (tx) => {
-      if (isAdmin) {
+      if (hasAdminAccess) {
         await tx.chatGroup.delete({ where: { id: groupId } });
       } else {
         await tx.chatGroupMember.delete({ where: { groupId_userId: { groupId, userId } } });
@@ -495,15 +543,24 @@ export class ChatService {
     return { success: true };
   }
 
-  async deleteMessage(userId: string, groupId: string, messageId: string, isAdmin: boolean) {
+  async deleteMessage(groupId: string, messageId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const userId = actor.userId;
     const message = await this.prisma.chatMessage.findUnique({
-      where: { id: messageId }
+      where: { id: messageId },
+      include: { group: true }
     });
 
     if (!message) throw new NotFoundException('Message not found');
     if (message.groupId !== groupId) throw new ForbiddenException('Message does not belong to this group');
 
-    if (message.senderId !== userId && !isAdmin) {
+    const group = message.group;
+    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor) ?? [];
+    const isRegionalAdminWithAccess = group.type === 'DEPARTMENT' && group.departmentId && visibleDepts.includes(group.departmentId);
+    
+    const hasAdminAccess = isGlobalAdmin || !!isRegionalAdminWithAccess;
+
+    if (message.senderId !== userId && !hasAdminAccess) {
       throw new ForbiddenException('You can only recall your own messages');
     }
 
@@ -518,7 +575,6 @@ export class ChatService {
     await this.prisma.chatMessage.delete({ where: { id: messageId } });
 
     // Phát tín hiệu websocket bằng payload ảo để ứng dụng di động tự fetch lại tin nhắn mới nhất
-    const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
     if (group) {
       if (group.departmentId) {
         this.realtime.emitToDepartment(group.departmentId, 'chat:message', { groupId });

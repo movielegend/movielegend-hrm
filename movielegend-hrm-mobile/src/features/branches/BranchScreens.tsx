@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { RefreshControl, StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useMemo } from 'react';
+import { RefreshControl, StyleSheet, Text, View, Pressable, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -12,7 +12,9 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
+import { FilterChip } from '../../components/FilterChip';
 import { useBranches, useCreateBranch, useDeleteBranch, useUpdateBranch, useBranch } from '../../api/branches.api';
+import { useRegions } from '../../api/regions.api';
 import { getDepartments } from '../../api/departments.api';
 import { useQuery } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
@@ -21,12 +23,18 @@ import { MultiSelectModal } from '../../components/MultiSelectModal';
 import { LocationPickerMap, LocationData } from '../../components/LocationPickerMap';
 
 import { useAppAlert } from '../../contexts/AlertContext';
+import { useAuth } from '../../providers/AuthProvider';
 
 export function BranchListScreen() {
   const router = useRouter();
   const { showAlert, showConfirm } = useAppAlert();
+  const { user } = useAuth();
+  const isGlobalAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(s => s.role === 'ADMIN' && s.scopeType === 'GLOBAL');
   const [search, setSearch] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('ALL');
+  
   const branches = useBranches();
+  const regions = useRegions();
   const deleteBranch = useDeleteBranch();
   
   const handleDelete = (id: string, name: string) => {
@@ -46,10 +54,63 @@ export function BranchListScreen() {
     });
   };
 
-  const filteredItems = branches.data?.filter(b => 
-    b.name.toLowerCase().includes(search.toLowerCase()) || 
-    b.code.toLowerCase().includes(search.toLowerCase())
-  );
+  const totalBranchesCount = branches.data?.length || 0;
+
+  const filterOptions = useMemo(() => {
+    if (!branches.data) return [];
+    const countMap: Record<string, number> = {};
+    branches.data.forEach((b) => {
+      const rId = b.isHeadquarters ? 'HQ' : (b.region?.id || b.regionId || 'UNASSIGNED');
+      countMap[rId] = (countMap[rId] || 0) + 1;
+    });
+    const list: { id: string; name: string; count: number }[] = [];
+    if (countMap['HQ']) {
+      list.push({ id: 'HQ', name: 'Trụ sở chính', count: countMap['HQ'] });
+    }
+    regions.data?.forEach((r) => {
+      list.push({ id: r.id, name: r.name, count: countMap[r.id] || 0 });
+    });
+    if (countMap['UNASSIGNED']) {
+      list.push({ id: 'UNASSIGNED', name: 'Chưa phân miền', count: countMap['UNASSIGNED'] });
+    }
+    return list;
+  }, [branches.data, regions.data]);
+
+  const groupedSections = useMemo(() => {
+    if (!branches.data) return [];
+    const query = search.trim().toLowerCase();
+    const searchedBranches = branches.data.filter((b) => {
+      return b.name.toLowerCase().includes(query) || b.code.toLowerCase().includes(query) ||
+        (b.region?.name ? b.region.name.toLowerCase().includes(query) : false) ||
+        (b.address ? b.address.toLowerCase().includes(query) : false);
+    });
+    const groupMap: Record<string, { regionId: string; regionName: string; regionCode?: string; branches: Branch[] }> = {};
+    regions.data?.forEach((r) => {
+      groupMap[r.id] = { regionId: r.id, regionName: r.name, regionCode: r.code, branches: [] };
+    });
+    const unassignedList: Branch[] = [];
+    const hqList: Branch[] = [];
+    searchedBranches.forEach((b) => {
+      if (b.isHeadquarters) { hqList.push(b); return; }
+      const rId = b.region?.id || b.regionId;
+      if (rId && groupMap[rId]) { groupMap[rId].branches.push(b); }
+      else if (rId) {
+        if (!groupMap[rId]) { groupMap[rId] = { regionId: rId, regionName: b.region?.name || 'Miền khác', regionCode: b.region?.code, branches: [b] }; }
+        else { groupMap[rId].branches.push(b); }
+      } else { unassignedList.push(b); }
+    });
+    let sections = Object.values(groupMap);
+    if (unassignedList.length > 0) {
+      sections.push({ regionId: 'UNASSIGNED', regionName: 'Chưa phân miền', branches: unassignedList });
+    }
+    if (hqList.length > 0) {
+      sections.unshift({ regionId: 'HQ', regionName: 'Trụ sở chính', branches: hqList });
+    }
+    if (selectedRegionId !== 'ALL') {
+      sections = sections.filter((s) => s.regionId === selectedRegionId);
+    }
+    return sections;
+  }, [branches.data, regions.data, search, selectedRegionId]);
 
   return (
     <Screen>
@@ -65,39 +126,81 @@ export function BranchListScreen() {
             </Pressable>
           }
         />
-        <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm chi nhánh..." />
-        
+        <View style={{ marginBottom: 16 }}>
+          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm chi nhánh..." />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
+            <FilterChip label={`Tất cả (${totalBranchesCount})`} isActive={selectedRegionId === 'ALL'} onPress={() => setSelectedRegionId('ALL')} />
+            {filterOptions.map((opt) => (
+              <FilterChip key={opt.id} label={`${opt.name} (${opt.count})`} isActive={selectedRegionId === opt.id} onPress={() => setSelectedRegionId(opt.id)} />
+            ))}
+          </View>
+        </ScrollView>
         {branches.isLoading ? <LoadingState /> : null}
         {branches.isError ? <ErrorState error={branches.error} onRetry={() => void branches.refetch()} /> : null}
-        {!branches.isLoading && !filteredItems?.length ? <EmptyState title="Chưa có chi nhánh" /> : null}
-        
+        {!branches.isLoading && !branches.data?.length ? <EmptyState title="Chưa có chi nhánh" /> : null}
         <View style={styles.list}>
-          {filteredItems?.map((branch) => (
-            <Pressable key={branch.id} style={styles.card} onPress={() => router.push(`/admin/branches/${branch.id}/departments`)}>
-              <View style={styles.cardHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
-                  <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
-                  </View>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.cardTitle}>{branch.name}</Text>
-                    <Text style={styles.cardSubtitle}>Mã: {branch.code}</Text>
-                  </View>
-                </View>
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() => handleDelete(branch.id, branch.name)}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="#111827" />
-                </Pressable>
-              </View>
-              {branch.address ? <Text style={styles.cardDesc}>{branch.address}</Text> : null}
-              {branch.departments && branch.departments.length > 0 ? (
-                <Text style={styles.cardCount}>
-                  {branch.departments.length} phòng ban
+          {groupedSections.map((section) => (
+            <View key={section.regionId} style={{ marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+                <MaterialCommunityIcons name={section.regionId === 'HQ' ? 'star' : 'earth'} size={20} color={section.regionId === 'HQ' ? '#D97706' : '#3B82F6'} />
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{section.regionName}</Text>
+                {section.regionCode && (
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#2563EB', backgroundColor: '#DBEAFE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    {section.regionCode}
+                  </Text>
+                )}
+                <Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 'auto' }}>
+                  {section.regionId === 'HQ' ? '' : 'Khu vực điều hành • '}{section.branches.length} chi nhánh
                 </Text>
-              ) : null}
-            </Pressable>
+              </View>
+              {section.branches.length === 0 ? (
+                <View style={{ padding: 24, backgroundColor: '#F9FAFB', borderRadius: 12, alignItems: 'center' }}>
+                  <Text style={{ color: '#6B7280' }}>Không có chi nhánh nào phù hợp</Text>
+                </View>
+              ) : (
+                <View style={{ gap: 12 }}>
+                  {section.branches.map((branch) => (
+                    <Pressable key={branch.id} style={styles.card} onPress={() => router.push(`/admin/branches/${branch.id}/departments`)}>
+                      <View style={styles.cardHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+                          <View style={styles.iconBox}>
+                            <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
+                          </View>
+                          <View style={styles.cardInfo}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <Text style={styles.cardTitle}>{branch.name}</Text>
+                              {branch.isHeadquarters && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, gap: 4 }}>
+                                  <MaterialCommunityIcons name="star" size={12} color="#D97706" />
+                                  <Text style={{ fontSize: 10, fontWeight: '600', color: '#D97706' }}>Trụ sở</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={styles.cardSubtitle}>Mã: {branch.code}</Text>
+                          </View>
+                        </View>
+                        {(!branch.isHeadquarters || isGlobalAdmin) && (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <Pressable style={styles.actionBtn} onPress={() => router.push(`/admin/branches/${branch.id}/edit` as any)}>
+                            <MaterialCommunityIcons name="pencil-outline" size={20} color="#111827" />
+                          </Pressable>
+                          <Pressable style={styles.actionBtn} onPress={() => handleDelete(branch.id, branch.name)}>
+                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#111827" />
+                          </Pressable>
+                        </View>
+                        )}
+                      </View>
+                      {branch.address ? <Text style={styles.cardDesc}>{branch.address}</Text> : null}
+                      {branch.departments && branch.departments.length > 0 ? (
+                        <Text style={styles.cardCount}>{branch.departments.length} phòng ban</Text>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
           ))}
         </View>
       </ScreenContainer>
@@ -111,10 +214,13 @@ import * as Location from 'expo-location';
 export function BranchCreateScreen() {
   const router = useRouter();
   const { showAlert, showConfirm } = useAppAlert();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(s => s.role === 'ADMIN' && s.scopeType === 'GLOBAL');
   const mutation = useCreateBranch();
   
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [isHeadquarters, setIsHeadquarters] = useState(false);
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
@@ -181,6 +287,7 @@ export function BranchCreateScreen() {
         latitude: latitude,
         longitude: longitude,
         allowedIps: allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [],
+        isHeadquarters,
       };
       
       await mutation.mutateAsync(payload);
@@ -237,6 +344,12 @@ export function BranchCreateScreen() {
             }
           />
           <View style={{ marginBottom: 16 }}>
+            {isSuperAdmin && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Là trụ sở chính?</Text>
+              <Switch value={isHeadquarters} onValueChange={setIsHeadquarters} trackColor={{ false: '#D1D5DB', true: '#3B82F6' }} />
+            </View>
+            )}
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
             <View style={{ 
               flexDirection: 'row', 
@@ -290,6 +403,8 @@ export function BranchCreateScreen() {
 
 export function BranchEditScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(s => s.role === 'ADMIN' && s.scopeType === 'GLOBAL');
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showAlert, showConfirm } = useAppAlert();
   const branchQuery = useBranch(id!);
@@ -298,6 +413,7 @@ export function BranchEditScreen() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [isHeadquarters, setIsHeadquarters] = useState(false);
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
@@ -328,6 +444,7 @@ export function BranchEditScreen() {
       setCode(branchQuery.data.code);
       setName(branchQuery.data.name);
       setAddress(branchQuery.data.address || '');
+      setIsHeadquarters(branchQuery.data.isHeadquarters || false);
       setLatitude(branchQuery.data.latitude);
       setLongitude(branchQuery.data.longitude);
       setAllowedIps((branchQuery.data as any).allowedIps?.join(', ') || '');
@@ -341,6 +458,7 @@ export function BranchEditScreen() {
       if (latitude !== undefined) payload.latitude = latitude;
       if (longitude !== undefined) payload.longitude = longitude;
       payload.allowedIps = allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [];
+      payload.isHeadquarters = isHeadquarters;
 
       await mutation.mutateAsync(payload);
       showAlert('Thành công', 'Đã lưu thay đổi chi nhánh', () => router.back());
@@ -408,6 +526,12 @@ export function BranchEditScreen() {
             }
           />
           <View style={{ marginBottom: 16 }}>
+            {isSuperAdmin && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Là trụ sở chính?</Text>
+              <Switch value={isHeadquarters} onValueChange={setIsHeadquarters} trackColor={{ false: '#D1D5DB', true: '#3B82F6' }} />
+            </View>
+            )}
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
             <View style={{ 
               flexDirection: 'row', 

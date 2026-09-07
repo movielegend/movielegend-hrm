@@ -1,11 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+
 @Injectable()
 export class CompetitionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scopes: DepartmentScopeService,
+  ) {}
 
-  async getDepartmentCompetitionStats() {
+  async getDepartmentCompetitionStats(user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
     const prismaAny = this.prisma as any;
     const configs = prismaAny.departmentCompetitionConfig ? await prismaAny.departmentCompetitionConfig.findMany() : [];
     const liveSessions = prismaAny.tikTokLiveSession ? await prismaAny.tikTokLiveSession.findMany({
@@ -40,11 +45,20 @@ export class CompetitionService {
     };
   }
 
-  async getLeaderReviews(period = '2026-09') {
+  async getLeaderReviews(period = '2026-09', user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
     const prismaAny = this.prisma as any;
     if (!prismaAny.monthlyCompetitionReview) return [];
+    
+    let scopeFilter: any = {};
+    if (user) {
+      const visibleDepts = await this.scopes.getVisibleDepartmentIds(user);
+      if (visibleDepts !== null) {
+        scopeFilter = { departmentId: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] } };
+      }
+    }
+    
     return prismaAny.monthlyCompetitionReview.findMany({
-      where: { period },
+      where: { period, ...scopeFilter },
     });
   }
 

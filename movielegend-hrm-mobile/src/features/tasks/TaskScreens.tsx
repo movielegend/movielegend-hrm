@@ -84,7 +84,7 @@ const TASK_STATUS_TABS = [
   { label: 'Chờ nhận', value: 'NEW' },
   { label: 'Đang làm', value: 'IN_PROGRESS' },
   { label: 'Chờ duyệt', value: 'WAITING_REVIEW' },
-  { label: 'Quá hạn ⚠️', value: 'OVERDUE' },
+  { label: 'Quá hạn', value: 'OVERDUE' },
   { label: 'Hoàn thành', value: 'COMPLETED' },
   { label: 'Làm lại', value: 'REJECTED' },
   { label: 'Đã hủy', value: 'CANCELLED' },

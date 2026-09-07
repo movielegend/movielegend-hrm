@@ -16,10 +16,20 @@ export function PageHeader({ title, subtitle, right, showBack = false, onBack }:
   const router = useRouter();
   const shouldShowBack = showBack || !!onBack;
 
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   return (
     <View style={styles.container}>
       {shouldShowBack && (
-        <Pressable onPress={() => onBack ? onBack() : router.back()} style={styles.backBtn} accessibilityLabel="Quay lại">
+        <Pressable onPress={handleBack} style={styles.backBtn} accessibilityLabel="Quay lại">
           <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
         </Pressable>
       )}

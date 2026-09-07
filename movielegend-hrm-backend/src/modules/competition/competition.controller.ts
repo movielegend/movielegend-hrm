@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/co
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CompetitionService } from './competition.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('competition')
 @Controller('competition')
@@ -11,14 +12,14 @@ export class CompetitionController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Lấy thống kê thi đua doanh số thật từ Database & TikTok' })
-  async getStats() {
-    return this.competitionService.getDepartmentCompetitionStats();
+  async getStats(@CurrentUser() user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    return this.competitionService.getDepartmentCompetitionStats(user);
   }
 
   @Get('reviews')
   @ApiOperation({ summary: 'Lấy danh sách duyệt thăng cấp 2 bước của Leader & Admin' })
-  async getReviews(@Query('period') period?: string) {
-    return this.competitionService.getLeaderReviews(period || '2026-09');
+  async getReviews(@Query('period') period?: string, @CurrentUser() user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    return this.competitionService.getLeaderReviews(period || '2026-09', user);
   }
 
   @Post('leader-review')

@@ -46,8 +46,10 @@ async function main() {
   // 4. RESET SEQUENCE MÃ NHÂN VIÊN VỀ LẠI 1
   console.log('--> Đang Reset Sequence user_code_seq về lại 1...');
   try {
-    await prisma.$executeRawUnsafe(`ALTER SEQUENCE user_code_seq RESTART WITH 1`);
-    await prisma.$executeRawUnsafe(`SELECT setval('user_code_seq', 1, false)`);
+    await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS user_code_seq START WITH 1 INCREMENT BY 1;`);
+    await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS task_code_seq START WITH 1 INCREMENT BY 1;`);
+    await prisma.$executeRawUnsafe(`ALTER SEQUENCE user_code_seq RESTART WITH 1;`);
+    await prisma.$executeRawUnsafe(`SELECT setval('user_code_seq', 1, false);`);
   } catch (e) {
     console.log('Lưu ý khi restart sequence:', e.message);
   }
@@ -69,8 +71,15 @@ async function main() {
       passwordHash,
       accountStatus: AccountStatus.ACTIVE,
       approvalStatus: ApprovalStatus.APPROVED,
-      isActive: true
-    }
+      isActive: true,
+      profile: {
+        create: {
+          fullName: 'Super Admin Movie Legend',
+          idCardNumber: 'ADMIN-GLOBAL-000',
+          employmentStatus: 'OFFICIAL',
+        },
+      },
+    },
   });
 
   // 7. Gán Role ADMIN duy nhất cho Admin

@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Image, Pressable, StyleSheet, Text, View, Platform, Modal } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { registerEmployee } from '../../api/registration.api';
 import { uploadFile } from '../../api/uploads.api';

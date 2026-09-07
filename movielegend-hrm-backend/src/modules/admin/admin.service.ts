@@ -1233,11 +1233,28 @@ export class AdminService {
 
       // 5. Send Notifications
       // 5.1 Notify Admins
-      const adminUsers = await tx.userRole.findMany({
-        where: { role: { code: 'ADMIN' } },
-        select: { userId: true },
+      let regionId: string | null = null;
+      const member = await tx.departmentMember.findFirst({
+        where: { userId: user.id, leftAt: null },
+        select: { department: { select: { branch: { select: { regionId: true } } } } }
       });
-      const adminIds = [...new Set(adminUsers.map((u) => u.userId))];
+      if (member?.department?.branch?.regionId) {
+        regionId = member.department.branch.regionId;
+      }
+
+      const adminUsers = await tx.userRole.findMany({
+        where: { role: { code: 'ADMIN' }, user: { accountStatus: 'ACTIVE', isActive: true, deletedAt: null } },
+        select: { userId: true, scopeType: true, scopeId: true },
+      });
+      const adminIdsSet = new Set<string>();
+      adminUsers.forEach(ur => {
+        if (ur.scopeType === 'GLOBAL' || !ur.scopeType) {
+          adminIdsSet.add(ur.userId);
+        } else if (ur.scopeType === 'REGION' && ur.scopeId === regionId) {
+          adminIdsSet.add(ur.userId);
+        }
+      });
+      const adminIds = Array.from(adminIdsSet);
       const employeeName = user.profile?.fullName || user.userCode;
 
       if (adminIds.length > 0) {

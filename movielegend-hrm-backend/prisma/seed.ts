@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient, AccountStatus, ApprovalStatus, EmploymentStatus, RoleScopeType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -511,13 +512,150 @@ async function main() {
     }
   }
 
-  const adminEmail = process.env.SEED_ADMIN_EMAIL;
-  const adminPhone = process.env.SEED_ADMIN_PHONE;
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-  if (!adminPhone || !adminPassword) {
-    console.warn('Bỏ qua seed admin vì thiếu SEED_ADMIN_PHONE hoặc SEED_ADMIN_PASSWORD');
-    return;
+  // Khởi tạo 2 Vùng Miền (Regions)
+  const mienNam = await prisma.region.upsert({
+    where: { companyId_code: { companyId: company.id, code: 'MIEN_NAM' } },
+    update: { name: 'Miền Nam', description: 'Khu vực Miền Nam (Tập trung Livestream bán hàng & CSKH)' },
+    create: {
+      companyId: company.id,
+      code: 'MIEN_NAM',
+      name: 'Miền Nam',
+      description: 'Khu vực Miền Nam (Tập trung Livestream bán hàng & CSKH)',
+    },
+  });
+
+  const mienBac = await prisma.region.upsert({
+    where: { companyId_code: { companyId: company.id, code: 'MIEN_BAC' } },
+    update: { name: 'Miền Bắc', description: 'Khu vực Miền Bắc' },
+    create: {
+      companyId: company.id,
+      code: 'MIEN_BAC',
+      name: 'Miền Bắc',
+      description: 'Khu vực Miền Bắc',
+    },
+  });
+
+  // Khởi tạo 3 Chi nhánh trực thuộc Miền Nam
+  const branchesData = [
+    { code: 'CN_HO_CHI_MINH_1', name: 'Chi nhánh 1 (Quận 1)', address: '123 Lê Lợi, Phường Bến Nghé, Quận 1, TP.HCM' },
+    { code: 'CN_HO_CHI_MINH_2', name: 'Chi nhánh 2 (Quận 7)', address: '456 Nguyễn Thị Thập, Tân Phú, Quận 7, TP.HCM' },
+    { code: 'CN_HO_CHI_MINH_3', name: 'Chi nhánh 3 (Thủ Đức)', address: '789 Kha Vạn Cân, Linh Chiểu, TP. Thủ Đức, TP.HCM' },
+  ];
+
+  for (const b of branchesData) {
+    const branch = await prisma.branch.upsert({
+      where: { companyId_code: { companyId: company.id, code: b.code } },
+      update: { regionId: mienNam.id, name: b.name, address: b.address },
+      create: {
+        companyId: company.id,
+        regionId: mienNam.id,
+        code: b.code,
+        name: b.name,
+        address: b.address,
+        latitude: 10.776889,
+        longitude: 106.700806,
+        allowedRadius: 100,
+      },
+    });
+
+    // Mỗi chi nhánh có 2 phòng ban cốt lõi: P. CSKH và P. Live
+    await prisma.department.upsert({
+      where: { companyId_code: { companyId: company.id, code: `${b.code}_CSKH` } },
+      update: { branchId: branch.id, name: `Phòng CSKH - ${b.name}` },
+      create: {
+        companyId: company.id,
+        branchId: branch.id,
+        code: `${b.code}_CSKH`,
+        name: `Phòng CSKH - ${b.name}`,
+        description: 'Tư vấn, tiếp nhận và chăm sóc khách hàng mua máy chiếu',
+      },
+    });
+
+    await prisma.department.upsert({
+      where: { companyId_code: { companyId: company.id, code: `${b.code}_LIVE` } },
+      update: { branchId: branch.id, name: `Phòng Live - ${b.name}` },
+      create: {
+        companyId: company.id,
+        branchId: branch.id,
+        code: `${b.code}_LIVE`,
+        name: `Phòng Live - ${b.name}`,
+        description: 'Đội ngũ Streamer, KOC thực hiện các ca live bán máy chiếu',
+      },
+    });
   }
+
+  // Khởi tạo 3 Chi nhánh trực thuộc Miền Bắc (Đống Đa, Văn Chương, Long Biên)
+  const mienBacBranchesData = [
+    { code: 'CN_DONG_DA', name: 'Chi nhánh Đống Đa', address: 'Số 120 Tây Sơn, Phường Quang Trung, Quận Đống Đa, Hà Nội', lat: 21.0125, lng: 105.8286 },
+    { code: 'CN_VAN_CHUONG', name: 'Chi nhánh Văn Chương', address: 'Số 68 Ngõ Văn Chương, Phường Văn Chương, Quận Đống Đa, Hà Nội', lat: 21.021, lng: 105.834 },
+    { code: 'CN_LONG_BIEN', name: 'Chi nhánh Long Biên', address: 'Số 88 Nguyễn Văn Cừ, Phường Bồ Đề, Quận Long Biên, Hà Nội', lat: 21.042, lng: 105.875 },
+  ];
+
+  for (const b of mienBacBranchesData) {
+    const branch = await prisma.branch.upsert({
+      where: { companyId_code: { companyId: company.id, code: b.code } },
+      update: { regionId: mienBac.id, name: b.name, address: b.address },
+      create: {
+        companyId: company.id,
+        regionId: mienBac.id,
+        code: b.code,
+        name: b.name,
+        address: b.address,
+        latitude: b.lat,
+        longitude: b.lng,
+        allowedRadius: 100,
+      },
+    });
+
+    await prisma.department.upsert({
+      where: { companyId_code: { companyId: company.id, code: `${b.code}_CSKH` } },
+      update: { branchId: branch.id, name: `Phòng CSKH - ${b.name}` },
+      create: {
+        companyId: company.id,
+        branchId: branch.id,
+        code: `${b.code}_CSKH`,
+        name: `Phòng CSKH - ${b.name}`,
+        description: 'Tư vấn, tiếp nhận và chăm sóc khách hàng mua máy chiếu tại ' + b.name,
+      },
+    });
+
+    await prisma.department.upsert({
+      where: { companyId_code: { companyId: company.id, code: `${b.code}_LIVE` } },
+      update: { branchId: branch.id, name: `Phòng Live - ${b.name}` },
+      create: {
+        companyId: company.id,
+        branchId: branch.id,
+        code: `${b.code}_LIVE`,
+        name: `Phòng Live - ${b.name}`,
+        description: 'Đội ngũ Streamer, KOC thực hiện ca live tại ' + b.name,
+      },
+    });
+  }
+
+  // Khởi tạo các loại nghỉ phép mặc định
+  const defaultLeaveTypes = [
+    { code: 'PHEP_NAM', name: 'Nghỉ phép năm', annualQuotaDays: 12, isPaid: true },
+    { code: 'NGHI_OM', name: 'Nghỉ ốm đau', annualQuotaDays: 30, isPaid: true },
+    { code: 'VIEC_RIENG', name: 'Nghỉ việc riêng', annualQuotaDays: 5, isPaid: false },
+  ];
+  for (const dt of defaultLeaveTypes) {
+    await prisma.leaveType.upsert({
+      where: { code: dt.code },
+      update: { name: dt.name, annualQuotaDays: dt.annualQuotaDays, isPaid: dt.isPaid, isActive: true },
+      create: { code: dt.code, name: dt.name, annualQuotaDays: dt.annualQuotaDays, isPaid: dt.isPaid, isActive: true },
+    });
+  }
+
+  // Tạo Role HR phục vụ phân quyền nếu chưa có
+  await prisma.role.upsert({
+    where: { code: 'HR' },
+    update: {},
+    create: { code: 'HR', name: 'Nhân sự (HR)' },
+  });
+
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@movielegend.vn';
+  const adminPhone = process.env.SEED_ADMIN_PHONE || '0900000000';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123';
 
   const passwordHash = await bcrypt.hash(adminPassword, 12);
   const rows = await prisma.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('user_code_seq')`;
@@ -567,14 +705,284 @@ async function main() {
     });
   }
 
-  // Tạo Role HR phục vụ phân quyền nếu chưa có
-  await prisma.role.upsert({
-    where: { code: 'HR' },
+  // Khởi tạo tài khoản mẫu Admin Miền Bắc (0900000001) và Admin Miền Nam (0900000002)
+  const regionalAdmins = [
+    {
+      phone: '0900000001',
+      name: 'Admin Miền Bắc',
+      email: 'admin.mienbac@movielegend.vn',
+      regionId: mienBac.id,
+      idPrefix: 'MB',
+    },
+    {
+      phone: '0900000002',
+      name: 'Admin Miền Nam',
+      email: 'admin.miennam@movielegend.vn',
+      regionId: mienNam.id,
+      idPrefix: 'MN',
+    },
+  ];
+
+  for (const regAdmin of regionalAdmins) {
+    const pwdHash = await bcrypt.hash('admin123', 12);
+    const rows = await prisma.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('user_code_seq')`;
+    const userCode = `NV${rows[0].nextval.toString().padStart(6, '0')}`;
+
+    const regUser = await prisma.user.upsert({
+      where: { phone: regAdmin.phone },
+      update: {
+        email: regAdmin.email,
+        passwordHash: pwdHash,
+        accountStatus: AccountStatus.ACTIVE,
+        approvalStatus: ApprovalStatus.APPROVED,
+        isActive: true,
+      },
+      create: {
+        companyId: company.id,
+        userCode,
+        phone: regAdmin.phone,
+        email: regAdmin.email,
+        passwordHash: pwdHash,
+        accountStatus: AccountStatus.ACTIVE,
+        approvalStatus: ApprovalStatus.APPROVED,
+        isActive: true,
+        profile: {
+          create: {
+            fullName: regAdmin.name,
+            idCardNumber: `ADMIN-${regAdmin.idPrefix}-${Date.now()}`,
+            employmentStatus: EmploymentStatus.OFFICIAL,
+          },
+        },
+      },
+      include: { profile: true },
+    });
+
+    if (regUser.profile) {
+      await prisma.employeeProfile.update({
+        where: { userId: regUser.id },
+        data: { fullName: regAdmin.name },
+      });
+    }
+
+    await prisma.userRole.deleteMany({ where: { userId: regUser.id } });
+    await prisma.userRole.create({
+      data: {
+        userId: regUser.id,
+        roleId: admin.id,
+        scopeType: RoleScopeType.REGION,
+        scopeId: regAdmin.regionId,
+      },
+    });
+  }
+
+  // Khởi tạo các Positions mẫu
+  const posHR = await prisma.position.upsert({
+    where: { code: 'POS_HR' },
     update: {},
-    create: { code: 'HR', name: 'Nhân sự (HR)' },
+    create: { code: 'POS_HR', name: 'Chuyên viên Nhân sự' },
+  });
+  const posAccountant = await prisma.position.upsert({
+    where: { code: 'POS_ACCOUNTANT' },
+    update: {},
+    create: { code: 'POS_ACCOUNTANT', name: 'Chuyên viên Kế toán' },
+  });
+  const posWarehouse = await prisma.position.upsert({
+    where: { code: 'POS_WAREHOUSE' },
+    update: {},
+    create: { code: 'POS_WAREHOUSE', name: 'Thủ kho / Quản lý kho' },
+  });
+  const posLeaderCSKH = await prisma.position.upsert({
+    where: { code: 'POS_LEADER_CSKH' },
+    update: {},
+    create: { code: 'POS_LEADER_CSKH', name: 'Trưởng phòng CSKH' },
+  });
+  const posStaffCSKH = await prisma.position.upsert({
+    where: { code: 'POS_STAFF_CSKH' },
+    update: {},
+    create: { code: 'POS_STAFF_CSKH', name: 'Nhân viên CSKH' },
+  });
+  const posLeaderLive = await prisma.position.upsert({
+    where: { code: 'POS_LEADER_LIVE' },
+    update: {},
+    create: { code: 'POS_LEADER_LIVE', name: 'Trưởng phòng Live' },
+  });
+  const posStaffLive = await prisma.position.upsert({
+    where: { code: 'POS_STAFF_LIVE' },
+    update: {},
+    create: { code: 'POS_STAFF_LIVE', name: 'Streamer / KOC Live' },
   });
 
-  console.log('Seeding completed. System retains only Admin user (0900000000).');
+  // Lấy các phòng ban của Chi nhánh 1 để gán Leader và Nhân viên mẫu
+  const deptCskhCn1 = await prisma.department.findUnique({
+    where: { companyId_code: { companyId: company.id, code: 'CN_HO_CHI_MINH_1_CSKH' } },
+  });
+  const deptLiveCn1 = await prisma.department.findUnique({
+    where: { companyId_code: { companyId: company.id, code: 'CN_HO_CHI_MINH_1_LIVE' } },
+  });
+
+  // Danh sách các tài khoản test cần tạo
+  const testAccounts = [
+    {
+      phone: '0900000003',
+      email: 'ketoan@movielegend.vn',
+      fullName: 'Trần Văn Kế (Kế Toán)',
+      roleId: accountant.id,
+      scopeType: RoleScopeType.GLOBAL,
+      scopeId: null,
+      positionId: posAccountant.id,
+      departmentId: null,
+      isLeader: false,
+    },
+    {
+      phone: '0900000004',
+      email: 'kho@movielegend.vn',
+      fullName: 'Phạm Minh Kho (Thủ Kho)',
+      roleId: warehouseManager.id,
+      scopeType: RoleScopeType.GLOBAL,
+      scopeId: null,
+      positionId: posWarehouse.id,
+      departmentId: null,
+      isLeader: false,
+    },
+    {
+      phone: '0900000005',
+      email: 'leader.cskh.cn1@movielegend.vn',
+      fullName: 'Lê Hoàng Yến (Leader CSKH CN1)',
+      roleId: leader.id,
+      scopeType: RoleScopeType.DEPARTMENT,
+      scopeId: deptCskhCn1?.id ?? null,
+      positionId: posLeaderCSKH.id,
+      departmentId: deptCskhCn1?.id ?? null,
+      isLeader: true,
+    },
+    {
+      phone: '0900000006',
+      email: 'nhanvien.cskh1@movielegend.vn',
+      fullName: 'Vũ Hải Đăng (Nhân viên CSKH CN1)',
+      roleId: employee.id,
+      scopeType: RoleScopeType.DEPARTMENT,
+      scopeId: deptCskhCn1?.id ?? null,
+      positionId: posStaffCSKH.id,
+      departmentId: deptCskhCn1?.id ?? null,
+      isLeader: false,
+    },
+    {
+      phone: '0900000007',
+      email: 'leader.live.cn1@movielegend.vn',
+      fullName: 'Hoàng Minh Tuấn (Leader Live CN1)',
+      roleId: leader.id,
+      scopeType: RoleScopeType.DEPARTMENT,
+      scopeId: deptLiveCn1?.id ?? null,
+      positionId: posLeaderLive.id,
+      departmentId: deptLiveCn1?.id ?? null,
+      isLeader: true,
+    },
+    {
+      phone: '0900000008',
+      email: 'streamer.live1@movielegend.vn',
+      fullName: 'Đặng Ngọc Ánh (Streamer / KOC Live CN1)',
+      roleId: employee.id,
+      scopeType: RoleScopeType.DEPARTMENT,
+      scopeId: deptLiveCn1?.id ?? null,
+      positionId: posStaffLive.id,
+      departmentId: deptLiveCn1?.id ?? null,
+      isLeader: false,
+    },
+  ];
+
+  const commonPassword = 'admin123';
+  const commonPasswordHash = await bcrypt.hash(commonPassword, 12);
+
+  for (const acc of testAccounts) {
+    const rowsUser = await prisma.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('user_code_seq')`;
+    const uCode = `NV${rowsUser[0].nextval.toString().padStart(6, '0')}`;
+
+    const user = await prisma.user.upsert({
+      where: { phone: acc.phone },
+      update: {
+        email: acc.email,
+        passwordHash: commonPasswordHash,
+        accountStatus: AccountStatus.ACTIVE,
+        approvalStatus: ApprovalStatus.APPROVED,
+        isActive: true,
+      },
+      create: {
+        userCode: uCode,
+        phone: acc.phone,
+        email: acc.email,
+        passwordHash: commonPasswordHash,
+        accountStatus: AccountStatus.ACTIVE,
+        approvalStatus: ApprovalStatus.APPROVED,
+        isActive: true,
+        profile: {
+          create: {
+            fullName: acc.fullName,
+            idCardNumber: `CCCD-${acc.phone}`,
+            employmentStatus: EmploymentStatus.OFFICIAL,
+            positionId: acc.positionId,
+          },
+        },
+      },
+    });
+
+    // Cập nhật UserRole
+    const existingRole = await prisma.userRole.findFirst({
+      where: {
+        userId: user.id,
+        roleId: acc.roleId,
+      },
+    });
+    if (existingRole) {
+      await prisma.userRole.update({
+        where: { id: existingRole.id },
+        data: {
+          scopeType: acc.scopeType,
+          scopeId: acc.scopeId,
+        },
+      });
+    } else {
+      await prisma.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: acc.roleId,
+          scopeType: acc.scopeType,
+          scopeId: acc.scopeId,
+        },
+      });
+    }
+
+    // Nếu có departmentId -> Tạo DepartmentMember và gán Leader nếu có
+    if (acc.departmentId) {
+      await prisma.departmentMember.upsert({
+        where: {
+          departmentId_userId: {
+            departmentId: acc.departmentId,
+            userId: user.id,
+          },
+        },
+        update: {
+          positionId: acc.positionId,
+          isPrimary: true,
+          leftAt: null,
+        },
+        create: {
+          departmentId: acc.departmentId,
+          userId: user.id,
+          positionId: acc.positionId,
+          isPrimary: true,
+        },
+      });
+
+      if (acc.isLeader) {
+        await prisma.department.update({
+          where: { id: acc.departmentId },
+          data: { leaderUserId: user.id },
+        });
+      }
+    }
+  }
+
+  console.log('Seeding completed. Full test accounts initialized successfully.');
 }
 
 main()

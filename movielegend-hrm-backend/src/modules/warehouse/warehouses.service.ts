@@ -25,8 +25,8 @@ export class WarehousesService {
     });
   }
 
-  findAll(actor: AuthenticatedUser) {
-    const visibleIds = this.warehouseScope.visibleWarehouseIds(actor);
+  async findAll(actor: AuthenticatedUser) {
+    const visibleIds = await this.warehouseScope.visibleWarehouseIds(actor);
     return this.prisma.warehouse.findMany({
       where: { deletedAt: null, ...(visibleIds ? { id: { in: visibleIds } } : {}) },
       orderBy: { createdAt: 'desc' },
@@ -34,26 +34,32 @@ export class WarehousesService {
   }
 
   async findOne(id: string, actor: AuthenticatedUser) {
-    this.warehouseScope.assertWarehouseAccess(actor, id);
+    await this.warehouseScope.assertWarehouseAccessAsync(actor, id);
     const warehouse = await this.prisma.warehouse.findFirst({ where: { id, deletedAt: null } });
     if (!warehouse) throw notFound('WAREHOUSE_NOT_FOUND', 'Warehouse not found');
     return warehouse;
   }
 
   async update(id: string, dto: UpdateWarehouseDto, actor: AuthenticatedUser) {
-    this.warehouseScope.assertWarehouseAccess(actor, id);
+    await this.warehouseScope.assertWarehouseAccessAsync(actor, id);
     await this.warehouseScope.assertWarehouseExists(id);
     return this.prisma.warehouse.update({ where: { id }, data: dto });
   }
 
   async close(id: string, actor: AuthenticatedUser) {
-    this.warehouseScope.assertWarehouseAccess(actor, id);
+    await this.warehouseScope.assertWarehouseAccessAsync(actor, id);
     await this.warehouseScope.assertWarehouseExists(id);
-    return this.prisma.warehouse.update({ where: { id }, data: { isActive: false, deletedAt: new Date() } });
+    return this.prisma.warehouse.update({ where: { id }, data: { isActive: false } });
   }
 
-  stocks(id: string, actor: AuthenticatedUser) {
-    this.warehouseScope.assertWarehouseAccess(actor, id);
+  async remove(id: string, actor: AuthenticatedUser) {
+    await this.warehouseScope.assertWarehouseAccessAsync(actor, id);
+    await this.warehouseScope.assertWarehouseExists(id);
+    return this.prisma.warehouse.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  async stocks(id: string, actor: AuthenticatedUser) {
+    await this.warehouseScope.assertWarehouseAccessAsync(actor, id);
     return this.prisma.warehouseStock.findMany({
       where: { warehouseId: id },
       include: { material: { include: { category: true } } },

@@ -1,6 +1,5 @@
 import { PropsWithChildren, useState, useCallback } from 'react';
-import { ScrollViewProps, StyleSheet, ViewStyle, RefreshControl } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { ScrollViewProps, StyleSheet, ViewStyle, RefreshControl, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -24,19 +23,27 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
   const defaultRefreshControl = <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />;
 
   return (
-    <KeyboardAwareScrollView 
-      contentContainerStyle={[styles.content, style]} 
-      refreshControl={disableGlobalRefresh ? undefined : (refreshControl || defaultRefreshControl)}
-      enableOnAndroid={true}
-      extraScrollHeight={20}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      style={styles.keyboardContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {children}
-    </KeyboardAwareScrollView>
+      <ScrollView
+        contentContainerStyle={[styles.content, style]}
+        refreshControl={disableGlobalRefresh ? undefined : (refreshControl || defaultRefreshControl)}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+  },
   content: {
     backgroundColor: colors.background,
     gap: spacing.lg,

@@ -186,19 +186,38 @@ export class AuthService {
       await this.uploads.attachTemporaryFiles(faceFileIds, user.id, UploadPurpose.FACE_REGISTRATION, tx);
       await this.uploads.attachTemporaryFiles(idCardFileIds, user.id, UploadPurpose.EMPLOYEE_DOCUMENT, tx);
 
+      let regionId: string | null = null;
+      if (dto.requestedDepartmentId) {
+        const dept = await tx.department.findUnique({
+          where: { id: dto.requestedDepartmentId },
+          select: { branch: { select: { regionId: true } } }
+        });
+        if (dept?.branch?.regionId) {
+          regionId = dept.branch.regionId;
+        }
+      }
+
       const admins = await tx.userRole.findMany({
-        where: { role: { code: 'ADMIN' } },
-        select: { userId: true }
+        where: { role: { code: 'ADMIN' }, user: { accountStatus: 'ACTIVE', isActive: true, deletedAt: null } },
+        select: { userId: true, scopeType: true, scopeId: true }
       });
 
-      const notifyUserIds = new Set(admins.map(a => a.userId));
+      const notifyUserIds = new Set<string>();
+      admins.forEach(ur => {
+        if (ur.scopeType === 'GLOBAL' || !ur.scopeType) {
+          notifyUserIds.add(ur.userId);
+        } else if (ur.scopeType === 'REGION' && ur.scopeId === regionId) {
+          notifyUserIds.add(ur.userId);
+        }
+      });
 
       if (dto.requestedDepartmentId) {
         const leaders = await tx.userRole.findMany({
           where: { 
             role: { code: 'LEADER' },
             scopeType: 'DEPARTMENT',
-            scopeId: dto.requestedDepartmentId
+            scopeId: dto.requestedDepartmentId,
+            user: { accountStatus: 'ACTIVE', isActive: true, deletedAt: null }
           },
           select: { userId: true }
         });
@@ -380,6 +399,7 @@ export class AuthService {
     const payload = await this.buildPayload(userId);
     
     if (isLogin && !payload.roles.includes('ADMIN')) {
+      // Non-admin users: single session policy — revoke all existing sessions on new login
       await this.prisma.refreshSession.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
@@ -388,6 +408,27 @@ export class AuthService {
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
+    } else if (isLogin && payload.roles.includes('ADMIN')) {
+      // BUG-09: Admin Miền được phép multi-device nhưng giới hạn tối đa 5 session đồng thời
+      // để hạn chế rủi ro nếu thiết bị bị mất/đánh cắp. Global Admin (GLOBAL scope) không bị ảnh hưởng.
+      const isRegionAdmin = payload.scopes?.some(
+        (s) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId,
+      );
+      if (isRegionAdmin) {
+        const MAX_ADMIN_SESSIONS = 5;
+        const activeSessions = await this.prisma.refreshSession.findMany({
+          where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: 'asc' },
+        });
+        if (activeSessions.length >= MAX_ADMIN_SESSIONS) {
+          // Revoke oldest sessions vượt quá giới hạn
+          const toRevoke = activeSessions.slice(0, activeSessions.length - MAX_ADMIN_SESSIONS + 1);
+          await this.prisma.refreshSession.updateMany({
+            where: { id: { in: toRevoke.map((s) => s.id) } },
+            data: { revokedAt: new Date() },
+          });
+        }
+      }
     }
 
     const accessSecret = this.config.getOrThrow<string>('jwt.accessSecret');
@@ -470,8 +511,14 @@ export class AuthService {
 
   private toAuthUser(user: Prisma.UserGetPayload<{ include: ReturnType<AuthService['userInclude']> }>) {
     const permissions = new Set<string>();
+    const scopes: Array<{ role: string; scopeType: string; scopeId: string | null }> = [];
     const roles = user.roles.map((userRole) => {
       userRole.role.permissions.forEach((item) => permissions.add(item.permission.code));
+      scopes.push({
+        role: userRole.role.code,
+        scopeType: userRole.scopeType,
+        scopeId: userRole.scopeId,
+      });
       return userRole.role.code;
     });
     const primaryDepartment = user.departmentLinks[0];
@@ -484,6 +531,7 @@ export class AuthService {
       avatarUrl: user.profile?.avatarUrl,
       roles,
       permissions: [...permissions],
+      scopes,
       department: primaryDepartment?.department ?? null,
       position: user.profile?.position ?? primaryDepartment?.position ?? null,
       hasFaceData: Boolean(user.faceProfile?.images.length),

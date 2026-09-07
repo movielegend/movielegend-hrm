@@ -93,6 +93,7 @@
       ],
       "expo-web-browser",
       "expo-document-picker",
+      "expo-sharing",
       "./withWebRTCExclude.js",
       "@livekit/react-native-expo-plugin"
     ],

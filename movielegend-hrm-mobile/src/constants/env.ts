@@ -1,5 +1,5 @@
-export const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://movielegend-hrm-hfjo.onrender.com/api/v1';
-export const socketUrl = process.env.EXPO_PUBLIC_SOCKET_URL || 'https://movielegend-hrm-hfjo.onrender.com';
+export const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.28.187:3001/api/v1';
+export const socketUrl = process.env.EXPO_PUBLIC_SOCKET_URL || 'http://192.168.28.187:3001';
 
 
 export function assertApiUrl(): string {

@@ -32,8 +32,8 @@ export class AssetsController {
 
   @Get('admin/assets/departments')
   @Permissions('asset.read')
-  findAdminDepartments(@Query('search') search?: string) {
-    return this.assets.findAdminDepartments(search);
+  findAdminDepartments(@Query('search') search: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assets.findAdminDepartments(search, actor);
   }
 
   @Get('assets/debug/:id')

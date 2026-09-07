@@ -18,7 +18,7 @@ export class ShiftAssignmentsService {
   ) {}
 
   async assign(dto: AssignShiftDto, actor: AuthenticatedUser) {
-    this.scope.assertDepartmentAccess(actor, dto.departmentId);
+    await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
     await this.scope.assertUserInDepartment(dto.userId, dto.departmentId);
     const workDate = new Date(dto.workDate);
     return this.prisma.$transaction(async (tx) => {
@@ -31,7 +31,8 @@ export class ShiftAssignmentsService {
         throw badRequest('USER_NOT_ACTIVE', 'User không còn active để phân ca');
       }
       
-      if (actor.roles.includes('ADMIN')) {
+      const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scope.getVisibleDepartmentIds(actor)) === null;
+      if (isGlobalAdmin) {
         const isAllowedUser = user.roles.some(
           (r: any) => r.role?.code === 'LEADER' || r.role?.code === 'HR' || r.role?.code === 'ADMIN' || r.role?.code === 'admin'
         );
@@ -89,7 +90,7 @@ export class ShiftAssignmentsService {
   }
 
   async assignBatch(dto: BatchAssignShiftDto, actor: AuthenticatedUser) {
-    this.scope.assertDepartmentAccess(actor, dto.departmentId);
+    await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
     if (!dto.userIds || dto.userIds.length === 0 || !dto.dates || dto.dates.length === 0) {
       throw badRequest('INVALID_BATCH', 'Vui lòng chọn nhân viên và ngày phân ca');
     }
@@ -195,10 +196,7 @@ export class ShiftAssignmentsService {
       throw notFound('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy ca phân công');
     }
     
-    // Admin có thể xóa thoải mái, Leader thì kiểm tra phạm vi phòng ban
-    if (!actor.roles.includes('ADMIN')) {
-      this.scope.assertDepartmentAccess(actor, assignment.departmentId);
-    }
+    await this.scope.assertDepartmentAccessAsync(actor, assignment.departmentId);
 
     if (assignment.status !== ShiftAssignmentStatus.ASSIGNED) {
       throw badRequest('INVALID_STATUS', 'Chỉ có thể thu hồi ca đang ở trạng thái phân công (ASSIGNED)');

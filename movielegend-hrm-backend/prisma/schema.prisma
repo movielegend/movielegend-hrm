@@ -26,6 +26,7 @@ enum ApprovalStatus {
 enum RoleScopeType {
   GLOBAL
   COMPANY
+  REGION
   BRANCH
   DEPARTMENT
   WAREHOUSE
@@ -910,6 +911,7 @@ model Company {
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
   deletedAt         DateTime?
+  regions           Region[]
   branches          Branch[]
   departments       Department[]
   warehouses        Warehouse[]
@@ -924,9 +926,28 @@ model Company {
   @@map("companies")
 }
 
+model Region {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  code        String
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company     Company   @relation(fields: [companyId], references: [id])
+  branches    Branch[]
+
+  @@unique([companyId, code])
+  @@map("regions")
+}
+
 model Branch {
   id                  String               @id @default(uuid()) @db.Uuid
   companyId           String               @db.Uuid
+  regionId            String?              @db.Uuid
   code                String
   name                String
   address             String?
@@ -935,15 +956,18 @@ model Branch {
   allowedRadius       Int?                 @default(100)
   allowedIps          String[]
   isActive            Boolean              @default(true)
+  isHeadquarters      Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
   company             Company              @relation(fields: [companyId], references: [id])
+  region              Region?              @relation(fields: [regionId], references: [id])
   departments         Department[]
   warehouses          Warehouse[]
   attendanceLocations AttendanceLocation[]
 
   @@unique([companyId, code])
+  @@index([regionId])
   @@map("branches")
 }
 
