@@ -4,12 +4,14 @@ import { CreateNewsfeedPostDto, CreateCommentDto, ApprovePostDto } from './dto/n
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 
 @Injectable()
 export class NewsfeedService {
   constructor(
     private prisma: PrismaService,
-    private notificationsService: NotificationsService
+    private notificationsService: NotificationsService,
+    private scope: DepartmentScopeService
   ) {}
 
   async createPost(user: AuthenticatedUser, dto: CreateNewsfeedPostDto) {
@@ -120,7 +122,8 @@ export class NewsfeedService {
   }
 
   async getPendingPosts(user: AuthenticatedUser, departmentId?: string) {
-    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN') || user.roles.includes('HR');
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(user);
+    const isGlobalAdmin = user.roles.includes('ADMIN') && visibleDepts === null;
     
     // If not admin, they can only see pending posts for departments they lead
     const leaderDepartments = await this.prisma.department.findMany({
@@ -129,14 +132,29 @@ export class NewsfeedService {
     });
     
     const leaderDepIds = leaderDepartments.map(d => d.id);
-    if (!isAdmin && leaderDepIds.length === 0) {
+    
+    // Admin có quyền duyệt: Global Admin duyệt tất cả, Regional Admin duyệt trong phạm vi.
+    // Leader duyệt trong phạm vi leaderDepIds.
+    let allowedDepts = new Set<string>();
+    
+    if (visibleDepts !== null) {
+      visibleDepts.forEach(d => allowedDepts.add(d));
+      leaderDepIds.forEach(d => allowedDepts.add(d));
+    }
+    
+    if (visibleDepts !== null) {
+      visibleDepts.forEach(d => allowedDepts.add(d));
+      leaderDepIds.forEach(d => allowedDepts.add(d));
+    }
+    
+    if (!isGlobalAdmin && allowedDepts.size === 0) {
       throw new ForbiddenException('Bạn không có quyền duyệt bài viết');
     }
 
-    let depFilter: any = isAdmin ? undefined : { in: leaderDepIds };
+    let depFilter: any = isGlobalAdmin ? undefined : { in: Array.from(allowedDepts) };
     if (departmentId) {
-       if (!isAdmin && !leaderDepIds.includes(departmentId)) {
-         throw new ForbiddenException('Bạn không phải là leader của phòng ban này');
+       if (!isGlobalAdmin && !allowedDepts.has(departmentId as string)) {
+         throw new ForbiddenException('Bạn không có quyền duyệt bài viết của phòng ban này');
        }
        depFilter = departmentId;
     }
@@ -163,14 +181,25 @@ export class NewsfeedService {
       throw new ForbiddenException(`Bài viết đã được ${post.status === 'APPROVED' ? 'duyệt' : 'từ chối'} trước đó`);
     }
 
-    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN');
-    if (!isAdmin) {
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(user);
+    const isGlobalAdmin = user.roles.includes('ADMIN') && visibleDepts === null;
+
+    if (!isGlobalAdmin) {
       if (!post.departmentId) {
-        throw new ForbiddenException('Chỉ admin mới được duyệt bài viết toàn công ty');
+        throw new ForbiddenException('Chỉ admin toàn cầu mới được duyệt bài viết toàn công ty');
       }
-      const department = await this.prisma.department.findUnique({ where: { id: post.departmentId } });
-      if (!department || department.leaderUserId !== user.userId) {
-        throw new ForbiddenException('Chỉ leader của phòng ban mới được duyệt bài viết này');
+      
+      const leaderDepartments = await this.prisma.department.findMany({
+        where: { leaderUserId: user.userId },
+        select: { id: true }
+      });
+      
+      const leaderDepIds = leaderDepartments.map(d => d.id);
+      const isLeader = leaderDepIds.includes(post.departmentId);
+      const isRegionalAdmin = visibleDepts && visibleDepts.includes(post.departmentId);
+      
+      if (!isLeader && !isRegionalAdmin) {
+        throw new ForbiddenException('Chỉ leader hoặc quản trị viên vùng tương ứng mới được duyệt bài viết này');
       }
     }
 

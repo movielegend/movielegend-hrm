@@ -32,7 +32,7 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={styles.keyboardContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
@@ -40,6 +40,7 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
         contentContainerStyle={[styles.content, style]}
         refreshControl={disableGlobalRefresh ? undefined : (refreshControl || defaultRefreshControl)}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
         showsVerticalScrollIndicator={false}
       >
         {children}
@@ -49,6 +50,9 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
 }
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+  },
   content: {
     backgroundColor: colors.background,
     gap: spacing.lg,

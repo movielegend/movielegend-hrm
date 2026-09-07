@@ -6,7 +6,8 @@ export class BusinessTimeService {
 
   startOfBusinessDate(value: string | Date): Date {
     if (typeof value === 'string') {
-      const [year, month, day] = value.split('-').map(Number);
+      const datePart = value.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
       return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1, 0, 0, 0, 0));
     }
     return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate(), 0, 0, 0, 0));

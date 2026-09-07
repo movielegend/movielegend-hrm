@@ -124,7 +124,7 @@ export class VoiceCallGateway {
     // Log missed call history to chat
     try {
       const group = await this.chatService.createDirectChat(payload.callerId, receiverId);
-      await this.chatService.sendMessage(payload.callerId, group.id, {
+      await this.chatService.sendMessage({ userId: payload.callerId, roles: [] } as any, group.id, {
         content: '📞 Cuộc gọi thoại nhỡ',
       });
     } catch (e) {
@@ -154,7 +154,7 @@ export class VoiceCallGateway {
          content = '📞 Cuộc gọi thoại nhỡ';
       }
       
-      await this.chatService.sendMessage(userId, group.id, {
+      await this.chatService.sendMessage({ userId, roles: [] } as any, group.id, {
         content,
       });
     } catch (e) {

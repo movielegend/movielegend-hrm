@@ -604,15 +604,15 @@ export class AttendanceService {
         include: { attendanceRecord: true },
       });
       if (!adjustment) throw notFound('ATTENDANCE_ADJUSTMENT_NOT_FOUND', 'Không tìm thấy yêu cầu sửa công');
-      this.scope.assertDepartmentAccess(actor, adjustment.departmentId);
+      await this.scope.assertDepartmentAccessAsync(actor, adjustment.departmentId);
       if (adjustment.status !== AttendanceAdjustmentStatus.PENDING) {
         throw badRequest('ATTENDANCE_ADJUSTMENT_ALREADY_PROCESSED', 'Yêu cầu sửa công đã được xử lý');
       }
       const oldValue = adjustment.attendanceRecord
         ? {
-          checkInAt: adjustment.attendanceRecord.checkInAt,
-          checkOutAt: adjustment.attendanceRecord.checkOutAt,
-        }
+            checkInAt: adjustment.attendanceRecord.checkInAt,
+            checkOutAt: adjustment.attendanceRecord.checkOutAt,
+          }
         : null;
       if (adjustment.attendanceRecordId) {
         await tx.attendanceRecord.update({
@@ -620,7 +620,6 @@ export class AttendanceService {
           data: {
             checkInAt: adjustment.requestedCheckInAt ?? undefined,
             checkOutAt: adjustment.requestedCheckOutAt ?? undefined,
-            status: AttendanceStatus.ADJUSTED,
           },
         });
       }
@@ -639,6 +638,7 @@ export class AttendanceService {
           entityType: 'AttendanceAdjustment',
           entityId: id,
           metadata: {
+            attendanceRecordId: adjustment.attendanceRecordId,
             oldValue,
             newValue: {
               checkInAt: adjustment.requestedCheckInAt,
@@ -652,7 +652,7 @@ export class AttendanceService {
   }
 
   async findAll(actor: AuthenticatedUser, query: AttendanceQueryDto) {
-    const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
+    const visibleDepartmentIds = await this.scope.getVisibleDepartmentIds(actor);
     const departmentFilter = this.departmentFilter(query.departmentId, visibleDepartmentIds);
     const where: Prisma.AttendanceRecordWhereInput = {
       ...(departmentFilter ? { departmentId: departmentFilter } : {}),
@@ -689,7 +689,7 @@ export class AttendanceService {
   }
 
   async getDashboardStats(actor: AuthenticatedUser, query: AttendanceQueryDto) {
-    const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
+    const visibleDepartmentIds = await this.scope.getVisibleDepartmentIds(actor);
     const departmentFilter = this.departmentFilter(query.departmentId, visibleDepartmentIds);
     const dateRange = this.businessTime.inclusiveDateRange(query.fromDate, query.toDate);
     const workDateFilter = dateRange || { equals: this.businessTime.startOfBusinessDate(this.businessTime.businessDateString()) };
@@ -953,7 +953,7 @@ export class AttendanceService {
   }
 
   private async relevantDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
-    const visible = this.scope.visibleDepartmentIds(actor);
+    const visible = await this.scope.getVisibleDepartmentIds(actor);
     if (visible === null) return null;
     if (visible.length) return visible;
     return [await this.scope.getPrimaryDepartmentId(actor.userId)];

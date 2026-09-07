@@ -11,9 +11,9 @@ import { ScopedEmployeeQueryDto } from './dto/scoped-employee-query.dto';
 @Injectable()
 export class EmployeesService {
   async updateAccountStatus(id: string, status: AccountStatus, actor: AuthenticatedUser) {
-    if (!actor.roles.includes('ADMIN') && !actor.permissions.includes('user.manage') && !actor.roles.includes('HR')) {
+    if (!actor.roles.includes('HR')) {
        const userDeptId = await this.scope.getPrimaryDepartmentId(id);
-       this.scope.assertDepartmentAccess(actor, userDeptId);
+       await this.scope.assertDepartmentAccessAsync(actor, userDeptId);
     }
     return this.prisma.user.update({
       where: { id },
@@ -59,24 +59,14 @@ export class EmployeesService {
   }
 
   async scoped(actor: AuthenticatedUser, query: ScopedEmployeeQueryDto) {
-    let allowedDeptIds: string[] | null = null;
-    
-    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR')) {
-      allowedDeptIds = null;
-    } else {
-      const leaderDepts = actor.scopes
-        .filter((s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId)
-        .map((s) => s.scopeId as string);
-        
-      if (leaderDepts.length > 0) {
-        allowedDeptIds = leaderDepts;
-      } else {
-        const userDepts = await this.prisma.departmentMember.findMany({
-          where: { userId: actor.userId, leftAt: null },
-          select: { departmentId: true }
-        });
-        allowedDeptIds = userDepts.map(d => d.departmentId);
-      }
+    let allowedDeptIds = await this.scope.getVisibleDepartmentIds(actor);
+
+    if (allowedDeptIds === null && !actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
+      const userDepts = await this.prisma.departmentMember.findMany({
+        where: { userId: actor.userId, leftAt: null },
+        select: { departmentId: true }
+      });
+      allowedDeptIds = userDepts.map(d => d.departmentId);
     }
 
     if (query.departmentId && allowedDeptIds !== null && !allowedDeptIds.includes(query.departmentId)) {

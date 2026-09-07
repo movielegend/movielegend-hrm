@@ -23,7 +23,7 @@ export class ApprovalsService {
   ) {}
 
   async findAll(actor: AuthenticatedUser, query: ApprovalQueryDto) {
-    const visibleDepartmentIds = this.policy.visibleDepartmentIds(actor);
+    const visibleDepartmentIds = await this.policy.visibleDepartmentIds(actor);
     const requestedDepartmentFilter = this.buildDepartmentFilter(query.departmentId, visibleDepartmentIds);
     const where: Prisma.UserApprovalRequestWhereInput = {
       ...(query.status ? { status: query.status } : {}),
@@ -85,7 +85,8 @@ export class ApprovalsService {
   approve(id: string, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
       const request = await this.findPendingRequest(tx, id);
-      if (!this.policy.canApproveDepartment(actor, request.requestedDepartmentId)) {
+      const canApprove = await this.policy.canApproveDepartment(actor, request.requestedDepartmentId);
+      if (!canApprove) {
         throw forbidden('APPROVAL_SCOPE_DENIED', 'Bạn không có quyền duyệt phòng ban này');
       }
       await tx.userApprovalRequest.update({
@@ -181,7 +182,8 @@ export class ApprovalsService {
   reject(id: string, dto: RejectDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
       const request = await this.findPendingRequest(tx, id);
-      if (!this.policy.canApproveDepartment(actor, request.requestedDepartmentId)) {
+      const canApprove = await this.policy.canApproveDepartment(actor, request.requestedDepartmentId);
+      if (!canApprove) {
         throw forbidden('APPROVAL_SCOPE_DENIED', 'Bạn không có quyền từ chối phòng ban này');
       }
       // 1. Cập nhật trạng thái Yêu cầu duyệt sang REJECTED

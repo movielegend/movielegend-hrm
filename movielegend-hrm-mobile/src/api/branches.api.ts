@@ -5,6 +5,8 @@ import type { ApiResponse } from '../types/api.types';
 export interface Branch {
   id: string;
   companyId: string;
+  regionId?: string | null;
+  region?: { id: string; code: string; name: string } | null;
   code: string;
   name: string;
   address?: string;
@@ -19,6 +21,7 @@ export interface Branch {
 export interface CreateBranchDto {
   code: string;
   name: string;
+  regionId?: string | null;
   address?: string;
   latitude?: number;
   longitude?: number;

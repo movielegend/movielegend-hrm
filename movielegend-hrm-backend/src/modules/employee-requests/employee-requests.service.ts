@@ -69,39 +69,52 @@ export class EmployeeRequestsService {
 
     // Notify admins, HR, and Department Leader (If ACCOUNT_DELETION, notify ADMINs only)
     const targetRoles = isAccountDeletion ? ['ADMIN'] : ['ADMIN', 'HR', 'ACCOUNTANT'];
-    const admins = await this.prisma.user.findMany({
-      where: {
-        accountStatus: 'ACTIVE',
-        roles: {
-          some: {
-            role: { code: { in: targetRoles } }
-          }
-        }
-      },
-      select: { id: true }
-    });
 
+    let regionId: string | null = null;
     let leaderId: string | undefined;
     if (departmentId && !isAccountDeletion) {
       const dept = await this.prisma.department.findUnique({
         where: { id: departmentId },
-        select: { leaderUserId: true }
+        select: { leaderUserId: true, branch: { select: { regionId: true } } }
       });
       if (dept?.leaderUserId) {
         leaderId = dept.leaderUserId;
       }
+      if (dept?.branch?.regionId) {
+        regionId = dept.branch.regionId;
+      }
     }
 
-    const targetUserIds = admins.map(a => a.id);
-    if (leaderId && leaderId !== actor.userId && !targetUserIds.includes(leaderId)) {
-      targetUserIds.push(leaderId);
+    const targetUserRoles = await this.prisma.userRole.findMany({
+      where: {
+        user: { accountStatus: 'ACTIVE', isActive: true, deletedAt: null },
+        role: { code: { in: targetRoles } }
+      },
+      select: { userId: true, scopeType: true, scopeId: true, role: { select: { code: true } } }
+    });
+
+    const targetUserIds = new Set<string>();
+    targetUserRoles.forEach(ur => {
+      if (ur.role.code === 'ADMIN') {
+        if (ur.scopeType === 'GLOBAL' || !ur.scopeType) {
+          targetUserIds.add(ur.userId);
+        } else if (ur.scopeType === 'REGION' && ur.scopeId === regionId) {
+          targetUserIds.add(ur.userId);
+        }
+      } else {
+        targetUserIds.add(ur.userId);
+      }
+    });
+
+    if (leaderId && leaderId !== actor.userId) {
+      targetUserIds.add(leaderId);
     }
 
-    if (targetUserIds.length > 0) {
+    if (targetUserIds.size > 0) {
       await this.prisma.$transaction(async (tx) => {
         const notif = await this.notifications.createForUsers(
           tx as any,
-          targetUserIds,
+          Array.from(targetUserIds),
           {
             type: 'SYSTEM' as NotificationType,
             title: 'Yêu cầu mới',
@@ -116,19 +129,36 @@ export class EmployeeRequestsService {
     return request;
   }
 
-  findAll(actor: AuthenticatedUser, departmentId?: string) {
-    const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor);
+  async findAll(actor: AuthenticatedUser, departmentId?: string) {
+    const visibleDepartmentIds = await this.scope.getVisibleDepartmentIds(actor);
     const departmentFilter = this.departmentFilter(departmentId, visibleDepartmentIds);
     return this.prisma.employeeRequest.findMany({
       where: departmentFilter ? { departmentId: departmentFilter } : {},
       include: {
+        department: { 
+          select: { 
+            id: true, 
+            name: true, 
+            branch: { 
+              select: { 
+                id: true, 
+                name: true, 
+                region: { select: { id: true, name: true } } 
+              } 
+            } 
+          } 
+        },
         user: {
           select: {
             id: true,
             userCode: true,
             phone: true,
             email: true,
-            profile: true,
+            profile: {
+              include: {
+                position: true,
+              },
+            },
           },
         },
       },
@@ -168,6 +198,13 @@ export class EmployeeRequestsService {
 
     if (!isOwner && !canApprove) {
       throw forbidden('FORBIDDEN', 'Bạn không có quyền xem yêu cầu này');
+    }
+
+    if (!isOwner && request.departmentId) {
+      const allowed = await this.scope.canAccessDepartmentAsync(actor, request.departmentId);
+      if (!allowed) {
+        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền xem yêu cầu của phòng ban ngoài miền phụ trách');
+      }
     }
 
     return request;
@@ -212,7 +249,7 @@ export class EmployeeRequestsService {
     }
 
     if (!isAccountDeletion) {
-      this.scope.assertDepartmentAccess(actor, request.departmentId);
+      await this.scope.assertDepartmentAccessAsync(actor, request.departmentId);
     }
     if (request.status !== EmployeeRequestStatus.PENDING) {
       throw badRequest('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn chờ duyệt');
@@ -285,7 +322,7 @@ export class EmployeeRequestsService {
   async reject(id: string, actor: AuthenticatedUser) {
     const request = await this.prisma.employeeRequest.findUnique({ where: { id } });
     if (!request) throw notFound('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
-    this.scope.assertDepartmentAccess(actor, request.departmentId);
+    await this.scope.assertDepartmentAccessAsync(actor, request.departmentId);
     if (request.status !== EmployeeRequestStatus.PENDING) {
       throw badRequest('EMPLOYEE_REQUEST_NOT_PENDING', 'Yêu cầu không còn chờ duyệt');
     }

@@ -205,14 +205,34 @@ export class ContractsService {
   }
 
   async findAll(actor: AuthenticatedUser, departmentId?: string) {
-    const isAdmin = actor.roles?.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r.toUpperCase()));
-    if (isAdmin || this.has(actor, 'contract.read_all') || this.has(actor, 'contract.create') || this.has(actor, 'contract.manage')) {
-      return this.prisma.employeeContract.findMany({ include: this.include(), orderBy: { createdAt: 'desc' } });
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+
+    if (visibleDepts === null) {
+      // Global Admin
+      let userFilter: any = undefined;
+      if (departmentId) {
+        const members = await this.prisma.departmentMember.findMany({ where: { departmentId, leftAt: null } });
+        userFilter = { in: members.map(m => m.userId) };
+      }
+      return this.prisma.employeeContract.findMany({
+        where: userFilter ? { userId: userFilter } : undefined,
+        include: this.include(),
+        orderBy: { createdAt: 'desc' }
+      });
     }
-    if (this.has(actor, 'contract.read_department')) {
-      const ids = await this.departmentUserIds(actor, departmentId);
-      return this.prisma.employeeContract.findMany({ where: { userId: { in: ids } }, include: this.include(), orderBy: { createdAt: 'desc' } });
+
+    if (visibleDepts.length > 0) {
+      // Regional Admin or Department Leader
+      const deptIds = departmentId && visibleDepts.includes(departmentId) ? [departmentId] : visibleDepts;
+      const members = await this.prisma.departmentMember.findMany({ where: { departmentId: { in: deptIds }, leftAt: null } });
+      const userIds = members.map(m => m.userId);
+      return this.prisma.employeeContract.findMany({
+        where: { userId: { in: userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'] } },
+        include: this.include(),
+        orderBy: { createdAt: 'desc' }
+      });
     }
+
     return this.findMine(actor);
   }
 
@@ -694,7 +714,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     if (this.has(actor, 'contract.read_all')) return;
     if (this.has(actor, 'contract.read_department')) {
       const departmentId = await this.scope.getPrimaryDepartmentId(userId);
-      this.scope.assertDepartmentAccess(actor, departmentId);
+      await this.scope.assertDepartmentAccessAsync(actor, departmentId);
       return;
     }
     throw forbidden('EMPLOYEE_CONTRACT_IDOR_DENIED', 'Cannot read this contract');
@@ -704,7 +724,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     if (this.has(actor, 'contract.read_all') || this.has(actor, 'contract.approve') || this.has(actor, 'contract.terminate')) return;
     if (this.has(actor, 'contract.read_department')) {
       const departmentId = await this.scope.getPrimaryDepartmentId(userId);
-      this.scope.assertDepartmentAccess(actor, departmentId);
+      await this.scope.assertDepartmentAccessAsync(actor, departmentId);
       return;
     }
     throw forbidden('CONTRACT_MANAGE_FORBIDDEN', 'Cannot manage this contract');

@@ -40,8 +40,7 @@ export class ChatController {
     @Query('skip') skip?: number,
     @Query('take') take?: number
   ) {
-    const isAdmin = user.roles?.some(r => r.toUpperCase().includes('ADMIN'));
-    return this.chatService.getMessages(groupId, user.userId, !!isAdmin, skip ? Number(skip) : 0, take ? Number(take) : 50);
+    return this.chatService.getMessages(groupId, user, skip ? Number(skip) : 0, take ? Number(take) : 50);
   }
 
   @ApiOperation({ summary: 'Xóa lịch sử trò chuyện' })
@@ -62,7 +61,7 @@ export class ChatController {
     @Body() dto: CreateChatMessageDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.chatService.sendMessage(user.userId, groupId, dto);
+    return this.chatService.sendMessage(user, groupId, dto);
   }
 
   @ApiOperation({ summary: 'Lấy tất cả nhóm chat (Admin)' })
@@ -72,7 +71,7 @@ export class ChatController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('search') search?: string
   ) {
-    return this.chatService.getAllGroups(user.userId, search);
+    return this.chatService.getAllGroups(user, search);
   }
 
   @ApiOperation({ summary: 'Tạo chat 1-1' })
@@ -109,8 +108,7 @@ export class ChatController {
     @Param('groupId') groupId: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    const isAdmin = user.roles?.some(r => r.toUpperCase().includes('ADMIN'));
-    return this.chatService.deleteGroup(groupId, user.userId, !!isAdmin);
+    return this.chatService.deleteGroup(groupId, user);
   }
 
   @ApiOperation({ summary: 'Thu hồi tin nhắn' })
@@ -120,8 +118,7 @@ export class ChatController {
     @Param('messageId') messageId: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    const isAdmin = user.roles?.some(r => r.toUpperCase().includes('ADMIN'));
-    return this.chatService.deleteMessage(user.userId, groupId, messageId, !!isAdmin);
+    return this.chatService.deleteMessage(groupId, messageId, user);
   }
 }
 

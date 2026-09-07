@@ -19,11 +19,14 @@ type AuthenticatedUser = {
     departmentId?: string | null;
 };
 
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+
 @Injectable()
 export class FeedbackService {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly notifications: NotificationsService
+        private readonly notifications: NotificationsService,
+        private readonly scopes: DepartmentScopeService
     ) { }
 
     // ─── Create ────────────────────────────────────────────────────────────────
@@ -48,16 +51,33 @@ export class FeedbackService {
             },
         });
 
+        let regionId: string | null = null;
+        const member = await this.prisma.departmentMember.findFirst({
+            where: { userId: user.userId, leftAt: null },
+            select: { department: { select: { branch: { select: { regionId: true } } } } }
+        });
+        if (member?.department?.branch?.regionId) {
+            regionId = member.department.branch.regionId;
+        }
+
         const admins = await this.prisma.userRole.findMany({
-            where: { role: { code: 'ADMIN' } },
-            select: { userId: true },
+            where: { role: { code: 'ADMIN' }, user: { accountStatus: 'ACTIVE', isActive: true, deletedAt: null } },
+            select: { userId: true, scopeType: true, scopeId: true },
         });
 
-        if (admins.length > 0) {
-            const adminUserIds = admins.map(a => a.userId);
+        const adminUserIds = new Set<string>();
+        admins.forEach(ur => {
+            if (ur.scopeType === 'GLOBAL' || !ur.scopeType) {
+                adminUserIds.add(ur.userId);
+            } else if (ur.scopeType === 'REGION' && ur.scopeId === regionId) {
+                adminUserIds.add(ur.userId);
+            }
+        });
+
+        if (adminUserIds.size > 0) {
             const notifTitle = dto.isAnonymous ? 'Góp ý mới (Ẩn danh)' : 'Có góp ý mới từ nhân viên';
             await this.prisma.$transaction(async (tx) => {
-                const notif = await this.notifications.createForUsers(tx as any, adminUserIds, {
+                const notif = await this.notifications.createForUsers(tx as any, Array.from(adminUserIds), {
                     type: 'SYSTEM' as NotificationType,
                     title: notifTitle,
                     body: `Tiêu đề: ${dto.title}`,
@@ -138,8 +158,23 @@ export class FeedbackService {
         const limit = query.limit ?? 20;
         const skip = (page - 1) * limit;
 
+        const visibleDepts = await this.scopes.getVisibleDepartmentIds(user as any);
+        let scopeFilter: Prisma.FeedbackWhereInput = {};
+        if (visibleDepts !== null) {
+            scopeFilter = {
+                sender: {
+                    departmentLinks: {
+                        some: {
+                            departmentId: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] }
+                        }
+                    }
+                }
+            };
+        }
+
         const where: Prisma.FeedbackWhereInput = {
             deletedAt: null,
+            ...scopeFilter,
             ...(query.status ? { status: query.status } : {}),
             ...(typeof query.isAnonymous === 'boolean'
                 ? { isAnonymous: query.isAnonymous }
@@ -218,6 +253,25 @@ export class FeedbackService {
 
     // ─── Get detail ─────────────────────────────────────────────────────────────
 
+    async assertFeedbackAccess(user: AuthenticatedUser, feedbackSenderId: string) {
+        if (feedbackSenderId === user.userId) return true;
+        
+        const visibleDepts = await this.scopes.getVisibleDepartmentIds(user as any);
+        if (visibleDepts === null) return true; // Global Admin
+        
+        if (visibleDepts.length > 0) {
+            const senderDepts = await this.prisma.departmentMember.findMany({
+                where: { userId: feedbackSenderId },
+                select: { departmentId: true }
+            });
+            const senderDeptIds = senderDepts.map(d => d.departmentId);
+            const hasAccess = senderDeptIds.some(id => visibleDepts.includes(id));
+            if (hasAccess) return true;
+        }
+        
+        throw new ForbiddenException('Bạn không có quyền truy cập góp ý này');
+    }
+
     async getDetail(user: AuthenticatedUser, id: string) {
         const feedback = await this.prisma.feedback.findFirst({
             where: { id, deletedAt: null },
@@ -240,12 +294,8 @@ export class FeedbackService {
             throw new NotFoundException('Không tìm thấy góp ý');
         }
 
+        await this.assertFeedbackAccess(user, feedback.senderUserId);
         const isOwner = feedback.senderUserId === user.userId;
-        const hasReadAll = user.roles?.includes('ADMIN') || user.roles?.includes('HR') || user.permissions?.includes('feedback.read_all');
-
-        if (!isOwner && !hasReadAll) {
-            throw new ForbiddenException('Bạn không có quyền xem góp ý này');
-        }
 
         return {
             id: feedback.id,
@@ -284,6 +334,8 @@ export class FeedbackService {
         if (!exists) {
             throw new NotFoundException('Không tìm thấy góp ý');
         }
+        
+        await this.assertFeedbackAccess(user, exists.senderUserId);
 
         const feedback = await this.prisma.feedback.update({
             where: { id },
@@ -354,17 +406,30 @@ export class FeedbackService {
     // ─── Stats (management) ─────────────────────────────────────────────────────
 
     async getStats(user: AuthenticatedUser) {
+        const visibleDepts = await this.scopes.getVisibleDepartmentIds(user as any);
+        let scopeFilter: Prisma.FeedbackWhereInput = {};
+        if (visibleDepts !== null) {
+            scopeFilter = {
+                sender: {
+                    departmentLinks: {
+                        some: {
+                            departmentId: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] }
+                        }
+                    }
+                }
+            };
+        }
 
         const [total, byStatus, anonymous] = await this.prisma.$transaction([
-            this.prisma.feedback.count({ where: { deletedAt: null } }),
+            this.prisma.feedback.count({ where: { deletedAt: null, ...scopeFilter } }),
             this.prisma.feedback.groupBy({
                 by: ['status'],
-                where: { deletedAt: null },
+                where: { deletedAt: null, ...scopeFilter },
                 _count: { _all: true },
                 orderBy: { status: 'asc' },
             }),
             this.prisma.feedback.count({
-                where: { deletedAt: null, isAnonymous: true },
+                where: { deletedAt: null, isAnonymous: true, ...scopeFilter },
             }),
         ]);
 

@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { badRequest, notFound } from '../../common/utils/error.util';
 import { CreateDepartmentDto, UpdateDepartmentDto } from './dto/department.dto';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 
 @Injectable()
 export class DepartmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scopes: DepartmentScopeService,
+  ) {}
 
   async create(dto: CreateDepartmentDto) {
     let companyId = dto.companyId;
@@ -30,10 +34,19 @@ export class DepartmentsService {
     }
   }
 
-  async findAll(search?: string) {
+  async findAll(search?: string, user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, ignoreScope?: boolean) {
+    let scopeFilter: any = {};
+    if (user && !ignoreScope) {
+      const visibleDepts = await this.scopes.getVisibleDepartmentIds(user);
+      if (visibleDepts !== null) {
+        scopeFilter = { id: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] } };
+      }
+    }
+
     const items = await this.prisma.department.findMany({
       where: {
         deletedAt: null,
+        ...scopeFilter,
         ...(search
           ? {
               OR: [

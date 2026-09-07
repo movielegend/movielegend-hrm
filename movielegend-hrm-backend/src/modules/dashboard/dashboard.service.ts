@@ -178,10 +178,13 @@ export class AdminDashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aggregation: DashboardAggregationService,
+    private readonly scopes: DepartmentScopeService,
   ) {}
 
-  async summary() {
+  async summary(actor: AuthenticatedUser) {
     const { start, end } = this.aggregation.todayRange();
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+
     const [
       employees,
       attendance,
@@ -194,7 +197,7 @@ export class AdminDashboardService {
       kpi,
     ] = await Promise.all([
       this.employeeSummary(),
-      this.attendanceSummary(start, end),
+      this.attendanceSummary(start, end, visibleDepts),
       this.taskSummary(),
       this.leaveSummary(start, end),
       this.warehouseSummary(),
@@ -206,8 +209,9 @@ export class AdminDashboardService {
     return { employees, attendanceToday: attendance, tasks, leave, warehouse, assets, payroll, contracts, kpi };
   }
 
-  async chartStats(dto: ChartQueryDto) {
-    return this.aggregation.chartStats(dto);
+  async chartStats(dto: ChartQueryDto, actor: AuthenticatedUser) {
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    return this.aggregation.chartStats(dto, visibleDepts || undefined);
   }
 
   private async employeeSummary() {
@@ -223,12 +227,24 @@ export class AdminDashboardService {
     return { total, active, pendingApproval, suspended, resigned, probation, official };
   }
 
-  private async attendanceSummary(start: Date, end: Date) {
+  private async attendanceSummary(start: Date, end: Date, visibleDepts: string[] | null) {
+    let userFilter: any = undefined;
+    if (visibleDepts !== null) {
+      if (visibleDepts.length === 0) userFilter = { in: ['00000000-0000-0000-0000-000000000000'] };
+      else {
+         const members = await this.prisma.departmentMember.findMany({
+           where: { departmentId: { in: visibleDepts } },
+           select: { userId: true }
+         });
+         userFilter = { in: members.map(m => m.userId) };
+      }
+    }
+
     const [scheduled, checkedIn, checkedOut, onApprovedLeave] = await Promise.all([
-      this.prisma.shiftAssignment.count({ where: { workDate: { gte: start, lte: end } } }),
-      this.prisma.attendanceRecord.count({ where: { workDate: { gte: start, lte: end } } }),
-      this.prisma.attendanceRecord.count({ where: { workDate: { gte: start, lte: end }, checkOutAt: { not: null } } }),
-      this.prisma.leaveRequest.count({ where: { status: LeaveRequestStatus.APPROVED, startDate: { lte: end }, endDate: { gte: start } } }),
+      this.prisma.shiftAssignment.count({ where: { workDate: { gte: start, lte: end }, ...(userFilter ? { userId: userFilter } : {}) } }),
+      this.prisma.attendanceRecord.count({ where: { workDate: { gte: start, lte: end }, ...(userFilter ? { userId: userFilter } : {}) } }),
+      this.prisma.attendanceRecord.count({ where: { workDate: { gte: start, lte: end }, checkOutAt: { not: null }, ...(userFilter ? { userId: userFilter } : {}) } }),
+      this.prisma.leaveRequest.count({ where: { status: LeaveRequestStatus.APPROVED, startDate: { lte: end }, endDate: { gte: start }, ...(userFilter ? { userId: userFilter } : {}) } }),
     ]);
     return { scheduled, checkedIn, checkedOut, absent: Math.max(0, scheduled - checkedIn), late: 0, earlyLeave: 0, onApprovedLeave };
   }

@@ -20,6 +20,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { BranchesModule } from './modules/branches/branches.module';
+import { RegionsModule } from './modules/regions/regions.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { CrossDepartmentModule } from './modules/cross-department/cross-department.module';
 import { CompensationModule } from './modules/compensation/compensation.module';
@@ -109,6 +110,7 @@ import { LevelingModule } from './modules/leveling/leveling.module';
     FaceModule,
     AdminModule,
     Phase2PolicyModule,
+    RegionsModule,
     BranchesModule,
     ShiftsModule,
     ShiftAssignmentsModule,

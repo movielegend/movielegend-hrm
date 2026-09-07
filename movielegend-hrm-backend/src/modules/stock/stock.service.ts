@@ -26,8 +26,8 @@ export class StockService {
     private readonly realtime: RealtimeEventsService,
   ) {}
 
-  createReceipt(dto: CreateStockReceiptDto, actor: AuthenticatedUser) {
-    this.warehouses.assertWarehouseAccess(actor, dto.warehouseId);
+  async createReceipt(dto: CreateStockReceiptDto, actor: AuthenticatedUser) {
+    await this.warehouses.assertWarehouseAccess(actor, dto.warehouseId);
     return this.prisma.$transaction(async (tx) => {
       const receiptCode = await this.prisma.nextSequenceCode(tx, 'stock_receipt_code_seq', 'RCV');
       return tx.stockReceipt.create({
@@ -53,8 +53,8 @@ export class StockService {
     });
   }
 
-  findReceipts(actor: AuthenticatedUser) {
-    const ids = this.warehouses.visibleWarehouseIds(actor);
+  async findReceipts(actor: AuthenticatedUser) {
+    const ids = await this.warehouses.visibleWarehouseIds(actor);
     return this.prisma.stockReceipt.findMany({
       where: ids ? { warehouseId: { in: ids } } : {},
       include: { items: true, warehouse: true },
@@ -65,7 +65,7 @@ export class StockService {
   async findReceipt(id: string, actor: AuthenticatedUser) {
     const receipt = await this.prisma.stockReceipt.findUnique({ where: { id }, include: { items: true } });
     if (!receipt) throw notFound('STOCK_RECEIPT_NOT_FOUND', 'Stock receipt not found');
-    this.warehouses.assertWarehouseAccess(actor, receipt.warehouseId);
+    await this.warehouses.assertWarehouseAccess(actor, receipt.warehouseId);
     return receipt;
   }
 
@@ -73,7 +73,7 @@ export class StockService {
     const result = await this.prisma.$transaction(async (tx) => {
       const receipt = await tx.stockReceipt.findUnique({ where: { id }, include: { items: true } });
       if (!receipt) throw notFound('STOCK_RECEIPT_NOT_FOUND', 'Stock receipt not found');
-      this.warehouses.assertWarehouseAccess(actor, receipt.warehouseId);
+      await this.warehouses.assertWarehouseAccess(actor, receipt.warehouseId);
       if (receipt.status !== StockReceiptStatus.PENDING) throw conflict('STOCK_RECEIPT_ALREADY_PROCESSED', 'Receipt already processed');
       for (const item of receipt.items) {
         await this.applyStockChange(tx, {
@@ -107,8 +107,8 @@ export class StockService {
     return this.prisma.stockReceipt.update({ where: { id }, data: { status: StockReceiptStatus.CANCELLED } });
   }
 
-  createIssue(dto: CreateMaterialIssueDto, actor: AuthenticatedUser) {
-    this.warehouses.assertWarehouseAccess(actor, dto.warehouseId);
+  async createIssue(dto: CreateMaterialIssueDto, actor: AuthenticatedUser) {
+    await this.warehouses.assertWarehouseAccess(actor, dto.warehouseId);
     if (dto.issueTargetType === 'USER' && !dto.issuedToUserId) throw badRequest('ISSUE_TARGET_REQUIRED', 'issuedToUserId is required');
     if (dto.issueTargetType === 'DEPARTMENT' && !dto.issuedToDepartmentId) throw badRequest('ISSUE_TARGET_REQUIRED', 'issuedToDepartmentId is required');
     return this.prisma.$transaction(async (tx) => {
@@ -140,8 +140,8 @@ export class StockService {
     });
   }
 
-  findIssues(actor: AuthenticatedUser) {
-    const ids = this.warehouses.visibleWarehouseIds(actor);
+  async findIssues(actor: AuthenticatedUser) {
+    const ids = await this.warehouses.visibleWarehouseIds(actor);
     return this.prisma.materialIssue.findMany({
       where: ids ? { warehouseId: { in: ids } } : {},
       include: { items: true },
@@ -152,7 +152,7 @@ export class StockService {
   async findIssue(id: string, actor: AuthenticatedUser) {
     const issue = await this.prisma.materialIssue.findUnique({ where: { id }, include: { items: true } });
     if (!issue) throw notFound('MATERIAL_ISSUE_NOT_FOUND', 'Material issue not found');
-    this.assertCanReadIssue(issue, actor);
+    await this.assertCanReadIssue(issue, actor);
     return issue;
   }
 
@@ -160,7 +160,7 @@ export class StockService {
     const payload = await this.prisma.$transaction(async (tx) => {
       const issue = await tx.materialIssue.findUnique({ where: { id }, include: { items: true } });
       if (!issue) throw notFound('MATERIAL_ISSUE_NOT_FOUND', 'Material issue not found');
-      this.warehouses.assertWarehouseAccess(actor, issue.warehouseId);
+      await this.warehouses.assertWarehouseAccess(actor, issue.warehouseId);
       if (issue.status !== MaterialIssueStatus.PENDING) throw conflict('MATERIAL_ISSUE_ALREADY_PROCESSED', 'Issue already processed');
       const updated = await tx.materialIssue.update({
         where: { id },
@@ -176,7 +176,7 @@ export class StockService {
 
   async rejectIssue(id: string, dto: RejectDto, actor: AuthenticatedUser) {
     const issue = await this.findIssue(id, actor);
-    this.warehouses.assertWarehouseAccess(actor, issue.warehouseId);
+    await this.warehouses.assertWarehouseAccess(actor, issue.warehouseId);
     if (issue.status !== MaterialIssueStatus.PENDING) throw conflict('MATERIAL_ISSUE_ALREADY_PROCESSED', 'Issue already processed');
     return this.prisma.materialIssue.update({ where: { id }, data: { status: MaterialIssueStatus.REJECTED, note: dto.reason ?? issue.note } });
   }
@@ -185,7 +185,7 @@ export class StockService {
     const payload = await this.prisma.$transaction(async (tx) => {
       const issue = await tx.materialIssue.findUnique({ where: { id }, include: { items: true } });
       if (!issue) throw notFound('MATERIAL_ISSUE_NOT_FOUND', 'Material issue not found');
-      this.warehouses.assertWarehouseAccess(actor, issue.warehouseId);
+      await this.warehouses.assertWarehouseAccess(actor, issue.warehouseId);
       if (issue.status !== MaterialIssueStatus.APPROVED) throw conflict('MATERIAL_ISSUE_NOT_APPROVED', 'Issue must be approved before issuing');
       await tx.materialIssue.update({ where: { id }, data: { status: MaterialIssueStatus.ISSUING } });
       for (const item of issue.items) {
@@ -225,9 +225,9 @@ export class StockService {
     return this.prisma.materialIssue.update({ where: { id }, data: { status: MaterialIssueStatus.CANCELLED } });
   }
 
-  createTransfer(dto: CreateStockTransferDto, actor: AuthenticatedUser) {
+  async createTransfer(dto: CreateStockTransferDto, actor: AuthenticatedUser) {
     if (dto.sourceWarehouseId === dto.targetWarehouseId) throw badRequest('TRANSFER_SAME_WAREHOUSE', 'Source and target warehouse must be different');
-    this.warehouses.assertWarehouseAccess(actor, dto.sourceWarehouseId);
+    await this.warehouses.assertWarehouseAccess(actor, dto.sourceWarehouseId);
     return this.prisma.$transaction(async (tx) => {
       const transferCode = await this.prisma.nextSequenceCode(tx, 'stock_transfer_code_seq', 'TRF');
       return tx.stockTransfer.create({
@@ -244,8 +244,8 @@ export class StockService {
     });
   }
 
-  findTransfers(actor: AuthenticatedUser) {
-    const ids = this.warehouses.visibleWarehouseIds(actor);
+  async findTransfers(actor: AuthenticatedUser) {
+    const ids = await this.warehouses.visibleWarehouseIds(actor);
     return this.prisma.stockTransfer.findMany({
       where: ids ? { OR: [{ sourceWarehouseId: { in: ids } }, { targetWarehouseId: { in: ids } }] } : {},
       include: { items: true },
@@ -256,7 +256,7 @@ export class StockService {
   async approveTransfer(id: string, actor: AuthenticatedUser) {
     const transfer = await this.prisma.stockTransfer.findUnique({ where: { id } });
     if (!transfer) throw notFound('STOCK_TRANSFER_NOT_FOUND', 'Stock transfer not found');
-    this.warehouses.assertWarehouseAccess(actor, transfer.sourceWarehouseId);
+    await this.warehouses.assertWarehouseAccess(actor, transfer.sourceWarehouseId);
     if (transfer.status !== StockTransferStatus.PENDING) throw conflict('STOCK_TRANSFER_ALREADY_PROCESSED', 'Transfer already processed');
     const updated = await this.prisma.stockTransfer.update({
       where: { id },
@@ -271,7 +271,7 @@ export class StockService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const transfer = await tx.stockTransfer.findUnique({ where: { id }, include: { items: true } });
       if (!transfer) throw notFound('STOCK_TRANSFER_NOT_FOUND', 'Stock transfer not found');
-      this.warehouses.assertWarehouseAccess(actor, transfer.sourceWarehouseId);
+      await this.warehouses.assertWarehouseAccess(actor, transfer.sourceWarehouseId);
       if (transfer.status !== StockTransferStatus.APPROVED) throw conflict('STOCK_TRANSFER_NOT_APPROVED', 'Transfer must be approved before shipping');
       for (const item of transfer.items) {
         await this.applyStockChange(tx, {
@@ -302,7 +302,7 @@ export class StockService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const transfer = await tx.stockTransfer.findUnique({ where: { id }, include: { items: true } });
       if (!transfer) throw notFound('STOCK_TRANSFER_NOT_FOUND', 'Stock transfer not found');
-      this.warehouses.assertWarehouseAccess(actor, transfer.targetWarehouseId);
+      await this.warehouses.assertWarehouseAccess(actor, transfer.targetWarehouseId);
       if (transfer.status !== StockTransferStatus.IN_TRANSIT) throw conflict('STOCK_TRANSFER_NOT_IN_TRANSIT', 'Transfer is not in transit');
       for (const item of transfer.items) {
         await this.applyStockChange(tx, {
@@ -332,7 +332,7 @@ export class StockService {
   async cancelTransfer(id: string, actor: AuthenticatedUser) {
     const transfer = await this.prisma.stockTransfer.findUnique({ where: { id } });
     if (!transfer) throw notFound('STOCK_TRANSFER_NOT_FOUND', 'Stock transfer not found');
-    this.warehouses.assertWarehouseAccess(actor, transfer.sourceWarehouseId);
+    await this.warehouses.assertWarehouseAccess(actor, transfer.sourceWarehouseId);
     const cancellableTransferStatuses: StockTransferStatus[] = [StockTransferStatus.PENDING, StockTransferStatus.APPROVED];
     if (!cancellableTransferStatuses.includes(transfer.status)) {
       throw conflict('STOCK_TRANSFER_ALREADY_PROCESSED', 'Transfer already processed');
@@ -401,8 +401,8 @@ export class StockService {
     });
   }
 
-  private assertCanReadIssue(issue: { warehouseId: string; issuedToUserId: string | null; issuedToDepartmentId: string | null }, actor: AuthenticatedUser) {
-    if (this.warehouses.canAccessWarehouse(actor, issue.warehouseId)) return;
+  private async assertCanReadIssue(issue: { warehouseId: string; issuedToUserId: string | null; issuedToDepartmentId: string | null }, actor: AuthenticatedUser) {
+    if (await this.warehouses.canAccessWarehouse(actor, issue.warehouseId)) return;
     if (issue.issuedToUserId === actor.userId) return;
     if (issue.issuedToDepartmentId) this.departments.assertDepartmentAccess(actor, issue.issuedToDepartmentId);
     else throw forbidden('MATERIAL_ISSUE_FORBIDDEN', 'Cannot access this material issue');
