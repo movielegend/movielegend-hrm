@@ -1256,7 +1256,6 @@ export class AdminService {
         }
       });
       const adminIds = Array.from(adminIdsSet);
-      const employeeName = user.profile?.fullName || user.userCode;
 
       if (adminIds.length > 0) {
         const adminNotif = await this.notifications.createForUsers(tx as any, adminIds, {
