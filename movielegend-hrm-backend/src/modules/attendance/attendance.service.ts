@@ -24,8 +24,11 @@ import {
   CreateAttendanceAdjustmentDto,
   CreateAttendanceLocationDto,
   CreateWifiConfigDto,
+  ImportTimesheetDto,
+  TimesheetQueryDto,
   TrackLocationDto,
   UpdateAttendanceLocationDto,
+  UploadTimesheetImageDto,
 } from './dto/attendance.dto';
 
 @Injectable()
@@ -1109,5 +1112,321 @@ export class AttendanceService {
         }
       }
     }
+  }
+
+  async getMyMonthlyTimesheet(actor: AuthenticatedUser, query: TimesheetQueryDto) {
+    const now = new Date();
+    const month = query.month ? Number(query.month) : now.getMonth() + 1;
+    const year = query.year ? Number(query.year) : now.getFullYear();
+
+    return this.calculateMonthlyTimesheetForUser(actor.userId, month, year);
+  }
+
+  async getCompanyMonthlyTimesheet(actor: AuthenticatedUser, query: TimesheetQueryDto) {
+    const now = new Date();
+    const month = query.month ? Number(query.month) : now.getMonth() + 1;
+    const year = query.year ? Number(query.year) : now.getFullYear();
+
+    const visibleDepartmentIds = await this.relevantDepartmentIds(actor);
+    const whereUser: Prisma.UserWhereInput = {
+      isActive: true,
+      deletedAt: null,
+      ...(query.departmentId ? { departmentLinks: { some: { departmentId: query.departmentId } } } : {}),
+      ...(visibleDepartmentIds === null ? {} : { departmentLinks: { some: { departmentId: { in: visibleDepartmentIds } } } }),
+      ...(query.search
+        ? {
+            OR: [
+              { profile: { fullName: { contains: query.search, mode: 'insensitive' } } },
+              { userCode: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const users = await this.prisma.user.findMany({
+      where: whereUser,
+      include: {
+        profile: { include: { position: true } },
+        departmentLinks: { include: { department: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const results = await Promise.all(
+      users.map(async (u) => {
+        const timesheet = await this.calculateMonthlyTimesheetForUser(u.id, month, year);
+        return {
+          userId: u.id,
+          userCode: u.userCode,
+          fullName: u.profile?.fullName || 'Nhân sự',
+          departmentName: u.departmentLinks?.[0]?.department?.name || 'Chưa có phòng ban',
+          positionName: u.profile?.position?.name || 'Nhân viên',
+          ...timesheet,
+        };
+      }),
+    );
+
+    return {
+      month,
+      year,
+      totalEmployees: results.length,
+      items: results,
+    };
+  }
+
+  async calculateMonthlyTimesheetForUser(userId: string, month: number, year: number) {
+    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: { include: { position: true } },
+        departmentLinks: {
+          include: {
+            department: {
+              include: {
+                overtimeConfig: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Hệ số OT theo từng phòng ban (mặc định 1.5)
+    const departmentOtMultiplier = Number(
+      user?.departmentLinks?.[0]?.department?.overtimeConfig?.weekdayMultiplier || 1.5,
+    );
+
+    // Lấy danh sách chấm công trong tháng
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        userId,
+        workDate: { gte: startDate, lte: endDate },
+      },
+      include: {
+        shiftAssignment: { include: { shift: true } },
+      },
+      orderBy: { workDate: 'asc' },
+    });
+
+    // Lấy đơn nghỉ phép đã duyệt trong tháng
+    const leaves = await this.prisma.leaveRequest.findMany({
+      where: {
+        userId,
+        status: 'APPROVED',
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+      include: { leaveType: true },
+    });
+
+    // Lấy đơn tăng ca đã duyệt trong tháng
+    const ots = await this.prisma.overtimeRequest.findMany({
+      where: {
+        userId,
+        status: 'APPROVED',
+        workDate: { gte: startDate, lte: endDate },
+      },
+    });
+
+    let standardWorkingDays = 26; // Mặc định 26 ngày công chuẩn
+    let actualWorkingDays = 0;
+    let paidLeaveDays = 0;
+    let unpaidLeaveDays = 0;
+    let totalWorkedMinutes = 0;
+    let totalLateMinutes = 0;
+    let totalEarlyMinutes = 0;
+    let totalOtMinutes = 0;
+
+    // Tính nghỉ phép
+    for (const leave of leaves) {
+      if (leave.leaveType.isPaid) {
+        paidLeaveDays += Number(leave.totalDays);
+      } else {
+        unpaidLeaveDays += Number(leave.totalDays);
+      }
+    }
+
+    // Tính tăng ca từ đơn duyệt
+    for (const ot of ots) {
+      const mins = Math.max(0, Math.floor((ot.endAt.getTime() - ot.startAt.getTime()) / 60000));
+      totalOtMinutes += mins;
+    }
+
+    // Map records by day string YYYY-MM-DD
+    const recordMap = new Map<string, typeof records[0]>();
+    for (const r of records) {
+      const dStr = r.workDate.toISOString().slice(0, 10);
+      recordMap.set(dStr, r);
+      if (r.status === AttendanceStatus.CHECKED_OUT || r.status === AttendanceStatus.CHECKED_IN || r.status === AttendanceStatus.ADJUSTED) {
+        actualWorkingDays += 1;
+      }
+      if (r.lateMinutes) totalLateMinutes += r.lateMinutes;
+      if (r.checkOutAt && r.checkInAt) {
+        totalWorkedMinutes += Math.max(0, Math.floor((r.checkOutAt.getTime() - r.checkInAt.getTime()) / 60000));
+      }
+    }
+
+    // Xây dựng danh sách chi tiết từng ngày
+    const dailyRecords = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentD = new Date(Date.UTC(year, month - 1, day));
+      const dStr = currentD.toISOString().slice(0, 10);
+      const dayOfWeek = currentD.getUTCDay(); // 0: CN, 1: T2, ...
+      const isSunday = dayOfWeek === 0;
+
+      const record = recordMap.get(dStr);
+      const dayOts = ots.filter((o) => o.workDate.toISOString().slice(0, 10) === dStr);
+      let dayOtHours = 0;
+      for (const ot of dayOts) {
+        dayOtHours += Math.max(0, (ot.endAt.getTime() - ot.startAt.getTime()) / 3600000);
+      }
+
+      const dayLeave = leaves.find(
+        (l) => l.startDate.toISOString().slice(0, 10) <= dStr && l.endDate.toISOString().slice(0, 10) >= dStr,
+      );
+
+      dailyRecords.push({
+        date: dStr,
+        dayOfWeek: isSunday ? 'CN' : `T${dayOfWeek + 1}`,
+        isSunday,
+        checkInAt: record?.checkInAt ? record.checkInAt.toISOString() : null,
+        checkOutAt: record?.checkOutAt ? record.checkOutAt.toISOString() : null,
+        status: record ? record.status : dayLeave ? 'LEAVE' : isSunday ? 'WEEKEND' : 'NO_RECORD',
+        shiftName: record?.shiftAssignment?.shift?.name || (isSunday ? 'Ngày nghỉ' : 'Ca hành chính'),
+        lateMinutes: record?.lateMinutes || 0,
+        otHours: Number(dayOtHours.toFixed(1)),
+        workedHours: record?.checkOutAt && record?.checkInAt ? Number(((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 3600000).toFixed(1)) : 0,
+        leaveTitle: dayLeave ? dayLeave.leaveType.name : null,
+        notes: record?.notes || null,
+      });
+    }
+
+    const otHours = Number((totalOtMinutes / 60).toFixed(1));
+
+    // Lấy ảnh bảng công chốt chính thức gần nhất từ Leader HR (nếu có)
+    const imageLog = await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'TIMESHEET_OFFICIAL_IMAGE',
+        OR: [
+          { entityId: userId },
+          { entityId: null },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let finalOfficialImageUrl: string | null = null;
+    let officialWorkingDays: number | null = null;
+
+    if (imageLog?.metadata && typeof imageLog.metadata === 'object') {
+      const meta = imageLog.metadata as any;
+      if (meta.month === month && meta.year === year) {
+        finalOfficialImageUrl = meta.imageUrl || null;
+        officialWorkingDays = meta.officialWorkingDays !== undefined ? Number(meta.officialWorkingDays) : null;
+      }
+    }
+
+    return {
+      month,
+      year,
+      standardWorkingDays,
+      actualWorkingDays,
+      officialWorkingDays: officialWorkingDays !== null ? officialWorkingDays : actualWorkingDays,
+      finalOfficialImageUrl,
+      paidLeaveDays,
+      unpaidLeaveDays,
+      totalWorkedHours: Number((totalWorkedMinutes / 60).toFixed(1)),
+      totalLateMinutes,
+      totalEarlyMinutes,
+      otHours,
+      departmentOtMultiplier,
+      dailyRecords,
+    };
+  }
+
+  async uploadOfficialImage(actor: AuthenticatedUser, dto: UploadTimesheetImageDto) {
+    const { userId, month, year, imageUrl, officialWorkingDays, note } = dto;
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'TIMESHEET_OFFICIAL_IMAGE',
+        entityType: 'TimesheetImage',
+        entityId: userId || null,
+        metadata: {
+          month,
+          year,
+          imageUrl,
+          officialWorkingDays,
+          note,
+        },
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Đã lưu ảnh bảng công chốt chính thức thành công',
+      imageUrl,
+      month,
+      year,
+    };
+  }
+
+  async importMonthlyTimesheet(actor: AuthenticatedUser, dto: ImportTimesheetDto) {
+    const { month, year, items } = dto;
+    if (!items || items.length === 0) {
+      throw badRequest('EMPTY_TIMESHEET_ITEMS', 'Danh sách nhân sự chấm công không được để trống');
+    }
+
+    let successCount = 0;
+    const errors: string[] = [];
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        const user = await tx.user.findFirst({
+          where: { userCode: item.userCode, deletedAt: null },
+        });
+        if (!user) {
+          errors.push(`Mã NV ${item.userCode} không tồn tại`);
+          continue;
+        }
+
+        // Tạo audit log ghi nhận cập nhật công
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: 'TIMESHEET_IMPORTED',
+            entityType: 'User',
+            entityId: user.id,
+            metadata: {
+              month,
+              year,
+              standardWorkingDays: item.standardWorkingDays,
+              actualWorkingDays: item.actualWorkingDays,
+              paidLeaveDays: item.paidLeaveDays,
+              unpaidLeaveDays: item.unpaidLeaveDays,
+              otHours: item.otHours,
+              lateMinutes: item.lateMinutes,
+              earlyMinutes: item.earlyMinutes,
+              note: item.note,
+            },
+          },
+        });
+        successCount++;
+      }
+    });
+
+    return {
+      success: true,
+      month,
+      year,
+      importedCount: successCount,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Đã import thành công bảng công tháng ${month}/${year} cho ${successCount} nhân sự.`,
+    };
   }
 }

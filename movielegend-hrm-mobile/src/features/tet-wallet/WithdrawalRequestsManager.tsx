@@ -38,6 +38,13 @@ interface WithdrawalRequestsManagerProps {
   onBadgeCountChange?: (pendingCount: number) => void;
 }
 
+function getInitials(name?: string, fallback = 'NV'): string {
+  if (!name) return fallback;
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 // Helper to normalize bank code for VietQR Quick Pay API
 function getBankCode(bankName: string): string {
   const normalized = (bankName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -215,7 +222,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
 
   return (
     <View style={styles.container}>
-      {/* Unified Stat & Filter Tab Cards */}
+      {/* Modern Filter Pill Tabs */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -224,116 +231,91 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
         {/* Tab 1: Pending Admin */}
         <Pressable
           style={[
-            styles.statTabCard,
-            activeTab === 'PENDING_ADMIN' && styles.statTabCardActiveAdmin,
+            styles.filterPill,
+            activeTab === 'PENDING_ADMIN' && styles.filterPillActive,
           ]}
           onPress={() => setActiveTab('PENDING_ADMIN')}
         >
-          <View style={styles.statTabTopRow}>
-            <MaterialCommunityIcons
-              name="account-clock-outline"
-              size={18}
-              color={activeTab === 'PENDING_ADMIN' ? '#D97706' : '#64748B'}
-            />
-            <View style={[styles.statTabBadge, activeTab === 'PENDING_ADMIN' ? styles.badgeOrange : styles.badgeSlate]}>
-              <Text style={styles.statTabBadgeText}>{counts.PENDING_ADMIN}</Text>
-            </View>
-          </View>
-          <Text style={[styles.statTabLabel, activeTab === 'PENDING_ADMIN' && styles.statTabLabelActiveAdmin]}>
+          <Text style={[styles.filterPillText, activeTab === 'PENDING_ADMIN' && styles.filterPillTextActive]}>
             Chờ Admin duyệt
           </Text>
+          <View style={[styles.filterPillBadge, activeTab === 'PENDING_ADMIN' && styles.filterPillBadgeActive]}>
+            <Text style={[styles.filterPillBadgeText, activeTab === 'PENDING_ADMIN' && styles.filterPillBadgeTextActive]}>
+              {counts.PENDING_ADMIN}
+            </Text>
+          </View>
         </Pressable>
 
         {/* Tab 2: Pending Accountant */}
         <Pressable
           style={[
-            styles.statTabCard,
-            activeTab === 'PENDING_ACCOUNTANT' && styles.statTabCardActiveAcc,
+            styles.filterPill,
+            activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillActive,
           ]}
           onPress={() => setActiveTab('PENDING_ACCOUNTANT')}
         >
-          <View style={styles.statTabTopRow}>
-            <MaterialCommunityIcons
-              name="bank-transfer-out"
-              size={18}
-              color={activeTab === 'PENDING_ACCOUNTANT' ? '#2563EB' : '#64748B'}
-            />
-            <View style={[styles.statTabBadge, activeTab === 'PENDING_ACCOUNTANT' ? styles.badgeBlue : styles.badgeSlate]}>
-              <Text style={styles.statTabBadgeText}>{counts.PENDING_ACCOUNTANT}</Text>
-            </View>
-          </View>
-          <Text style={[styles.statTabLabel, activeTab === 'PENDING_ACCOUNTANT' && styles.statTabLabelActiveAcc]}>
+          <Text style={[styles.filterPillText, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillTextActive]}>
             Chờ Kế toán chi
           </Text>
+          <View style={[styles.filterPillBadge, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillBadgeActive]}>
+            <Text style={[styles.filterPillBadgeText, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillBadgeTextActive]}>
+              {counts.PENDING_ACCOUNTANT}
+            </Text>
+          </View>
         </Pressable>
 
         {/* Tab 3: Paid */}
         <Pressable
           style={[
-            styles.statTabCard,
-            activeTab === 'PAID' && styles.statTabCardActivePaid,
+            styles.filterPill,
+            activeTab === 'PAID' && styles.filterPillActive,
           ]}
           onPress={() => setActiveTab('PAID')}
         >
-          <View style={styles.statTabTopRow}>
-            <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={18}
-              color={activeTab === 'PAID' ? '#059669' : '#64748B'}
-            />
-            <View style={[styles.statTabBadge, activeTab === 'PAID' ? styles.badgeGreen : styles.badgeSlate]}>
-              <Text style={styles.statTabBadgeText}>{counts.PAID}</Text>
-            </View>
-          </View>
-          <Text style={[styles.statTabLabel, activeTab === 'PAID' && styles.statTabLabelActivePaid]}>
+          <Text style={[styles.filterPillText, activeTab === 'PAID' && styles.filterPillTextActive]}>
             Đã chi tiền
           </Text>
+          <View style={[styles.filterPillBadge, activeTab === 'PAID' && styles.filterPillBadgeActive]}>
+            <Text style={[styles.filterPillBadgeText, activeTab === 'PAID' && styles.filterPillBadgeTextActive]}>
+              {counts.PAID}
+            </Text>
+          </View>
         </Pressable>
 
         {/* Tab 4: Rejected */}
         <Pressable
           style={[
-            styles.statTabCard,
-            activeTab === 'REJECTED' && styles.statTabCardActiveRejected,
+            styles.filterPill,
+            activeTab === 'REJECTED' && styles.filterPillActive,
           ]}
           onPress={() => setActiveTab('REJECTED')}
         >
-          <View style={styles.statTabTopRow}>
-            <MaterialCommunityIcons
-              name="close-circle-outline"
-              size={18}
-              color={activeTab === 'REJECTED' ? '#DC2626' : '#64748B'}
-            />
-            <View style={[styles.statTabBadge, activeTab === 'REJECTED' ? styles.badgeRed : styles.badgeSlate]}>
-              <Text style={styles.statTabBadgeText}>{counts.REJECTED}</Text>
-            </View>
-          </View>
-          <Text style={[styles.statTabLabel, activeTab === 'REJECTED' && styles.statTabLabelActiveRejected]}>
+          <Text style={[styles.filterPillText, activeTab === 'REJECTED' && styles.filterPillTextActive]}>
             Đã từ chối
           </Text>
+          <View style={[styles.filterPillBadge, activeTab === 'REJECTED' && styles.filterPillBadgeActive]}>
+            <Text style={[styles.filterPillBadgeText, activeTab === 'REJECTED' && styles.filterPillBadgeTextActive]}>
+              {counts.REJECTED}
+            </Text>
+          </View>
         </Pressable>
 
         {/* Tab 5: All */}
         <Pressable
           style={[
-            styles.statTabCard,
-            activeTab === 'ALL' && styles.statTabCardActiveAll,
+            styles.filterPill,
+            activeTab === 'ALL' && styles.filterPillActive,
           ]}
           onPress={() => setActiveTab('ALL')}
         >
-          <View style={styles.statTabTopRow}>
-            <MaterialCommunityIcons
-              name="format-list-bulleted"
-              size={18}
-              color={activeTab === 'ALL' ? '#1E293B' : '#64748B'}
-            />
-            <View style={[styles.statTabBadge, activeTab === 'ALL' ? styles.badgeDark : styles.badgeSlate]}>
-              <Text style={styles.statTabBadgeText}>{counts.TOTAL}</Text>
-            </View>
-          </View>
-          <Text style={[styles.statTabLabel, activeTab === 'ALL' && styles.statTabLabelActiveAll]}>
-            Tất cả yêu cầu
+          <Text style={[styles.filterPillText, activeTab === 'ALL' && styles.filterPillTextActive]}>
+            Tất cả
           </Text>
+          <View style={[styles.filterPillBadge, activeTab === 'ALL' && styles.filterPillBadgeActive]}>
+            <Text style={[styles.filterPillBadgeText, activeTab === 'ALL' && styles.filterPillBadgeTextActive]}>
+              {counts.TOTAL}
+            </Text>
+          </View>
         </Pressable>
       </ScrollView>
 
@@ -342,7 +324,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
         <SearchInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Tìm theo tên nhân viên, mã NV, STK, ngân hàng..."
+          placeholder="Tìm theo tên hoặc mã nhân viên..."
         />
       </View>
 
@@ -368,45 +350,36 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
             const isPaid = ticket.status === 'PAID';
 
             const statusBg = isPaid
-              ? '#ECFDF5'
+              ? '#D1FAE5'
               : isPendingAcc
-              ? '#EFF6FF'
+              ? '#DBEAFE'
               : isPendingAdmin
-              ? '#FFFBEB'
-              : '#FEF2F2';
-
-            const statusBorder = isPaid
-              ? '#A7F3D0'
-              : isPendingAcc
-              ? '#BFDBFE'
-              : isPendingAdmin
-              ? '#FDE68A'
-              : '#FECACA';
+              ? '#FEF3C7'
+              : '#FEE2E2';
 
             const statusColor = isPaid
-              ? '#059669'
+              ? '#065F46'
               : isPendingAcc
-              ? '#2563EB'
+              ? '#1E40AF'
               : isPendingAdmin
-              ? '#D97706'
-              : '#DC2626';
+              ? '#92400E'
+              : '#991B1B';
 
             const statusLabel = isPaid
-              ? 'ĐÃ ĐẢO CHI'
+              ? 'Đã chi tiền'
               : isPendingAcc
-              ? 'CHỜ KẾ TOÁN CHI'
+              ? 'Chờ Kế toán chi'
               : isPendingAdmin
-              ? 'CHỜ ADMIN DUYỆT'
-              : 'ĐÃ TỪ CHỐI';
+              ? 'Chờ Admin duyệt'
+              : 'Đã từ chối';
 
             const userProfile = ticket.user?.profile;
             const deptName = ticket.user?.departmentLinks?.[0]?.department?.name || 'Phòng ban';
             const posName = ticket.user?.departmentLinks?.[0]?.position?.name || 'Nhân viên';
-            const transferMemo = `RUT TIEN ML ${ticket.user?.userCode || ''} ${ticket.id.slice(0, 8)}`;
 
             return (
-              <View key={ticket.id} style={[styles.ticketCard, { borderColor: statusBorder }]}>
-                {/* Employee Profile Top Header */}
+              <View key={ticket.id} style={styles.ticketCard}>
+                {/* Header: User Info & Status */}
                 <View style={styles.ticketTopRow}>
                   <View style={styles.ticketAvatarBox}>
                     {userProfile?.avatarUrl ? (
@@ -414,9 +387,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
                     ) : (
                       <View style={styles.ticketAvatarFallback}>
                         <Text style={styles.ticketAvatarText}>
-                          {(userProfile?.fullName || ticket.user?.userCode || 'NV')
-                            .slice(0, 2)
-                            .toUpperCase()}
+                          {getInitials(userProfile?.fullName, ticket.user?.userCode || 'NV')}
                         </Text>
                       </View>
                     )}
@@ -431,133 +402,52 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
                     </Text>
                   </View>
 
-                  <View style={[styles.ticketStatusChip, { backgroundColor: statusBg, borderColor: statusBorder }]}>
+                  <View style={[styles.ticketStatusChip, { backgroundColor: statusBg }]}>
                     <Text style={[styles.ticketStatusChipText, { color: statusColor }]}>
                       {statusLabel}
                     </Text>
                   </View>
                 </View>
 
-                {/* Amount Banner */}
+                {/* Amount Highlight Banner */}
                 <View style={styles.amountBanner}>
                   <View>
-                    <Text style={styles.amountLabel}>Số tiền rút quy đổi:</Text>
+                    <Text style={styles.amountLabel}>Số tiền quy đổi</Text>
                     <Text style={styles.amountValue}>
-                      {ticket.cashAmount.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
+                      {Number(ticket.cashAmount).toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
                     </Text>
                   </View>
                   <View style={styles.pointsBadge}>
-                    <MaterialCommunityIcons name="star-shooting-outline" size={14} color="#D97706" />
+                    <MaterialCommunityIcons name="star-shooting-outline" size={14} color="#B45309" />
                     <Text style={styles.pointsBadgeText}>
-                      {ticket.pointsWithdrawn.toLocaleString('vi-VN')} điểm
+                      {Number(ticket.pointsWithdrawn).toLocaleString('vi-VN')} điểm
                     </Text>
                   </View>
                 </View>
 
-                {/* Banking or Direct Payout Card */}
-                {ticket.bankAccountNumber && ticket.bankAccountNumber !== 'N/A' ? (
-                  <View style={styles.bankInfoContainer}>
-                    <View style={styles.bankHeaderRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <MaterialCommunityIcons name="bank" size={18} color="#4338CA" />
-                        <Text style={styles.bankHeaderTitle}>Tài khoản nhận tiền</Text>
-                      </View>
-
-                      {/* Quick VietQR Modal Trigger */}
-                      <Pressable
-                        style={styles.vietQrQuickBtn}
-                        onPress={() => openVietQRModal(ticket)}
-                      >
-                        <MaterialCommunityIcons name="qrcode-scan" size={14} color="#0284C7" />
-                        <Text style={styles.vietQrQuickBtnText}>Quét VietQR</Text>
-                      </Pressable>
-                    </View>
-
-                    <View style={styles.bankDetailsGrid}>
-                      <View style={styles.bankDetailRow}>
-                        <Text style={styles.bankFieldLabel}>Ngân hàng:</Text>
-                        <Text style={styles.bankFieldValueBold}>{ticket.bankName}</Text>
-                      </View>
-
-                      <View style={styles.bankDetailRow}>
-                        <Text style={styles.bankFieldLabel}>Số tài khoản:</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={styles.stkHighlight}>{ticket.bankAccountNumber}</Text>
-                          <Pressable
-                            hitSlop={8}
-                            onPress={() => copyToClipboard(ticket.bankAccountNumber, 'Số tài khoản')}
-                            style={styles.copyIconButton}
-                          >
-                            <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
-                          </Pressable>
-                        </View>
-                      </View>
-
-                      <View style={styles.bankDetailRow}>
-                        <Text style={styles.bankFieldLabel}>Chủ tài khoản:</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={styles.bankFieldValueBold}>{ticket.bankAccountName}</Text>
-                          <Pressable
-                            hitSlop={8}
-                            onPress={() => copyToClipboard(ticket.bankAccountName, 'Tên chủ tài khoản')}
-                            style={styles.copyIconButton}
-                          >
-                            <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
-                          </Pressable>
-                        </View>
-                      </View>
-
-                      <View style={styles.bankDetailRow}>
-                        <Text style={styles.bankFieldLabel}>Nội dung CK:</Text>
-                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                          <Text style={styles.memoText} numberOfLines={1}>
-                            {transferMemo}
-                          </Text>
-                          <Pressable
-                            hitSlop={8}
-                            onPress={() => copyToClipboard(transferMemo, 'Nội dung chuyển khoản')}
-                            style={styles.copyIconButton}
-                          >
-                            <MaterialCommunityIcons name="content-copy" size={14} color="#2563EB" />
-                          </Pressable>
-                        </View>
-                      </View>
-
-                      {ticket.note ? (
-                        <View style={styles.bankDetailRow}>
-                          <Text style={styles.bankFieldLabel}>Ghi chú rút:</Text>
-                          <Text style={styles.bankFieldValue}>{ticket.note}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : (
-                  <View style={[styles.bankInfoContainer, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', padding: 12 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <MaterialCommunityIcons name="cash-multiple" size={18} color="#D97706" />
-                      <Text style={[styles.bankHeaderTitle, { color: '#0F172A' }]}>Hình thức: Quy đổi ngoài / Trực tiếp</Text>
-                    </View>
-                    <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
-                      Thanh toán tiền mặt hoặc trao đổi phương thức quy đổi trực tiếp với nhân viên.
+                {/* Note (if any) */}
+                {ticket.note ? (
+                  <View style={styles.noteBox}>
+                    <MaterialCommunityIcons name="comment-text-outline" size={13} color="#64748B" />
+                    <Text style={styles.noteText}>
+                      <Text style={{ fontWeight: '600', color: '#334155' }}>Ghi chú: </Text>
+                      {ticket.note}
                     </Text>
-                    {ticket.note ? (
-                      <View style={[styles.bankDetailRow, { marginTop: 6, borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 6 }]}>
-                        <Text style={styles.bankFieldLabel}>Ghi chú rút:</Text>
-                        <Text style={styles.bankFieldValue}>{ticket.note}</Text>
-                      </View>
-                    ) : null}
                   </View>
-                )}
+                ) : null}
 
-                {/* Audit & Workflow History Timeline */}
+                {/* Timeline Info */}
                 <View style={styles.auditContainer}>
-                  <Text style={styles.auditCreatedText}>
-                    🕒 Thời gian gửi: {new Date(ticket.createdAt).toLocaleString('vi-VN')}
-                  </Text>
+                  <View style={styles.auditStepRow}>
+                    <MaterialCommunityIcons name="clock-outline" size={13} color="#94A3B8" />
+                    <Text style={styles.auditCreatedText}>
+                      Gửi lúc: {new Date(ticket.createdAt).toLocaleString('vi-VN')}
+                    </Text>
+                  </View>
 
                   {ticket.adminApprovedAt && (
                     <View style={styles.auditStepRow}>
-                      <MaterialCommunityIcons name="check-decagram" size={14} color="#059669" />
+                      <MaterialCommunityIcons name="check-circle-outline" size={13} color="#059669" />
                       <Text style={styles.auditStepText}>
                         Admin duyệt: {new Date(ticket.adminApprovedAt).toLocaleString('vi-VN')}
                         {ticket.adminNote ? ` • "${ticket.adminNote}"` : ''}
@@ -567,29 +457,26 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
 
                   {ticket.accountantConfirmedAt && (
                     <View style={styles.auditStepRow}>
-                      <MaterialCommunityIcons name="cash-check" size={14} color="#059669" />
+                      <MaterialCommunityIcons name="cash-check" size={13} color="#059669" />
                       <Text style={styles.auditStepText}>
-                        Kế toán chi:{' '}
-                        {new Date(ticket.accountantConfirmedAt).toLocaleString('vi-VN')}
+                        Kế toán chi: {new Date(ticket.accountantConfirmedAt).toLocaleString('vi-VN')}
                         {ticket.transactionReference ? ` • Mã GD: ${ticket.transactionReference}` : ''}
-                        {ticket.accountantNote ? ` • "${ticket.accountantNote}"` : ''}
                       </Text>
                     </View>
                   )}
 
                   {ticket.rejectedAt && (
                     <View style={styles.auditStepRowReject}>
-                      <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
+                      <MaterialCommunityIcons name="alert-circle-outline" size={13} color="#DC2626" />
                       <Text style={styles.auditStepTextReject}>
                         Đã từ chối lúc {new Date(ticket.rejectedAt).toLocaleString('vi-VN')}
                         {ticket.rejectReason ? `: "${ticket.rejectReason}"` : ''}
-                        <Text style={{ fontWeight: '700' }}> (Đã hoàn lại điểm vào ví)</Text>
                       </Text>
                     </View>
                   )}
                 </View>
 
-                {/* Action Buttons Row */}
+                {/* Action Buttons */}
                 {isPendingAdmin && (
                   <View style={styles.actionBtnsRow}>
                     <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(ticket)}>
@@ -931,111 +818,74 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
   },
 
-  /* Unified Stat & Filter Tab Cards */
+  /* Filter Pills */
   unifiedTabsWrapper: {
     flexDirection: 'row',
-    gap: 10,
-    paddingBottom: 14,
-    alignItems: 'flex-start',
+    gap: 8,
+    paddingBottom: 12,
+    alignItems: 'center',
   },
-  statTabCard: {
-    width: 125,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statTabTopRow: {
+  filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: 6,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  statTabBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
+  filterPillActive: {
+    backgroundColor: '#111827',
   },
-  statTabBadgeText: {
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  filterPillTextActive: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontWeight: '700',
+  },
+  filterPillBadge: {
+    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterPillBadgeActive: {
+    backgroundColor: '#374151',
+  },
+  filterPillBadgeText: {
+    color: '#6B7280',
+    fontSize: 10,
     fontWeight: '800',
   },
-  statTabLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
+  filterPillBadgeTextActive: {
+    color: '#FFFFFF',
   },
-
-  /* Active Card Variants */
-  statTabCardActiveAdmin: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#F59E0B',
-  },
-  statTabLabelActiveAdmin: {
-    color: '#B45309',
-  },
-  statTabCardActiveAcc: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#3B82F6',
-  },
-  statTabLabelActiveAcc: {
-    color: '#1D4ED8',
-  },
-  statTabCardActivePaid: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#10B981',
-  },
-  statTabLabelActivePaid: {
-    color: '#047857',
-  },
-  statTabCardActiveRejected: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#EF4444',
-  },
-  statTabLabelActiveRejected: {
-    color: '#B91C1C',
-  },
-  statTabCardActiveAll: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#475569',
-  },
-  statTabLabelActiveAll: {
-    color: '#0F172A',
-  },
-
-  /* Badge Color Variants */
-  badgeOrange: { backgroundColor: '#D97706' },
-  badgeBlue: { backgroundColor: '#2563EB' },
-  badgeGreen: { backgroundColor: '#059669' },
-  badgeRed: { backgroundColor: '#DC2626' },
-  badgeDark: { backgroundColor: '#334155' },
-  badgeSlate: { backgroundColor: '#94A3B8' },
 
   /* Tickets List */
   ticketList: {
-    gap: 14,
+    gap: 12,
     paddingBottom: 24,
   },
   ticketCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1.5,
+    borderWidth: 1,
+    borderColor: '#ECEEF3',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   ticketTopRow: {
     flexDirection: 'row',
@@ -1044,12 +894,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   ticketAvatarBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F3F4F6',
   },
   ticketAvatar: {
     width: '100%',
@@ -1058,35 +907,33 @@ const styles = StyleSheet.create({
   ticketAvatarFallback: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#EEF2FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   ticketAvatarText: {
-    color: '#475569',
+    color: '#4F46E5',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   ticketEmpName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#111827',
   },
   ticketEmpMeta: {
-    fontSize: 11,
-    color: '#64748B',
+    fontSize: 12,
+    color: '#6B7280',
     marginTop: 2,
   },
   ticketStatusChip: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 12,
   },
   ticketStatusChipText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   /* Amount Banner */
@@ -1094,23 +941,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F9FAFB',
     padding: 12,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#F3F4F6',
   },
   amountLabel: {
     fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 2,
   },
   amountValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#059669',
-    marginTop: 2,
+    color: '#111827',
   },
   currencyUnit: {
     fontSize: 13,
@@ -1125,13 +972,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
   },
   pointsBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#B45309',
+    color: '#92400E',
+  },
+
+  /* Note Box */
+  noteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 10,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#4B5563',
+    lineHeight: 16,
   },
 
   /* Bank Info Box */
@@ -1215,11 +1077,11 @@ const styles = StyleSheet.create({
 
   /* Audit Container */
   auditContainer: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAFAFA',
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     gap: 4,
-    marginBottom: 12,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
@@ -1231,7 +1093,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 2,
   },
   auditStepText: {
     fontSize: 11,
@@ -1242,7 +1103,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 2,
   },
   auditStepTextReject: {
     fontSize: 11,
@@ -1260,9 +1120,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
     borderColor: '#FECACA',
     backgroundColor: '#FEF2F2',
   },
@@ -1278,8 +1138,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#D97706',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   adminApproveBtnText: {
     color: '#FFFFFF',
@@ -1292,9 +1157,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#2563EB',
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: '#059669',
+    paddingVertical: 11,
+    borderRadius: 12,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   accountantPayBtnText: {
     color: '#FFFFFF',

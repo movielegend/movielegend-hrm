@@ -14,12 +14,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../providers/AuthProvider';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import {
   useLevelProjects,
   BulletSubTask,
   LevelDepartmentProject,
+  LevelProjectPermissionRequest,
 } from '../leveling/levelProjectsStore';
 
 export const LeaderAssignLevelProjectScreen: React.FC = () => {
@@ -37,6 +39,8 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     approveSubTask,
     rejectSubTask,
     submitProjectToAdmin,
+    reviewProjectAccess,
+    getPendingAccessRequests,
   } = useLevelProjects(leaderDeptId, leaderDeptName);
 
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number>(1);
@@ -143,6 +147,39 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     Alert.alert('Đã gửi phản hồi', 'Đã chuyển trạng thái việc con về Đang làm để nhân sự cập nhật lại báo cáo.');
   };
 
+  // Handle approving access request for next level project
+  const handleApproveAccessRequest = async (reqId: string, empName: string, lvlName: string) => {
+    await reviewProjectAccess(reqId, 'APPROVED', undefined, currentLeaderName);
+    Alert.alert(
+      'Đã Phê Duyệt',
+      `Đã cho phép nhân sự ${empName} thực hiện dự án ${lvlName}. Nhân sự hiện đã có thể nhận việc con và nộp báo cáo!`
+    );
+  };
+
+  // Handle rejecting access request
+  const handleRejectAccessRequest = async (reqId: string, empName: string, lvlName: string) => {
+    Alert.alert(
+      'Từ Chối Yêu Cầu',
+      `Bạn có chắc chắn muốn từ chối yêu cầu xin làm dự án ${lvlName} của ${empName}?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Từ Chối',
+          style: 'destructive',
+          onPress: async () => {
+            await reviewProjectAccess(
+              reqId,
+              'REJECTED',
+              'Trưởng nhóm chưa phê duyệt làm dự án vượt cấp tại thời điểm này.',
+              currentLeaderName
+            );
+            Alert.alert('Đã Từ Chối', `Đã từ chối yêu cầu của ${empName}.`);
+          },
+        },
+      ]
+    );
+  };
+
   // Handle submitting project to Admin
   const handleSubmitProjectToAdmin = () => {
     if (!adminReportText.trim()) {
@@ -208,7 +245,9 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelSelectorScroll}>
           {projects.map((proj) => {
             const isSelected = proj.levelNumber === selectedLevelNumber;
-            const projPendingCount = proj.subTasks.filter((t) => t.status === 'SUBMITTED').length;
+            const projPendingSubTasks = proj.subTasks.filter((t) => t.status === 'SUBMITTED').length;
+            const projPendingRequests = getPendingAccessRequests(leaderDeptId, proj.levelNumber).length;
+            const projTotalBadge = projPendingSubTasks + projPendingRequests;
 
             return (
               <TouchableOpacity
@@ -223,10 +262,10 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                 <Text style={[styles.levelText, isSelected && styles.levelTextActive]}>
                   {proj.levelName}
                 </Text>
-                {projPendingCount > 0 && (
+                {projTotalBadge > 0 && (
                   <View style={[styles.levelBadge, isSelected && styles.levelBadgeActive]}>
                     <Text style={[styles.levelBadgeText, isSelected && styles.levelBadgeTextActive]}>
-                      {projPendingCount}
+                      {projTotalBadge}
                     </Text>
                   </View>
                 )}
@@ -237,6 +276,59 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Permission Requests Section (Xin làm dự án vượt cấp) */}
+        {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length > 0 && (
+          <View style={styles.accessRequestSection}>
+            <View style={styles.accessRequestHeaderRow}>
+              <View style={styles.accessRequestIconBox}>
+                <Ionicons name="hand-right" size={16} color="#D97706" />
+              </View>
+              <Text style={styles.accessRequestHeaderTitle}>
+                Yêu cầu xin làm dự án ({getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length})
+              </Text>
+            </View>
+
+            {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).map((req) => (
+              <View key={req.id} style={styles.accessRequestCard}>
+                <View style={styles.accessRequestCardTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.accessRequestUserName}>{req.userName}</Text>
+                    <Text style={styles.accessRequestUserMeta}>
+                      Đang ở Level {req.userCurrentLevel} • Xin làm {req.levelName}
+                    </Text>
+                  </View>
+                  <Text style={styles.accessRequestTimeText}>{req.requestedAt}</Text>
+                </View>
+
+                {Boolean(req.reason) && (
+                  <View style={styles.accessRequestReasonBox}>
+                    <Text style={styles.accessRequestReasonLabel}>Lý do:</Text>
+                    <Text style={styles.accessRequestReasonText}>"{req.reason}"</Text>
+                  </View>
+                )}
+
+                <View style={styles.accessRequestActionsRow}>
+                  <TouchableOpacity
+                    style={styles.accessRequestRejectBtn}
+                    onPress={() => handleRejectAccessRequest(req.id, req.userName, req.levelName)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.accessRequestRejectBtnText}>Từ chối</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.accessRequestApproveBtn}
+                    onPress={() => handleApproveAccessRequest(req.id, req.userName, req.levelName)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.accessRequestApproveBtnText}>Phê duyệt cho làm</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Project Summary & Progress */}
         <View style={styles.projectSummary}>
           <Text style={styles.projectName}>{currentProject.projectName}</Text>
@@ -1485,5 +1577,111 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#0F766E',
     fontWeight: 'bold',
+  },
+
+  /* Access Requests Section Styles */
+  accessRequestSection: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 16,
+  },
+  accessRequestHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  accessRequestIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accessRequestHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  accessRequestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 8,
+  },
+  accessRequestCardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  accessRequestUserName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  accessRequestUserMeta: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  accessRequestTimeText: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+  },
+  accessRequestReasonBox: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+  },
+  accessRequestReasonLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 1,
+  },
+  accessRequestReasonText: {
+    fontSize: 12,
+    color: '#78350F',
+    fontStyle: 'italic',
+  },
+  accessRequestActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 10,
+  },
+  accessRequestRejectBtn: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  accessRequestRejectBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  accessRequestApproveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F766E',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  accessRequestApproveBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

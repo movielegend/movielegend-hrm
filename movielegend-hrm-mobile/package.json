@@ -63,6 +63,7 @@
     "react-native-webview": "13.16.1",
     "scheduler": "^0.27.0",
     "socket.io-client": "^4.8.3",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {

@@ -179,14 +179,14 @@ export function EmployeeDashboardScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Điểm Thưởng</Text>
+                  <Text style={styles.vaultBannerTitle}>Ví Thưởng Tết</Text>
                   <View style={styles.vipBadge}>
-                    <Text style={styles.vipBadgeText}>VIP</Text>
+                    <Text style={styles.vipBadgeText}>TẾT</Text>
                   </View>
                 </View>
                 <Text style={styles.vaultBannerPoints}>
                   Khả dụng: <Text style={styles.vaultBannerPointsBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                  {totalGrantedPoints > 0 ? ` • Quỹ cam kết: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                  {totalGrantedPoints > 0 ? ` • Quỹ tích lũy: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
                 </Text>
               </View>
             </View>
@@ -198,7 +198,7 @@ export function EmployeeDashboardScreen() {
         )}
 
         {/* Tiện ích (Grid) */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.utilitySection]}>
           <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.gridContainer}>
             <GridItem
@@ -214,8 +214,8 @@ export function EmployeeDashboardScreen() {
 
             <GridItem
               icon="gift-outline"
-              title="Ví Điểm Thưởng"
-              badge={isVaultEnabled ? 'VIP' : undefined}
+              title="Ví Thưởng Tết"
+              badge={isVaultEnabled ? 'TẾT' : undefined}
               badgeColor="#D97706"
               onPress={() => router.push('/employee/vault' as any)}
             />
@@ -481,10 +481,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  utilitySection: {
+    marginBottom: -6,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
     marginBottom: spacing.md,

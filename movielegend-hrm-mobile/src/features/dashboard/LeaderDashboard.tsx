@@ -81,6 +81,16 @@ export function LeaderDashboard() {
   const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
   const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
   const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
+
+  const userDeptName = (user?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
+  const isAccountantLeader = userDeptName.includes('kế toán') || userDeptName.includes('tài chính') || user?.role?.code === 'ACCOUNTANT';
+
+  const { data: accountantWithdrawals } = useQuery({
+    queryKey: ['vault-withdrawals-accountant-badge'],
+    queryFn: () => getVaultWithdrawalRequests({ status: 'PENDING_ACCOUNTANT', limit: 1 }),
+    enabled: isAccountantLeader,
+  });
+  const pendingAccCount = accountantWithdrawals?.counts?.PENDING_ACCOUNTANT || 0;
   
   const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0, checkedInCount: 0 };
   const checkedInCount = deptStats.checkedInCount || 0;
@@ -207,14 +217,14 @@ export function LeaderDashboard() {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Điểm Thưởng</Text>
+                  <Text style={styles.vaultBannerTitle}>Ví Thưởng Tết</Text>
                   <View style={styles.vipBadge}>
-                    <Text style={styles.vipBadgeText}>VIP</Text>
+                    <Text style={styles.vipBadgeText}>TẾT</Text>
                   </View>
                 </View>
                 <Text style={styles.vaultBannerPoints}>
                   Khả dụng: <Text style={styles.vaultBannerPointsBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                  {totalGrantedPoints > 0 ? ` • Quỹ cam kết: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                  {totalGrantedPoints > 0 ? ` • Quỹ tích lũy: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
                 </Text>
               </View>
             </View>
@@ -225,21 +235,31 @@ export function LeaderDashboard() {
           </Pressable>
         )}
 
-        {/* Thao tác nhanh (Quick Actions - Leader Features) */}
-        <View style={styles.section}>
+        {/* Tiện ích (Leader Features) */}
+        <View style={[styles.section, styles.utilitySection]}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
             <GridItem icon="star-circle-outline" title="Cấp của bạn" color="#F59E0B" onPress={() => router.push('/leader/leveling' as any)} />
             <GridItem icon="briefcase-outline" title="Dự án" color="#3B82F6" onPress={() => router.push('/leader/level-projects' as any)} />
             <GridItem
               icon="gift-outline"
-              title="Ví Điểm Thưởng"
+              title="Ví Thưởng Tết"
               color="#059669"
-              badge={isVaultEnabled ? 'VIP' : undefined}
+              badge={isVaultEnabled ? 'TẾT' : undefined}
               badgeColor="#D97706"
               onPress={() => router.push('/leader/vault' as any)}
             />
-            <GridItem icon="clipboard-check-outline" title="Duyệt Vòng 1" color="#8B5CF6" onPress={() => router.push('/employee/competition/review' as any)} />
+            {isAccountantLeader && (
+              <GridItem
+                icon="cash-check"
+                title="Chi trả Tết"
+                color="#059669"
+                badge={pendingAccCount > 0 ? `${pendingAccCount}` : undefined}
+                badgeColor="#EF4444"
+                onPress={() => router.push('/leader/disbursement' as any)}
+              />
+            )}
+            <GridItem icon="clipboard-check-outline" title="Duyệt level" color="#8B5CF6" onPress={() => router.push('/employee/competition/review' as any)} />
             <GridItem icon="file-document-multiple" title="Duyệt đơn" color="#EA580C" onPress={() => router.push('/leader/(tabs)/approvals' as any)} />
             <GridItem icon="calendar-clock" title="Lịch sử công" color="#6366F1" onPress={() => router.push('/leader/attendance-history' as any)} />
             <GridItem icon="swap-horizontal" title="Chấm công" color="#2563EB" onPress={() => router.push('/leader/attendance' as any)} />
@@ -252,7 +272,7 @@ export function LeaderDashboard() {
         </View>
 
         {/* Tổng quan nhóm hôm nay (Team Stats) */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.statsSection]}>
           <Text style={styles.sectionTitle}>Thống kê nhóm hôm nay</Text>
           <View style={styles.statsRow}>
             <StatCard title="Tổng NV" value={deptStats.activeEmployeeCount} color="#111827" />
@@ -572,22 +592,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  utilitySection: {
+    marginBottom: -6,
+  },
+  statsSection: {
+    marginTop: 0,
+    marginBottom: spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
     marginBottom: spacing.md,
   },
   seeAllText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
     fontWeight: '500',
     marginBottom: spacing.md,
@@ -811,23 +838,6 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: 12,
     color: '#6B7280',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: spacing.xxl,
-    right: spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#111827',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 999,
   },
   vaultBanner: {
     flexDirection: 'row',

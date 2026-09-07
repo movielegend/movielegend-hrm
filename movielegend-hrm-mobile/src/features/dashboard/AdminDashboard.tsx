@@ -9,6 +9,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
+import { getVaultWithdrawalRequests } from '../../api/employees.api';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -50,6 +51,13 @@ export function AdminDashboard() {
 
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
+
+  const { data: withdrawalData } = useQuery({
+    queryKey: ['admin-pending-withdrawals-count'],
+    queryFn: () => getVaultWithdrawalRequests({ limit: 1 }),
+    staleTime: 1000 * 30,
+  });
+  const pendingAdminCount = withdrawalData?.meta?.pendingAdminCount || 0;
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -145,7 +153,7 @@ export function AdminDashboard() {
         </Pressable>
 
         {/* Tiện ích (Leader-style layout with vibrant colors) */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.utilitySection]}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
             <GridItem
@@ -162,10 +170,10 @@ export function AdminDashboard() {
             />
             <GridItem
               icon="gift-outline"
-              title="Ví Điểm Thưởng"
+              title="Ví Thưởng Tết"
               color="#059669"
-              badge="VIP"
-              badgeColor="#D97706"
+              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'TẾT'}
+              badgeColor={pendingAdminCount > 0 ? '#EF4444' : '#D97706'}
               onPress={() => router.push('/admin/tet-wallet' as any)}
             />
             <GridItem
@@ -208,16 +216,18 @@ export function AdminDashboard() {
         </View>
 
         {/* Tổng quan hôm nay */}
-        <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Tổng quan hôm nay</Text>
-        <View style={styles.summaryGrid}>
-          <SummaryCard
-            label="Chấm công"
-            value={attStats?.totalUsers && attStats.totalUsers > 0 ? `${Math.round(((attStats?.present || 0) / attStats.totalUsers) * 100)}%` : '0%'}
-          />
-          <SummaryCard
-            label="Công việc"
-            value={dashboardData?.tasks?.totalActive?.toString() || '0'}
-          />
+        <View style={styles.statsSection}>
+          <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Tổng quan hôm nay</Text>
+          <View style={styles.summaryGrid}>
+            <SummaryCard
+              label="Chấm công"
+              value={attStats?.totalUsers && attStats.totalUsers > 0 ? `${Math.round(((attStats?.present || 0) / attStats.totalUsers) * 100)}%` : '0%'}
+            />
+            <SummaryCard
+              label="Công việc"
+              value={dashboardData?.tasks?.totalActive?.toString() || '0'}
+            />
+          </View>
         </View>
 
         {/* Góp ý mới nhất */}
@@ -453,13 +463,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  utilitySection: {
+    marginBottom: -8,
+  },
+  statsSection: {
+    marginTop: 0,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   gridContainer: {
     flexDirection: 'row',
@@ -470,16 +493,16 @@ const styles = StyleSheet.create({
     width: GRID_ITEM_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 8,
+    padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#F3F4F6',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
     aspectRatio: 1,
   },
   gridIconContainer: {
@@ -520,7 +543,7 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 0,
   },
   summaryCard: {
     width: '48%',

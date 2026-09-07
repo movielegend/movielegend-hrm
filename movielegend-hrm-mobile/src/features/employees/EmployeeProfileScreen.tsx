@@ -85,12 +85,13 @@ export function EmployeeProfileScreen() {
           </View>
         </View>
 
-        {/* Tính năng Nhân sự */}
+        {/* Tiện ích cá nhân */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tính năng</Text>
+          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.infoCard}>
+            <ActionRow icon="calendar-clock" title="Bảng công" onPress={() => router.push('/employee/timesheet' as any)} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/employee/payslip' as any)} />
             <ActionRow icon="text-box-check-outline" title="Hợp đồng lao động" onPress={() => router.push('/employee/contracts' as any)} />
-            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => showAlert('Thông báo', 'Chức năng đang được phát triển')} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/employee/assets' as any)} />
             <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} />
             <ActionRow icon="message-text-outline" title="Nhóm chat" onPress={() => router.push('/employee/chat' as any)} />

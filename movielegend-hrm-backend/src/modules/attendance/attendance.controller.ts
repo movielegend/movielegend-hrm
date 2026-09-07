@@ -12,8 +12,11 @@ import {
   CreateAttendanceAdjustmentDto,
   CreateAttendanceLocationDto,
   CreateWifiConfigDto,
+  ImportTimesheetDto,
+  TimesheetQueryDto,
   TrackLocationDto,
   UpdateAttendanceLocationDto,
+  UploadTimesheetImageDto,
 } from './dto/attendance.dto';
 
 import { Public } from '../../common/decorators/public.decorator';
@@ -70,6 +73,30 @@ export class AttendanceController {
   @Get('my')
   myHistory(@CurrentUser() actor: AuthenticatedUser, @Query() query: AttendanceQueryDto) {
     return this.attendanceService.myHistory(actor, query);
+  }
+
+  @AnyPermissions('attendance.checkin', 'attendance.read')
+  @Get('timesheet/my')
+  getMyMonthlyTimesheet(@CurrentUser() actor: AuthenticatedUser, @Query() query: TimesheetQueryDto) {
+    return this.attendanceService.getMyMonthlyTimesheet(actor, query);
+  }
+
+  @AnyPermissions('attendance.read', 'attendance.manage', 'attendance.report')
+  @Get('timesheet/company')
+  getCompanyMonthlyTimesheet(@CurrentUser() actor: AuthenticatedUser, @Query() query: TimesheetQueryDto) {
+    return this.attendanceService.getCompanyMonthlyTimesheet(actor, query);
+  }
+
+  @AnyPermissions('attendance.manage', 'attendance.adjust')
+  @Post('timesheet/import')
+  importTimesheet(@Body() dto: ImportTimesheetDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.attendanceService.importMonthlyTimesheet(actor, dto);
+  }
+
+  @AnyPermissions('attendance.manage', 'attendance.adjust')
+  @Post('timesheet/upload-image')
+  uploadTimesheetImage(@Body() dto: UploadTimesheetImageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.attendanceService.uploadOfficialImage(actor, dto);
   }
 
   @AnyPermissions('attendance.checkin', 'attendance.read')

@@ -1,11 +1,17 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { RetentionVaultWidget } from '../../../src/features/vault/RetentionVaultWidget';
+import { PageHeader } from '../../../src/components/PageHeader';
 
 export default function LeaderVaultRoute() {
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <PageHeader
+          title="Ví Thưởng Tết Cuối Năm"
+          subtitle="Quỹ thưởng giữ chân & tích lũy năm tài chính"
+          showBack={false}
+        />
         <RetentionVaultWidget isVaultEnabled={true} />
       </ScrollView>
     </SafeAreaView>

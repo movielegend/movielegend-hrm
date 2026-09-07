@@ -20,7 +20,7 @@ import {
   Dimensions,
   BackHandler,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
@@ -34,17 +34,22 @@ import { spacing } from '../../theme/spacing';
 import type { Department } from '../../types/department.types';
 import type { EmployeeUser } from '../../types/employee.types';
 import { useQueryClient } from '@tanstack/react-query';
-import { updateEmployee as apiUpdateEmployee } from '../../api/employees.api';
+import { updateEmployee as apiUpdateEmployee, getVaultWithdrawalRequests } from '../../api/employees.api';
 import { AdminGrantPointsScreen, type GrantTarget } from './AdminGrantPointsScreen';
+import { WithdrawalRequestsManager } from './WithdrawalRequestsManager';
+import { useQuery } from '@tanstack/react-query';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+type MainTab = 'MEMBERS' | 'WITHDRAWALS';
 type ViewMode = 'BY_DEPARTMENT' | 'ALL_EMPLOYEES';
 type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
 
 export function AdminTetWalletScreen() {
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [mainTab, setMainTab] = useState<MainTab>(params.tab === 'WITHDRAWALS' ? 'WITHDRAWALS' : 'MEMBERS');
   const [viewMode, setViewMode] = useState<ViewMode>('BY_DEPARTMENT');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
   const [search, setSearch] = useState('');
@@ -54,6 +59,12 @@ export function AdminTetWalletScreen() {
 
   // Grant Target State
   const [grantTarget, setGrantTarget] = useState<GrantTarget | null>(null);
+
+  useEffect(() => {
+    if (params.tab === 'WITHDRAWALS') {
+      setMainTab('WITHDRAWALS');
+    }
+  }, [params.tab]);
 
   const router = useRouter();
   const screenWidth = Dimensions.get('window').width;
@@ -99,13 +110,18 @@ export function AdminTetWalletScreen() {
   const queryClient = useQueryClient();
   const departmentsQuery = useDepartments({ limit: 100 });
   const employeesQuery = useEmployees({ limit: 500 });
+  const withdrawalsQuery = useQuery({
+    queryKey: ['vault-withdrawals-admin-badge'],
+    queryFn: () => getVaultWithdrawalRequests({ status: 'PENDING_ADMIN', limit: 1 }),
+  });
+  const pendingAdminCount = withdrawalsQuery.data?.counts?.PENDING_ADMIN || 0;
 
-  const isRefetching = departmentsQuery.isRefetching || employeesQuery.isRefetching;
+  const isRefetching = departmentsQuery.isRefetching || employeesQuery.isRefetching || withdrawalsQuery.isRefetching;
   const isLoading = departmentsQuery.isLoading || employeesQuery.isLoading;
 
   const onRefresh = useCallback(async () => {
-    await Promise.all([departmentsQuery.refetch(), employeesQuery.refetch()]);
-  }, [departmentsQuery, employeesQuery]);
+    await Promise.all([departmentsQuery.refetch(), employeesQuery.refetch(), withdrawalsQuery.refetch()]);
+  }, [departmentsQuery, employeesQuery, withdrawalsQuery]);
 
   const departments: Department[] = departmentsQuery.data?.items || [];
   const employees: EmployeeUser[] = employeesQuery.data?.items || [];
@@ -304,8 +320,8 @@ export function AdminTetWalletScreen() {
         >
           {/* Header */}
           <PageHeader
-            title="Ví Điểm Thưởng"
-            subtitle="Quản lý hạn mức, thưởng dự án & trao điểm nhân sự"
+            title="Ví Thưởng Tết Cuối Năm"
+            subtitle="Quản lý ngân sách, cấp điểm & tất toán thưởng Tết"
             showBack={false}
             right={
               <View style={styles.headerIconBox}>
@@ -314,36 +330,76 @@ export function AdminTetWalletScreen() {
             }
           />
 
-        {/* Live Statistics Cards */}
-        <View style={styles.statsCardWrapper}>
-          <View style={styles.statBox}>
-            <View style={[styles.statIconBadge, { backgroundColor: '#EEF2FF' }]}>
-              <MaterialCommunityIcons name="account-group" size={18} color="#4F46E5" />
-            </View>
-            <Text style={styles.statValue}>{totalEmployees}</Text>
-            <Text style={styles.statLabel}>Tổng nhân sự</Text>
+          {/* Main Top Tab Switcher */}
+          <View style={styles.topMainTabWrapper}>
+            <Pressable
+              style={[styles.topMainTabBtn, mainTab === 'MEMBERS' && styles.topMainTabBtnActive]}
+              onPress={() => setMainTab('MEMBERS')}
+            >
+              <MaterialCommunityIcons
+                name="account-multiple-outline"
+                size={18}
+                color={mainTab === 'MEMBERS' ? '#111827' : '#6B7280'}
+              />
+              <Text style={[styles.topMainTabText, mainTab === 'MEMBERS' && styles.topMainTabTextActive]}>
+                Cấp điểm & Quyền ví
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.topMainTabBtn, mainTab === 'WITHDRAWALS' && styles.topMainTabBtnActive]}
+              onPress={() => setMainTab('WITHDRAWALS')}
+            >
+              <MaterialCommunityIcons
+                name="cash-check"
+                size={18}
+                color={mainTab === 'WITHDRAWALS' ? '#111827' : '#6B7280'}
+              />
+              <Text style={[styles.topMainTabText, mainTab === 'WITHDRAWALS' && styles.topMainTabTextActive]}>
+                Duyệt chi trả
+              </Text>
+              {pendingAdminCount > 0 && (
+                <View style={styles.topMainTabBadge}>
+                  <Text style={styles.topMainTabBadgeText}>{pendingAdminCount}</Text>
+                </View>
+              )}
+            </Pressable>
           </View>
 
-          <View style={styles.statBox}>
-            <View style={[styles.statIconBadge, { backgroundColor: '#ECFDF5' }]}>
-              <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
-            </View>
-            <Text style={[styles.statValue, { color: '#059669' }]}>{enabledCount}</Text>
-            <Text style={styles.statLabel}>Đã cấp quyền</Text>
-          </View>
+        {mainTab === 'WITHDRAWALS' ? (
+          <WithdrawalRequestsManager />
+        ) : (
+          <>
+            {/* Live Statistics Cards */}
+            <View style={styles.statsCardWrapper}>
+              <View style={styles.statBox}>
+                <View style={[styles.statIconBadge, { backgroundColor: '#EEF2FF' }]}>
+                  <MaterialCommunityIcons name="account-group" size={18} color="#4F46E5" />
+                </View>
+                <Text style={styles.statValue}>{totalEmployees}</Text>
+                <Text style={styles.statLabel}>Tổng nhân sự</Text>
+              </View>
 
-          <View style={styles.statBox}>
-            <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
-              <MaterialCommunityIcons name="star-shooting" size={18} color="#D97706" />
+              <View style={styles.statBox}>
+                <View style={[styles.statIconBadge, { backgroundColor: '#ECFDF5' }]}>
+                  <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
+                </View>
+                <Text style={[styles.statValue, { color: '#059669' }]}>{enabledCount}</Text>
+                <Text style={styles.statLabel}>Đã cấp quyền</Text>
+              </View>
+
+              <View style={styles.statBox}>
+                <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialCommunityIcons name="star-shooting" size={18} color="#D97706" />
+                </View>
+                <Text style={[styles.statValue, { color: '#D97706' }]} numberOfLines={1}>
+                  {totalPointsGranted >= 1000000
+                    ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
+                    : totalPointsGranted.toLocaleString('vi-VN')}
+                </Text>
+                <Text style={styles.statLabel}>Tổng điểm trao</Text>
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: '#D97706' }]} numberOfLines={1}>
-              {totalPointsGranted >= 1000000
-                ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
-                : totalPointsGranted.toLocaleString('vi-VN')}
-            </Text>
-            <Text style={styles.statLabel}>Tổng điểm trao</Text>
-          </View>
-        </View>
 
         {/* View Mode Selector Tabs */}
         <View style={styles.segmentedWrapper}>
@@ -501,7 +557,7 @@ export function AdminTetWalletScreen() {
                             onPress={() => openGrantForDepartment(dept)}
                           >
                             <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
-                            <Text style={[styles.deptActionToolText, { color: '#D97706' }]}>Trao điểm cả phòng</Text>
+                            <Text style={[styles.deptActionToolText, { color: '#D97706' }]}>Trao điểm Tết cả phòng</Text>
                           </Pressable>
 
                           <View style={styles.deptActionDivider} />
@@ -631,6 +687,8 @@ export function AdminTetWalletScreen() {
             )}
           </View>
         )}
+        </>
+      )}
       </ScrollView>
 
       {/* Employee Detail & Permission Modal */}
@@ -650,7 +708,7 @@ export function AdminTetWalletScreen() {
                     <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
                   </View>
                   <View>
-                    <Text style={styles.modalTitle}>Chi tiết Ví Điểm Thưởng</Text>
+                    <Text style={styles.modalTitle}>Chi tiết Ví Thưởng Tết</Text>
                     <Text style={styles.modalSubtitle}>{selectedEmployee.userCode}</Text>
                   </View>
                 </View>
@@ -685,7 +743,7 @@ export function AdminTetWalletScreen() {
               <View style={styles.vaultPointSummaryCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View>
-                    <Text style={styles.vaultPointSummaryLabel}>Tổng điểm Ví thưởng năm {new Date().getFullYear()}:</Text>
+                    <Text style={styles.vaultPointSummaryLabel}>Tổng điểm Ví Thưởng Tết năm {new Date().getFullYear()}:</Text>
                     <Text style={styles.vaultPointSummaryValue}>
                       {(
                         (selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0) +
@@ -720,11 +778,11 @@ export function AdminTetWalletScreen() {
               {/* Vault Permission Switch Card */}
               <View style={styles.modalPermissionBox}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={styles.modalPermTitle}>Đặc quyền Ví Điểm Thưởng</Text>
+                  <Text style={styles.modalPermTitle}>Đặc quyền Ví Thưởng Tết</Text>
                   <Text style={styles.modalPermDesc}>
                     {selectedEmployee.isRewardVaultEnabled
-                      ? 'Nhân viên này đang ĐƯỢC PHÉP truy cập và nhận điểm từ Ví Điểm Thưởng.'
-                      : 'Nhân sự này CHƯA ĐƯỢC CẤP quyền sử dụng Ví Điểm Thưởng.'}
+                      ? 'Nhân viên này đang ĐƯỢC PHÉP tham gia tích lũy Ví Thưởng Tết.'
+                      : 'Nhân sự này CHƯA ĐƯỢC CẤP quyền sử dụng Ví Thưởng Tết.'}
                   </Text>
                 </View>
                 {togglingEmpId === selectedEmployee.id ? (
@@ -893,7 +951,7 @@ function EmployeeRowItem({
           }}
         >
           <MaterialCommunityIcons name="gift-outline" size={14} color="#B45309" />
-          <Text style={styles.rowGrantBtnText}>Trao điểm</Text>
+          <Text style={styles.rowGrantBtnText}>Trao điểm Tết</Text>
         </Pressable>
 
         {/* Permission Switch & Status */}
@@ -932,11 +990,10 @@ function EmployeeRowItem({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 60,
     backgroundColor: '#F8FAFC',
-    minHeight: '100%',
   },
   headerIconBox: {
     width: 40,
@@ -984,6 +1041,51 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
     textAlign: 'center',
+  },
+  topMainTabWrapper: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 12,
+    gap: 4,
+  },
+  topMainTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  topMainTabBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  topMainTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  topMainTabTextActive: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+  topMainTabBadge: {
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  topMainTabBadgeText: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   segmentedWrapper: {
     flexDirection: 'row',

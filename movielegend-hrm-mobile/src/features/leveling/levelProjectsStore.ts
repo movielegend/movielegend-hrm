@@ -31,12 +31,42 @@ export interface LevelDepartmentProject {
   adminNote: string;
   rewardItem: string;
   status: ProjectAcceptanceStatus;
+  isConfigured?: boolean;
   leaderReportNote?: string;
   leaderReportUrl?: string;
   subTasks: BulletSubTask[];
 }
 
+export interface LevelProjectPermissionRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userCode?: string;
+  departmentId?: string;
+  departmentName?: string;
+  levelNumber: number;
+  levelName: string;
+  projectName: string;
+  userCurrentLevel: number;
+  reason?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  leaderFeedback?: string;
+}
+
+export const isProjectConfigured = (project?: LevelDepartmentProject | null): boolean => {
+  if (!project) return false;
+  if (project.isConfigured !== undefined) return project.isConfigured;
+  const hasTasks = Array.isArray(project.subTasks) && project.subTasks.length > 0;
+  const hasReward = Boolean(project.rewardItem && project.rewardItem.trim().length > 0);
+  const hasAdminNote = Boolean(project.adminNote && project.adminNote.trim().length > 0);
+  return hasTasks || hasReward || hasAdminNote;
+};
+
 const STORAGE_KEY = 'ML_LEVEL_DEPARTMENT_PROJECTS_V6';
+const REQUESTS_STORAGE_KEY = 'ML_PROJECT_ACCESS_REQUESTS_V2';
 
 // Clean Level projects initial template
 const INITIAL_PROJECTS: LevelDepartmentProject[] = Array.from({ length: 5 }, (_, i) => ({
@@ -55,6 +85,7 @@ const INITIAL_PROJECTS: LevelDepartmentProject[] = Array.from({ length: 5 }, (_,
 // Singleton Store with In-Memory State & PubSub
 class LevelProjectsStore {
   private projects: LevelDepartmentProject[] = INITIAL_PROJECTS;
+  private accessRequests: LevelProjectPermissionRequest[] = [];
   private listeners: Set<() => void> = new Set();
   private initialized = false;
   private currentDepartmentId?: string;
@@ -74,6 +105,15 @@ class LevelProjectsStore {
       }
     } catch {
       this.projects = INITIAL_PROJECTS;
+    }
+
+    try {
+      const storedReqs = await SecureStore.getItemAsync(REQUESTS_STORAGE_KEY);
+      if (storedReqs) {
+        this.accessRequests = JSON.parse(storedReqs);
+      }
+    } catch {
+      this.accessRequests = [];
     } finally {
       this.initialized = true;
       this.notify();
@@ -348,6 +388,108 @@ class LevelProjectsStore {
     });
     return results;
   }
+
+  private async saveRequests() {
+    try {
+      await SecureStore.setItemAsync(REQUESTS_STORAGE_KEY, JSON.stringify(this.accessRequests));
+    } catch {
+      // fallback in-memory
+    }
+    this.notify();
+  }
+
+  public getAccessRequests(): LevelProjectPermissionRequest[] {
+    return this.accessRequests;
+  }
+
+  public getAccessRequest(levelNumber: number, userId: string): LevelProjectPermissionRequest | undefined {
+    const normId = userId.trim().toLowerCase();
+    return this.accessRequests.find(
+      (r) =>
+        r.levelNumber === levelNumber &&
+        (r.userId.toLowerCase() === normId || r.userName.toLowerCase() === normId)
+    );
+  }
+
+  public hasProjectAccess(levelNumber: number, userId?: string, currentUserLevelNumber = 1): boolean {
+    if (levelNumber <= currentUserLevelNumber) return true;
+    if (!userId) return false;
+    const req = this.getAccessRequest(levelNumber, userId);
+    return req?.status === 'APPROVED';
+  }
+
+  public async requestProjectAccess(params: {
+    userId: string;
+    userName: string;
+    userCode?: string;
+    departmentId?: string;
+    departmentName?: string;
+    levelNumber: number;
+    levelName?: string;
+    projectName?: string;
+    userCurrentLevel?: number;
+    reason?: string;
+  }): Promise<LevelProjectPermissionRequest> {
+    const normUserId = params.userId.trim().toLowerCase();
+    const existingIdx = this.accessRequests.findIndex(
+      (r) =>
+        r.levelNumber === params.levelNumber &&
+        (r.userId.toLowerCase() === normUserId || r.userName.toLowerCase() === normUserId)
+    );
+
+    const existing = existingIdx >= 0 ? this.accessRequests[existingIdx] : undefined;
+    const newReq: LevelProjectPermissionRequest = {
+      id: existing?.id || `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      userId: params.userId,
+      userName: params.userName,
+      userCode: params.userCode,
+      departmentId: params.departmentId || this.currentDepartmentId,
+      departmentName: params.departmentName || this.currentDepartmentName,
+      levelNumber: params.levelNumber,
+      levelName: params.levelName || `Level ${params.levelNumber}`,
+      projectName: params.projectName || `Dự Án Level ${params.levelNumber}`,
+      userCurrentLevel: params.userCurrentLevel || 1,
+      reason: params.reason || '',
+      status: 'PENDING',
+      requestedAt: new Date().toLocaleString('vi-VN'),
+    };
+
+    if (existingIdx >= 0) {
+      this.accessRequests[existingIdx] = newReq;
+    } else {
+      this.accessRequests.unshift(newReq);
+    }
+    await this.saveRequests();
+    return newReq;
+  }
+
+  public async reviewProjectAccess(
+    requestId: string,
+    status: 'APPROVED' | 'REJECTED',
+    leaderFeedback?: string,
+    reviewedBy?: string
+  ): Promise<void> {
+    this.accessRequests = this.accessRequests.map((r) => {
+      if (r.id !== requestId) return r;
+      return {
+        ...r,
+        status,
+        leaderFeedback,
+        reviewedBy,
+        reviewedAt: new Date().toLocaleString('vi-VN'),
+      };
+    });
+    await this.saveRequests();
+  }
+
+  public getPendingAccessRequests(departmentId?: string, levelNumber?: number): LevelProjectPermissionRequest[] {
+    return this.accessRequests.filter((r) => {
+      if (r.status !== 'PENDING') return false;
+      if (departmentId && r.departmentId && r.departmentId !== departmentId) return false;
+      if (levelNumber && r.levelNumber !== levelNumber) return false;
+      return true;
+    });
+  }
 }
 
 export const levelProjectsStore = new LevelProjectsStore();
@@ -365,7 +507,17 @@ export function useLevelProjects(departmentId?: string, departmentName?: string)
 
   return {
     projects: levelProjectsStore.getProjects(),
+    accessRequests: levelProjectsStore.getAccessRequests(),
     getProjectByLevel: (lvl: number) => levelProjectsStore.getProjectByLevel(lvl),
+    getAccessRequest: (lvl: number, uId: string) => levelProjectsStore.getAccessRequest(lvl, uId),
+    hasProjectAccess: (lvl: number, uId?: string, curLvl?: number) =>
+      levelProjectsStore.hasProjectAccess(lvl, uId, curLvl),
+    requestProjectAccess: (params: Parameters<typeof levelProjectsStore.requestProjectAccess>[0]) =>
+      levelProjectsStore.requestProjectAccess(params),
+    reviewProjectAccess: (reqId: string, status: 'APPROVED' | 'REJECTED', feedback?: string, reviewer?: string) =>
+      levelProjectsStore.reviewProjectAccess(reqId, status, feedback, reviewer),
+    getPendingAccessRequests: (deptId?: string, lvl?: number) =>
+      levelProjectsStore.getPendingAccessRequests(deptId, lvl),
     acceptProject: (lvl: number) => levelProjectsStore.acceptProject(lvl),
     assignSubTask: (lvl: number, stId: string, uId: string, uName: string) =>
       levelProjectsStore.assignSubTask(lvl, stId, uId, uName, departmentId, departmentName),

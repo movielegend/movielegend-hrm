@@ -32,12 +32,11 @@ export function NotificationListScreen() {
       if (!target.readAt) {
         await markRead.mutateAsync(target.notificationId);
       }
-      if (route) {
-        router.push(route as never);
-      }
-    } catch (error) {
-      const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+    } catch (e) {
+      console.warn('Error marking notification as read:', e);
+    }
+    if (route) {
+      router.push(route as never);
     }
   }
 

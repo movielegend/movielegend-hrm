@@ -78,11 +78,12 @@ const WEEKDAYS_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Th�
 
 export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrantPointsScreenProps) {
   const queryClient = useQueryClient();
+  const currentYear = new Date().getFullYear();
 
   const [grantTitle, setGrantTitle] = useState<string>(
     target.type === 'DEPARTMENT' && target.department
-      ? `Thưởng Phòng ${target.department.name}`
-      : 'Thưởng Dự án'
+      ? `Thưởng Tết ${currentYear} - Phòng ${target.department.name}`
+      : `Thưởng Tết ${currentYear}`
   );
   const [customPointsInput, setCustomPointsInput] = useState<string>('50000');
   const [durationMonths, setDurationMonths] = useState<number>(12);
@@ -181,11 +182,12 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const currentDateObj = useMemo(() => {
     if (!startDateStr) return new Date();
     const parts = startDateStr.split('-').map((v) => parseInt(v, 10));
-    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
-      return new Date(parts[0], parts[1] - 1, parts[2]);
+    const [y, m, d] = parts;
+    if (y !== undefined && m !== undefined && d !== undefined && !isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return new Date(y, m - 1, d);
     }
-    const d = new Date(startDateStr);
-    return isNaN(d.getTime()) ? new Date() : d;
+    const parsedDate = new Date(startDateStr);
+    return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
   }, [startDateStr]);
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -330,8 +332,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
         >
             {/* Header */}
             <PageHeader
-              title="Trao Điểm Thưởng Dự Án"
-              subtitle="Cấu hình hạn mức & chia đợt rút linh hoạt"
+              title="Trao Điểm Thưởng Tết"
+              subtitle="Cấu hình hạn mức tích lũy & thưởng Tết cuối năm"
               showBack={false}
               right={
                 <View style={styles.headerIconBox}>
@@ -399,29 +401,52 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             <View style={styles.sectionCard}>
               <View style={styles.sectionTitleRow}>
                 <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>1. Thông tin Gói Thưởng / Dự Án</Text>
+                <Text style={styles.sectionTitle}>1. Thông tin Gói Thưởng Tết</Text>
               </View>
 
-              <Text style={styles.inputFieldLabel}>Tên gói thưởng / Tên dự án *</Text>
+              <Text style={styles.inputFieldLabel}>Tên gói thưởng Tết / Dự án *</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons name="tag-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
                 <TextInput
                   style={styles.textInput}
                   value={grantTitle}
                   onChangeText={setGrantTitle}
-                  placeholder="VD: Thưởng Dự án ERP, Thưởng Tết 2026, Thưởng Quý..."
+                  placeholder={`VD: Thưởng Tết ${currentYear}, Thưởng Tích Lũy Tháng, Thưởng Nóng...`}
                   placeholderTextColor="#94A3B8"
                 />
               </View>
 
-              <Text style={styles.inputFieldLabel}>Ghi chú / Điều khoản cam kết kèm theo (Tùy chọn)</Text>
+              {/* Quick Title Chips */}
+              <View style={[styles.presetChipsWrap, { marginTop: 6, marginBottom: 4 }]}>
+                {[
+                  `Thưởng Tết ${currentYear}`,
+                  'Thưởng Tích Lũy Tháng',
+                  'Thưởng Nóng Cuối Năm',
+                  'Thưởng Dự Án Xuất Sắc',
+                ].map((presetName) => {
+                  const isSelected = grantTitle === presetName;
+                  return (
+                    <Pressable
+                      key={presetName}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive, { paddingVertical: 4, paddingHorizontal: 8 }]}
+                      onPress={() => setGrantTitle(presetName)}
+                    >
+                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive, { fontSize: 11 }]}>
+                        {presetName}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.inputFieldLabel}>Ghi chú / Quyết định khen thưởng (Tùy chọn)</Text>
               <View style={[styles.inputWrapper, { height: 72, alignItems: 'flex-start', paddingTop: 8 }]}>
                 <TextInput
                   style={[styles.textInput, { height: 56, textAlignVertical: 'top' }]}
                   value={grantNote}
                   onChangeText={setGrantNote}
                   multiline
-                  placeholder="VD: Trao thưởng theo cam kết hoàn thành dự án xuất sắc..."
+                  placeholder="VD: Trao thưởng theo cam kết hoàn thành kế hoạch năm xuất sắc..."
                   placeholderTextColor="#94A3B8"
                 />
               </View>
@@ -431,7 +456,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             <View style={styles.sectionCard}>
               <View style={styles.sectionTitleRow}>
                 <MaterialCommunityIcons name="star-shooting-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>2. Số Điểm Trao Thưởng</Text>
+                <Text style={styles.sectionTitle}>2. Số Điểm Thưởng Tết Trao Tặng</Text>
               </View>
 
               <Text style={styles.inputFieldLabel}>Chọn nhanh số điểm:</Text>
@@ -475,7 +500,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                     <MaterialCommunityIcons name="cash-multiple" size={24} color="#B45309" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.conversionLabel}>Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ</Text>
+                    <Text style={styles.conversionLabel}>Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ tiền thưởng Tết</Text>
                     <Text style={styles.conversionAmount}>
                       {(parseInt(customPointsInput, 10) * 1000).toLocaleString('vi-VN')} VNĐ
                     </Text>
@@ -488,10 +513,10 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             <View style={styles.sectionCard}>
               <View style={styles.sectionTitleRow}>
                 <MaterialCommunityIcons name="calendar-clock-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>3. Cấu Hình Thời Hạn & Chu Kỳ Mở Khóa Rút</Text>
+                <Text style={styles.sectionTitle}>3. Cấu Hình Chu Kỳ Tích Lũy & Mở Khóa Rút</Text>
               </View>
 
-              <Text style={styles.inputFieldLabel}>Thời hạn cam kết rút (Số tháng):</Text>
+              <Text style={styles.inputFieldLabel}>Thời hạn tích lũy (Số tháng):</Text>
               <View style={styles.presetChipsWrap}>
                 {DURATION_OPTIONS.map((opt) => {
                   const isSelected = durationMonths === opt.value;
@@ -509,7 +534,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                 })}
               </View>
 
-              <Text style={styles.inputFieldLabel}>Chu kỳ mở khóa rút (Khoảng cách giữa các lần rút):</Text>
+              <Text style={styles.inputFieldLabel}>Chu kỳ mở khóa rút (Khoảng cách giữa các đợt):</Text>
               <View style={styles.presetChipsWrap}>
                 {INTERVAL_OPTIONS.map((opt) => {
                   const isSelected = intervalMonths === opt.value;
@@ -588,14 +613,14 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <MaterialCommunityIcons name="timeline-check" size={20} color="#D97706" />
-                      <Text style={styles.previewTitle}>Lộ Trình Giải Ngân Chi Tiết</Text>
+                      <Text style={styles.previewTitle}>Lộ Trình Tích Lũy & Giải Ngân Tết</Text>
                     </View>
                     <Text style={styles.previewSubtitle}>
                       Tự động chia thành {calculatedMilestones.length} đợt trong thời hạn {durationMonths} tháng
                     </Text>
                   </View>
                   <View style={styles.previewTotalPill}>
-                    <Text style={styles.previewTotalPillText}>{calculatedMilestones.length} đợt rút</Text>
+                    <Text style={styles.previewTotalPillText}>{calculatedMilestones.length} đợt</Text>
                   </View>
                 </View>
 
@@ -670,7 +695,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               ) : (
                 <>
                   <MaterialCommunityIcons name="check-decagram" size={20} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>XÁC NHẬN TRAO GÓI THƯỞNG</Text>
+                  <Text style={styles.submitButtonText}>XÁC NHẬN TRAO ĐIỂM THƯỞNG TẾT</Text>
                 </>
               )}
             </Pressable>

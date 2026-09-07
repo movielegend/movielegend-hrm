@@ -102,8 +102,9 @@ export function LeaderProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="calendar-clock" title="Lịch sử chấm công" onPress={() => router.push('/leader/attendance-history' as any)} />
-            <ActionRow icon="cash-multiple" title="Bảng lương" onPress={() => router.push('/leader/payslip' as any)} />
+            <ActionRow icon="calendar-clock" title="Bảng công" onPress={() => router.push('/leader/timesheet' as any)} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/leader/payslip' as any)} />
+            <ActionRow icon="history" title="Lịch sử chấm công" onPress={() => router.push('/leader/attendance-history' as any)} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/leader/assets' as any)} />
             <ActionRow icon="message-draw" title="Góp ý" onPress={() => router.push('/leader/feedbacks' as any)} isLast />
           </View>

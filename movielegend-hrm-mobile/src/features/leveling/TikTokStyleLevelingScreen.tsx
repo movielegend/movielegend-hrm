@@ -25,8 +25,11 @@ import {
   useLevelProjects,
   BulletSubTask,
   LevelDepartmentProject,
+  isProjectConfigured,
+  LevelProjectPermissionRequest,
 } from './levelProjectsStore';
 import { useLevelGmv } from './levelGmvStore';
+import { levelingApi } from '../../api/leveling.api';
 
 export interface LevelPerkItem {
   id: string;
@@ -319,7 +322,7 @@ export const getMetalTheme = (level: number): MetalTheme => {
         tagTextColor: '#92400E',
         cardBannerBg: '#FFFDF5',
         cardBannerBorder: '#F59E0B',
-        iconName: 'crown-outline',
+        iconName: 'trophy-outline',
       };
   }
 };
@@ -384,7 +387,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
 
   // Dynamic Level Calculation
   const isLeader = Boolean(user?.roles?.includes('LEADER'));
-  const userDisplayName = user?.fullName || user?.name || (isLeader ? 'Trưởng Nhóm' : 'Nhân Viên');
+  const userDisplayName = user?.fullName || (isLeader ? 'Trưởng Nhóm' : 'Nhân Viên');
   const currentUserLevelNumber = approvedLevelNumber || (user as any)?.levelNumber || (user as any)?.currentLevel || 1;
 
   // Hook into Level Projects & GMV store with logged-in user department
@@ -397,6 +400,9 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     submitSubTask,
     setProjects,
     fetchProjects,
+    hasProjectAccess,
+    getAccessRequest,
+    requestProjectAccess,
   } = useLevelProjects(userDeptId, userDeptName);
   const { getGmvByLevel, updateGmv } = useLevelGmv();
 
@@ -531,15 +537,17 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         progressSummaryText = `Đã hoàn thành xuất sắc cấp độ ${def.levelName}.`;
         reviewDateText = 'Đã xét duyệt';
       } else if (isCur) {
-        overallProgressPercent = totalTasks > 0 ? Math.round(gPercent * 0.7 + (doneTasks / totalTasks) * 30) : gPercent;
+        overallProgressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 100;
         progressSummaryText =
-          curGmv >= ceilGmv
-            ? 'Đã hoàn thành mục tiêu GMV.'
-            : `Đã đạt ${curGmv}/${ceilGmv} ${unit}. Còn thiếu ${Math.max(0, ceilGmv - curGmv)} ${unit} để đủ điều kiện xét duyệt.`;
+          totalTasks > 0
+            ? (doneTasks === totalTasks
+                ? 'Đã hoàn thành toàn bộ việc con của dự án cấp bậc.'
+                : `Tiến độ dự án cấp bậc: ${doneTasks}/${totalTasks} việc con đã được duyệt.`)
+            : 'Đang trong tiến trình thực hiện cấp bậc hiện tại.';
         reviewDateText = getNextReviewDateString(0);
       } else {
         overallProgressPercent = 0;
-        progressSummaryText = `Mục tiêu thăng cấp: Đạt ${ceilGmv} ${unit}`;
+        progressSummaryText = `Mục tiêu thăng cấp: Hoàn thành dự án và tiêu chuẩn cấp ${def.levelName}`;
         reviewDateText = getNextReviewDateString(def.levelNumber - currentUserLevelNumber);
       }
 
@@ -649,11 +657,50 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
   // Modals
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [allLevelsModalVisible, setAllLevelsModalVisible] = useState(false);
+  const [requestAccessModalVisible, setRequestAccessModalVisible] = useState(false);
+  const [requestReasonText, setRequestReasonText] = useState('');
+  const [isSubmittingAccessRequest, setIsSubmittingAccessRequest] = useState(false);
 
   const selectedTier: LevelTierConfig = myLevelList.find((l) => l.levelNumber === selectedLevel) ?? myLevelList[0]!;
   const currentActiveTier: LevelTierConfig = myLevelList.find((l) => l.isCurrent) ?? myLevelList[0]!;
 
   const currentProjectForTier = getProjectByLevel(selectedTier.levelNumber);
+  const isTierConfigured = isProjectConfigured(currentProjectForTier);
+  const hasAccessToProject = hasProjectAccess(selectedTier.levelNumber, user?.id, currentUserLevelNumber);
+  const userAccessRequest = user?.id ? getAccessRequest(selectedTier.levelNumber, user.id) : undefined;
+
+  const handleSendAccessRequest = async () => {
+    if (!user?.id) {
+      Alert.alert('Lỗi', 'Vui lòng đăng nhập để gửi yêu cầu.');
+      return;
+    }
+    setIsSubmittingAccessRequest(true);
+    try {
+      await requestProjectAccess({
+        userId: user.id,
+        userName: userDisplayName,
+        userCode: (user as any)?.userCode || user?.email,
+        departmentId: userDeptId,
+        departmentName: userDeptName,
+        levelNumber: selectedTier.levelNumber,
+        levelName: selectedTier.levelName,
+        projectName: currentProjectForTier?.projectName || selectedTier.projectTitle,
+        userCurrentLevel: currentUserLevelNumber,
+        reason: requestReasonText.trim(),
+      });
+      setRequestAccessModalVisible(false);
+      setRequestReasonText('');
+      Alert.alert(
+        'Đã Gửi Yêu Cầu Xin Làm Dự Án',
+        `Yêu cầu làm dự án ${selectedTier.levelName} đã được gửi tới Trưởng nhóm (Leader). Khi Leader phê duyệt, bạn sẽ được phép nhận việc con và nộp báo cáo!`
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu lúc này.');
+    } finally {
+      setIsSubmittingAccessRequest(false);
+    }
+  };
+
   const myTasksForThisLevel = assignedItems.filter((item) => item.project.levelNumber === selectedTier.levelNumber);
 
   // Dynamic GMV values from real-time store
@@ -706,22 +753,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                 <View style={styles.vipCardTop}>
                   <View style={styles.vipCardHeaderLeft}>
                     <View style={styles.rankTitleRow}>
-                      <TouchableOpacity
-                        style={styles.cardBackBtn}
-                        onPress={() => router.back()}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-                      </TouchableOpacity>
                       <Text style={styles.vipRankTitle}>{currentActiveTier.levelName}</Text>
-                      
-                      {/* Metal Tier Badge Pill */}
-                      <View style={[styles.metalBadgePill, { borderColor: currentMetal.accentColor, backgroundColor: 'rgba(255, 255, 255, 0.12)' }]}>
-                        <Ionicons name={currentMetal.iconName} size={12} color={currentMetal.accentColor} />
-                        <Text style={[styles.metalBadgeText, { color: currentMetal.accentColor }]}>
-                          {currentMetal.badgeName}
-                        </Text>
-                      </View>
                     </View>
                     <Text style={styles.vipUserName}>{userDisplayName}</Text>
                   </View>
@@ -802,18 +834,13 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
             {myLevelList.map((tier) => {
               const isSelected = selectedLevel === tier.levelNumber;
               const isCurrent = tier.isCurrent;
-              const tierMetal = getMetalTheme(tier.levelNumber);
 
               return (
                 <TouchableOpacity
                   key={tier.levelNumber}
                   style={[
                     styles.stepChip,
-                    isSelected && {
-                      backgroundColor: tierMetal.bgDark,
-                      borderColor: tierMetal.accentColor,
-                      borderWidth: 1.5,
-                    },
+                    isSelected && styles.stepChipSelected,
                     isCurrent && !isSelected && styles.stepChipCurrent,
                   ]}
                   onPress={() => setSelectedLevel(tier.levelNumber)}
@@ -823,26 +850,16 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.stepChipLevelText,
-                        isSelected && { color: tierMetal.accentColor, fontWeight: '800' },
+                        isSelected && styles.stepChipTextSelected,
                         isCurrent && !isSelected && styles.stepChipTextCurrent,
                       ]}
                     >
                       {tier.levelName}
                     </Text>
                     {isCurrent && (
-                      <View style={[styles.currentDot, { backgroundColor: tierMetal.accentColor }]} />
+                      <View style={[styles.currentDot, isSelected && { backgroundColor: '#38BDF8' }]} />
                     )}
                   </View>
-
-                  <Text
-                    style={[
-                      styles.stepChipSubText,
-                      isSelected && { color: '#E2E8F0', fontWeight: '600' },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {isCurrent ? `${tierMetal.name}` : tierMetal.name}
-                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -871,51 +888,65 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Luxury Modern Perks Grid (2 Columns) */}
-          <View style={styles.perksGridTwoCol}>
-            {selectedTier.perks.map((perk, index) => {
-              const theme = getPerkTheme(perk.title);
-              return (
-                <View key={perk.id} style={styles.perkModernCard}>
-                  {/* Card Top: Category Tag + Icon */}
-                  <View style={styles.perkModernCardTop}>
-                    <View style={[styles.perkIconRoundBox, { backgroundColor: theme.iconBg }]}>
-                      <Ionicons name={theme.icon} size={16} color={theme.iconColor} />
+          {selectedTier.perks.length > 0 ? (
+            /* Luxury Modern Perks Grid (2 Columns) */
+            <View style={styles.perksGridTwoCol}>
+              {selectedTier.perks.map((perk, index) => {
+                const theme = getPerkTheme(perk.title);
+                return (
+                  <View key={perk.id} style={styles.perkModernCard}>
+                    {/* Card Top: Category Tag + Icon */}
+                    <View style={styles.perkModernCardTop}>
+                      <View style={[styles.perkIconRoundBox, { backgroundColor: theme.iconBg }]}>
+                        <Ionicons name={theme.icon} size={16} color={theme.iconColor} />
+                      </View>
+                      <View style={[styles.perkCategoryBadge, { backgroundColor: theme.badgeBg }]}>
+                        <Text style={[styles.perkCategoryBadgeText, { color: theme.badgeColor }]}>
+                          {theme.badgeText}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={[styles.perkCategoryBadge, { backgroundColor: theme.badgeBg }]}>
-                      <Text style={[styles.perkCategoryBadgeText, { color: theme.badgeColor }]}>
-                        {theme.badgeText}
-                      </Text>
+
+                    {/* Card Main: Bold Title & Subtitle */}
+                    <Text style={styles.perkModernTitle} numberOfLines={2}>
+                      {perk.title}
+                    </Text>
+                    <Text style={styles.perkModernSubtitle} numberOfLines={2}>
+                      {perk.subtitle}
+                    </Text>
+
+                    {/* Card Bottom: Order Index & Unlocked Icon */}
+                    <View style={styles.perkModernFooter}>
+                      <View style={styles.perkNumberPill}>
+                        <Text style={styles.perkNumberPillText}>Đặc quyền #{index + 1}</Text>
+                      </View>
+                      {selectedTier.isUnlocked ? (
+                        <View style={styles.perkUnlockedBadge}>
+                          <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+                        </View>
+                      ) : (
+                        <View style={styles.perkLockedBadge}>
+                          <Ionicons name="lock-closed" size={12} color="#94A3B8" />
+                        </View>
+                      )}
                     </View>
                   </View>
-
-                  {/* Card Main: Bold Title & Subtitle */}
-                  <Text style={styles.perkModernTitle} numberOfLines={2}>
-                    {perk.title}
-                  </Text>
-                  <Text style={styles.perkModernSubtitle} numberOfLines={2}>
-                    {perk.subtitle}
-                  </Text>
-
-                  {/* Card Bottom: Order Index & Unlocked Icon */}
-                  <View style={styles.perkModernFooter}>
-                    <View style={styles.perkNumberPill}>
-                      <Text style={styles.perkNumberPillText}>Đặc quyền #{index + 1}</Text>
-                    </View>
-                    {selectedTier.isUnlocked ? (
-                      <View style={styles.perkUnlockedBadge}>
-                        <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
-                      </View>
-                    ) : (
-                      <View style={styles.perkLockedBadge}>
-                        <Ionicons name="lock-closed" size={12} color="#94A3B8" />
-                      </View>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.unconfiguredPerksCard}>
+              <View style={styles.unconfiguredIconBox}>
+                <Ionicons name="gift-outline" size={24} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.unconfiguredCardTitle}>Chưa được cấu hình</Text>
+                <Text style={styles.unconfiguredCardSubtitle}>
+                  Quản trị viên (Admin) chưa thiết lập danh sách phần thưởng thăng cấp và đặc quyền cho {selectedTier.levelName}.
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* ===================================================================== */}
@@ -941,199 +972,243 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
             )}
           </View>
 
-          {/* 1. Doanh số (GMV) */}
-          <View style={styles.criteriaCard}>
-            <View style={styles.criteriaCardTop}>
-              <View style={styles.criteriaInfoCol}>
-                <View style={styles.gmvCardTitleRow}>
-                  <Text style={styles.criteriaMainTitle}>
-                    {isLeader ? '1. Doanh số toàn team (GMV)' : '1. Doanh số cá nhân (GMV)'}
+          {/* TRƯỜNG HỢP 1: ADMIN CHƯA CẤU HÌNH DỰ ÁN CHO LEVEL TIẾP THEO */}
+          {!isTierConfigured ? (
+            <View style={styles.unconfiguredProjectCard}>
+              <View style={styles.unconfiguredProjectIconCircle}>
+                <Ionicons name="construct-outline" size={30} color="#D97706" />
+              </View>
+              <Text style={styles.unconfiguredProjectTitle}>Chưa Được Cấu Hình</Text>
+              <Text style={styles.unconfiguredProjectDesc}>
+                Dự án cấp bậc và danh mục công việc của {selectedTier.levelName} chưa được Quản trị viên (Admin) thiết lập.
+              </Text>
+              <View style={styles.unconfiguredProjectNoticeBox}>
+                <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                <Text style={styles.unconfiguredProjectNoticeText}>
+                  Khi Admin hoàn tất cấu hình dự án và phần thưởng, thông tin chi tiết và việc con sẽ hiển thị tại đây.
+                </Text>
+              </View>
+            </View>
+          ) : !hasAccessToProject ? (
+            /* TRƯỜNG HỢP 2: LEVEL CAO HƠN CẦN XIN PHÉP LEADER ĐỂ LÀM DỰ ÁN */
+            <View style={styles.accessControlContainer}>
+              {userAccessRequest?.status === 'PENDING' ? (
+                <View style={styles.accessPendingCard}>
+                  <View style={styles.accessCardHeaderRow}>
+                    <Ionicons name="hourglass-outline" size={22} color="#D97706" />
+                    <Text style={styles.accessPendingTitle}>Yêu Cầu Đang Chờ Leader Duyệt</Text>
+                  </View>
+                  <Text style={styles.accessPendingDesc}>
+                    Bạn đã gửi yêu cầu xin làm dự án của <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{selectedTier.levelName}</Text> vào lúc {userAccessRequest.requestedAt}.
                   </Text>
-                  {isLeader && (
-                    <TouchableOpacity
-                      style={styles.editGmvButtonBadge}
-                      onPress={handleOpenEditGmvModal}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="create-outline" size={13} color="#0F766E" />
-                      <Text style={styles.editGmvButtonText}>Chỉnh sửa số liệu</Text>
-                    </TouchableOpacity>
+                  {Boolean(userAccessRequest.reason) && (
+                    <View style={styles.accessReasonBox}>
+                      <Text style={styles.accessReasonLabel}>Lý do bạn gửi:</Text>
+                      <Text style={styles.accessReasonText}>"{userAccessRequest.reason}"</Text>
+                    </View>
                   )}
+                  <View style={styles.accessPendingNoticeRow}>
+                    <Ionicons name="time-outline" size={15} color="#D97706" />
+                    <Text style={styles.accessPendingNoticeText}>
+                      Vui lòng chờ Trưởng nhóm (Leader) phê duyệt để có thể nhận việc con và nộp báo cáo.
+                    </Text>
+                  </View>
                 </View>
-                <Text style={styles.criteriaTargetText}>
-                  Mục tiêu nâng cấp: {ceilingGmv} {gmvUnit}
-                </Text>
-              </View>
-              <View style={styles.criteriaPercentBox}>
-                <Text style={styles.criteriaPercentText}>{gmvPercent}%</Text>
-              </View>
-            </View>
-
-            {/* Thanh tiến độ GMV */}
-            <View style={styles.criteriaBarTrack}>
-              <View style={[styles.criteriaBarFill, { width: `${gmvPercent}%` }]} />
-            </View>
-
-            {/* Số liệu thực tế vs Chỉ tiêu */}
-            <View style={styles.criteriaScoreRow}>
-              <Text style={styles.criteriaCurrentScore}>
-                Đã đạt: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{currentGmv} {gmvUnit}</Text>
-              </Text>
-              <Text style={styles.criteriaTargetScore}>
-                Chỉ tiêu: <Text style={{ fontWeight: '700', color: '#2563EB' }}>{ceilingGmv} {gmvUnit}</Text>
-              </Text>
-            </View>
-
-            {/* Ngưỡng duy trì giữ cấp (Floor) */}
-            {floorGmv > 0 && (
-              <View style={styles.retentionFloorBox}>
-                <Text style={styles.retentionFloorText}>
-                  • Ngưỡng duy trì giữ cấp (Floor): {floorGmv} {gmvUnit} (Đạt để không bị rớt cấp)
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* 2. Dự án Cấp Bậc & Việc Con Được Giao */}
-          <View style={styles.criteriaCard}>
-            <View style={styles.criteriaCardTop}>
-              <View style={styles.criteriaInfoCol}>
-                <Text style={styles.criteriaMainTitle}>2. Dự Án & Việc Con Cấp Bậc</Text>
-                <Text style={styles.criteriaTargetText}>
-                  {currentProjectForTier?.projectName || selectedTier.projectTitle}
-                </Text>
-              </View>
-              {currentProjectForTier && (
-                <View style={styles.projectLevelTagBadge}>
-                  <Text style={styles.projectLevelTagBadgeText}>{currentProjectForTier.levelName}</Text>
+              ) : userAccessRequest?.status === 'REJECTED' ? (
+                <View style={styles.accessRejectedCard}>
+                  <View style={styles.accessCardHeaderRow}>
+                    <Ionicons name="close-circle-outline" size={22} color="#DC2626" />
+                    <Text style={styles.accessRejectedTitle}>Leader Chưa Chấp Thuận Yêu Cầu</Text>
+                  </View>
+                  <Text style={styles.accessRejectedDesc}>
+                    Trưởng nhóm chưa phê duyệt yêu cầu làm dự án {selectedTier.levelName} của bạn.
+                  </Text>
+                  {Boolean(userAccessRequest.leaderFeedback) && (
+                    <View style={styles.accessFeedbackBox}>
+                      <Text style={styles.accessFeedbackLabel}>Phản hồi từ Leader:</Text>
+                      <Text style={styles.accessFeedbackText}>"{userAccessRequest.leaderFeedback}"</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.requestAccessBtn}
+                    onPress={() => setRequestAccessModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.requestAccessBtnText}>GỬI LẠI YÊU CẦU XIN LÀM DỰ ÁN</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.accessLockedCard}>
+                  <View style={styles.accessCardHeaderRow}>
+                    <Ionicons name="lock-closed" size={22} color="#0F766E" />
+                    <Text style={styles.accessLockedTitle}>Cần Leader Duyệt Để Làm Dự Án Vượt Cấp</Text>
+                  </View>
+                  <Text style={styles.accessLockedDesc}>
+                    Bạn hiện chưa đạt cấp {selectedTier.levelName}. Nếu muốn thực hiện dự án ở cấp độ này, bạn cần gửi yêu cầu để Trưởng nhóm (Leader) phê duyệt trước khi được nhận việc con.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.requestAccessBtn}
+                    onPress={() => setRequestAccessModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.requestAccessBtnText}>XIN PHÉP LÀM DỰ ÁN NÀY</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
+          ) : (
+            /* TRƯỜNG HỢP 3: CÓ QUYỀN LÀM DỰ ÁN (CẤP HIỆN TẠI HOẶC ĐÃ ĐƯỢC LEADER DUYỆT) */
+            <View style={styles.criteriaCard}>
+              {selectedTier.levelNumber > currentUserLevelNumber && (
+                <View style={styles.accessApprovedBanner}>
+                  <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+                  <Text style={styles.accessApprovedBannerText}>
+                    Đã được Leader phê duyệt làm dự án vượt cấp ({userAccessRequest?.reviewedAt || 'Đã duyệt'})
+                  </Text>
+                </View>
+              )}
 
-            <Text style={styles.projectDescText}>
-              • {currentProjectForTier?.rewardItem ? `Phần thưởng thăng cấp: ${currentProjectForTier.rewardItem}` : selectedTier.projectSub}
-            </Text>
-
-            {/* DANH SÁCH VIỆC CON GIAO CHO CÁ NHÂN TẠI LEVEL NÀY */}
-            <View style={styles.assignedTasksBlock}>
-              <View style={styles.assignedTasksHeaderRow}>
-                <Text style={styles.assignedTasksHeaderTitle}>
-                  Việc con được giao cho bạn ({myTasksForThisLevel.length}):
-                </Text>
-                {isLeader && (
-                  <TouchableOpacity
-                    style={styles.openProjectManageLink}
-                    onPress={() => router.push('/leader/level-projects' as any)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.openProjectManageLinkText}>Quản lý & Giao việc</Text>
-                    <Ionicons name="chevron-forward" size={12} color="#0F766E" />
-                  </TouchableOpacity>
+              <View style={styles.criteriaCardTop}>
+                <View style={styles.criteriaInfoCol}>
+                  <Text style={styles.criteriaMainTitle}>Dự Án & Việc Con Cấp Bậc</Text>
+                  <Text style={styles.criteriaTargetText}>
+                    {currentProjectForTier?.projectName || selectedTier.projectTitle}
+                  </Text>
+                </View>
+                {currentProjectForTier && (
+                  <View style={styles.projectLevelTagBadge}>
+                    <Text style={styles.projectLevelTagBadgeText}>{currentProjectForTier.levelName}</Text>
+                  </View>
                 )}
               </View>
 
-              {myTasksForThisLevel.length > 0 ? (
-                <View style={styles.assignedTasksList}>
-                  {myTasksForThisLevel.map(({ project, subTask }) => {
-                    const isApproved = subTask.status === 'LEADER_APPROVED';
-                    const isSubmitted = subTask.status === 'SUBMITTED';
+              <Text style={styles.projectDescText}>
+                • {currentProjectForTier?.rewardItem ? `Phần thưởng thăng cấp: ${currentProjectForTier.rewardItem}` : selectedTier.projectSub}
+              </Text>
 
-                    return (
-                      <View key={subTask.id} style={styles.assignedTaskCard}>
-                        <View style={styles.assignedTaskCardTop}>
-                          <View style={styles.assignedTaskOrderBox}>
-                            <Text style={styles.assignedTaskOrderText}>#{subTask.orderNumber}</Text>
-                          </View>
-                          <View style={{ flex: 1, paddingRight: 8 }}>
-                            <Text style={styles.assignedTaskTitle}>{subTask.title}</Text>
-                            {subTask.targetKpi ? (
-                              <Text style={styles.assignedTaskKpi}>Chỉ tiêu: {subTask.targetKpi}</Text>
-                            ) : null}
-                          </View>
-                          <View>
-                            {isApproved ? (
-                              <View style={styles.statusBadgeApproved}>
-                                <Text style={styles.statusBadgeApprovedText}>Đã duyệt V1</Text>
-                              </View>
-                            ) : isSubmitted ? (
-                              <View style={styles.statusBadgeSubmitted}>
-                                <Text style={styles.statusBadgeSubmittedText}>Chờ duyệt</Text>
-                              </View>
-                            ) : (
-                              <View style={styles.statusBadgePending}>
-                                <Text style={styles.statusBadgePendingText}>Đang làm</Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-
-                        {/* Hiển thị tóm tắt báo cáo & minh chứng nếu đã nộp */}
-                        {(isSubmitted || isApproved) && subTask.submissionNote ? (
-                          <View style={styles.submittedPreviewBox}>
-                            <Text style={styles.submittedPreviewLabel}>Báo cáo đã nộp:</Text>
-                            <Text style={styles.submittedPreviewNote} numberOfLines={2}>
-                              {subTask.submissionNote}
-                            </Text>
-                            {Boolean(subTask.evidenceUrl) && (
-                              <Text style={styles.submittedPreviewLink} numberOfLines={1}>
-                                Link: {subTask.evidenceUrl}
-                              </Text>
-                            )}
-                            {(subTask.evidenceImages?.length ?? 0) > 0 && (
-                              <Text style={styles.submittedPreviewImagesCount}>
-                                [Đã đính kèm {subTask.evidenceImages?.length} ảnh minh chứng]
-                              </Text>
-                            )}
-                          </View>
-                        ) : null}
-
-                        {/* Nút Báo Cáo / Cập Nhật Minh Chứng */}
-                        {!isApproved && (
-                          <TouchableOpacity
-                            style={[
-                              styles.reportActionBtn,
-                              isSubmitted && styles.reportActionBtnSecondary,
-                            ]}
-                            onPress={() => handleOpenReportModal({ project, subTask })}
-                            activeOpacity={0.8}
-                          >
-                            <Text
-                              style={[
-                                styles.reportActionBtnText,
-                                isSubmitted && styles.reportActionBtnTextSecondary,
-                              ]}
-                            >
-                              {isSubmitted ? 'SỬA BÁO CÁO & MINH CHỨNG' : 'VIẾT BÁO CÁO & NỘP MINH CHỨNG'}
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View style={styles.emptyAssignedBox}>
-                  <Text style={styles.emptyAssignedTitle}>
-                    Chưa có việc con nào ở {selectedTier.levelName} được giao cho bạn
-                  </Text>
-                  <Text style={styles.emptyAssignedDesc}>
-                    {isLeader
-                      ? 'Bạn có thể tự nhận việc con trong màn hình quản lý dự án để trực tiếp thực hiện và nộp kết quả nghiệm thu.'
-                      : 'Khi Leader phân công việc con cho bạn ở cấp độ này, bạn sẽ nhận được thông báo và có thể nộp báo cáo tại đây.'}
+              {/* DANH SÁCH VIỆC CON GIAO CHO CÁ NHÂN TẠI LEVEL NÀY */}
+              <View style={styles.assignedTasksBlock}>
+                <View style={styles.assignedTasksHeaderRow}>
+                  <Text style={styles.assignedTasksHeaderTitle}>
+                    Việc con được giao cho bạn ({myTasksForThisLevel.length}):
                   </Text>
                   {isLeader && (
                     <TouchableOpacity
-                      style={styles.goToAssignBtn}
+                      style={styles.openProjectManageLink}
                       onPress={() => router.push('/leader/level-projects' as any)}
-                      activeOpacity={0.8}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.goToAssignBtnText}>VÀO TỰ NHẬN / PHÂN CÔNG VIỆC CON</Text>
+                      <Text style={styles.openProjectManageLinkText}>Quản lý & Giao việc</Text>
+                      <Ionicons name="chevron-forward" size={12} color="#0F766E" />
                     </TouchableOpacity>
                   )}
                 </View>
-              )}
+
+                {myTasksForThisLevel.length > 0 ? (
+                  <View style={styles.assignedTasksList}>
+                    {myTasksForThisLevel.map(({ project, subTask }) => {
+                      const isApproved = subTask.status === 'LEADER_APPROVED';
+                      const isSubmitted = subTask.status === 'SUBMITTED';
+
+                      return (
+                        <View key={subTask.id} style={styles.assignedTaskCard}>
+                          <View style={styles.assignedTaskCardTop}>
+                            <View style={styles.assignedTaskOrderBox}>
+                              <Text style={styles.assignedTaskOrderText}>#{subTask.orderNumber}</Text>
+                            </View>
+                            <View style={{ flex: 1, paddingRight: 8 }}>
+                              <Text style={styles.assignedTaskTitle}>{subTask.title}</Text>
+                              {subTask.targetKpi ? (
+                                <Text style={styles.assignedTaskKpi}>Chỉ tiêu: {subTask.targetKpi}</Text>
+                              ) : null}
+                            </View>
+                            <View>
+                              {isApproved ? (
+                                <View style={styles.statusBadgeApproved}>
+                                  <Text style={styles.statusBadgeApprovedText}>Đã duyệt</Text>
+                                </View>
+                              ) : isSubmitted ? (
+                                <View style={styles.statusBadgeSubmitted}>
+                                  <Text style={styles.statusBadgeSubmittedText}>Chờ duyệt</Text>
+                                </View>
+                              ) : (
+                                <View style={styles.statusBadgePending}>
+                                  <Text style={styles.statusBadgePendingText}>Đang làm</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Hiển thị tóm tắt báo cáo & minh chứng nếu đã nộp */}
+                          {(isSubmitted || isApproved) && subTask.submissionNote ? (
+                            <View style={styles.submittedPreviewBox}>
+                              <Text style={styles.submittedPreviewLabel}>Báo cáo đã nộp:</Text>
+                              <Text style={styles.submittedPreviewNote} numberOfLines={2}>
+                                {subTask.submissionNote}
+                              </Text>
+                              {Boolean(subTask.evidenceUrl) && (
+                                <Text style={styles.submittedPreviewLink} numberOfLines={1}>
+                                  Link: {subTask.evidenceUrl}
+                                </Text>
+                              )}
+                              {(subTask.evidenceImages?.length ?? 0) > 0 && (
+                                <Text style={styles.submittedPreviewImagesCount}>
+                                  [Đã đính kèm {subTask.evidenceImages?.length} ảnh minh chứng]
+                                </Text>
+                              )}
+                            </View>
+                          ) : null}
+
+                          {/* Nút Báo Cáo / Cập Nhật Minh Chứng */}
+                          {!isApproved && (
+                            <TouchableOpacity
+                              style={[
+                                styles.reportActionBtn,
+                                isSubmitted && styles.reportActionBtnSecondary,
+                              ]}
+                              onPress={() => handleOpenReportModal({ project, subTask })}
+                              activeOpacity={0.8}
+                            >
+                              <Text
+                                style={[
+                                  styles.reportActionBtnText,
+                                  isSubmitted && styles.reportActionBtnTextSecondary,
+                                ]}
+                              >
+                                {isSubmitted ? 'SỬA BÁO CÁO & MINH CHỨNG' : 'VIẾT BÁO CÁO & NỘP MINH CHỨNG'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.emptyAssignedBox}>
+                    <Text style={styles.emptyAssignedTitle}>
+                      Chưa có việc con nào ở {selectedTier.levelName} được giao cho bạn
+                    </Text>
+                    <Text style={styles.emptyAssignedDesc}>
+                      {isLeader
+                        ? 'Bạn có thể tự nhận việc con trong màn hình quản lý dự án để trực tiếp thực hiện và nộp kết quả nghiệm thu.'
+                        : 'Khi Leader phân công việc con cho bạn ở cấp độ này, bạn sẽ nhận được thông báo và có thể nộp báo cáo tại đây.'}
+                    </Text>
+                    {isLeader && (
+                      <TouchableOpacity
+                        style={styles.goToAssignBtn}
+                        onPress={() => router.push('/leader/level-projects' as any)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.goToAssignBtnText}>VÀO TỰ NHẬN / PHÂN CÔNG VIỆC CON</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         <View style={{ height: 40 }} />
@@ -1167,13 +1242,6 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                         <Text style={styles.roadmapBadgeText}>{tier.levelName}</Text>
                       </View>
                       <Text style={styles.roadmapTitleText}>{tier.projectTitle}</Text>
-                    </View>
-
-                    <View style={styles.roadmapConditionRow}>
-                      <Text style={styles.roadmapConditionLabel}>Chỉ tiêu GMV:</Text>
-                      <Text style={styles.roadmapConditionValue}>
-                        {tierGmvConf.promotionCeilingGmv} {tierGmvConf.gmvUnit}
-                      </Text>
                     </View>
 
                     <View style={styles.roadmapPerkSummary}>
@@ -1233,6 +1301,77 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
             <TouchableOpacity style={styles.modalConfirmBtn} onPress={() => setInfoModalVisible(false)}>
               <Text style={styles.modalConfirmBtnText}>Tôi Đã Hiểu</Text>
             </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ===================================================================== */}
+      {/* MODAL: XIN PHÉP THỰC HIỆN DỰ ÁN VƯỢT CẤP (GỬI LEADER DUYỆT)          */}
+      {/* ===================================================================== */}
+      <Modal
+        visible={requestAccessModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRequestAccessModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setRequestAccessModalVisible(false)}
+        >
+          <Pressable style={styles.requestAccessModalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalHeaderTitle}>Xin Phép Làm Dự Án Vượt Cấp</Text>
+                <Text style={styles.modalHeaderSubtitle}>
+                  {selectedTier.levelName} • {currentProjectForTier?.projectName || selectedTier.projectTitle}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setRequestAccessModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.requestModalInfoBox}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#0F766E" />
+              <Text style={styles.requestModalInfoText}>
+                Bạn đang ở <Text style={{ fontWeight: 'bold' }}>{myLevelList.find((l) => l.levelNumber === currentUserLevelNumber)?.levelName || `Level ${currentUserLevelNumber}`}</Text>. Để nhận việc con của <Text style={{ fontWeight: 'bold' }}>{selectedTier.levelName}</Text>, yêu cầu của bạn sẽ được gửi tới Trưởng nhóm để duyệt.
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.requestModalInputLabel}>Lý do / Nguyện vọng thực hiện dự án:</Text>
+              <TextInput
+                style={styles.requestModalTextInput}
+                placeholder="Nhập lý do hoặc năng lực cam kết để Leader xét duyệt..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={4}
+                value={requestReasonText}
+                onChangeText={setRequestReasonText}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.requestModalBtnRow}>
+              <TouchableOpacity
+                style={styles.requestModalCancelBtn}
+                onPress={() => setRequestAccessModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.requestModalCancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.requestModalSubmitBtn}
+                onPress={handleSendAccessRequest}
+                disabled={isSubmittingAccessRequest}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="paper-plane" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.requestModalSubmitBtnText}>
+                  {isSubmittingAccessRequest ? 'Đang gửi...' : 'Gửi Yêu Cầu Cho Leader'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1383,86 +1522,6 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* ===================================================================== */}
-      {/* MODAL 4: CHỈNH SỬA DOANH SỐ (GMV) CHO LEVEL - DÀNH CHO LEADER       */}
-      {/* ===================================================================== */}
-      <Modal
-        visible={editGmvModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditGmvModalVisible(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setEditGmvModalVisible(false)}>
-          <Pressable style={styles.fullModalCard} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeaderRow}>
-              <View>
-                <Text style={styles.modalHeaderTitle}>Cấu Hình Doanh Số • {selectedTier.levelName}</Text>
-                <Text style={styles.modalHeaderSubtitle}>
-                  Điều chỉnh số liệu GMV realtime cho toàn phòng ban
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setEditGmvModalVisible(false)} style={{ padding: 4 }}>
-                <Ionicons name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-              {/* Trường 1: Doanh số thực tế hiện tại */}
-              <View style={styles.gmvInputFieldBlock}>
-                <Text style={styles.gmvInputLabel}>1. Doanh số thực tế hiện tại ({gmvUnit})</Text>
-                <Text style={styles.gmvInputSubText}>Số liệu thực tế nhân sự/team đã đạt được</Text>
-                <TextInput
-                  style={styles.gmvTextInput}
-                  value={inputCurrentGmv}
-                  onChangeText={setInputCurrentGmv}
-                  keyboardType="numeric"
-                  placeholder="Ví dụ: 120"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              {/* Trường 2: Chỉ tiêu nâng cấp (Ceiling GMV) */}
-              <View style={styles.gmvInputFieldBlock}>
-                <Text style={styles.gmvInputLabel}>2. Mục tiêu nâng cấp ({gmvUnit})</Text>
-                <Text style={styles.gmvInputSubText}>Mốc doanh số cần đạt để đủ điều kiện xét thăng cấp</Text>
-                <TextInput
-                  style={styles.gmvTextInput}
-                  value={inputCeilingGmv}
-                  onChangeText={setInputCeilingGmv}
-                  keyboardType="numeric"
-                  placeholder="Ví dụ: 150"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              {/* Trường 3: Ngưỡng duy trì giữ cấp (Floor GMV) */}
-              <View style={styles.gmvInputFieldBlock}>
-                <Text style={styles.gmvInputLabel}>3. Ngưỡng duy trì giữ cấp ({gmvUnit})</Text>
-                <Text style={styles.gmvInputSubText}>Mốc tối thiểu trong tháng để không bị hạ cấp</Text>
-                <TextInput
-                  style={styles.gmvTextInput}
-                  value={inputFloorGmv}
-                  onChangeText={setInputFloorGmv}
-                  keyboardType="numeric"
-                  placeholder="Ví dụ: 30"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={styles.realtimeNoticeBox}>
-                <Ionicons name="information-circle-outline" size={16} color="#0284C7" />
-                <Text style={styles.realtimeNoticeText}>
-                  Sau khi Lưu, toàn bộ nhân sự khi xem mục Cấp Bậc sẽ thấy ngay số liệu mới này theo thời gian thực (Real-time).
-                </Text>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity style={styles.saveGmvBtn} onPress={handleSaveGmv}>
-              <Text style={styles.saveGmvBtnText}>LƯU & CẬP NHẬT REALTIME</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -1676,18 +1735,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   stepChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     marginRight: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    minWidth: 90,
   },
   stepChipSelected: {
     backgroundColor: '#0F172A',
     borderColor: '#0F172A',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   stepChipCurrent: {
     borderColor: '#3B82F6',
@@ -1696,10 +1759,10 @@ const styles = StyleSheet.create({
   stepChipTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   stepChipLevelText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#475569',
   },
@@ -2672,5 +2735,310 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.5,
+  },
+
+  /* Unconfigured & Access Request Styles */
+  unconfiguredPerksCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 12,
+    marginTop: 4,
+  },
+  unconfiguredIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unconfiguredCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 3,
+  },
+  unconfiguredCardSubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    lineHeight: 17,
+  },
+  unconfiguredProjectCard: {
+    backgroundColor: '#FFFDF5',
+    borderRadius: 14,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginTop: 6,
+  },
+  unconfiguredProjectIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  unconfiguredProjectTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 6,
+  },
+  unconfiguredProjectDesc: {
+    fontSize: 13,
+    color: '#78350F',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+  },
+  unconfiguredProjectNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  unconfiguredProjectNoticeText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  accessControlContainer: {
+    marginTop: 6,
+  },
+  accessPendingCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  accessCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  accessPendingTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  accessPendingDesc: {
+    fontSize: 13,
+    color: '#78350F',
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  accessReasonBox: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#D97706',
+  },
+  accessReasonLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  accessReasonText: {
+    fontSize: 12.5,
+    color: '#78350F',
+    fontStyle: 'italic',
+  },
+  accessPendingNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  accessPendingNoticeText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#B45309',
+  },
+  accessRejectedCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  accessRejectedTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#991B1B',
+  },
+  accessRejectedDesc: {
+    fontSize: 13,
+    color: '#7F1D1D',
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  accessFeedbackBox: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626',
+  },
+  accessFeedbackLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 2,
+  },
+  accessFeedbackText: {
+    fontSize: 12.5,
+    color: '#7F1D1D',
+    fontStyle: 'italic',
+  },
+  accessLockedCard: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: 14,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    alignItems: 'center',
+  },
+  accessLockedTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F766E',
+    textAlign: 'center',
+  },
+  accessLockedDesc: {
+    fontSize: 13,
+    color: '#115E59',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  requestAccessBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    width: '100%',
+  },
+  requestAccessBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  accessApprovedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+  accessApprovedBannerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  requestAccessModalCard: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  requestModalInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    marginBottom: 16,
+  },
+  requestModalInfoText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#0F766E',
+    lineHeight: 18,
+  },
+  requestModalInputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  requestModalTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 13.5,
+    color: '#0F172A',
+    minHeight: 90,
+  },
+  requestModalBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  requestModalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  requestModalCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  requestModalSubmitBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  requestModalSubmitBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

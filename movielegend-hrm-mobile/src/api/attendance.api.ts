@@ -126,3 +126,107 @@ function cleanPaginationFallback(filters: AttendanceHistoryFilters): { page?: nu
     ...(typeof filters.limit === 'number' ? { limit: filters.limit } : {}),
   };
 }
+
+export interface MonthlyTimesheetDailyRecord {
+  date: string;
+  dayOfWeek: string;
+  isSunday: boolean;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  status: string;
+  shiftName: string;
+  lateMinutes: number;
+  otHours: number;
+  workedHours: number;
+  leaveTitle?: string | null;
+  notes?: string | null;
+}
+
+export interface MonthlyTimesheetData {
+  month: number;
+  year: number;
+  standardWorkingDays: number;
+  actualWorkingDays: number;
+  officialWorkingDays?: number;
+  finalOfficialImageUrl?: string | null;
+  paidLeaveDays: number;
+  unpaidLeaveDays: number;
+  totalWorkedHours: number;
+  totalLateMinutes: number;
+  totalEarlyMinutes: number;
+  otHours: number;
+  departmentOtMultiplier: number;
+  dailyRecords: MonthlyTimesheetDailyRecord[];
+}
+
+export interface CompanyTimesheetEmployee extends MonthlyTimesheetData {
+  userId: string;
+  userCode: string;
+  fullName: string;
+  departmentName: string;
+  positionName: string;
+}
+
+export interface CompanyTimesheetResponse {
+  month: number;
+  year: number;
+  totalEmployees: number;
+  items: CompanyTimesheetEmployee[];
+}
+
+export interface ImportTimesheetItem {
+  userCode: string;
+  fullName?: string;
+  standardWorkingDays?: number;
+  actualWorkingDays?: number;
+  paidLeaveDays?: number;
+  unpaidLeaveDays?: number;
+  otHours?: number;
+  lateMinutes?: number;
+  earlyMinutes?: number;
+  note?: string;
+}
+
+export interface ImportTimesheetPayload {
+  month: number;
+  year: number;
+  items: ImportTimesheetItem[];
+}
+
+export async function getMyMonthlyTimesheet(params?: { month?: number; year?: number }): Promise<MonthlyTimesheetData> {
+  const response = await apiClient.get<ApiResponse<MonthlyTimesheetData>>('/attendance/timesheet/my', {
+    params,
+  });
+  return unwrapData(response);
+}
+
+export async function getCompanyMonthlyTimesheet(params?: {
+  month?: number;
+  year?: number;
+  departmentId?: string;
+  search?: string;
+}): Promise<CompanyTimesheetResponse> {
+  const response = await apiClient.get<ApiResponse<CompanyTimesheetResponse>>('/attendance/timesheet/company', {
+    params,
+  });
+  return unwrapData(response);
+}
+
+export async function importMonthlyTimesheet(payload: ImportTimesheetPayload): Promise<{ success: boolean; message: string; importedCount: number }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; importedCount: number }>>('/attendance/timesheet/import', payload);
+  return unwrapData(response);
+}
+
+export interface UploadTimesheetImagePayload {
+  userId?: string;
+  month: number;
+  year: number;
+  imageUrl: string;
+  officialWorkingDays?: number;
+  note?: string;
+}
+
+export async function uploadTimesheetOfficialImage(payload: UploadTimesheetImagePayload): Promise<{ success: boolean; message: string; imageUrl: string }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; imageUrl: string }>>('/attendance/timesheet/upload-image', payload);
+  return unwrapData(response);
+}

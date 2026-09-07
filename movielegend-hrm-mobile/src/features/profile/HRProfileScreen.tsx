@@ -81,6 +81,29 @@ export function HRProfileScreen() {
           </View>
         </View>
 
+        {/* Tiện ích cá nhân */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
+          <View style={styles.infoCard}>
+            <ActionRow 
+              icon="calendar-clock" 
+              title="Bảng công" 
+              onPress={() => router.push('/hr/timesheet' as any)} 
+            />
+            <ActionRow 
+              icon="cash-multiple" 
+              title="Phiếu lương" 
+              onPress={() => router.push('/hr/payslip' as any)} 
+            />
+            <ActionRow 
+              icon="laptop" 
+              title="Tài sản của tôi" 
+              onPress={() => router.push('/hr/assets' as any)} 
+              isLast
+            />
+          </View>
+        </View>
+
         {/* Nghiệp vụ HR & Quản trị */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Nghiệp vụ Quản trị HR</Text>

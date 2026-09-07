@@ -1,11 +1,21 @@
 import { PropsWithChildren, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus, Platform, Alert } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 import { createHrmSocket } from '../api/socket';
 import { queryKeys, chatKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
+
+let Notifications: any = null;
+if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+  try {
+    Notifications = require('expo-notifications');
+  } catch (e) {
+    // Ignore in environments without native notification support
+  }
+}
 
 import {
   invalidateForAssetAssigned,
@@ -74,8 +84,8 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('notification.created', (payload?: any) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
-        if (payload && payload.title && Platform.OS !== 'web') {
-          import('expo-notifications').then(Notifications => {
+        if (payload && payload.title && Platform.OS !== 'web' && Notifications?.scheduleNotificationAsync) {
+          try {
             Notifications.scheduleNotificationAsync({
               content: {
                 title: payload.title,
@@ -88,8 +98,12 @@ export function SocketProvider({ children }: PropsWithChildren) {
                 },
               },
               trigger: null,
+            }).catch(() => {
+              // Ignore local schedule failure
             });
-          });
+          } catch (e) {
+            // Ignore notification error in dev/Expo Go
+          }
         }
       });
       socket.on('chat:message', (message: any) => {

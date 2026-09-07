@@ -67,7 +67,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type.startsWith('CHAT_') && groupId) return `${base}/chat/${groupId}`;
   if (notification.type.startsWith('VIOLATION_') && violationId) return `${base}/violations/${violationId}`;
   if (notification.type.startsWith('NEWSFEED_POST_') && postId) {
-    if (notification.type === 'NEWSFEED_POST_PENDING') {
+    if ((notification.type as string) === 'NEWSFEED_POST_PENDING') {
       const pendingBase = (base === '/admin' || base === '/hr') ? base : '/leader';
       return `${pendingBase}/newsfeed/pending/${postId}`;
     }
@@ -78,17 +78,42 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     const targetBase = base === '/warehouse-manager' ? '/employee' : base;
     return `${targetBase}/newsfeed/${postId}`;
   }
-  if (notification.type === 'SYSTEM') {
-    const t = notification.title?.toLowerCase() || '';
-    if (t.includes('phân ca mới') || t.includes('phân ca làm việc mới')) {
-      return `${base}/schedule`;
+
+  const t = (notification.title || '').toLowerCase();
+  const b = (notification.body || '').toLowerCase();
+  const text = `${t} ${b}`;
+
+  if (
+    text.includes('ví thưởng') ||
+    text.includes('rút ví') ||
+    text.includes('rút điểm') ||
+    text.includes('thưởng tết') ||
+    text.includes('lệnh chi tiền') ||
+    text.includes('chi trả') ||
+    text.includes('tất toán') ||
+    text.includes('yêu cầu rút')
+  ) {
+    if (base === '/admin') {
+      return '/admin/tet-wallet?tab=WITHDRAWALS';
     }
-    if (t.includes('check in') || t.includes('check out') || t.includes('chấm công') || t.includes('giờ làm việc') || t.includes('ca làm việc')) {
-      return `${base}/attendance/check-in`;
+    if (base === '/leader') {
+      const userDept = (user?.department?.name || '').toLowerCase();
+      if (userDept.includes('kế toán') || userDept.includes('tài chính') || user?.roles?.includes('ACCOUNTANT')) {
+        return '/leader/disbursement';
+      }
+      return '/leader/vault';
     }
-    if ((t.includes('công việc') || t.includes('nhiệm vụ') || t.includes('task')) && taskId) {
-      return `${base}/tasks/${taskId}`;
-    }
+    return `${base}/vault`;
+  }
+
+  if (notification.type === 'SYSTEM' && (t.includes('phân ca mới') || t.includes('phân ca làm việc mới'))) {
+    return `${base}/schedule`;
+  }
+  if (notification.type === 'SYSTEM' && (t.includes('check in') || t.includes('check out') || t.includes('chấm công') || t.includes('giờ làm việc') || t.includes('ca làm việc'))) {
+    return `${base}/attendance/check-in`;
+  }
+  if (notification.type === 'SYSTEM' && (t.includes('công việc') || t.includes('nhiệm vụ') || t.includes('task')) && taskId) {
+    return `${base}/tasks/${taskId}`;
   }
   if (notification.type === 'SYSTEM' && contractId) {
     return `${base}/contracts/${contractId}`;
@@ -127,5 +152,5 @@ export function getNotificationColor(type: string, title?: string): string {
   if (type.includes('APPROVED') || type.includes('CONFIRMED')) return colors.success;
   if (type === 'SYSTEM' && (title === 'Phân ca mới' || title === 'Phân ca làm việc mới')) return colors.primary;
   
-  return colors.textLight;
+  return colors.muted;
 }

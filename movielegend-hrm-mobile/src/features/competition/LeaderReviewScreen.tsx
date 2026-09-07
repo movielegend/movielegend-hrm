@@ -188,8 +188,8 @@ export const LeaderReviewScreen: React.FC = () => {
         <View style={styles.header}>
           <Ionicons name="clipboard-sharp" size={26} color="#2563EB" />
           <View>
-            <Text style={styles.headerTitle}>Leader Duyệt Thi Đua Vòng 1</Text>
-            <Text style={styles.headerSub}>Đánh giá nhân sự trong Team gửi Admin duyệt cuối tháng</Text>
+            <Text style={styles.headerTitle}>Duyệt level</Text>
+            <Text style={styles.headerSub}>Đánh giá và thẩm định đề xuất cấp bậc nhân sự</Text>
           </View>
         </View>
 

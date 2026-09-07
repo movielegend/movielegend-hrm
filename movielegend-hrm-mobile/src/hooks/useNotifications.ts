@@ -102,12 +102,16 @@ export function usePushNotificationSetup() {
           
           if (data && data.type) {
             const mockTarget = {
+              id: data.notificationId || 'mock',
+              notificationId: data.notificationId || 'mock',
               notification: {
                 id: data.notificationId,
                 type: data.type,
+                title: data.title || response.notification.request.content.title,
+                body: data.body || response.notification.request.content.body,
                 taskId: data.taskId,
                 metadata: data.metadata,
-              }
+              },
             };
             const route = require('../utils/notification-routing').notificationRoute(mockTarget, user);
             if (route) {

@@ -191,33 +191,33 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
               <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#D97706" />
             </View>
             <View>
-              <Text style={styles.vipHeroTitle}>Ví Điểm Thưởng {currentYear}</Text>
-              <Text style={styles.vipHeroSubtitle}>Đặc Quyền Nhân Tài Doanh Nghiệp</Text>
+              <Text style={styles.vipHeroTitle}>Ví Thưởng Tết Cuối Năm {currentYear}</Text>
+              <Text style={styles.vipHeroSubtitle}>Quỹ Tích Lũy 12 Tháng Giữ Chân Nhân Tài</Text>
             </View>
           </View>
           <View style={styles.vipBadgeChip}>
             <MaterialCommunityIcons name="crown" size={13} color="#B45309" />
-            <Text style={styles.vipBadgeChipText}>VIP</Text>
+            <Text style={styles.vipBadgeChipText}>TẾT {currentYear}</Text>
           </View>
         </View>
 
         {/* Main Available Balance Centerpiece */}
         <View style={styles.vipBalanceCenterpiece}>
-          <Text style={styles.vipBalanceLabel}>SỐ DƯ KHẢ DỤNG TỨC THÌ</Text>
+          <Text style={styles.vipBalanceLabel}>DỰ TOÁN TIỀN THƯỞNG TẾT TÍCH LŨY</Text>
           <View style={styles.vipAmountRow}>
-            <Text style={styles.vipAmountNumber}>{unlockedCash.toLocaleString('vi-VN')}</Text>
+            <Text style={styles.vipAmountNumber}>{totalGrantedCash.toLocaleString('vi-VN')}</Text>
             <Text style={styles.vipCurrency}>VNĐ</Text>
           </View>
           <View style={styles.vipPillRow}>
             <View style={styles.vipPointPill}>
               <MaterialCommunityIcons name="star-four-points" size={12} color="#059669" />
-              <Text style={styles.vipPointPillText}>{stats.unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
+              <Text style={styles.vipPointPillText}>{stats.totalGrantedPoints.toLocaleString('vi-VN')} điểm tích lũy</Text>
             </View>
             {stats.instantBonusPoints > 0 && (
               <View style={styles.vipInstantPill}>
                 <MaterialCommunityIcons name="lightning-bolt" size={12} color="#D97706" />
                 <Text style={styles.vipInstantPillText}>
-                  Đã gồm {stats.instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
+                  Gồm {stats.instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
                 </Text>
               </View>
             )}
@@ -227,9 +227,9 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         {/* Sub-metrics: 2 Equal Columns */}
         <View style={styles.vipMetricsGrid}>
           <View style={styles.vipMetricCol}>
-            <Text style={styles.vipMetricLabel}>Tổng Quỹ Cam Kết</Text>
-            <Text style={styles.vipMetricValue}>{totalGrantedCash.toLocaleString('vi-VN')} đ</Text>
-            <Text style={styles.vipMetricSub}>{stats.totalGrantedPoints.toLocaleString('vi-VN')} điểm</Text>
+            <Text style={styles.vipMetricLabel}>Số Dư Đã Mở Khóa</Text>
+            <Text style={styles.vipMetricValue}>{unlockedCash.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSub}>{stats.unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
           </View>
           <View style={styles.vipMetricDivider} />
           <View style={styles.vipMetricCol}>
@@ -245,8 +245,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           onPress={openWithdrawModal}
           activeOpacity={0.85}
         >
-          <MaterialCommunityIcons name="bank-transfer-out" size={20} color="#FFFFFF" />
-          <Text style={styles.vipWithdrawActionText}>RÚT TIỀN VỀ TÀI KHOẢN NGÂN HÀNG</Text>
+          <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#FFFFFF" />
+          <Text style={styles.vipWithdrawActionText}>YÊU CẦU TẤT TOÁN THƯỞNG TẾT</Text>
         </TouchableOpacity>
 
         {/* Advance Note Footer */}
@@ -285,6 +285,19 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
               }
             });
 
+            // Milestone default reward growth icons
+            const defaultIcons = [
+              'handshake',
+              'trending-up',
+              'star-circle',
+              'trophy-award',
+              'crown',
+              'gift-open',
+            ];
+
+            // Determine active/unlocked milestone indices
+            const firstLockedIdx = milestones.findIndex((m) => new Date(m.unlockDate) > now && (m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0);
+
             return (
               <View key={pkg.id || pIdx} style={styles.packageCard}>
                 {/* Package Card Header */}
@@ -312,126 +325,147 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                   </View>
                 </View>
 
-                {/* Milestones Stepper / Grid */}
-                <View style={styles.pkgMilestoneList}>
-                  {milestones.map((m, mIdx) => {
-                    const unlockDate = new Date(m.unlockDate);
-                    const isPassed = unlockDate <= now;
-                    const remaining = Math.max(0, m.pointsToUnlock - m.withdrawnPoints);
-                    const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
-                    const isPartiallyWithdrawn = m.withdrawnPoints > 0 && remaining > 0;
-                    const isUnlockedAvailable = isPassed && remaining > 0;
-                    const isFutureLocked = !isPassed && remaining > 0 && !isFullyWithdrawn;
+                {/* --- HORIZONTAL TRACKER (EXACT DESIGN MATCH) --- */}
+                <View style={styles.horizontalTrackerCard}>
+                  {/* Top Icons & Connecting Progress Lines Track */}
+                  <View style={styles.horizontalTrackRow}>
+                    {milestones.map((m, mIdx) => {
+                      const unlockDate = new Date(m.unlockDate);
+                      const isPassed = unlockDate <= now;
+                      const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                      const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                      const isUnlockedAvailable = isPassed && remaining > 0;
+                      const isCurrentUpcoming = mIdx === firstLockedIdx;
 
-                    const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}/${unlockDate.getFullYear()}`;
+                      // Icon selection
+                      const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
 
-                    return (
-                      <View
-                        key={m.id || mIdx}
-                        style={[
-                          styles.pkgMilestoneRow,
-                          isFullyWithdrawn && styles.pkgMilestoneRowWithdrawn,
-                          isUnlockedAvailable && styles.pkgMilestoneRowUnlocked,
-                          isFutureLocked && styles.pkgMilestoneRowLocked,
-                        ]}
-                      >
-                        <View style={styles.milestoneLeftInfo}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      // Colors
+                      const iconColor = isFullyWithdrawn
+                        ? '#DC2626' // Red
+                        : isUnlockedAvailable
+                        ? '#EE4D2D' // Shopee Active Orange
+                        : isCurrentUpcoming
+                        ? '#EE4D2D' // Current upcoming in orange
+                        : '#CBD5E1'; // Muted Grey
+
+                      const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
+                      const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
+
+                      // Connecting line to the next node
+                      let lineType: 'full' | 'half' | 'none' = 'none';
+                      const nextM = milestones[mIdx + 1];
+                      if (nextM) {
+                        const nextUnlockDate = new Date(nextM.unlockDate);
+                        const nextPassed = nextUnlockDate <= now;
+                        const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
+
+                        if (nextPassed || nextFullyWithdrawn) {
+                          lineType = 'full';
+                        } else if (isPassed || isFullyWithdrawn) {
+                          lineType = 'half';
+                        } else {
+                          lineType = 'none';
+                        }
+                      }
+
+                      return (
+                        <React.Fragment key={m.id || mIdx}>
+                          {/* Node Icon + Caret Indicator */}
+                          <View style={styles.trackNodeWrapper}>
                             <MaterialCommunityIcons
-                              name={
-                                isFullyWithdrawn
-                                  ? 'check-circle'
-                                  : isUnlockedAvailable
-                                  ? 'lock-open-variant'
-                                  : 'lock'
-                              }
-                              size={17}
-                              color={
-                                isFullyWithdrawn
-                                  ? '#DC2626'
-                                  : isUnlockedAvailable
-                                  ? '#16A34A'
-                                  : '#D97706'
-                              }
+                              name={iconName}
+                              size={26}
+                              color={iconColor}
                             />
-                            <Text
-                              style={[
-                                styles.pkgMilestoneTitle,
-                                isFullyWithdrawn && { color: '#991B1B', fontWeight: '700' },
-                                isUnlockedAvailable && { color: '#065F46', fontWeight: '700' },
-                                isFutureLocked && { color: '#334155' },
-                              ]}
-                            >
-                              {m.title}
-                            </Text>
+                            <View style={styles.trackCaretSlot}>
+                              {showCaret && (
+                                <MaterialCommunityIcons
+                                  name="chevron-down"
+                                  size={15}
+                                  color={caretColor}
+                                />
+                              )}
+                            </View>
                           </View>
+
+                          {/* Connecting Bar */}
+                          {mIdx < milestones.length - 1 && (
+                            <View style={styles.trackLineWrapper}>
+                              {lineType === 'full' ? (
+                                <View style={[styles.trackLine, styles.trackLineFull]} />
+                              ) : lineType === 'half' ? (
+                                <View style={styles.trackLineHalfContainer}>
+                                  <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                                  <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                                </View>
+                              ) : (
+                                <View style={[styles.trackLine, styles.trackLineInactive]} />
+                              )}
+                            </View>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </View>
+
+                  {/* Node Labels Row */}
+                  <View style={styles.trackLabelsRow}>
+                    {milestones.map((m, mIdx) => {
+                      const unlockDate = new Date(m.unlockDate);
+                      const isPassed = unlockDate <= now;
+                      const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                      const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                      const isUnlockedAvailable = isPassed && remaining > 0;
+                      const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
+
+                      const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                      return (
+                        <View key={m.id || mIdx} style={styles.trackLabelCol}>
                           <Text
                             style={[
-                              styles.pkgMilestoneDate,
-                              isFullyWithdrawn && { color: '#DC2626' },
-                              isUnlockedAvailable && { color: '#059669' },
+                              styles.trackNodeTitle,
+                              isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
+                              isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
                             ]}
+                            numberOfLines={1}
                           >
-                            {isFullyWithdrawn
-                              ? `Đã rút đợt này • Mở ngày: ${dateFormatted}`
-                              : `Mở khóa: ${dateFormatted}`}
+                            {m.title || `Đợt ${mIdx + 1}`}
                           </Text>
-                        </View>
+                          <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
 
-                        <View style={styles.milestoneRightInfo}>
-                          {isFullyWithdrawn ? (
-                            <Text style={styles.pkgMilestonePointsWithdrawn}>
-                              -{m.withdrawnPoints.toLocaleString('vi-VN')} đ
-                            </Text>
-                          ) : isPartiallyWithdrawn ? (
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={styles.pkgMilestonePointsUnlocked}>
-                                {remaining.toLocaleString('vi-VN')} đ
-                              </Text>
-                              <Text style={styles.pkgMilestonePointsDeducted}>
-                                (-{m.withdrawnPoints.toLocaleString('vi-VN')} đ)
-                              </Text>
-                            </View>
-                          ) : (
-                            <Text
-                              style={[
-                                styles.pkgMilestonePoints,
-                                isUnlockedAvailable && { color: '#16A34A', fontWeight: '800' },
-                              ]}
-                            >
-                              {m.pointsToUnlock.toLocaleString('vi-VN')} đ
-                            </Text>
-                          )}
-
+                          {/* Status Tag Pill */}
                           <View
                             style={[
-                              styles.milestoneStatusPill,
-                              isFullyWithdrawn && styles.pillWithdrawn,
-                              isUnlockedAvailable && styles.pillUnlocked,
-                              isFutureLocked && styles.pillLocked,
+                              styles.trackNodePill,
+                              isFullyWithdrawn && styles.trackPillWithdrawn,
+                              isUnlockedAvailable && styles.trackPillUnlocked,
+                              !isFullyWithdrawn && !isUnlockedAvailable && styles.trackPillLocked,
                             ]}
                           >
                             <Text
                               style={[
-                                styles.milestoneStatusPillText,
-                                isFullyWithdrawn && styles.pillTextWithdrawn,
-                                isUnlockedAvailable && styles.pillTextUnlocked,
-                                isFutureLocked && styles.pillTextLocked,
+                                styles.trackNodePillText,
+                                isFullyWithdrawn && styles.trackPillTextWithdrawn,
+                                isUnlockedAvailable && styles.trackPillTextUnlocked,
+                                !isFullyWithdrawn && !isUnlockedAvailable && styles.trackPillTextLocked,
                               ]}
+                              numberOfLines={1}
                             >
                               {isFullyWithdrawn
-                                ? `Đã rút hết (-${m.withdrawnPoints.toLocaleString('vi-VN')} đ)`
+                                ? `Đã rút (-${(m.withdrawnPoints || 0).toLocaleString('vi-VN')} đ)`
                                 : isPartiallyWithdrawn
-                                ? `Khả dụng: ${remaining.toLocaleString('vi-VN')} đ`
+                                ? `Còn ${remaining.toLocaleString('vi-VN')} đ`
                                 : isUnlockedAvailable
-                                ? `Đã mở khóa • Sẵn sàng rút`
-                                : `Khóa đến ${dateFormatted}`}
+                                ? `Mở khóa (${m.pointsToUnlock.toLocaleString('vi-VN')} đ)`
+                                : `${m.pointsToUnlock.toLocaleString('vi-VN')} đ`}
                             </Text>
                           </View>
                         </View>
-                      </View>
-                    );
-                  })}
+                      );
+                    })}
+                  </View>
                 </View>
 
                 {/* Package Bottom Summary */}
@@ -468,8 +502,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.shopeeTrackerCard}>
           <View style={styles.shopeeHeaderRow}>
             <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={styles.shopeeEstTime}>Lộ trình Ví Thưởng Năm {currentYear}</Text>
-              <Text style={styles.shopeeMainStatus}>Phân bổ 4 Quý</Text>
+              <Text style={styles.shopeeEstTime}>Lộ trình Ví Điểm Thưởng Năm {currentYear}</Text>
+              <Text style={styles.shopeeMainStatus}>Phân bổ 4 Quý Theo Chu Kỳ</Text>
             </View>
             <View style={styles.shopeeAvatarCircle}>
               <MaterialCommunityIcons name="wallet-giftcard" size={28} color="#EE4D2D" />
@@ -477,31 +511,113 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           </View>
 
           {/* Stepper Horizontal Progress Bar */}
-          <View style={styles.stepperContainer}>
-            <View style={styles.stepperIconsRow}>
-              {legacyQuarterSteps.map((step) => (
-                <View key={step.quarter} style={styles.milestoneNodeCol}>
-                  <View
+          <View style={styles.horizontalTrackRow}>
+            {legacyQuarterSteps.map((step, sIdx) => {
+              const defaultIcons = ['handshake', 'trending-up', 'star-circle', 'crown'];
+              const iconName = (step.icon || defaultIcons[sIdx % defaultIcons.length]) as any;
+
+              const isWithdrawn = step.isWithdrawn;
+              const isUnlocked = step.isUnlocked || step.isPastOrToday;
+              const isCurrent = step.isCurrentActive;
+
+              const iconColor = isWithdrawn
+                ? '#DC2626'
+                : isUnlocked || isCurrent
+                ? '#EE4D2D'
+                : '#CBD5E1';
+
+              const showCaret = isWithdrawn || isUnlocked || isCurrent;
+              const caretColor = isWithdrawn ? '#DC2626' : '#EE4D2D';
+
+              let lineType: 'full' | 'half' | 'none' = 'none';
+              if (sIdx < legacyQuarterSteps.length - 1 && legacyQuarterSteps[sIdx + 1]) {
+                const nextStep = legacyQuarterSteps[sIdx + 1];
+                if (nextStep?.isPastOrToday || nextStep?.isWithdrawn) {
+                  lineType = 'full';
+                } else if (step.isPastOrToday || step.isWithdrawn) {
+                  lineType = 'half';
+                } else {
+                  lineType = 'none';
+                }
+              }
+
+              return (
+                <React.Fragment key={step.quarter}>
+                  <View style={styles.trackNodeWrapper}>
+                    <MaterialCommunityIcons
+                      name={iconName}
+                      size={26}
+                      color={iconColor}
+                    />
+                    <View style={styles.trackCaretSlot}>
+                      {showCaret && (
+                        <MaterialCommunityIcons
+                          name="chevron-down"
+                          size={15}
+                          color={caretColor}
+                        />
+                      )}
+                    </View>
+                  </View>
+
+                  {sIdx < legacyQuarterSteps.length - 1 && (
+                    <View style={styles.trackLineWrapper}>
+                      {lineType === 'full' ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : lineType === 'half' ? (
+                        <View style={styles.trackLineHalfContainer}>
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                        </View>
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </View>
+
+          {/* Stepper Labels */}
+          <View style={styles.trackLabelsRow}>
+            {legacyQuarterSteps.map((step) => (
+              <View key={step.quarter} style={styles.trackLabelCol}>
+                <Text
+                  style={[
+                    styles.trackNodeTitle,
+                    step.isWithdrawn && { color: '#DC2626', fontWeight: '800' },
+                    step.isPastOrToday && { color: '#EE4D2D', fontWeight: '800' },
+                  ]}
+                >
+                  {step.label}
+                </Text>
+                <Text style={styles.trackNodeDate}>{step.dateLabel}</Text>
+                <View
+                  style={[
+                    styles.trackNodePill,
+                    step.isWithdrawn && styles.trackPillWithdrawn,
+                    step.isUnlocked && styles.trackPillUnlocked,
+                    step.isLocked && styles.trackPillLocked,
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.milestoneIconWrap,
-                      step.isWithdrawn
-                        ? styles.milestoneIconWithdrawn
-                        : step.isPastOrToday
-                        ? styles.milestoneIconActive
-                        : styles.milestoneIconInactive,
+                      styles.trackNodePillText,
+                      step.isWithdrawn && styles.trackPillTextWithdrawn,
+                      step.isUnlocked && styles.trackPillTextUnlocked,
+                      step.isLocked && styles.trackPillTextLocked,
                     ]}
                   >
-                    <MaterialCommunityIcons
-                      name={step.icon as any}
-                      size={20}
-                      color={step.isWithdrawn ? '#64748B' : step.isPastOrToday ? '#EE4D2D' : '#94A3B8'}
-                    />
-                  </View>
-                  <Text style={styles.stepperQuarterTitle}>Q{step.quarter}</Text>
-                  <Text style={styles.stepperDateText}>{step.dateLabel}</Text>
+                    {step.isWithdrawn
+                      ? 'Đã rút'
+                      : step.isUnlocked
+                      ? `${step.points.toLocaleString('vi-VN')} đ`
+                      : 'Chưa mở'}
+                  </Text>
                 </View>
-              ))}
-            </View>
+              </View>
+            ))}
           </View>
         </View>
       )}
@@ -569,12 +685,142 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                   </View>
                 </View>
 
-                {/* Bank details summary */}
-                <View style={styles.withdrawalBankRow}>
-                  <MaterialCommunityIcons name="bank-outline" size={14} color="#64748B" />
-                  <Text style={styles.withdrawalBankText}>
-                    {req.bankName} • STK: <Text style={{ fontWeight: '700', color: '#1E293B' }}>{req.bankAccountNumber}</Text> ({req.bankAccountName})
-                  </Text>
+                {/* 4-Step Withdrawal Approval & Payout Pipeline Tracker */}
+                <View style={styles.reqDeliveryTrackerWrapper}>
+                  <View style={styles.horizontalTrackRow}>
+                    {/* Step 1: Created */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="file-document-edit"
+                        size={22}
+                        color={isRejected ? '#DC2626' : '#EE4D2D'}
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        <MaterialCommunityIcons
+                          name="chevron-down"
+                          size={13}
+                          color={isRejected ? '#DC2626' : '#EE4D2D'}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Line 1 -> 2 */}
+                    <View style={styles.trackLineWrapper}>
+                      {isPaid || isPendingAcc ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : isPendingAdmin ? (
+                        <View style={styles.trackLineHalfContainer}>
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                        </View>
+                      ) : isRejected ? (
+                        <View style={[styles.trackLine, { backgroundColor: '#FECDD3' }]} />
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+
+                    {/* Step 2: Admin Approval */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="account-check"
+                        size={22}
+                        color={
+                          isRejected
+                            ? '#DC2626'
+                            : isPaid || isPendingAcc
+                            ? '#EE4D2D'
+                            : isPendingAdmin
+                            ? '#EE4D2D'
+                            : '#CBD5E1'
+                        }
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        {(isPaid || isPendingAcc || isPendingAdmin || isRejected) && (
+                          <MaterialCommunityIcons
+                            name="chevron-down"
+                            size={13}
+                            color={isRejected ? '#DC2626' : '#EE4D2D'}
+                          />
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Line 2 -> 3 */}
+                    <View style={styles.trackLineWrapper}>
+                      {isPaid ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : isPendingAcc ? (
+                        <View style={styles.trackLineHalfContainer}>
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                        </View>
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+
+                    {/* Step 3: Accountant Payout */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="bank-transfer"
+                        size={22}
+                        color={isPaid ? '#EE4D2D' : isPendingAcc ? '#EE4D2D' : '#CBD5E1'}
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        {(isPaid || isPendingAcc) && (
+                          <MaterialCommunityIcons
+                            name="chevron-down"
+                            size={13}
+                            color="#EE4D2D"
+                          />
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Line 3 -> 4 */}
+                    <View style={styles.trackLineWrapper}>
+                      {isPaid ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+
+                    {/* Step 4: Finished */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="check-decagram"
+                        size={22}
+                        color={isPaid ? '#059669' : '#CBD5E1'}
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        {isPaid && (
+                          <MaterialCommunityIcons
+                            name="chevron-down"
+                            size={13}
+                            color="#059669"
+                          />
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Step Labels */}
+                  <View style={styles.trackLabelsRow}>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, { fontSize: 9.5 }]}>Gửi đơn</Text>
+                    </View>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, (isPendingAdmin || isPendingAcc || isPaid) && { color: '#EE4D2D' }, { fontSize: 9.5 }]}>Duyệt</Text>
+                    </View>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, (isPendingAcc || isPaid) && { color: '#EE4D2D' }, { fontSize: 9.5 }]}>Chi tiền</Text>
+                    </View>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, isPaid && { color: '#059669' }, { fontSize: 9.5 }]}>Đã nhận</Text>
+                    </View>
+                  </View>
                 </View>
 
                 {/* Timestamp & Notes */}
@@ -694,7 +940,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 <View style={styles.modalHeaderBadge}>
                   <Ionicons name="cash-outline" size={20} color="#D97706" />
                 </View>
-                <Text style={styles.modalTitle}>Yêu Cầu Rút Tiền Thưởng</Text>
+                <Text style={styles.modalTitle}>Yêu Cầu Tất Toán Thưởng Tết</Text>
               </View>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
                 <Ionicons name="close" size={20} color="#6B7280" />
@@ -703,7 +949,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
               {/* Point Input */}
-              <Text style={styles.inputLabel}>Số điểm muốn rút (Tối đa {stats.maxWithdrawable.toLocaleString('vi-VN')} đ):</Text>
+              <Text style={styles.inputLabel}>Số điểm muốn nhận (Tối đa {stats.maxWithdrawable.toLocaleString('vi-VN')} đ):</Text>
               <View style={styles.pointsInputRow}>
                 <TextInput
                   style={styles.pointsTextInput}
@@ -716,13 +962,13 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                   style={styles.maxBtn}
                   onPress={() => setWithdrawPointsInput(stats.maxWithdrawable.toString())}
                 >
-                  <Text style={styles.maxBtnText}>Rút hết</Text>
+                  <Text style={styles.maxBtnText}>Nhận hết</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Conversion Preview */}
               <View style={styles.conversionBox}>
-                <Text style={styles.conversionFormula}>Quy đổi thành tiền:</Text>
+                <Text style={styles.conversionFormula}>Dự toán số tiền thưởng Tết:</Text>
                 <Text style={styles.conversionTotal}>
                   {cashToWithdraw.toLocaleString('vi-VN')} VNĐ
                 </Text>
@@ -743,21 +989,21 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
               {/* Direct Internal Payout Notice */}
               <View style={styles.directPayoutNoticeBox}>
-                <MaterialCommunityIcons name="cash-multiple" size={22} color="#D97706" />
+                <MaterialCommunityIcons name="shield-check-outline" size={22} color="#059669" />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.directPayoutTitle}>Hình thức nhận quy đổi:</Text>
+                  <Text style={[styles.directPayoutTitle, { color: '#065F46' }]}>Quy trình chi trả nội bộ:</Text>
                   <Text style={styles.directPayoutDesc}>
-                    Quy đổi & nhận trực tiếp nội bộ tại công ty (Tiền mặt hoặc phương thức quy đổi trao đổi trực tiếp với Ban Giám Đốc / Kế toán).
+                    Yêu cầu sẽ được chuyển đến Ban Giám Đốc phê duyệt, sau đó Kế toán sẽ thực hiện chi trả theo quy định của công ty.
                   </Text>
                 </View>
               </View>
 
-              <Text style={styles.inputLabel}>Ghi chú rút điểm (Tùy chọn):</Text>
+              <Text style={styles.inputLabel}>Ghi chú (Tùy chọn):</Text>
               <TextInput
                 style={styles.input}
                 value={withdrawNote}
                 onChangeText={setWithdrawNote}
-                placeholder="VD: Rút chi tiêu cá nhân, tạm ứng đợt 1..."
+                placeholder="VD: Đề xuất nhận thưởng Tết cuối năm..."
               />
             </ScrollView>
 
@@ -770,7 +1016,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.submitWithdrawText}>
-                  XÁC NHẬN RÚT {cashToWithdraw.toLocaleString('vi-VN')} VNĐ
+                  GỬI YÊU CẦU ({cashToWithdraw.toLocaleString('vi-VN')} VNĐ)
                 </Text>
               )}
             </TouchableOpacity>
@@ -1822,5 +2068,129 @@ const styles = StyleSheet.create({
     width: 1,
     height: 20,
     backgroundColor: '#FDE68A',
+  },
+  horizontalTrackerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  horizontalTrackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  trackNodeWrapper: {
+    alignItems: 'center',
+    width: 32,
+  },
+  trackCaretSlot: {
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trackLineWrapper: {
+    flex: 1,
+    height: 4.5,
+    marginBottom: 14,
+    marginHorizontal: 4,
+  },
+  trackLine: {
+    height: 4.5,
+    borderRadius: 2.5,
+  },
+  trackLineFull: {
+    backgroundColor: '#EE4D2D',
+  },
+  trackLineInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  trackLineHalfContainer: {
+    flexDirection: 'row',
+    height: 4.5,
+    borderRadius: 2.5,
+    overflow: 'hidden',
+  },
+  trackLineHalf: {
+    flex: 1,
+    height: 4.5,
+  },
+  trackLineHalfActive: {
+    backgroundColor: '#EE4D2D',
+  },
+  trackLineHalfInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  trackLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  trackLabelCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  trackNodeTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  trackNodeDate: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  trackNodePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackPillWithdrawn: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  trackPillUnlocked: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  trackPillLocked: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  trackNodePillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  trackPillTextWithdrawn: {
+    color: '#DC2626',
+  },
+  trackPillTextUnlocked: {
+    color: '#EE4D2D',
+  },
+  trackPillTextLocked: {
+    color: '#64748B',
+  },
+  reqDeliveryTrackerWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
 });

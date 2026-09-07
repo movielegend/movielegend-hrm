@@ -18,6 +18,7 @@ import { useSocketStatus } from '../../providers/SocketProvider';
 import { levelingApi } from '../../api/leveling.api';
 import { apiClient } from '../../api/client';
 
+import { useAuth } from '../../providers/AuthProvider';
 import { AdminDeptOverviewPage, DepartmentSummaryItem } from './pages/AdminDeptOverviewPage';
 import { AdminLevelRewardsPage } from './pages/AdminLevelRewardsPage';
 import { AdminLevelProjectsPage } from './pages/AdminLevelProjectsPage';
@@ -42,6 +43,7 @@ export interface AdminLevelItem {
 }
 
 export const AdminLevelConfigScreen: React.FC = () => {
+  const { user } = useAuth();
   const { data: realDeptData, isLoading } = useDepartments({ limit: 100 });
   const { getSocket } = useSocketStatus();
 
@@ -56,7 +58,8 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   useEffect(() => {
     if (departments.length > 0 && (!selectedDeptId || !departments.some((d: any) => d.id === selectedDeptId))) {
-      setSelectedDeptId(departments[0].id);
+      const firstId = departments[0]?.id;
+      if (firstId) setSelectedDeptId(firstId);
     }
   }, [departments, selectedDeptId]);
 
@@ -197,7 +200,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
             setDeptLevelConfigs((prev) => {
               const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
               const updatedList = currentList.filter((l) => l.id !== levelId);
-              syncConfigToBackend(updatedList);
               return { ...prev, [currentConfigKey]: updatedList };
             });
           },
@@ -229,7 +231,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
     setDeptLevelConfigs((prev) => {
       const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = [...currentList, newLevelItem];
-      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
 
@@ -244,7 +245,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
           ? { ...item, project: { ...item.project, projectName: newProjectName } }
           : item
       );
-      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -265,7 +265,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
         }
         return item;
       });
-      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -282,7 +281,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
         }
         return item;
       });
-      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -297,7 +295,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
         }
         return item;
       });
-      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
   };
@@ -307,7 +304,6 @@ export const AdminLevelConfigScreen: React.FC = () => {
     setDeptLevelConfigs((prev) => {
       const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
-      syncConfigToBackend(updatedList);
       return { ...prev, [currentConfigKey]: updatedList };
     });
     Alert.alert('Thành Công', `Đã lưu quà thưởng cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);

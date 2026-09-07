@@ -2,9 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Image, Pressable, StyleSheet, Text, View, Platform, Modal } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, Platform, Modal, ScrollView } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { registerEmployee } from '../../api/registration.api';
@@ -13,7 +13,7 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { VietnameseDatePickerModal } from '../../components/VietnameseDatePickerModal';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { Screen } from '../../components/Screen';
@@ -162,71 +162,41 @@ export function RegistrationPersonalScreen() {
               <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
               <Pressable 
                 onPress={() => setShowDatePicker(true)}
-                style={{ height: 56, borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: '#FFFFFF' }}
+                style={{ 
+                  height: 56, 
+                  borderWidth: 1, 
+                  borderColor: errors.dateOfBirth ? '#EF4444' : '#ECEEF3', 
+                  borderRadius: 12, 
+                  paddingHorizontal: 16, 
+                  flexDirection: 'row',
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  backgroundColor: '#FFFFFF' 
+                }}
               >
-                <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: '500' }}>
-                  {dob ? dob.split('-').reverse().join('-') : 'Chọn ngày sinh'}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="calendar-outline" size={20} color={dob ? '#111827' : '#9CA3AF'} />
+                  <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: dob ? '600' : '400' }}>
+                    {dob ? (() => {
+                      const parts = dob.split('-');
+                      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dob;
+                    })() : 'Chọn ngày sinh'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
               </Pressable>
               {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.dateOfBirth.message}</Text> : null}
             </View>
 
-            {showDatePicker && Platform.OS === 'ios' && (
-              <Modal transparent animationType="slide" visible={showDatePicker} onRequestClose={() => setShowDatePicker(false)}>
-                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                  <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 30 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#F3F4F6' }}>
-                      <Pressable onPress={() => setShowDatePicker(false)} style={{ padding: 8 }}>
-                        <Text style={{ color: '#6B7280', fontSize: 16, fontWeight: '500' }}>Hủy</Text>
-                      </Pressable>
-                      <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Chọn ngày sinh</Text>
-                      <Pressable onPress={() => setShowDatePicker(false)} style={{ padding: 8 }}>
-                        <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>Xong</Text>
-                      </Pressable>
-                    </View>
-                    <DateTimePicker
-                      value={dob ? (() => {
-                        const [y, m, d] = dob.split('-').map(Number);
-                        return (y && m && d) ? new Date(y, m - 1, d) : new Date(2000, 0, 1);
-                      })() : new Date(2000, 0, 1)}
-                      mode="date"
-                      display="spinner"
-                      maximumDate={new Date()}
-                      onChange={(event, selectedDate) => {
-                        if (selectedDate) {
-                          const y = selectedDate.getFullYear();
-                          const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                          const d = String(selectedDate.getDate()).padStart(2, '0');
-                          setValue('dateOfBirth', `${y}-${m}-${d}`);
-                        }
-                      }}
-                      style={{ height: 200, marginTop: 10 }}
-                    />
-                  </View>
-                </View>
-              </Modal>
-            )}
-
-            {showDatePicker && Platform.OS === 'android' && (
-              <DateTimePicker
-                value={dob ? (() => {
-                  const [y, m, d] = dob.split('-').map(Number);
-                  return (y && m && d) ? new Date(y, m - 1, d) : new Date(2000, 0, 1);
-                })() : new Date(2000, 0, 1)}
-                mode="date"
-                display="default"
-                maximumDate={new Date()}
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (event.type === 'set' && selectedDate) {
-                    const y = selectedDate.getFullYear();
-                    const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const d = String(selectedDate.getDate()).padStart(2, '0');
-                    setValue('dateOfBirth', `${y}-${m}-${d}`);
-                  }
-                }}
-              />
-            )}
+            <VietnameseDatePickerModal
+              visible={showDatePicker}
+              onClose={() => setShowDatePicker(false)}
+              initialDate={dob}
+              title="Chọn ngày sinh"
+              onSelect={(selectedDateStr) => {
+                setValue('dateOfBirth', selectedDateStr);
+              }}
+            />
 
             <View>
               <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Giới tính</Text>
@@ -586,6 +556,19 @@ export function RegistrationReviewScreen() {
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Hồ sơ</Text>
             </View>
             <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>CCCD:</Text> ********{values.idCardNumber.slice(-4)}</Text>
+            {values.dateOfBirth ? (
+              <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                <Text style={{ fontWeight: '600' }}>Ngày sinh:</Text> {(() => {
+                  const parts = values.dateOfBirth.split('-');
+                  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : values.dateOfBirth;
+                })()}
+              </Text>
+            ) : null}
+            {values.gender ? (
+              <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                <Text style={{ fontWeight: '600' }}>Giới tính:</Text> {values.gender === 'MALE' ? 'Nam' : values.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+              </Text>
+            ) : null}
             <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ID:</Text> {values.requestedDepartmentId || 'Chưa chọn'}</Text>
           </View>
           

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,8 @@ import {
   TextInput,
   Alert,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import type { AdminLevelItem } from '../AdminLevelConfigScreen';
 
 interface AdminLevelProjectsPageProps {
@@ -37,6 +37,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   onDeleteSubTaskInLevel,
   onSaveAllAndSync,
 }) => {
+  const scrollViewRef = useRef<ScrollView>(null);
   const [selectedLevelNum, setSelectedLevelNum] = useState<number>(1);
   const [newBulletText, setNewBulletText] = useState<string>('');
 
@@ -44,6 +45,20 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   const [editingBulletText, setEditingBulletText] = useState<string>('');
 
   const activeFocusedLevel = levels.find((l) => l.levelNumber === selectedLevelNum) || levels[0];
+
+  // Local state for smooth, zero-lag typing in project name
+  const [localProjectName, setLocalProjectName] = useState<string>(activeFocusedLevel?.project?.projectName || '');
+
+  useEffect(() => {
+    setLocalProjectName(activeFocusedLevel?.project?.projectName || '');
+  }, [activeFocusedLevel?.levelNumber]);
+
+  const handleChangeProjectName = (txt: string) => {
+    setLocalProjectName(txt);
+    if (activeFocusedLevel) {
+      onUpdateLevelProjectName(activeFocusedLevel.levelNumber, txt);
+    }
+  };
 
   const handleAddBulletSubmit = () => {
     if (!activeFocusedLevel) return;
@@ -53,6 +68,9 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
     }
     onAddSubTaskToLevel(activeFocusedLevel.levelNumber, newBulletText.trim());
     setNewBulletText('');
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 120);
   };
 
   const handleStartEditBullet = (index: number, currentText: string) => {
@@ -92,17 +110,18 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   };
 
   return (
-    <KeyboardAwareScrollView
+    <KeyboardAvoidingView
       style={styles.container}
-      contentContainerStyle={styles.scroll}
-      enableOnAndroid={true}
-      enableAutomaticScroll={true}
-      extraScrollHeight={Platform.OS === 'ios' ? 120 : 140}
-      extraHeight={Platform.OS === 'ios' ? 120 : 140}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      enableResetScrollToCoords={false}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.container}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 250 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       {/* Year Selector Bar */}
       <Text style={styles.yearSubLabel}>CHỌN NĂM GIAO DỰ ÁN (NĂM {selectedYear}):</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScrollRow}>
@@ -167,8 +186,9 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
           <TextInput
             style={styles.input}
             placeholder="Nhập tên dự án thăng cấp..."
-            value={activeFocusedLevel.project.projectName}
-            onChangeText={(txt) => onUpdateLevelProjectName(activeFocusedLevel.levelNumber, txt)}
+            placeholderTextColor="#94A3B8"
+            value={localProjectName}
+            onChangeText={handleChangeProjectName}
           />
 
           <Text style={styles.inputSubLabel}>Danh sách các việc con gạch đầu dòng cần làm ở Level {activeFocusedLevel.levelNumber}:</Text>
@@ -215,8 +235,16 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
               placeholder={`+ Nhập việc con cho Level ${activeFocusedLevel.levelNumber}...`}
+              placeholderTextColor="#94A3B8"
               value={newBulletText}
               onChangeText={setNewBulletText}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 200);
+              }}
+              onSubmitEditing={handleAddBulletSubmit}
+              returnKeyType="done"
             />
             <TouchableOpacity style={styles.addBtn} onPress={handleAddBulletSubmit}>
               <Text style={styles.addBtnText}>+ Thêm việc</Text>
@@ -230,7 +258,8 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />
-    </KeyboardAwareScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

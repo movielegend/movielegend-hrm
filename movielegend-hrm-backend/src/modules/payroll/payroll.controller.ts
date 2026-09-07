@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { CreatePayrollPeriodDto } from './dto/payroll.dto';
+import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
 import { PayrollService } from './payroll.service';
 
 @ApiTags('Payroll Periods')
@@ -74,9 +75,33 @@ export class PayrollsController {
   constructor(private readonly payroll: PayrollService) {}
 
   @Get('my')
-  @Permissions('payroll.read_own')
+  @AnyPermissions('payroll.read_own', 'payroll.read_all')
   myPayrolls(@CurrentUser() actor: AuthenticatedUser) {
     return this.payroll.myPayrolls(actor);
+  }
+
+  @Get('my-payslip')
+  @AnyPermissions('payroll.read_own', 'payroll.read_all')
+  getMyPayslip(@CurrentUser() actor: AuthenticatedUser, @Query() query: MyPayslipQueryDto) {
+    return this.payroll.getMyPayslip(actor, query);
+  }
+
+  @Post('import')
+  @AnyPermissions('payroll.calculate', 'payroll.review', 'payroll.approve', 'payroll.manage')
+  importPayrolls(@Body() dto: ImportPayrollDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.importPayrolls(actor, dto);
+  }
+
+  @Post('upload-image')
+  @AnyPermissions('payroll.calculate', 'payroll.review', 'payroll.approve', 'payroll.manage')
+  uploadPayslipImage(@Body() dto: UploadPayslipImageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.uploadOfficialImage(actor, dto);
+  }
+
+  @Post('my/:id/acknowledge')
+  @AnyPermissions('payroll.read_own', 'payroll.read_all')
+  acknowledgePayslip(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.acknowledgePayslip(id, actor);
   }
 
   @Get('my/:id')
