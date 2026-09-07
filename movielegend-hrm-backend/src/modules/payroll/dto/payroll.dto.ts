@@ -244,9 +244,15 @@ export class UploadPayslipImageDto {
   @Max(2100)
   year!: number;
 
-  @ApiProperty({ description: 'URL ảnh phiếu lương chốt' })
+  @ApiPropertyOptional({ description: 'URL ảnh phiếu lương chốt' })
+  @IsOptional()
   @IsString()
-  imageUrl!: string;
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ description: 'URL ảnh phiếu lương chốt (alias)' })
+  @IsOptional()
+  @IsString()
+  fileUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

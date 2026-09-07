@@ -334,7 +334,11 @@ export class PayrollService {
   }
 
   async uploadOfficialImage(actor: AuthenticatedUser, dto: UploadPayslipImageDto) {
-    const { userId, month, year, imageUrl, note } = dto;
+    const { userId, month, year, note } = dto;
+    const imageUrl = dto.imageUrl || dto.fileUrl;
+    if (!imageUrl) {
+      throw badRequest('IMAGE_URL_REQUIRED', 'imageUrl hoặc fileUrl là bắt buộc');
+    }
 
     await this.prisma.auditLog.create({
       data: {

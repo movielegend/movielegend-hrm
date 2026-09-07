@@ -134,7 +134,7 @@ export function EmployeePayslipScreen() {
         userId: targetUserId,
         month: selectedMonth,
         year: selectedYear,
-        imageUrl: uploaded.url,
+        imageUrl: uploaded.fileUrl || (uploaded as any).url,
       });
       Alert.alert('Thành công', `Đã lưu ảnh phiếu lương cho ${targetUserName || 'bạn'} thành công!`);
       fetchPayslip();

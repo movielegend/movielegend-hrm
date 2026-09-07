@@ -165,9 +165,15 @@ export class UploadTimesheetImageDto {
   @Max(2100)
   year!: number;
 
-  @ApiProperty({ description: 'URL ảnh bảng công chốt' })
+  @ApiPropertyOptional({ description: 'URL ảnh bảng công chốt' })
+  @IsOptional()
   @IsString()
-  imageUrl!: string;
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ description: 'URL ảnh bảng công chốt (alias)' })
+  @IsOptional()
+  @IsString()
+  fileUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

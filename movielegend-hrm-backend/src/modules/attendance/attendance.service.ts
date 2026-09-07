@@ -1353,7 +1353,11 @@ export class AttendanceService {
   }
 
   async uploadOfficialImage(actor: AuthenticatedUser, dto: UploadTimesheetImageDto) {
-    const { userId, month, year, imageUrl, officialWorkingDays, note } = dto;
+    const { userId, month, year, officialWorkingDays, note } = dto;
+    const imageUrl = dto.imageUrl || dto.fileUrl;
+    if (!imageUrl) {
+      throw badRequest('IMAGE_URL_REQUIRED', 'imageUrl hoặc fileUrl là bắt buộc');
+    }
 
     await this.prisma.auditLog.create({
       data: {

@@ -135,7 +135,7 @@ export function MonthlyTimesheetScreen() {
         userId: targetUserId,
         month: selectedMonth,
         year: selectedYear,
-        imageUrl: uploaded.url,
+        imageUrl: uploaded.fileUrl || (uploaded as any).url,
       });
       Alert.alert('Thành công', `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`);
       fetchTimesheet();
