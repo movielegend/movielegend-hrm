@@ -65,7 +65,7 @@ export function RegistrationIntroScreen() {
               ))}
             </View>
             
-            <Pressable onPress={() => router.push('/register/profile')} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
+            <Pressable onPress={() => router.push('/register/account')} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>BẮT ĐẦU</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', marginTop: 24, justifyContent: 'center' }}>
@@ -81,44 +81,64 @@ export function RegistrationIntroScreen() {
   );
 }
 
-export function RegistrationProfileScreen() {
+export function RegistrationAccountScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
-  const { control, handleSubmit, formState: { errors } } = useForm<AccountStepValues>({
-    resolver: zodResolver(accountSchema),
-    defaultValues: values,
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<AccountStepValues>({
+    resolver: zodResolver(accountStepSchema),
+    defaultValues: {
+      fullName: values.fullName,
+      phone: values.phone,
+      email: values.email,
+      password: values.password,
+      confirmPassword: values.confirmPassword,
+    },
   });
   const submit = handleSubmit((data) => {
+    Keyboard.dismiss();
     update(data);
     router.push('/register/personal');
   });
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60, zIndex: 1 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ marginBottom: 24, paddingTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#111827" />
-              </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Thông tin tài khoản</Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        >
+          <ScrollView
+            contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={{ marginBottom: 24, paddingTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                  <Ionicons name="arrow-back" size={24} color="#111827" />
+                </Pressable>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Thông tin tài khoản</Text>
+              </View>
+              <StepBar currentStep={1} />
             </View>
-            <StepBar currentStep={1} />
-          </View>
 
-          <View style={{ gap: 20 }}>
-            <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
-            <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" maxLength={10} label="Số điện thoại" value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 10))} error={errors.phone?.message} />} />
-            <Controller control={control} name="email" render={({ field }) => <FormField autoCapitalize="none" keyboardType="email-address" label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} />} />
-            <Controller control={control} name="password" render={({ field }) => <FormField isPassword label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
-            <Controller control={control} name="confirmPassword" render={({ field }) => <FormField isPassword label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
-            
-            <Pressable onPress={submit} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 16, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
-            </Pressable>
-          </View>
-        </KeyboardAwareScrollView>
+            <View style={{ gap: 20 }}>
+              <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
+              <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" maxLength={10} label="Số điện thoại" value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 10))} error={errors.phone?.message} />} />
+              <Controller control={control} name="email" render={({ field }) => <FormField autoCapitalize="none" keyboardType="email-address" label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} />} />
+              <Controller control={control} name="password" render={({ field }) => <FormField isPassword label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
+              <Controller control={control} name="confirmPassword" render={({ field }) => <FormField isPassword label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
+              
+              <Pressable onPress={submit} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 16, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Screen>
   );
@@ -128,15 +148,20 @@ export function RegistrationPersonalScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
   const { control, handleSubmit, formState: { errors }, watch, setValue } = useForm<ProfileStepValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: values,
+    resolver: zodResolver(profileStepSchema),
+    defaultValues: {
+      idCardNumber: values.idCardNumber,
+      dateOfBirth: values.dateOfBirth,
+      gender: values.gender,
+    },
   });
-  
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dob = watch('dateOfBirth');
   const gender = watch('gender');
-  
+
   const submit = handleSubmit((data) => {
+    Keyboard.dismiss();
     update(data);
     router.push('/register/department');
   });
@@ -144,102 +169,112 @@ export function RegistrationPersonalScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ marginBottom: 24, paddingTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#111827" />
-              </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Hồ sơ cá nhân</Text>
-            </View>
-            <StepBar currentStep={2} />
-          </View>
-
-          <View style={{ gap: 20 }}>
-            <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="Số CCCD" maxLength={12} value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 12))} error={errors.idCardNumber?.message} keyboardType="numeric" />} />
-            
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
-              <Pressable 
-                onPress={() => setShowDatePicker(true)}
-                style={{ 
-                  height: 56, 
-                  borderWidth: 1, 
-                  borderColor: errors.dateOfBirth ? '#EF4444' : '#ECEEF3', 
-                  borderRadius: 12, 
-                  paddingHorizontal: 16, 
-                  flexDirection: 'row',
-                  alignItems: 'center', 
-                  justifyContent: 'space-between',
-                  backgroundColor: '#FFFFFF' 
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Ionicons name="calendar-outline" size={20} color={dob ? '#111827' : '#9CA3AF'} />
-                  <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: dob ? '600' : '400' }}>
-                    {dob ? (() => {
-                      const parts = dob.split('-');
-                      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dob;
-                    })() : 'Chọn ngày sinh'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
-              </Pressable>
-              {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.dateOfBirth.message}</Text> : null}
-            </View>
-
-            <VietnameseDatePickerModal
-              visible={showDatePicker}
-              onClose={() => setShowDatePicker(false)}
-              initialDate={dob}
-              title="Chọn ngày sinh"
-              onSelect={(selectedDateStr) => {
-                setValue('dateOfBirth', selectedDateStr);
-              }}
-            />
-
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Giới tính</Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                {[
-                  { id: 'MALE', label: 'Nam', icon: 'male-outline' },
-                  { id: 'FEMALE', label: 'Nữ', icon: 'female-outline' },
-                  { id: 'OTHER', label: 'Khác', icon: 'male-female-outline' }
-                ].map((item) => {
-                  const isSelected = gender === item.id;
-                  return (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => setValue('gender', item.id as any)}
-                      style={{ 
-                        flex: 1, 
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 6,
-                        height: 56, 
-                        borderWidth: 1, 
-                        borderColor: isSelected ? '#111827' : '#ECEEF3', 
-                        borderRadius: 12, 
-                        backgroundColor: isSelected ? '#F9FAFB' : '#FFFFFF' 
-                      }}
-                    >
-                      <Ionicons name={item.icon as any} size={18} color={isSelected ? '#111827' : '#6B7280'} />
-                      <Text style={{ color: isSelected ? '#111827' : '#6B7280', fontSize: 15, fontWeight: isSelected ? '600' : '500' }}>
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        >
+          <ScrollView
+            contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={{ marginBottom: 24, paddingTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                  <Ionicons name="arrow-back" size={24} color="#111827" />
+                </Pressable>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Hồ sơ cá nhân</Text>
               </View>
-              {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.gender.message}</Text> : null}
+              <StepBar currentStep={2} />
             </View>
-            
-            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
-            </Pressable>
-          </View>
-        </KeyboardAwareScrollView>
+
+            <View style={{ gap: 20 }}>
+              <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="Số CCCD" maxLength={12} value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 12))} error={errors.idCardNumber?.message} keyboardType="numeric" />} />
+              
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
+                <Pressable 
+                  onPress={() => setShowDatePicker(true)}
+                  style={{ 
+                    height: 56, 
+                    borderWidth: 1, 
+                    borderColor: errors.dateOfBirth ? '#EF4444' : '#ECEEF3', 
+                    borderRadius: 12, 
+                    paddingHorizontal: 16, 
+                    flexDirection: 'row',
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    backgroundColor: '#FFFFFF' 
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="calendar-outline" size={20} color={dob ? '#111827' : '#9CA3AF'} />
+                    <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: dob ? '600' : '400' }}>
+                      {dob ? (() => {
+                        const parts = dob.split('-');
+                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dob;
+                      })() : 'Chọn ngày sinh'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+                </Pressable>
+                {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.dateOfBirth.message}</Text> : null}
+              </View>
+
+              <VietnameseDatePickerModal
+                visible={showDatePicker}
+                onClose={() => setShowDatePicker(false)}
+                initialDate={dob}
+                title="Chọn ngày sinh"
+                onSelect={(selectedDateStr) => {
+                  setValue('dateOfBirth', selectedDateStr);
+                }}
+              />
+
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Giới tính</Text>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  {[
+                    { id: 'MALE', label: 'Nam', icon: 'male-outline' },
+                    { id: 'FEMALE', label: 'Nữ', icon: 'female-outline' },
+                    { id: 'OTHER', label: 'Khác', icon: 'male-female-outline' }
+                  ].map((item) => {
+                    const isSelected = gender === item.id;
+                    return (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => setValue('gender', item.id as any)}
+                        style={{ 
+                          flex: 1, 
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          height: 56, 
+                          borderWidth: 1, 
+                          borderColor: isSelected ? '#111827' : '#ECEEF3', 
+                          borderRadius: 12, 
+                          backgroundColor: isSelected ? '#F9FAFB' : '#FFFFFF' 
+                        }}
+                      >
+                        <Ionicons name={item.icon as any} size={18} color={isSelected ? '#111827' : '#6B7280'} />
+                        <Text style={{ color: isSelected ? '#111827' : '#6B7280', fontSize: 15, fontWeight: isSelected ? '600' : '500' }}>
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.gender.message}</Text> : null}
+              </View>
+              
+              <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Screen>
   );
@@ -256,6 +291,7 @@ export function RegistrationDepartmentScreen() {
   });
   const selectedId = watch('requestedDepartmentId');
   const submit = handleSubmit((data) => {
+    Keyboard.dismiss();
     update(data);
     router.push('/register/review');
   });
@@ -263,7 +299,11 @@ export function RegistrationDepartmentScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
@@ -288,7 +328,7 @@ export function RegistrationDepartmentScreen() {
           </View>
           
           {errors.requestedDepartmentId ? <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 12 }}>{errors.requestedDepartmentId.message}</Text> : null}
-        </KeyboardAwareScrollView>
+        </ScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
@@ -508,6 +548,7 @@ export function RegistrationReviewScreen() {
   const mutation = useMutation({ mutationFn: registerEmployee });
   const canSubmit = accountSchema.safeParse(values).success && profileSchema.safeParse(values).success && departmentSchema.safeParse(values).success;
   async function submit() {
+    Keyboard.dismiss();
     const payload: RegisterPayload = {
       fullName: values.fullName,
       phone: values.phone,
@@ -529,7 +570,7 @@ export function RegistrationReviewScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
@@ -578,7 +619,7 @@ export function RegistrationReviewScreen() {
                 <Text style={{ color: '#EF4444', fontSize: 13, flex: 1 }}>{registrationErrorMessage(mutation.error)}</Text>
               </View>
           ) : null}
-        </KeyboardAwareScrollView>
+        </ScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
            <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#9CA3AF' : '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>

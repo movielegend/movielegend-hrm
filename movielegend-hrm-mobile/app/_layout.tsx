@@ -17,7 +17,11 @@ try {
   console.warn('[LiveKit] Native module not available (Expo Go?), skipping registerGlobals:', e);
 }
 
-LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  'viewIsDescendantOf() noop',
+  'Cannot find view with reactTag',
+]);
 
 // ── Custom Toast Config ──
 const toastConfig = {
