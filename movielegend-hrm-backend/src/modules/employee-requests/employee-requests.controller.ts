@@ -4,7 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { CreateEmployeeRequestDto, EmployeeRequestQueryDto } from './dto/employee-request.dto';
+import { CreateEmployeeRequestDto, EmployeeRequestQueryDto, ApproveEmployeeRequestDto, RejectEmployeeRequestDto } from './dto/employee-request.dto';
 import { EmployeeRequestsService } from './employee-requests.service';
 
 @ApiTags('Employee Requests')
@@ -39,13 +39,21 @@ export class EmployeeRequestsController {
 
   @Permissions('employee.request.approve')
   @Post(':id/approve')
-  approve(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.employeeRequestsService.approve(id, actor);
+  approve(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body?: ApproveEmployeeRequestDto,
+  ) {
+    return this.employeeRequestsService.approve(id, actor, body);
   }
 
   @Permissions('employee.request.approve')
   @Post(':id/reject')
-  reject(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.employeeRequestsService.reject(id, actor);
+  reject(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body?: RejectEmployeeRequestDto,
+  ) {
+    return this.employeeRequestsService.reject(id, actor, body);
   }
 }

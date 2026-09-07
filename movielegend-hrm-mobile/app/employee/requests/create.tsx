@@ -615,6 +615,37 @@ export default function CreateRequestScreen() {
                   />
                 </View>
 
+                {/* Luồng phê duyệt thông minh theo số tiền */}
+                <View style={{
+                  backgroundColor: Number(amount || 0) > 5000000 ? '#EFF6FF' : '#F0FDF4',
+                  borderWidth: 1,
+                  borderColor: Number(amount || 0) > 5000000 ? '#BFDBFE' : '#BBF7D0',
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: spacing.md
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <MaterialCommunityIcons 
+                      name="transit-connection-variant" 
+                      size={18} 
+                      color={Number(amount || 0) > 5000000 ? '#2563EB' : '#16A34A'} 
+                    />
+                    <Text style={{ 
+                      fontSize: 13, 
+                      fontWeight: '700', 
+                      color: Number(amount || 0) > 5000000 ? '#1E40AF' : '#15803D',
+                      marginLeft: 6 
+                    }}>
+                      Quy trình duyệt {Number(amount || 0) > 5000000 ? '(Đơn trên 5.000.000 đ)' : '(Đơn dưới hoặc bằng 5.000.000 đ)'}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#374151', lineHeight: 18 }}>
+                    {Number(amount || 0) > 5000000
+                      ? '1. Trưởng bộ phận duyệt ➔ 2. Leader HR đối chứng ➔ 3. Ban Giám Đốc/Admin duyệt ➔ 4. Kế toán giải ngân'
+                      : '1. Trưởng bộ phận duyệt ➔ 2. Leader HR đối chứng & duyệt ➔ 3. Kế toán giải ngân'}
+                  </Text>
+                </View>
+
                 {/* Chụp ảnh minh chứng (Chỉ hiện cho EXPENSE và PURCHASE) */}
                 {selectedType !== 'ADVANCE' && (
                   <View style={{ marginBottom: spacing.md }}>
