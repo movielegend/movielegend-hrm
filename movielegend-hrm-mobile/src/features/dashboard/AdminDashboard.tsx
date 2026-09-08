@@ -129,19 +129,13 @@ export function AdminDashboard() {
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/admin/notifications')}>
+          <View style={styles.headerRight}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
             </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat')}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#111827" />
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat' as any)}>
+              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>
@@ -348,14 +342,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 28,
+    alignItems: 'center',
+    marginBottom: 24,
     marginTop: 4,
   },
   userInfoWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
   },
   avatarWrapper: {
     position: 'relative',
@@ -395,12 +392,14 @@ const styles = StyleSheet.create({
   userInfo: {
     justifyContent: 'center',
     flex: 1,
+    minWidth: 0,
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 2,
+    flexWrap: 'wrap',
   },
   levelPill: {
     flexDirection: 'row',
@@ -420,7 +419,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   userName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: appleTheme.textPrimary,
   },
@@ -428,6 +427,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: appleTheme.hint,
     fontWeight: '500',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
     width: 44,
@@ -439,6 +444,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   notificationBadge: {
     position: 'absolute',
@@ -459,7 +469,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  notificationDot: {
+  badgeDot: {
     position: 'absolute',
     top: 10,
     right: 12,
@@ -467,6 +477,8 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
   },
   heroButton: {
     borderRadius: 24,

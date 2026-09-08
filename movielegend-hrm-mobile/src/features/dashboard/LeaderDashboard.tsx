@@ -597,14 +597,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 28,
+    alignItems: 'center',
+    marginBottom: 24,
     marginTop: spacing.xs,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
   },
   avatarWrapper: {
     position: 'relative',
@@ -644,12 +647,14 @@ const styles = StyleSheet.create({
   greetingInfo: {
     justifyContent: 'center',
     flex: 1,
+    minWidth: 0,
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 2,
+    flexWrap: 'wrap',
   },
   levelPill: {
     flexDirection: 'row',
@@ -669,18 +674,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   userName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#111827',
     marginBottom: 2,
   },
   dateText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#9CA3AF',
   },
   headerRight: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
     width: 44,
@@ -692,6 +699,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   notificationBadge: {
     position: 'absolute',

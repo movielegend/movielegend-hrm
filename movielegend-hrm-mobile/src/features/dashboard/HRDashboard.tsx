@@ -120,19 +120,13 @@ export function HRDashboard() {
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/(tabs)/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/chat' as any)}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#111827" />
+              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>
@@ -554,14 +548,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xl,
+    alignItems: 'center',
+    marginBottom: 24,
     marginTop: 4,
   },
   userInfoWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
   },
   avatar: {
     width: 56,
@@ -578,6 +575,8 @@ const styles = StyleSheet.create({
   },
   userInfo: {
     justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   greetingText: {
     fontSize: 14,
@@ -585,7 +584,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   userName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: appleTheme.textPrimary,
   },
@@ -593,6 +592,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: appleTheme.hint,
     fontWeight: '500',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
     width: 44,
@@ -604,6 +609,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   notificationBadge: {
     position: 'absolute',
@@ -623,6 +633,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
   },
   heroButton: {
     borderRadius: 24,
