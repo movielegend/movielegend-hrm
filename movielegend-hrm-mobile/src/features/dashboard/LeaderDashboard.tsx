@@ -240,65 +240,65 @@ export function LeaderDashboard() {
           </View>
         </Pressable>
 
-        {/* Banner Cấp Bậc & Lộ Trình (Hiển thị nổi bật phong cách VIP song hành) */}
+        {/* Banner Cấp Bậc & Lộ Trình (Phong cách Apple UI tinh tế, sang trọng) */}
         <Pressable
-          style={[
-            styles.levelBanner,
-            {
-              backgroundColor: `${levelColor}0D`,
-              borderColor: `${levelColor}40`,
-              shadowColor: levelColor,
-            },
-          ]}
+          style={styles.levelAppleCard}
           onPress={() => router.push('/leader/leveling' as any)}
         >
-          <View style={styles.levelBannerLeft}>
-            <View
-              style={[
-                styles.levelBannerIconWrap,
-                { backgroundColor: `${levelColor}1A`, borderColor: `${levelColor}35` },
-              ]}
-            >
-              <MaterialCommunityIcons name="crown" size={24} color={levelColor} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                <Text style={[styles.levelBannerTitle, { color: '#0F172A' }]} numberOfLines={1}>
-                  Level {currentLevelNumber}: {levelTitle}
-                </Text>
-                <View style={[styles.levelRankTag, { backgroundColor: levelColor }]}>
-                  <Text style={styles.levelRankTagText}>CẤP BẬC</Text>
-                </View>
+          {/* Top Section */}
+          <View style={styles.levelAppleHeaderRow}>
+            <View style={styles.levelAppleLeft}>
+              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
+                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
               </View>
-
-              <View style={styles.levelProgressRow}>
-                <Text style={styles.levelBannerSubText}>
-                  {levelProgress?.nextLevel
-                    ? `Tiến độ lên Lv.${levelProgress.nextLevel.levelNumber}: `
-                    : 'Đã đạt cấp bậc tối cao: '}
-                  <Text style={[styles.levelBannerSubTextBold, { color: levelColor }]}>
-                    {levelProgress?.overallProgressPercent || 0}%
+              <View style={styles.levelAppleTitleBlock}>
+                <View style={styles.levelAppleBadgeRow}>
+                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
+                    Level {currentLevelNumber}: {levelTitle}
                   </Text>
+                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
+                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
+                      Lv.{currentLevelNumber}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.levelAppleSubtitle}>
+                  {levelProgress?.nextLevel
+                    ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                    : 'Cấp bậc danh dự tối cao'}
                 </Text>
               </View>
+            </View>
 
-              {/* Mini Level Progress Bar */}
-              <View style={styles.miniProgressBarTrack}>
-                <View
-                  style={[
-                    styles.miniProgressBarFill,
-                    {
-                      width: `${Math.min(100, Math.max(5, levelProgress?.overallProgressPercent || 0))}%`,
-                      backgroundColor: levelColor,
-                    },
-                  ]}
-                />
-              </View>
+            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
+              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Lộ trình</Text>
+              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
             </View>
           </View>
-          <View style={styles.levelBannerRight}>
-            <Text style={[styles.levelBannerActionText, { color: levelColor }]}>Lộ trình</Text>
-            <MaterialCommunityIcons name="chevron-right" size={18} color={levelColor} />
+
+          {/* Full-width elegant progress bar */}
+          <View style={styles.levelAppleProgressContainer}>
+            <View style={styles.levelAppleProgressTrack}>
+              <View
+                style={[
+                  styles.levelAppleProgressFill,
+                  {
+                    width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                    backgroundColor: levelColor,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.levelAppleProgressFooter}>
+              <Text style={styles.levelAppleProgressFooterText}>
+                {levelProgress?.nextLevel
+                  ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
+                  : 'Đã hoàn thành toàn bộ lộ trình cấp bậc'}
+              </Text>
+              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
+                {levelProgress?.overallProgressPercent || 0}%
+              </Text>
+            </View>
           </View>
         </Pressable>
 
@@ -978,80 +978,110 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  levelBanner: {
+  levelAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  levelAppleHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
   },
-  levelBannerLeft: {
+  levelAppleLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     flex: 1,
   },
-  levelBannerIconWrap: {
+  levelAppleIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
-  levelBannerTitle: {
-    fontSize: 14,
+  levelAppleTitleBlock: {
+    flex: 1,
+  },
+  levelAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelAppleTitle: {
+    fontSize: 15,
     fontWeight: '800',
+    color: '#0F172A',
     flexShrink: 1,
   },
-  levelRankTag: {
+  levelApplePillTag: {
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
   },
-  levelRankTagText: {
-    color: '#FFFFFF',
-    fontSize: 9,
+  levelApplePillTagText: {
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
-  levelProgressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  levelBannerSubText: {
+  levelAppleSubtitle: {
     fontSize: 12,
     color: '#64748B',
+    fontWeight: '500',
   },
-  levelBannerSubTextBold: {
+  levelAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  levelAppleActionText: {
+    fontSize: 11,
     fontWeight: '700',
   },
-  miniProgressBarTrack: {
-    height: 5,
-    backgroundColor: '#E2E8F0',
+  levelAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  levelAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
     borderRadius: 3,
     overflow: 'hidden',
-    marginTop: 2,
-    width: '92%',
+    marginBottom: 6,
   },
-  miniProgressBarFill: {
+  levelAppleProgressFill: {
     height: '100%',
     borderRadius: 3,
   },
-  levelBannerRight: {
+  levelAppleProgressFooter: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginLeft: 6,
   },
-  levelBannerActionText: {
-    fontSize: 12,
+  levelAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  levelAppleProgressFooterPercent: {
+    fontSize: 11,
     fontWeight: '700',
   },
   vaultBanner: {
