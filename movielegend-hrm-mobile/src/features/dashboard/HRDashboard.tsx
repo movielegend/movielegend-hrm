@@ -11,6 +11,8 @@ import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/u
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { getMyVault } from '../../api/employees.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
+import { levelingApi } from '../leveling/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
 import { ContourHeroPattern } from './components/ContourHeroPattern';
@@ -61,6 +63,15 @@ export function HRDashboard() {
     queryFn: getMyVault,
   });
 
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress'],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 5;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#FF9800';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || `Cấp ${currentLevelNumber}`;
+
   const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
   const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
   const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
@@ -107,16 +118,40 @@ export function HRDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={styles.avatar}>
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-              )}
-            </View>
+            <Pressable 
+              style={styles.avatarWrapper}
+              onPress={() => router.push('/hr/leveling' as any)}
+            >
+              <View style={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </View>
+              {/* Level Rank Badge on Avatar */}
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+              </View>
+            </Pressable>
+
             <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName || 'HR Manager'}</Text>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <Pressable
+                  style={[
+                    styles.levelPill,
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
+                  ]}
+                  onPress={() => router.push('/hr/leveling' as any)}
+                >
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'HR Manager'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
@@ -177,6 +212,68 @@ export function HRDashboard() {
                 <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
                 <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
               </View>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Banner Cấp Bậc & Lộ Trình (Phong cách Apple UI tinh tế, sang trọng) */}
+        <Pressable
+          style={styles.levelAppleCard}
+          onPress={() => router.push('/hr/leveling' as any)}
+        >
+          {/* Top Section */}
+          <View style={styles.levelAppleHeaderRow}>
+            <View style={styles.levelAppleLeft}>
+              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
+                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
+              </View>
+              <View style={styles.levelAppleTitleBlock}>
+                <View style={styles.levelAppleBadgeRow}>
+                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
+                    Level {currentLevelNumber}: {levelTitle}
+                  </Text>
+                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
+                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
+                      Lv.{currentLevelNumber}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.levelAppleSubtitle}>
+                  {levelProgress?.nextLevel
+                    ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                    : 'Cấp bậc danh dự tối cao'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
+              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Lộ trình</Text>
+              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
+            </View>
+          </View>
+
+          {/* Full-width elegant progress bar */}
+          <View style={styles.levelAppleProgressContainer}>
+            <View style={styles.levelAppleProgressTrack}>
+              <View
+                style={[
+                  styles.levelAppleProgressFill,
+                  {
+                    width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                    backgroundColor: levelColor,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.levelAppleProgressFooter}>
+              <Text style={styles.levelAppleProgressFooterText}>
+                {levelProgress?.nextLevel
+                  ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
+                  : 'Đã hoàn thành toàn bộ lộ trình cấp bậc'}
+              </Text>
+              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
+                {levelProgress?.overallProgressPercent || 0}%
+              </Text>
             </View>
           </View>
         </Pressable>
@@ -266,7 +363,7 @@ export function HRDashboard() {
               icon="star-circle-outline" 
               title="Cấp của bạn" 
               color="#F59E0B" 
-              onPress={() => router.push('/leader/leveling' as any)} 
+              onPress={() => router.push('/hr/leveling' as any)} 
             />
             <GridItem 
               icon="briefcase-outline" 
@@ -286,7 +383,7 @@ export function HRDashboard() {
               icon="clipboard-check-outline" 
               title="Duyệt level" 
               color="#8B5CF6" 
-              onPress={() => router.push('/employee/competition/review' as any)} 
+              onPress={() => router.push('/hr/leveling' as any)} 
             />
             <GridItem 
               icon="history" 
@@ -560,6 +657,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
     minWidth: 0,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
   avatar: {
     width: 56,
     height: 56,
@@ -567,6 +667,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+    paddingHorizontal: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  avatarLevelBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
   },
   avatarText: {
     fontSize: 24,
@@ -578,15 +702,35 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+    flexWrap: 'wrap',
+  },
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
   },
   userName: {
     fontSize: 20,
     fontWeight: '800',
     color: appleTheme.textPrimary,
+    marginBottom: 2,
   },
   dateText: {
     fontSize: 12,
@@ -644,6 +788,112 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
     borderWidth: 1.5,
     borderColor: '#fff',
+  },
+  levelAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  levelAppleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  levelAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  levelAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  levelAppleTitleBlock: {
+    flex: 1,
+  },
+  levelAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelAppleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  levelApplePillTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  levelApplePillTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  levelAppleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  levelAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  levelAppleActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  levelAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  levelAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  levelAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  levelAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  levelAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  levelAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   heroButton: {
     borderRadius: 24,

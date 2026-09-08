@@ -93,15 +93,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   nameText: {
     fontWeight: '700',
+    flexShrink: 1,
   },
   badgeContainer: {
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
+    flexShrink: 1,
   },
   badgeText: {
     fontWeight: '600',

@@ -940,9 +940,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 10,
     gap: 12,
+    overflow: 'hidden',
   },
   avatarWrapper: {
     position: 'relative',
+    flexShrink: 0,
   },
   avatarImage: {
     width: 52,
@@ -981,6 +983,7 @@ const styles = StyleSheet.create({
   },
   profileInfo: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   deptText: {
