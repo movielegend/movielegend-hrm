@@ -1,6 +1,6 @@
 import React from 'react';
-import { AdminMonthlyReviewScreen } from '../../../src/features/competition/AdminMonthlyReviewScreen';
+import { UnifiedLevelingScreen } from '../../../src/features/leveling/UnifiedLevelingScreen';
 
 export default function AdminMonthlyReviewRoute() {
-  return <AdminMonthlyReviewScreen />;
+  return <UnifiedLevelingScreen />;
 }

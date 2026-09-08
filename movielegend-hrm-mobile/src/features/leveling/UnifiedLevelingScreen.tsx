@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
+import { useDepartments } from '../../hooks/useDepartments';
 import {
   levelingApi,
   UserLevelProgressData,
@@ -33,17 +34,25 @@ export const UnifiedLevelingScreen: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
 
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
   const isLeaderOrAdmin =
-    user?.roles?.includes('ADMIN') ||
+    isAdmin ||
     user?.roles?.includes('LEADER') ||
     user?.roles?.includes('HR');
 
-  const [activeTab, setActiveTab] = useState<'my_progress' | 'leader_management'>('my_progress');
+  const [activeTab, setActiveTab] = useState<'my_progress' | 'leader_management'>(
+    isAdmin ? 'leader_management' : 'my_progress',
+  );
   const [leaderSubTab, setLeaderSubTab] = useState<'members' | 'pending_requests'>('members');
 
   const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
   const [promotionRequests, setPromotionRequests] = useState<LevelPromotionRequestItem[]>([]);
   const [departmentMembers, setDepartmentMembers] = useState<any[]>([]);
+
+  // Department picker for Admin
+  const { data: deptData } = useDepartments({ limit: 50 });
+  const deptList: Array<{ id: string; name: string }> = (deptData as any)?.data || (Array.isArray(deptData) ? deptData : []);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -60,22 +69,31 @@ export const UnifiedLevelingScreen: React.FC = () => {
   } | null>(null);
   const [isDeptConfigModalVisible, setIsDeptConfigModalVisible] = useState(false);
 
+  const activeDeptId = selectedDeptId || progressData?.departmentId || deptList[0]?.id;
+  const activeDeptName =
+    deptList.find((d) => d.id === activeDeptId)?.name ||
+    progressData?.departmentName ||
+    'Phòng ban';
+
   const loadData = useCallback(async () => {
     try {
       // 1. Load my progress
       const myProgress = await levelingApi.getMyLevelProgress().catch(() => null);
       if (myProgress) {
         setProgressData(myProgress);
+        if (!selectedDeptId && myProgress.departmentId) {
+          setSelectedDeptId(myProgress.departmentId);
+        }
       }
 
       // 2. If Leader/Admin, load pending requests & department members
       if (isLeaderOrAdmin) {
-        const deptId = myProgress?.departmentId;
+        const queryDeptId = selectedDeptId || myProgress?.departmentId || deptList[0]?.id;
         const [requests, membersRes] = await Promise.all([
-          levelingApi.getDepartmentPromotionRequests(deptId).catch(() => []),
-          deptId
+          levelingApi.getDepartmentPromotionRequests(queryDeptId).catch(() => []),
+          queryDeptId
             ? import('../../api/employees.api')
-                .then((m) => m.fetchEmployees({ departmentId: deptId, limit: 50 }))
+                .then((m) => m.fetchEmployees({ departmentId: queryDeptId, limit: 100 }))
                 .catch(() => ({ data: [] }))
             : { data: [] },
         ]);
@@ -89,11 +107,11 @@ export const UnifiedLevelingScreen: React.FC = () => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isLeaderOrAdmin]);
+  }, [isLeaderOrAdmin, selectedDeptId, deptList]);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, selectedDeptId]);
 
   const onRefresh = () => {
     setIsRefreshing(true);
@@ -112,7 +130,7 @@ export const UnifiedLevelingScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hệ Thống Phân Cấp Nhân Sự</Text>
-        {isLeaderOrAdmin && progressData?.departmentId ? (
+        {isLeaderOrAdmin && activeDeptId ? (
           <TouchableOpacity
             style={styles.configBtn}
             onPress={() => setIsDeptConfigModalVisible(true)}
@@ -124,8 +142,8 @@ export const UnifiedLevelingScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Top Profile Summary */}
-      {progressData && (
+      {/* Top Profile Summary (Only if user has level progress) */}
+      {progressData && !isAdmin && (
         <View style={styles.profileSummaryCard}>
           <View style={styles.avatarWrapper}>
             <Image
@@ -166,21 +184,23 @@ export const UnifiedLevelingScreen: React.FC = () => {
       {/* Tab Switcher for Leaders/Admins */}
       {isLeaderOrAdmin && (
         <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'my_progress' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('my_progress')}
-          >
-            <Ionicons
-              name="ribbon-outline"
-              size={16}
-              color={activeTab === 'my_progress' ? '#2563EB' : '#64748B'}
-            />
-            <Text
-              style={[styles.tabText, activeTab === 'my_progress' && styles.tabTextActive]}
+          {!isAdmin && (
+            <TouchableOpacity
+              style={[styles.tabBtn, activeTab === 'my_progress' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('my_progress')}
             >
-              Lộ Trình Của Tôi
-            </Text>
-          </TouchableOpacity>
+              <Ionicons
+                name="ribbon-outline"
+                size={16}
+                color={activeTab === 'my_progress' ? '#2563EB' : '#64748B'}
+              />
+              <Text
+                style={[styles.tabText, activeTab === 'my_progress' && styles.tabTextActive]}
+              >
+                Lộ Trình Của Tôi
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'leader_management' && styles.tabBtnActive]}
@@ -194,7 +214,7 @@ export const UnifiedLevelingScreen: React.FC = () => {
             <Text
               style={[styles.tabText, activeTab === 'leader_management' && styles.tabTextActive]}
             >
-              Quản Lý Phòng Ban
+              {isAdmin ? 'Quản Trị Cấp Bậc (Admin)' : 'Quản Lý Phòng Ban'}
             </Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
@@ -202,6 +222,29 @@ export const UnifiedLevelingScreen: React.FC = () => {
               </View>
             )}
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Admin Department Selector Carousel */}
+      {isAdmin && deptList.length > 0 && activeTab === 'leader_management' && (
+        <View style={styles.deptSelectorContainer}>
+          <Text style={styles.deptSelectorLabel}>Chọn phòng ban quản lý:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptPillScroll}>
+            {deptList.map((d) => {
+              const isSelected = (selectedDeptId || activeDeptId) === d.id;
+              return (
+                <TouchableOpacity
+                  key={d.id}
+                  style={[styles.deptPill, isSelected && styles.deptPillActive]}
+                  onPress={() => setSelectedDeptId(d.id)}
+                >
+                  <Text style={[styles.deptPillText, isSelected && styles.deptPillTextActive]}>
+                    {d.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       )}
 
@@ -285,9 +328,24 @@ export const UnifiedLevelingScreen: React.FC = () => {
             </>
           )}
 
-          {/* TAB 2: LEADER MANAGEMENT (MEMBERS & PENDING REQUESTS) */}
+          {/* TAB 2: LEADER / ADMIN MANAGEMENT */}
           {activeTab === 'leader_management' && (
             <View style={styles.leaderContainer}>
+              {/* Department Name & Quick Config Action */}
+              <View style={styles.deptHeaderBanner}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.deptBannerSubtitle}>Đang quản lý phòng:</Text>
+                  <Text style={styles.deptBannerTitle}>{activeDeptName}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.deptBannerConfigBtn}
+                  onPress={() => setIsDeptConfigModalVisible(true)}
+                >
+                  <Ionicons name="options-outline" size={16} color="#2563EB" />
+                  <Text style={styles.deptBannerConfigBtnText}>Tên Level Phòng</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Leader Sub-tabs */}
               <View style={styles.subTabRow}>
                 <TouchableOpacity
@@ -364,7 +422,7 @@ export const UnifiedLevelingScreen: React.FC = () => {
                                 id: m.id,
                                 fullName: memberName,
                                 currentLevelNumber: memberLevel,
-                                departmentName: progressData?.departmentName,
+                                departmentName: activeDeptName,
                               })
                             }
                           >
@@ -379,7 +437,7 @@ export const UnifiedLevelingScreen: React.FC = () => {
                   {departmentMembers.length === 0 && (
                     <View style={styles.emptyCard}>
                       <Ionicons name="people-outline" size={36} color="#94A3B8" />
-                      <Text style={styles.emptyCardText}>Chưa có thành viên nào trong danh sách</Text>
+                      <Text style={styles.emptyCardText}>Chưa có thành viên nào trong phòng ban này</Text>
                     </View>
                   )}
                 </View>
@@ -484,7 +542,7 @@ export const UnifiedLevelingScreen: React.FC = () => {
           currentLevelName={progressData.currentLevel.displayName}
           nextLevelNumber={progressData.nextLevel.levelNumber}
           nextLevelName={progressData.nextLevel.displayName}
-          departmentId={progressData.departmentId}
+          departmentId={activeDeptId}
           onClose={() => setIsSubmitModalVisible(false)}
           onSuccess={loadData}
         />
@@ -500,16 +558,16 @@ export const UnifiedLevelingScreen: React.FC = () => {
       <DirectLevelChangeModal
         visible={!!directChangeUser}
         targetUser={directChangeUser}
-        isAdmin={user?.roles?.includes('ADMIN')}
+        isAdmin={isAdmin}
         onClose={() => setDirectChangeUser(null)}
         onSuccess={loadData}
       />
 
-      {progressData?.departmentId && (
+      {activeDeptId && (
         <DepartmentLevelConfigModal
           visible={isDeptConfigModalVisible}
-          departmentId={progressData.departmentId}
-          departmentName={progressData.departmentName || 'Phòng ban'}
+          departmentId={activeDeptId}
+          departmentName={activeDeptName}
           onClose={() => setIsDeptConfigModalVisible(false)}
           onSuccess={loadData}
         />
@@ -595,7 +653,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 10,
     padding: 4,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   tabBtn: {
     flex: 1,
@@ -632,6 +690,79 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: '#FFF',
+  },
+  deptSelectorContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  deptSelectorLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  deptPillScroll: {
+    flexDirection: 'row',
+  },
+  deptPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  deptPillActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#3B82F6',
+  },
+  deptPillText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  deptPillTextActive: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  deptHeaderBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  deptBannerSubtitle: {
+    fontSize: 11,
+    color: '#3B82F6',
+    fontWeight: '500',
+  },
+  deptBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E40AF',
+    marginTop: 1,
+  },
+  deptBannerConfigBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    gap: 4,
+  },
+  deptBannerConfigBtnText: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '700',
   },
   content: {
     flex: 1,
