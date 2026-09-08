@@ -287,12 +287,12 @@ export const PromotionReviewScreen: React.FC = () => {
                   ]}
                 >
                   {request.status === 'PENDING'
-                    ? '⏳ Chờ Thẩm Định'
+                    ? 'Chờ Thẩm Định'
                     : request.status === 'APPROVED'
-                    ? '✅ Đã Phê Duyệt'
+                    ? 'Đã Phê Duyệt'
                     : request.status === 'SUPPLEMENT_REQUESTED'
-                    ? '⚠️ Yêu Cầu Bổ Sung'
-                    : '❌ Đã Từ Chối'}
+                    ? 'Yêu Cầu Bổ Sung'
+                    : 'Đã Từ Chối'}
                 </Text>
               </View>
             </View>
