@@ -309,7 +309,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
         {/* Top Header with Deep Teal Background */}
         <View style={styles.topHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Dự Án Cấp Bậc</Text>
+            <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
           </View>
           {currentProject.status === 'IN_PROGRESS' && (
             <TouchableOpacity
@@ -343,8 +343,8 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.levelText, isSelected && styles.levelTextActive]}>
-                  {proj.levelName}
+                <Text style={[styles.levelText, isSelected && styles.levelTextActive]} numberOfLines={1}>
+                  {proj.projectName || proj.levelName}
                 </Text>
                 {projTotalBadge > 0 && (
                   <View style={[styles.levelBadge, isSelected && styles.levelBadgeActive]}>
@@ -420,14 +420,14 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
             </View>
-            <Text style={styles.progressLabel}>{approvedSubTasks}/10 hoàn thành</Text>
+            <Text style={styles.progressLabel}>{approvedSubTasks}/{totalSubTasks} hoàn thành</Text>
           </View>
 
           {/* PROJECT REWARD SUMMARY BOX */}
           <View style={styles.rewardSummaryCard}>
             <View style={styles.rewardSummaryHeader}>
               <Ionicons name="gift-outline" size={16} color="#B45309" />
-              <Text style={styles.rewardSummaryTitle}>Phần Thưởng Dự Án {currentProject.levelName}</Text>
+              <Text style={styles.rewardSummaryTitle}>Phần Thưởng: {currentProject.projectName || currentProject.levelName}</Text>
             </View>
 
             {totalCashPool > 0 && (

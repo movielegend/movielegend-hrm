@@ -79,10 +79,10 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const [deptLevelConfigs, setDeptLevelConfigs] = useState<DepartmentLevelItem[]>([]);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
-  // Projects State for Admin
+  // Projects State for Admin (Department Projects - NOT divided by Level)
   const [adminProjects, setAdminProjects] = useState<
     Array<{
-      levelNumber: number;
+      id: string;
       projectName: string;
       rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
       promotionBonusAmount: number;
@@ -90,7 +90,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       subTasks: string[];
     }>
   >([]);
-  const [selectedProjectLevelNum, setSelectedProjectLevelNum] = useState<number>(1);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [newSubTaskInput, setNewSubTaskInput] = useState<string>('');
   const [editingSubTaskIdx, setEditingSubTaskIdx] = useState<number | null>(null);
   const [editingSubTaskText, setEditingSubTaskText] = useState<string>('');
@@ -214,37 +214,64 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           setDepartmentMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
         }
 
-        // 4. Load projects for Admin
+        // 4. Load projects for Admin (Department Projects - NOT divided by level)
         if (isAdmin && queryDeptId) {
           const rawProjects = await levelingApi.getProjects(queryDeptId, activeDeptName).catch(() => []);
           const adminConfig = await levelingApi.getAdminDepartmentConfig(queryDeptId, 2026, activeDeptName).catch(() => null);
           const adminLevelList = Array.isArray(adminConfig) ? adminConfig : [];
 
-          const initialAdminProjects = Array.from({ length: Math.max(8, deptLevelConfigs.length) }, (_, i) => {
-            const lvlNum = i + 1;
-            const foundProj = (Array.isArray(rawProjects) ? rawProjects : []).find((p: any) => p.levelNumber === lvlNum);
-            const foundAdminLvl = adminLevelList.find((l: any) => l.levelNumber === lvlNum);
+          const loadedProjects: Array<{
+            id: string;
+            projectName: string;
+            rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+            promotionBonusAmount: number;
+            physicalItemName: string;
+            subTasks: string[];
+          }> = [];
 
-            const bullets: string[] = foundAdminLvl?.project?.subTaskBullets && foundAdminLvl.project.subTaskBullets.length > 0
-              ? foundAdminLvl.project.subTaskBullets
-              : foundProj?.subTasks && foundProj.subTasks.length > 0
-              ? foundProj.subTasks.map((t: any) => t.title || t.name)
-              : [
-                  `Thực hiện quy trình chuẩn hóa Level ${lvlNum} phòng ${activeDeptName}`,
-                  `Đạt nghiệm thu 100% chỉ tiêu KPI công việc Level ${lvlNum}`,
-                ];
+          if (Array.isArray(adminLevelList) && adminLevelList.length > 0 && adminLevelList.some((l: any) => l.project?.projectName)) {
+            adminLevelList.forEach((l: any, idx: number) => {
+              if (l.project?.projectName || (l.project?.subTaskBullets && l.project.subTaskBullets.length > 0)) {
+                loadedProjects.push({
+                  id: l.id || `proj-${queryDeptId}-${idx + 1}`,
+                  projectName: l.project?.projectName || `Dự Án ${idx + 1}`,
+                  rewardType: l.rewardType || 'HYBRID',
+                  promotionBonusAmount: l.promotionBonusAmount !== undefined ? l.promotionBonusAmount : 5000000,
+                  physicalItemName: l.physicalItemName || '',
+                  subTasks: l.project?.subTaskBullets || [],
+                });
+              }
+            });
+          } else if (Array.isArray(rawProjects) && rawProjects.length > 0) {
+            rawProjects.forEach((p: any, idx: number) => {
+              loadedProjects.push({
+                id: p.id || `proj-${queryDeptId}-${idx + 1}`,
+                projectName: p.projectName || `Dự Án ${idx + 1}`,
+                rewardType: p.rewardType || 'HYBRID',
+                promotionBonusAmount: p.cashAmount || p.promotionBonusAmount || 5000000,
+                physicalItemName: p.physicalItemName || '',
+                subTasks: (p.subTasks || []).map((t: any) => (typeof t === 'string' ? t : t.title || t.name || '')).filter(Boolean),
+              });
+            });
+          }
 
-            return {
-              levelNumber: lvlNum,
-              projectName: foundAdminLvl?.project?.projectName || foundProj?.projectName || `Dự Án Level ${lvlNum}`,
-              rewardType: foundAdminLvl?.rewardType || foundProj?.rewardType || 'HYBRID',
-              promotionBonusAmount: foundAdminLvl?.promotionBonusAmount !== undefined ? foundAdminLvl.promotionBonusAmount : (foundProj?.cashAmount || (lvlNum >= 2 ? (lvlNum - 1) * 500000 : 0)),
-              physicalItemName: foundAdminLvl?.physicalItemName || foundProj?.physicalItemName || '',
-              subTasks: bullets,
-            };
-          });
+          if (loadedProjects.length === 0) {
+            loadedProjects.push({
+              id: `proj-${queryDeptId}-1`,
+              projectName: `Dự án Trọng Điểm Phòng ${activeDeptName}`,
+              rewardType: 'HYBRID',
+              promotionBonusAmount: 10000000,
+              physicalItemName: 'Bữa tiệc liên hoan toàn đội',
+              subTasks: [
+                `Nâng cấp tối ưu hóa quy trình vận hành phòng ${activeDeptName}`,
+                `Nghiệm thu đạt 100% KPI chỉ tiêu công việc`,
+                `Báo cáo tổng kết số liệu và đánh giá hiệu suất nhân sự`,
+              ],
+            });
+          }
 
-          setAdminProjects(initialAdminProjects);
+          setAdminProjects(loadedProjects);
+          setSelectedProjectId((prev) => (prev && loadedProjects.some((p) => p.id === prev) ? prev : loadedProjects[0]?.id || ''));
         }
       }
     } catch (e) {
@@ -270,40 +297,85 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     loadData();
   };
 
-  // Project handlers for Admin
-  const handleUpdateProjectName = (levelNumber: number, newName: string) => {
-    setAdminProjects((prev) =>
-      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, projectName: newName } : item)),
+  // Project handlers for Admin (Department Projects - NOT divided by Level)
+  const handleAddProject = () => {
+    const newId = `proj-${Date.now()}`;
+    const newIdx = adminProjects.length + 1;
+    const newProj = {
+      id: newId,
+      projectName: `Dự án mới #${newIdx}`,
+      rewardType: 'HYBRID' as const,
+      promotionBonusAmount: 5000000,
+      physicalItemName: '',
+      subTasks: ['Đầu mục công việc con 1'],
+    };
+    setAdminProjects((prev) => [...prev, newProj]);
+    setSelectedProjectId(newId);
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    if (adminProjects.length <= 1) {
+      Alert.alert('Không thể xóa', 'Phòng ban cần có tối thiểu 1 dự án.');
+      return;
+    }
+    Alert.alert(
+      'Xác nhận xóa dự án',
+      'Bạn có chắc chắn muốn xóa dự án này khỏi phòng ban không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            setAdminProjects((prev) => {
+              const filtered = prev.filter((p) => p.id !== projectId);
+              if (selectedProjectId === projectId && filtered.length > 0) {
+                setSelectedProjectId(filtered[0].id);
+              }
+              return filtered;
+            });
+          },
+        },
+      ],
     );
   };
 
-  const handleUpdateProjectRewardType = (levelNumber: number, rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID') => {
+  const handleUpdateProjectName = (projectId: string, newName: string) => {
     setAdminProjects((prev) =>
-      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, rewardType } : item)),
+      prev.map((item) => (item.id === projectId ? { ...item, projectName: newName } : item)),
     );
   };
 
-  const handleUpdateProjectBonusAmount = (levelNumber: number, amount: number) => {
+  const handleUpdateProjectRewardType = (
+    projectId: string,
+    rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID',
+  ) => {
     setAdminProjects((prev) =>
-      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, promotionBonusAmount: amount } : item)),
+      prev.map((item) => (item.id === projectId ? { ...item, rewardType } : item)),
     );
   };
 
-  const handleUpdateProjectPhysicalItem = (levelNumber: number, physicalItemName: string) => {
+  const handleUpdateProjectBonusAmount = (projectId: string, amount: number) => {
     setAdminProjects((prev) =>
-      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, physicalItemName } : item)),
+      prev.map((item) => (item.id === projectId ? { ...item, promotionBonusAmount: amount } : item)),
     );
   };
 
-  const handleAddSubTask = (levelNumber: number) => {
+  const handleUpdateProjectPhysicalItem = (projectId: string, physicalItemName: string) => {
+    setAdminProjects((prev) =>
+      prev.map((item) => (item.id === projectId ? { ...item, physicalItemName } : item)),
+    );
+  };
+
+  const handleAddSubTask = (projectId: string) => {
     if (!newSubTaskInput.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập nội dung việc con!');
+      Alert.alert('Thông báo', 'Vui lòng nhập nội dung đầu việc con!');
       return;
     }
     const cleanText = newSubTaskInput.replace(/^[•\-\*]\s*/, '').trim();
     setAdminProjects((prev) =>
       prev.map((item) =>
-        item.levelNumber === levelNumber
+        item.id === projectId
           ? { ...item, subTasks: [...item.subTasks, cleanText] }
           : item,
       ),
@@ -311,12 +383,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     setNewSubTaskInput('');
   };
 
-  const handleEditSubTask = (levelNumber: number, index: number, newText: string) => {
+  const handleEditSubTask = (projectId: string, index: number, newText: string) => {
     if (!newText.trim()) return;
     const cleanText = newText.replace(/^[•\-\*]\s*/, '').trim();
     setAdminProjects((prev) =>
       prev.map((item) => {
-        if (item.levelNumber === levelNumber) {
+        if (item.id === projectId) {
           const updated = [...item.subTasks];
           updated[index] = cleanText;
           return { ...item, subTasks: updated };
@@ -328,7 +400,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     setEditingSubTaskText('');
   };
 
-  const handleDeleteSubTask = (levelNumber: number, index: number) => {
+  const handleDeleteSubTask = (projectId: string, index: number) => {
     Alert.alert(
       'Xác nhận xóa việc con',
       'Bạn có chắc chắn muốn xóa việc con này khỏi dự án không?',
@@ -340,7 +412,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           onPress: () => {
             setAdminProjects((prev) =>
               prev.map((item) =>
-                item.levelNumber === levelNumber
+                item.id === projectId
                   ? { ...item, subTasks: item.subTasks.filter((_, i) => i !== index) }
                   : item,
               ),
@@ -355,29 +427,26 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     if (!activeDeptId) return;
     try {
       setIsSavingProject(true);
-      const convertedLevels = adminProjects.map((p) => {
-        const foundDeptConfig = deptLevelConfigs.find((c) => c.levelNumber === p.levelNumber);
-        return {
-          id: `lvl-${p.levelNumber}`,
-          levelNumber: p.levelNumber,
-          levelName: foundDeptConfig?.customLevelName || `Level ${p.levelNumber}`,
-          colorHex: LEVEL_COLORS[p.levelNumber] || '#2563EB',
-          rewardType: p.rewardType,
-          promotionBonusAmount: p.promotionBonusAmount,
-          physicalItemName: p.physicalItemName,
-          physicalItems: p.physicalItemName ? [p.physicalItemName] : [],
-          retentionFloorGmv: 0,
-          promotionCeilingGmv: 0,
-          retentionMultiplier: foundDeptConfig?.retentionMultiplier || 1.0,
-          allowanceAmount: foundDeptConfig?.allowanceAmount || 0,
-          perks: foundDeptConfig?.perks || [],
-          motivationQuote: foundDeptConfig?.motivationQuote || '',
-          project: {
-            projectName: p.projectName,
-            subTaskBullets: p.subTasks,
-          },
-        };
-      });
+      const convertedLevels = adminProjects.map((p, idx) => ({
+        id: p.id,
+        levelNumber: idx + 1,
+        levelName: p.projectName,
+        colorHex: LEVEL_COLORS[((idx) % 8) + 1] || '#2563EB',
+        rewardType: p.rewardType,
+        promotionBonusAmount: p.promotionBonusAmount,
+        physicalItemName: p.physicalItemName,
+        physicalItems: p.physicalItemName ? [p.physicalItemName] : [],
+        retentionFloorGmv: 0,
+        promotionCeilingGmv: 0,
+        retentionMultiplier: 1.0,
+        allowanceAmount: 0,
+        perks: [],
+        motivationQuote: '',
+        project: {
+          projectName: p.projectName,
+          subTaskBullets: p.subTasks,
+        },
+      }));
 
       await levelingApi.saveAdminDepartmentConfig({
         departmentId: activeDeptId,
@@ -388,7 +457,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
       Alert.alert(
         'Thành Công',
-        `Đã lưu và đồng bộ toàn bộ Dự án & Việc con cho phòng ${activeDeptName}!`,
+        `Đã lưu toàn bộ Dự án & Việc con phòng ban ${activeDeptName}! Dữ liệu đã chuyển về cho Leader để giao các đầu việc cho nhân sự.`,
       );
       loadData();
     } catch (err: any) {
@@ -1446,30 +1515,37 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               <View style={styles.configHeaderCard}>
                 <Ionicons name="briefcase-outline" size={24} color="#2563EB" />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.configHeaderTitle}>Cấu Hình Dự Án & Việc Con ({activeDeptName})</Text>
+                  <Text style={styles.configHeaderTitle}>Cấu Hình Dự Án Phòng Ban ({activeDeptName})</Text>
                   <Text style={styles.configHeaderSubtitle}>
-                    Thiết lập tên dự án lớn, quỹ thưởng và danh sách các việc con cho từng Level.
+                    Thiết lập các dự án & đầu việc con cho phòng ban. Dữ liệu sẽ tự động đẩy về cho Leader để phân công các đầu việc cho nhân sự.
                   </Text>
                 </View>
               </View>
 
-              {/* Horizontal Level Selector Pills */}
-              <Text style={styles.projectLevelSelectLabel}>CHỌN LEVEL CẤU HÌNH DỰ ÁN:</Text>
+              {/* Department Project Selector Pills */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 8 }}>
+                <Text style={styles.projectLevelSelectLabel}>DANH SÁCH DỰ ÁN PHÒNG BAN ({adminProjects.length}):</Text>
+                <TouchableOpacity style={styles.addProjectHeaderBtn} onPress={handleAddProject} activeOpacity={0.8}>
+                  <Ionicons name="add-circle" size={16} color="#FFF" />
+                  <Text style={styles.addProjectHeaderBtnText}>+ Thêm Dự Án</Text>
+                </TouchableOpacity>
+              </View>
+
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.projectLevelScrollRow}>
-                {adminProjects.map((p) => {
-                  const isSelected = selectedProjectLevelNum === p.levelNumber;
-                  const color = LEVEL_COLORS[p.levelNumber] || '#2563EB';
+                {adminProjects.map((p, idx) => {
+                  const isSelected = (selectedProjectId || adminProjects[0]?.id) === p.id;
                   return (
                     <TouchableOpacity
-                      key={p.levelNumber}
+                      key={p.id}
                       style={[
                         styles.projectLevelPill,
-                        isSelected && { backgroundColor: color, borderColor: color },
+                        isSelected && { backgroundColor: '#2563EB', borderColor: '#2563EB' },
                       ]}
                       onPress={() => {
-                        setSelectedProjectLevelNum(p.levelNumber);
+                        setSelectedProjectId(p.id);
                         setEditingSubTaskIdx(null);
                       }}
+                      activeOpacity={0.8}
                     >
                       <Text
                         style={[
@@ -1477,46 +1553,55 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                           isSelected && { color: '#FFFFFF', fontWeight: 'bold' },
                         ]}
                       >
-                        LEVEL {p.levelNumber}
+                        {idx + 1}. {p.projectName || `Dự án ${idx + 1}`}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </ScrollView>
 
-              {/* Active Focused Level Project Card */}
+              {/* Active Focused Project Card */}
               {(() => {
-                const currentProj = adminProjects.find((p) => p.levelNumber === selectedProjectLevelNum) || adminProjects[0];
+                const currentProj = adminProjects.find((p) => p.id === (selectedProjectId || adminProjects[0]?.id)) || adminProjects[0];
                 if (!currentProj) return null;
-
-                const lvlConfig = deptLevelConfigs.find((c) => c.levelNumber === currentProj.levelNumber);
-                const color = LEVEL_COLORS[currentProj.levelNumber] || '#2563EB';
+                const currentIdx = adminProjects.findIndex((p) => p.id === currentProj.id);
 
                 return (
                   <View style={styles.projectCard}>
                     <View style={styles.projectCardHeader}>
-                      <View style={[styles.projectColorBadge, { backgroundColor: color }]}>
-                        <Text style={styles.projectColorBadgeText}>LEVEL {currentProj.levelNumber}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                        <View style={[styles.projectColorBadge, { backgroundColor: '#2563EB' }]}>
+                          <Text style={styles.projectColorBadgeText}>DỰ ÁN #{currentIdx + 1}</Text>
+                        </View>
+                        <Text style={[styles.projectCardTitle, { flex: 1 }]} numberOfLines={1}>
+                          {currentProj.projectName || `Dự án ${currentIdx + 1}`}
+                        </Text>
                       </View>
-                      <Text style={styles.projectCardTitle}>
-                        {lvlConfig?.customLevelName || `Level ${currentProj.levelNumber}`}
-                      </Text>
+                      {adminProjects.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.deleteProjectHeaderBtn}
+                          onPress={() => handleDeleteProject(currentProj.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
                     </View>
 
                     {/* Project Name Input */}
-                    <Text style={styles.configFieldLabel}>Tên Dự Án Lớn Thăng Cấp (Level {currentProj.levelNumber}):</Text>
+                    <Text style={styles.configFieldLabel}>Tên Dự Án Phòng Ban:</Text>
                     <TextInput
                       style={styles.configInput}
-                      placeholder={`VD: Dự án Tối ưu hóa vận hành Level ${currentProj.levelNumber}...`}
+                      placeholder="VD: Chiến dịch Marketing Tết 2026, Nâng cấp hệ thống Backend..."
                       placeholderTextColor="#94A3B8"
                       value={currentProj.projectName}
-                      onChangeText={(txt) => handleUpdateProjectName(currentProj.levelNumber, txt)}
+                      onChangeText={(txt) => handleUpdateProjectName(currentProj.id, txt)}
                     />
 
                     {/* Reward Config SubBox */}
                     <View style={styles.configRewardBox}>
                       <Text style={styles.configRewardHeaderTitle}>
-                        🎁 CẤU HÌNH PHẦN THƯỞNG DỰ ÁN (LEVEL {currentProj.levelNumber})
+                        🎁 CẤU HÌNH PHẦN THƯỞNG DỰ ÁN
                       </Text>
 
                       <Text style={styles.configFieldLabel}>Hình Thức Thưởng Dự Án:</Text>
@@ -1526,7 +1611,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             styles.configRewardPill,
                             currentProj.rewardType === 'CASH' && styles.configRewardPillActive,
                           ]}
-                          onPress={() => handleUpdateProjectRewardType(currentProj.levelNumber, 'CASH')}
+                          onPress={() => handleUpdateProjectRewardType(currentProj.id, 'CASH')}
                         >
                           <Text
                             style={[
@@ -1543,7 +1628,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             styles.configRewardPill,
                             currentProj.rewardType === 'PHYSICAL_ITEM' && styles.configRewardPillActive,
                           ]}
-                          onPress={() => handleUpdateProjectRewardType(currentProj.levelNumber, 'PHYSICAL_ITEM')}
+                          onPress={() => handleUpdateProjectRewardType(currentProj.id, 'PHYSICAL_ITEM')}
                         >
                           <Text
                             style={[
@@ -1560,7 +1645,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             styles.configRewardPill,
                             (currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && styles.configRewardPillActive,
                           ]}
-                          onPress={() => handleUpdateProjectRewardType(currentProj.levelNumber, 'HYBRID')}
+                          onPress={() => handleUpdateProjectRewardType(currentProj.id, 'HYBRID')}
                         >
                           <Text
                             style={[
@@ -1580,19 +1665,19 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                           <TextInput
                             style={styles.configInput}
                             keyboardType="number-pad"
-                            placeholder="VD: 5000000"
+                            placeholder="VD: 10000000"
                             placeholderTextColor="#94A3B8"
                             value={currentProj.promotionBonusAmount ? String(currentProj.promotionBonusAmount) : ''}
                             onChangeText={(txt) =>
                               handleUpdateProjectBonusAmount(
-                                currentProj.levelNumber,
+                                currentProj.id,
                                 Number(txt.replace(/[^0-9]/g, '')) || 0,
                               )
                             }
                           />
                           {Boolean(currentProj.promotionBonusAmount && currentProj.promotionBonusAmount > 0) && (
                             <Text style={styles.configCashPreview}>
-                              💰 Quỹ thưởng: {currentProj.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ (Tự động chia theo Hệ số Level cho các thành viên tham gia)
+                              💰 Quỹ thưởng: {currentProj.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ (Khi Leader phân chia các đầu việc con cho nhân sự, quỹ thưởng tự động chia theo Hệ số Level của nhân sự tham gia)
                             </Text>
                           )}
                         </View>
@@ -1604,20 +1689,23 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                           <Text style={styles.configFieldLabel}>Quà Tặng Hiện Vật Dự Án (Để chung cho cả team):</Text>
                           <TextInput
                             style={styles.configInput}
-                            placeholder="VD: Chuyến dã ngoại toàn đội, Bộ thiết bị chuyên dụng..."
+                            placeholder="VD: Chuyến dã ngoại toàn đội, Bữa tiệc liên hoan..."
                             placeholderTextColor="#94A3B8"
                             value={currentProj.physicalItemName || ''}
                             onChangeText={(txt) =>
-                              handleUpdateProjectPhysicalItem(currentProj.levelNumber, txt)
+                              handleUpdateProjectPhysicalItem(currentProj.id, txt)
                             }
                           />
                         </View>
                       )}
                     </View>
 
-                    {/* SubTasks (Danh mục việc con) */}
+                    {/* SubTasks (Danh sách đầu việc con) */}
                     <Text style={[styles.configFieldLabel, { marginTop: 14, fontSize: 12, fontWeight: '700', color: '#1E293B' }]}>
-                      DANH SÁCH VIỆC CON / DANH MỤC CON ({currentProj.subTasks.length} việc):
+                      DANH SÁCH ĐẦU CÔNG VIỆC CON ({currentProj.subTasks.length} việc):
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 6 }}>
+                      Leader sẽ phân chia từng đầu việc con này cho các nhân sự trong phòng ban.
                     </Text>
 
                     <View style={styles.subTasksListBox}>
@@ -1633,7 +1721,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                                 />
                                 <TouchableOpacity
                                   style={styles.saveBulletInlineBtn}
-                                  onPress={() => handleEditSubTask(currentProj.levelNumber, idx, editingSubTaskText)}
+                                  onPress={() => handleEditSubTask(currentProj.id, idx, editingSubTaskText)}
                                 >
                                   <Text style={styles.saveBulletInlineBtnText}>Lưu</Text>
                                 </TouchableOpacity>
@@ -1659,7 +1747,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                                   </TouchableOpacity>
                                   <TouchableOpacity
                                     style={styles.deleteSubTaskPillBtn}
-                                    onPress={() => handleDeleteSubTask(currentProj.levelNumber, idx)}
+                                    onPress={() => handleDeleteSubTask(currentProj.id, idx)}
                                   >
                                     <Text style={styles.deleteSubTaskPillBtnText}>Xóa</Text>
                                   </TouchableOpacity>
@@ -1670,7 +1758,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                         ))
                       ) : (
                         <Text style={styles.emptySubTasksNotice}>
-                          Chưa có việc con nào ở Level này. Hãy nhập bên dưới để thêm việc con!
+                          Chưa có việc con nào trong dự án này. Hãy thêm đầu việc bên dưới!
                         </Text>
                       )}
                     </View>
@@ -1679,16 +1767,16 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                     <View style={styles.addSubTaskRow}>
                       <TextInput
                         style={[styles.configInput, { flex: 1 }]}
-                        placeholder={`+ Nhập việc con mới cho Level ${currentProj.levelNumber}...`}
+                        placeholder="+ Nhập đầu việc con mới..."
                         placeholderTextColor="#94A3B8"
                         value={newSubTaskInput}
                         onChangeText={setNewSubTaskInput}
-                        onSubmitEditing={() => handleAddSubTask(currentProj.levelNumber)}
+                        onSubmitEditing={() => handleAddSubTask(currentProj.id)}
                         returnKeyType="done"
                       />
                       <TouchableOpacity
                         style={styles.addSubTaskBtn}
-                        onPress={() => handleAddSubTask(currentProj.levelNumber)}
+                        onPress={() => handleAddSubTask(currentProj.id)}
                       >
                         <Text style={styles.addSubTaskBtnText}>+ Thêm việc</Text>
                       </TouchableOpacity>
@@ -1709,7 +1797,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                   <>
                     <Ionicons name="save-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
                     <Text style={styles.saveProjectsBtnText}>
-                      LƯU DỰ ÁN & VIỆC CON PHÒNG {activeDeptName.toUpperCase()}
+                      LƯU DỰ ÁN PHÒNG {activeDeptName.toUpperCase()}
                     </Text>
                   </>
                 )}
@@ -2442,6 +2530,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginTop: 4,
     marginBottom: 6,
+  },
+  addProjectHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  addProjectHeaderBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  deleteProjectHeaderBtn: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#FEF2F2',
   },
   projectLevelScrollRow: {
     flexDirection: 'row',
