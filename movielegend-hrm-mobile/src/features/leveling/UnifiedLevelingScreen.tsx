@@ -36,21 +36,26 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export interface UnifiedLevelingScreenProps {
   initialTab?: 'roadmap' | 'members' | 'config' | 'projects';
   initialLeaderSubTab?: 'members_list' | 'pending_requests';
+  mode?: 'config_only' | 'review_only' | 'full';
 }
 
 export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   initialTab: propInitialTab,
   initialLeaderSubTab: propInitialLeaderSubTab,
+  mode = 'full',
 }) => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ tab?: string; subTab?: string; departmentId?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; subTab?: string; departmentId?: string; mode?: string }>();
   const { user } = useAuth();
 
   const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
   const isLeader = !isAdmin && (user?.roles?.includes('LEADER') || user?.roles?.includes('HR'));
   const isLeaderOrAdmin = isAdmin || isLeader;
 
-  const defaultTab = isAdmin ? 'members' : 'roadmap';
+  const currentMode: 'config_only' | 'review_only' | 'full' =
+    (params.mode as any) || mode || 'full';
+
+  const defaultTab = currentMode === 'config_only' ? 'config' : isAdmin ? 'members' : 'roadmap';
   const resolvedTab =
     propInitialTab ||
     (params.tab === 'config' || params.tab === 'projects' || params.tab === 'members' || (!isAdmin && params.tab === 'roadmap')
@@ -531,7 +536,13 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isAdmin ? 'Quản Trị Cấp Bậc' : 'Hệ Thống Phân Cấp Nhân Sự'}
+          {isAdmin
+            ? currentMode === 'config_only'
+              ? 'Cấu Hình Level & Dự Án'
+              : currentMode === 'review_only'
+              ? 'Duyệt Cấp Bậc & Nhân Sự'
+              : 'Quản Trị Cấp Bậc'
+            : 'Hệ Thống Phân Cấp Nhân Sự'}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -541,12 +552,24 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         <View style={styles.adminSummaryCard}>
           <View style={styles.adminSummaryLeft}>
             <View style={styles.adminIconWrapper}>
-              <Ionicons name="shield-checkmark" size={24} color="#EAB308" />
+              <Ionicons
+                name={currentMode === 'config_only' ? 'construct' : 'shield-checkmark'}
+                size={24}
+                color="#EAB308"
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.adminCardTitle}>Quản Trị Phân Cấp Nhân Sự</Text>
+              <Text style={styles.adminCardTitle}>
+                {currentMode === 'config_only'
+                  ? 'Cấu Hình Danh Xưng & Dự Án'
+                  : currentMode === 'review_only'
+                  ? 'Quản Trị Duyệt Thăng Cấp'
+                  : 'Quản Trị Phân Cấp Nhân Sự'}
+              </Text>
               <Text style={styles.adminCardSubtitle}>
-                {activeDeptName} • {departmentMembers.length} nhân sự • {pendingCount} đề xuất chờ duyệt
+                {currentMode === 'config_only'
+                  ? `${activeDeptName} • Cấu hình danh xưng, phần thưởng & dự án thăng cấp`
+                  : `${activeDeptName} • ${departmentMembers.length} nhân sự • ${pendingCount} đề xuất chờ duyệt`}
               </Text>
             </View>
           </View>
@@ -607,7 +630,47 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       ) : null}
 
       {/* Interactive Tabs by Role */}
-      {isAdmin && (
+      {isAdmin && currentMode === 'config_only' && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'config' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('config')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={15}
+              color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text
+              style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Cấu Hình Danh Xưng
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'projects' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('projects')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="briefcase-outline"
+              size={15}
+              color={activeTab === 'projects' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text
+              style={[styles.tabText, activeTab === 'projects' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Cấu Hình Dự Án
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isAdmin && currentMode === 'full' && (
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
