@@ -116,7 +116,7 @@ export function AccountantDisbursementScreen() {
         reason: rejectReason.trim(),
       });
 
-      Alert.alert('Đã từ chối lệnh chi', 'Số điểm đã được tự động hoàn lại vào Ví Thưởng Tết của nhân viên.');
+      Alert.alert('Đã từ chối lệnh chi', 'Số điểm đã được tự động hoàn lại vào Ví Thưởng của nhân viên.');
       await queryClient.invalidateQueries({ queryKey: ['accountant-disbursements'] });
       await queryClient.invalidateQueries({ queryKey: ['vault-withdrawals'] });
       setModalType(null);
@@ -137,7 +137,7 @@ export function AccountantDisbursementScreen() {
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
       >
         <PageHeader
-          title="Chi Trả Thưởng Tết"
+          title="Chi Trả Thưởng"
           subtitle="Đặc quyền Leader Kế Toán • Xác nhận giải ngân"
           showBack={true}
           right={
@@ -216,7 +216,7 @@ export function AccountantDisbursementScreen() {
                 ? 'Không có yêu cầu nào chờ chi tiền'
                 : 'Chưa có dữ liệu chi trả'
             }
-            message="Các yêu cầu thưởng Tết đã được Ban Giám Đốc duyệt sẽ xuất hiện tại đây để Kế toán thực hiện chi trả."
+            message="Các yêu cầu thưởng đã được Ban Giám Đốc duyệt sẽ xuất hiện tại đây để Kế toán thực hiện chi trả."
           />
         ) : (
           <View style={{ gap: 12 }}>
@@ -268,7 +268,7 @@ export function AccountantDisbursementScreen() {
                   {/* Amount Banner */}
                   <View style={styles.amountBanner}>
                     <View>
-                      <Text style={styles.amountLabel}>Số tiền Thưởng Tết:</Text>
+                      <Text style={styles.amountLabel}>Số tiền Thưởng:</Text>
                       <Text style={styles.amountNumber}>
                         {ticket.cashAmount.toLocaleString('vi-VN')} <Text style={styles.amountCurrency}>VNĐ</Text>
                       </Text>
@@ -404,7 +404,7 @@ export function AccountantDisbursementScreen() {
               </View>
 
               <Text style={styles.modalDesc}>
-                Điểm thưởng sẽ được tự động hoàn trả lại vào Ví Thưởng Tết của nhân viên.
+                Điểm thưởng sẽ được tự động hoàn trả lại vào Ví Thưởng của nhân viên.
               </Text>
 
               <Text style={styles.fieldLabel}>Lý do từ chối *:</Text>

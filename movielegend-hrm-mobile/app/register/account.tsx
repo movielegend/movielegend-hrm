@@ -3,3 +3,4 @@ import { RegistrationAccountScreen } from '../../src/features/registration/Regis
 export default function RegisterAccountRoute() {
   return <RegistrationAccountScreen />;
 }
+

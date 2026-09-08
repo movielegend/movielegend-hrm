@@ -92,16 +92,40 @@ export function AdminDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={styles.avatar}>
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-              )}
-            </View>
+            <Pressable
+              style={styles.avatarWrapper}
+              onPress={() => router.push('/admin/levels' as any)}
+            >
+              <View style={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </View>
+              {/* Level Rank Badge on Avatar */}
+              <View style={[styles.avatarLevelBadge, { backgroundColor: '#D4AF37' }]}>
+                <Text style={styles.avatarLevelBadgeText}>8</Text>
+              </View>
+            </Pressable>
+
             <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName || 'Admin'}</Text>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <Pressable
+                  style={[
+                    styles.levelPill,
+                    { backgroundColor: '#D4AF3715', borderColor: '#D4AF3740' },
+                  ]}
+                  onPress={() => router.push('/admin/levels' as any)}
+                >
+                  <MaterialCommunityIcons name="crown" size={12} color="#D4AF37" />
+                  <Text style={[styles.levelPillText, { color: '#B45309' }]}>
+                    Lv.8 • Ban Điều Hành
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'Admin'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
@@ -170,9 +194,9 @@ export function AdminDashboard() {
             />
             <GridItem
               icon="gift-outline"
-              title="Ví Thưởng Tết"
+              title="Ví Thưởng"
               color="#059669"
-              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'TẾT'}
+              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'VÍ'}
               badgeColor={pendingAdminCount > 0 ? '#EF4444' : '#D97706'}
               onPress={() => router.push('/admin/tet-wallet' as any)}
             />
@@ -333,6 +357,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
   avatar: {
     width: 56,
     height: 56,
@@ -341,18 +368,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4B5563',
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+    paddingHorizontal: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  avatarLevelBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
   },
   userInfo: {
     justifyContent: 'center',
+    flex: 1,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
   },
   userName: {
     fontSize: 22,

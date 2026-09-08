@@ -1525,7 +1525,7 @@ export class AdminService {
       if (accountantIds.length > 0) {
         const notifAccountants = await this.notifications.createForUsers(tx as any, accountantIds, {
           type: 'SYSTEM' as NotificationType,
-          title: 'Lệnh chi tiền Ví Thưởng Tết 💼',
+          title: 'Lệnh chi tiền Ví Thưởng 💼',
           body: `Admin đã phê duyệt yêu cầu rút tiền của ${empName} (~${cashFormatted} VNĐ). Vui lòng thực hiện chuyển khoản vào TK ${request.bankName} - ${request.bankAccountNumber} (${request.bankAccountName}) và xác nhận.`,
         });
         if (notifAccountants) this.notifications.emitCreated(notifAccountants);

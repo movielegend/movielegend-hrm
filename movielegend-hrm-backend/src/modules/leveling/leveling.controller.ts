@@ -15,6 +15,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { forbidden } from '../../common/utils/error.util';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { PromotionRequestStatus } from '@prisma/client';
 
 @ApiTags('leveling')
 @Controller('leveling')
@@ -24,6 +25,122 @@ export class LevelingController {
     private readonly levelingService: LevelingService,
     private readonly scope: DepartmentScopeService,
   ) {}
+
+  // =========================================================================
+  // 1. DEPARTMENT LEVEL CUSTOM CONFIGS (ADMIN & LEADER)
+  // =========================================================================
+
+  @Get('departments/:departmentId/configs')
+  @ApiOperation({ summary: 'Lấy danh sách 8 Level kèm tên danh xưng riêng theo phòng ban' })
+  async getDepartmentLevelConfigs(@Param('departmentId') departmentId: string) {
+    return this.levelingService.getDepartmentLevelConfigs(departmentId);
+  }
+
+  @Post('departments/:departmentId/configs')
+  @ApiOperation({ summary: 'Admin / Leader lưu cấu hình Tên Level riêng cho phòng ban' })
+  async saveDepartmentLevelConfigs(
+    @Param('departmentId') departmentId: string,
+    @Body()
+    body: {
+      configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>;
+    },
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.levelingService.saveDepartmentLevelConfigs(departmentId, body.configs, actor);
+  }
+
+  // =========================================================================
+  // 2. USER LEVEL PROGRESS & METRICS (%)
+  // =========================================================================
+
+  @Get('users/:userId/progress')
+  @ApiOperation({ summary: 'Lấy tiến độ % lên cấp chi tiết và các chỉ số đo lường của nhân viên' })
+  async getUserLevelProgress(@Param('userId') userId: string) {
+    return this.levelingService.getUserLevelProgress(userId);
+  }
+
+  @Get('my-progress')
+  @ApiOperation({ summary: 'Nhân viên lấy tiến độ % lên cấp của chính mình' })
+  async getMyLevelProgress(@CurrentUser() actor: AuthenticatedUser) {
+    return this.levelingService.getUserLevelProgress(actor.userId);
+  }
+
+  // =========================================================================
+  // 3. PROMOTION REQUESTS (EMPLOYEE SUBMIT & LEADER REVIEW)
+  // =========================================================================
+
+  @Post('promotion-requests')
+  @ApiOperation({ summary: 'Nhân viên nộp hồ sơ đề xuất thăng cấp kèm ghi chú & ảnh bằng chứng' })
+  async submitPromotionRequest(
+    @Body()
+    body: {
+      fromLevelNumber: number;
+      toLevelNumber: number;
+      submissionNote: string;
+      evidenceImages?: string[];
+      departmentId?: string;
+    },
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.levelingService.submitPromotionRequest(actor.userId, body);
+  }
+
+  @Get('promotion-requests')
+  @ApiOperation({ summary: 'Leader / Admin lấy danh sách đơn xin thăng cấp chờ duyệt của phòng ban' })
+  async getDepartmentPromotionRequests(
+    @Query('departmentId') departmentId?: string,
+    @Query('status') status?: PromotionRequestStatus,
+    @CurrentUser() actor?: AuthenticatedUser,
+  ) {
+    return this.levelingService.getDepartmentPromotionRequests(actor!, departmentId, status);
+  }
+
+  @Get('promotion-requests/:id')
+  @ApiOperation({ summary: 'Lấy chi tiết 1 đơn đề xuất thăng cấp theo ID' })
+  async getPromotionRequestById(@Param('id') id: string) {
+    return this.levelingService.getPromotionRequestById(id);
+  }
+
+  @Post('promotion-requests/:id/review')
+  @ApiOperation({ summary: 'Leader thẩm định ảnh bằng chứng và duyệt / yêu cầu bổ sung' })
+  async reviewPromotionRequest(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      status: 'APPROVED' | 'REJECTED' | 'SUPPLEMENT_REQUESTED';
+      leaderNote?: string;
+    },
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.levelingService.reviewPromotionRequest(id, body, actor);
+  }
+
+  // =========================================================================
+  // 4. DIRECT LEVEL SETTING (LEADER / ADMIN)
+  // =========================================================================
+
+  @Post('users/:userId/set-level')
+  @ApiOperation({ summary: 'Leader / Admin đổi cấp bậc Level trực tiếp cho nhân sự' })
+  async setDirectUserLevel(
+    @Param('userId') userId: string,
+    @Body()
+    body: {
+      levelNumber: number;
+      note?: string;
+    },
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.levelingService.setDirectUserLevel(
+      userId,
+      body.levelNumber,
+      body.note || 'Leader đổi cấp trực tiếp',
+      actor,
+    );
+  }
+
+  // =========================================================================
+  // 5. EXISTING PROJECT / GMV / TASK COMPATIBILITY
+  // =========================================================================
 
   @Get('admin/config')
   @ApiOperation({ summary: 'Lấy cấu hình Level & Dự án theo Phòng ban & Năm cho Admin' })
@@ -172,7 +289,7 @@ export class LevelingController {
   }
 
   @Post('projects/:levelNumber/subtasks/:subTaskId/review')
-  @ApiOperation({ summary: 'Leader duyệt hoặc yêu cầu làm lại việc con' })
+  @ApiOperation({ summary: 'Leader duyệt việc con của nhân sự' })
   async reviewSubTask(
     @Param('levelNumber', ParseIntPipe) levelNumber: number,
     @Param('subTaskId') subTaskId: string,
@@ -193,7 +310,6 @@ export class LevelingController {
       body.departmentName,
     );
   }
-
   @Get('user-level/:userId')
   @ApiOperation({ summary: 'Lấy Level hiện tại của Nhân sự từ Backend' })
   async getUserLevel(@Param('userId') userId: string) {

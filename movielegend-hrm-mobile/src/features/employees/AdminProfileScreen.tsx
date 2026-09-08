@@ -124,7 +124,7 @@ export function AdminProfileScreen() {
             {!isHR && <ActionRow icon="domain" title="Cơ cấu Tổ chức" onPress={() => router.push('/admin/branches')} />}
             <ActionRow icon="crown-outline" title="Cấu hình Level" onPress={() => router.push('/admin/levels' as any)} />
             <ActionRow icon="shield-check-outline" title="Duyệt Level" onPress={() => router.push('/admin/competition/review' as any)} />
-            <ActionRow icon="wallet-giftcard" title="Ví Điểm Thưởng Tết" onPress={() => router.push('/admin/tet-wallet' as any)} />
+            <ActionRow icon="wallet-giftcard" title="Ví Thưởng" onPress={() => router.push('/admin/tet-wallet' as any)} />
             <ActionRow icon="clock-check-outline" title="Dữ liệu Chấm công" onPress={() => router.push('/admin/attendance')} />
             {!isHR && <ActionRow icon="calendar-clock" title="Ca làm việc" onPress={() => router.push('/admin/shifts')} />}
             <ActionRow icon="clipboard-check-outline" title="Duyệt đơn" onPress={() => router.push('/leader/employee-requests')} />

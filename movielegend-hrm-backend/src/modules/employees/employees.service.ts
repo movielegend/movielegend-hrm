@@ -114,7 +114,7 @@ export class EmployeesService {
           accountStatus: true,
           isActive: true,
           isRewardVaultEnabled: true,
-          profile: { select: { fullName: true, avatarUrl: true, employmentStatus: true } },
+          profile: { select: { fullName: true, avatarUrl: true, employmentStatus: true, currentLevelNumber: true } },
           departmentLinks: {
             where: { leftAt: null, ...(query.departmentId ? { departmentId: query.departmentId } : {}) },
             take: 1,
@@ -153,6 +153,13 @@ export class EmployeesService {
           userCode: item.userCode,
           fullName: item.profile?.fullName ?? null,
           avatarUrl: item.profile?.avatarUrl ?? null,
+          profile: {
+            fullName: item.profile?.fullName ?? null,
+            avatarUrl: item.profile?.avatarUrl ?? null,
+            employmentStatus: item.profile?.employmentStatus ?? null,
+            currentLevelNumber: item.profile?.currentLevelNumber ?? 1,
+          },
+          currentLevelNumber: item.profile?.currentLevelNumber ?? 1,
           department: link?.department ?? null,
           position: link?.position ?? null,
           employmentStatus: item.profile?.employmentStatus ?? null,

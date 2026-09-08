@@ -1,0 +1,630 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../api/uploads.api';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
+
+interface EvidenceSubmissionModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  currentLevelNumber: number;
+  currentLevelName: string;
+  nextLevelNumber: number;
+  nextLevelName: string;
+  departmentId?: string;
+}
+
+export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = ({
+  visible,
+  onClose,
+  onSuccess,
+  currentLevelNumber,
+  currentLevelName,
+  nextLevelNumber,
+  nextLevelName,
+  departmentId,
+}) => {
+  const [note, setNote] = useState('');
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  const nextColor = LEVEL_COLORS[nextLevelNumber] || '#4CAF50';
+
+  const handlePickImage = async () => {
+    try {
+      if (selectedImages.length >= 6) {
+        Alert.alert('Giới hạn', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        setIsUploadingImage(true);
+        const asset = result.assets[0];
+        const uploaded = await uploadFile({
+          uri: asset.uri,
+          name: `evidence_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'KPI_EVIDENCE' as any,
+        });
+
+        if (uploaded?.fileUrl) {
+          setSelectedImages((prev) => [...prev, uploaded.fileUrl]);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi tải ảnh', err?.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      if (selectedImages.length >= 6) {
+        Alert.alert('Giới hạn', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
+        return;
+      }
+
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập Camera để chụp ảnh');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        setIsUploadingImage(true);
+        const asset = result.assets[0];
+        const uploaded = await uploadFile({
+          uri: asset.uri,
+          name: `camera_evidence_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'KPI_EVIDENCE' as any,
+        });
+
+        if (uploaded?.fileUrl) {
+          setSelectedImages((prev) => [...prev, uploaded.fileUrl]);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi chụp ảnh', err?.message || 'Không thể chụp ảnh. Vui lòng thử lại.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!note.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tóm tắt thành tích và kết quả công việc');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await levelingApi.submitPromotionRequest({
+        fromLevelNumber: currentLevelNumber,
+        toLevelNumber: nextLevelNumber,
+        submissionNote: note.trim(),
+        evidenceImages: selectedImages,
+        departmentId,
+      });
+
+      Alert.alert('Thành công', 'Đề xuất thăng cấp đã được gửi tới Leader bộ phận để xét duyệt!');
+      setNote('');
+      setSelectedImages([]);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      Alert.alert('Lỗi gửi đề xuất', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>Đề Xuất Xét Thăng Cấp</Text>
+              <Text style={styles.subtitle}>
+                Từ {currentLevelName} ➔ <Text style={{ color: nextColor, fontWeight: '700' }}>{nextLevelName}</Text>
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Ionicons name="close" size={22} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* Note Input */}
+            <Text style={styles.label}>
+              1. Tự đánh giá & Thành tích nổi bật <Text style={{ color: '#EF4444' }}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Tóm tắt các ca làm, dự án, doanh số hoặc thành tích nổi bật của bạn..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={4}
+              value={note}
+              onChangeText={setNote}
+            />
+
+            {/* Evidence Images */}
+            <View style={styles.imageSectionHeader}>
+              <Text style={styles.label}>2. Ảnh Bằng Chứng / Minh Chứng</Text>
+              <View style={styles.counterBadge}>
+                <Text style={styles.counterBadgeText}>{selectedImages.length}/6 ảnh</Text>
+              </View>
+            </View>
+
+            {/* Two Action Cards */}
+            {selectedImages.length < 6 && (
+              <View style={styles.uploadActionRow}>
+                <TouchableOpacity
+                  style={styles.actionPickBtn}
+                  onPress={handleTakePhoto}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                    <Ionicons name="camera" size={18} color="#2563EB" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.actionPickTitle}>Chụp ảnh</Text>
+                    <Text style={styles.actionPickSubtitle}>Mở Camera</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionPickBtn}
+                  onPress={handlePickImage}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#ECFDF5' }]}>
+                    <Ionicons name="image" size={18} color="#059669" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.actionPickTitle}>Thư viện</Text>
+                    <Text style={styles.actionPickSubtitle}>Chọn từ máy</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {isUploadingImage && (
+              <View style={styles.uploadingBox}>
+                <ActivityIndicator size="small" color="#2563EB" />
+                <Text style={styles.uploadingText}>Đang tải ảnh lên máy chủ...</Text>
+              </View>
+            )}
+
+            {/* Image Grid */}
+            {selectedImages.length > 0 && (
+              <View>
+                <View style={styles.imageGrid}>
+                  {selectedImages.map((url, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.imageThumbWrapper}
+                      onPress={() => setPreviewImageIndex(idx)}
+                      activeOpacity={0.85}
+                    >
+                      <Image source={{ uri: url }} style={styles.imageThumb} />
+                      <View style={styles.zoomBadge}>
+                        <Ionicons name="scan-outline" size={12} color="#FFF" />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeImageBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleRemoveImage(idx);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="close" size={14} color="#FFF" />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.imageTapHint}>💡 Chạm vào ảnh để xem kích thước lớn</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Footer Actions */}
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={isSubmitting}>
+              <Text style={styles.cancelBtnText}>Hủy bỏ</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.submitBtn, { backgroundColor: nextColor }]}
+              onPress={handleSubmit}
+              disabled={isSubmitting || isUploadingImage}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="paper-plane" size={18} color="#FFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.submitBtnText}>Gửi Cho Leader</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* Fullscreen Image Preview Lightbox Modal */}
+      {previewImageIndex !== null && selectedImages[previewImageIndex] && (
+        <Modal
+          visible={previewImageIndex !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewImageIndex(null)}
+        >
+          <View style={styles.lightboxOverlay}>
+            <View style={styles.lightboxHeader}>
+              <TouchableOpacity
+                style={styles.lightboxHeaderBtn}
+                onPress={() => setPreviewImageIndex(null)}
+              >
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+
+              <View style={styles.lightboxCounterBadge}>
+                <Text style={styles.lightboxCounterText}>
+                  {previewImageIndex + 1} / {selectedImages.length}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.lightboxHeaderBtn, { backgroundColor: 'rgba(239, 68, 68, 0.25)' }]}
+                onPress={() => {
+                  const idxToRemove = previewImageIndex;
+                  handleRemoveImage(idxToRemove);
+                  if (selectedImages.length <= 1) {
+                    setPreviewImageIndex(null);
+                  } else if (idxToRemove >= selectedImages.length - 1) {
+                    setPreviewImageIndex(selectedImages.length - 2);
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.lightboxImageContainer}>
+              {selectedImages.length > 1 && previewImageIndex > 0 && (
+                <TouchableOpacity
+                  style={[styles.lightboxNavBtn, styles.lightboxNavLeft]}
+                  onPress={() => setPreviewImageIndex((prev) => (prev !== null ? prev - 1 : 0))}
+                >
+                  <Ionicons name="chevron-back" size={24} color="#FFF" />
+                </TouchableOpacity>
+              )}
+
+              <Image
+                source={{ uri: selectedImages[previewImageIndex] }}
+                style={styles.lightboxImage}
+                resizeMode="contain"
+              />
+
+              {selectedImages.length > 1 && previewImageIndex < selectedImages.length - 1 && (
+                <TouchableOpacity
+                  style={[styles.lightboxNavBtn, styles.lightboxNavRight]}
+                  onPress={() => setPreviewImageIndex((prev) => (prev !== null ? prev + 1 : 0))}
+                >
+                  <Ionicons name="chevron-forward" size={24} color="#FFF" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  container: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  subtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  body: {
+    padding: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  imageSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  counterBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  counterBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  uploadActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  actionPickBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  actionPickIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionPickTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  actionPickSubtitle: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+  },
+  uploadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0FDF4',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    gap: 8,
+  },
+  uploadingText: {
+    fontSize: 13,
+    color: '#16A34A',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  imageThumbWrapper: {
+    width: '30.5%',
+    aspectRatio: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  imageThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageTapHint: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  lightboxOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+  },
+  lightboxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  lightboxHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxCounterBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  lightboxCounterText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  lightboxImageContainer: {
+    flex: 1,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxNavBtn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  lightboxNavLeft: {
+    left: 12,
+  },
+  lightboxNavRight: {
+    right: 12,
+  },
+  emptyImageText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  footer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  submitBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  submitBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+});

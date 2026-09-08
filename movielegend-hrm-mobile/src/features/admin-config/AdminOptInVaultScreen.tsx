@@ -49,7 +49,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     );
     Alert.alert(
       'Cập Nhật Cấp Quyền Ví Điểm',
-      `Đã ${!currentValue ? 'BẬT đặc quyền Ví Điểm Thưởng Tết' : 'TẮT Ví Điểm Thưởng'} cho nhân sự!`
+      `Đã ${!currentValue ? 'BẬT đặc quyền Ví Điểm Thưởng' : 'TẮT Ví Điểm Thưởng'} cho nhân sự!`
     );
   };
 
@@ -72,7 +72,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
         
         {/* Executive Header Card */}
         <View style={styles.executiveHeaderCard}>
-          <Text style={styles.title}>Quản Lý Cấp Quyền Ví Thưởng Tết</Text>
+          <Text style={styles.title}>Quản Lý Cấp Quyền Ví Thưởng</Text>
           <Text style={styles.sub}>Kích hoạt tính năng Opt-in & Cấp Quỹ Thưởng Giữ Chân Nhân Tài</Text>
         </View>
 

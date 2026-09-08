@@ -1,12 +1,6 @@
 import React from 'react';
-import { View, StatusBar } from 'react-native';
-import { AdminLevelConfigScreen } from '../../../src/features/admin-config/AdminLevelConfigScreen';
+import { UnifiedLevelingScreen } from '../../../src/features/leveling/UnifiedLevelingScreen';
 
 export default function AdminLevelsRoute() {
-  return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
-      <AdminLevelConfigScreen />
-    </View>
-  );
+  return <UnifiedLevelingScreen initialTab="config" />;
 }

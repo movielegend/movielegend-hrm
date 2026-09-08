@@ -332,8 +332,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
         >
             {/* Header */}
             <PageHeader
-              title="Trao Điểm Thưởng Tết"
-              subtitle="Cấu hình hạn mức tích lũy & thưởng Tết cuối năm"
+              title="Trao Điểm Thưởng"
+              subtitle="Cấu hình hạn mức tích lũy & trao thưởng"
               showBack={false}
               right={
                 <View style={styles.headerIconBox}>
@@ -401,17 +401,17 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             <View style={styles.sectionCard}>
               <View style={styles.sectionTitleRow}>
                 <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>1. Thông tin Gói Thưởng Tết</Text>
+                <Text style={styles.sectionTitle}>1. Thông tin Gói Thưởng</Text>
               </View>
 
-              <Text style={styles.inputFieldLabel}>Tên gói thưởng Tết / Dự án *</Text>
+              <Text style={styles.inputFieldLabel}>Tên gói thưởng / Dự án *</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons name="tag-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
                 <TextInput
                   style={styles.textInput}
                   value={grantTitle}
                   onChangeText={setGrantTitle}
-                  placeholder={`VD: Thưởng Tết ${currentYear}, Thưởng Tích Lũy Tháng, Thưởng Nóng...`}
+                  placeholder={`VD: Thưởng Tích Lũy ${currentYear}, Thưởng Dự Án, Thưởng Nóng...`}
                   placeholderTextColor="#94A3B8"
                 />
               </View>
@@ -419,10 +419,10 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               {/* Quick Title Chips */}
               <View style={[styles.presetChipsWrap, { marginTop: 6, marginBottom: 4 }]}>
                 {[
-                  `Thưởng Tết ${currentYear}`,
-                  'Thưởng Tích Lũy Tháng',
-                  'Thưởng Nóng Cuối Năm',
+                  `Thưởng Tích Lũy ${currentYear}`,
                   'Thưởng Dự Án Xuất Sắc',
+                  'Thưởng Tích Lũy Tháng',
+                  'Thưởng Nóng Đặc Biệt',
                 ].map((presetName) => {
                   const isSelected = grantTitle === presetName;
                   return (
@@ -456,7 +456,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             <View style={styles.sectionCard}>
               <View style={styles.sectionTitleRow}>
                 <MaterialCommunityIcons name="star-shooting-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>2. Số Điểm Thưởng Tết Trao Tặng</Text>
+                <Text style={styles.sectionTitle}>2. Số Điểm Thưởng Trao Tặng</Text>
               </View>
 
               <Text style={styles.inputFieldLabel}>Chọn nhanh số điểm:</Text>
@@ -500,7 +500,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                     <MaterialCommunityIcons name="cash-multiple" size={24} color="#B45309" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.conversionLabel}>Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ tiền thưởng Tết</Text>
+                    <Text style={styles.conversionLabel}>Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ tiền thưởng</Text>
                     <Text style={styles.conversionAmount}>
                       {(parseInt(customPointsInput, 10) * 1000).toLocaleString('vi-VN')} VNĐ
                     </Text>
@@ -695,7 +695,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               ) : (
                 <>
                   <MaterialCommunityIcons name="check-decagram" size={20} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>XÁC NHẬN TRAO ĐIỂM THƯỞNG TẾT</Text>
+                  <Text style={styles.submitButtonText}>XÁC NHẬN TRAO ĐIỂM THƯỞNG</Text>
                 </>
               )}
             </Pressable>

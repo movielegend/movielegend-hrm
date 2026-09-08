@@ -191,19 +191,19 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
               <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#D97706" />
             </View>
             <View>
-              <Text style={styles.vipHeroTitle}>Ví Thưởng Tết Cuối Năm {currentYear}</Text>
+              <Text style={styles.vipHeroTitle}>Ví Thưởng Tích Lũy {currentYear}</Text>
               <Text style={styles.vipHeroSubtitle}>Quỹ Tích Lũy 12 Tháng Giữ Chân Nhân Tài</Text>
             </View>
           </View>
           <View style={styles.vipBadgeChip}>
             <MaterialCommunityIcons name="crown" size={13} color="#B45309" />
-            <Text style={styles.vipBadgeChipText}>TẾT {currentYear}</Text>
+            <Text style={styles.vipBadgeChipText}>VIP {currentYear}</Text>
           </View>
         </View>
 
         {/* Main Available Balance Centerpiece */}
         <View style={styles.vipBalanceCenterpiece}>
-          <Text style={styles.vipBalanceLabel}>DỰ TOÁN TIỀN THƯỞNG TẾT TÍCH LŨY</Text>
+          <Text style={styles.vipBalanceLabel}>DỰ TOÁN TIỀN THƯỞNG TÍCH LŨY</Text>
           <View style={styles.vipAmountRow}>
             <Text style={styles.vipAmountNumber}>{totalGrantedCash.toLocaleString('vi-VN')}</Text>
             <Text style={styles.vipCurrency}>VNĐ</Text>
@@ -246,7 +246,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           activeOpacity={0.85}
         >
           <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#FFFFFF" />
-          <Text style={styles.vipWithdrawActionText}>YÊU CẦU TẤT TOÁN THƯỞNG TẾT</Text>
+          <Text style={styles.vipWithdrawActionText}>YÊU CẦU TẤT TOÁN THƯỞNG</Text>
         </TouchableOpacity>
 
         {/* Advance Note Footer */}
@@ -940,7 +940,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 <View style={styles.modalHeaderBadge}>
                   <Ionicons name="cash-outline" size={20} color="#D97706" />
                 </View>
-                <Text style={styles.modalTitle}>Yêu Cầu Tất Toán Thưởng Tết</Text>
+                <Text style={styles.modalTitle}>Yêu Cầu Tất Toán Thưởng</Text>
               </View>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
                 <Ionicons name="close" size={20} color="#6B7280" />
@@ -968,7 +968,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
               {/* Conversion Preview */}
               <View style={styles.conversionBox}>
-                <Text style={styles.conversionFormula}>Dự toán số tiền thưởng Tết:</Text>
+                <Text style={styles.conversionFormula}>Dự toán số tiền thưởng:</Text>
                 <Text style={styles.conversionTotal}>
                   {cashToWithdraw.toLocaleString('vi-VN')} VNĐ
                 </Text>
@@ -1003,7 +1003,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 style={styles.input}
                 value={withdrawNote}
                 onChangeText={setWithdrawNote}
-                placeholder="VD: Đề xuất nhận thưởng Tết cuối năm..."
+                placeholder="VD: Đề xuất nhận thưởng tích lũy..."
               />
             </ScrollView>
 

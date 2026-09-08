@@ -20,6 +20,8 @@ import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ContourHeroPattern } from './components/ContourHeroPattern';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -78,6 +80,15 @@ export function LeaderDashboard() {
     queryFn: getMyVault,
   });
 
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress'],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 5;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#FF9800';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || `Cấp ${currentLevelNumber}`;
+
   const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
   const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
   const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
@@ -131,16 +142,40 @@ export function LeaderDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={styles.avatar}>
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-              )}
-            </View>
+            <Pressable 
+              style={styles.avatarWrapper}
+              onPress={() => router.push('/leader/leveling' as any)}
+            >
+              <View style={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </View>
+              {/* Level Rank Badge on Avatar */}
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+              </View>
+            </Pressable>
+
             <View style={styles.greetingInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName || 'Quản lý'}</Text>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <Pressable
+                  style={[
+                    styles.levelPill,
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
+                  ]}
+                  onPress={() => router.push('/leader/leveling' as any)}
+                >
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'Quản lý'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
@@ -205,6 +240,68 @@ export function LeaderDashboard() {
           </View>
         </Pressable>
 
+        {/* Banner Cấp Bậc & Lộ Trình (Hiển thị nổi bật phong cách VIP song hành) */}
+        <Pressable
+          style={[
+            styles.levelBanner,
+            {
+              backgroundColor: `${levelColor}0D`,
+              borderColor: `${levelColor}40`,
+              shadowColor: levelColor,
+            },
+          ]}
+          onPress={() => router.push('/leader/leveling' as any)}
+        >
+          <View style={styles.levelBannerLeft}>
+            <View
+              style={[
+                styles.levelBannerIconWrap,
+                { backgroundColor: `${levelColor}1A`, borderColor: `${levelColor}35` },
+              ]}
+            >
+              <MaterialCommunityIcons name="crown" size={24} color={levelColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <Text style={[styles.levelBannerTitle, { color: '#0F172A' }]} numberOfLines={1}>
+                  Level {currentLevelNumber}: {levelTitle}
+                </Text>
+                <View style={[styles.levelRankTag, { backgroundColor: levelColor }]}>
+                  <Text style={styles.levelRankTagText}>CẤP BẬC</Text>
+                </View>
+              </View>
+
+              <View style={styles.levelProgressRow}>
+                <Text style={styles.levelBannerSubText}>
+                  {levelProgress?.nextLevel
+                    ? `Tiến độ lên Lv.${levelProgress.nextLevel.levelNumber}: `
+                    : 'Đã đạt cấp bậc tối cao: '}
+                  <Text style={[styles.levelBannerSubTextBold, { color: levelColor }]}>
+                    {levelProgress?.overallProgressPercent || 0}%
+                  </Text>
+                </Text>
+              </View>
+
+              {/* Mini Level Progress Bar */}
+              <View style={styles.miniProgressBarTrack}>
+                <View
+                  style={[
+                    styles.miniProgressBarFill,
+                    {
+                      width: `${Math.min(100, Math.max(5, levelProgress?.overallProgressPercent || 0))}%`,
+                      backgroundColor: levelColor,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+          <View style={styles.levelBannerRight}>
+            <Text style={[styles.levelBannerActionText, { color: levelColor }]}>Lộ trình</Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={levelColor} />
+          </View>
+        </Pressable>
+
         {/* Banner Ví Thưởng Tết & Nhân Tài (Hiển thị nổi bật khi Leader được mở quyền) */}
         {isVaultEnabled && (
           <Pressable
@@ -217,9 +314,9 @@ export function LeaderDashboard() {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Thưởng Tết</Text>
+                  <Text style={styles.vaultBannerTitle}>Ví Thưởng</Text>
                   <View style={styles.vipBadge}>
-                    <Text style={styles.vipBadgeText}>TẾT</Text>
+                    <Text style={styles.vipBadgeText}>VIP</Text>
                   </View>
                 </View>
                 <Text style={styles.vaultBannerPoints}>
@@ -243,16 +340,16 @@ export function LeaderDashboard() {
             <GridItem icon="briefcase-outline" title="Dự án" color="#3B82F6" onPress={() => router.push('/leader/level-projects' as any)} />
             <GridItem
               icon="gift-outline"
-              title="Ví Thưởng Tết"
+              title="Ví Thưởng"
               color="#059669"
-              badge={isVaultEnabled ? 'TẾT' : undefined}
+              badge={isVaultEnabled ? 'VÍ' : undefined}
               badgeColor="#D97706"
               onPress={() => router.push('/leader/vault' as any)}
             />
             {isAccountantLeader && (
               <GridItem
                 icon="cash-check"
-                title="Chi trả Tết"
+                title="Chi trả thưởng"
                 color="#059669"
                 badge={pendingAccCount > 0 ? `${pendingAccCount}` : undefined}
                 badgeColor="#EF4444"
@@ -457,6 +554,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
   avatar: {
     width: 56,
     height: 56,
@@ -465,18 +565,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4B5563',
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+    paddingHorizontal: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  avatarLevelBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
   },
   greetingInfo: {
     justifyContent: 'center',
+    flex: 1,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
   },
   userName: {
     fontSize: 22,
@@ -839,6 +977,82 @@ const styles = StyleSheet.create({
   activityTime: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  levelBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  levelBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  levelBannerIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  levelBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    flexShrink: 1,
+  },
+  levelRankTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  levelRankTagText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  levelProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  levelBannerSubText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  levelBannerSubTextBold: {
+    fontWeight: '700',
+  },
+  miniProgressBarTrack: {
+    height: 5,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 2,
+    width: '92%',
+  },
+  miniProgressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  levelBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  levelBannerActionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   vaultBanner: {
     flexDirection: 'row',

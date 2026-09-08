@@ -8,7 +8,7 @@ export default function LeaderVaultRoute() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <PageHeader
-          title="Ví Thưởng Tết Cuối Năm"
+          title="Ví Thưởng"
           subtitle="Quỹ thưởng giữ chân & tích lũy năm tài chính"
           showBack={false}
         />

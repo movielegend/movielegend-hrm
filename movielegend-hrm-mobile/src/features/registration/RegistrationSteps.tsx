@@ -5,7 +5,19 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Image, Pressable, StyleSheet, Text, View, Platform, Modal, KeyboardAvoidingView, ScrollView, Keyboard } from 'react-native';
+import { 
+  Image, 
+  Pressable, 
+  StyleSheet, 
+  Text, 
+  View, 
+  Platform, 
+  Modal, 
+  ScrollView,
+  Keyboard,
+  KeyboardAvoidingView
+} from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { registerEmployee } from '../../api/registration.api';
 import { uploadFile } from '../../api/uploads.api';
@@ -678,6 +690,9 @@ export function RegistrationReviewScreen() {
   const router = useRouter();
   const { values, reset } = useRegistration();
   const mutation = useMutation({ mutationFn: registerEmployee });
+  const { data: deptData } = usePublicDepartments();
+  const selectedDept = deptData?.items?.find((d) => d.id === values.requestedDepartmentId);
+
   const canSubmit = accountSchema.safeParse(values).success && profileSchema.safeParse(values).success && departmentSchema.safeParse(values).success;
   async function submit() {
     Keyboard.dismiss();
@@ -757,7 +772,7 @@ export function RegistrationReviewScreen() {
                 return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : values.joinDate;
               })() : 'Tự động tính từ ngày duyệt tài khoản'}
             </Text>
-            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ID:</Text> {values.requestedDepartmentId || 'Chưa chọn'}</Text>
+            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ứng tuyển:</Text> {selectedDept?.name || values.requestedDepartmentId || 'Chưa chọn'}</Text>
           </View>
           
           {mutation.error ? (
@@ -801,6 +816,8 @@ export function RegistrationSuccessScreen() {
   );
 }
 
+export { RegistrationAccountScreen as RegistrationProfileScreen };
+
 function DepartmentOption({ department, selected, onPress }: { department: Department; selected: boolean; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={{ backgroundColor: selected ? '#F9FAFB' : '#FFFFFF', borderColor: selected ? '#111827' : '#ECEEF3', borderRadius: 12, borderWidth: selected ? 2 : 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -822,25 +839,27 @@ function nextPose(pose: FacePose): FacePose {
 function registrationErrorMessage(error: unknown): string {
   const normalized = normalizeApiError(error);
   const map: Record<string, string> = {
-    DUPLICATE_PHONE: 'So dien thoai da ton tai',
-    DUPLICATE_ID_CARD: 'CCCD da ton tai',
-    INVALID_FACE_IMAGES: 'Can du anh FRONT, LEFT, RIGHT',
-    UPLOAD_FILE_REQUIRED: 'Can upload du 3 anh khuon mat',
-    UPLOAD_ALREADY_ATTACHED: 'Anh upload da duoc su dung',
-    UPLOAD_NOT_FOUND: 'Khong tim thay file upload',
+    DUPLICATE_PHONE: 'Số điện thoại này đã được đăng ký',
+    DUPLICATE_ID_CARD: 'Số CCCD này đã tồn tại trên hệ thống',
+    DUPLICATE_EMAIL: 'Email này đã được sử dụng',
+    DEPARTMENT_NOT_FOUND: 'Phòng ban được chọn không tồn tại hoặc đã ngừng hoạt động',
+    INVALID_FACE_IMAGES: 'Cần đủ ảnh các góc khuôn mặt',
+    UPLOAD_FILE_REQUIRED: 'Cần tải đủ ảnh khuôn mặt',
+    UPLOAD_ALREADY_ATTACHED: 'Ảnh tải lên đã được sử dụng',
+    UPLOAD_NOT_FOUND: 'Không tìm thấy tệp tải lên',
   };
-  return map[normalized.code] ?? mapLoginError(error);
+  return map[normalized.code] ?? normalized.message ?? mapLoginError(error);
 }
 
 function uploadErrorMessage(error: unknown): string {
   const normalized = normalizeApiError(error);
   const map: Record<string, string> = {
-    UPLOAD_FILE_TOO_LARGE: 'File qua lon',
-    UPLOAD_MIME_NOT_ALLOWED: 'Dinh dang file khong duoc ho tro',
-    UPLOAD_SIGNATURE_INVALID: 'Noi dung file khong hop le',
-    UPLOAD_STORAGE_FAILED: 'Luu file that bai',
+    UPLOAD_FILE_TOO_LARGE: 'Kích thước tệp quá lớn',
+    UPLOAD_MIME_NOT_ALLOWED: 'Định dạng tệp không được hỗ trợ',
+    UPLOAD_SIGNATURE_INVALID: 'Nội dung tệp không hợp lệ',
+    UPLOAD_STORAGE_FAILED: 'Lưu tệp thất bại',
   };
-  return map[normalized.code] ?? 'Upload failed';
+  return map[normalized.code] ?? 'Tải lên thất bại';
 }
 
 function StepBar({ currentStep, totalSteps = 4 }: { currentStep: number; totalSteps?: number }) {
