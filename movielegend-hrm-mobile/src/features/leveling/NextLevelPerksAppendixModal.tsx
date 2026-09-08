@@ -34,9 +34,10 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   const colorHex = LEVEL_COLORS[targetLevelNum] || nextLevel?.colorHex || '#2563EB';
 
   const bonusAmount = perksData?.promotionBonusAmount || 0;
-  const physicalItems = perksData?.physicalItems && perksData.physicalItems.length > 0
+  const rawItems = perksData?.physicalItems && perksData.physicalItems.length > 0
     ? perksData.physicalItems
     : perksData?.physicalItemName ? [perksData.physicalItemName] : [];
+  const physicalItems = rawItems.map((s) => String(s || '').trim()).filter(Boolean);
 
   const perksList = perksData?.perks && perksData.perks.length > 0
     ? perksData.perks

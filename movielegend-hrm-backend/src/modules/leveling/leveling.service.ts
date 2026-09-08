@@ -550,23 +550,75 @@ export class LevelingService {
         const adminDeptConfigs = departmentId ? this.getAdminDepartmentConfig(departmentId, 2026, primaryDept?.name) : null;
         const customLevelItem = Array.isArray(adminDeptConfigs) ? adminDeptConfigs.find((l: any) => l.levelNumber === nextLevelNumber) : null;
 
+        const rewardType = customLevelItem?.rewardType || (customLevelItem?.promotionBonusAmount && !customLevelItem?.physicalItemName ? 'CASH' : customLevelItem?.physicalItemName && !customLevelItem?.promotionBonusAmount ? 'PHYSICAL_ITEM' : 'HYBRID');
+
+        let promotionBonusAmount = 0;
+        let physicalItemName = '';
+        let physicalItems: string[] = [];
+
+        if (customLevelItem) {
+          if (rewardType === 'CASH') {
+            promotionBonusAmount = Number(customLevelItem.promotionBonusAmount) || 0;
+            physicalItemName = '';
+            physicalItems = [];
+          } else if (rewardType === 'PHYSICAL_ITEM') {
+            promotionBonusAmount = 0;
+            physicalItemName = customLevelItem.physicalItemName?.trim() || '';
+            physicalItems = physicalItemName ? [physicalItemName] : [];
+          } else {
+            // HYBRID
+            promotionBonusAmount = Number(customLevelItem.promotionBonusAmount) || 0;
+            physicalItemName = customLevelItem.physicalItemName?.trim() || '';
+            physicalItems = physicalItemName ? [physicalItemName] : [];
+          }
+        } else {
+          promotionBonusAmount = defaultPerk.bonus;
+          physicalItemName = defaultPerk.gift;
+          physicalItems = [defaultPerk.gift];
+        }
+
+        const retentionMultiplier = customLevelItem?.retentionMultiplier !== undefined
+          ? Number(customLevelItem.retentionMultiplier)
+          : defaultPerk.multiplier;
+
+        const allowanceAmount = customLevelItem?.allowanceAmount !== undefined
+          ? Number(customLevelItem.allowanceAmount)
+          : (customLevelItem ? 0 : defaultPerk.allowance);
+
+        let perks: string[] = [];
+        if (Array.isArray(customLevelItem?.perks) && customLevelItem.perks.length > 0) {
+          perks = customLevelItem.perks;
+        } else if (customLevelItem) {
+          perks = [
+            `Bổ nhiệm danh xưng chính thức: ${nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`}`,
+            `Mở khóa nhận việc con trong Dự Án Cấp Bậc (Dự Án Lv.${nextLevelNumber})`,
+          ];
+          if (allowanceAmount > 0) {
+            perks.push(`Phụ cấp chuyên môn / chức danh +${allowanceAmount.toLocaleString('vi-VN')}đ/tháng`);
+          }
+          if (retentionMultiplier > 1) {
+            perks.push(`Hệ số tính điểm thưởng Tết ${retentionMultiplier}x`);
+          }
+          if (rewardType === 'CASH' && promotionBonusAmount > 0) {
+            perks.push(`Thưởng nóng thăng cấp ${promotionBonusAmount.toLocaleString('vi-VN')} VNĐ`);
+          } else if (rewardType !== 'CASH' && physicalItemName) {
+            perks.push(`Hiện vật vinh danh: ${physicalItemName}`);
+          }
+        } else {
+          perks = defaultPerk.perks;
+        }
+
         return {
           levelNumber: nextLevelNumber,
           levelName: nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`,
           displayName: nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`,
           colorHex: nextConfig?.colorHex || '#4CAF50',
-          promotionBonusAmount: customLevelItem?.promotionBonusAmount !== undefined && customLevelItem?.promotionBonusAmount > 0
-            ? Number(customLevelItem.promotionBonusAmount)
-            : defaultPerk.bonus,
-          physicalItemName: customLevelItem?.physicalItemName?.trim() || defaultPerk.gift,
-          physicalItems: Array.isArray(customLevelItem?.physicalItems) && customLevelItem.physicalItems.length > 0
-            ? customLevelItem.physicalItems
-            : [customLevelItem?.physicalItemName?.trim() || defaultPerk.gift],
-          retentionMultiplier: customLevelItem?.retentionMultiplier || defaultPerk.multiplier,
-          allowanceAmount: customLevelItem?.allowanceAmount || defaultPerk.allowance,
-          perks: Array.isArray(customLevelItem?.perks) && customLevelItem.perks.length > 0
-            ? customLevelItem.perks
-            : defaultPerk.perks,
+          promotionBonusAmount,
+          physicalItemName,
+          physicalItems,
+          retentionMultiplier,
+          allowanceAmount,
+          perks,
           motivationQuote: customLevelItem?.motivationQuote || defaultPerk.quote,
           projectName: customLevelItem?.project?.projectName || `Dự Án Level ${nextLevelNumber}`,
         };
