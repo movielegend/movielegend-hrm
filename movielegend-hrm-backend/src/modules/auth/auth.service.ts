@@ -134,6 +134,7 @@ export class AuthService {
               idCardFrontUrl,
               idCardBackUrl,
               avatarUrl: dto.avatarUrl,
+              joinDate: dto.joinDate ? new Date(dto.joinDate) : null,
             },
           },
           roles: employeeRole
@@ -529,6 +530,8 @@ export class AuthService {
       phone: user.phone,
       email: user.email,
       avatarUrl: user.profile?.avatarUrl,
+      joinDate: user.profile?.joinDate ? user.profile.joinDate.toISOString() : (primaryDepartment?.joinedAt ? primaryDepartment.joinedAt.toISOString() : user.createdAt.toISOString()),
+      createdAt: user.createdAt.toISOString(),
       roles,
       permissions: [...permissions],
       scopes,

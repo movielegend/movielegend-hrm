@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Image, Pressable, StyleSheet, Text, View, Platform, Modal } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, Platform, Modal, KeyboardAvoidingView, ScrollView, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { registerEmployee } from '../../api/registration.api';
 import { uploadFile } from '../../api/uploads.api';
@@ -29,8 +30,8 @@ import { mapLoginError, normalizeApiError } from '../../utils/api-error';
 import { accountSchema, departmentSchema, faceSchema, profileSchema } from './registration.schema';
 import { facePoseLabels, useRegistration } from './RegistrationProvider';
 
-type AccountStepValues = Pick<RegistrationFormValues, 'fullName' | 'phone' | 'email' | 'password' | 'confirmPassword'>;
-type ProfileStepValues = Pick<RegistrationFormValues, 'idCardNumber' | 'dateOfBirth' | 'gender'>;
+type AccountStepValues = z.infer<typeof accountSchema>;
+type ProfileStepValues = Pick<RegistrationFormValues, 'idCardNumber' | 'dateOfBirth' | 'gender' | 'joinDate'>;
 type DepartmentStepValues = Pick<RegistrationFormValues, 'requestedDepartmentId'>;
 
 export function RegistrationIntroScreen() {
@@ -88,7 +89,7 @@ export function RegistrationAccountScreen() {
     handleSubmit,
     formState: { errors },
   } = useForm<AccountStepValues>({
-    resolver: zodResolver(accountStepSchema),
+    resolver: zodResolver(accountSchema),
     defaultValues: {
       fullName: values.fullName,
       phone: values.phone,
@@ -147,17 +148,20 @@ export function RegistrationPersonalScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
   const { control, handleSubmit, formState: { errors }, watch, setValue } = useForm<ProfileStepValues>({
-    resolver: zodResolver(profileStepSchema),
+    resolver: zodResolver(profileSchema),
     defaultValues: {
       idCardNumber: values.idCardNumber,
       dateOfBirth: values.dateOfBirth,
       gender: values.gender,
+      joinDate: values.joinDate || '',
     },
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showJoinDatePicker, setShowJoinDatePicker] = useState(false);
   const dob = watch('dateOfBirth');
   const gender = watch('gender');
+  const joinDate = watch('joinDate');
 
   const submit = handleSubmit((data) => {
     Keyboard.dismiss();
@@ -267,6 +271,56 @@ export function RegistrationPersonalScreen() {
                 </View>
                 {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.gender.message}</Text> : null}
               </View>
+
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, marginLeft: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280' }}>Ngày bắt đầu làm việc (Tùy chọn)</Text>
+                  {joinDate ? (
+                    <Pressable onPress={() => setValue('joinDate', '')}>
+                      <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '500' }}>Xóa / Mặc định</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <Pressable 
+                  onPress={() => setShowJoinDatePicker(true)}
+                  style={{ 
+                    height: 56, 
+                    borderWidth: 1, 
+                    borderColor: errors.joinDate ? '#EF4444' : '#ECEEF3', 
+                    borderRadius: 12, 
+                    paddingHorizontal: 16, 
+                    flexDirection: 'row',
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    backgroundColor: '#FFFFFF' 
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
+                    <Ionicons name="briefcase-outline" size={20} color={joinDate ? '#111827' : '#9CA3AF'} />
+                    <Text numberOfLines={1} style={{ color: joinDate ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: joinDate ? '600' : '400' }}>
+                      {joinDate ? (() => {
+                        const parts = joinDate.split('-');
+                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : joinDate;
+                      })() : 'Dành cho nhân viên cũ (hoặc để trống)'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+                </Pressable>
+                <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4, marginLeft: 4 }}>
+                  {joinDate ? 'Thâm niên sẽ được tính từ ngày này.' : 'Nếu để trống, hệ thống sẽ tự động tính thâm niên từ ngày được duyệt tài khoản.'}
+                </Text>
+                {errors.joinDate ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.joinDate.message}</Text> : null}
+              </View>
+
+              <VietnameseDatePickerModal
+                visible={showJoinDatePicker}
+                onClose={() => setShowJoinDatePicker(false)}
+                initialDate={joinDate}
+                title="Chọn ngày bắt đầu làm việc"
+                onSelect={(selectedDateStr) => {
+                  setValue('joinDate', selectedDateStr);
+                }}
+              />
               
               <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
@@ -279,22 +333,70 @@ export function RegistrationPersonalScreen() {
   );
 }
 
+export const RegistrationProfileScreen = RegistrationPersonalScreen;
+
 export function RegistrationDepartmentScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
   const [search, setSearch] = useState('');
   const departments = usePublicDepartments({ search });
+  
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  
   const { handleSubmit, setValue, watch, formState: { errors } } = useForm<DepartmentStepValues>({
     resolver: zodResolver(departmentSchema),
     defaultValues: { requestedDepartmentId: values.requestedDepartmentId },
   });
   const selectedId = watch('requestedDepartmentId');
+  
   const submit = handleSubmit((data) => {
     Keyboard.dismiss();
     update(data);
     router.push('/register/review');
   });
+  
   const activeDepartments = departments.data?.items.filter((department) => department.isActive) ?? [];
+  
+  const regionsMap = new Map();
+  activeDepartments.forEach(dept => {
+    if (dept.branch?.region) {
+      regionsMap.set(dept.branch.region.id, dept.branch.region);
+    }
+  });
+  const regions = Array.from(regionsMap.values());
+
+  const branchesMap = new Map();
+  if (selectedRegionId) {
+    activeDepartments.forEach(dept => {
+      if (dept.branch && dept.branch.region?.id === selectedRegionId) {
+        branchesMap.set(dept.branch.id, dept.branch);
+      }
+    });
+  }
+  const branches = Array.from(branchesMap.values());
+
+  const filteredDepartments = selectedBranchId 
+    ? activeDepartments.filter(dept => dept.branch?.id === selectedBranchId)
+    : [];
+
+  const handleBack = () => {
+    if (selectedBranchId) {
+      setSelectedBranchId(null);
+      setValue('requestedDepartmentId', '', { shouldValidate: true });
+    } else if (selectedRegionId) {
+      setSelectedRegionId(null);
+    } else {
+      router.back();
+    }
+  };
+
+  const getTitle = () => {
+    if (!selectedRegionId) return 'Chọn Miền';
+    if (!selectedBranchId) return 'Chọn Chi nhánh';
+    return 'Chọn Phòng ban';
+  };
+
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
@@ -305,24 +407,51 @@ export function RegistrationDepartmentScreen() {
         >
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+              <Pressable onPress={handleBack} style={{ padding: 4, marginRight: 12 }}>
                 <Ionicons name="arrow-back" size={24} color="#111827" />
               </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Chọn phòng ban</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>{getTitle()}</Text>
             </View>
             <StepBar currentStep={3} />
           </View>
 
-          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm phòng ban..." />
+          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm..." />
           <View style={{ height: 16 }} />
 
           {departments.isLoading ? <LoadingState /> : null}
           {departments.isError ? <ErrorState error={departments.error} onRetry={() => void departments.refetch()} /> : null}
-          {!departments.isLoading && !activeDepartments.length ? <EmptyState title="Không có phòng ban khả dụng" /> : null}
+          {!departments.isLoading && !activeDepartments.length ? <EmptyState title="Không có dữ liệu khả dụng" /> : null}
           
           <View style={{ gap: 12 }}>
-            {activeDepartments.map((department) => (
-              <DepartmentOption key={department.id} department={department} selected={selectedId === department.id} onPress={() => setValue('requestedDepartmentId', department.id, { shouldValidate: true })} />
+            {!selectedRegionId && regions.map(region => (
+              <Pressable 
+                key={region.id} 
+                onPress={() => setSelectedRegionId(region.id)}
+                style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>{region.name}</Text>
+                <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
+              </Pressable>
+            ))}
+
+            {selectedRegionId && !selectedBranchId && branches.map(branch => (
+              <Pressable 
+                key={branch.id} 
+                onPress={() => setSelectedBranchId(branch.id)}
+                style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>{branch.name}</Text>
+                <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
+              </Pressable>
+            ))}
+
+            {selectedBranchId && filteredDepartments.map((department) => (
+              <DepartmentOption 
+                key={department.id} 
+                department={department} 
+                selected={selectedId === department.id} 
+                onPress={() => setValue('requestedDepartmentId', department.id, { shouldValidate: true })} 
+              />
             ))}
           </View>
           
@@ -330,7 +459,11 @@ export function RegistrationDepartmentScreen() {
         </ScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
-           <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+           <Pressable 
+             onPress={submit} 
+             disabled={!selectedId}
+             style={{ backgroundColor: !selectedId ? '#9CA3AF' : '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
+            >
               <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
         </View>
@@ -556,7 +689,15 @@ export function RegistrationReviewScreen() {
       idCardNumber: values.idCardNumber,
       ...(values.dateOfBirth ? { dateOfBirth: values.dateOfBirth } : {}),
       ...(values.gender ? { gender: values.gender } : {}),
+      ...(values.joinDate ? { joinDate: values.joinDate } : {}),
       requestedDepartmentId: values.requestedDepartmentId,
+      ...(values.faceImages?.length ? {
+        faceImages: values.faceImages.map((img) => ({
+          pose: img.pose,
+          imageUrl: img.imageUrl,
+          fileId: img.uploadedFileId,
+        }))
+      } : {}),
     };
     try {
       await mutation.mutateAsync(payload);
@@ -609,6 +750,13 @@ export function RegistrationReviewScreen() {
                 <Text style={{ fontWeight: '600' }}>Giới tính:</Text> {values.gender === 'MALE' ? 'Nam' : values.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
               </Text>
             ) : null}
+            <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+              <Text style={{ fontWeight: '600' }}>Ngày vào làm:</Text>{' '}
+              {values.joinDate ? (() => {
+                const parts = values.joinDate.split('-');
+                return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : values.joinDate;
+              })() : 'Tự động tính từ ngày duyệt tài khoản'}
+            </Text>
             <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ID:</Text> {values.requestedDepartmentId || 'Chưa chọn'}</Text>
           </View>
           

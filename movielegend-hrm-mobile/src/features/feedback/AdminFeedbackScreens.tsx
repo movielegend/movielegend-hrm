@@ -12,6 +12,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { colors } from '../../theme/colors';
+import { useAuth } from '../../providers/AuthProvider';
 import { useFeedbacksForManagement, useFeedbackDetail, useUpdateFeedbackStatus, useFeedbackStats } from '../../hooks/useFeedback';
 import { useQueryClient } from '@tanstack/react-query';
 import { FeedbackCard } from './components/FeedbackCard';
@@ -122,8 +123,15 @@ export function AdminFeedbackListScreen() {
 export function AdminFeedbackDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
   const { data: feedback, isLoading, isError } = useFeedbackDetail(id);
   const updateMutation = useUpdateFeedbackStatus();
+
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.some?.((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin');
+  const isGlobalAdmin = Boolean(
+    isAdmin &&
+    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && (s.scopeType === 'GLOBAL' || !s.scopeType))
+  );
   
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>('REVIEWED');
@@ -167,6 +175,10 @@ export function AdminFeedbackDetailScreen() {
     setModalVisible(true);
   };
 
+  const senderName = feedback.isAnonymous
+    ? 'Thư ẩn danh (Không xác định)'
+    : (feedback.senderDisplayName || feedback.sender?.fullName || feedback.sender?.userCode || 'Không rõ');
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
@@ -181,7 +193,7 @@ export function AdminFeedbackDetailScreen() {
 
           <Text style={styles.label}>Người gửi:</Text>
           <Text style={{ fontSize: 15, fontWeight: '500', color: '#000', marginBottom: 12 }}>
-            {feedback.isAnonymous ? 'Thư ẩn danh (Không xác định)' : (feedback.senderDisplayName || 'Không rõ')}
+            {senderName}
           </Text>
 
           <Text style={styles.label}>Nội dung:</Text>
@@ -212,17 +224,25 @@ export function AdminFeedbackDetailScreen() {
         </View>
         
         {(feedback.status === 'SEND' || feedback.status === 'REVIEWED') ? (
-          <View style={{ marginTop: 24, gap: 12 }}>
-            <Text style={styles.label}>Cập nhật trạng thái:</Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable style={[styles.actionBtn, { backgroundColor: '#000' }]} onPress={() => openModal('RESOLVED')}>
-                <Text style={styles.actionBtnText}>Xử lý</Text>
-              </Pressable>
-              <Pressable style={[styles.actionBtn, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#000' }]} onPress={() => openModal('REJECTED')}>
-                <Text style={[styles.actionBtnText, { color: '#000' }]}>Từ chối</Text>
-              </Pressable>
+          isGlobalAdmin ? (
+            <View style={{ marginTop: 24, gap: 12 }}>
+              <Text style={styles.label}>Cập nhật trạng thái:</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <Pressable style={[styles.actionBtn, { backgroundColor: '#000' }]} onPress={() => openModal('RESOLVED')}>
+                  <Text style={styles.actionBtnText}>Xử lý</Text>
+                </Pressable>
+                <Pressable style={[styles.actionBtn, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#000' }]} onPress={() => openModal('REJECTED')}>
+                  <Text style={[styles.actionBtnText, { color: '#000' }]}>Từ chối</Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          ) : (
+            <View style={{ marginTop: 24, padding: 14, backgroundColor: '#F3F4F6', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' }}>
+              <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 18 }}>
+                Admin miền chỉ có quyền xem góp ý. Chỉ Super Admin mới có quyền xử lý hoặc từ chối góp ý.
+              </Text>
+            </View>
+          )
         ) : null}
       </ScrollView>
 

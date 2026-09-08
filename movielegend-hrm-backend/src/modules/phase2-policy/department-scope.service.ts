@@ -8,6 +8,21 @@ import { PrismaService } from '../../database/prisma.service';
 export class DepartmentScopeService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Returns true only if the actor has ADMIN role with GLOBAL scope (no region restriction). */
+  isGlobalAdmin(actor: AuthenticatedUser): boolean {
+    if (!actor.roles.includes('ADMIN')) return false;
+    // Global admin = has ADMIN role with GLOBAL scope (or no explicit scope — legacy data)
+    return actor.scopes?.some(
+      (s) => s.role === 'ADMIN' && (s.scopeType === RoleScopeType.GLOBAL || !s.scopeType),
+    ) ?? false;
+  }
+
+  /** Returns true if the actor has ADMIN role scoped to a specific REGION. */
+  isRegionAdmin(actor: AuthenticatedUser): boolean {
+    return this.getRegionScope(actor) !== null;
+  }
+
+  /** Returns the region ID if the actor is a Region Admin, null otherwise. */
   getRegionScope(actor: AuthenticatedUser): string | null {
     if (!actor.roles.includes('ADMIN')) return null;
     const scope = actor.scopes?.find(
@@ -16,8 +31,15 @@ export class DepartmentScopeService {
     return scope?.scopeId ?? null;
   }
 
+  /**
+   * Sync check — ONLY returns true for Global Admin, HR, Accountant, or LEADER of that department.
+   * Region Admins must use the async version `canAccessDepartmentAsync()`.
+   * NOTE: This method deliberately returns FALSE for Region Admins to force callers
+   * to use the async version that can query the DB for region-department mapping.
+   */
   canAccessDepartment(actor: AuthenticatedUser, departmentId: string): boolean {
-    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return true;
+    if (this.isGlobalAdmin(actor) || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return true;
+    // Region admins are NOT granted blanket access here — must use async version
     return actor.scopes.some(
       (scope) =>
         scope.role === 'LEADER' &&
@@ -26,13 +48,21 @@ export class DepartmentScopeService {
     );
   }
 
+  /**
+   * @deprecated Use `getVisibleDepartmentIds()` (async) instead.
+   * Sync version — returns null (= all) only for Global Admin, HR, Accountant.
+   * Region Admins get an empty array here (conservative), callers should use async version.
+   */
   visibleDepartmentIds(actor: AuthenticatedUser): string[] | null {
-    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return null;
+    if (this.isGlobalAdmin(actor) || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return null;
+    // Region admins: return empty array (conservative) — callers should use async version
+    if (this.isRegionAdmin(actor)) return [];
     return actor.scopes
       .filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
       .map((scope) => scope.scopeId as string);
   }
 
+  /** Async version — correctly filters departments by region for Region Admins. */
   async getVisibleDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
     if (actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return null;
     const regionId = this.getRegionScope(actor);
@@ -46,12 +76,16 @@ export class DepartmentScopeService {
       });
       return departments.map((d) => d.id);
     }
-    if (actor.roles.includes('ADMIN')) return null;
-    return this.visibleDepartmentIds(actor);
+    if (this.isGlobalAdmin(actor)) return null;
+    return actor.scopes
+      .filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
+      .map((scope) => scope.scopeId as string);
   }
 
+  /** Async check — correctly validates Region Admin access via DB lookup. */
   async canAccessDepartmentAsync(actor: AuthenticatedUser, departmentId: string): Promise<boolean> {
-    if (actor.roles.includes('HR')) return true;
+    if (actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return true;
+    if (this.isGlobalAdmin(actor)) return true;
     const regionId = this.getRegionScope(actor);
     if (regionId) {
       const dept = await this.prisma.department.findUnique({
@@ -63,16 +97,48 @@ export class DepartmentScopeService {
     return this.canAccessDepartment(actor, departmentId);
   }
 
+  /**
+   * Sync assertion — safe for Global Admin, HR, Accountant, and LEADER.
+   * For Region Admin callers, use `assertDepartmentAccessAsync()` instead.
+   */
   assertDepartmentAccess(actor: AuthenticatedUser, departmentId: string): void {
     if (!this.canAccessDepartment(actor, departmentId)) {
       throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền thao tác với phòng ban này');
     }
   }
 
+  /** Async assertion — correctly handles Region Admin scope checking. */
   async assertDepartmentAccessAsync(actor: AuthenticatedUser, departmentId: string): Promise<void> {
     const allowed = await this.canAccessDepartmentAsync(actor, departmentId);
     if (!allowed) {
       throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền thao tác với phòng ban ngoài miền phụ trách');
+    }
+  }
+
+  /** Check if a target user is within the actor's scope (for admin operations). */
+  async assertUserInScope(actor: AuthenticatedUser, targetUserId: string): Promise<void> {
+    if (this.isGlobalAdmin(actor) || actor.roles.includes('HR')) return;
+    const regionId = this.getRegionScope(actor);
+    if (!regionId) {
+      if (actor.roles.includes('LEADER')) {
+        const visibleDepts = await this.getVisibleDepartmentIds(actor);
+        if (visibleDepts && visibleDepts.length > 0) {
+          const isMember = await this.prisma.departmentMember.findFirst({
+            where: { userId: targetUserId, departmentId: { in: visibleDepts }, leftAt: null },
+          });
+          if (isMember) return;
+        }
+      }
+      // Not a global admin, not HR, not region admin, not leader of this user
+      throw forbidden('FORBIDDEN_SCOPE', 'Bạn không có quyền thao tác với người dùng này');
+    }
+    // Region admin: check if target user's primary department is in this region
+    const member = await this.prisma.departmentMember.findFirst({
+      where: { userId: targetUserId, leftAt: null },
+      include: { department: { select: { branch: { select: { regionId: true } } } } },
+    });
+    if (!member || member.department?.branch?.regionId !== regionId) {
+      throw forbidden('FORBIDDEN_REGION_SCOPE', 'Người dùng này không thuộc miền bạn quản lý');
     }
   }
 
@@ -94,3 +160,4 @@ export class DepartmentScopeService {
     }
   }
 }
+

@@ -21,6 +21,7 @@ import Toast from 'react-native-toast-message';
 import { SearchInput } from '../../components/SearchInput';
 import { LoadingState } from '../../components/LoadingState';
 import { EmptyState } from '../../components/EmptyState';
+import { useAuth } from '../../providers/AuthProvider';
 import {
   getVaultWithdrawalRequests,
   adminApproveWithdrawal,
@@ -41,8 +42,11 @@ interface WithdrawalRequestsManagerProps {
 function getInitials(name?: string, fallback = 'NV'): string {
   if (!name) return fallback;
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length === 0) return fallback;
+  if (parts.length === 1) return (parts[0] || '').slice(0, 2).toUpperCase();
+  const first = parts[0]?.[0] || '';
+  const last = parts[parts.length - 1]?.[0] || '';
+  return (first + last).toUpperCase() || fallback;
 }
 
 // Helper to normalize bank code for VietQR Quick Pay API
@@ -66,6 +70,13 @@ function getBankCode(bankName: string): string {
 }
 
 export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequestsManagerProps) {
+  const { user } = useAuth();
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType))
+  );
+  const isAccountant = Boolean(user?.roles?.includes('ACCOUNTANT') || isGlobalAdmin);
+
   const [activeTab, setActiveTab] = useState<FilterTab>('PENDING_ADMIN');
   const [search, setSearch] = useState('');
 
@@ -476,8 +487,8 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
                   )}
                 </View>
 
-                {/* Action Buttons */}
-                {isPendingAdmin && (
+                {/* Action Buttons - Only Super Admin can approve/reject step 1 */}
+                {isPendingAdmin && isGlobalAdmin && (
                   <View style={styles.actionBtnsRow}>
                     <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(ticket)}>
                       <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
@@ -491,7 +502,8 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
                   </View>
                 )}
 
-                {isPendingAcc && (
+                {/* Action Buttons - Only Accountants/Super Admin can confirm payment step 2 */}
+                {isPendingAcc && isAccountant && (
                   <View style={styles.actionBtnsRow}>
                     <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(ticket)}>
                       <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />

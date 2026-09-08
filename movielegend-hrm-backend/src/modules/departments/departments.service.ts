@@ -18,11 +18,28 @@ export class DepartmentsService {
       if (!company) throw badRequest('NO_COMPANY', 'Không tìm thấy công ty nào trong hệ thống');
       companyId = company.id;
     }
+
+    let name = dto.name.trim();
+    if (dto.branchId) {
+      const branch = await this.prisma.branch.findUnique({
+        where: { id: dto.branchId },
+        select: { name: true },
+      });
+      if (branch?.name) {
+        const cleanBranch = branch.name.replace(/^chi nhánh\s+/i, '').trim();
+        const hasBranch = name.toLowerCase().includes(cleanBranch.toLowerCase()) ||
+          name.toLowerCase().includes(branch.name.toLowerCase());
+        if (!hasBranch) {
+          name = `${name} (${cleanBranch})`;
+        }
+      }
+    }
     
     try {
       return await this.prisma.department.create({
         data: {
           ...dto,
+          name,
           companyId,
         },
       });
@@ -37,9 +54,11 @@ export class DepartmentsService {
   async findAll(search?: string, user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, ignoreScope?: boolean) {
     let scopeFilter: any = {};
     if (user && !ignoreScope) {
-      const visibleDepts = await this.scopes.getVisibleDepartmentIds(user);
-      if (visibleDepts !== null) {
-        scopeFilter = { id: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] } };
+      if (this.scopes.isRegionAdmin(user)) {
+        const visibleDepts = await this.scopes.getVisibleDepartmentIds(user);
+        if (visibleDepts !== null) {
+          scopeFilter = { id: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] } };
+        }
       }
     }
 
@@ -58,7 +77,13 @@ export class DepartmentsService {
           : {}),
       },
       include: {
-        branch: { select: { name: true } },
+        branch: { 
+          select: { 
+            id: true, 
+            name: true,
+            region: { select: { id: true, name: true } }
+          } 
+        },
         _count: { select: { members: { where: { leftAt: null } } } },
         leader: {
           select: {
@@ -83,10 +108,33 @@ export class DepartmentsService {
     return department;
   }
 
-  update(id: string, dto: UpdateDepartmentDto) {
+  async update(id: string, dto: UpdateDepartmentDto) {
+    let name = dto.name ? dto.name.trim() : undefined;
+    if (name) {
+      let targetBranchId = dto.branchId;
+      if (!targetBranchId) {
+        const current = await this.prisma.department.findUnique({ where: { id }, select: { branchId: true } });
+        targetBranchId = current?.branchId ?? undefined;
+      }
+      if (targetBranchId) {
+        const branch = await this.prisma.branch.findUnique({ where: { id: targetBranchId }, select: { name: true } });
+        if (branch?.name) {
+          const cleanBranch = branch.name.replace(/^chi nhánh\s+/i, '').trim();
+          const hasBranch = name.toLowerCase().includes(cleanBranch.toLowerCase()) ||
+            name.toLowerCase().includes(branch.name.toLowerCase());
+          if (!hasBranch) {
+            name = `${name} (${cleanBranch})`;
+          }
+        }
+      }
+    }
+
     return this.prisma.department.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        ...(name ? { name } : {}),
+      },
     });
   }
 

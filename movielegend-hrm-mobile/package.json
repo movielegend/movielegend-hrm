@@ -80,7 +80,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node scripts/fix-image-viewing.js"
   },
   "jest": {
     "preset": "jest-expo",

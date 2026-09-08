@@ -8,6 +8,11 @@ export interface Department {
   description?: string | null;
   leaderUserId?: string | null;
   leader?: { profile?: { fullName: string } | null } | null;
+  branch?: {
+    id: string;
+    name: string;
+    region?: { id: string; name: string } | null;
+  } | null;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;

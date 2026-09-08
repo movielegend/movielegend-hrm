@@ -42,4 +42,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isRewardVaultEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  joinDate?: string;
 }

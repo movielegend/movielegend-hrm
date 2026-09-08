@@ -89,12 +89,13 @@ export class ApprovalsService {
       if (!canApprove) {
         throw forbidden('APPROVAL_SCOPE_DENIED', 'Bạn không có quyền duyệt phòng ban này');
       }
+      const now = new Date();
       await tx.userApprovalRequest.update({
         where: { id },
         data: {
           status: ApprovalStatus.APPROVED,
           decidedByUserId: actor.userId,
-          decidedAt: new Date(),
+          decidedAt: now,
         },
       });
       await tx.user.update({
@@ -103,6 +104,19 @@ export class ApprovalsService {
           approvalStatus: ApprovalStatus.APPROVED,
           accountStatus: AccountStatus.ACTIVE,
           isActive: true,
+        },
+      });
+      // Nếu nhân viên đã nhập ngày vào làm lúc đăng ký thì giữ nguyên, nếu chưa có thì tự động tính từ thời điểm duyệt
+      const existingProfile = await tx.employeeProfile.findUnique({
+        where: { userId: request.userId },
+        select: { joinDate: true },
+      });
+      const finalJoinDate = existingProfile?.joinDate ?? now;
+
+      await tx.employeeProfile.updateMany({
+        where: { userId: request.userId },
+        data: {
+          joinDate: finalJoinDate,
         },
       });
       await tx.departmentMember.upsert({
@@ -116,8 +130,9 @@ export class ApprovalsService {
           departmentId: request.requestedDepartmentId,
           userId: request.userId,
           isPrimary: true,
+          joinedAt: finalJoinDate,
         },
-        update: { leftAt: null, isPrimary: true },
+        update: { leftAt: null, isPrimary: true, joinedAt: finalJoinDate },
       });
 
       const employeeRole = await tx.role.findUnique({ where: { code: 'EMPLOYEE' } });

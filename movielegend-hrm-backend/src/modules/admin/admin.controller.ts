@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { AdminService } from './admin.service';
@@ -55,14 +56,14 @@ export class AdminController {
 
   @Permissions('user.read')
   @Get('users')
-  findUsers(@Query() query: UserQueryDto) {
-    return this.adminService.findUsers(query);
+  findUsers(@Query() query: UserQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.findUsers(query, actor);
   }
 
   @Permissions('user.read')
   @Get('users/:id')
-  findUser(@Param('id') id: string) {
-    return this.adminService.findUser(id);
+  findUser(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.findUser(id, actor);
   }
 
   @Permissions('user.manage')
@@ -71,10 +72,10 @@ export class AdminController {
     return this.adminService.createUser(dto, actor);
   }
 
-  @Permissions('user.update')
+  @AnyPermissions('user.update', 'department.update', 'employee.update')
   @Patch('users/:id')
-  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.adminService.updateUser(id, dto);
+  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.updateUser(id, dto, actor);
   }
 
   @Permissions('user.manage')
@@ -109,8 +110,8 @@ export class AdminController {
 
   @Roles('ADMIN', 'ACCOUNTANT')
   @Get('vault/withdrawals')
-  getVaultWithdrawalRequests(@Query() query: WithdrawalQueryDto) {
-    return this.adminService.getVaultWithdrawalRequests(query);
+  getVaultWithdrawalRequests(@Query() query: WithdrawalQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.getVaultWithdrawalRequests(query, actor);
   }
 
   @Roles('ADMIN')

@@ -12,6 +12,9 @@ import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { useAuth } from '../../providers/AuthProvider';
 import { useShifts, useAssignShift, useAssignShiftBatch, useMySchedule } from '../../hooks/useShifts';
 import { useScopedEmployees } from '../../hooks/useEmployees';
+import { useRegions } from '../../api/regions.api';
+import { useBranches } from '../../api/branches.api';
+import { useDepartments } from '../../hooks/useDepartments';
 
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -20,19 +23,48 @@ import { normalizeApiError } from '../../utils/api-error';
 export function AssignShiftScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  
   const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.some?.((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin');
+
+  const isGlobalAdmin = Boolean(
+    isAdmin &&
+    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && (s.scopeType === 'GLOBAL' || !s.scopeType))
+  );
+
+  const adminRegionScope = user?.scopes?.find?.((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION');
+  const userRegionId = adminRegionScope?.scopeId;
 
   // Queries
   const allShiftsQuery = useShifts();
   const myScheduleQuery = useMySchedule();
   
-  // Fetch employees scoped to current user (Admin gets all, Leader gets their department)
+  // Fetch employees scoped to current user
   const employeesQuery = useScopedEmployees({ page: 1, limit: 100 });
   const assignMutation = useAssignShift();
   const assignBatchMutation = useAssignShiftBatch();
 
+  // Region / Branch / Department cascade queries
+  const { data: regions = [], refetch: refetchRegions } = useRegions();
+  const { data: branches = [], refetch: refetchBranches } = useBranches();
+  const { data: departmentsData, refetch: refetchDepartments } = useDepartments({ limit: 1000 });
+  const departments = departmentsData?.items || [];
+
   // State
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('ALL');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('ALL');
+
+  React.useEffect(() => {
+    if (!isGlobalAdmin && userRegionId) {
+      setSelectedRegionId(userRegionId);
+    }
+  }, [isGlobalAdmin, userRegionId]);
+
+  const effectiveRegionId = isGlobalAdmin ? selectedRegionId : (userRegionId || selectedRegionId);
+
+  const [regionModalVisible, setRegionModalVisible] = useState(false);
+  const [branchModalVisible, setBranchModalVisible] = useState(false);
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+
   const [selectedEmployees, setSelectedEmployees] = useState<SelectOption[]>([]);
   const [selectedShift, setSelectedShift] = useState<SelectOption | null>(null);
   const [workDate, setWorkDate] = useState<Date>(new Date());
@@ -64,30 +96,95 @@ export function AssignShiftScreen() {
     await Promise.all([
       allShiftsQuery.refetch(),
       employeesQuery.refetch(),
+      refetchRegions(),
+      refetchBranches(),
+      refetchDepartments(),
     ]);
     setRefreshing(false);
-  }, [allShiftsQuery, employeesQuery]);
+  }, [allShiftsQuery, employeesQuery, refetchRegions, refetchBranches, refetchDepartments]);
 
-  // Mappers
+  // Cascading options
+  const regionOptions: SelectOption[] = useMemo(() => {
+    return [
+      { id: 'ALL', label: 'Tất cả các Miền' },
+      ...regions.map(r => ({ id: r.id, label: r.name })),
+    ];
+  }, [regions]);
+
+  const availableBranches = useMemo(() => {
+    if (effectiveRegionId === 'ALL') return branches;
+    return branches.filter(b => b.regionId === effectiveRegionId || b.region?.id === effectiveRegionId);
+  }, [branches, effectiveRegionId]);
+
+  const branchOptions: SelectOption[] = useMemo(() => {
+    return [
+      { id: 'ALL', label: 'Tất cả Chi nhánh' },
+      ...availableBranches.map(b => ({ id: b.id, label: b.name })),
+    ];
+  }, [availableBranches]);
+
+  const availableDepartments = useMemo(() => {
+    let list = departments;
+    if (effectiveRegionId !== 'ALL') {
+      list = list.filter(d => d.branch?.region?.id === effectiveRegionId);
+    }
+    if (selectedBranchId !== 'ALL') {
+      list = list.filter(d => d.branchId === selectedBranchId || d.branch?.id === selectedBranchId);
+    }
+    return list;
+  }, [departments, effectiveRegionId, selectedBranchId]);
+
+  const deptOptions: SelectOption[] = useMemo(() => {
+    return [
+      { id: 'ALL', label: 'Tất cả Phòng ban' },
+      ...availableDepartments.map(d => ({ id: d.id, label: d.name })),
+    ];
+  }, [availableDepartments]);
+
+  // Mappers: Admin chỉ phân ca cho Leader; Leader phân ca cho Nhân viên. Có lọc theo Miền / Chi nhánh / Phòng ban nếu chọn
   const employeeOptions: SelectOption[] = useMemo(() => {
     if (!employeesQuery.data?.items) return [];
     let items = employeesQuery.data.items;
 
     if (isAdmin) {
-      // Admin gán cho Leader và HR
-      items = items.filter((emp: any) => emp.roles?.some((r: any) => r.role?.code === 'LEADER' || r.role?.code === 'HR' || r.role?.code === 'admin' || r.role?.code === 'ADMIN'));
+      // Admin chỉ phân ca cho Leader
+      items = items.filter((emp: any) =>
+        emp.roles?.some((r: any) => r.role?.code === 'LEADER')
+      );
     } else {
-      // Leader gán cho nhân viên (không bao gồm chính họ nếu cần, nhưng tạm thời cứ lấy hết trong scope của họ)
+      // Leader phân ca cho nhân viên
+      items = items.filter((emp: any) =>
+        emp.roles?.some((r: any) => r.role?.code === 'EMPLOYEE') ||
+        !emp.roles?.some((r: any) => r.role?.code === 'LEADER')
+      );
     }
 
-    return items.map((emp: any) => ({
-      id: emp.id,
-      label: emp.fullName ?? emp.userCode,
-      subtitle: `${emp.position?.name ?? 'Nhân viên'} - ${emp.department?.name ?? 'Chưa phân phòng'}`,
-      // We attach the raw object so we can extract departmentId later
-      raw: emp,
-    }));
-  }, [employeesQuery.data, isAdmin]);
+    if (effectiveRegionId !== 'ALL') {
+      items = items.filter((emp: any) => emp.department?.branch?.region?.id === effectiveRegionId);
+    }
+    if (selectedBranchId !== 'ALL') {
+      items = items.filter((emp: any) => emp.department?.branch?.id === selectedBranchId);
+    }
+    if (selectedDeptId !== 'ALL') {
+      items = items.filter((emp: any) => emp.department?.id === selectedDeptId);
+    }
+
+    return items.map((emp: any) => {
+      const parts = [
+        emp.position?.name ?? (emp.roles?.some((r: any) => r.role?.code === 'LEADER') ? 'Leader' : 'Nhân viên'),
+        emp.department?.name ?? 'Chưa phân phòng',
+        emp.department?.branch?.name,
+        emp.department?.branch?.region?.name,
+      ].filter(Boolean);
+      return {
+        id: emp.id,
+        label: emp.fullName ?? emp.userCode,
+        subtitle: parts.join(' · '),
+        // We attach the raw object so we can extract departmentId later
+        raw: emp,
+      };
+    });
+  }, [employeesQuery.data, isAdmin, effectiveRegionId, selectedBranchId, selectedDeptId]);
 
   const shiftOptions: SelectOption[] = useMemo(() => {
     if (!allShiftsQuery.data) return [];
@@ -125,23 +222,31 @@ export function AssignShiftScreen() {
         return;
       }
       
-      const userIds = selectedEmployees.map(e => e.id);
-      const firstEmpRaw = (selectedEmployees[0] as any).raw;
-      const departmentId = firstEmpRaw?.department?.id;
-
-      if (!departmentId) {
-        Alert.alert('Cảnh báo', `Vui lòng chọn nhân viên đã thuộc phòng ban.`);
-        return;
+      // Group users by departmentId
+      const deptGroups = new Map<string, string[]>();
+      for (const empOpt of selectedEmployees) {
+        const raw = (empOpt as any).raw;
+        const dId = raw?.department?.id;
+        if (!dId) {
+          Alert.alert('Cảnh báo', `Nhân viên "${empOpt.label}" chưa được phân vào phòng ban nào.`);
+          return;
+        }
+        if (!deptGroups.has(dId)) {
+          deptGroups.set(dId, []);
+        }
+        deptGroups.get(dId)!.push(empOpt.id);
       }
 
-      await assignBatchMutation.mutateAsync({
-        userIds,
-        departmentId,
-        shiftId: selectedShift.id,
-        dates: datesToAssign,
-      });
+      for (const [deptId, uIds] of deptGroups.entries()) {
+        await assignBatchMutation.mutateAsync({
+          userIds: uIds,
+          departmentId: deptId,
+          shiftId: selectedShift.id,
+          dates: datesToAssign,
+        });
+      }
       
-      Alert.alert('Thành công', `Đã phân ca tuần thành công cho ${selectedEmployees.length} nhân viên.`, [
+      Alert.alert('Thành công', `Đã phân ca tuần thành công cho ${selectedEmployees.length} ${isAdmin ? 'Leader' : 'nhân viên'}.`, [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
@@ -178,6 +283,8 @@ export function AssignShiftScreen() {
     return `Từ ${formatDate(startOfWeek)} đến ${formatDate(endOfWeek)}`;
   };
 
+  const roleTargetText = isAdmin ? 'Leader / Quản lý ca' : 'Nhân sự';
+
   return (
     <Screen>
       <ScrollView 
@@ -187,23 +294,83 @@ export function AssignShiftScreen() {
       >
         <PageHeader 
           title="Phân Ca Làm Việc" 
-          subtitle="Chọn nhân viên và ca làm việc tương ứng" 
+          subtitle={isAdmin ? "Chọn Leader và ca làm việc tương ứng (Admin phân ca cho Leader)" : "Chọn nhân viên và ca làm việc tương ứng"} 
         />
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Thông tin phân ca</Text>
 
-          {/* Employee Selector */}
-          <Text style={styles.label}>Nhân sự</Text>
+          {/* Region / Branch / Department Selectors (Chỉ hiển thị cho Admin để lọc tìm Leader trên các miền/chi nhánh) */}
+          {isAdmin && (
+            <>
+              {/* Region Selector (Chỉ hiển thị cho Super Admin, Admin Miền không cần chọn miền) */}
+              {isGlobalAdmin && (
+                <>
+                  <Text style={styles.label}>Khu vực (Miền)</Text>
+                  <Pressable 
+                    style={styles.selector} 
+                    onPress={() => setRegionModalVisible(true)}
+                  >
+                    <View style={styles.selectorContent}>
+                      <MaterialCommunityIcons name="map-marker-radius-outline" size={24} color="#111827" />
+                      <View style={styles.selectorTextWrap}>
+                        <Text style={styles.selectorTextVal}>
+                          {regionOptions.find(r => r.id === selectedRegionId)?.label || 'Tất cả các Miền'}
+                        </Text>
+                      </View>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
+                  </Pressable>
+                </>
+              )}
+
+              {/* Branch Selector */}
+              <Text style={styles.label}>Chi nhánh</Text>
+              <Pressable 
+                style={styles.selector} 
+                onPress={() => setBranchModalVisible(true)}
+              >
+                <View style={styles.selectorContent}>
+                  <MaterialCommunityIcons name="office-building-outline" size={24} color="#111827" />
+                  <View style={styles.selectorTextWrap}>
+                    <Text style={styles.selectorTextVal}>
+                      {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả Chi nhánh'}
+                    </Text>
+                  </View>
+                </View>
+                <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
+              </Pressable>
+
+              {/* Department Selector */}
+              <Text style={styles.label}>Phòng ban</Text>
+              <Pressable 
+                style={styles.selector} 
+                onPress={() => setDeptModalVisible(true)}
+              >
+                <View style={styles.selectorContent}>
+                  <MaterialCommunityIcons name="domain" size={24} color="#111827" />
+                  <View style={styles.selectorTextWrap}>
+                    <Text style={styles.selectorTextVal}>
+                      {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả Phòng ban'}
+                    </Text>
+                  </View>
+                </View>
+                <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
+              </Pressable>
+            </>
+          )}
+
+          {/* Employee / Leader Selector */}
+          <Text style={styles.label}>{roleTargetText}</Text>
           <Pressable 
             style={styles.selector} 
             onPress={() => setEmployeeModalVisible(true)}
           >
             <View style={styles.selectorContent}>
-              <MaterialCommunityIcons name="account-outline" size={24} color="#111827" />
+              <MaterialCommunityIcons name={isAdmin ? "account-tie-outline" : "account-outline"} size={24} color="#111827" />
               <View style={styles.selectorTextWrap}>
                 <Text style={selectedEmployees.length > 0 ? styles.selectorTextVal : styles.selectorTextPlaceholder}>
-                  {selectedEmployees.length > 0 ? (selectedEmployees.length === 1 ? selectedEmployees[0].label : `Đã chọn ${selectedEmployees.length} nhân viên`) : 'Chọn nhân viên...'}
+                  {selectedEmployees.length > 0 ? (selectedEmployees.length === 1 ? selectedEmployees[0]?.label : `Đã chọn ${selectedEmployees.length} ${isAdmin ? 'Leader' : 'nhân viên'}`) : `Chọn ${isAdmin ? 'Leader' : 'nhân viên'}...`}
                 </Text>
                 {selectedEmployees.length === 1 && selectedEmployees[0]?.subtitle && (
                   <Text style={styles.selectorSubtitle}>{selectedEmployees[0]?.subtitle}</Text>
@@ -314,9 +481,48 @@ export function AssignShiftScreen() {
 
       {/* Modals */}
       <SelectModal
+        visible={regionModalVisible}
+        title="Chọn Miền (Khu vực)"
+        options={regionOptions}
+        selectedValue={selectedRegionId}
+        onSelect={(opt) => {
+          setSelectedRegionId(opt.id);
+          setSelectedBranchId('ALL');
+          setSelectedDeptId('ALL');
+          setSelectedEmployees([]);
+        }}
+        onClose={() => setRegionModalVisible(false)}
+      />
+
+      <SelectModal
+        visible={branchModalVisible}
+        title="Chọn Chi nhánh"
+        options={branchOptions}
+        selectedValue={selectedBranchId}
+        onSelect={(opt) => {
+          setSelectedBranchId(opt.id);
+          setSelectedDeptId('ALL');
+          setSelectedEmployees([]);
+        }}
+        onClose={() => setBranchModalVisible(false)}
+      />
+
+      <SelectModal
+        visible={deptModalVisible}
+        title="Chọn Phòng ban"
+        options={deptOptions}
+        selectedValue={selectedDeptId}
+        onSelect={(opt) => {
+          setSelectedDeptId(opt.id);
+          setSelectedEmployees([]);
+        }}
+        onClose={() => setDeptModalVisible(false)}
+      />
+
+      <SelectModal
         isMulti
         visible={employeeModalVisible}
-        title="Chọn nhân viên"
+        title={isAdmin ? "Chọn Leader cần phân ca" : "Chọn nhân viên"}
         options={employeeOptions}
         isLoading={employeesQuery.isLoading}
         selectedValues={selectedEmployees.map(e => e.id)}

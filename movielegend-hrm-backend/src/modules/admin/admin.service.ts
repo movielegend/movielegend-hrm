@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { AccountStatus, ApprovalStatus, EmploymentStatus, Prisma, RoleScopeType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { badRequest, notFound } from '../../common/utils/error.util';
+import { badRequest, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { AssignRoleDto } from './dto/role-assignment.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
@@ -31,6 +32,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly scope: DepartmentScopeService,
   ) {}
 
   assignRole(dto: AssignRoleDto, actor: AuthenticatedUser) {
@@ -41,6 +43,16 @@ export class AdminService {
       ]);
       if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy user');
       if (!role) throw notFound('ROLE_NOT_FOUND', 'Không tìm thấy role');
+
+      // BUG-08 FIX: Only Global Admin can assign the ADMIN role
+      if (role.code === 'ADMIN' && !this.scope.isGlobalAdmin(actor)) {
+        throw forbidden('FORBIDDEN_ROLE_ASSIGN', 'Chỉ Admin cấp cao nhất mới có quyền gán vai trò Quản trị viên');
+      }
+
+      // Region Admin: can only assign roles to users within their region
+      if (this.scope.isRegionAdmin(actor)) {
+        await this.scope.assertUserInScope(actor, dto.userId);
+      }
 
       const existing = await tx.userRole.findFirst({
         where: {
@@ -80,6 +92,19 @@ export class AdminService {
 
   async revokeRole(id: string, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
+      const existingAssignment = await tx.userRole.findUnique({ where: { id }, include: { role: true } });
+      if (!existingAssignment) throw notFound('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy phân quyền này');
+
+      // BUG-08 FIX: Only Global Admin can revoke the ADMIN role
+      if (existingAssignment.role.code === 'ADMIN' && !this.scope.isGlobalAdmin(actor)) {
+        throw forbidden('FORBIDDEN_ROLE_REVOKE', 'Chỉ Admin cấp cao nhất mới có quyền thu hồi vai trò Quản trị viên');
+      }
+
+      // Region Admin: can only revoke roles from users within their region
+      if (this.scope.isRegionAdmin(actor)) {
+        await this.scope.assertUserInScope(actor, existingAssignment.userId);
+      }
+
       const assignment = await tx.userRole.delete({ where: { id } }).catch(() => null);
       if (!assignment) throw notFound('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy phân quyền này');
       
@@ -97,6 +122,11 @@ export class AdminService {
   }
 
   async createUser(dto: CreateUserDto, actor: AuthenticatedUser) {
+    // BUG-09 FIX: Region Admin can only create users in departments within their region
+    if (dto.departmentId && this.scope.isRegionAdmin(actor)) {
+      await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const existingUser = await tx.user.findFirst({
         where: { OR: [{ phone: dto.phone }, ...(dto.email ? [{ email: dto.email }] : [])] },
@@ -124,6 +154,7 @@ export class AdminService {
               idCardNumber: `TMP-${Date.now()}`,
               employmentStatus: EmploymentStatus.OFFICIAL,
               positionId: dto.positionId,
+              joinDate: new Date(),
             },
           },
         },
@@ -320,7 +351,10 @@ export class AdminService {
     });
   }
 
-  async findUsers(query: UserQueryDto) {
+  async findUsers(query: UserQueryDto, actor: AuthenticatedUser) {
+    // BUG-01 FIX: Region Admin only sees users in departments within their region
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+
     const where: Prisma.UserWhereInput = {
       deletedAt: null,
       ...(query.accountStatus ? { accountStatus: query.accountStatus } : {}),
@@ -339,6 +373,8 @@ export class AdminService {
       ...(query.role ? { roles: { some: { role: { code: query.role } } } } : {}),
       ...(query.departmentId
         ? { departmentLinks: { some: { departmentId: query.departmentId, leftAt: null } } }
+        : visibleDepts !== null
+        ? { departmentLinks: { some: { departmentId: { in: visibleDepts }, leftAt: null } } }
         : {}),
     };
     const [items, total] = await Promise.all([
@@ -373,7 +409,10 @@ export class AdminService {
     };
   }
 
-  async findUser(id: string) {
+  async findUser(id: string, actor: AuthenticatedUser) {
+    // BUG-02 FIX: Region Admin can only view users within their region
+    await this.scope.assertUserInScope(actor, id);
+
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -394,7 +433,19 @@ export class AdminService {
     return safeUser;
   }
 
-  updateUser(id: string, dto: UpdateUserDto) {
+  async updateUser(id: string, dto: UpdateUserDto, actor: AuthenticatedUser) {
+    // BUG-10 FIX: Region Admin can only update users within their region
+    await this.scope.assertUserInScope(actor, id);
+
+    // Region Admin: validate destination department is within their scope
+    if (dto.departmentId && this.scope.isRegionAdmin(actor)) {
+      await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+    }
+
+    if (dto.isRewardVaultEnabled !== undefined && !this.scope.isGlobalAdmin(actor)) {
+      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền bật/tắt Ví Thưởng Tết cho nhân viên');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
         where: { id },
@@ -403,18 +454,25 @@ export class AdminService {
           email: dto.email,
           accountStatus: dto.accountStatus,
           isActive: dto.isActive,
-          isRewardVaultEnabled: dto.isRewardVaultEnabled,
-          profile: dto.fullName || dto.positionId
+          profile: dto.fullName || dto.positionId || dto.joinDate !== undefined
             ? {
                 update: {
-                  fullName: dto.fullName,
-                  positionId: dto.positionId,
+                  ...(dto.fullName ? { fullName: dto.fullName } : {}),
+                  ...(dto.positionId !== undefined ? { positionId: dto.positionId } : {}),
+                  ...(dto.joinDate !== undefined ? { joinDate: dto.joinDate ? new Date(dto.joinDate) : null } : {}),
                 },
               }
             : undefined,
         },
         include: { profile: true },
       });
+
+      if (dto.joinDate) {
+        await tx.departmentMember.updateMany({
+          where: { userId: id, leftAt: null },
+          data: { joinedAt: new Date(dto.joinDate) },
+        });
+      }
       if (dto.departmentId) {
         // Clear previous active memberships from other departments
         const oldMemberships = await tx.departmentMember.findMany({
@@ -481,6 +539,9 @@ export class AdminService {
   }
 
   async deleteUser(id: string, actor: AuthenticatedUser) {
+    // BUG-11 FIX: Region Admin can only delete users within their region
+    await this.scope.assertUserInScope(actor, id);
+
     const user = await this.prisma.user.findUnique({ where: { id }, include: { profile: true } });
     if (!user) throw notFound('USER_NOT_FOUND', 'Người dùng không tồn tại');
 
@@ -534,6 +595,9 @@ export class AdminService {
   }
 
   async grantVaultPoints(dto: GrantVaultPointsDto, actor: AuthenticatedUser) {
+    if (!this.scope.isGlobalAdmin(actor)) {
+      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao điểm thưởng Ví Tết');
+    }
     const year = dto.year || 2026;
     const cashValuePerPoint = dto.cashValuePerPoint || 1000;
     const points = dto.points;
@@ -774,6 +838,9 @@ export class AdminService {
   }
 
   async bulkGrantVaultPoints(dto: BulkGrantVaultPointsDto, actor: AuthenticatedUser) {
+    if (!this.scope.isGlobalAdmin(actor)) {
+      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao điểm thưởng Ví Tết');
+    }
     let targetUserIds: string[] = dto.userIds || [];
 
     if (dto.departmentId) {
@@ -797,6 +864,9 @@ export class AdminService {
   }
 
   async grantProjectPackage(dto: GrantProjectPackageDto, actor: AuthenticatedUser) {
+    if (!this.scope.isGlobalAdmin(actor)) {
+      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao gói thưởng Ví Tết');
+    }
     const year = dto.year || new Date().getFullYear();
     const cashValuePerPoint = dto.cashValuePerPoint || 1000;
     const points = dto.points;
@@ -945,6 +1015,9 @@ export class AdminService {
   }
 
   async bulkGrantProjectPackage(dto: BulkGrantProjectPackageDto, actor: AuthenticatedUser) {
+    if (!this.scope.isGlobalAdmin(actor)) {
+      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao gói thưởng Ví Tết');
+    }
     let targetUserIds: string[] = dto.userIds || [];
 
     if (dto.departmentId) {
@@ -1294,12 +1367,31 @@ export class AdminService {
     });
   }
 
-  async getVaultWithdrawalRequests(query: WithdrawalQueryDto) {
+  async getVaultWithdrawalRequests(query: WithdrawalQueryDto, actor?: AuthenticatedUser) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.max(1, Math.min(100, query.limit || 20));
     const skip = (page - 1) * limit;
 
-    const where: Prisma.RewardWithdrawalRequestWhereInput = {};
+    let scopeFilter: Prisma.RewardWithdrawalRequestWhereInput = {};
+    if (actor) {
+      const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+      if (visibleDepts !== null) {
+        scopeFilter = {
+          user: {
+            departmentLinks: {
+              some: {
+                leftAt: null,
+                departmentId: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] },
+              },
+            },
+          },
+        };
+      }
+    }
+
+    const where: Prisma.RewardWithdrawalRequestWhereInput = {
+      ...scopeFilter,
+    };
 
     if (query.status && query.status !== 'ALL') {
       where.status = query.status as any;
@@ -1344,10 +1436,10 @@ export class AdminService {
         },
       }),
       this.prisma.rewardWithdrawalRequest.count({ where }),
-      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PENDING_ADMIN' } }),
-      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PENDING_ACCOUNTANT' } }),
-      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PAID' } }),
-      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'REJECTED' } }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PENDING_ADMIN', ...scopeFilter } }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PENDING_ACCOUNTANT', ...scopeFilter } }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'PAID', ...scopeFilter } }),
+      this.prisma.rewardWithdrawalRequest.count({ where: { status: 'REJECTED', ...scopeFilter } }),
     ]);
 
     return {
@@ -1367,6 +1459,9 @@ export class AdminService {
   }
 
   async adminApproveWithdrawal(id: string, dto: AdminApproveWithdrawalDto, actor: AuthenticatedUser) {
+    if (!this.scope.isGlobalAdmin(actor)) {
+      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền phê duyệt yêu cầu rút tiền Ví Tết');
+    }
     return this.prisma.$transaction(async (tx) => {
       const request = await tx.rewardWithdrawalRequest.findUnique({
         where: { id },
@@ -1515,6 +1610,9 @@ export class AdminService {
   }
 
   async rejectWithdrawal(id: string, dto: RejectWithdrawalDto, actor: AuthenticatedUser) {
+    if (!this.scope.isGlobalAdmin(actor) && !actor.roles?.includes('ACCOUNTANT')) {
+      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Kế toán mới có quyền từ chối yêu cầu rút tiền');
+    }
     const currentYear = new Date().getFullYear();
     return this.prisma.$transaction(async (tx) => {
       const request = await tx.rewardWithdrawalRequest.findUnique({

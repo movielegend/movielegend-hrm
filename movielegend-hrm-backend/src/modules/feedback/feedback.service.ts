@@ -12,12 +12,7 @@ import { UpdateFeedbackStatusDto } from './dto/update-feedback-status.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 
-type AuthenticatedUser = {
-    userId: string;
-    roles?: string[];
-    permissions?: string[];
-    departmentId?: string | null;
-};
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 
@@ -67,9 +62,8 @@ export class FeedbackService {
 
         const adminUserIds = new Set<string>();
         admins.forEach(ur => {
+            // Option B: Only Super Admin (GLOBAL scope) receives feedback notifications across all regions
             if (ur.scopeType === 'GLOBAL' || !ur.scopeType) {
-                adminUserIds.add(ur.userId);
-            } else if (ur.scopeType === 'REGION' && ur.scopeId === regionId) {
                 adminUserIds.add(ur.userId);
             }
         });
@@ -165,6 +159,7 @@ export class FeedbackService {
                 sender: {
                     departmentLinks: {
                         some: {
+                            leftAt: null,
                             departmentId: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] }
                         }
                     }
@@ -261,7 +256,7 @@ export class FeedbackService {
         
         if (visibleDepts.length > 0) {
             const senderDepts = await this.prisma.departmentMember.findMany({
-                where: { userId: feedbackSenderId },
+                where: { userId: feedbackSenderId, leftAt: null },
                 select: { departmentId: true }
             });
             const senderDeptIds = senderDepts.map(d => d.departmentId);
@@ -296,6 +291,7 @@ export class FeedbackService {
 
         await this.assertFeedbackAccess(user, feedback.senderUserId);
         const isOwner = feedback.senderUserId === user.userId;
+        const isAnon = feedback.isAnonymous && !isOwner;
 
         return {
             id: feedback.id,
@@ -308,14 +304,18 @@ export class FeedbackService {
             reviewedAt: feedback.reviewedAt,
             createdAt: feedback.createdAt,
             // Chỉ lộ sender nếu: (1) không anonymous, hoặc (2) chính chủ xem
-            sender:
-                feedback.isAnonymous && !isOwner
-                    ? null
-                    : {
-                        id: feedback.sender.id,
-                        userCode: feedback.sender.userCode,
-                        fullName: feedback.sender.profile?.fullName ?? null,
-                    },
+            sender: isAnon
+                ? null
+                : {
+                    id: feedback.sender.id,
+                    userCode: feedback.sender.userCode,
+                    fullName: feedback.sender.profile?.fullName ?? null,
+                    email: feedback.sender.email,
+                    phone: feedback.sender.phone,
+                },
+            senderDisplayName: isAnon
+                ? 'Ẩn danh'
+                : (feedback.sender.profile?.fullName || feedback.sender.userCode),
         };
     }
 
@@ -326,6 +326,10 @@ export class FeedbackService {
         id: string,
         dto: UpdateFeedbackStatusDto,
     ) {
+        if (!this.scopes.isGlobalAdmin(user)) {
+            throw new ForbiddenException('Chỉ Super Admin mới có quyền cập nhật trạng thái góp ý');
+        }
+
         const exists = await this.prisma.feedback.findFirst({
             where: { id, deletedAt: null },
             select: { id: true, status: true, senderUserId: true },
@@ -413,6 +417,7 @@ export class FeedbackService {
                 sender: {
                     departmentLinks: {
                         some: {
+                            leftAt: null,
                             departmentId: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] }
                         }
                     }

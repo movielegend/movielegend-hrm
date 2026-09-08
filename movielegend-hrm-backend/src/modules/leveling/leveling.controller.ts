@@ -12,12 +12,18 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { LevelingService } from './leveling.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { forbidden } from '../../common/utils/error.util';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 @ApiTags('leveling')
 @Controller('leveling')
 @UseGuards(JwtAuthGuard)
 export class LevelingController {
-  constructor(private readonly levelingService: LevelingService) {}
+  constructor(
+    private readonly levelingService: LevelingService,
+    private readonly scope: DepartmentScopeService,
+  ) {}
 
   @Get('admin/config')
   @ApiOperation({ summary: 'Lấy cấu hình Level & Dự án theo Phòng ban & Năm cho Admin' })
@@ -25,7 +31,11 @@ export class LevelingController {
     @Query('departmentId') departmentId: string,
     @Query('year') year?: string,
     @Query('departmentName') departmentName?: string,
+    @CurrentUser() actor?: AuthenticatedUser,
   ) {
+    if (actor && departmentId && this.scope.isRegionAdmin(actor)) {
+      await this.scope.assertDepartmentAccessAsync(actor, departmentId);
+    }
     const y = year ? parseInt(year, 10) : 2026;
     return this.levelingService.getAdminDepartmentConfig(departmentId, y, departmentName);
   }
@@ -40,13 +50,22 @@ export class LevelingController {
       year: number;
       levels: any[];
     },
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
+    if (actor && body.departmentId && this.scope.isRegionAdmin(actor)) {
+      await this.scope.assertDepartmentAccessAsync(actor, body.departmentId);
+    } else if (!this.scope.isGlobalAdmin(actor) && !this.scope.isRegionAdmin(actor)) {
+      throw forbidden('FORBIDDEN_ADMIN_ONLY', 'Chỉ Admin mới có quyền chỉnh sửa và lưu cấu hình Level');
+    }
     return this.levelingService.saveAdminDepartmentConfig(body);
   }
 
   @Post('admin/reset-data')
   @ApiOperation({ summary: 'Admin xóa sạch toàn bộ dữ liệu cấu hình Level & Dự án để test lại từ đầu' })
-  async clearAllData() {
+  async clearAllData(@CurrentUser() actor: AuthenticatedUser) {
+    if (!this.scope.isGlobalAdmin(actor) && !this.scope.isRegionAdmin(actor)) {
+      throw forbidden('FORBIDDEN_ADMIN_ONLY', 'Chỉ Admin mới có quyền xóa dữ liệu cấu hình Level');
+    }
     return this.levelingService.clearAllData();
   }
 
@@ -186,7 +205,13 @@ export class LevelingController {
   async updateUserLevel(
     @Param('userId') userId: string,
     @Body() body: { levelNumber: number },
+    @CurrentUser() actor?: AuthenticatedUser,
   ) {
+    if (actor && this.scope.isRegionAdmin(actor)) {
+      await this.scope.assertUserInScope(actor, userId);
+    } else if (actor && !this.scope.isGlobalAdmin(actor) && !this.scope.isRegionAdmin(actor)) {
+      throw forbidden('FORBIDDEN_ADMIN_ONLY', 'Chỉ Admin mới có quyền cập nhật Level cho Nhân sự');
+    }
     return this.levelingService.updateUserLevel(userId, Number(body.levelNumber) || 1);
   }
 }

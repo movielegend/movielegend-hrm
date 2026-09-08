@@ -38,6 +38,7 @@ import { updateEmployee as apiUpdateEmployee, getVaultWithdrawalRequests } from 
 import { AdminGrantPointsScreen, type GrantTarget } from './AdminGrantPointsScreen';
 import { WithdrawalRequestsManager } from './WithdrawalRequestsManager';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../providers/AuthProvider';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -48,6 +49,12 @@ type ViewMode = 'BY_DEPARTMENT' | 'ALL_EMPLOYEES';
 type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
 
 export function AdminTetWalletScreen() {
+  const { user } = useAuth();
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType))
+  );
+
   const params = useLocalSearchParams<{ tab?: string }>();
   const [mainTab, setMainTab] = useState<MainTab>(params.tab === 'WITHDRAWALS' ? 'WITHDRAWALS' : 'MEMBERS');
   const [viewMode, setViewMode] = useState<ViewMode>('BY_DEPARTMENT');
@@ -549,8 +556,8 @@ export function AdminTetWalletScreen() {
                         />
                       </Pressable>
 
-                      {/* Department Actions Toolbar */}
-                      {isExpanded && deptMembers.length > 0 && (
+                      {/* Department Actions Toolbar - Only Super Admin has grant/toggle rights */}
+                      {isGlobalAdmin && isExpanded && deptMembers.length > 0 && (
                         <View style={styles.deptToolbar}>
                           <Pressable
                             style={styles.deptActionToolBtn}
@@ -596,6 +603,7 @@ export function AdminTetWalletScreen() {
                               <EmployeeRowItem
                                 key={emp.id}
                                 employee={emp}
+                                isGlobalAdmin={isGlobalAdmin}
                                 isToggling={togglingEmpId === emp.id}
                                 onToggle={(val) => handleToggleVault(emp, val)}
                                 onGrantPoints={() => openGrantForEmployee(emp)}
@@ -644,6 +652,7 @@ export function AdminTetWalletScreen() {
                           <EmployeeRowItem
                             key={emp.id}
                             employee={emp}
+                            isGlobalAdmin={isGlobalAdmin}
                             isToggling={togglingEmpId === emp.id}
                             onToggle={(val) => handleToggleVault(emp, val)}
                             onGrantPoints={() => openGrantForEmployee(emp)}
@@ -676,6 +685,7 @@ export function AdminTetWalletScreen() {
                     key={emp.id}
                     employee={emp}
                     showDeptTag={true}
+                    isGlobalAdmin={isGlobalAdmin}
                     isToggling={togglingEmpId === emp.id}
                     onToggle={(val) => handleToggleVault(emp, val)}
                     onGrantPoints={() => openGrantForEmployee(emp)}
@@ -840,6 +850,7 @@ interface EmployeeRowItemProps {
   showDeptTag?: boolean;
   isLast?: boolean;
   isToggling?: boolean;
+  isGlobalAdmin?: boolean;
   onToggle?: (value: boolean) => void;
   onGrantPoints?: () => void;
   onPress?: () => void;
@@ -850,6 +861,7 @@ function EmployeeRowItem({
   showDeptTag = false,
   isLast = false,
   isToggling = false,
+  isGlobalAdmin = false,
   onToggle,
   onGrantPoints,
   onPress,
@@ -942,25 +954,28 @@ function EmployeeRowItem({
 
       {/* Right Controls: Grant Button & Switch */}
       <View style={styles.walletRightGroup}>
-        {/* Trao điểm Action Button */}
-        <Pressable
-          style={styles.rowGrantBtn}
-          onPress={(e) => {
-            e.stopPropagation();
-            onGrantPoints?.();
-          }}
-        >
-          <MaterialCommunityIcons name="gift-outline" size={14} color="#B45309" />
-          <Text style={styles.rowGrantBtnText}>Trao điểm Tết</Text>
-        </Pressable>
+        {/* Trao điểm Action Button - Only for Super Admin */}
+        {isGlobalAdmin && (
+          <Pressable
+            style={styles.rowGrantBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              onGrantPoints?.();
+            }}
+          >
+            <MaterialCommunityIcons name="gift-outline" size={14} color="#B45309" />
+            <Text style={styles.rowGrantBtnText}>Trao điểm Tết</Text>
+          </Pressable>
+        )}
 
-        {/* Permission Switch & Status */}
+        {/* Permission Switch & Status - Only Super Admin can toggle */}
         <View style={styles.switchRow}>
           {isToggling ? (
             <ActivityIndicator size="small" color="#D97706" style={{ marginHorizontal: 4 }} />
           ) : (
             <Switch
               value={isVaultEnabled}
+              disabled={!isGlobalAdmin || isToggling}
               onValueChange={onToggle}
               trackColor={{ false: '#E5E7EB', true: '#FDE68A' }}
               thumbColor={isVaultEnabled ? '#D97706' : '#9CA3AF'}

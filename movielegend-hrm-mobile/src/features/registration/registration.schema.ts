@@ -15,6 +15,7 @@ export const profileSchema = z.object({
   idCardNumber: z.string().regex(/^[0-9]{12}$/, 'Số CCCD phải bao gồm đúng 12 chữ số'),
   dateOfBirth: z.string().optional().or(z.literal('')),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  joinDate: z.string().optional().or(z.literal('')),
 });
 
 export const departmentSchema = z.object({

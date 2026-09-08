@@ -11,6 +11,7 @@ import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { EditProfileModal } from '../employees/components/EditProfileModal';
 import { ChangePasswordModal } from '../employees/components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
+import { formatSeniority } from '../../utils/seniority';
 
 export function HRProfileScreen() {
   const router = useRouter();
@@ -70,6 +71,17 @@ export function HRProfileScreen() {
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Phòng Hành chính Nhân sự'} />
+            <InfoRow 
+              icon="calendar-clock" 
+              label="Thâm niên" 
+              value={formatSeniority(user?.joinDate || (user as any)?.createdAt)} 
+              valueColor="#059669"
+            />
+            <InfoRow 
+              icon="calendar-account" 
+              label="Ngày vào làm" 
+              value={(user?.joinDate || (user as any)?.createdAt) ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} 
+            />
             <InfoRow 
               icon="face-recognition" 
               label="Dữ liệu khuôn mặt" 

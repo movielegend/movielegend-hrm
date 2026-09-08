@@ -17,6 +17,7 @@ interface AdminLevelProjectsPageProps {
   levels: AdminLevelItem[];
   selectedYear: number;
   availableYears: number[];
+  isGlobalAdmin?: boolean;
   onSelectYear: (year: number) => void;
   onUpdateLevelProjectName: (levelNumber: number, newProjectName: string) => void;
   onAddSubTaskToLevel: (levelNumber: number, bulletText: string) => void;
@@ -30,6 +31,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
   levels,
   selectedYear,
   availableYears,
+  isGlobalAdmin = false,
   onSelectYear,
   onUpdateLevelProjectName,
   onAddSubTaskToLevel,
@@ -184,11 +186,12 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
 
           <Text style={styles.inputLabel}>Tên Dự Án Lớn Thăng Cấp (Level {activeFocusedLevel.levelNumber}):</Text>
           <TextInput
-            style={styles.input}
-            placeholder="Nhập tên dự án thăng cấp..."
+            style={[styles.input, !isGlobalAdmin && { backgroundColor: '#F1F5F9', color: '#475569' }]}
+            placeholder={isGlobalAdmin ? "Nhập tên dự án thăng cấp..." : "(Chưa đặt tên dự án)"}
             placeholderTextColor="#94A3B8"
             value={localProjectName}
             onChangeText={handleChangeProjectName}
+            editable={isGlobalAdmin}
           />
 
           <Text style={styles.inputSubLabel}>Danh sách các việc con gạch đầu dòng cần làm ở Level {activeFocusedLevel.levelNumber}:</Text>
@@ -197,7 +200,7 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
             {activeFocusedLevel.project.subTaskBullets && activeFocusedLevel.project.subTaskBullets.length > 0 ? (
               activeFocusedLevel.project.subTaskBullets.map((bullet, idx) => (
                 <View key={idx} style={styles.bulletItemRow}>
-                  {editingBulletIndex === idx ? (
+                  {editingBulletIndex === idx && isGlobalAdmin ? (
                     <View style={styles.editBulletRow}>
                       <TextInput
                         style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -214,48 +217,62 @@ export const AdminLevelProjectsPage: React.FC<AdminLevelProjectsPageProps> = ({
                   ) : (
                     <View style={styles.bulletDisplayRow}>
                       <Text style={styles.bulletText}>{bullet}</Text>
-                      <View style={styles.bulletActions}>
-                        <TouchableOpacity style={styles.editPillBtn} onPress={() => handleStartEditBullet(idx, bullet)}>
-                          <Text style={styles.editPillBtnText}>Sửa</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.deletePillBtn} onPress={() => handleDeleteBullet(idx)}>
-                          <Text style={styles.deletePillBtnText}>Xóa</Text>
-                        </TouchableOpacity>
-                      </View>
+                      {isGlobalAdmin && (
+                        <View style={styles.bulletActions}>
+                          <TouchableOpacity style={styles.editPillBtn} onPress={() => handleStartEditBullet(idx, bullet)}>
+                            <Text style={styles.editPillBtnText}>Sửa</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.deletePillBtn} onPress={() => handleDeleteBullet(idx)}>
+                            <Text style={styles.deletePillBtnText}>Xóa</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   )}
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyNotice}>Chưa có việc con nào ở Level này. Hãy nhập bên dưới!</Text>
+              <Text style={styles.emptyNotice}>
+                {isGlobalAdmin
+                  ? 'Chưa có việc con nào ở Level này. Hãy nhập bên dưới!'
+                  : 'Chưa có việc con nào ở Level này.'}
+              </Text>
             )}
           </View>
 
-          <View style={styles.addBulletRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder={`+ Nhập việc con cho Level ${activeFocusedLevel.levelNumber}...`}
-              placeholderTextColor="#94A3B8"
-              value={newBulletText}
-              onChangeText={setNewBulletText}
-              onFocus={() => {
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 200);
-              }}
-              onSubmitEditing={handleAddBulletSubmit}
-              returnKeyType="done"
-            />
-            <TouchableOpacity style={styles.addBtn} onPress={handleAddBulletSubmit}>
-              <Text style={styles.addBtnText}>+ Thêm việc</Text>
-            </TouchableOpacity>
-          </View>
+          {isGlobalAdmin && (
+            <View style={styles.addBulletRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                placeholder={`+ Nhập việc con cho Level ${activeFocusedLevel.levelNumber}...`}
+                placeholderTextColor="#94A3B8"
+                value={newBulletText}
+                onChangeText={setNewBulletText}
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 200);
+                }}
+                onSubmitEditing={handleAddBulletSubmit}
+                returnKeyType="done"
+              />
+              <TouchableOpacity style={styles.addBtn} onPress={handleAddBulletSubmit}>
+                <Text style={styles.addBtnText}>+ Thêm việc</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
-      <TouchableOpacity style={styles.saveSyncBtn} onPress={onSaveAllAndSync}>
-        <Text style={styles.saveSyncBtnText}>HOÀN TẤT & ĐỒNG BỘ CẤU HÌNH</Text>
-      </TouchableOpacity>
+      {isGlobalAdmin ? (
+        <TouchableOpacity style={styles.saveSyncBtn} onPress={onSaveAllAndSync}>
+          <Text style={styles.saveSyncBtnText}>HOÀN TẤT & ĐỒNG BỘ CẤU HÌNH</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={[styles.saveSyncBtn, { backgroundColor: '#64748B' }]}>
+          <Text style={styles.saveSyncBtnText}>CHẾ ĐỘ XEM (CHỈ SUPER ADMIN MỚI CÓ QUYỀN CẤU HÌNH)</Text>
+        </View>
+      )}
 
       <View style={{ height: 40 }} />
       </ScrollView>

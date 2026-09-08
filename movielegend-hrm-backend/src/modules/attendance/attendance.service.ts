@@ -1131,11 +1131,24 @@ export class AttendanceService {
     const year = query.year ? Number(query.year) : now.getFullYear();
 
     const visibleDepartmentIds = await this.relevantDepartmentIds(actor);
+    let departmentFilter: Prisma.DepartmentMemberWhereInput | undefined = undefined;
+    if (query.departmentId) {
+      if (visibleDepartmentIds !== null && !visibleDepartmentIds.includes(query.departmentId)) {
+        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền truy cập phòng ban này');
+      }
+      departmentFilter = { departmentId: query.departmentId };
+    } else if (visibleDepartmentIds !== null) {
+      departmentFilter = {
+        departmentId: {
+          in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+        },
+      };
+    }
+
     const whereUser: Prisma.UserWhereInput = {
       isActive: true,
       deletedAt: null,
-      ...(query.departmentId ? { departmentLinks: { some: { departmentId: query.departmentId } } } : {}),
-      ...(visibleDepartmentIds === null ? {} : { departmentLinks: { some: { departmentId: { in: visibleDepartmentIds } } } }),
+      ...(departmentFilter ? { departmentLinks: { some: departmentFilter } } : {}),
       ...(query.search
         ? {
             OR: [

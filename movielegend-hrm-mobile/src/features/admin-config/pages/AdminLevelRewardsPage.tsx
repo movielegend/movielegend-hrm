@@ -13,6 +13,7 @@ interface AdminLevelRewardsPageProps {
   levels: AdminLevelItem[];
   selectedYear: number;
   availableYears: number[];
+  isGlobalAdmin?: boolean;
   onSelectYear: (year: number) => void;
   onAddNewYear: () => void;
   onEditLevelReward: (level: AdminLevelItem) => void;
@@ -26,6 +27,7 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
   levels,
   selectedYear,
   availableYears,
+  isGlobalAdmin = false,
   onSelectYear,
   onAddNewYear,
   onEditLevelReward,
@@ -50,9 +52,11 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity style={styles.addYearBtn} onPress={onAddNewYear}>
-          <Text style={styles.addYearBtnText}>+ Thêm Năm Mới</Text>
-        </TouchableOpacity>
+        {isGlobalAdmin && (
+          <TouchableOpacity style={styles.addYearBtn} onPress={onAddNewYear}>
+            <Text style={styles.addYearBtnText}>+ Thêm Năm Mới</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <View style={styles.headerRow}>
@@ -61,9 +65,11 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
           <Text style={styles.deptTitle}>{departmentName.toUpperCase()}</Text>
         </View>
 
-        <TouchableOpacity style={styles.addBtn} onPress={onAddNewLevel}>
-          <Text style={styles.addBtnText}>+ THÊM LEVEL</Text>
-        </TouchableOpacity>
+        {isGlobalAdmin && (
+          <TouchableOpacity style={styles.addBtn} onPress={onAddNewLevel}>
+            <Text style={styles.addBtnText}>+ THÊM LEVEL</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.levelsList}>
@@ -77,12 +83,20 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
               </View>
 
               <View style={styles.levelCardActions}>
-                <TouchableOpacity style={styles.editPillBtn} onPress={() => onEditLevelReward(lvl)}>
-                  <Text style={styles.editPillBtnText}>Sửa</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.deletePillBtn} onPress={() => onDeleteLevel(lvl.id, lvl.levelNumber)}>
-                  <Text style={styles.deletePillBtnText}>Xóa</Text>
-                </TouchableOpacity>
+                {isGlobalAdmin ? (
+                  <>
+                    <TouchableOpacity style={styles.editPillBtn} onPress={() => onEditLevelReward(lvl)}>
+                      <Text style={styles.editPillBtnText}>Sửa</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deletePillBtn} onPress={() => onDeleteLevel(lvl.id, lvl.levelNumber)}>
+                      <Text style={styles.deletePillBtnText}>Xóa</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: '#F1F5F9' }}>
+                    <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '700' }}>Chỉ xem</Text>
+                  </View>
+                )}
               </View>
             </View>
 

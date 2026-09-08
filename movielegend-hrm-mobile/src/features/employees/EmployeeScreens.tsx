@@ -13,6 +13,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
+import { VietnameseDatePickerModal } from '../../components/VietnameseDatePickerModal';
 import { FilterChip } from '../../components/FilterChip';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -31,6 +32,7 @@ import { spacing } from '../../theme/spacing';
 import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
 import { maskIdCard, maskPhone } from '../../utils/privacy';
+import { formatSeniority } from '../../utils/seniority';
 
 const editSchema = z.object({
   fullName: z.string().min(2, 'Vui long nhap ho ten'),
@@ -38,6 +40,7 @@ const editSchema = z.object({
   email: z.string().email('Email chua hop le').optional().or(z.literal('')),
   departmentId: z.string().uuid('departmentId chua hop le').optional().or(z.literal('')),
   accountStatus: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING']).optional(),
+  joinDate: z.string().optional().or(z.literal('')),
 });
 
 const createSchema = editSchema.extend({
@@ -168,7 +171,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                                     setConfirmAction({ type: 'error_inactive' });
                                     return;
                                   }
-                                  const isHrDept = employee.department?.code === 'HCNS' || employee.department?.code === 'HR' || employee.department?.name?.toLowerCase().includes('nhân sự');
+                                  const dept = employee.departmentLinks?.find((l) => l.isPrimary)?.department || employee.departmentLinks?.[0]?.department || (employee as any).department;
+                                  const isHrDept = dept?.code === 'HCNS' || dept?.code === 'HR' || dept?.name?.toLowerCase().includes('nhân sự');
                                   setConfirmAction({ 
                                     type: 'appoint', 
                                     employeeId: employee.id, 
@@ -374,7 +378,11 @@ export function EmployeeDetailScreen() {
   const updateEmployee = useUpdateEmployee(id);
   const deleteEmployee = useDeleteEmployee();
   const [editing, setEditing] = useState(edit === '1');
-  const canEdit = hasPermission(user, 'user.update');
+  const [showJoinDatePicker, setShowJoinDatePicker] = useState(false);
+  const isExecutive = user?.roles?.some((r: any) =>
+    ['ADMIN', 'HR', 'LEADER', 'REGION_ADMIN'].includes(typeof r === 'string' ? r : r.role?.code || r.name)
+  );
+  const canEdit = isExecutive || hasPermission(user, 'user.update');
   const canDelete = hasPermission(user, 'user.manage');
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -386,9 +394,13 @@ export function EmployeeDetailScreen() {
       email: employee.data?.email ?? '',
       departmentId: employee.data?.departmentLinks?.find((link) => link.isPrimary)?.departmentId ?? '',
       accountStatus: employee.data?.accountStatus ?? 'ACTIVE',
+      joinDate: employee.data?.profile?.joinDate
+        ? new Date(employee.data.profile.joinDate).toISOString().split('T')[0]
+        : '',
     },
   });
   const selectedDepartmentId = watch('departmentId');
+  const selectedJoinDate = watch('joinDate');
   const departments = useDepartments();
 
   if (employee.isLoading) return <LoadingState />;
@@ -402,6 +414,7 @@ export function EmployeeDetailScreen() {
       accountStatus: payload.accountStatus,
       ...(payload.email ? { email: payload.email } : {}),
       ...(payload.departmentId ? { departmentId: payload.departmentId } : {}),
+      joinDate: payload.joinDate || undefined,
     });
     setEditing(false);
     reset(payload);
@@ -461,6 +474,18 @@ export function EmployeeDetailScreen() {
                 {item.roles?.map((role) => role.role.code).join(', ') || 'USER'}
               </Text>
             </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: '#6B7280' }}>Ngày vào làm</Text>
+              <Text style={{ fontSize: 14, color: '#111827', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+                {item.profile?.joinDate ? new Date(item.profile.joinDate).toLocaleDateString('vi-VN') : (item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật')}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: '#6B7280' }}>Thâm niên</Text>
+              <Text style={{ fontSize: 14, color: '#059669', fontWeight: '700', textAlign: 'right', flex: 1, marginLeft: 16 }}>
+                {formatSeniority(item.profile?.joinDate || item.createdAt)}
+              </Text>
+            </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 14, color: '#6B7280' }}>Trạng thái khuôn mặt</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -496,6 +521,57 @@ export function EmployeeDetailScreen() {
               ))}
               {errors.departmentId ? <Text style={styles.error}>{errors.departmentId.message}</Text> : null}
             </View>
+
+            <View style={{ marginTop: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={styles.sectionTitle}>Ngày bắt đầu làm việc</Text>
+                {selectedJoinDate ? (
+                  <Pressable onPress={() => setValue('joinDate', '', { shouldValidate: true })}>
+                    <Text style={{ fontSize: 13, color: colors.danger, fontWeight: '500' }}>Xóa ngày</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Pressable
+                onPress={() => setShowJoinDatePicker(true)}
+                style={{
+                  height: 52,
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: '#FFFFFF',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="calendar-outline" size={20} color={selectedJoinDate ? '#111827' : '#9CA3AF'} />
+                  <Text style={{ color: selectedJoinDate ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: selectedJoinDate ? '600' : '400' }}>
+                    {selectedJoinDate ? (() => {
+                      const parts = selectedJoinDate.split('-');
+                      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : selectedJoinDate;
+                    })() : 'Chọn ngày bắt đầu làm việc'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+              </Pressable>
+              <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 4 }}>
+                {selectedJoinDate
+                  ? `Thâm niên: ${formatSeniority(selectedJoinDate)}`
+                  : 'Nếu để trống, thâm niên được tính theo ngày tạo tài khoản.'}
+              </Text>
+            </View>
+
+            <VietnameseDatePickerModal
+              visible={showJoinDatePicker}
+              onClose={() => setShowJoinDatePicker(false)}
+              initialDate={selectedJoinDate || undefined}
+              title="Chọn ngày bắt đầu làm việc"
+              onSelect={(selectedDateStr) => {
+                setValue('joinDate', selectedDateStr, { shouldValidate: true });
+              }}
+            />
 
             <Controller
               control={control}
@@ -553,9 +629,8 @@ export function EmployeeDetailScreen() {
               ]);
             }}
             style={{ marginBottom: 16, borderColor: colors.danger }}
-            textStyle={{ color: colors.danger }}
           >
-            Xóa nhân sự
+            <Text style={{ color: colors.danger, fontWeight: '800', fontSize: 16 }}>Xóa nhân sự</Text>
           </SecondaryButton>
         ) : null}
       </ScreenContainer>

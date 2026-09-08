@@ -292,4 +292,5 @@ export interface UpdateEmployeePayload {
   accountStatus?: AccountStatus;
   isActive?: boolean;
   isRewardVaultEnabled?: boolean;
+  joinDate?: string;
 }

@@ -44,6 +44,12 @@ export interface AdminLevelItem {
 
 export const AdminLevelConfigScreen: React.FC = () => {
   const { user } = useAuth();
+  const isAdmin = Boolean(
+    user?.roles?.includes('ADMIN') ||
+    user?.roles?.some?.((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin')
+  );
+  // Cả Super Admin và Admin Miền đều có toàn quyền cấu hình Level cho các phòng ban thuộc phạm vi quản lý của mình
+  const canConfigure = isAdmin;
   const { data: realDeptData, isLoading } = useDepartments({ limit: 100 });
   const { getSocket } = useSocketStatus();
 
@@ -180,6 +186,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   // Add New Year
   const handleAddNewYear = () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền thêm năm cấu hình Level.');
+      return;
+    }
     const nextYear = Math.max(...availableYears) + 1;
     setAvailableYears((prev) => [...prev, nextYear]);
     setSelectedYear(nextYear);
@@ -188,6 +198,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   // Delete Level
   const handleDeleteLevel = (levelId: string, levelNumber: number) => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền xóa Level.');
+      return;
+    }
     Alert.alert(
       'Xác nhận xóa Level',
       `Bạn có chắc chắn muốn xóa Level ${levelNumber} của Năm ${selectedYear} không?`,
@@ -210,6 +224,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   // Dynamic Add New Level
   const handleAddNewLevel = () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền thêm Level.');
+      return;
+    }
     const nextLevelNum = activeLevels.length + 1;
     const newLevelItem: AdminLevelItem = {
       id: `lvl-${selectedYear}-${Date.now()}`,
@@ -301,6 +319,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   const handleSaveModalItem = () => {
     if (!editingItem) return;
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền lưu cấu hình Level.');
+      return;
+    }
     setDeptLevelConfigs((prev) => {
       const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
       const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
@@ -311,6 +333,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
   };
 
   const handleSaveAllAndSync = async () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền lưu và đồng bộ cấu hình Level.');
+      return;
+    }
     try {
       await levelingApi.saveAdminDepartmentConfig({
         departmentId: selectedDeptId,
@@ -343,6 +369,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
   };
 
   const handleResetAllData = () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền xóa sạch dữ liệu.');
+      return;
+    }
     Alert.alert(
       'XÁC NHẬN XÓA SẠCH DỮ LIỆU TEST',
       'Bạn có chắc chắn muốn xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án, Việc con & Duyệt thi đua để test lại từ đầu không?',
@@ -433,13 +463,20 @@ export const AdminLevelConfigScreen: React.FC = () => {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
+              {!canConfigure && (
+                <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                  (Chế độ xem - Bạn không có quyền cấu hình)
+                </Text>
+              )}
             </View>
-            <TouchableOpacity
-              style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-              onPress={handleResetAllData}
-            >
-              <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>🗑 XÓA DATA TEST</Text>
-            </TouchableOpacity>
+            {canConfigure && (
+              <TouchableOpacity
+                style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                onPress={handleResetAllData}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>🗑 XÓA DATA TEST</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -499,6 +536,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
                 levels={activeLevels}
                 selectedYear={selectedYear}
                 availableYears={availableYears}
+                isGlobalAdmin={canConfigure}
                 onSelectYear={setSelectedYear}
                 onAddNewYear={handleAddNewYear}
                 onEditLevelReward={(lvl) => setEditingItem({ ...lvl })}
@@ -514,6 +552,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
                 levels={activeLevels}
                 selectedYear={selectedYear}
                 availableYears={availableYears}
+                isGlobalAdmin={canConfigure}
                 onSelectYear={setSelectedYear}
                 onUpdateLevelProjectName={handleUpdateLevelProjectName}
                 onAddSubTaskToLevel={handleAddSubTaskToLevel}

@@ -119,7 +119,19 @@ export class EmployeesService {
             where: { leftAt: null, ...(query.departmentId ? { departmentId: query.departmentId } : {}) },
             take: 1,
             include: {
-              department: { select: { id: true, name: true } },
+              department: {
+                select: {
+                  id: true,
+                  name: true,
+                  branch: {
+                    select: {
+                      id: true,
+                      name: true,
+                      region: { select: { id: true, name: true } },
+                    },
+                  },
+                },
+              },
               position: { select: { id: true, name: true } },
             },
           },

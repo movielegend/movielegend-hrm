@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Controller, useForm, type Control, type FieldErrors } from 'react-hook-form';
+import { Controller, useForm, useWatch, type Control, type FieldErrors } from 'react-hook-form';
 import { RefreshControl, StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
@@ -110,7 +110,15 @@ export function DepartmentListScreen() {
                   </View>
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardTitle}>{department.name}</Text>
-                    <Text style={styles.cardSubtitle}>Mã: {department.code}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                      <Text style={styles.cardSubtitle}>Mã: {department.code}</Text>
+                      {department.branch?.name ? (
+                        <View style={styles.branchTag}>
+                          <MaterialCommunityIcons name="map-marker-outline" size={12} color="#4B5563" />
+                          <Text style={styles.branchTagText}>{department.branch.name}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
                 <View style={styles.badgeWrapper}>
@@ -164,18 +172,34 @@ export function CreateDepartmentScreen() {
   const router = useRouter();
   const { branchId } = useLocalSearchParams<{ branchId?: string }>();
   const create = useCreateDepartment();
+  const branches = useBranches();
   const { control, handleSubmit, formState: { errors } } = useForm<DepartmentFormValues>({
     resolver: zodResolver(createSchema),
     defaultValues: { companyId: '', branchId: branchId ?? '', code: '', name: '', description: '', parentId: '' },
   });
   const submit = handleSubmit(async (payload) => {
+    let finalName = payload.name.trim();
+    const selectedBranch = branches.data?.find(b => b.id === (payload.branchId || branchId));
+    if (selectedBranch?.name) {
+      const cleanBranch = selectedBranch.name.replace(/^chi nhánh\s+/i, '').trim();
+      const hasBranch = finalName.toLowerCase().includes(cleanBranch.toLowerCase()) ||
+        finalName.toLowerCase().includes(selectedBranch.name.toLowerCase());
+      if (!hasBranch) {
+        finalName = `${finalName} (${cleanBranch})`;
+      }
+    }
+
     let generatedCode = payload.code;
-    if (!generatedCode && payload.name) {
-      const initials = payload.name.split(' ').map(w => w[0]).join('').toUpperCase().replace(/[^A-Z]/g, '');
+    if (!generatedCode && finalName) {
+      const initials = finalName.split(' ').map(w => w[0]).join('').toUpperCase().replace(/[^A-Z]/g, '');
       const timestamp = new Date().getTime().toString().slice(-4);
       generatedCode = `${initials}-${timestamp}`;
     }
-    await create.mutateAsync(buildCreateDepartmentPayload({...payload, code: generatedCode || `PB-${new Date().getTime().toString().slice(-4)}`}));
+    await create.mutateAsync(buildCreateDepartmentPayload({
+      ...payload,
+      name: finalName,
+      code: generatedCode || `PB-${new Date().getTime().toString().slice(-4)}`,
+    }));
     router.back();
   });
   return (
@@ -463,6 +487,14 @@ export function DepartmentDetailScreen() {
 function DepartmentForm({ control, errors, fixedBranchId, isEdit }: { control: Control<DepartmentFormValues>; errors: FieldErrors<DepartmentFormValues>; fixedBranchId?: string | null; isEdit?: boolean }) {
   const branches = useBranches();
   const displayBranches = fixedBranchId ? branches.data?.filter(b => b.id === fixedBranchId) : branches.data;
+  const currentBranchId = useWatch({ control, name: 'branchId' });
+  const currentName = useWatch({ control, name: 'name' });
+  const targetBranchId = currentBranchId || fixedBranchId;
+  const selectedBranch = branches.data?.find(b => b.id === targetBranchId);
+  const cleanBranch = selectedBranch?.name ? selectedBranch.name.replace(/^chi nhánh\s+/i, '').trim() : '';
+  const previewName = currentName && cleanBranch && !currentName.toLowerCase().includes(cleanBranch.toLowerCase())
+    ? `${currentName.trim()} (${cleanBranch})`
+    : currentName;
   
   return (
     <>
@@ -501,7 +533,29 @@ function DepartmentForm({ control, errors, fixedBranchId, isEdit }: { control: C
       {isEdit && (
         <Controller control={control} name="code" render={({ field }) => <FormField autoCapitalize="characters" label="Mã phòng ban (Cố định)" value={field.value || ''} onChangeText={() => {}} editable={false} error={errors.code?.message} />} />
       )}
-      <Controller control={control} name="name" render={({ field }) => <FormField label="Tên phòng ban" value={field.value} onChangeText={field.onChange} error={errors.name?.message} />} />
+      <Controller
+        control={control}
+        name="name"
+        render={({ field }) => (
+          <View>
+            <FormField
+              label="Tên phòng ban"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={errors.name?.message}
+              placeholder="Ví dụ: Live, CSKH, Marketing..."
+            />
+            {previewName && previewName !== currentName ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -6, marginBottom: 12 }}>
+                <MaterialCommunityIcons name="information-outline" size={14} color="#0284C7" />
+                <Text style={{ fontSize: 12, color: '#0284C7', fontWeight: '500' }}>
+                  Tên hiển thị kèm cơ sở: <Text style={{ fontWeight: '700' }}>{previewName}</Text>
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+      />
       <Controller control={control} name="description" render={({ field }) => <FormField label="Mô tả" value={field.value} onChangeText={field.onChange} error={errors.description?.message} />} />
       <Controller control={control} name="parentId" render={({ field }) => <FormField label="ID Phòng ban quản lý (Tùy chọn)" value={field.value} onChangeText={field.onChange} error={errors.parentId?.message} />} />
     </>
@@ -642,6 +696,20 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     fontWeight: '500',
     marginTop: 2,
+  },
+  branchTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 2,
+  },
+  branchTagText: {
+    fontSize: 11,
+    color: '#4B5563',
+    fontWeight: '500',
   },
   badgeWrapper: {
     backgroundColor: '#F3F4F6',

@@ -31,6 +31,8 @@ export interface AuthUser {
   department?: DepartmentSummary | null;
   position?: PositionSummary | null;
   hasFaceData: boolean;
+  joinDate?: string | null;
+  createdAt?: string | null;
   accountStatus?: string;
   isRewardVaultEnabled?: boolean;
   deletionScheduledAt?: string | null;

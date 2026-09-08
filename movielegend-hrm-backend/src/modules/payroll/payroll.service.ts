@@ -18,6 +18,7 @@ import { badRequest, conflict, forbidden, notFound } from '../../common/utils/er
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, CompanyPayslipsQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
 import { PayrollPolicyService } from './payroll-policy.service';
 
@@ -28,6 +29,7 @@ export class PayrollService {
     private readonly policy: PayrollPolicyService,
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeEventsService,
+    private readonly scope: DepartmentScopeService,
   ) {}
 
   createPeriod(dto: CreatePayrollPeriodDto, actor: AuthenticatedUser) {
@@ -340,6 +342,23 @@ export class PayrollService {
       throw badRequest('IMAGE_URL_REQUIRED', 'imageUrl hoặc fileUrl là bắt buộc');
     }
 
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const visibleDepartmentIds = isRegionAdmin
+      ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+      : await this.scope.getVisibleDepartmentIds(actor);
+
+    if (userId && visibleDepartmentIds !== null) {
+      const userInScope = await this.prisma.departmentMember.findFirst({
+        where: {
+          userId,
+          departmentId: { in: visibleDepartmentIds },
+        },
+      });
+      if (!userInScope) {
+        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền thao tác nhân sự thuộc phòng ban hoặc vùng khác');
+      }
+    }
+
     await this.prisma.auditLog.create({
       data: {
         actorUserId: actor.userId,
@@ -362,7 +381,21 @@ export class PayrollService {
         targetUserIds = [userId];
       } else {
         const activeUsers = await this.prisma.user.findMany({
-          where: { isActive: true, deletedAt: null },
+          where: {
+            isActive: true,
+            deletedAt: null,
+            ...(visibleDepartmentIds !== null
+              ? {
+                  departmentLinks: {
+                    some: {
+                      departmentId: {
+                        in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+                      },
+                    },
+                  },
+                }
+              : {}),
+          },
           select: { id: true },
         });
         targetUserIds = activeUsers.map((u) => u.id);
@@ -400,11 +433,30 @@ export class PayrollService {
     const month = query.month ? Number(query.month) : now.getMonth() + 1;
     const year = query.year ? Number(query.year) : now.getFullYear();
 
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const visibleDepartmentIds = isRegionAdmin
+      ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+      : await this.scope.getVisibleDepartmentIds(actor);
+
+    let departmentFilter: Prisma.DepartmentMemberWhereInput | undefined = undefined;
+    if (query.departmentId) {
+      if (visibleDepartmentIds !== null && !visibleDepartmentIds.includes(query.departmentId)) {
+        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền truy cập phòng ban này');
+      }
+      departmentFilter = { departmentId: query.departmentId };
+    } else if (visibleDepartmentIds !== null) {
+      departmentFilter = {
+        departmentId: {
+          in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+        },
+      };
+    }
+
     const users = await this.prisma.user.findMany({
       where: {
         isActive: true,
         deletedAt: null,
-        ...(query.departmentId ? { departmentLinks: { some: { departmentId: query.departmentId } } } : {}),
+        ...(departmentFilter ? { departmentLinks: { some: departmentFilter } } : {}),
         ...(query.search
           ? {
               OR: [
@@ -534,6 +586,11 @@ export class PayrollService {
     let successCount = 0;
     const errors: string[] = [];
 
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const visibleDepartmentIds = isRegionAdmin
+      ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+      : await this.scope.getVisibleDepartmentIds(actor);
+
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Tìm hoặc tạo PayrollPeriod cho kỳ này
       let period = await tx.payrollPeriod.findFirst({
@@ -572,12 +629,26 @@ export class PayrollService {
 
       for (const item of items) {
         const user = await tx.user.findFirst({
-          where: { userCode: item.userCode, deletedAt: null },
+          where: {
+            userCode: item.userCode,
+            deletedAt: null,
+            ...(visibleDepartmentIds !== null
+              ? {
+                  departmentLinks: {
+                    some: {
+                      departmentId: {
+                        in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+                      },
+                    },
+                  },
+                }
+              : {}),
+          },
           include: { profile: true, departmentLinks: { include: { department: true } } },
         });
 
         if (!user) {
-          errors.push(`Mã NV ${item.userCode} không tồn tại`);
+          errors.push(`Mã NV ${item.userCode} không tồn tại hoặc không thuộc quyền quản lý`);
           continue;
         }
 

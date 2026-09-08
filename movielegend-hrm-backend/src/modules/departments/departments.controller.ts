@@ -20,8 +20,8 @@ export class DepartmentsController {
 
   @Public()
   @Get('public')
-  findPublic(@Query('search') search?: string, @CurrentUser() user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
-    return this.departmentsService.findAll(search, user);
+  findPublic(@Query('search') search?: string) {
+    return this.departmentsService.findAll(search, undefined, true);
   }
 
   @Permissions('department.read')

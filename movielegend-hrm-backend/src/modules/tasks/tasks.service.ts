@@ -46,7 +46,7 @@ export class TasksService {
   ) { }
 
   async create(dto: CreateTaskDto, actor: AuthenticatedUser) {
-    this.assertCanCreate(dto, actor);
+    await this.assertCanCreate(dto, actor);
     let departmentContextId = dto.departmentContextId;
     if (dto.parentTaskId) {
       const parent = await this.prisma.task.findUnique({ where: { id: dto.parentTaskId } });
@@ -54,7 +54,7 @@ export class TasksService {
         departmentContextId = parent.departmentContextId;
       }
     }
-    if (departmentContextId) this.scope.assertDepartmentAccess(actor, departmentContextId);
+    if (departmentContextId) await this.scope.assertDepartmentAccessAsync(actor, departmentContextId);
     const assigneeIds = await this.resolveAssignees({ ...dto, departmentContextId }, actor);
     if (!dto.isAdhocGroup && !assigneeIds.length) throw badRequest('TASK_TARGET_EMPTY', 'Task must have at least one assignee');
     const payload = await this.prisma.$transaction(async (tx) => {
@@ -377,13 +377,14 @@ export class TasksService {
   async completeTask(id: string, actor: AuthenticatedUser) {
     const task = await this.prisma.task.findUnique({ where: { id }, include: { assignments: true } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
     const canComplete =
       actor.roles.includes('ADMIN') ||
       task.groupLeaderId === actor.userId ||
       task.createdByUserId === actor.userId ||
       (task.departmentContextId &&
         this.has(actor, 'task.assign_department') &&
-        (this.scope.visibleDepartmentIds(actor)?.includes(task.departmentContextId) ?? false));
+        (visibleDepts?.includes(task.departmentContextId) ?? false));
     if (!canComplete) {
       throw forbidden('NOT_GROUP_LEADER', 'You do not have permission to complete this task');
     }
@@ -664,7 +665,10 @@ export class TasksService {
       throw forbidden('CANNOT_REVIEW_OWN_ASSIGNMENT', 'Bạn không thể tự duyệt công việc do người khác giao cho mình');
     }
 
-    this.scope.assertDepartmentAccess(actor, assignment.task.departmentContextId ?? (await this.scope.getPrimaryDepartmentId(assignment.userId)));
+    const deptId = assignment.task.departmentContextId ?? (await this.scope.getPrimaryDepartmentId(assignment.userId));
+    if (deptId && !this.scope.isGlobalAdmin(actor) && assignment.task.createdByUserId !== actor.userId) {
+      await this.scope.assertDepartmentAccessAsync(actor, deptId);
+    }
     this.policy.assertAssignmentTransition(assignment.status, status);
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.taskAssignment.update({
@@ -707,10 +711,10 @@ export class TasksService {
       include: { assignment: { include: { task: true } } },
     });
     if (!request) throw notFound('TASK_EXTENSION_NOT_FOUND', 'Extension request not found');
-    this.scope.assertDepartmentAccess(
-      actor,
-      request.assignment.task.departmentContextId ?? (await this.scope.getPrimaryDepartmentId(request.assignment.userId)),
-    );
+    const extDeptId = request.assignment.task.departmentContextId ?? (await this.scope.getPrimaryDepartmentId(request.assignment.userId));
+    if (extDeptId && !this.scope.isGlobalAdmin(actor) && request.assignment.task.createdByUserId !== actor.userId) {
+      await this.scope.assertDepartmentAccessAsync(actor, extDeptId);
+    }
     if (request.status !== 'PENDING') throw conflict('TASK_EXTENSION_ALREADY_PROCESSED', 'Extension request already processed');
     return this.prisma.$transaction(async (tx) => {
       if (approve) {
@@ -774,30 +778,30 @@ export class TasksService {
   }
 
   private async assertCanViewTask(taskId: string, actor: AuthenticatedUser): Promise<void> {
-    if (this.has(actor, 'task.read_all')) return;
+    if (this.scope.isGlobalAdmin(actor)) return;
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },
       include: { assignments: { select: { userId: true } } },
     });
     if (!task) throw notFound('TASK_NOT_FOUND', 'Task not found');
     if (task.createdByUserId === actor.userId || task.assignments.some((item) => item.userId === actor.userId)) return;
-    const visible = this.scope.visibleDepartmentIds(actor);
+    const visible = await this.scope.getVisibleDepartmentIds(actor);
     if (task.departmentContextId && visible?.includes(task.departmentContextId)) return;
     throw forbidden('TASK_FORBIDDEN', 'Cannot access this task');
   }
 
-  private assertCanManageTask(departmentId: string | null, actor: AuthenticatedUser): void {
-    if (this.has(actor, 'task.assign_any')) return;
-    if (!this.has(actor, 'task.assign_department')) throw forbidden('TASK_FORBIDDEN', 'Cannot manage task');
+  private async assertCanManageTask(departmentId: string | null, actor: AuthenticatedUser): Promise<void> {
+    if (this.scope.isGlobalAdmin(actor)) return;
+    if (!this.has(actor, 'task.assign_department') && !this.scope.isRegionAdmin(actor)) throw forbidden('TASK_FORBIDDEN', 'Cannot manage task');
     if (!departmentId) throw forbidden('TASK_DEPARTMENT_CONTEXT_REQUIRED', 'Department task context is required');
-    this.scope.assertDepartmentAccess(actor, departmentId);
+    await this.scope.assertDepartmentAccessAsync(actor, departmentId);
   }
 
-  private assertCanCreate(dto: CreateTaskDto, actor: AuthenticatedUser): void {
-    if (this.has(actor, 'task.assign_any')) return;
-    if (!this.has(actor, 'task.assign_department')) throw forbidden('TASK_FORBIDDEN', 'Cannot create task');
+  private async assertCanCreate(dto: CreateTaskDto, actor: AuthenticatedUser): Promise<void> {
+    if (this.scope.isGlobalAdmin(actor)) return;
+    if (!this.has(actor, 'task.assign_department') && !this.scope.isRegionAdmin(actor)) throw forbidden('TASK_FORBIDDEN', 'Cannot create task');
     const departmentTargets = dto.targets?.filter((target) => target.targetType === TaskTargetType.DEPARTMENT) ?? [];
-    for (const target of departmentTargets) this.scope.assertDepartmentAccess(actor, target.targetId);
+    for (const target of departmentTargets) await this.scope.assertDepartmentAccessAsync(actor, target.targetId);
   }
 
   private async resolveAssignees(dto: CreateTaskDto, actor: AuthenticatedUser): Promise<string[]> {
@@ -822,10 +826,35 @@ export class TasksService {
         members.forEach((member) => userIds.add(member.userId));
       }
     }
-    if (!this.has(actor, 'task.assign_any')) {
+    if (this.scope.isRegionAdmin(actor)) {
+      const regionDeptIds = (await this.scope.getVisibleDepartmentIds(actor)) ?? [];
+      for (const userId of userIds) {
+        if (userId === actor.userId) continue;
+        const userInDept = await this.prisma.departmentMember.findFirst({
+          where: {
+            userId,
+            departmentId: { in: regionDeptIds },
+            leftAt: null,
+          },
+        });
+        const isLeaderOfRegionDept = !userInDept
+          ? await this.prisma.department.findFirst({
+              where: {
+                id: { in: regionDeptIds },
+                leaderUserId: userId,
+              },
+            })
+          : null;
+        if (!userInDept && !isLeaderOfRegionDept) {
+          throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Không có quyền giao việc cho nhân sự ngoài miền phụ trách');
+        }
+      }
+    } else if (!this.scope.isGlobalAdmin(actor) && !this.has(actor, 'task.assign_any')) {
       const departmentId = dto.departmentContextId ?? (await this.scope.getPrimaryDepartmentId(actor.userId));
-      this.scope.assertDepartmentAccess(actor, departmentId);
-      for (const userId of userIds) await this.scope.assertUserInDepartment(userId, departmentId);
+      if (departmentId) {
+        await this.scope.assertDepartmentAccessAsync(actor, departmentId);
+        for (const userId of userIds) await this.scope.assertUserInDepartment(userId, departmentId);
+      }
     }
     return [...userIds];
   }
@@ -894,7 +923,25 @@ export class TasksService {
       return where;
     }
 
-    if (!this.has(actor, 'task.read_all') && !this.scope.visibleDepartmentIds(actor)?.length) {
+    if (this.scope.isRegionAdmin(actor)) {
+      const regionDeptIds = (await this.scope.getVisibleDepartmentIds(actor)) ?? [];
+      const targetDeptIds = query.departmentId ? [query.departmentId] : regionDeptIds;
+      if (query.departmentId) await this.scope.assertDepartmentAccessAsync(actor, query.departmentId);
+      where.AND = [
+        ...this.toAndArray(where.AND),
+        {
+          OR: [
+            { departmentContextId: { in: targetDeptIds } },
+            { assignments: { some: { user: { departmentLinks: { some: { departmentId: { in: targetDeptIds }, leftAt: null } } } } } },
+            { assignments: { some: { userId: actor.userId } } },
+            { createdByUserId: actor.userId },
+          ],
+        },
+      ];
+      return where;
+    }
+
+    if (!this.has(actor, 'task.read_all') && !(await this.scope.getVisibleDepartmentIds(actor))?.length) {
       where.AND = [...this.toAndArray(where.AND), { OR: [{ createdByUserId: actor.userId }, { assignments: { some: { userId: actor.userId } } }] }];
       return where;
     }
@@ -904,8 +951,8 @@ export class TasksService {
       return where;
     }
 
-    const visibleDepartmentIds = this.scope.visibleDepartmentIds(actor) ?? [];
-    if (query.departmentId) this.scope.assertDepartmentAccess(actor, query.departmentId);
+    const visibleDepartmentIds = (await this.scope.getVisibleDepartmentIds(actor)) ?? [];
+    if (query.departmentId) await this.scope.assertDepartmentAccessAsync(actor, query.departmentId);
     
     const targetDeptIds = query.departmentId ? [query.departmentId] : visibleDepartmentIds;
     where.AND = [
@@ -913,7 +960,9 @@ export class TasksService {
       {
         OR: [
           { departmentContextId: { in: targetDeptIds } },
-          { assignments: { some: { user: { departmentLinks: { some: { departmentId: { in: targetDeptIds }, leftAt: null } } } } } }
+          { assignments: { some: { user: { departmentLinks: { some: { departmentId: { in: targetDeptIds }, leftAt: null } } } } } },
+          { assignments: { some: { userId: actor.userId } } },
+          { createdByUserId: actor.userId },
         ]
       }
     ];
@@ -922,7 +971,7 @@ export class TasksService {
   }
 
   private async assignmentScopeWhere(actor: AuthenticatedUser, departmentId?: string): Promise<Prisma.TaskAssignmentWhereInput> {
-    if (this.has(actor, 'task.review_all') || this.has(actor, 'task.extension_review_all')) {
+    if (this.scope.isGlobalAdmin(actor) || (!this.scope.isRegionAdmin(actor) && (this.has(actor, 'task.review_all') || this.has(actor, 'task.extension_review_all')))) {
       return departmentId
         ? {
           OR: [
@@ -932,13 +981,14 @@ export class TasksService {
         }
         : {};
     }
-    if (departmentId) this.scope.assertDepartmentAccess(actor, departmentId);
-    const visible = departmentId ? [departmentId] : this.scope.visibleDepartmentIds(actor) ?? [];
+    if (departmentId) await this.scope.assertDepartmentAccessAsync(actor, departmentId);
+    const visible = departmentId ? [departmentId] : (await this.scope.getVisibleDepartmentIds(actor)) ?? [];
     if (!visible.length) throw forbidden('TASK_REVIEW_FORBIDDEN', 'Cannot review task assignments');
     return {
       OR: [
         { task: { departmentContextId: { in: visible } } },
         { user: { departmentLinks: { some: { departmentId: { in: visible }, leftAt: null } } } },
+        { task: { createdByUserId: actor.userId } },
       ],
     };
   }

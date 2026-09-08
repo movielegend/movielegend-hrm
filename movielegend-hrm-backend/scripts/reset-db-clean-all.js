@@ -46,8 +46,24 @@ async function main() {
   // 4. RESET SEQUENCE MÃ NHÂN VIÊN VỀ LẠI 1
   console.log('--> Đang Reset Sequence user_code_seq về lại 1...');
   try {
-    await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS user_code_seq START WITH 1 INCREMENT BY 1;`);
-    await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS task_code_seq START WITH 1 INCREMENT BY 1;`);
+    const allSeqs = [
+      'user_code_seq',
+      'task_code_seq',
+      'cross_department_request_code_seq',
+      'contract_code_seq',
+      'warehouse_code_seq',
+      'asset_code_seq',
+      'stock_receipt_code_seq',
+      'material_issue_code_seq',
+      'stock_transfer_code_seq',
+      'stock_transaction_code_seq',
+      'inventory_check_code_seq',
+      'payroll_period_code_seq',
+      'material_code_seq',
+    ];
+    for (const seq of allSeqs) {
+      await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS "${seq}" START WITH 1 INCREMENT BY 1;`);
+    }
     await prisma.$executeRawUnsafe(`ALTER SEQUENCE user_code_seq RESTART WITH 1;`);
     await prisma.$executeRawUnsafe(`SELECT setval('user_code_seq', 1, false);`);
   } catch (e) {

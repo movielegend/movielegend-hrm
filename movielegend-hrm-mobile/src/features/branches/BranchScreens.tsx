@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
 import { normalizeApiError } from '../../utils/api-error';
 import { MultiSelectModal } from '../../components/MultiSelectModal';
+import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { LocationPickerMap, LocationData } from '../../components/LocationPickerMap';
 
 import { useAppAlert } from '../../contexts/AlertContext';
@@ -146,11 +147,6 @@ export function BranchListScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
                 <MaterialCommunityIcons name={section.regionId === 'HQ' ? 'star' : 'earth'} size={20} color={section.regionId === 'HQ' ? '#D97706' : '#3B82F6'} />
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{section.regionName}</Text>
-                {section.regionCode && (
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#2563EB', backgroundColor: '#DBEAFE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    {section.regionCode}
-                  </Text>
-                )}
                 <Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 'auto' }}>
                   {section.regionId === 'HQ' ? '' : 'Khu vực điều hành • '}{section.branches.length} chi nhánh
                 </Text>
@@ -178,7 +174,6 @@ export function BranchListScreen() {
                                 </View>
                               )}
                             </View>
-                            <Text style={styles.cardSubtitle}>Mã: {branch.code}</Text>
                           </View>
                         </View>
                         {(!branch.isHeadquarters || isGlobalAdmin) && (
@@ -225,8 +220,25 @@ export function BranchCreateScreen() {
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
   const [networkName, setNetworkName] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [regionModalVisible, setRegionModalVisible] = useState(false);
   const [mapVisible, setMapVisible] = useState(false);
   const [isFetchingIp, setIsFetchingIp] = useState(false);
+
+  const regionsQuery = useRegions();
+
+  const selectedRegionName = useMemo(() => {
+    if (!selectedRegionId) return '';
+    const r = regionsQuery.data?.find((item) => item.id === selectedRegionId);
+    return r ? r.name : '';
+  }, [selectedRegionId, regionsQuery.data]);
+
+  const regionOptions: SelectOption[] = useMemo(() => {
+    return (regionsQuery.data || []).map((r) => ({
+      id: r.id,
+      label: r.name,
+    }));
+  }, [regionsQuery.data]);
 
   const fetchCurrentIp = async (currentValue: string) => {
     try {
@@ -288,6 +300,7 @@ export function BranchCreateScreen() {
         longitude: longitude,
         allowedIps: allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [],
         isHeadquarters,
+        regionId: selectedRegionId || undefined,
       };
       
       await mutation.mutateAsync(payload);
@@ -343,6 +356,30 @@ export function BranchCreateScreen() {
               </Pressable>
             }
           />
+          {isSuperAdmin && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vùng / Miền quản lý</Text>
+              <Pressable 
+                onPress={() => setRegionModalVisible(true)}
+                style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  borderWidth: 1, 
+                  borderColor: '#E5E7EB', 
+                  borderRadius: 12, 
+                  paddingHorizontal: 16,
+                  minHeight: 48,
+                  backgroundColor: '#FFFFFF'
+                }}
+              >
+                <MaterialCommunityIcons name="earth" size={20} color="#3B82F6" style={{ marginRight: 10 }} />
+                <Text style={{ flex: 1, color: selectedRegionName ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                  {selectedRegionName || 'Chọn Vùng / Miền (Ví dụ: Miền Bắc...)'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
+              </Pressable>
+            </View>
+          )}
           <View style={{ marginBottom: 16 }}>
             {isSuperAdmin && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -396,6 +433,18 @@ export function BranchCreateScreen() {
         initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
       />
 
+      <SelectModal
+        visible={regionModalVisible}
+        title="Chọn Vùng / Miền"
+        options={regionOptions}
+        selectedValue={selectedRegionId}
+        onSelect={(opt) => {
+          setSelectedRegionId(opt.id);
+          setRegionModalVisible(false);
+        }}
+        onClose={() => setRegionModalVisible(false)}
+      />
+
 
     </Screen>
   );
@@ -417,8 +466,26 @@ export function BranchEditScreen() {
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [regionModalVisible, setRegionModalVisible] = useState(false);
   const [mapVisible, setMapVisible] = useState(false);
   const [isFetchingIp, setIsFetchingIp] = useState(false);
+
+  const regionsQuery = useRegions();
+
+  const selectedRegionName = useMemo(() => {
+    if (!selectedRegionId) return '';
+    const r = regionsQuery.data?.find((item) => item.id === selectedRegionId);
+    return r ? r.name : '';
+  }, [selectedRegionId, regionsQuery.data]);
+
+  const regionOptions: SelectOption[] = useMemo(() => {
+    const list: SelectOption[] = (regionsQuery.data || []).map((r) => ({
+      id: r.id,
+      label: r.name,
+    }));
+    return [{ id: '', label: 'Không gắn miền (Chưa phân miền)' }, ...list];
+  }, [regionsQuery.data]);
 
   const fetchCurrentIp = async (setter: (val: string) => void, currentValue: string) => {
     try {
@@ -448,6 +515,7 @@ export function BranchEditScreen() {
       setLatitude(branchQuery.data.latitude);
       setLongitude(branchQuery.data.longitude);
       setAllowedIps((branchQuery.data as any).allowedIps?.join(', ') || '');
+      setSelectedRegionId(branchQuery.data.regionId || branchQuery.data.region?.id || null);
     }
   }, [branchQuery.data]);
 
@@ -459,6 +527,9 @@ export function BranchEditScreen() {
       if (longitude !== undefined) payload.longitude = longitude;
       payload.allowedIps = allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [];
       payload.isHeadquarters = isHeadquarters;
+      if (isSuperAdmin) {
+        payload.regionId = selectedRegionId || null;
+      }
 
       await mutation.mutateAsync(payload);
       showAlert('Thành công', 'Đã lưu thay đổi chi nhánh', () => router.back());
@@ -489,14 +560,6 @@ export function BranchEditScreen() {
         <PageHeader title="Sửa Chi nhánh" subtitle="Cập nhật thông tin chi nhánh" />
         <SectionCard>
           <FormField
-            label="Mã chi nhánh (Cố định) *"
-            value={code}
-            onChangeText={() => {}}
-            placeholder="Ví dụ: HN01"
-            autoCapitalize="characters"
-            editable={false}
-          />
-          <FormField
             label="Tên chi nhánh *"
             value={name}
             onChangeText={setName}
@@ -525,6 +588,30 @@ export function BranchEditScreen() {
               </Pressable>
             }
           />
+          {isSuperAdmin && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vùng / Miền quản lý</Text>
+              <Pressable 
+                onPress={() => setRegionModalVisible(true)}
+                style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  borderWidth: 1, 
+                  borderColor: '#E5E7EB', 
+                  borderRadius: 12, 
+                  paddingHorizontal: 16,
+                  minHeight: 48,
+                  backgroundColor: '#FFFFFF'
+                }}
+              >
+                <MaterialCommunityIcons name="earth" size={20} color="#3B82F6" style={{ marginRight: 10 }} />
+                <Text style={{ flex: 1, color: selectedRegionName ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                  {selectedRegionName || 'Không gắn miền (Chưa phân miền)'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
+              </Pressable>
+            </View>
+          )}
           <View style={{ marginBottom: 16 }}>
             {isSuperAdmin && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -576,6 +663,18 @@ export function BranchEditScreen() {
         onClose={() => setMapVisible(false)}
         onSelect={handleLocationSelect}
         initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
+      />
+
+      <SelectModal
+        visible={regionModalVisible}
+        title="Chuyển / Chọn Vùng Miền"
+        options={regionOptions}
+        selectedValue={selectedRegionId || ''}
+        onSelect={(opt) => {
+          setSelectedRegionId(opt.id ? opt.id : null);
+          setRegionModalVisible(false);
+        }}
+        onClose={() => setRegionModalVisible(false)}
       />
 
 

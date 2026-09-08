@@ -192,7 +192,7 @@ export function CreateCrossDepartmentScreen() {
     return departmentsQuery.data.items?.map(d => ({
       id: d.id,
       label: d.name,
-      subtitle: `Mã: ${d.code}`
+      subtitle: `Mã: ${d.code}${d.branch?.name ? ` • Cơ sở: ${d.branch.name}` : ''}`,
     }));
   }, [departmentsQuery.data]);
 

@@ -100,7 +100,9 @@ export class BranchesService {
     // Admin Miền chỉ được tạo chi nhánh thuộc vùng mình
     const actorRegionId = this.getActorRegionScope(actor);
     if (actorRegionId) {
-      if (!dto.regionId || dto.regionId !== actorRegionId) {
+      if (!dto.regionId) {
+        dto.regionId = actorRegionId;
+      } else if (dto.regionId !== actorRegionId) {
         throw new BadRequestException('Admin Miền chỉ được tạo chi nhánh thuộc vùng mình phụ trách');
       }
     }

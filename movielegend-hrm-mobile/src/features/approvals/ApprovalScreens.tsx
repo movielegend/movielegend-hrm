@@ -28,6 +28,7 @@ import { normalizeApiError } from '../../utils/api-error';
 import { hasPermission } from '../../utils/permissions';
 import { maskPhone } from '../../utils/privacy';
 import { getAbsoluteImageUrl } from '../../utils/image';
+import { formatSeniority } from '../../utils/seniority';
 
 const statuses: Array<ApprovalStatus | undefined> = [undefined, 'PENDING', 'APPROVED', 'REJECTED'];
 const statusLabels: Record<string, string> = {
@@ -165,6 +166,24 @@ export function ApprovalDetailScreen() {
             <View style={localStyles.infoRow}>
               <MaterialCommunityIcons name="clock-outline" size={18} color="#6B7280" />
               <Text style={localStyles.infoTextDetail}>Giờ đăng ký: {createdTime}</Text>
+            </View>
+            {item.user?.profile?.joinDate ? (
+              <View style={localStyles.infoRow}>
+                <MaterialCommunityIcons name="briefcase-outline" size={18} color="#6B7280" />
+                <Text style={localStyles.infoTextDetail}>
+                  Ngày vào làm (khai báo): {new Date(item.user.profile.joinDate).toLocaleDateString('vi-VN')}
+                </Text>
+              </View>
+            ) : null}
+            <View style={localStyles.infoRow}>
+              <MaterialCommunityIcons name="calendar-clock" size={18} color="#6B7280" />
+              <Text style={[localStyles.infoTextDetail, { color: item.status === 'APPROVED' ? '#059669' : '#D97706', fontWeight: '600' }]}>
+                {item.status === 'APPROVED' 
+                  ? `Thâm niên: ${formatSeniority(item.user?.profile?.joinDate || item.decidedAt || item.user?.createdAt)}` 
+                  : item.user?.profile?.joinDate
+                    ? `Thâm niên dự kiến: ${formatSeniority(item.user.profile.joinDate)}`
+                    : 'Thâm niên: Bắt đầu tính ngay khi bấm duyệt'}
+              </Text>
             </View>
           </View>
 
