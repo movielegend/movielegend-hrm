@@ -792,17 +792,17 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       </ScrollView>
       </View>
 
-      {/* EXPANDABLE FULL PAGE DETAIL & APPROVAL MODAL */}
+      {/* EXPANDABLE FULL PAGE DETAIL & APPROVAL / SUBMISSION MODAL */}
       <Modal visible={activeSubTask !== null} animationType="slide" transparent={false}>
         <View style={styles.container}>
           <SafeAreaView style={styles.topSafeArea}>
-            <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+            <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
 
             {/* Top Page Header */}
             <View style={styles.fullPageHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.fullPageLevelTag}>
-                  Việc con #{activeSubTask?.orderNumber} • {currentProject.levelName}
+                  {currentProject.levelName} - Việc con #{activeSubTask?.orderNumber}
                 </Text>
                 <Text style={styles.fullPageTitle}>{activeSubTask?.title}</Text>
               </View>
@@ -836,283 +836,361 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                 </View>
               ) : null}
 
-              {/* PHẦN BÁO CÁO THỰC HIỆN: Chỉ hiển thị khi nhân viên đã nộp hoặc đã duyệt */}
-              {(activeSubTask?.status === 'SUBMITTED' || activeSubTask?.status === 'LEADER_APPROVED' || activeSubTask?.submissionNote) && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện Của Nhân Sự</Text>
-
-                  <View style={styles.reportContentBox}>
-                    <Text style={styles.reportAuthor}>
-                      Người thực hiện: <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{activeSubTask?.assignedToUserName || 'Chưa phân công'}</Text>
-                    </Text>
-                    <Text style={styles.reportText}>
-                      {activeSubTask?.submissionNote || 'Đã gửi báo cáo hoàn thành.'}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* PHẦN KẾT QUẢ & MINH CHỨNG ĐÍNH KÈM */}
-              {(Boolean(activeSubTask?.evidenceUrl) || (Boolean(activeSubTask?.evidenceImages) && (activeSubTask?.evidenceImages?.length ?? 0) > 0)) && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>2. Kết Quả & Minh Chứng Đính Kèm</Text>
-
-                  {/* Link file / Drive nếu có */}
-                  {Boolean(activeSubTask?.evidenceUrl) && (
-                    <View style={styles.evidenceItemCard}>
-                      <Text style={styles.evidenceItemLabel}>Tài liệu / Báo cáo chi tiết:</Text>
-                      <Text style={styles.evidenceLinkText} selectable>
-                        {activeSubTask?.evidenceUrl}
+              {/* ========================================================= */}
+              {/* CASE 1: ĐẦU VIỆC DO CHÍNH LEADER THỰC HIỆN                */}
+              {/* FORM BÁO CÁO ĐỒNG NHẤT 1:1 VỚI FORM NHÂN VIÊN             */}
+              {/* ========================================================= */}
+              {activeSubTask?.assignedToUserId === currentLeaderId ? (
+                <>
+                  {/* Approved Status Banner */}
+                  {activeSubTask?.status === 'LEADER_APPROVED' && (
+                    <View style={styles.approvedBanner}>
+                      <Text style={styles.approvedBannerText}>
+                        Leader đã duyệt Vòng 1. Kết quả đang chờ Ban Giám Đốc / Admin xét duyệt nâng cấp bậc tại kỳ họp cuối tháng.
                       </Text>
+                      {activeSubTask.leaderFeedback ? (
+                        <Text style={styles.approvedFeedbackText}>
+                          Ghi chú: "{activeSubTask.leaderFeedback}"
+                        </Text>
+                      ) : null}
                     </View>
                   )}
 
-                  {/* Ảnh chụp minh chứng nếu có */}
-                  {Boolean(activeSubTask?.evidenceImages && activeSubTask.evidenceImages.length > 0) && (
-                    <View style={styles.evidenceItemCard}>
-                      <Text style={styles.evidenceItemLabel}>Ảnh chụp minh chứng thực tế:</Text>
+                  {/* Rework Alert if any */}
+                  {activeSubTask?.leaderFeedback && activeSubTask.status !== 'LEADER_APPROVED' && (
+                    <View style={styles.reworkAlertBox}>
+                      <Text style={styles.reworkAlertTitle}>Yêu cầu bổ sung / sửa lại trước đó:</Text>
+                      <Text style={styles.reworkAlertDesc}>{activeSubTask.leaderFeedback}</Text>
+                    </View>
+                  )}
+
+                  {/* PHẦN 1: BÁO CÁO THỰC HIỆN */}
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện</Text>
+                    <Text style={styles.sectionBlockSub}>
+                      Nhập tóm tắt kết quả, số liệu đạt được và ghi chú gửi cấp trên
+                    </Text>
+
+                    <TextInput
+                      style={styles.formTextArea}
+                      placeholder="Nhập nội dung báo cáo kết quả thực hiện..."
+                      placeholderTextColor="#94A3B8"
+                      value={leaderSelfReportText}
+                      onChangeText={setLeaderSelfReportText}
+                      editable={activeSubTask?.status !== 'LEADER_APPROVED'}
+                      multiline
+                    />
+                  </View>
+
+                  {/* PHẦN 2: KẾT QUẢ & MINH CHỨNG ĐÍNH KÈM */}
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.sectionBlockTitle}>2. Kết Quả & Minh Chứng Đính Kèm</Text>
+                    <Text style={styles.sectionBlockSub}>
+                      Đính kèm link file báo cáo và ảnh chụp thực tế
+                    </Text>
+
+                    {/* Link Input */}
+                    <Text style={styles.inputLabel}>Link tài liệu / Báo cáo (Google Drive / Sheet):</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      placeholder="https://drive.google.com/..."
+                      placeholderTextColor="#94A3B8"
+                      value={leaderSelfEvidenceUrl}
+                      onChangeText={setLeaderSelfEvidenceUrl}
+                      editable={activeSubTask?.status !== 'LEADER_APPROVED'}
+                      autoCapitalize="none"
+                    />
+
+                    {/* Photos Attachment */}
+                    <View style={styles.photoSectionHeader}>
+                      <Text style={styles.inputLabel}>Ảnh chụp minh chứng thực tế ({leaderSelfImages.length}):</Text>
+                      {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                        <TouchableOpacity style={styles.addPhotoBtn} onPress={handlePickLeaderImage} activeOpacity={0.8}>
+                          <Text style={styles.addPhotoBtnText}>+ Thêm ảnh từ thư viện</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {leaderSelfImages.length > 0 ? (
                       <View style={styles.imageGrid}>
-                        {activeSubTask?.evidenceImages?.map((imgUri, idx) => (
-                          <TouchableOpacity
-                            key={idx}
-                            onPress={() => setPreviewImage(imgUri)}
-                            activeOpacity={0.8}
-                          >
-                            <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
-                          </TouchableOpacity>
+                        {leaderSelfImages.map((imgUri, idx) => (
+                          <View key={idx} style={styles.imageItemWrapper}>
+                            <TouchableOpacity onPress={() => setPreviewImage(imgUri)} activeOpacity={0.8}>
+                              <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
+                            </TouchableOpacity>
+                            {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                              <TouchableOpacity
+                                style={styles.removePhotoBtn}
+                                onPress={() => handleRemoveLeaderImage(idx)}
+                              >
+                                <Text style={styles.removePhotoBtnText}>Xóa</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.noImagesText}>Chưa có ảnh minh chứng nào được thêm.</Text>
+                    )}
+                  </View>
+
+                  {/* Submit Action Button */}
+                  {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                    <View style={styles.submitButtonBox}>
+                      <TouchableOpacity
+                        style={styles.submitMainBtn}
+                        onPress={handleLeaderSubmitReport}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.submitMainBtnText}>
+                          {activeSubTask?.status === 'SUBMITTED' ? 'CẬP NHẬT BÁO CÁO & MINH CHỨNG' : 'NỘP BÁO CÁO & MINH CHỨNG'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Tùy chọn chuyển giao cho thành viên khác */}
+                  {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                    <View style={[styles.sectionBlock, { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 16 }]}>
+                      <Text style={[styles.sectionBlockTitle, { fontSize: 13, color: '#64748B' }]}>
+                        Chuyển Giao Việc Cho Thành Viên Khác (Tùy chọn)
+                      </Text>
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm tên nhân sự để chuyển giao..."
+                        placeholderTextColor="#94A3B8"
+                        value={searchMemberQuery}
+                        onChangeText={setSearchMemberQuery}
+                      />
+                      <View style={styles.memberList}>
+                        {filteredTeamList
+                          .filter((m) => !m.isMe)
+                          .map((m) => (
+                            <TouchableOpacity
+                              key={m.id}
+                              style={styles.memberItem}
+                              onPress={() => handleConfirmAssign(m)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.memberName}>{m.name}</Text>
+                                <Text style={styles.memberRole}>{m.role}</Text>
+                              </View>
+                              <Text style={styles.tagBlue}>Giao việc</Text>
+                            </TouchableOpacity>
+                          ))}
                       </View>
                     </View>
                   )}
-                </View>
-              )}
+                </>
+              ) : (
+                /* ========================================================= */
+                /* CASE 2: ĐẦU VIỆC GIAO CHO NHÂN SỰ / CHƯA PHÂN CÔNG        */
+                /* ========================================================= */
+                <>
+                  {/* PHẦN BÁO CÁO THỰC HIỆN CỦA NHÂN SỰ (Nếu nhân sự đã nộp) */}
+                  {(activeSubTask?.status === 'SUBMITTED' || activeSubTask?.status === 'LEADER_APPROVED' || activeSubTask?.submissionNote) && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện Của Nhân Sự</Text>
 
-              {/* Leader Feedback Input & Review Actions */}
-              {activeSubTask?.status === 'SUBMITTED' && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>3. Đánh Giá & Nhận Xét Của Leader (Tùy chọn)</Text>
-                  <Text style={styles.sectionBlockSub}>
-                    Ghi nhận xét lưu vào hồ sơ hoặc nêu rõ điểm cần hoàn thiện nếu yêu cầu sửa lại
-                  </Text>
-                  <TextInput
-                    style={styles.formTextArea}
-                    placeholder="Nhập nhận xét đánh giá hoặc hướng dẫn sửa lại..."
-                    placeholderTextColor="#94A3B8"
-                    value={leaderFeedbackText}
-                    onChangeText={setLeaderFeedbackText}
-                    multiline
-                  />
-
-                  <View style={styles.reviewActionsBox}>
-                    <TouchableOpacity
-                      style={styles.approveMainBtn}
-                      onPress={() => handleApproveSubTask(activeSubTask.id)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.approveMainBtnText}>XÁC NHẬN DUYỆT VÒNG 1</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      onPress={() => handleRejectSubTask(activeSubTask.id)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.rejectBtnText}>YÊU CẦU BỔ SUNG / SỬA LẠI</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {activeSubTask?.status === 'LEADER_APPROVED' && (
-                <View style={styles.approvedNoticeBanner}>
-                  <Text style={styles.approvedNoticeText}>
-                    Leader đã hoàn tất duyệt Vòng 1. Kết quả được lưu vào hồ sơ để Ban Giám Đốc / Admin xét duyệt nâng cấp bậc chính thức tại kỳ họp cuối tháng.
-                  </Text>
-                  {activeSubTask.leaderFeedback ? (
-                    <Text style={styles.approvedFeedbackText}>
-                      Nhận xét của Leader: "{activeSubTask.leaderFeedback}"
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-
-              {/* PHẦN BÁO CÁO DÀNH CHO CHÍNH LEADER KHI TỰ NHẬN VIỆC */}
-              {activeSubTask?.assignedToUserId === currentLeaderId && activeSubTask?.status !== 'LEADER_APPROVED' && (
-                <View style={[styles.sectionBlock, styles.leaderReportBox]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text style={styles.sectionBlockTitle}>
-                      {activeSubTask?.status === 'SUBMITTED' ? 'Cập Nhật Báo Cáo Của Tôi (Leader)' : 'Nộp Báo Cáo Hoàn Thành Việc (Leader)'}
-                    </Text>
-                    <View style={styles.selfMiniBadge}>
-                      <Text style={styles.selfMiniBadgeText}>Chính tôi làm</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.sectionBlockSub}>
-                    Bạn đang trực tiếp phụ trách việc này. Hãy nhập kết quả và đính kèm minh chứng để hoàn thiện hồ sơ dự án.
-                  </Text>
-
-                  {/* Nội dung báo cáo */}
-                  <TextInput
-                    style={styles.formTextArea}
-                    placeholder="Nhập nội dung báo cáo kết quả thực hiện của Leader..."
-                    placeholderTextColor="#94A3B8"
-                    value={leaderSelfReportText}
-                    onChangeText={setLeaderSelfReportText}
-                    multiline
-                  />
-
-                  {/* Link Drive / Sheet */}
-                  <Text style={[styles.inputLabel, { marginTop: 12 }]}>Link tài liệu / Báo cáo chi tiết (Google Drive / Sheet):</Text>
-                  <TextInput
-                    style={styles.formTextInput}
-                    placeholder="https://drive.google.com/..."
-                    placeholderTextColor="#94A3B8"
-                    value={leaderSelfEvidenceUrl}
-                    onChangeText={setLeaderSelfEvidenceUrl}
-                    autoCapitalize="none"
-                  />
-
-                  {/* Hình ảnh minh chứng */}
-                  <View style={styles.photoSectionHeader}>
-                    <Text style={styles.inputLabel}>Ảnh chụp minh chứng ({leaderSelfImages.length}):</Text>
-                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handlePickLeaderImage} activeOpacity={0.8}>
-                      <Text style={styles.addPhotoBtnText}>+ Thêm ảnh từ thư viện</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {leaderSelfImages.length > 0 && (
-                    <View style={styles.imageGrid}>
-                      {leaderSelfImages.map((imgUri, idx) => (
-                        <View key={idx} style={styles.imageItemWrapper}>
-                          <TouchableOpacity onPress={() => setPreviewImage(imgUri)} activeOpacity={0.8}>
-                            <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.removePhotoBtn}
-                            onPress={() => handleRemoveLeaderImage(idx)}
-                          >
-                            <Text style={styles.removePhotoBtnText}>Xóa</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ))}
+                      <View style={styles.reportContentBox}>
+                        <Text style={styles.reportAuthor}>
+                          Người thực hiện: <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{activeSubTask?.assignedToUserName || 'Chưa phân công'}</Text>
+                        </Text>
+                        <Text style={styles.reportText}>
+                          {activeSubTask?.submissionNote || 'Đã gửi báo cáo hoàn thành.'}
+                        </Text>
+                      </View>
                     </View>
                   )}
 
-                  {/* Nút nộp báo cáo của Leader */}
-                  <TouchableOpacity
-                    style={styles.leaderSubmitReportBtn}
-                    onPress={handleLeaderSubmitReport}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.leaderSubmitReportBtnText}>
-                      {activeSubTask?.status === 'SUBMITTED' ? 'LƯU / CẬP NHẬT BÁO CÁO CỦA TÔI' : 'NỘP BÁO CÁO HOÀN THÀNH VIỆC'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                  {/* PHẦN KẾT QUẢ & MINH CHỨNG ĐÍNH KÈM */}
+                  {(Boolean(activeSubTask?.evidenceUrl) || (Boolean(activeSubTask?.evidenceImages) && (activeSubTask?.evidenceImages?.length ?? 0) > 0)) && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>2. Kết Quả & Minh Chứng Đính Kèm</Text>
 
-              {/* PHẦN PHÂN CÔNG NHÂN SỰ */}
-              {activeSubTask?.status !== 'SUBMITTED' && activeSubTask?.status !== 'LEADER_APPROVED' && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>
-                    {activeSubTask?.assignedToUserName ? `Đổi Người Thực Hiện (Hiện tại: ${activeSubTask.assignedToUserName}):` : 'Phân Công Người Thực Hiện:'}
-                  </Text>
+                      {/* Link file / Drive nếu có */}
+                      {Boolean(activeSubTask?.evidenceUrl) && (
+                        <View style={styles.evidenceItemCard}>
+                          <Text style={styles.evidenceItemLabel}>Tài liệu / Báo cáo chi tiết:</Text>
+                          <Text style={styles.evidenceLinkText} selectable>
+                            {activeSubTask?.evidenceUrl}
+                          </Text>
+                        </View>
+                      )}
 
-                  {/* Nút Giao Nhanh Cho Chính Leader */}
-                  <TouchableOpacity
-                    style={[
-                      styles.assignSelfCard,
-                      activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfCardActive,
-                    ]}
-                    onPress={() => handleConfirmAssign({ id: currentLeaderId, name: currentLeaderName, rawName: currentLeaderName })}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.assignSelfTitle, activeSubTask?.assignedToUserId === currentLeaderId && { color: '#0F766E' }]}>
-                        Giao việc này cho chính tôi (Leader)
-                      </Text>
-                      <Text style={styles.assignSelfDesc}>
-                        {activeSubTask?.assignedToUserId === currentLeaderId
-                          ? 'Bạn đang trực tiếp phụ trách việc con này'
-                          : 'Bấm để tự nhận việc và nộp kết quả nghiệm thu'}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.assignSelfBadge,
-                        activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.assignSelfBadgeText,
-                          activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeTextActive,
-                        ]}
-                      >
-                        {activeSubTask?.assignedToUserId === currentLeaderId ? 'ĐÃ CHỌN' : 'TỰ NHẬN'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  <Text style={styles.orDividerText}>— HOẶC CHỌN THÀNH VIÊN TRONG TEAM —</Text>
-
-                  {activeSubTask?.leaderFeedback ? (
-                    <View style={styles.reworkAlertBox}>
-                      <Text style={styles.reworkAlertTitle}>Yêu cầu sửa lại trước đó:</Text>
-                      <Text style={styles.reworkAlertDesc}>{activeSubTask.leaderFeedback}</Text>
-                    </View>
-                  ) : null}
-
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Tìm tên nhân sự..."
-                    placeholderTextColor="#94A3B8"
-                    value={searchMemberQuery}
-                    onChangeText={setSearchMemberQuery}
-                  />
-
-                  <View style={styles.memberList}>
-                    {filteredTeamList.map((m) => {
-                      const isCurrent = activeSubTask?.assignedToUserId === m.id;
-                      return (
-                        <TouchableOpacity
-                          key={m.id}
-                          style={[
-                            styles.memberItem,
-                            isCurrent && styles.memberItemActive,
-                            m.isMe && styles.memberItemSelf,
-                          ]}
-                          onPress={() => handleConfirmAssign(m)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Text
-                                style={[
-                                  styles.memberName,
-                                  isCurrent && { color: '#0F766E', fontWeight: 'bold' },
-                                  m.isMe && { fontWeight: 'bold' },
-                                ]}
+                      {/* Ảnh chụp minh chứng nếu có */}
+                      {Boolean(activeSubTask?.evidenceImages && activeSubTask.evidenceImages.length > 0) && (
+                        <View style={styles.evidenceItemCard}>
+                          <Text style={styles.evidenceItemLabel}>Ảnh chụp minh chứng thực tế:</Text>
+                          <View style={styles.imageGrid}>
+                            {activeSubTask?.evidenceImages?.map((imgUri, idx) => (
+                              <TouchableOpacity
+                                key={idx}
+                                onPress={() => setPreviewImage(imgUri)}
+                                activeOpacity={0.8}
                               >
-                                {m.name}
-                              </Text>
-                              {m.isMe && (
-                                <View style={styles.selfTagBadge}>
-                                  <Text style={styles.selfTagBadgeText}>Chính tôi</Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text style={styles.memberRole}>{m.role}</Text>
+                                <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
+                              </TouchableOpacity>
+                            ))}
                           </View>
-                          {isCurrent ? (
-                            <Text style={styles.selectedAssigneeText}>Đã chọn</Text>
-                          ) : null}
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Leader Feedback Input & Review Actions */}
+                  {activeSubTask?.status === 'SUBMITTED' && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>3. Đánh Giá & Nhận Xét Của Leader (Tùy chọn)</Text>
+                      <Text style={styles.sectionBlockSub}>
+                        Ghi nhận xét lưu vào hồ sơ hoặc nêu rõ điểm cần hoàn thiện nếu yêu cầu sửa lại
+                      </Text>
+                      <TextInput
+                        style={styles.formTextArea}
+                        placeholder="Nhập nhận xét đánh giá hoặc hướng dẫn sửa lại..."
+                        placeholderTextColor="#94A3B8"
+                        value={leaderFeedbackText}
+                        onChangeText={setLeaderFeedbackText}
+                        multiline
+                      />
+
+                      <View style={styles.reviewActionsBox}>
+                        <TouchableOpacity
+                          style={styles.approveMainBtn}
+                          onPress={() => handleApproveSubTask(activeSubTask.id)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.approveMainBtnText}>XÁC NHẬN DUYỆT VÒNG 1</Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
+
+                        <TouchableOpacity
+                          style={styles.rejectBtn}
+                          onPress={() => handleRejectSubTask(activeSubTask.id)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.rejectBtnText}>YÊU CẦU BỔ SUNG / SỬA LẠI</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  {activeSubTask?.status === 'LEADER_APPROVED' && (
+                    <View style={styles.approvedNoticeBanner}>
+                      <Text style={styles.approvedNoticeText}>
+                        Leader đã hoàn tất duyệt Vòng 1. Kết quả được lưu vào hồ sơ để Ban Giám Đốc / Admin xét duyệt nâng cấp bậc chính thức tại kỳ họp cuối tháng.
+                      </Text>
+                      {activeSubTask.leaderFeedback ? (
+                        <Text style={styles.approvedFeedbackText}>
+                          Nhận xét của Leader: "{activeSubTask.leaderFeedback}"
+                        </Text>
+                      ) : null}
+                    </View>
+                  )}
+
+                  {/* PHẦN PHÂN CÔNG NHÂN SỰ (Nếu chưa nộp hoặc chưa duyệt) */}
+                  {activeSubTask?.status !== 'SUBMITTED' && activeSubTask?.status !== 'LEADER_APPROVED' && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>
+                        {activeSubTask?.assignedToUserName ? `Đổi Người Thực Hiện (Hiện tại: ${activeSubTask.assignedToUserName}):` : 'Phân Công Người Thực Hiện:'}
+                      </Text>
+
+                      {/* Nút Giao Nhanh Cho Chính Leader */}
+                      <TouchableOpacity
+                        style={[
+                          styles.assignSelfCard,
+                          activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfCardActive,
+                        ]}
+                        onPress={() => handleConfirmAssign({ id: currentLeaderId, name: currentLeaderName, rawName: currentLeaderName })}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.assignSelfTitle, activeSubTask?.assignedToUserId === currentLeaderId && { color: '#0F766E' }]}>
+                            Giao việc này cho chính tôi (Leader)
+                          </Text>
+                          <Text style={styles.assignSelfDesc}>
+                            {activeSubTask?.assignedToUserId === currentLeaderId
+                              ? 'Bạn đang trực tiếp phụ trách việc con này'
+                              : 'Bấm để tự nhận việc và mở form nộp báo cáo'}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.assignSelfBadge,
+                            activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.assignSelfBadgeText,
+                              activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeTextActive,
+                            ]}
+                          >
+                            {activeSubTask?.assignedToUserId === currentLeaderId ? 'ĐÃ CHỌN' : 'TỰ NHẬN'}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <Text style={styles.orDividerText}>— HOẶC CHỌN THÀNH VIÊN TRONG TEAM —</Text>
+
+                      {activeSubTask?.leaderFeedback ? (
+                        <View style={styles.reworkAlertBox}>
+                          <Text style={styles.reworkAlertTitle}>Yêu cầu sửa lại trước đó:</Text>
+                          <Text style={styles.reworkAlertDesc}>{activeSubTask.leaderFeedback}</Text>
+                        </View>
+                      ) : null}
+
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm tên nhân sự..."
+                        placeholderTextColor="#94A3B8"
+                        value={searchMemberQuery}
+                        onChangeText={setSearchMemberQuery}
+                      />
+
+                      <View style={styles.memberList}>
+                        {filteredTeamList.map((m) => {
+                          const isCurrent = activeSubTask?.assignedToUserId === m.id;
+                          return (
+                            <TouchableOpacity
+                              key={m.id}
+                              style={[
+                                styles.memberItem,
+                                isCurrent && styles.memberItemActive,
+                                m.isMe && styles.memberItemSelf,
+                              ]}
+                              onPress={() => handleConfirmAssign(m)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <Text
+                                    style={[
+                                      styles.memberName,
+                                      isCurrent && { color: '#0F766E', fontWeight: 'bold' },
+                                      m.isMe && { fontWeight: 'bold' },
+                                    ]}
+                                  >
+                                    {m.name}
+                                  </Text>
+                                  {m.isMe && (
+                                    <View style={styles.selfTagBadge}>
+                                      <Text style={styles.selfTagBadgeText}>Chính tôi</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text style={styles.memberRole}>{m.role}</Text>
+                              </View>
+                              {isCurrent ? (
+                                <Text style={styles.selectedAssigneeText}>Đã chọn</Text>
+                              ) : null}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+                </>
               )}
             </ScrollView>
           </KeyboardAvoidingView>
@@ -2217,31 +2295,88 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  /* Leader Self-Reporting Form Styles */
-  leaderReportBox: {
-    backgroundColor: '#F0FDFA',
-    borderRadius: 12,
+  /* Form & Submission Styles matching Employee screen */
+  approvedBanner: {
+    backgroundColor: '#ECFDF5',
     padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#99F6E4',
-  },
-  leaderSubmitReportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0F766E',
-    paddingVertical: 12,
     borderRadius: 10,
-    marginTop: 14,
-    shadowColor: '#0F766E',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 2,
+    marginBottom: 16,
   },
-  leaderSubmitReportBtnText: {
+  approvedBannerText: {
+    fontSize: 14,
+    color: '#065F46',
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  inputLabel: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  formTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    color: '#0F172A',
+    marginBottom: 14,
+  },
+  photoSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addPhotoBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  addPhotoBtnText: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: 'bold',
+  },
+  imageItemWrapper: {
+    position: 'relative',
+  },
+  removePhotoBtn: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  removePhotoBtnText: {
     color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  noImagesText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  submitButtonBox: {
+    marginVertical: 16,
+    paddingBottom: 20,
+  },
+  submitMainBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  submitMainBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
