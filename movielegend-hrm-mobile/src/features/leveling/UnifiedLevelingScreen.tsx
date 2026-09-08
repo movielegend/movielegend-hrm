@@ -459,8 +459,9 @@ export const UnifiedLevelingScreen: React.FC = () => {
               {leaderSubTab === 'members_list' && (
                 <View style={styles.membersList}>
                   {departmentMembers.map((m, idx) => {
-                    const memberLevel = m.profile?.currentLevelNumber || 1;
-                    const memberName = m.profile?.fullName || m.userCode;
+                    const memberLevel = m.currentLevelNumber || m.profile?.currentLevelNumber || 1;
+                    const memberName = m.fullName || m.profile?.fullName || m.userCode;
+                    const avatarUri = m.avatarUrl || m.profile?.avatarUrl;
 
                     return (
                       <TouchableOpacity
@@ -478,8 +479,8 @@ export const UnifiedLevelingScreen: React.FC = () => {
                         <View style={styles.memberInfoRow}>
                           <Image
                             source={
-                              m.profile?.avatarUrl
-                                ? { uri: m.profile.avatarUrl }
+                              avatarUri
+                                ? { uri: avatarUri }
                                 : { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
                             }
                             style={[

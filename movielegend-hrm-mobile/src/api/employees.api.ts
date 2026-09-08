@@ -65,6 +65,14 @@ export async function getScopedEmployees(filters: ScopedEmployeeFilters): Promis
   return unwrapData(response);
 }
 
+export async function fetchEmployees(filters: ScopedEmployeeFilters): Promise<{ data: ScopedEmployee[]; pagination: any }> {
+  const result = await getScopedEmployees(filters);
+  return {
+    data: result.items || [],
+    pagination: result.pagination,
+  };
+}
+
 function cleanPaginationFallback(filters: EmployeeListFilters): { page?: number; limit?: number } {
   return {
     ...(typeof filters.page === 'number' ? { page: filters.page } : {}),

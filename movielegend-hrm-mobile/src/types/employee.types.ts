@@ -273,6 +273,13 @@ export interface ScopedEmployee {
   accountStatus?: AccountStatus;
   isActive: boolean;
   isRewardVaultEnabled?: boolean;
+  currentLevelNumber?: number;
+  profile?: {
+    fullName?: string | null;
+    avatarUrl?: string | null;
+    employmentStatus?: string | null;
+    currentLevelNumber?: number;
+  } | null;
 }
 
 export interface ScopedEmployeeFilters {
