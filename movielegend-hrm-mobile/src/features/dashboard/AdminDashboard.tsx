@@ -170,9 +170,9 @@ export function AdminDashboard() {
             />
             <GridItem
               icon="gift-outline"
-              title="Ví Thưởng Tết"
+              title="Ví Thưởng"
               color="#059669"
-              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'TẾT'}
+              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'VÍ'}
               badgeColor={pendingAdminCount > 0 ? '#EF4444' : '#D97706'}
               onPress={() => router.push('/admin/tet-wallet' as any)}
             />

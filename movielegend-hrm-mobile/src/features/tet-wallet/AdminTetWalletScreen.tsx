@@ -320,8 +320,8 @@ export function AdminTetWalletScreen() {
         >
           {/* Header */}
           <PageHeader
-            title="Ví Thưởng Tết Cuối Năm"
-            subtitle="Quản lý ngân sách, cấp điểm & tất toán thưởng Tết"
+            title="Ví Thưởng"
+            subtitle="Quản lý ngân sách, cấp điểm & tất toán thưởng"
             showBack={false}
             right={
               <View style={styles.headerIconBox}>
@@ -708,7 +708,7 @@ export function AdminTetWalletScreen() {
                     <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
                   </View>
                   <View>
-                    <Text style={styles.modalTitle}>Chi tiết Ví Thưởng Tết</Text>
+                    <Text style={styles.modalTitle}>Chi tiết Ví Thưởng</Text>
                     <Text style={styles.modalSubtitle}>{selectedEmployee.userCode}</Text>
                   </View>
                 </View>
@@ -743,7 +743,7 @@ export function AdminTetWalletScreen() {
               <View style={styles.vaultPointSummaryCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View>
-                    <Text style={styles.vaultPointSummaryLabel}>Tổng điểm Ví Thưởng Tết năm {new Date().getFullYear()}:</Text>
+                    <Text style={styles.vaultPointSummaryLabel}>Tổng điểm Ví Thưởng năm {new Date().getFullYear()}:</Text>
                     <Text style={styles.vaultPointSummaryValue}>
                       {(
                         (selectedEmployee.retentionVaults?.[0]?.grantedPoints || 0) +
@@ -778,11 +778,11 @@ export function AdminTetWalletScreen() {
               {/* Vault Permission Switch Card */}
               <View style={styles.modalPermissionBox}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={styles.modalPermTitle}>Đặc quyền Ví Thưởng Tết</Text>
+                  <Text style={styles.modalPermTitle}>Đặc quyền Ví Thưởng</Text>
                   <Text style={styles.modalPermDesc}>
                     {selectedEmployee.isRewardVaultEnabled
-                      ? 'Nhân viên này đang ĐƯỢC PHÉP tham gia tích lũy Ví Thưởng Tết.'
-                      : 'Nhân sự này CHƯA ĐƯỢC CẤP quyền sử dụng Ví Thưởng Tết.'}
+                      ? 'Nhân viên này đang ĐƯỢC PHÉP tham gia tích lũy Ví Thưởng.'
+                      : 'Nhân sự này CHƯA ĐƯỢC CẤP quyền sử dụng Ví Thưởng.'}
                   </Text>
                 </View>
                 {togglingEmpId === selectedEmployee.id ? (

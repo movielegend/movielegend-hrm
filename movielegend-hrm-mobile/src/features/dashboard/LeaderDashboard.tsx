@@ -217,9 +217,9 @@ export function LeaderDashboard() {
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Thưởng Tết</Text>
+                  <Text style={styles.vaultBannerTitle}>Ví Thưởng</Text>
                   <View style={styles.vipBadge}>
-                    <Text style={styles.vipBadgeText}>TẾT</Text>
+                    <Text style={styles.vipBadgeText}>VIP</Text>
                   </View>
                 </View>
                 <Text style={styles.vaultBannerPoints}>
@@ -243,16 +243,16 @@ export function LeaderDashboard() {
             <GridItem icon="briefcase-outline" title="Dự án" color="#3B82F6" onPress={() => router.push('/leader/level-projects' as any)} />
             <GridItem
               icon="gift-outline"
-              title="Ví Thưởng Tết"
+              title="Ví Thưởng"
               color="#059669"
-              badge={isVaultEnabled ? 'TẾT' : undefined}
+              badge={isVaultEnabled ? 'VÍ' : undefined}
               badgeColor="#D97706"
               onPress={() => router.push('/leader/vault' as any)}
             />
             {isAccountantLeader && (
               <GridItem
                 icon="cash-check"
-                title="Chi trả Tết"
+                title="Chi trả thưởng"
                 color="#059669"
                 badge={pendingAccCount > 0 ? `${pendingAccCount}` : undefined}
                 badgeColor="#EF4444"
