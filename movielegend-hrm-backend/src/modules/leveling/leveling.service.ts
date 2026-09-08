@@ -1085,27 +1085,11 @@ export class LevelingService {
         return this.departmentProjects.get(lower)!;
       }
     }
-    return this.projects;
+    return [];
   }
 
   public getProjects(departmentId?: string, departmentName?: string): LevelDepartmentProjectItem[] {
-    const list = this.findProjectList(departmentId, departmentName);
-    if (list === this.projects && departmentName && departmentName !== 'Phòng Livestream TikTok') {
-      return Array.from({ length: 8 }, (_, i) => {
-        const lvlNum = i + 1;
-        return {
-          levelNumber: lvlNum,
-          levelName: `Level ${lvlNum}`,
-          departmentName: departmentName,
-          projectName: `Dự Án Level ${lvlNum}`,
-          totalSubTasks: 0,
-          completedSubTasks: 0,
-          rewardItem: '',
-          subTasks: [],
-        };
-      });
-    }
-    return list;
+    return this.findProjectList(departmentId, departmentName);
   }
 
   public getProjectByLevel(

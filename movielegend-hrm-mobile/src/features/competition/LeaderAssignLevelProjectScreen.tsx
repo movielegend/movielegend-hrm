@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -44,8 +44,22 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     getPendingAccessRequests,
   } = useLevelProjects(leaderDeptId, leaderDeptName);
 
-  const [selectedLevelNumber, setSelectedLevelNumber] = useState<number>(1);
-  const currentProject: LevelDepartmentProject | undefined = getProjectByLevel(selectedLevelNumber);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+
+  // Auto-select first project when projects load or change
+  useEffect(() => {
+    if (projects.length > 0) {
+      if (!selectedProjectId || !projects.some((p) => p.id === selectedProjectId)) {
+        setSelectedProjectId(projects[0].id);
+      }
+    }
+  }, [projects, selectedProjectId]);
+
+  const currentProject = useMemo(() => {
+    return projects.find((p) => p.id === selectedProjectId) || projects[0];
+  }, [projects, selectedProjectId]);
+
+  const selectedLevelNumber = currentProject?.levelNumber || 1;
 
   // Quick Filter State
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SUBMITTED' | 'ASSIGNED' | 'LEADER_APPROVED' | 'UNASSIGNED'>('ALL');
@@ -276,13 +290,25 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     Alert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.levelName} lên Ban Giám Đốc.`);
   };
 
-  if (!currentProject) {
+  if (!currentProject || projects.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={{ padding: 20 }}>
-          <Text style={{ fontSize: 16, color: '#64748B' }}>Không tìm thấy dự án cấp bậc.</Text>
+      <View style={styles.container}>
+        <SafeAreaView style={styles.topSafeArea}>
+          <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
+          <View style={styles.topHeader}>
+            <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
+          </View>
+        </SafeAreaView>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Ionicons name="folder-open-outline" size={60} color="#94A3B8" />
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginTop: 14 }}>
+            Chưa có dự án nào
+          </Text>
+          <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+            Phòng ban {leaderDeptName ? `"${leaderDeptName}"` : 'của bạn'} hiện chưa có dự án nào được giao từ Admin. Khi Admin tạo dự án và các đầu việc con cho phòng ban, dự án sẽ tự động xuất hiện tại đây để bạn phân bổ cho nhân sự.
+          </Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -328,7 +354,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
         <View style={styles.levelSelectorContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelSelectorScroll}>
           {projects.map((proj) => {
-            const isSelected = proj.levelNumber === selectedLevelNumber;
+            const isSelected = proj.id === currentProject?.id;
             const projPendingSubTasks = proj.subTasks.filter((t) => t.status === 'SUBMITTED').length;
             const projPendingRequests = getPendingAccessRequests(leaderDeptId, proj.levelNumber).length;
             const projTotalBadge = projPendingSubTasks + projPendingRequests;
@@ -338,7 +364,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                 key={proj.id}
                 style={[styles.levelItem, isSelected && styles.levelItemActive]}
                 onPress={() => {
-                  setSelectedLevelNumber(proj.levelNumber);
+                  setSelectedProjectId(proj.id);
                   setStatusFilter('ALL');
                 }}
                 activeOpacity={0.7}

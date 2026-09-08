@@ -72,19 +72,8 @@ export const isProjectConfigured = (project?: LevelDepartmentProject | null): bo
 const STORAGE_KEY = 'ML_LEVEL_DEPARTMENT_PROJECTS_V6';
 const REQUESTS_STORAGE_KEY = 'ML_PROJECT_ACCESS_REQUESTS_V2';
 
-// Clean Level projects initial template
-const INITIAL_PROJECTS: LevelDepartmentProject[] = Array.from({ length: 5 }, (_, i) => ({
-  id: `proj-lvl-${i + 1}`,
-  levelNumber: i + 1,
-  levelName: `Level ${i + 1}`,
-  targetTierTitle: `Level ${i + 1} lên Level ${i + 2}`,
-  departmentName: '',
-  projectName: `Dự Án Level ${i + 1}`,
-  adminNote: '',
-  rewardItem: '',
-  status: 'IN_PROGRESS',
-  subTasks: [],
-}));
+// Initial empty projects list
+const INITIAL_PROJECTS: LevelDepartmentProject[] = [];
 
 // Singleton Store with In-Memory State & PubSub
 class LevelProjectsStore {
@@ -105,10 +94,10 @@ class LevelProjectsStore {
       if (stored) {
         this.projects = JSON.parse(stored);
       } else {
-        await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(INITIAL_PROJECTS));
+        this.projects = [];
       }
     } catch {
-      this.projects = INITIAL_PROJECTS;
+      this.projects = [];
     }
 
     try {
@@ -133,14 +122,14 @@ class LevelProjectsStore {
       this.currentDepartmentName = departmentName || this.currentDepartmentName;
 
       const remoteData = await levelingApi.getProjects(this.currentDepartmentId, this.currentDepartmentName);
-      if (Array.isArray(remoteData) && remoteData.length > 0) {
-        this.projects = remoteData.map((rp: any) => ({
-          id: rp.id || `proj-lvl-${rp.levelNumber}`,
-          levelNumber: Number(rp.levelNumber),
-          levelName: rp.levelName || `Level ${rp.levelNumber}`,
-          targetTierTitle: rp.targetTierTitle || `Level ${rp.levelNumber} lên Level ${Number(rp.levelNumber) + 1}`,
+      if (Array.isArray(remoteData)) {
+        this.projects = remoteData.map((rp: any, idx: number) => ({
+          id: rp.id || `proj-${idx + 1}`,
+          levelNumber: Number(rp.levelNumber || idx + 1),
+          levelName: rp.projectName || `Dự án ${idx + 1}`,
+          targetTierTitle: rp.projectName || `Dự án ${idx + 1}`,
           departmentName: rp.departmentName || this.currentDepartmentName || 'Phòng ban',
-          projectName: rp.projectName || `Dự Án Level ${rp.levelNumber}`,
+          projectName: rp.projectName || `Dự án ${idx + 1}`,
           adminNote: rp.adminNote || '',
           rewardItem: rp.rewardItem || '',
           rewardType: rp.rewardType,
@@ -148,10 +137,10 @@ class LevelProjectsStore {
           physicalItems: rp.physicalItems,
           physicalItemName: rp.physicalItemName,
           status: rp.status || 'IN_PROGRESS',
-          subTasks: (rp.subTasks || []).map((st: any, idx: number) => ({
-            id: st.id || `st-${rp.levelNumber}-${idx + 1}`,
-            orderNumber: st.orderNumber || idx + 1,
-            title: st.title || `Công việc con ${idx + 1}`,
+          subTasks: (rp.subTasks || []).map((st: any, sIdx: number) => ({
+            id: st.id || `st-${idx + 1}-${sIdx + 1}`,
+            orderNumber: st.orderNumber || sIdx + 1,
+            title: st.title || `Công việc con ${sIdx + 1}`,
             description: st.description || '',
             targetKpi: st.targetKpi || '',
             assignedToUserId: st.assignedUserId || st.assignedToUserId,
