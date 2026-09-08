@@ -254,9 +254,9 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
                 </Text>
               </View>
 
-              <View style={styles.criteriaItem}>
+              <View style={[styles.criteriaItem, { alignItems: 'flex-start' }]}>
                 <Text style={styles.criteriaLabel}>• Dự án thăng cấp:</Text>
-                <Text style={styles.criteriaValue}>
+                <Text style={[styles.criteriaValue, { flex: 1, textAlign: 'right', marginLeft: 8 }]}>
                   Hoàn thành việc con dự án {nextLevel.displayName}
                 </Text>
               </View>
@@ -274,31 +274,29 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
             </View>
           </View>
 
-          <View style={{ height: 30 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* BOTTOM ACTION BAR */}
-        <SafeAreaView style={styles.bottomBar}>
+        {/* FULL-WIDTH BOTTOM ACTION BAR */}
+        <SafeAreaView style={[styles.bottomBar, { backgroundColor: isEligibleToPromote ? '#059669' : '#0F172A' }]}>
           {isEligibleToPromote ? (
             <TouchableOpacity
-              style={[styles.mainActionBtn, { backgroundColor: '#059669' }]}
+              style={styles.fullBottomActionBtn}
               onPress={() => {
                 onClose();
                 if (onOpenSubmitModal) onOpenSubmitModal();
               }}
               activeOpacity={0.85}
             >
-              <Ionicons name="paper-plane" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.mainActionBtnText}>ĐỦ ĐIỀU KIỆN • NỘP HỒ SƠ XÉT CẤP NGAY</Text>
+              <Text style={styles.fullBottomActionBtnText}>ĐỦ ĐIỀU KIỆN • NỘP HỒ SƠ XÉT CẤP NGAY</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.mainActionBtn, { backgroundColor: '#0F172A' }]}
+              style={styles.fullBottomActionBtn}
               onPress={onClose}
               activeOpacity={0.85}
             >
-              <Ionicons name="flash" size={16} color="#FBBF24" style={{ marginRight: 6 }} />
-              <Text style={styles.mainActionBtnText}>TÔI ĐÃ HIỂU • QUYẾT TÂM CHINH PHỤC</Text>
+              <Text style={styles.fullBottomActionBtnText}>TÔI ĐÃ HIỂU • QUYẾT TÂM CHINH PHỤC</Text>
             </TouchableOpacity>
           )}
         </SafeAreaView>
@@ -621,24 +619,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   bottomBar: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: '#0F172A',
   },
-  mainActionBtn: {
-    flexDirection: 'row',
+  fullBottomActionBtn: {
+    width: '100%',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
   },
-  mainActionBtnText: {
+  fullBottomActionBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
 });
