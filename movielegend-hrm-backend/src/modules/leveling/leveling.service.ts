@@ -1002,7 +1002,7 @@ export class LevelingService {
           id: subTaskId,
           orderNumber: idx + 1,
           title: cleanTitle,
-          targetKpi: 'Nghiệm thu đạt chuẩn 100%',
+          targetKpi: '',
           status: existingSub?.status || 'PENDING',
           assignedUserId: existingSub?.assignedUserId,
           assignedUserName: existingSub?.assignedUserName,

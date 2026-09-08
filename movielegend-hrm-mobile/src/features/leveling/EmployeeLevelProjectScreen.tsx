@@ -317,16 +317,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
               automaticallyAdjustKeyboardInsets={true}
               keyboardDismissMode="interactive"
             >
-              {/* KPI Requirements Card */}
-              {activeItem?.subTask.targetKpi ? (
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiCardLabel}>Chỉ tiêu KPI yêu cầu:</Text>
-                  <Text style={styles.kpiCardValue}>{activeItem.subTask.targetKpi}</Text>
-                  {activeItem.subTask.description ? (
-                    <Text style={styles.kpiCardDesc}>{activeItem.subTask.description}</Text>
-                  ) : null}
-                </View>
-              ) : null}
+
 
               {/* Approved Status Banner */}
               {activeItem?.subTask.status === 'LEADER_APPROVED' && (

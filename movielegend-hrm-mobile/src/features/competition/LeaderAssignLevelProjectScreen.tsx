@@ -825,16 +825,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
               automaticallyAdjustKeyboardInsets={true}
               keyboardDismissMode="interactive"
             >
-              {/* KPI Requirements Banner */}
-              {activeSubTask?.targetKpi ? (
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiCardLabel}>Chỉ tiêu KPI yêu cầu:</Text>
-                  <Text style={styles.kpiCardValue}>{activeSubTask.targetKpi}</Text>
-                  {activeSubTask.description ? (
-                    <Text style={styles.kpiCardDesc}>{activeSubTask.description}</Text>
-                  ) : null}
-                </View>
-              ) : null}
+
 
               {/* ========================================================= */}
               {/* CASE 1: ĐẦU VIỆC DO CHÍNH LEADER THỰC HIỆN                */}
