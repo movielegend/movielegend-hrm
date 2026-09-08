@@ -225,6 +225,49 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     );
   };
 
+  const handleAddLevel = () => {
+    setDeptLevelConfigs((prev) => {
+      const nextLevelNumber = (prev.length > 0 ? Math.max(...prev.map((c) => c.levelNumber)) : 0) + 1;
+      const defaultName = LEVEL_DEFAULT_NAMES[nextLevelNumber] || `Level ${nextLevelNumber}`;
+      const colorHex = LEVEL_COLORS[nextLevelNumber] || (nextLevelNumber > 8 ? '#D4AF37' : '#2196F3');
+
+      const newLevel: DepartmentLevelItem = {
+        levelNumber: nextLevelNumber,
+        levelName: `Level ${nextLevelNumber}`,
+        defaultName,
+        customLevelName: defaultName,
+        displayName: defaultName,
+        badgeTitle: defaultName,
+        colorHex,
+        minTenureMonths: nextLevelNumber * 3,
+        targetShiftsCount: nextLevelNumber * 30,
+      };
+
+      return [...prev, newLevel];
+    });
+  };
+
+  const handleRemoveLevel = (levelNumber: number) => {
+    if (levelNumber <= 1) {
+      Alert.alert('Không thể xóa', 'Hệ thống cần tối thiểu Level 1.');
+      return;
+    }
+    Alert.alert(
+      'Xác nhận xóa',
+      `Bạn có chắc chắn muốn xóa cấu hình Level ${levelNumber} khỏi phòng ban này?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            setDeptLevelConfigs((prev) => prev.filter((c) => c.levelNumber !== levelNumber));
+          },
+        },
+      ],
+    );
+  };
+
   const handleSaveConfigs = async () => {
     if (!activeDeptId) return;
     try {
@@ -815,23 +858,34 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               <View style={styles.configHeaderCard}>
                 <Ionicons name="options-outline" size={24} color="#2563EB" />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.configHeaderTitle}>Cấu Hình Tên 8 Level ({activeDeptName})</Text>
+                  <Text style={styles.configHeaderTitle}>Cấu Hình Danh Xưng Cấp Bậc ({activeDeptName})</Text>
                   <Text style={styles.configHeaderSubtitle}>
-                    Gõ tên danh xưng riêng cho từng Level của phòng ban này và bấm Lưu.
+                    Tùy chỉnh tên danh xưng, thêm cấp bậc mới hoặc xóa cấp bậc cho phòng ban này.
                   </Text>
                 </View>
               </View>
 
               {deptLevelConfigs.map((lvl) => {
-                const color = LEVEL_COLORS[lvl.levelNumber] || '#2196F3';
+                const color = LEVEL_COLORS[lvl.levelNumber] || (lvl.levelNumber > 8 ? '#D4AF37' : '#2196F3');
 
                 return (
                   <View key={lvl.levelNumber} style={styles.configRowCard}>
                     <View style={styles.configRowHeader}>
-                      <View style={[styles.configDot, { backgroundColor: color }]} />
-                      <Text style={[styles.configLevelTitle, { color }]}>
-                        Level {lvl.levelNumber} (Mặc định: {lvl.defaultName})
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <View style={[styles.configDot, { backgroundColor: color }]} />
+                        <Text style={[styles.configLevelTitle, { color }]}>
+                          Level {lvl.levelNumber} (Mặc định: {lvl.defaultName || `Cấp ${lvl.levelNumber}`})
+                        </Text>
+                      </View>
+                      {deptLevelConfigs.length > 1 && lvl.levelNumber > 1 && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveLevel(lvl.levelNumber)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          style={{ padding: 4 }}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                     <TextInput
                       style={styles.configInput}
@@ -843,6 +897,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                   </View>
                 );
               })}
+
+              {/* Add Level Button for Admin */}
+              <TouchableOpacity
+                style={styles.addLevelBtn}
+                onPress={handleAddLevel}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add-circle" size={22} color="#2563EB" />
+                <Text style={styles.addLevelBtnText}>
+                  + Thêm Cấp Bậc Mới (Level {deptLevelConfigs.length + 1})
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.saveConfigBtn}
@@ -1459,6 +1525,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0F172A',
     backgroundColor: '#F8FAFC',
+  },
+  addLevelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
+    borderStyle: 'dashed',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  addLevelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2563EB',
   },
   saveConfigBtn: {
     flexDirection: 'row',
