@@ -27,7 +27,6 @@ import {
 } from '../../api/leveling.api';
 import { LevelNameBadge, LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { EmployeeLevelProgressCard } from './EmployeeLevelProgressCard';
-import { EvidenceSubmissionModal } from './EvidenceSubmissionModal';
 import { LeaderPromotionReviewModal } from './LeaderPromotionReviewModal';
 import { DirectLevelChangeModal } from './DirectLevelChangeModal';
 
@@ -86,7 +85,6 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Modals state
-  const [isSubmitModalVisible, setIsSubmitModalVisible] = useState(false);
   const [selectedReviewRequest, setSelectedReviewRequest] =
     useState<LevelPromotionRequestItem | null>(null);
   const [directChangeUser, setDirectChangeUser] = useState<{
@@ -429,7 +427,19 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               {progressData && (
                 <EmployeeLevelProgressCard
                   progress={progressData}
-                  onOpenSubmitModal={() => setIsSubmitModalVisible(true)}
+                  onOpenSubmitModal={() =>
+                    router.push({
+                      pathname: '/employee/leveling/submit-promotion',
+                      params: {
+                        fromLevelNumber: progressData.currentLevel.levelNumber.toString(),
+                        fromLevelName: progressData.currentLevel.displayName,
+                        toLevelNumber: progressData.nextLevel.levelNumber.toString(),
+                        toLevelName: progressData.nextLevel.displayName,
+                        departmentId: activeDeptId,
+                        departmentName: activeDeptName,
+                      },
+                    } as any)
+                  }
                 />
               )}
 
@@ -770,19 +780,6 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       )}
 
       {/* Modals */}
-      {progressData && (
-        <EvidenceSubmissionModal
-          visible={isSubmitModalVisible}
-          currentLevelNumber={progressData.currentLevel.levelNumber}
-          currentLevelName={progressData.currentLevel.displayName}
-          nextLevelNumber={progressData.nextLevel.levelNumber}
-          nextLevelName={progressData.nextLevel.displayName}
-          departmentId={activeDeptId}
-          onClose={() => setIsSubmitModalVisible(false)}
-          onSuccess={loadData}
-        />
-      )}
-
       <LeaderPromotionReviewModal
         visible={!!selectedReviewRequest}
         request={selectedReviewRequest}
