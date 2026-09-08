@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
@@ -10,6 +10,7 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { getMyVault } from '../../api/employees.api';
+import { getNextVaultMilestone } from '../vault/vault-utils';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
 import { ContourHeroPattern } from './components/ContourHeroPattern';
@@ -63,6 +64,10 @@ export function HRDashboard() {
   const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
   const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
   const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
+
+  const vaultMilestone = useMemo(() => {
+    return getNextVaultMilestone(myVault, new Date());
+  }, [myVault]);
 
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
@@ -182,33 +187,80 @@ export function HRDashboard() {
           </View>
         </Pressable>
 
-        {/* Banner Ví Thưởng Tết & Nhân Tài (Hiển thị nổi bật khi được mở quyền) */}
+        {/* Banner Ví Thưởng & Vạch thời gian đếm ngược đến hạn rút (Hiển thị nổi bật khi được trao điểm/mở quyền) */}
         {isVaultEnabled && (
           <Pressable
-            style={styles.vaultBanner}
+            style={styles.vaultAppleCard}
             onPress={() => router.push('/employee/vault' as any)}
           >
-            <View style={styles.vaultBannerLeft}>
-              <View style={styles.vaultBannerIconWrap}>
-                <MaterialCommunityIcons name="gift" size={24} color="#D97706" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Thưởng</Text>
-                  <View style={styles.vipBadge}>
-                    <Text style={styles.vipBadgeText}>VIP</Text>
-                  </View>
+            {/* Top Section */}
+            <View style={styles.vaultAppleHeaderRow}>
+              <View style={styles.vaultAppleLeft}>
+                <View style={styles.vaultAppleIconCircle}>
+                  <MaterialCommunityIcons name="gift" size={22} color="#D97706" />
                 </View>
-                <Text style={styles.vaultBannerPoints}>
-                  Khả dụng: <Text style={styles.vaultBannerPointsBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                  {totalGrantedPoints > 0 ? ` • Quỹ tích lũy: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
-                </Text>
+                <View style={styles.vaultAppleTitleBlock}>
+                  <View style={styles.vaultAppleBadgeRow}>
+                    <Text style={styles.vaultAppleTitle} numberOfLines={1}>
+                      Ví Thưởng Tích Lũy
+                    </Text>
+                    <View style={styles.vaultAppleVipBadge}>
+                      <Text style={styles.vaultAppleVipBadgeText}>VIP</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.vaultAppleSubtitle}>
+                    Khả dụng: <Text style={styles.vaultAppleSubtitleBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                    {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.vaultAppleActionBtn}>
+                <Text style={styles.vaultAppleActionText}>Mở ví</Text>
+                <MaterialCommunityIcons name="chevron-right" size={14} color="#92400E" />
               </View>
             </View>
-            <View style={styles.vaultBannerRight}>
-              <Text style={styles.vaultBannerActionText}>Mở ví</Text>
-              <MaterialCommunityIcons name="chevron-right" size={18} color="#D97706" />
-            </View>
+
+            {/* Vạch thời gian & Đếm ngược đến hạn rút */}
+            {vaultMilestone ? (
+              <View style={styles.vaultAppleProgressContainer}>
+                <View style={styles.vaultAppleProgressTrack}>
+                  <View
+                    style={[
+                      styles.vaultAppleProgressFill,
+                      {
+                        width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
+                        backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706',
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.vaultAppleProgressFooter}>
+                  <View style={styles.vaultAppleProgressFooterLeft}>
+                    <MaterialCommunityIcons
+                      name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
+                      size={13}
+                      color={vaultMilestone.isAllUnlocked ? '#059669' : '#D97706'}
+                    />
+                    <Text style={styles.vaultAppleProgressFooterText}>
+                      {vaultMilestone.isAllUnlocked
+                        ? 'Đã mở khóa tất cả các đợt rút'
+                        : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.vaultAppleProgressFooterPercent,
+                      { color: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706' },
+                    ]}
+                  >
+                    {vaultMilestone.isAllUnlocked
+                      ? '100% Hoàn tất'
+                      : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </Pressable>
         )}
 
@@ -631,64 +683,129 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  vaultBanner: {
+  vaultAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  vaultAppleHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  vaultAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  vaultAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FEF3C7',
-    borderRadius: 20,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
-  vaultBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  vaultAppleTitleBlock: {
     flex: 1,
   },
-  vaultBannerIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FDE68A',
+  vaultAppleBadgeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 2,
   },
-  vaultBannerTitle: {
+  vaultAppleTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#92400E',
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
   },
-  vipBadge: {
+  vaultAppleVipBadge: {
     backgroundColor: '#D97706',
     paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingVertical: 1.5,
     borderRadius: 6,
   },
-  vipBadgeText: {
+  vaultAppleVipBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  vaultBannerPoints: {
+  vaultAppleSubtitle: {
     fontSize: 12,
-    color: '#B45309',
+    color: '#64748B',
+    fontWeight: '500',
   },
-  vaultBannerPointsBold: {
-    fontWeight: '700',
-    color: '#92400E',
+  vaultAppleSubtitleBold: {
+    fontWeight: '800',
+    color: '#059669',
   },
-  vaultBannerRight: {
+  vaultAppleActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
-  vaultBannerActionText: {
-    fontSize: 13,
+  vaultAppleActionText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#D97706',
+    color: '#92400E',
+  },
+  vaultAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+  },
+  vaultAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  vaultAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  vaultAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  vaultAppleProgressFooterLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  vaultAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '500',
+  },
+  vaultAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   section: {
     marginBottom: spacing.lg,
