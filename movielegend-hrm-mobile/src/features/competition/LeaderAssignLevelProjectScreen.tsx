@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/AuthProvider';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import {
@@ -37,6 +38,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     getProjectByLevel,
     acceptProject,
     assignSubTask,
+    submitSubTask,
     approveSubTask,
     rejectSubTask,
     submitProjectToAdmin,
@@ -67,6 +69,9 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   // Detail Page / Modal State
   const [activeSubTask, setActiveSubTask] = useState<BulletSubTask | null>(null);
   const [leaderFeedbackText, setLeaderFeedbackText] = useState('');
+  const [leaderSelfReportText, setLeaderSelfReportText] = useState('');
+  const [leaderSelfEvidenceUrl, setLeaderSelfEvidenceUrl] = useState('');
+  const [leaderSelfImages, setLeaderSelfImages] = useState<string[]>([]);
   const [searchMemberQuery, setSearchMemberQuery] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -203,6 +208,63 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const handleOpenTaskModal = (task: BulletSubTask) => {
     setActiveSubTask(task);
     setLeaderFeedbackText(task.leaderFeedback || '');
+    setLeaderSelfReportText(task.submissionNote || '');
+    setLeaderSelfEvidenceUrl(task.evidenceUrl || '');
+    setLeaderSelfImages(task.evidenceImages || []);
+  };
+
+  // Image Picker action for Leader
+  const handlePickLeaderImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets) {
+        const newUris = result.assets.map((a) => a.uri);
+        setLeaderSelfImages((prev) => [...prev, ...newUris]);
+      }
+    } catch {
+      Alert.alert('Thông báo', 'Không thể mở thư viện ảnh');
+    }
+  };
+
+  const handleRemoveLeaderImage = (indexToRemove: number) => {
+    setLeaderSelfImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  // Handle Leader submitting report for their own assigned subtask
+  const handleLeaderSubmitReport = () => {
+    if (!activeSubTask || !currentProject) return;
+    if (!leaderSelfReportText.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập nội dung báo cáo kết quả thực hiện');
+      return;
+    }
+
+    submitSubTask(
+      selectedLevelNumber,
+      activeSubTask.id,
+      leaderSelfReportText.trim(),
+      leaderSelfEvidenceUrl.trim() || undefined,
+      leaderSelfImages
+    );
+
+    setActiveSubTask((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: 'SUBMITTED',
+            submissionNote: leaderSelfReportText.trim(),
+            evidenceUrl: leaderSelfEvidenceUrl.trim() || undefined,
+            evidenceImages: leaderSelfImages,
+            submittedAt: new Date().toISOString(),
+          }
+        : null
+    );
+
+    Alert.alert('Thành Công', 'Đã nộp báo cáo kết quả thực hiện cho đầu mục công việc này.');
   };
 
   // Handle assigning member to a specific subtask
@@ -871,6 +933,82 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                       Nhận xét của Leader: "{activeSubTask.leaderFeedback}"
                     </Text>
                   ) : null}
+                </View>
+              )}
+
+              {/* PHẦN BÁO CÁO DÀNH CHO CHÍNH LEADER KHI TỰ NHẬN VIỆC */}
+              {activeSubTask?.assignedToUserId === currentLeaderId && activeSubTask?.status !== 'LEADER_APPROVED' && (
+                <View style={[styles.sectionBlock, styles.leaderReportBox]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={styles.sectionBlockTitle}>
+                      {activeSubTask?.status === 'SUBMITTED' ? 'Cập Nhật Báo Cáo Của Tôi (Leader)' : 'Nộp Báo Cáo Hoàn Thành Việc (Leader)'}
+                    </Text>
+                    <View style={styles.selfMiniBadge}>
+                      <Text style={styles.selfMiniBadgeText}>Chính tôi làm</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.sectionBlockSub}>
+                    Bạn đang trực tiếp phụ trách việc này. Hãy nhập kết quả và đính kèm minh chứng để hoàn thiện hồ sơ dự án.
+                  </Text>
+
+                  {/* Nội dung báo cáo */}
+                  <TextInput
+                    style={styles.formTextArea}
+                    placeholder="Nhập nội dung báo cáo kết quả thực hiện của Leader..."
+                    placeholderTextColor="#94A3B8"
+                    value={leaderSelfReportText}
+                    onChangeText={setLeaderSelfReportText}
+                    multiline
+                  />
+
+                  {/* Link Drive / Sheet */}
+                  <Text style={[styles.inputLabel, { marginTop: 12 }]}>Link tài liệu / Báo cáo chi tiết (Google Drive / Sheet):</Text>
+                  <TextInput
+                    style={styles.formTextInput}
+                    placeholder="https://drive.google.com/..."
+                    placeholderTextColor="#94A3B8"
+                    value={leaderSelfEvidenceUrl}
+                    onChangeText={setLeaderSelfEvidenceUrl}
+                    autoCapitalize="none"
+                  />
+
+                  {/* Hình ảnh minh chứng */}
+                  <View style={styles.photoSectionHeader}>
+                    <Text style={styles.inputLabel}>Ảnh chụp minh chứng ({leaderSelfImages.length}):</Text>
+                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handlePickLeaderImage} activeOpacity={0.8}>
+                      <Text style={styles.addPhotoBtnText}>+ Thêm ảnh từ thư viện</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {leaderSelfImages.length > 0 && (
+                    <View style={styles.imageGrid}>
+                      {leaderSelfImages.map((imgUri, idx) => (
+                        <View key={idx} style={styles.imageItemWrapper}>
+                          <TouchableOpacity onPress={() => setPreviewImage(imgUri)} activeOpacity={0.8}>
+                            <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.removePhotoBtn}
+                            onPress={() => handleRemoveLeaderImage(idx)}
+                          >
+                            <Text style={styles.removePhotoBtnText}>Xóa</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Nút nộp báo cáo của Leader */}
+                  <TouchableOpacity
+                    style={styles.leaderSubmitReportBtn}
+                    onPress={handleLeaderSubmitReport}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.leaderSubmitReportBtnText}>
+                      {activeSubTask?.status === 'SUBMITTED' ? 'LƯU / CẬP NHẬT BÁO CÁO CỦA TÔI' : 'NỘP BÁO CÁO HOÀN THÀNH VIỆC'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -2077,5 +2215,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+
+  /* Leader Self-Reporting Form Styles */
+  leaderReportBox: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#99F6E4',
+  },
+  leaderSubmitReportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 14,
+    shadowColor: '#0F766E',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  leaderSubmitReportBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

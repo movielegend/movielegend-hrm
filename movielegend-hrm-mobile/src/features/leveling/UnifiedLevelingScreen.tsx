@@ -1048,7 +1048,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                               </View>
                             ) : (
                               <View style={styles.tagSubmitAction}>
-                                <Text style={styles.tagSubmitActionText}>{isLeader ? 'Xem việc' : 'Báo cáo'}</Text>
+                                <Text style={styles.tagSubmitActionText}>Nộp báo cáo</Text>
                               </View>
                             )}
                           </View>
