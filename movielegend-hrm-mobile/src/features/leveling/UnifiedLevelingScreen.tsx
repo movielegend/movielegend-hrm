@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  TextInput,
+  Alert,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,13 +22,13 @@ import {
   levelingApi,
   UserLevelProgressData,
   LevelPromotionRequestItem,
+  DepartmentLevelItem,
 } from '../../api/leveling.api';
-import { LevelNameBadge, LEVEL_COLORS } from '../../components/common/LevelNameBadge';
+import { LevelNameBadge, LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { EmployeeLevelProgressCard } from './EmployeeLevelProgressCard';
 import { EvidenceSubmissionModal } from './EvidenceSubmissionModal';
 import { LeaderPromotionReviewModal } from './LeaderPromotionReviewModal';
 import { DirectLevelChangeModal } from './DirectLevelChangeModal';
-import { DepartmentLevelConfigModal } from './DepartmentLevelConfigModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -40,16 +42,18 @@ export const UnifiedLevelingScreen: React.FC = () => {
     user?.roles?.includes('LEADER') ||
     user?.roles?.includes('HR');
 
-  const [activeTab, setActiveTab] = useState<'my_progress' | 'leader_management'>(
-    isAdmin ? 'leader_management' : 'my_progress',
-  );
-  const [leaderSubTab, setLeaderSubTab] = useState<'members' | 'pending_requests'>('members');
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'members' | 'config'>('roadmap');
+  const [leaderSubTab, setLeaderSubTab] = useState<'members_list' | 'pending_requests'>('members_list');
 
   const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
   const [promotionRequests, setPromotionRequests] = useState<LevelPromotionRequestItem[]>([]);
   const [departmentMembers, setDepartmentMembers] = useState<any[]>([]);
 
-  // Department picker for Admin
+  // Department Level Configs
+  const [deptLevelConfigs, setDeptLevelConfigs] = useState<DepartmentLevelItem[]>([]);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  // Department picker for Admin / Leader
   const { data: deptData } = useDepartments({ limit: 50 });
   const deptList: Array<{ id: string; name: string }> = (deptData as any)?.data || (Array.isArray(deptData) ? deptData : []);
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
@@ -67,9 +71,8 @@ export const UnifiedLevelingScreen: React.FC = () => {
     currentLevelNumber: number;
     departmentName?: string;
   } | null>(null);
-  const [isDeptConfigModalVisible, setIsDeptConfigModalVisible] = useState(false);
 
-  const activeDeptId = selectedDeptId || progressData?.departmentId || deptList[0]?.id;
+  const activeDeptId = selectedDeptId || progressData?.departmentId || deptList[0]?.id || '';
   const activeDeptName =
     deptList.find((d) => d.id === activeDeptId)?.name ||
     progressData?.departmentName ||
@@ -86,16 +89,36 @@ export const UnifiedLevelingScreen: React.FC = () => {
         }
       }
 
-      // 2. If Leader/Admin, load pending requests & department members
-      if (isLeaderOrAdmin) {
-        const queryDeptId = selectedDeptId || myProgress?.departmentId || deptList[0]?.id;
+      // 2. Load Department Level Configs
+      const queryDeptId = selectedDeptId || myProgress?.departmentId || deptList[0]?.id;
+      if (queryDeptId) {
+        const configs = await levelingApi.getDepartmentLevelConfigs(queryDeptId).catch(() => []);
+        if (Array.isArray(configs) && configs.length > 0) {
+          setDeptLevelConfigs(configs);
+        } else {
+          setDeptLevelConfigs(
+            Array.from({ length: 8 }, (_, i) => ({
+              levelNumber: i + 1,
+              levelName: `Level ${i + 1}`,
+              defaultName: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+              customLevelName: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+              displayName: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+              badgeTitle: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+              colorHex: LEVEL_COLORS[i + 1] || '#2196F3',
+              minTenureMonths: i === 0 ? 1 : i === 1 ? 2 : i === 2 ? 6 : (i + 1) * 3,
+              targetShiftsCount: (i + 1) * 30,
+            })),
+          );
+        }
+      }
+
+      // 3. If Leader/Admin, load pending requests & department members
+      if (isLeaderOrAdmin && queryDeptId) {
         const [requests, membersRes] = await Promise.all([
           levelingApi.getDepartmentPromotionRequests(queryDeptId).catch(() => []),
-          queryDeptId
-            ? import('../../api/employees.api')
-                .then((m) => m.fetchEmployees({ departmentId: queryDeptId, limit: 100 }))
-                .catch(() => ({ data: [] }))
-            : { data: [] },
+          import('../../api/employees.api')
+            .then((m) => m.fetchEmployees({ departmentId: queryDeptId, limit: 100 }))
+            .catch(() => ({ data: [] })),
         ]);
 
         setPromotionRequests(Array.isArray(requests) ? requests : []);
@@ -118,6 +141,37 @@ export const UnifiedLevelingScreen: React.FC = () => {
     loadData();
   };
 
+  const handleConfigNameChange = (levelNumber: number, text: string) => {
+    setDeptLevelConfigs((prev) =>
+      prev.map((item) =>
+        item.levelNumber === levelNumber
+          ? { ...item, customLevelName: text, displayName: text, badgeTitle: text }
+          : item,
+      ),
+    );
+  };
+
+  const handleSaveConfigs = async () => {
+    if (!activeDeptId) return;
+    try {
+      setIsSavingConfig(true);
+      await levelingApi.saveDepartmentLevelConfigs(
+        activeDeptId,
+        deptLevelConfigs.map((c) => ({
+          levelNumber: c.levelNumber,
+          customLevelName: c.customLevelName || c.defaultName,
+          badgeTitle: c.badgeTitle || c.defaultName,
+        })),
+      );
+      Alert.alert('Thành công', `Đã lưu cấu hình danh xưng cấp bậc cho phòng ${activeDeptName}!`);
+      loadData();
+    } catch (err: any) {
+      Alert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
   const pendingCount = promotionRequests.filter((r) => r.status === 'PENDING').length;
 
   return (
@@ -130,20 +184,11 @@ export const UnifiedLevelingScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hệ Thống Phân Cấp Nhân Sự</Text>
-        {isLeaderOrAdmin && activeDeptId ? (
-          <TouchableOpacity
-            style={styles.configBtn}
-            onPress={() => setIsDeptConfigModalVisible(true)}
-          >
-            <Ionicons name="settings-outline" size={20} color="#FFF" />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Top Profile Summary (Only if user has level progress) */}
-      {progressData && !isAdmin && (
+      {/* Top Profile Summary */}
+      {progressData && (
         <View style={styles.profileSummaryCard}>
           <View style={styles.avatarWrapper}>
             <Image
@@ -181,40 +226,34 @@ export const UnifiedLevelingScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Tab Switcher for Leaders/Admins */}
-      {isLeaderOrAdmin && (
-        <View style={styles.tabContainer}>
-          {!isAdmin && (
-            <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'my_progress' && styles.tabBtnActive]}
-              onPress={() => setActiveTab('my_progress')}
-            >
-              <Ionicons
-                name="ribbon-outline"
-                size={16}
-                color={activeTab === 'my_progress' ? '#2563EB' : '#64748B'}
-              />
-              <Text
-                style={[styles.tabText, activeTab === 'my_progress' && styles.tabTextActive]}
-              >
-                Lộ Trình Của Tôi
-              </Text>
-            </TouchableOpacity>
-          )}
+      {/* 3 Main Interactive Tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'roadmap' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('roadmap')}
+        >
+          <Ionicons
+            name="ribbon-outline"
+            size={16}
+            color={activeTab === 'roadmap' ? '#2563EB' : '#94A3B8'}
+          />
+          <Text style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}>
+            Lộ Trình Cấp Bậc
+          </Text>
+        </TouchableOpacity>
 
+        {isLeaderOrAdmin && (
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'leader_management' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('leader_management')}
+            style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('members')}
           >
             <Ionicons
               name="people-outline"
               size={16}
-              color={activeTab === 'leader_management' ? '#2563EB' : '#64748B'}
+              color={activeTab === 'members' ? '#2563EB' : '#94A3B8'}
             />
-            <Text
-              style={[styles.tabText, activeTab === 'leader_management' && styles.tabTextActive]}
-            >
-              {isAdmin ? 'Quản Trị Cấp Bậc (Admin)' : 'Quản Lý Phòng Ban'}
+            <Text style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}>
+              Nhân Sự & Duyệt
             </Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
@@ -222,13 +261,29 @@ export const UnifiedLevelingScreen: React.FC = () => {
               </View>
             )}
           </TouchableOpacity>
-        </View>
-      )}
+        )}
 
-      {/* Admin Department Selector Carousel */}
-      {isAdmin && deptList.length > 0 && activeTab === 'leader_management' && (
+        {isLeaderOrAdmin && (
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'config' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('config')}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={16}
+              color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}>
+              Cấu Hình Tên Level
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Admin / Leader Department Selector Carousel */}
+      {isLeaderOrAdmin && deptList.length > 0 && (
         <View style={styles.deptSelectorContainer}>
-          <Text style={styles.deptSelectorLabel}>Chọn phòng ban quản lý:</Text>
+          <Text style={styles.deptSelectorLabel}>Phòng ban đang chọn:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptPillScroll}>
             {deptList.map((d) => {
               const isSelected = (selectedDeptId || activeDeptId) === d.id;
@@ -251,7 +306,7 @@ export const UnifiedLevelingScreen: React.FC = () => {
       {isLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Đang tải lộ trình cấp bậc...</Text>
+          <Text style={styles.loadingText}>Đang tải dữ liệu cấp bậc...</Text>
         </View>
       ) : (
         <ScrollView
@@ -259,25 +314,57 @@ export const UnifiedLevelingScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         >
-          {/* TAB 1: MY LEVEL PROGRESS */}
-          {activeTab === 'my_progress' && (
+          {/* ========================================================= */}
+          {/* TAB 1: ROADMAP & MY PROGRESS                              */}
+          {/* ========================================================= */}
+          {activeTab === 'roadmap' && (
             <>
-              <EmployeeLevelProgressCard
-                progress={progressData}
-                onOpenSubmitModal={() => setIsSubmitModalVisible(true)}
-              />
+              {progressData && (
+                <EmployeeLevelProgressCard
+                  progress={progressData}
+                  onOpenSubmitModal={() => setIsSubmitModalVisible(true)}
+                />
+              )}
 
-              {/* Standard Levels Roadmap Overview */}
+              {/* Interactive 8 Levels Roadmap */}
               <View style={styles.roadmapCard}>
-                <Text style={styles.roadmapTitle}>Hệ Thống 8 Cấp Bậc Chuẩn MovieLegend</Text>
+                <View style={styles.roadmapHeaderRow}>
+                  <Text style={styles.roadmapTitle}>Hệ Thống 8 Cấp Bậc ({activeDeptName})</Text>
+                  {isLeaderOrAdmin && (
+                    <TouchableOpacity
+                      style={styles.quickEditBtn}
+                      onPress={() => setActiveTab('config')}
+                    >
+                      <Ionicons name="create-outline" size={14} color="#2563EB" />
+                      <Text style={styles.quickEditText}>Đổi Tên Level</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
                 <View style={styles.roadmapList}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((lvl) => {
-                    const color = LEVEL_COLORS[lvl];
-                    const isPassed = (progressData?.currentLevel?.levelNumber || 1) >= lvl;
-                    const isCurrent = (progressData?.currentLevel?.levelNumber || 1) === lvl;
+                  {deptLevelConfigs.map((lvl) => {
+                    const color = LEVEL_COLORS[lvl.levelNumber] || '#2196F3';
+                    const isPassed = (progressData?.currentLevel?.levelNumber || 1) >= lvl.levelNumber;
+                    const isCurrent = (progressData?.currentLevel?.levelNumber || 1) === lvl.levelNumber;
 
                     return (
-                      <View key={lvl} style={styles.roadmapStepRow}>
+                      <TouchableOpacity
+                        key={lvl.levelNumber}
+                        style={[
+                          styles.roadmapStepRow,
+                          isCurrent && { backgroundColor: `${color}08`, borderRadius: 12, padding: 6 },
+                        ]}
+                        onPress={() => {
+                          if (isLeaderOrAdmin) {
+                            setActiveTab('config');
+                          } else {
+                            Alert.alert(
+                              `Level ${lvl.levelNumber}: ${lvl.displayName}`,
+                              `Yêu cầu thâm niên tối thiểu: ${lvl.minTenureMonths} tháng\nĐịnh mức ca làm: ${lvl.targetShiftsCount} ca\nMàu nhận diện: ${color}`,
+                            );
+                          }
+                        }}
+                      >
                         <View style={styles.roadmapStepLeft}>
                           <View
                             style={[
@@ -292,16 +379,16 @@ export const UnifiedLevelingScreen: React.FC = () => {
                                 { color: isPassed ? '#FFF' : color },
                               ]}
                             >
-                              {lvl}
+                              {lvl.levelNumber}
                             </Text>
                           </View>
-                          {lvl < 8 && <View style={styles.roadmapLine} />}
+                          {lvl.levelNumber < 8 && <View style={styles.roadmapLine} />}
                         </View>
 
                         <View style={styles.roadmapStepContent}>
                           <View style={styles.roadmapStepHeader}>
                             <Text style={[styles.roadmapStepName, { color }]}>
-                              Level {lvl} - {lvl === 1 ? 'Thực tập' : lvl === 2 ? 'Chính thức' : lvl === 3 ? 'Senior' : lvl === 4 ? 'Key Member' : lvl === 5 ? 'Team Leader' : lvl === 6 ? 'Manager' : lvl === 7 ? 'Director' : 'Executive'}
+                              Level {lvl.levelNumber} - {lvl.displayName}
                             </Text>
                             {isCurrent && (
                               <View style={[styles.currentTag, { backgroundColor: `${color}20` }]}>
@@ -310,17 +397,17 @@ export const UnifiedLevelingScreen: React.FC = () => {
                             )}
                           </View>
                           <Text style={styles.roadmapStepDesc}>
-                            {lvl === 1 && 'Khởi đầu làm quen môi trường, đào tạo nội quy'}
-                            {lvl === 2 && 'Nhân sự chính thức, độc lập tác chiến, đầy đủ phúc lợi'}
-                            {lvl === 3 && 'Thâm niên ≥ 6 tháng, thành thạo 100% chuyên môn'}
-                            {lvl === 4 && 'Nhân sự chủ chốt, Top doanh số / kỹ năng xuất sắc'}
-                            {lvl === 5 && 'Quản lý đội nhóm, duyệt đơn cấp 1, đánh giá nhân sự'}
-                            {lvl === 6 && 'Trưởng bộ phận, quản lý chi phí & quy trình'}
-                            {lvl === 7 && 'Giám đốc khối, quản trị chiến lược'}
-                            {lvl === 8 && 'Ban điều hành, tối cao toàn công ty'}
+                            {lvl.levelNumber === 1 && 'Học việc / Thử việc, làm quen quy trình nội bộ'}
+                            {lvl.levelNumber === 2 && 'Chính thức, độc lập tác chiến, đầy đủ phúc lợi'}
+                            {lvl.levelNumber === 3 && 'Thâm niên ≥ 6 tháng, thành thạo 100% chuyên môn'}
+                            {lvl.levelNumber === 4 && 'Nhân sự nòng cốt, Top hiệu suất / doanh số'}
+                            {lvl.levelNumber === 5 && 'Quản lý đội nhóm, duyệt đơn cấp 1'}
+                            {lvl.levelNumber === 6 && 'Trưởng phòng, quản lý chi phí & quy trình'}
+                            {lvl.levelNumber === 7 && 'Giám đốc khối, quản trị chiến lược'}
+                            {lvl.levelNumber === 8 && 'Ban điều hành, tối cao toàn công ty'}
                           </Text>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -328,34 +415,21 @@ export const UnifiedLevelingScreen: React.FC = () => {
             </>
           )}
 
-          {/* TAB 2: LEADER / ADMIN MANAGEMENT */}
-          {activeTab === 'leader_management' && (
+          {/* ========================================================= */}
+          {/* TAB 2: MEMBERS MANAGEMENT & PROMOTION APPROVALS           */}
+          {/* ========================================================= */}
+          {activeTab === 'members' && isLeaderOrAdmin && (
             <View style={styles.leaderContainer}>
-              {/* Department Name & Quick Config Action */}
-              <View style={styles.deptHeaderBanner}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.deptBannerSubtitle}>Đang quản lý phòng:</Text>
-                  <Text style={styles.deptBannerTitle}>{activeDeptName}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.deptBannerConfigBtn}
-                  onPress={() => setIsDeptConfigModalVisible(true)}
-                >
-                  <Ionicons name="options-outline" size={16} color="#2563EB" />
-                  <Text style={styles.deptBannerConfigBtnText}>Tên Level Phòng</Text>
-                </TouchableOpacity>
-              </View>
-
               {/* Leader Sub-tabs */}
               <View style={styles.subTabRow}>
                 <TouchableOpacity
-                  style={[styles.subTabBtn, leaderSubTab === 'members' && styles.subTabBtnActive]}
-                  onPress={() => setLeaderSubTab('members')}
+                  style={[styles.subTabBtn, leaderSubTab === 'members_list' && styles.subTabBtnActive]}
+                  onPress={() => setLeaderSubTab('members_list')}
                 >
                   <Text
                     style={[
                       styles.subTabText,
-                      leaderSubTab === 'members' && styles.subTabTextActive,
+                      leaderSubTab === 'members_list' && styles.subTabTextActive,
                     ]}
                   >
                     Thành Viên ({departmentMembers.length})
@@ -377,21 +451,30 @@ export const UnifiedLevelingScreen: React.FC = () => {
                   >
                     Chờ Duyệt Minh Chứng ({promotionRequests.length})
                   </Text>
-                  {pendingCount > 0 && (
-                    <View style={styles.miniDot} />
-                  )}
+                  {pendingCount > 0 && <View style={styles.miniDot} />}
                 </TouchableOpacity>
               </View>
 
               {/* Sub-tab 1: Department Members List */}
-              {leaderSubTab === 'members' && (
+              {leaderSubTab === 'members_list' && (
                 <View style={styles.membersList}>
                   {departmentMembers.map((m, idx) => {
                     const memberLevel = m.profile?.currentLevelNumber || 1;
                     const memberName = m.profile?.fullName || m.userCode;
 
                     return (
-                      <View key={m.id || idx} style={styles.memberCard}>
+                      <TouchableOpacity
+                        key={m.id || idx}
+                        style={styles.memberCard}
+                        onPress={() =>
+                          setDirectChangeUser({
+                            id: m.id,
+                            fullName: memberName,
+                            currentLevelNumber: memberLevel,
+                            departmentName: activeDeptName,
+                          })
+                        }
+                      >
                         <View style={styles.memberInfoRow}>
                           <Image
                             source={
@@ -415,22 +498,12 @@ export const UnifiedLevelingScreen: React.FC = () => {
                             </Text>
                           </View>
 
-                          <TouchableOpacity
-                            style={styles.directChangeBtn}
-                            onPress={() =>
-                              setDirectChangeUser({
-                                id: m.id,
-                                fullName: memberName,
-                                currentLevelNumber: memberLevel,
-                                departmentName: activeDeptName,
-                              })
-                            }
-                          >
+                          <View style={styles.directChangeBtn}>
                             <Ionicons name="flash" size={14} color="#FFF" />
                             <Text style={styles.directChangeBtnText}>Đổi Level</Text>
-                          </TouchableOpacity>
+                          </View>
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
 
@@ -530,7 +603,61 @@ export const UnifiedLevelingScreen: React.FC = () => {
             </View>
           )}
 
-          <View style={{ height: 40 }} />
+          {/* ========================================================= */}
+          {/* TAB 3: DIRECT LEVEL NAME CONFIGURATION                    */}
+          {/* ========================================================= */}
+          {activeTab === 'config' && isLeaderOrAdmin && (
+            <View style={styles.configContainer}>
+              <View style={styles.configHeaderCard}>
+                <Ionicons name="options-outline" size={24} color="#2563EB" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configHeaderTitle}>Cấu Hình Tên 8 Level ({activeDeptName})</Text>
+                  <Text style={styles.configHeaderSubtitle}>
+                    Gõ tên danh xưng riêng cho từng Level của phòng ban này và bấm Lưu.
+                  </Text>
+                </View>
+              </View>
+
+              {deptLevelConfigs.map((lvl) => {
+                const color = LEVEL_COLORS[lvl.levelNumber] || '#2196F3';
+
+                return (
+                  <View key={lvl.levelNumber} style={styles.configRowCard}>
+                    <View style={styles.configRowHeader}>
+                      <View style={[styles.configDot, { backgroundColor: color }]} />
+                      <Text style={[styles.configLevelTitle, { color }]}>
+                        Level {lvl.levelNumber} (Mặc định: {lvl.defaultName})
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={styles.configInput}
+                      placeholder={`Nhập tên riêng cho Level ${lvl.levelNumber}...`}
+                      placeholderTextColor="#94A3B8"
+                      value={lvl.customLevelName}
+                      onChangeText={(txt) => handleConfigNameChange(lvl.levelNumber, txt)}
+                    />
+                  </View>
+                );
+              })}
+
+              <TouchableOpacity
+                style={styles.saveConfigBtn}
+                onPress={handleSaveConfigs}
+                disabled={isSavingConfig}
+              >
+                {isSavingConfig ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="save-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.saveConfigBtnText}>Lưu Cấu Hình Danh Xưng</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 50 }} />
         </ScrollView>
       )}
 
@@ -562,16 +689,6 @@ export const UnifiedLevelingScreen: React.FC = () => {
         onClose={() => setDirectChangeUser(null)}
         onSuccess={loadData}
       />
-
-      {activeDeptId && (
-        <DepartmentLevelConfigModal
-          visible={isDeptConfigModalVisible}
-          departmentId={activeDeptId}
-          departmentName={activeDeptName}
-          onClose={() => setIsDeptConfigModalVisible(false)}
-          onSuccess={loadData}
-        />
-      )}
     </SafeAreaView>
   );
 };
@@ -597,11 +714,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
   },
-  configBtn: {
-    padding: 6,
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-  },
   profileSummaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -609,7 +721,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginHorizontal: 16,
     borderRadius: 14,
-    marginBottom: 12,
+    marginBottom: 10,
     gap: 12,
   },
   avatarWrapper: {
@@ -651,9 +763,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#1E293B',
     marginHorizontal: 16,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 4,
     marginBottom: 10,
+    gap: 4,
   },
   tabBtn: {
     flex: 1,
@@ -661,18 +774,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
+    borderRadius: 9,
+    gap: 4,
   },
   tabBtnActive: {
     backgroundColor: '#FFF',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 2,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -682,7 +795,7 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     backgroundColor: '#EF4444',
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 8,
   },
@@ -696,7 +809,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   deptSelectorLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
     marginBottom: 6,
     fontWeight: '600',
@@ -724,44 +837,6 @@ const styles = StyleSheet.create({
   },
   deptPillTextActive: {
     color: '#FFF',
-    fontWeight: '700',
-  },
-  deptHeaderBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  deptBannerSubtitle: {
-    fontSize: 11,
-    color: '#3B82F6',
-    fontWeight: '500',
-  },
-  deptBannerTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E40AF',
-    marginTop: 1,
-  },
-  deptBannerConfigBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#93C5FD',
-    gap: 4,
-  },
-  deptBannerConfigBtnText: {
-    fontSize: 12,
-    color: '#2563EB',
     fontWeight: '700',
   },
   content: {
@@ -793,18 +868,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
+  roadmapHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   roadmapTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 16,
+  },
+  quickEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  quickEditText: {
+    fontSize: 11,
+    color: '#2563EB',
+    fontWeight: '700',
   },
   roadmapList: {
-    gap: 0,
+    gap: 2,
   },
   roadmapStepRow: {
     flexDirection: 'row',
-    minHeight: 60,
+    minHeight: 56,
   },
   roadmapStepLeft: {
     alignItems: 'center',
@@ -833,7 +927,7 @@ const styles = StyleSheet.create({
   },
   roadmapStepContent: {
     flex: 1,
-    paddingBottom: 14,
+    paddingBottom: 12,
   },
   roadmapStepHeader: {
     flexDirection: 'row',
@@ -1023,5 +1117,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94A3B8',
     textAlign: 'center',
+  },
+  configContainer: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  configHeaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    gap: 10,
+    marginBottom: 4,
+  },
+  configHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  configHeaderSubtitle: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 2,
+  },
+  configRowCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  configRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  configDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  configLevelTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  configInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+  },
+  saveConfigBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 20,
+    shadowColor: '#2563EB',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  saveConfigBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFF',
   },
 });
