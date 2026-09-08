@@ -239,15 +239,24 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           </View>
         </View>
 
-        {/* Primary CTA Withdraw Button */}
-        <TouchableOpacity
-          style={styles.vipWithdrawActionBtn}
-          onPress={openWithdrawModal}
-          activeOpacity={0.85}
-        >
-          <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#FFFFFF" />
-          <Text style={styles.vipWithdrawActionText}>YÊU CẦU TẤT TOÁN THƯỞNG</Text>
-        </TouchableOpacity>
+        {/* Primary CTA Withdraw Button: Chỉ mở khi đã đến kỳ hạn mở khóa */}
+        {stats.maxWithdrawable > 0 ? (
+          <TouchableOpacity
+            style={styles.vipWithdrawActionBtn}
+            onPress={openWithdrawModal}
+            activeOpacity={0.85}
+          >
+            <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#FFFFFF" />
+            <Text style={styles.vipWithdrawActionText}>YÊU CẦU TẤT TOÁN THƯỞNG</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.vipWithdrawActionBtn, styles.vipWithdrawActionBtnDisabled]}>
+            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" />
+            <Text style={styles.vipWithdrawActionTextDisabled}>
+              CHƯA ĐẾN HẠN TẤT TOÁN THƯỞNG
+            </Text>
+          </View>
+        )}
 
         {/* Advance Note Footer */}
         <View style={styles.vipFooterNote}>
@@ -1231,11 +1240,24 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
+  vipWithdrawActionBtnDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+    borderWidth: 1,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   vipWithdrawActionText: {
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+  },
+  vipWithdrawActionTextDisabled: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.2,
   },
   vipFooterNote: {
     flexDirection: 'row',
