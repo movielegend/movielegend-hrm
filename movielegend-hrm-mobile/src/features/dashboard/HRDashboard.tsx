@@ -11,7 +11,7 @@ import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/u
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { getMyVault } from '../../api/employees.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
-import { levelingApi } from '../leveling/leveling.api';
+import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
