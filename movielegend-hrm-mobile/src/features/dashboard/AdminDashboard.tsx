@@ -181,64 +181,6 @@ export function AdminDashboard() {
           </View>
         </Pressable>
 
-        {/* Banner Cấp Bậc & Lộ Trình - Admin (Apple UI tinh tế) */}
-        <Pressable
-          style={styles.levelAppleCard}
-          onPress={() => router.push('/admin/levels' as any)}
-        >
-          {/* Top Section */}
-          <View style={styles.levelAppleHeaderRow}>
-            <View style={styles.levelAppleLeft}>
-              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
-                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
-              </View>
-              <View style={styles.levelAppleTitleBlock}>
-                <View style={styles.levelAppleBadgeRow}>
-                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
-                    Level {currentLevelNumber}: {levelTitle}
-                  </Text>
-                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
-                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
-                      Lv.{currentLevelNumber}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.levelAppleSubtitle}>
-                  Cấp bậc danh dự tối cao • Toàn quyền Quản trị Phân cấp
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
-              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Cấu hình</Text>
-              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
-            </View>
-          </View>
-
-          {/* Progress bar / Admin Management indicator */}
-          <View style={styles.levelAppleProgressContainer}>
-            <View style={styles.levelAppleProgressTrack}>
-              <View
-                style={[
-                  styles.levelAppleProgressFill,
-                  {
-                    width: '100%',
-                    backgroundColor: levelColor,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.levelAppleProgressFooter}>
-              <Text style={styles.levelAppleProgressFooterText}>
-                Đặc quyền Quản trị & Cấu hình 8 Level toàn công ty
-              </Text>
-              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
-                100%
-              </Text>
-            </View>
-          </View>
-        </Pressable>
-
         {/* Tiện ích (Leader-style layout with vibrant colors) */}
         <View style={[styles.section, styles.utilitySection]}>
           <Text style={styles.sectionTitle}>Tiện ích</Text>

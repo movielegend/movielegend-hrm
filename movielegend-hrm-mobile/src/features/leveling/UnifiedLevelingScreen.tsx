@@ -366,7 +366,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           >
             <Ionicons
               name="settings-outline"
-              size={15}
+              size={16}
               color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
             />
             <Text
@@ -374,24 +374,6 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               numberOfLines={1}
             >
               Cấu Hình Danh Xưng
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'roadmap' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('roadmap')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="ribbon-outline"
-              size={15}
-              color={activeTab === 'roadmap' ? '#2563EB' : '#94A3B8'}
-            />
-            <Text
-              style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}
-              numberOfLines={1}
-            >
-              Lộ Trình
             </Text>
           </TouchableOpacity>
         </View>
