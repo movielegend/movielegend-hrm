@@ -34,7 +34,7 @@ import { DirectLevelChangeModal } from './DirectLevelChangeModal';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export interface UnifiedLevelingScreenProps {
-  initialTab?: 'roadmap' | 'members' | 'config';
+  initialTab?: 'roadmap' | 'members' | 'config' | 'projects';
   initialLeaderSubTab?: 'members_list' | 'pending_requests';
 }
 
@@ -53,7 +53,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const defaultTab = isAdmin ? 'members' : 'roadmap';
   const resolvedTab =
     propInitialTab ||
-    (params.tab === 'config' || params.tab === 'members' || (!isAdmin && params.tab === 'roadmap')
+    (params.tab === 'config' || params.tab === 'projects' || params.tab === 'members' || (!isAdmin && params.tab === 'roadmap')
       ? (params.tab as any)
       : defaultTab);
 
@@ -63,7 +63,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       ? (params.subTab as any)
       : 'members_list');
 
-  const [activeTab, setActiveTab] = useState<'roadmap' | 'members' | 'config'>(resolvedTab);
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'members' | 'config' | 'projects'>(resolvedTab);
   const [leaderSubTab, setLeaderSubTab] = useState<'members_list' | 'pending_requests'>(resolvedSubTab);
 
   const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
@@ -73,6 +73,23 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   // Department Level Configs
   const [deptLevelConfigs, setDeptLevelConfigs] = useState<DepartmentLevelItem[]>([]);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  // Projects State for Admin
+  const [adminProjects, setAdminProjects] = useState<
+    Array<{
+      levelNumber: number;
+      projectName: string;
+      rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+      promotionBonusAmount: number;
+      physicalItemName: string;
+      subTasks: string[];
+    }>
+  >([]);
+  const [selectedProjectLevelNum, setSelectedProjectLevelNum] = useState<number>(1);
+  const [newSubTaskInput, setNewSubTaskInput] = useState<string>('');
+  const [editingSubTaskIdx, setEditingSubTaskIdx] = useState<number | null>(null);
+  const [editingSubTaskText, setEditingSubTaskText] = useState<string>('');
+  const [isSavingProject, setIsSavingProject] = useState<boolean>(false);
 
   // Department picker for Admin / Leader
   const { data: deptData } = useDepartments({ limit: 50 });
@@ -191,6 +208,39 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           setPromotionRequests(Array.isArray(requests) ? requests : []);
           setDepartmentMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
         }
+
+        // 4. Load projects for Admin
+        if (isAdmin && queryDeptId) {
+          const rawProjects = await levelingApi.getProjects(queryDeptId, activeDeptName).catch(() => []);
+          const adminConfig = await levelingApi.getAdminDepartmentConfig(queryDeptId, 2026, activeDeptName).catch(() => null);
+          const adminLevelList = Array.isArray(adminConfig) ? adminConfig : [];
+
+          const initialAdminProjects = Array.from({ length: Math.max(8, deptLevelConfigs.length) }, (_, i) => {
+            const lvlNum = i + 1;
+            const foundProj = (Array.isArray(rawProjects) ? rawProjects : []).find((p: any) => p.levelNumber === lvlNum);
+            const foundAdminLvl = adminLevelList.find((l: any) => l.levelNumber === lvlNum);
+
+            const bullets: string[] = foundAdminLvl?.project?.subTaskBullets && foundAdminLvl.project.subTaskBullets.length > 0
+              ? foundAdminLvl.project.subTaskBullets
+              : foundProj?.subTasks && foundProj.subTasks.length > 0
+              ? foundProj.subTasks.map((t: any) => t.title || t.name)
+              : [
+                  `Thực hiện quy trình chuẩn hóa Level ${lvlNum} phòng ${activeDeptName}`,
+                  `Đạt nghiệm thu 100% chỉ tiêu KPI công việc Level ${lvlNum}`,
+                ];
+
+            return {
+              levelNumber: lvlNum,
+              projectName: foundAdminLvl?.project?.projectName || foundProj?.projectName || `Dự Án Level ${lvlNum}`,
+              rewardType: foundAdminLvl?.rewardType || foundProj?.rewardType || 'HYBRID',
+              promotionBonusAmount: foundAdminLvl?.promotionBonusAmount !== undefined ? foundAdminLvl.promotionBonusAmount : (foundProj?.cashAmount || (lvlNum >= 2 ? (lvlNum - 1) * 500000 : 0)),
+              physicalItemName: foundAdminLvl?.physicalItemName || foundProj?.physicalItemName || '',
+              subTasks: bullets,
+            };
+          });
+
+          setAdminProjects(initialAdminProjects);
+        }
       }
     } catch (e) {
       console.error('Failed to load leveling data:', e);
@@ -198,7 +248,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isAdmin, isLeaderOrAdmin, selectedDeptId, deptList, params.departmentId, leaderDeptId]);
+  }, [isAdmin, isLeaderOrAdmin, selectedDeptId, deptList, params.departmentId, leaderDeptId, activeDeptName, deptLevelConfigs.length]);
 
   useEffect(() => {
     loadData();
@@ -213,6 +263,134 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const onRefresh = () => {
     setIsRefreshing(true);
     loadData();
+  };
+
+  // Project handlers for Admin
+  const handleUpdateProjectName = (levelNumber: number, newName: string) => {
+    setAdminProjects((prev) =>
+      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, projectName: newName } : item)),
+    );
+  };
+
+  const handleUpdateProjectRewardType = (levelNumber: number, rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID') => {
+    setAdminProjects((prev) =>
+      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, rewardType } : item)),
+    );
+  };
+
+  const handleUpdateProjectBonusAmount = (levelNumber: number, amount: number) => {
+    setAdminProjects((prev) =>
+      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, promotionBonusAmount: amount } : item)),
+    );
+  };
+
+  const handleUpdateProjectPhysicalItem = (levelNumber: number, physicalItemName: string) => {
+    setAdminProjects((prev) =>
+      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, physicalItemName } : item)),
+    );
+  };
+
+  const handleAddSubTask = (levelNumber: number) => {
+    if (!newSubTaskInput.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập nội dung việc con!');
+      return;
+    }
+    const cleanText = newSubTaskInput.replace(/^[•\-\*]\s*/, '').trim();
+    setAdminProjects((prev) =>
+      prev.map((item) =>
+        item.levelNumber === levelNumber
+          ? { ...item, subTasks: [...item.subTasks, cleanText] }
+          : item,
+      ),
+    );
+    setNewSubTaskInput('');
+  };
+
+  const handleEditSubTask = (levelNumber: number, index: number, newText: string) => {
+    if (!newText.trim()) return;
+    const cleanText = newText.replace(/^[•\-\*]\s*/, '').trim();
+    setAdminProjects((prev) =>
+      prev.map((item) => {
+        if (item.levelNumber === levelNumber) {
+          const updated = [...item.subTasks];
+          updated[index] = cleanText;
+          return { ...item, subTasks: updated };
+        }
+        return item;
+      }),
+    );
+    setEditingSubTaskIdx(null);
+    setEditingSubTaskText('');
+  };
+
+  const handleDeleteSubTask = (levelNumber: number, index: number) => {
+    Alert.alert(
+      'Xác nhận xóa việc con',
+      'Bạn có chắc chắn muốn xóa việc con này khỏi dự án không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            setAdminProjects((prev) =>
+              prev.map((item) =>
+                item.levelNumber === levelNumber
+                  ? { ...item, subTasks: item.subTasks.filter((_, i) => i !== index) }
+                  : item,
+              ),
+            );
+          },
+        },
+      ],
+    );
+  };
+
+  const handleSaveAllProjects = async () => {
+    if (!activeDeptId) return;
+    try {
+      setIsSavingProject(true);
+      const convertedLevels = adminProjects.map((p) => {
+        const foundDeptConfig = deptLevelConfigs.find((c) => c.levelNumber === p.levelNumber);
+        return {
+          id: `lvl-${p.levelNumber}`,
+          levelNumber: p.levelNumber,
+          levelName: foundDeptConfig?.customLevelName || `Level ${p.levelNumber}`,
+          colorHex: LEVEL_COLORS[p.levelNumber] || '#2563EB',
+          rewardType: p.rewardType,
+          promotionBonusAmount: p.promotionBonusAmount,
+          physicalItemName: p.physicalItemName,
+          physicalItems: p.physicalItemName ? [p.physicalItemName] : [],
+          retentionFloorGmv: 0,
+          promotionCeilingGmv: 0,
+          retentionMultiplier: foundDeptConfig?.retentionMultiplier || 1.0,
+          allowanceAmount: foundDeptConfig?.allowanceAmount || 0,
+          perks: foundDeptConfig?.perks || [],
+          motivationQuote: foundDeptConfig?.motivationQuote || '',
+          project: {
+            projectName: p.projectName,
+            subTaskBullets: p.subTasks,
+          },
+        };
+      });
+
+      await levelingApi.saveAdminDepartmentConfig({
+        departmentId: activeDeptId,
+        departmentName: activeDeptName,
+        year: 2026,
+        levels: convertedLevels,
+      });
+
+      Alert.alert(
+        'Thành Công',
+        `Đã lưu và đồng bộ toàn bộ Dự án & Việc con cho phòng ${activeDeptName}!`,
+      );
+      loadData();
+    } catch (err: any) {
+      Alert.alert('Lỗi lưu dự án', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+    } finally {
+      setIsSavingProject(false);
+    }
   };
 
   const handleConfigNameChange = (levelNumber: number, text: string) => {
@@ -437,7 +615,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             activeOpacity={0.8}
           >
             <Ionicons
-              name="people-outline"
+              name="checkmark-done-circle-outline"
               size={15}
               color={activeTab === 'members' ? '#2563EB' : '#94A3B8'}
             />
@@ -445,7 +623,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}
               numberOfLines={1}
             >
-              Nhân Sự & Duyệt
+              Duyệt Level
             </Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
@@ -461,7 +639,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           >
             <Ionicons
               name="settings-outline"
-              size={16}
+              size={15}
               color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
             />
             <Text
@@ -469,6 +647,24 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               numberOfLines={1}
             >
               Cấu Hình Danh Xưng
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'projects' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('projects')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="briefcase-outline"
+              size={15}
+              color={activeTab === 'projects' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text
+              style={[styles.tabText, activeTab === 'projects' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Cấu Hình Dự Án
             </Text>
           </TouchableOpacity>
         </View>
@@ -1126,6 +1322,285 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                   <>
                     <Ionicons name="save-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
                     <Text style={styles.saveConfigBtnText}>Lưu Cấu Hình Danh Xưng</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 4: PROJECT & SUBTASKS CONFIGURATION (ADMIN ONLY)     */}
+          {/* ========================================================= */}
+          {activeTab === 'projects' && isAdmin && (
+            <View style={styles.configContainer}>
+              <View style={styles.configHeaderCard}>
+                <Ionicons name="briefcase-outline" size={24} color="#2563EB" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configHeaderTitle}>Cấu Hình Dự Án & Việc Con ({activeDeptName})</Text>
+                  <Text style={styles.configHeaderSubtitle}>
+                    Thiết lập tên dự án lớn, quỹ thưởng và danh sách các việc con cho từng Level.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Horizontal Level Selector Pills */}
+              <Text style={styles.projectLevelSelectLabel}>CHỌN LEVEL CẤU HÌNH DỰ ÁN:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.projectLevelScrollRow}>
+                {adminProjects.map((p) => {
+                  const isSelected = selectedProjectLevelNum === p.levelNumber;
+                  const color = LEVEL_COLORS[p.levelNumber] || '#2563EB';
+                  return (
+                    <TouchableOpacity
+                      key={p.levelNumber}
+                      style={[
+                        styles.projectLevelPill,
+                        isSelected && { backgroundColor: color, borderColor: color },
+                      ]}
+                      onPress={() => {
+                        setSelectedProjectLevelNum(p.levelNumber);
+                        setEditingSubTaskIdx(null);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.projectLevelPillText,
+                          isSelected && { color: '#FFFFFF', fontWeight: 'bold' },
+                        ]}
+                      >
+                        LEVEL {p.levelNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Active Focused Level Project Card */}
+              {(() => {
+                const currentProj = adminProjects.find((p) => p.levelNumber === selectedProjectLevelNum) || adminProjects[0];
+                if (!currentProj) return null;
+
+                const lvlConfig = deptLevelConfigs.find((c) => c.levelNumber === currentProj.levelNumber);
+                const color = LEVEL_COLORS[currentProj.levelNumber] || '#2563EB';
+
+                return (
+                  <View style={styles.projectCard}>
+                    <View style={styles.projectCardHeader}>
+                      <View style={[styles.projectColorBadge, { backgroundColor: color }]}>
+                        <Text style={styles.projectColorBadgeText}>LEVEL {currentProj.levelNumber}</Text>
+                      </View>
+                      <Text style={styles.projectCardTitle}>
+                        {lvlConfig?.customLevelName || `Level ${currentProj.levelNumber}`}
+                      </Text>
+                    </View>
+
+                    {/* Project Name Input */}
+                    <Text style={styles.configFieldLabel}>Tên Dự Án Lớn Thăng Cấp (Level {currentProj.levelNumber}):</Text>
+                    <TextInput
+                      style={styles.configInput}
+                      placeholder={`VD: Dự án Tối ưu hóa vận hành Level ${currentProj.levelNumber}...`}
+                      placeholderTextColor="#94A3B8"
+                      value={currentProj.projectName}
+                      onChangeText={(txt) => handleUpdateProjectName(currentProj.levelNumber, txt)}
+                    />
+
+                    {/* Reward Config SubBox */}
+                    <View style={styles.configRewardBox}>
+                      <Text style={styles.configRewardHeaderTitle}>
+                        🎁 CẤU HÌNH PHẦN THƯỞNG DỰ ÁN (LEVEL {currentProj.levelNumber})
+                      </Text>
+
+                      <Text style={styles.configFieldLabel}>Hình Thức Thưởng Dự Án:</Text>
+                      <View style={styles.configRewardPillRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.configRewardPill,
+                            currentProj.rewardType === 'CASH' && styles.configRewardPillActive,
+                          ]}
+                          onPress={() => handleUpdateProjectRewardType(currentProj.levelNumber, 'CASH')}
+                        >
+                          <Text
+                            style={[
+                              styles.configRewardPillText,
+                              currentProj.rewardType === 'CASH' && styles.configRewardPillTextActive,
+                            ]}
+                          >
+                            💵 Tiền mặt
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.configRewardPill,
+                            currentProj.rewardType === 'PHYSICAL_ITEM' && styles.configRewardPillActive,
+                          ]}
+                          onPress={() => handleUpdateProjectRewardType(currentProj.levelNumber, 'PHYSICAL_ITEM')}
+                        >
+                          <Text
+                            style={[
+                              styles.configRewardPillText,
+                              currentProj.rewardType === 'PHYSICAL_ITEM' && styles.configRewardPillTextActive,
+                            ]}
+                          >
+                            🎁 Hiện vật
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.configRewardPill,
+                            (currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && styles.configRewardPillActive,
+                          ]}
+                          onPress={() => handleUpdateProjectRewardType(currentProj.levelNumber, 'HYBRID')}
+                        >
+                          <Text
+                            style={[
+                              styles.configRewardPillText,
+                              (currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && styles.configRewardPillTextActive,
+                            ]}
+                          >
+                            ✨ Kết hợp
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Cash Amount */}
+                      {(currentProj.rewardType === 'CASH' || currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && (
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={styles.configFieldLabel}>Quỹ Thưởng Tiền Mặt Dự Án (VNĐ):</Text>
+                          <TextInput
+                            style={styles.configInput}
+                            keyboardType="number-pad"
+                            placeholder="VD: 5000000"
+                            placeholderTextColor="#94A3B8"
+                            value={currentProj.promotionBonusAmount ? String(currentProj.promotionBonusAmount) : ''}
+                            onChangeText={(txt) =>
+                              handleUpdateProjectBonusAmount(
+                                currentProj.levelNumber,
+                                Number(txt.replace(/[^0-9]/g, '')) || 0,
+                              )
+                            }
+                          />
+                          {Boolean(currentProj.promotionBonusAmount && currentProj.promotionBonusAmount > 0) && (
+                            <Text style={styles.configCashPreview}>
+                              💰 Quỹ thưởng: {currentProj.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ (Tự động chia theo Hệ số Level cho các thành viên tham gia)
+                            </Text>
+                          )}
+                        </View>
+                      )}
+
+                      {/* Physical Item */}
+                      {(currentProj.rewardType === 'PHYSICAL_ITEM' || currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && (
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={styles.configFieldLabel}>Quà Tặng Hiện Vật Dự Án (Để chung cho cả team):</Text>
+                          <TextInput
+                            style={styles.configInput}
+                            placeholder="VD: Chuyến dã ngoại toàn đội, Bộ thiết bị chuyên dụng..."
+                            placeholderTextColor="#94A3B8"
+                            value={currentProj.physicalItemName || ''}
+                            onChangeText={(txt) =>
+                              handleUpdateProjectPhysicalItem(currentProj.levelNumber, txt)
+                            }
+                          />
+                        </View>
+                      )}
+                    </View>
+
+                    {/* SubTasks (Danh mục việc con) */}
+                    <Text style={[styles.configFieldLabel, { marginTop: 14, fontSize: 12, fontWeight: '700', color: '#1E293B' }]}>
+                      DANH SÁCH VIỆC CON / DANH MỤC CON ({currentProj.subTasks.length} việc):
+                    </Text>
+
+                    <View style={styles.subTasksListBox}>
+                      {currentProj.subTasks.length > 0 ? (
+                        currentProj.subTasks.map((bullet, idx) => (
+                          <View key={idx} style={styles.subTaskRow}>
+                            {editingSubTaskIdx === idx ? (
+                              <View style={styles.editSubTaskInlineRow}>
+                                <TextInput
+                                  style={[styles.configInput, { flex: 1 }]}
+                                  value={editingSubTaskText}
+                                  onChangeText={setEditingSubTaskText}
+                                />
+                                <TouchableOpacity
+                                  style={styles.saveBulletInlineBtn}
+                                  onPress={() => handleEditSubTask(currentProj.levelNumber, idx, editingSubTaskText)}
+                                >
+                                  <Text style={styles.saveBulletInlineBtnText}>Lưu</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={styles.cancelBulletInlineBtn}
+                                  onPress={() => setEditingSubTaskIdx(null)}
+                                >
+                                  <Text style={styles.cancelBulletInlineBtnText}>Hủy</Text>
+                                </TouchableOpacity>
+                              </View>
+                            ) : (
+                              <View style={styles.subTaskDisplayRow}>
+                                <Text style={styles.subTaskBulletText}>• {bullet}</Text>
+                                <View style={styles.subTaskActionsRow}>
+                                  <TouchableOpacity
+                                    style={styles.editSubTaskPillBtn}
+                                    onPress={() => {
+                                      setEditingSubTaskIdx(idx);
+                                      setEditingSubTaskText(bullet);
+                                    }}
+                                  >
+                                    <Text style={styles.editSubTaskPillBtnText}>Sửa</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    style={styles.deleteSubTaskPillBtn}
+                                    onPress={() => handleDeleteSubTask(currentProj.levelNumber, idx)}
+                                  >
+                                    <Text style={styles.deleteSubTaskPillBtnText}>Xóa</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.emptySubTasksNotice}>
+                          Chưa có việc con nào ở Level này. Hãy nhập bên dưới để thêm việc con!
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Add SubTask Input */}
+                    <View style={styles.addSubTaskRow}>
+                      <TextInput
+                        style={[styles.configInput, { flex: 1 }]}
+                        placeholder={`+ Nhập việc con mới cho Level ${currentProj.levelNumber}...`}
+                        placeholderTextColor="#94A3B8"
+                        value={newSubTaskInput}
+                        onChangeText={setNewSubTaskInput}
+                        onSubmitEditing={() => handleAddSubTask(currentProj.levelNumber)}
+                        returnKeyType="done"
+                      />
+                      <TouchableOpacity
+                        style={styles.addSubTaskBtn}
+                        onPress={() => handleAddSubTask(currentProj.levelNumber)}
+                      >
+                        <Text style={styles.addSubTaskBtnText}>+ Thêm việc</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })()}
+
+              {/* Save All Projects Button */}
+              <TouchableOpacity
+                style={styles.saveProjectsBtn}
+                onPress={handleSaveAllProjects}
+                disabled={isSavingProject}
+              >
+                {isSavingProject ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="save-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.saveProjectsBtnText}>
+                      LƯU DỰ ÁN & VIỆC CON PHÒNG {activeDeptName.toUpperCase()}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1849,5 +2324,191 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFF',
+  },
+  projectLevelSelectLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  projectLevelScrollRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  projectLevelPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  projectLevelPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  projectCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  projectCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  projectColorBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  projectColorBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  projectCardTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  subTasksListBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 10,
+    gap: 8,
+    marginTop: 6,
+  },
+  subTaskRow: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  subTaskDisplayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subTaskBulletText: {
+    fontSize: 12.5,
+    color: '#334155',
+    flex: 1,
+    lineHeight: 18,
+  },
+  subTaskActionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  editSubTaskPillBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  editSubTaskPillBtnText: {
+    fontSize: 11,
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+  deleteSubTaskPillBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  deleteSubTaskPillBtnText: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  editSubTaskInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  saveBulletInlineBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  saveBulletInlineBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  cancelBulletInlineBtn: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  cancelBulletInlineBtnText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  emptySubTasksNotice: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  addSubTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  addSubTaskBtn: {
+    backgroundColor: '#1E40AF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addSubTaskBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  saveProjectsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 20,
+    shadowColor: '#059669',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  saveProjectsBtnText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });
