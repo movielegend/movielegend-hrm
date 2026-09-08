@@ -670,6 +670,51 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         </View>
       )}
 
+      {isAdmin && currentMode === 'review_only' && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabBtn, leaderSubTab === 'pending_requests' && styles.tabBtnActive]}
+            onPress={() => setLeaderSubTab('pending_requests')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="checkmark-done-circle-outline"
+              size={15}
+              color={leaderSubTab === 'pending_requests' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text
+              style={[styles.tabText, leaderSubTab === 'pending_requests' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Chờ Duyệt ({promotionRequests.length})
+            </Text>
+            {pendingCount > 0 && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, leaderSubTab === 'members_list' && styles.tabBtnActive]}
+            onPress={() => setLeaderSubTab('members_list')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="people-outline"
+              size={15}
+              color={leaderSubTab === 'members_list' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text
+              style={[styles.tabText, leaderSubTab === 'members_list' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Nhân Sự ({departmentMembers.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {isAdmin && currentMode === 'full' && (
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -941,40 +986,42 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           {/* ========================================================= */}
           {activeTab === 'members' && isLeaderOrAdmin && (
             <View style={styles.leaderContainer}>
-              {/* Leader Sub-tabs */}
-              <View style={styles.subTabRow}>
-                <TouchableOpacity
-                  style={[styles.subTabBtn, leaderSubTab === 'members_list' && styles.subTabBtnActive]}
-                  onPress={() => setLeaderSubTab('members_list')}
-                >
-                  <Text
-                    style={[
-                      styles.subTabText,
-                      leaderSubTab === 'members_list' && styles.subTabTextActive,
-                    ]}
+              {/* Leader Sub-tabs (Only show if not in Admin review_only mode where it is already at the top) */}
+              {(!isAdmin || currentMode !== 'review_only') && (
+                <View style={styles.subTabRow}>
+                  <TouchableOpacity
+                    style={[styles.subTabBtn, leaderSubTab === 'members_list' && styles.subTabBtnActive]}
+                    onPress={() => setLeaderSubTab('members_list')}
                   >
-                    Thành Viên ({departmentMembers.length})
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.subTabText,
+                        leaderSubTab === 'members_list' && styles.subTabTextActive,
+                      ]}
+                    >
+                      Thành Viên ({departmentMembers.length})
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.subTabBtn,
-                    leaderSubTab === 'pending_requests' && styles.subTabBtnActive,
-                  ]}
-                  onPress={() => setLeaderSubTab('pending_requests')}
-                >
-                  <Text
+                  <TouchableOpacity
                     style={[
-                      styles.subTabText,
-                      leaderSubTab === 'pending_requests' && styles.subTabTextActive,
+                      styles.subTabBtn,
+                      leaderSubTab === 'pending_requests' && styles.subTabBtnActive,
                     ]}
+                    onPress={() => setLeaderSubTab('pending_requests')}
                   >
-                    Chờ Duyệt Minh Chứng ({promotionRequests.length})
-                  </Text>
-                  {pendingCount > 0 && <View style={styles.miniDot} />}
-                </TouchableOpacity>
-              </View>
+                    <Text
+                      style={[
+                        styles.subTabText,
+                        leaderSubTab === 'pending_requests' && styles.subTabTextActive,
+                      ]}
+                    >
+                      Chờ Duyệt Minh Chứng ({promotionRequests.length})
+                    </Text>
+                    {pendingCount > 0 && <View style={styles.miniDot} />}
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Sub-tab 1: Department Members List */}
               {leaderSubTab === 'members_list' && (
