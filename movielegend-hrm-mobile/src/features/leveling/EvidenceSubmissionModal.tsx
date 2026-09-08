@@ -185,26 +185,46 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
 
             {/* Evidence Images */}
             <View style={styles.imageSectionHeader}>
-              <Text style={styles.label}>2. Ảnh bằng chứng / Minh chứng ({selectedImages.length}/6)</Text>
-              <View style={styles.imageActionRow}>
-                <TouchableOpacity
-                  style={styles.smallActionBtn}
-                  onPress={handleTakePhoto}
-                  disabled={isUploadingImage}
-                >
-                  <Ionicons name="camera" size={16} color="#2563EB" />
-                  <Text style={styles.smallActionText}>Chụp ảnh</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.smallActionBtn}
-                  onPress={handlePickImage}
-                  disabled={isUploadingImage}
-                >
-                  <Ionicons name="images" size={16} color="#2563EB" />
-                  <Text style={styles.smallActionText}>Chọn ảnh</Text>
-                </TouchableOpacity>
+              <Text style={styles.label}>2. Ảnh Bằng Chứng / Minh Chứng</Text>
+              <View style={styles.counterBadge}>
+                <Text style={styles.counterBadgeText}>{selectedImages.length}/6 ảnh</Text>
               </View>
             </View>
+
+            {/* Two Action Cards */}
+            {selectedImages.length < 6 && (
+              <View style={styles.uploadActionRow}>
+                <TouchableOpacity
+                  style={styles.actionPickBtn}
+                  onPress={handleTakePhoto}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                    <Ionicons name="camera" size={18} color="#2563EB" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.actionPickTitle}>Chụp ảnh</Text>
+                    <Text style={styles.actionPickSubtitle}>Mở Camera</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionPickBtn}
+                  onPress={handlePickImage}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#ECFDF5' }]}>
+                    <Ionicons name="image" size={18} color="#059669" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.actionPickTitle}>Thư viện</Text>
+                    <Text style={styles.actionPickSubtitle}>Chọn từ máy</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {isUploadingImage && (
               <View style={styles.uploadingBox}>
@@ -214,26 +234,22 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
             )}
 
             {/* Image Grid */}
-            <View style={styles.imageGrid}>
-              {selectedImages.map((url, idx) => (
-                <View key={idx} style={styles.imageThumbWrapper}>
-                  <Image source={{ uri: url }} style={styles.imageThumb} />
-                  <TouchableOpacity
-                    style={styles.removeImageBtn}
-                    onPress={() => handleRemoveImage(idx)}
-                  >
-                    <Ionicons name="close-circle" size={20} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-
-              {selectedImages.length === 0 && !isUploadingImage && (
-                <TouchableOpacity style={styles.emptyImageBox} onPress={handlePickImage}>
-                  <Ionicons name="cloud-upload-outline" size={32} color="#94A3B8" />
-                  <Text style={styles.emptyImageText}>Chạm để đính kèm ảnh chụp màn hình minh chứng</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            {selectedImages.length > 0 && (
+              <View style={styles.imageGrid}>
+                {selectedImages.map((url, idx) => (
+                  <View key={idx} style={styles.imageThumbWrapper}>
+                    <Image source={{ uri: url }} style={styles.imageThumb} />
+                    <TouchableOpacity
+                      style={styles.removeImageBtn}
+                      onPress={() => handleRemoveImage(idx)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="close" size={14} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </ScrollView>
 
           {/* Footer Actions */}
@@ -323,23 +339,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  imageActionRow: {
-    flexDirection: 'row',
-    gap: 8,
+  counterBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
-  smallActionBtn: {
+  counterBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  uploadActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  actionPickBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    gap: 4,
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
   },
-  smallActionText: {
+  actionPickIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionPickTitle: {
     fontSize: 12,
-    color: '#2563EB',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  actionPickSubtitle: {
+    fontSize: 10.5,
+    color: '#94A3B8',
   },
   uploadingBox: {
     flexDirection: 'row',
@@ -362,7 +403,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   imageThumbWrapper: {
-    width: '30%',
+    width: '30.5%',
     aspectRatio: 1,
     borderRadius: 10,
     overflow: 'hidden',
@@ -376,22 +417,14 @@ const styles = StyleSheet.create({
   },
   removeImageBtn: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: '#FFF',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
     borderRadius: 10,
-  },
-  emptyImageBox: {
-    width: '100%',
-    height: 110,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    borderStyle: 'dashed',
-    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 12,
   },
   emptyImageText: {
     fontSize: 12,

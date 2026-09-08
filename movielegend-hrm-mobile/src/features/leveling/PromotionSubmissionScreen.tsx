@@ -245,35 +245,52 @@ export const PromotionSubmissionScreen: React.FC = () => {
                 <View style={[styles.sectionIconBg, { backgroundColor: '#ECFDF5' }]}>
                   <Ionicons name="images" size={16} color="#059669" />
                 </View>
-                <Text style={styles.sectionTitle}>
-                  2. Minh Chứng Thành Tích ({selectedImages.length}/6)
-                </Text>
+                <Text style={styles.sectionTitle}>2. Ảnh Bằng Chứng / Minh Chứng</Text>
               </View>
 
-              <View style={styles.imageActionButtons}>
-                <TouchableOpacity
-                  style={styles.btnSmallAction}
-                  onPress={handleTakePhoto}
-                  disabled={isUploadingImage}
-                >
-                  <Ionicons name="camera" size={14} color="#2563EB" />
-                  <Text style={styles.btnSmallActionText}>Chụp ảnh</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.btnSmallAction}
-                  onPress={handlePickImage}
-                  disabled={isUploadingImage}
-                >
-                  <Ionicons name="image" size={14} color="#2563EB" />
-                  <Text style={styles.btnSmallActionText}>Chọn ảnh</Text>
-                </TouchableOpacity>
+              <View style={styles.counterBadge}>
+                <Text style={styles.counterBadgeText}>{selectedImages.length}/6 ảnh</Text>
               </View>
             </View>
 
             <Text style={styles.sectionDesc}>
-              Đính kèm ảnh chụp báo cáo doanh số, bảng nghiệm thu công việc hoặc hình ảnh chứng minh:
+              Đính kèm ảnh chụp báo cáo doanh số, bảng chấm công hoặc minh chứng hoàn thành nhiệm vụ:
             </Text>
+
+            {/* Two Spacious Action Cards */}
+            {selectedImages.length < 6 && (
+              <View style={styles.uploadActionRow}>
+                <TouchableOpacity
+                  style={styles.actionPickBtn}
+                  onPress={handleTakePhoto}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                    <Ionicons name="camera" size={20} color="#2563EB" />
+                  </View>
+                  <View style={styles.actionPickTextBox}>
+                    <Text style={styles.actionPickTitle}>Chụp ảnh mới</Text>
+                    <Text style={styles.actionPickSubtitle}>Mở Camera</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionPickBtn}
+                  onPress={handlePickImage}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#ECFDF5' }]}>
+                    <Ionicons name="image" size={20} color="#059669" />
+                  </View>
+                  <View style={styles.actionPickTextBox}>
+                    <Text style={styles.actionPickTitle}>Thư viện ảnh</Text>
+                    <Text style={styles.actionPickSubtitle}>Chọn từ máy</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {isUploadingImage && (
               <View style={styles.uploadingBox}>
@@ -283,27 +300,22 @@ export const PromotionSubmissionScreen: React.FC = () => {
             )}
 
             {/* Images Grid */}
-            <View style={styles.imageGrid}>
-              {selectedImages.map((url, idx) => (
-                <View key={idx} style={styles.imageWrapper}>
-                  <Image source={{ uri: url }} style={styles.imageThumb} />
-                  <TouchableOpacity
-                    style={styles.removeImgBtn}
-                    onPress={() => handleRemoveImage(idx)}
-                  >
-                    <Ionicons name="close-circle" size={22} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-
-              {selectedImages.length === 0 && !isUploadingImage && (
-                <TouchableOpacity style={styles.emptyDropzone} onPress={handlePickImage}>
-                  <Ionicons name="cloud-upload-outline" size={36} color="#94A3B8" />
-                  <Text style={styles.dropzoneTitle}>Chạm để chọn ảnh bằng chứng</Text>
-                  <Text style={styles.dropzoneSub}>Hỗ trợ tối đa 6 ảnh (JPG, PNG)</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            {selectedImages.length > 0 && (
+              <View style={styles.imageGrid}>
+                {selectedImages.map((url, idx) => (
+                  <View key={idx} style={styles.imageWrapper}>
+                    <Image source={{ uri: url }} style={styles.imageThumb} />
+                    <TouchableOpacity
+                      style={styles.removeImgBtn}
+                      onPress={() => handleRemoveImage(idx)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="close" size={14} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Form Section 3: Extra Note */}
@@ -512,25 +524,52 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     minHeight: 110,
   },
-  imageActionButtons: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  btnSmallAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+  counterBadge: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 3,
     borderRadius: 8,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
   },
-  btnSmallActionText: {
+  counterBadgeText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#64748B',
+  },
+  uploadActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  actionPickBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 10,
+  },
+  actionPickIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionPickTextBox: {
+    flex: 1,
+  },
+  actionPickTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  actionPickSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
   },
   uploadingBox: {
     flexDirection: 'row',
@@ -550,11 +589,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginTop: 6,
+    marginTop: 4,
   },
   imageWrapper: {
     position: 'relative',
-    width: '30%',
+    width: '30.5%',
     aspectRatio: 1,
     borderRadius: 12,
     overflow: 'hidden',
@@ -567,21 +606,14 @@ const styles = StyleSheet.create({
   },
   removeImgBtn: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: '#FFF',
-    borderRadius: 11,
-  },
-  emptyDropzone: {
-    width: '100%',
-    paddingVertical: 24,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    borderStyle: 'dashed',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
   },
   dropzoneTitle: {
     fontSize: 13,
