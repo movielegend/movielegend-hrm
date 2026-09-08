@@ -290,6 +290,21 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     Alert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.levelName} lên Ban Giám Đốc.`);
   };
 
+  const subTasks = currentProject?.subTasks || [];
+  const totalSubTasks = subTasks.length;
+  const approvedSubTasks = subTasks.filter((t) => t.status === 'LEADER_APPROVED').length;
+  const progressPercent = totalSubTasks > 0 ? Math.round((approvedSubTasks / totalSubTasks) * 100) : 0;
+
+  const countPending = subTasks.filter((t) => t.status === 'SUBMITTED').length;
+  const countAssigned = subTasks.filter((t) => t.status === 'ASSIGNED').length;
+  const countApproved = approvedSubTasks;
+  const countUnassigned = subTasks.filter((t) => t.status === 'UNASSIGNED').length;
+
+  const filteredSubTasks = useMemo(() => {
+    if (statusFilter === 'ALL') return subTasks;
+    return subTasks.filter((t) => t.status === statusFilter);
+  }, [subTasks, statusFilter]);
+
   if (!currentProject || projects.length === 0) {
     return (
       <View style={styles.container}>
@@ -311,21 +326,6 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       </View>
     );
   }
-
-  const subTasks = currentProject.subTasks || [];
-  const totalSubTasks = subTasks.length;
-  const approvedSubTasks = subTasks.filter((t) => t.status === 'LEADER_APPROVED').length;
-  const progressPercent = totalSubTasks > 0 ? Math.round((approvedSubTasks / totalSubTasks) * 100) : 0;
-
-  const countPending = subTasks.filter((t) => t.status === 'SUBMITTED').length;
-  const countAssigned = subTasks.filter((t) => t.status === 'ASSIGNED').length;
-  const countApproved = approvedSubTasks;
-  const countUnassigned = subTasks.filter((t) => t.status === 'UNASSIGNED').length;
-
-  const filteredSubTasks = useMemo(() => {
-    if (statusFilter === 'ALL') return subTasks;
-    return subTasks.filter((t) => t.status === statusFilter);
-  }, [subTasks, statusFilter]);
 
   return (
     <View style={styles.container}>
