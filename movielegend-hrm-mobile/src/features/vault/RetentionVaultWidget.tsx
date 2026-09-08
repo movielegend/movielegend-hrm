@@ -42,35 +42,14 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const [withdrawNote, setWithdrawNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#D97706" />
-        <Text style={styles.loadingText}>Đang tải dữ liệu Ví Thưởng...</Text>
-      </View>
-    );
-  }
+  const [currentTime, setCurrentTime] = useState(() => new Date());
 
-  if (!data?.isVaultEnabled) {
-    return (
-      <View style={styles.disabledCard}>
-        <View style={styles.disabledIconContainer}>
-          <MaterialCommunityIcons name="lock-alert-outline" size={48} color="#D97706" />
-        </View>
-        <Text style={styles.disabledTitle}>Ví Điểm Thưởng Chưa Được Kích Hoạt</Text>
-        <Text style={styles.disabledDescription}>
-          Tính năng Ví Điểm Thưởng là đặc quyền dành riêng cho nhân sự được phê duyệt. Tài khoản của bạn hiện chưa được mở quyền này.
-        </Text>
-        <Text style={styles.disabledHint}>
-          Vui lòng liên hệ Quản trị viên / Ban Giám Đốc để được kích hoạt và phân bổ quỹ thưởng.
-        </Text>
-        <TouchableOpacity style={styles.refreshBtn} onPress={() => refetch()} activeOpacity={0.8}>
-          <Ionicons name="reload" size={16} color="#B45309" />
-          <Text style={styles.refreshBtnText}>Kiểm tra lại trạng thái</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const vault = data?.vault;
   const stats = data?.stats || {
@@ -89,69 +68,9 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const instantCash = stats.instantBonusPoints * cashValuePerPoint;
   const totalGrantedCash = stats.totalGrantedPoints * cashValuePerPoint;
 
-  const openWithdrawModal = () => {
-    // Default withdraw amount to unlocked points if > 0, otherwise max withdrawable
-    const defaultPts = stats.unlockedPoints > 0 ? stats.unlockedPoints : stats.maxWithdrawable;
-    setWithdrawPointsInput(defaultPts.toString());
-    setWithdrawNote('');
-    setModalVisible(true);
-  };
-
-  const pointsToWithdraw = parseInt(withdrawPointsInput, 10) || 0;
-  const cashToWithdraw = pointsToWithdraw * cashValuePerPoint;
-  const isAdvanceWithdrawal = pointsToWithdraw > stats.unlockedPoints;
-  const advancePoints = Math.max(0, pointsToWithdraw - stats.unlockedPoints);
-  const advanceCash = advancePoints * cashValuePerPoint;
-
-  const handleWithdrawSubmit = async () => {
-    if (pointsToWithdraw <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số điểm muốn rút lớn hơn 0!');
-      return;
-    }
-
-    if (pointsToWithdraw > stats.maxWithdrawable) {
-      Alert.alert(
-        'Vượt quá hạn mức',
-        `Số điểm rút (${pointsToWithdraw.toLocaleString('vi-VN')} đ) vượt quá tổng hạn mức có thể rút (${stats.maxWithdrawable.toLocaleString('vi-VN')} đ).`
-      );
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      await withdrawVaultPoints({
-        points: pointsToWithdraw,
-        note: withdrawNote.trim() || undefined,
-      });
-
-      await queryClient.invalidateQueries({ queryKey: ['my-vault'] });
-      setModalVisible(false);
-
-      Alert.alert(
-        'Gửi Yêu Cầu Rút Điểm Thành Công! 💸',
-        isAdvanceWithdrawal
-          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các đợt tương lai). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
-          : `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
-      );
-    } catch (err: any) {
-      Alert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const packages: ProjectGrantPackage[] = vault?.packages || [];
   const legacyMilestones: VestingMilestone[] = vault?.milestones || [];
   const transactions: VaultTransaction[] = vault?.transactions || [];
-
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const now = currentTime;
   const currentYear = currentTime.getFullYear();
@@ -291,6 +210,87 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
       unlockDateFormatted: `${pad(endD.getDate())}/${pad(endD.getMonth() + 1)}/${endD.getFullYear()}`,
     };
   }, [packages, legacyMilestones, legacyQuarterSteps, now, stats.totalGrantedPoints, cashValuePerPoint, currentYear]);
+
+  const openWithdrawModal = () => {
+    // Default withdraw amount to unlocked points if > 0, otherwise max withdrawable
+    const defaultPts = stats.unlockedPoints > 0 ? stats.unlockedPoints : stats.maxWithdrawable;
+    setWithdrawPointsInput(defaultPts.toString());
+    setWithdrawNote('');
+    setModalVisible(true);
+  };
+
+  const pointsToWithdraw = parseInt(withdrawPointsInput, 10) || 0;
+  const cashToWithdraw = pointsToWithdraw * cashValuePerPoint;
+  const isAdvanceWithdrawal = pointsToWithdraw > stats.unlockedPoints;
+  const advancePoints = Math.max(0, pointsToWithdraw - stats.unlockedPoints);
+  const advanceCash = advancePoints * cashValuePerPoint;
+
+  const handleWithdrawSubmit = async () => {
+    if (pointsToWithdraw <= 0) {
+      Alert.alert('Lỗi', 'Vui lòng nhập số điểm muốn rút lớn hơn 0!');
+      return;
+    }
+
+    if (pointsToWithdraw > stats.maxWithdrawable) {
+      Alert.alert(
+        'Vượt quá hạn mức',
+        `Số điểm rút (${pointsToWithdraw.toLocaleString('vi-VN')} đ) vượt quá tổng hạn mức có thể rút (${stats.maxWithdrawable.toLocaleString('vi-VN')} đ).`
+      );
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await withdrawVaultPoints({
+        points: pointsToWithdraw,
+        note: withdrawNote.trim() || undefined,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['my-vault'] });
+      setModalVisible(false);
+
+      Alert.alert(
+        'Gửi Yêu Cầu Rút Điểm Thành Công! 💸',
+        isAdvanceWithdrawal
+          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các đợt tương lai). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
+          : `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color="#D97706" />
+        <Text style={styles.loadingText}>Đang tải dữ liệu Ví Thưởng...</Text>
+      </View>
+    );
+  }
+
+  if (!data?.isVaultEnabled) {
+    return (
+      <View style={styles.disabledCard}>
+        <View style={styles.disabledIconContainer}>
+          <MaterialCommunityIcons name="lock-alert-outline" size={48} color="#D97706" />
+        </View>
+        <Text style={styles.disabledTitle}>Ví Điểm Thưởng Chưa Được Kích Hoạt</Text>
+        <Text style={styles.disabledDescription}>
+          Tính năng Ví Điểm Thưởng là đặc quyền dành riêng cho nhân sự được phê duyệt. Tài khoản của bạn hiện chưa được mở quyền này.
+        </Text>
+        <Text style={styles.disabledHint}>
+          Vui lòng liên hệ Quản trị viên / Ban Giám Đốc để được kích hoạt và phân bổ quỹ thưởng.
+        </Text>
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => refetch()} activeOpacity={0.8}>
+          <Ionicons name="reload" size={16} color="#B45309" />
+          <Text style={styles.refreshBtnText}>Kiểm tra lại trạng thái</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.cardContainer}>
