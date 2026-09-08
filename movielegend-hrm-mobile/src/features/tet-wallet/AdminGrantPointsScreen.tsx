@@ -82,8 +82,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 
   const [grantTitle, setGrantTitle] = useState<string>(
     target.type === 'DEPARTMENT' && target.department
-      ? `Thưởng Tết ${currentYear} - Phòng ${target.department.name}`
-      : `Thưởng Tết ${currentYear}`
+      ? `Thưởng Cuối Năm ${currentYear} - Phòng ${target.department.name}`
+      : `Thưởng Cuối Năm ${currentYear}`
   );
   const [customPointsInput, setCustomPointsInput] = useState<string>('50000');
   const [durationMonths, setDurationMonths] = useState<number>(12);
@@ -263,11 +263,10 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
       Alert.alert('Số điểm không hợp lệ', 'Vui lòng nhập số điểm lớn hơn 0.');
       return;
     }
-    const title = grantTitle.trim() || 'Thưởng Dự án';
+    const title = grantTitle.trim() || `Thưởng Cuối Năm ${currentYear}`;
 
     try {
       setIsSubmitting(true);
-      const currentYear = new Date().getFullYear();
 
       if (target.type === 'SINGLE' && target.employee) {
         await apiGrantProjectPackage({
@@ -282,8 +281,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           note: grantNote.trim() || undefined,
         });
         Alert.alert(
-          'Trao gói thưởng thành công 🎉',
-          `Đã trao gói "${title}" với ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) chia thành ${calculatedMilestones.length} đợt trong ${durationMonths} tháng cho ${target.employee.profile?.fullName || target.employee.userCode}.`,
+          'Trao điểm thưởng thành công 🎉',
+          `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) thưởng cuối năm chia thành ${calculatedMilestones.length} đợt trong ${durationMonths} tháng cho ${target.employee.profile?.fullName || target.employee.userCode}.`,
           [{ text: 'Hoàn tất', onPress: () => { onSuccess ? onSuccess() : onBack(); } }]
         );
       } else if (target.type === 'DEPARTMENT' && target.department) {
@@ -299,8 +298,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           note: grantNote.trim() || undefined,
         });
         Alert.alert(
-          'Trao gói thưởng thành công 🎉',
-          `Đã trao gói "${title}" (${pts.toLocaleString('vi-VN')} điểm/nhân sự) cho toàn bộ phòng ban "${target.department.name}".`,
+          'Trao điểm thưởng thành công 🎉',
+          `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ/nhân sự) thưởng cuối năm cho toàn bộ phòng ban "${target.department.name}".`,
           [{ text: 'Hoàn tất', onPress: () => { onSuccess ? onSuccess() : onBack(); } }]
         );
       }
@@ -397,66 +396,11 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               </View>
             )}
 
-            {/* 2. Form Card: Package Name & Note */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionTitleRow}>
-                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>1. Thông tin Gói Thưởng</Text>
-              </View>
-
-              <Text style={styles.inputFieldLabel}>Tên gói thưởng / Dự án *</Text>
-              <View style={styles.inputWrapper}>
-                <MaterialCommunityIcons name="tag-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
-                <TextInput
-                  style={styles.textInput}
-                  value={grantTitle}
-                  onChangeText={setGrantTitle}
-                  placeholder={`VD: Thưởng Tích Lũy ${currentYear}, Thưởng Dự Án, Thưởng Nóng...`}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              {/* Quick Title Chips */}
-              <View style={[styles.presetChipsWrap, { marginTop: 6, marginBottom: 4 }]}>
-                {[
-                  `Thưởng Tích Lũy ${currentYear}`,
-                  'Thưởng Dự Án Xuất Sắc',
-                  'Thưởng Tích Lũy Tháng',
-                  'Thưởng Nóng Đặc Biệt',
-                ].map((presetName) => {
-                  const isSelected = grantTitle === presetName;
-                  return (
-                    <Pressable
-                      key={presetName}
-                      style={[styles.presetChip, isSelected && styles.presetChipActive, { paddingVertical: 4, paddingHorizontal: 8 }]}
-                      onPress={() => setGrantTitle(presetName)}
-                    >
-                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive, { fontSize: 11 }]}>
-                        {presetName}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.inputFieldLabel}>Ghi chú / Quyết định khen thưởng (Tùy chọn)</Text>
-              <View style={[styles.inputWrapper, { height: 72, alignItems: 'flex-start', paddingTop: 8 }]}>
-                <TextInput
-                  style={[styles.textInput, { height: 56, textAlignVertical: 'top' }]}
-                  value={grantNote}
-                  onChangeText={setGrantNote}
-                  multiline
-                  placeholder="VD: Trao thưởng theo cam kết hoàn thành kế hoạch năm xuất sắc..."
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-            </View>
-
-            {/* 3. Form Card: Points & Cash Amount */}
+            {/* 1. Form Card: Points & Cash Amount */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionTitleRow}>
                 <MaterialCommunityIcons name="star-shooting-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>2. Số Điểm Thưởng Trao Tặng</Text>
+                <Text style={styles.sectionTitle}>1. Số Điểm Thưởng Trao Tặng</Text>
               </View>
 
               <Text style={styles.inputFieldLabel}>Chọn nhanh số điểm:</Text>
@@ -509,14 +453,14 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               )}
             </View>
 
-            {/* 4. Form Card: Duration & Interval Configuration */}
+            {/* 2. Form Card: Duration & Interval Configuration */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionTitleRow}>
                 <MaterialCommunityIcons name="calendar-clock-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>3. Cấu Hình Chu Kỳ Tích Lũy & Mở Khóa Rút</Text>
+                <Text style={styles.sectionTitle}>2. Cấu Hình Chu Kỳ Tích Lũy & Mở Khóa Rút</Text>
               </View>
 
-              <Text style={styles.inputFieldLabel}>Thời hạn tích lũy (Số tháng):</Text>
+              <Text style={styles.inputFieldLabel}>Thời hạn tích lũy (Số tháng - Mặc định 12 tháng):</Text>
               <View style={styles.presetChipsWrap}>
                 {DURATION_OPTIONS.map((opt) => {
                   const isSelected = durationMonths === opt.value;
@@ -606,14 +550,14 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               </View>
             </View>
 
-            {/* 5. Live Calculated Milestones Table */}
+            {/* 3. Live Calculated Milestones Table */}
             {calculatedMilestones.length > 0 && (
               <View style={[styles.sectionCard, styles.milestonePreviewCard]}>
                 <View style={styles.previewHeaderRow}>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <MaterialCommunityIcons name="timeline-check" size={20} color="#D97706" />
-                      <Text style={styles.previewTitle}>Lộ Trình Tích Lũy & Giải Ngân Tết</Text>
+                      <Text style={styles.previewTitle}>3. Lộ Trình Tích Lũy & Giải Ngân Cuối Năm</Text>
                     </View>
                     <Text style={styles.previewSubtitle}>
                       Tự động chia thành {calculatedMilestones.length} đợt trong thời hạn {durationMonths} tháng
@@ -674,6 +618,25 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                 </View>
               </View>
             )}
+
+            {/* 4. Form Card: Note */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionTitleRow}>
+                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#D97706" />
+                <Text style={styles.sectionTitle}>4. Ghi Chú / Quyết Định Khen Thưởng (Tùy chọn)</Text>
+              </View>
+
+              <View style={[styles.inputWrapper, { height: 72, alignItems: 'flex-start', paddingTop: 8 }]}>
+                <TextInput
+                  style={[styles.textInput, { height: 56, textAlignVertical: 'top' }]}
+                  value={grantNote}
+                  onChangeText={setGrantNote}
+                  multiline
+                  placeholder="VD: Trao thưởng theo cam kết hoàn thành kế hoạch năm xuất sắc..."
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+            </View>
 
             {/* Spacer for bottom CTA */}
             <View style={{ height: 20 }} />
