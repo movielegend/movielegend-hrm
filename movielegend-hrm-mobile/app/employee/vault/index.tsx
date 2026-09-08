@@ -9,7 +9,7 @@ export default function VaultRoute() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <PageHeader
           title="Ví Thưởng"
-          subtitle="Quỹ thưởng giữ chân & tích lũy năm tài chính"
+          subtitle="Quỹ thưởng đồng hành & tích lũy tài chính"
           showBack={false}
         />
         <RetentionVaultWidget isVaultEnabled={true} />

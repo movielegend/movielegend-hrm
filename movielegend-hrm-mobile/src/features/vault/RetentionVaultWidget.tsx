@@ -192,7 +192,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             </View>
             <View>
               <Text style={styles.vipHeroTitle}>Ví Thưởng Tích Lũy {currentYear}</Text>
-              <Text style={styles.vipHeroSubtitle}>Quỹ Tích Lũy 12 Tháng Giữ Chân Nhân Tài</Text>
+              <Text style={styles.vipHeroSubtitle}>Quỹ Thưởng Đồng Hành & Cống Hiến {currentYear}</Text>
             </View>
           </View>
           <View style={styles.vipBadgeChip}>
