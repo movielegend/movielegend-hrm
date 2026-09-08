@@ -36,6 +36,7 @@ export interface AdminLevelItem {
   rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
   promotionBonusAmount: number;
   physicalItemName: string;
+  physicalItems?: string[];
   retentionFloorGmv: number;
   promotionCeilingGmv: number;
   retentionMultiplier: number;
@@ -538,7 +539,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
             </View>
 
             {editingItem && (
-              <ScrollView style={{ maxHeight: 400 }}>
+              <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
                 <Text style={styles.inputLabel}>Tên Cấp Bậc:</Text>
                 <TextInput
                   style={styles.modalInput}
@@ -546,20 +547,115 @@ export const AdminLevelConfigScreen: React.FC = () => {
                   onChangeText={(text) => setEditingItem({ ...editingItem, levelName: text })}
                 />
 
-                <Text style={styles.inputLabel}>Quà Hiện Vật (MacBook, iPad, Xe máy...):</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={editingItem.physicalItemName}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, physicalItemName: text })}
-                />
+                <Text style={styles.inputLabel}>Hình Thức Phần Thưởng:</Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.rewardTypeOption,
+                      editingItem.rewardType === 'CASH' && styles.rewardTypeOptionActive,
+                    ]}
+                    onPress={() => setEditingItem({ ...editingItem, rewardType: 'CASH' })}
+                  >
+                    <Text
+                      style={[
+                        styles.rewardTypeOptionText,
+                        editingItem.rewardType === 'CASH' && styles.rewardTypeOptionTextActive,
+                      ]}
+                    >
+                      💵 Tiền mặt
+                    </Text>
+                  </TouchableOpacity>
 
-                <Text style={styles.inputLabel}>Thưởng Tiền Mặt Thăng Cấp (VNĐ):</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  keyboardType="number-pad"
-                  value={String(editingItem.promotionBonusAmount)}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, promotionBonusAmount: Number(text) || 0 })}
-                />
+                  <TouchableOpacity
+                    style={[
+                      styles.rewardTypeOption,
+                      editingItem.rewardType === 'PHYSICAL_ITEM' && styles.rewardTypeOptionActive,
+                    ]}
+                    onPress={() => setEditingItem({ ...editingItem, rewardType: 'PHYSICAL_ITEM' })}
+                  >
+                    <Text
+                      style={[
+                        styles.rewardTypeOptionText,
+                        editingItem.rewardType === 'PHYSICAL_ITEM' && styles.rewardTypeOptionTextActive,
+                      ]}
+                    >
+                      🎁 Hiện vật
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.rewardTypeOption,
+                      editingItem.rewardType === 'HYBRID' && styles.rewardTypeOptionActive,
+                    ]}
+                    onPress={() => setEditingItem({ ...editingItem, rewardType: 'HYBRID' })}
+                  >
+                    <Text
+                      style={[
+                        styles.rewardTypeOptionText,
+                        editingItem.rewardType === 'HYBRID' && styles.rewardTypeOptionTextActive,
+                      ]}
+                    >
+                      ✨ Cả hai (Kết hợp)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {(editingItem.rewardType === 'CASH' || editingItem.rewardType === 'HYBRID') && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={styles.inputLabel}>Tổng Quỹ Thưởng Tiền Mặt (VNĐ):</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      keyboardType="number-pad"
+                      placeholder="VD: 20000000"
+                      placeholderTextColor="#94A3B8"
+                      value={editingItem.promotionBonusAmount > 0 ? String(editingItem.promotionBonusAmount) : ''}
+                      onChangeText={(text) =>
+                        setEditingItem({
+                          ...editingItem,
+                          promotionBonusAmount: Number(text.replace(/[^0-9]/g, '')) || 0,
+                        })
+                      }
+                    />
+                    {editingItem.promotionBonusAmount > 0 && (
+                      <Text style={styles.moneyPreviewText}>
+                        💰 {editingItem.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ (Tự động chia theo Hệ số Level của nhân viên tham gia)
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {(editingItem.rewardType === 'PHYSICAL_ITEM' || editingItem.rewardType === 'HYBRID') && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={styles.inputLabel}>
+                      Quà Hiện Vật (Nhập 1 hoặc nhiều món, ngăn cách bằng dấu phẩy):
+                    </Text>
+                    <TextInput
+                      style={[styles.modalInput, { minHeight: 60, textAlignVertical: 'top' }]}
+                      placeholder="VD: 1 Chuyến dã ngoại, 3 Tai nghe Sony, 1 Cúp vinh danh"
+                      placeholderTextColor="#94A3B8"
+                      multiline
+                      value={editingItem.physicalItemName}
+                      onChangeText={(text) => {
+                        const items = text.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+                        setEditingItem({
+                          ...editingItem,
+                          physicalItemName: text,
+                          physicalItems: items,
+                        });
+                      }}
+                    />
+                    <Text style={styles.itemNoteText}>
+                      📦 Quà hiện vật sẽ được lưu trữ và hiển thị chung cho toàn đội tham gia.
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.rewardGuideBox}>
+                  <Text style={styles.rewardGuideText}>
+                    💡 <Text style={{ fontWeight: 'bold' }}>Quy tắc phân chia:</Text> Tiền mặt được phân bổ minh bạch theo Hệ số Level của các nhân sự nhận việc trong dự án. Phần thưởng hiển thị trực tiếp trên chi tiết Level & Dự án.
+                  </Text>
+                </View>
               </ScrollView>
             )}
 
@@ -704,6 +800,57 @@ const styles = StyleSheet.create({
     fontSize: 13,
     backgroundColor: '#FFFFFF',
     color: '#0F172A',
+  },
+  rewardTypeOption: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rewardTypeOptionActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+  },
+  rewardTypeOptionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  rewardTypeOptionTextActive: {
+    color: '#1D4ED8',
+    fontWeight: 'bold',
+  },
+  moneyPreviewText: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  itemNoteText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  rewardGuideBox: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+  },
+  rewardGuideText: {
+    fontSize: 11,
+    color: '#166534',
+    lineHeight: 16,
   },
   saveBtn: {
     backgroundColor: '#1E40AF',

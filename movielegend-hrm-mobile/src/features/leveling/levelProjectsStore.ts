@@ -30,6 +30,10 @@ export interface LevelDepartmentProject {
   projectName: string;
   adminNote: string;
   rewardItem: string;
+  rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID' | 'MULTIPLE';
+  cashAmount?: number;
+  physicalItems?: string[];
+  physicalItemName?: string;
   status: ProjectAcceptanceStatus;
   isConfigured?: boolean;
   leaderReportNote?: string;
@@ -139,6 +143,10 @@ class LevelProjectsStore {
           projectName: rp.projectName || `Dự Án Level ${rp.levelNumber}`,
           adminNote: rp.adminNote || '',
           rewardItem: rp.rewardItem || '',
+          rewardType: rp.rewardType,
+          cashAmount: rp.cashAmount ? Number(rp.cashAmount) : undefined,
+          physicalItems: rp.physicalItems,
+          physicalItemName: rp.physicalItemName,
           status: rp.status || 'IN_PROGRESS',
           subTasks: (rp.subTasks || []).map((st: any, idx: number) => ({
             id: st.id || `st-${rp.levelNumber}-${idx + 1}`,

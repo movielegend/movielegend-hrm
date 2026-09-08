@@ -1084,9 +1084,24 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                 )}
               </View>
 
-              <Text style={styles.projectDescText}>
-                • {currentProjectForTier?.rewardItem ? `Phần thưởng thăng cấp: ${currentProjectForTier.rewardItem}` : selectedTier.projectSub}
-              </Text>
+              {currentProjectForTier?.rewardItem ? (
+                <View style={styles.tierRewardCard}>
+                  <View style={styles.tierRewardHeaderRow}>
+                    <Ionicons name="gift-outline" size={14} color="#B45309" />
+                    <Text style={styles.tierRewardTitle}>Phần thưởng Level & Dự án:</Text>
+                  </View>
+                  <Text style={styles.tierRewardContentText}>
+                    {currentProjectForTier.rewardItem}
+                  </Text>
+                  <Text style={styles.tierRewardNoteText}>
+                    (Tiền mặt tự động phân bổ theo Hệ số Level của cá nhân khi tham gia việc con; Hiện vật lưu giữ chung cho cả đội)
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.projectDescText}>
+                  • {selectedTier.projectSub}
+                </Text>
+              )}
 
               {/* DANH SÁCH VIỆC CON GIAO CHO CÁ NHÂN TẠI LEVEL NÀY */}
               <View style={styles.assignedTasksBlock}>
@@ -2257,10 +2272,37 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  projectLevelTagBadgeText: {
-    fontSize: 11,
+  tierRewardCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  tierRewardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  tierRewardTitle: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#0F766E',
+    color: '#92400E',
+  },
+  tierRewardContentText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#78350F',
+    lineHeight: 18,
+  },
+  tierRewardNoteText: {
+    fontSize: 10.5,
+    color: '#B45309',
+    marginTop: 4,
+    lineHeight: 14,
   },
   assignedTasksBlock: {
     marginTop: 12,

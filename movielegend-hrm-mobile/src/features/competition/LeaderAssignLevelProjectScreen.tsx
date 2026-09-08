@@ -23,6 +23,7 @@ import {
   LevelDepartmentProject,
   LevelProjectPermissionRequest,
 } from '../leveling/levelProjectsStore';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 
 export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const { user } = useAuth();
@@ -94,6 +95,89 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     const q = searchMemberQuery.toLowerCase();
     return teamList.filter((m) => m.name.toLowerCase().includes(q) || m.role.toLowerCase().includes(q));
   }, [teamList, searchMemberQuery]);
+
+  const [showRewardBreakdown, setShowRewardBreakdown] = useState(false);
+
+  // Parse total cash pool from current project
+  const totalCashPool = useMemo(() => {
+    if (currentProject?.cashAmount && currentProject.cashAmount > 0) {
+      return currentProject.cashAmount;
+    }
+    // Fallback parse numeric amount from rewardItem string
+    if (currentProject?.rewardItem) {
+      const match = currentProject.rewardItem.replace(/\./g, '').match(/(\d+)\s*VNĐ/i);
+      if (match && match[1]) {
+        return Number(match[1]) || 0;
+      }
+    }
+    return 0;
+  }, [currentProject?.cashAmount, currentProject?.rewardItem]);
+
+  // Parse physical items from current project
+  const physicalItemList = useMemo(() => {
+    if (Array.isArray(currentProject?.physicalItems) && currentProject.physicalItems.length > 0) {
+      return currentProject.physicalItems;
+    }
+    if (currentProject?.physicalItemName?.trim()) {
+      return currentProject.physicalItemName.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    }
+    if (currentProject?.rewardItem?.includes('🎁')) {
+      const giftPart = currentProject.rewardItem.split('🎁')[1]?.split('+')[0]?.trim();
+      if (giftPart) return [giftPart.replace(/\(Hiện vật chung\)/g, '').trim()];
+    }
+    return [];
+  }, [currentProject?.physicalItems, currentProject?.physicalItemName, currentProject?.rewardItem]);
+
+  // Compute participating members in this level project and their Level multiplier weight
+  const participatingMembers = useMemo(() => {
+    if (!currentProject) return [];
+    const userMap = new Map<
+      string,
+      {
+        userId: string;
+        userName: string;
+        levelNumber: number;
+        levelWeight: number;
+        taskCount: number;
+        isLeader: boolean;
+      }
+    >();
+
+    (currentProject.subTasks || []).forEach((st) => {
+      if (st.assignedToUserId) {
+        const uId = st.assignedToUserId;
+        const isLeaderUser = uId === currentLeaderId || uId === 'leader-me';
+        const uName = isLeaderUser ? `${currentLeaderName} (Leader)` : (st.assignedToUserName || 'Nhân sự');
+
+        if (!userMap.has(uId)) {
+          const emp = realEmployees.find((e) => e.id === uId);
+          const lvl = emp?.profile?.currentLevelNumber || (isLeaderUser ? Math.max(selectedLevelNumber, 3) : 1);
+
+          // Level multiplier: Lv.1 = 1.0, Lv.2 = 1.5, Lv.3 = 2.0, Lv.4 = 2.5, Lv.5 = 3.0, Lv.6 = 3.5, Lv.7 = 4.0, Lv.8 = 5.0
+          const weight =
+            lvl <= 1 ? 1.0 : lvl === 2 ? 1.5 : lvl === 3 ? 2.0 : lvl === 4 ? 2.5 : lvl === 5 ? 3.0 : lvl === 6 ? 3.5 : lvl === 7 ? 4.0 : 5.0;
+
+          userMap.set(uId, {
+            userId: uId,
+            userName: uName,
+            levelNumber: lvl,
+            levelWeight: weight,
+            taskCount: 1,
+            isLeader: isLeaderUser,
+          });
+        } else {
+          const existing = userMap.get(uId)!;
+          existing.taskCount += 1;
+        }
+      }
+    });
+
+    return Array.from(userMap.values());
+  }, [currentProject, realEmployees, currentLeaderId, currentLeaderName, selectedLevelNumber]);
+
+  const totalTeamWeight = useMemo(() => {
+    return participatingMembers.reduce((sum, m) => sum + m.levelWeight, 0);
+  }, [participatingMembers]);
 
   // Handle Leader accepts project from Admin
   const handleAcceptProject = () => {
@@ -337,6 +421,123 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
               <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
             </View>
             <Text style={styles.progressLabel}>{approvedSubTasks}/10 hoàn thành</Text>
+          </View>
+
+          {/* PROJECT REWARD SUMMARY BOX */}
+          <View style={styles.rewardSummaryCard}>
+            <View style={styles.rewardSummaryHeader}>
+              <Ionicons name="gift-outline" size={16} color="#B45309" />
+              <Text style={styles.rewardSummaryTitle}>Phần Thưởng Dự Án {currentProject.levelName}</Text>
+            </View>
+
+            {totalCashPool > 0 && (
+              <View style={styles.rewardCashRow}>
+                <Text style={styles.rewardBadgeMoney}>💵 Tiền mặt</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rewardCashValText}>
+                    {totalCashPool.toLocaleString('vi-VN')} VNĐ
+                  </Text>
+                  <Text style={styles.rewardCashSubText}>
+                    (Tự động chia theo Hệ số Level của các thành viên nhận việc)
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {physicalItemList.length > 0 && (
+              <View style={styles.rewardPhysicalRow}>
+                <Text style={styles.rewardBadgeGift}>🎁 Hiện vật</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rewardPhysicalValText}>
+                    {physicalItemList.join(' • ')}
+                  </Text>
+                  <Text style={styles.rewardPhysicalSubText}>
+                    (Hiện vật để chung cho cả team hoàn thành dự án)
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {totalCashPool === 0 && physicalItemList.length === 0 && (
+              <Text style={styles.rewardNoneText}>
+                {currentProject.rewardItem ? currentProject.rewardItem : 'Chưa có phần thưởng cụ thể cho dự án này.'}
+              </Text>
+            )}
+
+            {/* LEVEL MULTIPLIER BREAKDOWN TOGGLE / SECTION */}
+            {totalCashPool > 0 && (
+              <View style={styles.multiplierBox}>
+                <TouchableOpacity
+                  style={styles.multiplierToggleBtn}
+                  onPress={() => setShowRewardBreakdown((prev) => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="calculator-outline" size={15} color="#1E40AF" />
+                    <Text style={styles.multiplierToggleText}>
+                      Bảng Phân Bổ Tiền Thưởng ({participatingMembers.length} nhân sự tham gia)
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={showRewardBreakdown ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color="#1E40AF"
+                  />
+                </TouchableOpacity>
+
+                {showRewardBreakdown && (
+                  <View style={styles.breakdownTable}>
+                    <Text style={styles.breakdownGuideText}>
+                      💡 <Text style={{ fontWeight: 'bold' }}>Công thức chia:</Text> Tiền của mỗi nhân sự = (Hệ số Level của cá nhân / Tổng hệ số team) × {totalCashPool.toLocaleString('vi-VN')} VNĐ.
+                    </Text>
+
+                    {participatingMembers.length === 0 ? (
+                      <Text style={styles.noParticipantsText}>
+                        Chưa có nhân sự nào được giao việc con trong dự án này. Hãy giao việc con bên dưới để hệ số tự động kích hoạt!
+                      </Text>
+                    ) : (
+                      participatingMembers.map((m) => {
+                        const shareAmount =
+                          totalTeamWeight > 0 ? Math.round((m.levelWeight / totalTeamWeight) * totalCashPool) : 0;
+                        const percentStr =
+                          totalTeamWeight > 0 ? ((m.levelWeight / totalTeamWeight) * 100).toFixed(1) : '0';
+                        const colorHex = LEVEL_COLORS[m.levelNumber] || '#2196F3';
+
+                        return (
+                          <View key={m.userId} style={styles.memberShareRow}>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={styles.memberShareName}>{m.userName}</Text>
+                                <View style={[styles.memberLevelBadge, { backgroundColor: colorHex }]}>
+                                  <Text style={styles.memberLevelBadgeText}>Level {m.levelNumber}</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.memberShareMeta}>
+                                Hệ số: <Text style={{ fontWeight: 'bold', color: '#1E40AF' }}>{m.levelWeight}x</Text> • Nhận {m.taskCount} việc con ({percentStr}%)
+                              </Text>
+                            </View>
+
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={styles.memberShareAmount}>
+                                {shareAmount.toLocaleString('vi-VN')} đ
+                              </Text>
+                              <Text style={styles.memberShareStatus}>Ước tính nhận</Text>
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
+
+                    <View style={styles.breakdownFooterNotice}>
+                      <Ionicons name="information-circle-outline" size={13} color="#059669" />
+                      <Text style={styles.breakdownFooterNoticeText}>
+                        Phần thưởng hiển thị minh bạch tại chi tiết Level (không tự động cộng vào ví).
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           {currentProject.status === 'PENDING_LEADER_ACCEPT' && (
@@ -999,6 +1200,173 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#059669',
     fontWeight: '600',
+  },
+  rewardSummaryCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginTop: 12,
+  },
+  rewardSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  rewardSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  rewardCashRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  rewardBadgeMoney: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#059669',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  rewardCashValText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#059669',
+  },
+  rewardCashSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  rewardPhysicalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  rewardBadgeGift: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#D97706',
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  rewardPhysicalValText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  rewardPhysicalSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  rewardNoneText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+  },
+  multiplierBox: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 8,
+  },
+  multiplierToggleBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  multiplierToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  breakdownTable: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  breakdownGuideText: {
+    fontSize: 11,
+    color: '#1E40AF',
+    backgroundColor: '#EFF6FF',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 10,
+    lineHeight: 16,
+  },
+  noParticipantsText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+    paddingVertical: 6,
+  },
+  memberShareRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  memberShareName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  memberLevelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  memberLevelBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  memberShareMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  memberShareAmount: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#059669',
+  },
+  memberShareStatus: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  breakdownFooterNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  breakdownFooterNoticeText: {
+    fontSize: 10.5,
+    color: '#059669',
+    fontWeight: '500',
   },
   acceptBtn: {
     backgroundColor: '#2563EB',
