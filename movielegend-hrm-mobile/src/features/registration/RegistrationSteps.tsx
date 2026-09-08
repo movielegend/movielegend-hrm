@@ -816,7 +816,6 @@ export function RegistrationSuccessScreen() {
   );
 }
 
-export { RegistrationAccountScreen as RegistrationProfileScreen };
 
 function DepartmentOption({ department, selected, onPress }: { department: Department; selected: boolean; onPress: () => void }) {
   return (
