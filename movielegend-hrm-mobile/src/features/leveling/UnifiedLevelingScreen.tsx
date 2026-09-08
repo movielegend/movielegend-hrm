@@ -47,16 +47,15 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const { user } = useAuth();
 
   const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
-  const isLeaderOrAdmin =
-    isAdmin ||
-    user?.roles?.includes('LEADER') ||
-    user?.roles?.includes('HR');
+  const isLeader = !isAdmin && (user?.roles?.includes('LEADER') || user?.roles?.includes('HR'));
+  const isLeaderOrAdmin = isAdmin || isLeader;
 
+  const defaultTab = isAdmin ? 'members' : 'roadmap';
   const resolvedTab =
     propInitialTab ||
-    (params.tab === 'config' || params.tab === 'members' || params.tab === 'roadmap'
+    (params.tab === 'config' || params.tab === 'members' || (!isAdmin && params.tab === 'roadmap')
       ? (params.tab as any)
-      : 'roadmap');
+      : defaultTab);
 
   const resolvedSubTab =
     propInitialLeaderSubTab ||
@@ -115,14 +114,16 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
   const loadData = useCallback(async () => {
     try {
-      // 1. Load my progress
-      const myProgress = await levelingApi.getMyLevelProgress().catch(() => null);
-      if (myProgress) {
-        setProgressData(myProgress);
+      // 1. Load my progress (only needed for non-admin)
+      if (!isAdmin) {
+        const myProgress = await levelingApi.getMyLevelProgress().catch(() => null);
+        if (myProgress) {
+          setProgressData(myProgress);
+        }
       }
 
       // 2. Load Department Level Configs
-      const queryDeptId = selectedDeptId || params.departmentId || myProgress?.departmentId || deptList[0]?.id;
+      const queryDeptId = selectedDeptId || params.departmentId || deptList[0]?.id || progressData?.departmentId;
       if (queryDeptId) {
         const configs = await levelingApi.getDepartmentLevelConfigs(queryDeptId).catch(() => []);
         if (Array.isArray(configs) && configs.length > 0) {
@@ -160,7 +161,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isLeaderOrAdmin, selectedDeptId, deptList, params.departmentId]);
+  }, [isAdmin, isLeaderOrAdmin, selectedDeptId, deptList, params.departmentId, progressData?.departmentId]);
 
   useEffect(() => {
     loadData();
@@ -213,12 +214,28 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hệ Thống Phân Cấp Nhân Sự</Text>
+        <Text style={styles.headerTitle}>
+          {isAdmin ? 'Quản Trị Cấp Bậc' : 'Hệ Thống Phân Cấp Nhân Sự'}
+        </Text>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Top Profile Summary */}
-      {progressData && (
+      {/* Top Banner / Summary */}
+      {isAdmin ? (
+        <View style={styles.adminSummaryCard}>
+          <View style={styles.adminSummaryLeft}>
+            <View style={styles.adminIconWrapper}>
+              <Ionicons name="shield-checkmark" size={24} color="#EAB308" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.adminCardTitle}>Quản Trị Phân Cấp Nhân Sự</Text>
+              <Text style={styles.adminCardSubtitle}>
+                {activeDeptName} • {departmentMembers.length} nhân sự • {pendingCount} đề xuất chờ duyệt
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : progressData ? (
         <View style={styles.profileSummaryCard}>
           <View style={styles.avatarWrapper}>
             <Image
@@ -254,25 +271,62 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             </Text>
           </View>
         </View>
+      ) : null}
+
+      {/* Interactive Tabs by Role */}
+      {isAdmin && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('members')}
+          >
+            <Ionicons
+              name="people-outline"
+              size={18}
+              color={activeTab === 'members' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}>
+              Nhân Sự & Duyệt
+            </Text>
+            {pendingCount > 0 && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'config' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('config')}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={18}
+              color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}>
+              Cấu Hình Danh Xưng
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
-      {/* 3 Main Interactive Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'roadmap' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('roadmap')}
-        >
-          <Ionicons
-            name="ribbon-outline"
-            size={16}
-            color={activeTab === 'roadmap' ? '#2563EB' : '#94A3B8'}
-          />
-          <Text style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}>
-            Lộ Trình Cấp Bậc
-          </Text>
-        </TouchableOpacity>
+      {isLeader && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'roadmap' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('roadmap')}
+          >
+            <Ionicons
+              name="ribbon-outline"
+              size={16}
+              color={activeTab === 'roadmap' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}>
+              Lộ Trình Của Tôi
+            </Text>
+          </TouchableOpacity>
 
-        {isLeaderOrAdmin && (
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
             onPress={() => setActiveTab('members')}
@@ -291,9 +345,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               </View>
             )}
           </TouchableOpacity>
-        )}
 
-        {isLeaderOrAdmin && (
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'config' && styles.tabBtnActive]}
             onPress={() => setActiveTab('config')}
@@ -304,11 +356,11 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
             />
             <Text style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}>
-              Cấu Hình Tên Level
+              Cấu Hình Level
             </Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Admin / Leader Department Selector Carousel */}
       {isLeaderOrAdmin && deptList.length > 0 && (
@@ -744,6 +796,43 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#FFF',
+  },
+  adminSummaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    padding: 14,
+    marginHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  adminSummaryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  adminIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.3)',
+  },
+  adminCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  adminCardSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
   },
   profileSummaryCard: {
     flexDirection: 'row',
