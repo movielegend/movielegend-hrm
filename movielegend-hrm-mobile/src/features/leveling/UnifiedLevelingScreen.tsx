@@ -225,6 +225,43 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     );
   };
 
+  const handleConfigRewardTypeChange = (
+    levelNumber: number,
+    rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID',
+  ) => {
+    setDeptLevelConfigs((prev) =>
+      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, rewardType } : item)),
+    );
+  };
+
+  const handleConfigBonusAmountChange = (levelNumber: number, amount: number) => {
+    setDeptLevelConfigs((prev) =>
+      prev.map((item) =>
+        item.levelNumber === levelNumber ? { ...item, promotionBonusAmount: amount } : item,
+      ),
+    );
+  };
+
+  const handleConfigPhysicalItemChange = (levelNumber: number, physicalItemName: string) => {
+    setDeptLevelConfigs((prev) =>
+      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, physicalItemName } : item)),
+    );
+  };
+
+  const handleConfigAllowanceChange = (levelNumber: number, allowanceAmount: number) => {
+    setDeptLevelConfigs((prev) =>
+      prev.map((item) => (item.levelNumber === levelNumber ? { ...item, allowanceAmount } : item)),
+    );
+  };
+
+  const handleConfigMultiplierChange = (levelNumber: number, retentionMultiplier: number) => {
+    setDeptLevelConfigs((prev) =>
+      prev.map((item) =>
+        item.levelNumber === levelNumber ? { ...item, retentionMultiplier } : item,
+      ),
+    );
+  };
+
   const handleAddLevel = () => {
     setDeptLevelConfigs((prev) => {
       const nextLevelNumber = (prev.length > 0 ? Math.max(...prev.map((c) => c.levelNumber)) : 0) + 1;
@@ -241,6 +278,11 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         colorHex,
         minTenureMonths: nextLevelNumber * 3,
         targetShiftsCount: nextLevelNumber * 30,
+        rewardType: 'HYBRID',
+        promotionBonusAmount: (nextLevelNumber - 1) * 500000,
+        physicalItemName: '',
+        allowanceAmount: (nextLevelNumber - 1) * 300000,
+        retentionMultiplier: 1.0 + (nextLevelNumber - 1) * 0.2,
       };
 
       return [...prev, newLevel];
@@ -278,9 +320,19 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           levelNumber: c.levelNumber,
           customLevelName: c.customLevelName || c.defaultName,
           badgeTitle: c.badgeTitle || c.defaultName,
+          rewardType: c.rewardType || 'HYBRID',
+          promotionBonusAmount: c.promotionBonusAmount || 0,
+          physicalItemName: c.physicalItemName || '',
+          allowanceAmount: c.allowanceAmount || 0,
+          retentionMultiplier: c.retentionMultiplier || 1.0,
+          perks: c.perks || [],
+          motivationQuote: c.motivationQuote || '',
         })),
       );
-      Alert.alert('Thành công', `Đã lưu cấu hình danh xưng cấp bậc cho phòng ${activeDeptName}!`);
+      Alert.alert(
+        'Thành công',
+        `Đã lưu cấu hình danh xưng & phần thưởng cấp bậc cho phòng ${activeDeptName}!`,
+      );
       loadData();
     } catch (err: any) {
       Alert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
@@ -867,6 +919,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
               {deptLevelConfigs.map((lvl) => {
                 const color = LEVEL_COLORS[lvl.levelNumber] || (lvl.levelNumber > 8 ? '#D4AF37' : '#2196F3');
+                const isLevelOne = lvl.levelNumber === 1;
 
                 return (
                   <View key={lvl.levelNumber} style={styles.configRowCard}>
@@ -887,6 +940,8 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                         </TouchableOpacity>
                       )}
                     </View>
+
+                    <Text style={styles.configFieldLabel}>Tên Danh Xưng Cấp Bậc:</Text>
                     <TextInput
                       style={styles.configInput}
                       placeholder={`Nhập tên riêng cho Level ${lvl.levelNumber}...`}
@@ -894,6 +949,156 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                       value={lvl.customLevelName}
                       onChangeText={(txt) => handleConfigNameChange(lvl.levelNumber, txt)}
                     />
+
+                    {isLevelOne ? (
+                      <View style={styles.configLevelOneBox}>
+                        <Text style={styles.configLevelOneText}>
+                          🌱 Cấp bậc khởi đầu (Thực tập) - Không áp dụng phần thưởng thăng cấp.
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.configRewardBox}>
+                        <View style={styles.configRewardHeader}>
+                          <Text style={styles.configRewardHeaderTitle}>
+                            🎁 CẤU HÌNH PHẦN THƯỞNG ĐẠT LEVEL {lvl.levelNumber}
+                          </Text>
+                        </View>
+
+                        {/* Reward Type Option Pills */}
+                        <Text style={styles.configFieldLabel}>Hình Thức Thưởng:</Text>
+                        <View style={styles.configRewardPillRow}>
+                          <TouchableOpacity
+                            style={[
+                              styles.configRewardPill,
+                              lvl.rewardType === 'CASH' && styles.configRewardPillActive,
+                            ]}
+                            onPress={() => handleConfigRewardTypeChange(lvl.levelNumber, 'CASH')}
+                          >
+                            <Text
+                              style={[
+                                styles.configRewardPillText,
+                                lvl.rewardType === 'CASH' && styles.configRewardPillTextActive,
+                              ]}
+                            >
+                              💵 Tiền mặt
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.configRewardPill,
+                              lvl.rewardType === 'PHYSICAL_ITEM' && styles.configRewardPillActive,
+                            ]}
+                            onPress={() => handleConfigRewardTypeChange(lvl.levelNumber, 'PHYSICAL_ITEM')}
+                          >
+                            <Text
+                              style={[
+                                styles.configRewardPillText,
+                                lvl.rewardType === 'PHYSICAL_ITEM' && styles.configRewardPillTextActive,
+                              ]}
+                            >
+                              🎁 Hiện vật
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.configRewardPill,
+                              (lvl.rewardType === 'HYBRID' || !lvl.rewardType) && styles.configRewardPillActive,
+                            ]}
+                            onPress={() => handleConfigRewardTypeChange(lvl.levelNumber, 'HYBRID')}
+                          >
+                            <Text
+                              style={[
+                                styles.configRewardPillText,
+                                (lvl.rewardType === 'HYBRID' || !lvl.rewardType) && styles.configRewardPillTextActive,
+                              ]}
+                            >
+                              ✨ Kết hợp
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Cash Amount */}
+                        {(lvl.rewardType === 'CASH' || lvl.rewardType === 'HYBRID' || !lvl.rewardType) && (
+                          <View style={{ marginTop: 8 }}>
+                            <Text style={styles.configFieldLabel}>Tiền Thưởng Nóng Thăng Cấp (VNĐ):</Text>
+                            <TextInput
+                              style={styles.configInput}
+                              keyboardType="number-pad"
+                              placeholder="VD: 1000000"
+                              placeholderTextColor="#94A3B8"
+                              value={lvl.promotionBonusAmount ? String(lvl.promotionBonusAmount) : ''}
+                              onChangeText={(txt) =>
+                                handleConfigBonusAmountChange(
+                                  lvl.levelNumber,
+                                  Number(txt.replace(/[^0-9]/g, '')) || 0,
+                                )
+                              }
+                            />
+                            {Boolean(lvl.promotionBonusAmount && lvl.promotionBonusAmount > 0) && (
+                              <Text style={styles.configCashPreview}>
+                                💰 Thưởng: {lvl.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ
+                              </Text>
+                            )}
+                          </View>
+                        )}
+
+                        {/* Physical Gift */}
+                        {(lvl.rewardType === 'PHYSICAL_ITEM' || lvl.rewardType === 'HYBRID' || !lvl.rewardType) && (
+                          <View style={{ marginTop: 8 }}>
+                            <Text style={styles.configFieldLabel}>Quà Tặng Hiện Vật (Team / Cá nhân):</Text>
+                            <TextInput
+                              style={styles.configInput}
+                              placeholder="VD: Kỷ niệm chương, Balo cao cấp, Áo đồng phục VIP..."
+                              placeholderTextColor="#94A3B8"
+                              value={lvl.physicalItemName || ''}
+                              onChangeText={(txt) =>
+                                handleConfigPhysicalItemChange(lvl.levelNumber, txt)
+                              }
+                            />
+                          </View>
+                        )}
+
+                        {/* Allowance */}
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={styles.configFieldLabel}>Phụ Cấp Chức Danh / Chuyên Môn (VNĐ/tháng):</Text>
+                          <TextInput
+                            style={styles.configInput}
+                            keyboardType="number-pad"
+                            placeholder="VD: 500000"
+                            placeholderTextColor="#94A3B8"
+                            value={lvl.allowanceAmount ? String(lvl.allowanceAmount) : ''}
+                            onChangeText={(txt) =>
+                              handleConfigAllowanceChange(
+                                lvl.levelNumber,
+                                Number(txt.replace(/[^0-9]/g, '')) || 0,
+                              )
+                            }
+                          />
+                          {Boolean(lvl.allowanceAmount && lvl.allowanceAmount > 0) && (
+                            <Text style={styles.configAllowancePreview}>
+                              💼 +{lvl.allowanceAmount?.toLocaleString('vi-VN')} VNĐ/tháng
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Tet Wallet Multiplier */}
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={styles.configFieldLabel}>Hệ Số Ví Thưởng Tết:</Text>
+                          <TextInput
+                            style={styles.configInput}
+                            keyboardType="numeric"
+                            placeholder="VD: 1.2"
+                            placeholderTextColor="#94A3B8"
+                            value={String(lvl.retentionMultiplier || 1.0)}
+                            onChangeText={(txt) =>
+                              handleConfigMultiplierChange(lvl.levelNumber, Number(txt) || 1.0)
+                            }
+                          />
+                        </View>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -1525,6 +1730,87 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0F172A',
     backgroundColor: '#F8FAFC',
+  },
+  configFieldLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  configLevelOneBox: {
+    marginTop: 8,
+    backgroundColor: '#ECFDF5',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  configLevelOneText: {
+    fontSize: 12,
+    color: '#047857',
+    fontStyle: 'italic',
+  },
+  configRewardBox: {
+    marginTop: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 12,
+  },
+  configRewardHeader: {
+    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 6,
+  },
+  configRewardHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1E40AF',
+    letterSpacing: 0.5,
+  },
+  configRewardPillRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  configRewardPill: {
+    flex: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  configRewardPillActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+  },
+  configRewardPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  configRewardPillTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  configCashPreview: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+    marginTop: 3,
+  },
+  configAllowancePreview: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0D9488',
+    marginTop: 3,
   },
   addLevelBtn: {
     flexDirection: 'row',

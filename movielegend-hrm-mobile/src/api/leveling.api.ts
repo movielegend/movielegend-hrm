@@ -22,6 +22,13 @@ export interface DepartmentLevelItem {
   colorHex: string;
   minTenureMonths: number;
   targetShiftsCount: number;
+  rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+  promotionBonusAmount?: number;
+  physicalItemName?: string;
+  allowanceAmount?: number;
+  retentionMultiplier?: number;
+  perks?: string[];
+  motivationQuote?: string;
 }
 
 export interface UserLevelProgressData {
@@ -150,7 +157,18 @@ export const levelingApi = {
 
   saveDepartmentLevelConfigs: async (
     departmentId: string,
-    configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>,
+    configs: Array<{
+      levelNumber: number;
+      customLevelName: string;
+      badgeTitle?: string;
+      rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+      promotionBonusAmount?: number;
+      physicalItemName?: string;
+      allowanceAmount?: number;
+      retentionMultiplier?: number;
+      perks?: string[];
+      motivationQuote?: string;
+    }>,
   ): Promise<{ success: boolean; count: number }> => {
     const res = await apiClient.post(`/leveling/departments/${departmentId}/configs`, { configs });
     return extractData(res);

@@ -162,26 +162,49 @@ export class LevelingService {
     });
 
     const configMap = new Map(dbConfigs.map((c) => [c.levelNumber, c]));
+    const adminLevels = this.departmentConfigs.get(departmentId) || [];
+    const adminLevelMap = new Map(
+      (Array.isArray(adminLevels) ? adminLevels : []).map((l: any) => [Number(l.levelNumber), l]),
+    );
 
     return STANDARD_LEVELS.map((std) => {
       const custom = configMap.get(std.levelNumber);
+      const adminLvl = adminLevelMap.get(std.levelNumber);
       return {
         levelNumber: std.levelNumber,
         levelName: std.levelName,
         defaultName: std.defaultName,
-        customLevelName: custom?.customLevelName || std.defaultName,
-        displayName: custom?.customLevelName || std.defaultName,
+        customLevelName: custom?.customLevelName || adminLvl?.levelName || std.defaultName,
+        displayName: custom?.customLevelName || adminLvl?.levelName || std.defaultName,
         badgeTitle: custom?.badgeTitle || std.defaultBadge,
         colorHex: std.colorHex,
         minTenureMonths: std.minTenureMonths,
         targetShiftsCount: std.targetShiftsCount,
+        rewardType: adminLvl?.rewardType || 'HYBRID',
+        promotionBonusAmount: adminLvl?.promotionBonusAmount !== undefined ? adminLvl.promotionBonusAmount : (std.levelNumber >= 2 ? (std.levelNumber - 1) * 500000 : 0),
+        physicalItemName: adminLvl?.physicalItemName || (std.levelNumber === 2 ? 'Huy hiệu nhân viên chính thức + Áo đồng phục' : std.levelNumber === 3 ? 'Kỷ niệm chương Senior' : ''),
+        allowanceAmount: adminLvl?.allowanceAmount !== undefined ? adminLvl.allowanceAmount : (std.levelNumber >= 2 ? (std.levelNumber - 1) * 300000 : 0),
+        retentionMultiplier: adminLvl?.retentionMultiplier ?? (1.0 + (std.levelNumber - 1) * 0.2),
+        perks: adminLvl?.perks || [],
+        motivationQuote: adminLvl?.motivationQuote || '',
       };
     });
   }
 
   public async saveDepartmentLevelConfigs(
     departmentId: string,
-    configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>,
+    configs: Array<{
+      levelNumber: number;
+      customLevelName: string;
+      badgeTitle?: string;
+      rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+      promotionBonusAmount?: number;
+      physicalItemName?: string;
+      allowanceAmount?: number;
+      retentionMultiplier?: number;
+      perks?: string[];
+      motivationQuote?: string;
+    }>,
     actor?: AuthenticatedUser,
   ) {
     const dept = await this.prisma.department.findUnique({ where: { id: departmentId } });
@@ -214,13 +237,55 @@ export class LevelingService {
       ),
     );
 
+    // Merge rewards and perks into departmentConfigs storage
+    const currentAdminLevels = (this.departmentConfigs.get(departmentId) as any[]) || [];
+    const updatedAdminLevels = configs.map((c) => {
+      const existing = currentAdminLevels.find((l: any) => l.levelNumber === c.levelNumber);
+      return {
+        id: existing?.id || `lvl-${c.levelNumber}`,
+        levelNumber: c.levelNumber,
+        levelName: c.customLevelName || `Level ${c.levelNumber}`,
+        colorHex: existing?.colorHex || (STANDARD_LEVELS.find((s) => s.levelNumber === c.levelNumber)?.colorHex || '#2196F3'),
+        rewardType: c.rewardType || existing?.rewardType || 'HYBRID',
+        promotionBonusAmount: c.promotionBonusAmount !== undefined ? c.promotionBonusAmount : (existing?.promotionBonusAmount || 0),
+        physicalItemName: c.physicalItemName !== undefined ? c.physicalItemName : (existing?.physicalItemName || ''),
+        retentionFloorGmv: existing?.retentionFloorGmv || 0,
+        promotionCeilingGmv: existing?.promotionCeilingGmv || 0,
+        retentionMultiplier: c.retentionMultiplier !== undefined ? c.retentionMultiplier : (existing?.retentionMultiplier || 1.0),
+        allowanceAmount: c.allowanceAmount !== undefined ? c.allowanceAmount : (existing?.allowanceAmount || 0),
+        perks: c.perks || existing?.perks || [],
+        motivationQuote: c.motivationQuote || existing?.motivationQuote || '',
+        project: existing?.project || { projectName: '', subTaskBullets: [] },
+      };
+    });
+
+    this.departmentConfigs.set(departmentId, updatedAdminLevels);
+    this.departmentConfigs.set(`${departmentId}_2026`, updatedAdminLevels);
+    if (dept.name) {
+      this.departmentConfigs.set(dept.name, updatedAdminLevels);
+      this.departmentConfigs.set(dept.name.toLowerCase().trim(), updatedAdminLevels);
+      this.departmentConfigs.set(`${dept.name}_2026`, updatedAdminLevels);
+      this.departmentConfigs.set(`${dept.name.toLowerCase().trim()}_2026`, updatedAdminLevels);
+    }
+    this.saveToStorage();
+
     this.realtimeEvents.emitToDepartment(departmentId, 'level:dept_config:updated', {
       departmentId,
       configs: results,
     });
+    this.realtimeEvents.emitToDepartment(departmentId, 'level:config:updated', {
+      departmentId,
+      departmentName: dept.name,
+      levels: updatedAdminLevels,
+    });
     this.realtimeEvents.emitToRoom('level:config_room', 'level:dept_config:updated', {
       departmentId,
       configs: results,
+    });
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:config:updated', {
+      departmentId,
+      departmentName: dept.name,
+      levels: updatedAdminLevels,
     });
 
     return { success: true, count: results.length };
