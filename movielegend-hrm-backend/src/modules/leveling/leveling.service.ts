@@ -70,6 +70,10 @@ export interface LevelDepartmentProjectItem {
   totalSubTasks: number;
   completedSubTasks: number;
   rewardItem?: string;
+  rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID' | 'MULTIPLE';
+  cashAmount?: number;
+  physicalItems?: string[];
+  physicalItemName?: string;
   subTasks: BulletSubTaskItem[];
 }
 
@@ -704,8 +708,21 @@ export class LevelingService {
       const levelName = lvl.levelName || `Level ${levelNumber}`;
       const projectName =
         lvl.project?.projectName || `Dự Án Level ${levelNumber} - ${departmentName}`;
-      const rewardItem =
-        lvl.physicalItemName || `Thưởng thăng cấp Level ${levelNumber} - ${departmentName}`;
+      const rewardType = lvl.rewardType || (lvl.promotionBonusAmount > 0 && lvl.physicalItemName ? 'HYBRID' : lvl.promotionBonusAmount > 0 ? 'CASH' : 'PHYSICAL_ITEM');
+      const cashAmount = Number(lvl.promotionBonusAmount || lvl.cashAmount || 0);
+      const physicalItemName = lvl.physicalItemName || '';
+      const physicalItems = Array.isArray(lvl.physicalItems) ? lvl.physicalItems : (physicalItemName ? [physicalItemName] : []);
+
+      let rewardSummaryParts: string[] = [];
+      if (cashAmount > 0) {
+        rewardSummaryParts.push(`💵 ${cashAmount.toLocaleString('vi-VN')} VNĐ (Chia theo hệ số Level)`);
+      }
+      if (physicalItems.length > 0) {
+        rewardSummaryParts.push(`🎁 ${physicalItems.join(', ')} (Hiện vật chung)`);
+      }
+      const rewardItem = rewardSummaryParts.length > 0
+        ? rewardSummaryParts.join(' + ')
+        : (lvl.rewardItem || `Thưởng thăng cấp Level ${levelNumber} - ${departmentName}`);
 
       const rawBullets: string[] =
         Array.isArray(lvl.project?.subTaskBullets) && lvl.project.subTaskBullets.length > 0
@@ -755,6 +772,10 @@ export class LevelingService {
         totalSubTasks: subTasks.length,
         completedSubTasks: completedCount,
         rewardItem,
+        rewardType,
+        cashAmount,
+        physicalItems,
+        physicalItemName,
         subTasks,
       };
     });
