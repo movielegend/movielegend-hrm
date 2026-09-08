@@ -125,6 +125,25 @@ export const AdminLevelRewardsPage: React.FC<AdminLevelRewardsPageProps> = ({
                   </View>
                 )}
 
+                {Boolean(lvl.allowanceAmount && lvl.allowanceAmount > 0) && (
+                  <View style={styles.rewardRow}>
+                    <Text style={styles.rewardIcon}>💼</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rewardItemTextBold}>
+                        +{lvl.allowanceAmount.toLocaleString('vi-VN')} VNĐ/tháng
+                      </Text>
+                      <Text style={styles.rewardItemSub}>Phụ cấp chức danh / chuyên môn</Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.perksMetaRow}>
+                  <Text style={styles.perksMetaText}>
+                    Hệ số ví Tết: <Text style={{ fontWeight: 'bold', color: '#1E40AF' }}>{lvl.retentionMultiplier || 1.0}x</Text>
+                    {Array.isArray(lvl.perks) && lvl.perks.length > 0 ? ` • ${lvl.perks.length} đặc quyền mở khóa` : ''}
+                  </Text>
+                </View>
+
                 {!hasCash && !hasPhysical && (
                   <Text style={styles.emptyRewardNotice}>
                     Chưa thiết lập phần thưởng cho Level {lvl.levelNumber}. Bấm "Sửa" để cấu hình.

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserLevelProgressData } from '../../api/leveling.api';
+import { NextLevelPerksAppendixModal } from './NextLevelPerksAppendixModal';
 
 interface EmployeeLevelProgressCardProps {
   progress: UserLevelProgressData | null;
@@ -16,6 +17,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
 
   const currentColor = progress.currentLevel.colorHex || '#FF9800';
   const nextColor = progress.nextLevel.colorHex || '#E91E63';
+  const [showAppendixModal, setShowAppendixModal] = useState(false);
   const percent = progress.overallProgressPercent || 0;
   const isPending = !!progress.pendingRequest;
 
@@ -49,19 +51,23 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
         </View>
 
         {/* Target Level */}
-        <View style={[styles.levelBadgeBox, { alignItems: 'flex-end' }]}>
+        <TouchableOpacity
+          style={[styles.levelBadgeBox, { alignItems: 'flex-end' }]}
+          onPress={() => setShowAppendixModal(true)}
+          activeOpacity={0.7}
+        >
           <View style={[styles.levelCircle, { borderColor: nextColor, backgroundColor: `${nextColor}18` }]}>
             <Text style={[styles.levelCircleText, { color: nextColor }]}>
               {progress.nextLevel.levelNumber}
             </Text>
           </View>
           <View style={[styles.levelTextBox, { alignItems: 'flex-end' }]}>
-            <Text style={styles.levelSub}>Mục tiêu</Text>
+            <Text style={styles.levelSub}>Mục tiêu (Xem phụ lục)</Text>
             <Text style={[styles.levelTitle, { color: nextColor }]} numberOfLines={1}>
               {progress.nextLevel.displayName}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* 2. Overall Progress Bar */}
@@ -79,6 +85,31 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
             : `Bạn còn thiếu ${100 - percent}% nữa để hoàn thành mục tiêu lên ${progress.nextLevel.displayName}.`}
         </Text>
       </View>
+
+      {/* 2.1 Next Level Perks & Motivation Appendix Banner */}
+      <TouchableOpacity
+        style={[styles.appendixBanner, { borderColor: `${nextColor}40` }]}
+        onPress={() => setShowAppendixModal(true)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.appendixBannerLeft}>
+          <View style={[styles.appendixIconBox, { backgroundColor: `${nextColor}15` }]}>
+            <Ionicons name="gift-outline" size={18} color={nextColor} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.appendixBannerTitle}>Phụ Lục Quyền Lợi & Động Lực</Text>
+              <View style={[styles.appendixTag, { backgroundColor: nextColor }]}>
+                <Text style={styles.appendixTagText}>Level {progress.nextLevel.levelNumber}</Text>
+              </View>
+            </View>
+            <Text style={styles.appendixBannerSub} numberOfLines={1}>
+              Xem thưởng nóng, quà tặng hiện vật & đặc quyền mở khóa
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+      </TouchableOpacity>
 
       {/* 3. 2x2 Symmetrical Metrics Grid */}
       <View style={styles.metricsGrid}>
@@ -201,6 +232,14 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
           {isPending ? 'Cập Nhật / Bổ Sung Báo Cáo' : 'Nộp Báo Cáo Thành Tích Lên Cấp'}
         </Text>
       </TouchableOpacity>
+
+      {/* NEXT LEVEL PERKS APPENDIX MODAL */}
+      <NextLevelPerksAppendixModal
+        visible={showAppendixModal}
+        onClose={() => setShowAppendixModal(false)}
+        progress={progress}
+        onOpenSubmitModal={onOpenSubmitModal}
+      />
     </View>
   );
 };
@@ -219,6 +258,50 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  appendixBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  appendixBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  appendixIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appendixBannerTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  appendixTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  appendixTagText: {
+    fontSize: 9.5,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  appendixBannerSub: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
   },
   headerContainer: {
     flexDirection: 'row',

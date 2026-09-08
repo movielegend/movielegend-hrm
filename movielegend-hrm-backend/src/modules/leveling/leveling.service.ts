@@ -368,6 +368,144 @@ export class LevelingService {
             createdAt: pendingRequest.createdAt,
           }
         : null,
+      nextLevelPerks: (() => {
+        const DEFAULT_LEVEL_PERKS: Record<
+          number,
+          {
+            bonus: number;
+            gift: string;
+            multiplier: number;
+            allowance: number;
+            perks: string[];
+            quote: string;
+          }
+        > = {
+          1: {
+            bonus: 0,
+            gift: 'Bộ quà hội nhập + Đồng phục thương hiệu',
+            multiplier: 1.0,
+            allowance: 0,
+            perks: ['Đào tạo hội nhập 1-1', 'Tham gia ca làm việc chuẩn', 'Tích lũy ngày công & thâm niên'],
+            quote: 'Bước khởi đầu vững chắc trên hành trình phát triển nghề nghiệp!',
+          },
+          2: {
+            bonus: 500000,
+            gift: 'Bộ Giftset thương hiệu MovieLegend',
+            multiplier: 1.2,
+            allowance: 300000,
+            perks: [
+              'Ký HĐLĐ chính thức',
+              'Hưởng đầy đủ phụ cấp chuyên cần & trách nhiệm',
+              'Mở khóa nhận việc con trong Dự Án Cấp Bậc',
+              'Hệ số thưởng Tết 1.2x',
+            ],
+            quote: 'Khẳng định năng lực chính thức, tự tin bứt phá các mốc mục tiêu!',
+          },
+          3: {
+            bonus: 1500000,
+            gift: 'Tai nghe chụp tai chuyên nghiệp',
+            multiplier: 1.5,
+            allowance: 800000,
+            perks: [
+              'Phụ cấp chuyên môn Senior +800.000đ/tháng',
+              'Ưu tiên lựa chọn ca làm việc linh hoạt',
+              'Được hướng dẫn và hỗ trợ nhân sự Level 1-2',
+              'Hệ số thưởng Tết 1.5x',
+            ],
+            quote: 'Trở thành chuyên viên nòng cốt, dẫn dắt chất lượng chuyên môn toàn ca!',
+          },
+          4: {
+            bonus: 3000000,
+            gift: 'Đồng hồ thông minh Smartwatch',
+            multiplier: 2.0,
+            allowance: 1500000,
+            perks: [
+              'Phụ cấp Key Member +1.500.000đ/tháng',
+              'Tham gia hội đồng nghiệm thu & đánh giá dự án',
+              'Quyền đăng ký làm dự án vượt cấp',
+              'Hệ số thưởng Tết 2.0x',
+            ],
+            quote: 'Nhân tố chủ chốt tạo nên sự đột phá cho phòng ban!',
+          },
+          5: {
+            bonus: 5000000,
+            gift: 'Máy tính bảng iPad / Tablet công việc',
+            multiplier: 2.5,
+            allowance: 3000000,
+            perks: [
+              'Phụ cấp quản trị Team Leader +3.000.000đ/tháng',
+              'Quyền quản lý, phân công và duyệt Vòng 1 cho toàn team',
+              'Tham gia các buổi họp định hướng chiến lược với Ban Giám Đốc',
+              'Hệ số thưởng Tết 2.5x',
+            ],
+            quote: 'Dẫn dắt đội ngũ, kiến tạo thành tích xuất sắc và nâng tầm tập thể!',
+          },
+          6: {
+            bonus: 8000000,
+            gift: 'Laptop doanh nhân mỏng nhẹ cao cấp',
+            multiplier: 3.0,
+            allowance: 5000000,
+            perks: [
+              'Phụ cấp quản lý cấp cao Manager +5.000.000đ/tháng',
+              'Quản lý ngân sách & chỉ tiêu KPI phòng ban',
+              'Quyền đề xuất khen thưởng và bổ nhiệm nhân sự',
+              'Hệ số thưởng Tết 3.0x',
+            ],
+            quote: 'Nhà quản trị tài ba, dẫn dắt sự thịnh vượng và mở rộng quy mô!',
+          },
+          7: {
+            bonus: 15000000,
+            gift: 'Chuyến du lịch nghỉ dưỡng 5 sao trong nước',
+            multiplier: 4.0,
+            allowance: 8000000,
+            perks: [
+              'Tham gia cơ chế phân chia lợi nhuận khối kinh doanh',
+              'Hoạch định chiến lược tăng trưởng toàn diện',
+              'Hệ số thưởng Tết 4.0x',
+            ],
+            quote: 'Tầm nhìn chiến lược, đồng hành cùng Ban Điều Hành định hình tương lai!',
+          },
+          8: {
+            bonus: 25000000,
+            gift: 'Kỷ niệm chương mạ vàng vinh danh Executive trọn đời',
+            multiplier: 5.0,
+            allowance: 12000000,
+            perks: [
+              'Chế độ đãi ngộ đặc biệt cấp Ban Điều Hành',
+              'Quyền biểu quyết các quyết sách trọng yếu của tổ chức',
+              'Hệ số thưởng Tết 5.0x',
+            ],
+            quote: 'Đỉnh cao vinh quang và tầm ảnh hưởng vượt bậc tại MovieLegend!',
+          },
+        };
+
+        const defaultPerk = DEFAULT_LEVEL_PERKS[nextLevelNumber] || DEFAULT_LEVEL_PERKS[8];
+
+        // Check if admin configured custom perks for this department
+        const adminDeptConfigs = departmentId ? this.getAdminDepartmentConfig(departmentId, 2026, primaryDept?.name) : null;
+        const customLevelItem = Array.isArray(adminDeptConfigs) ? adminDeptConfigs.find((l: any) => l.levelNumber === nextLevelNumber) : null;
+
+        return {
+          levelNumber: nextLevelNumber,
+          levelName: nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`,
+          displayName: nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`,
+          colorHex: nextConfig?.colorHex || '#4CAF50',
+          promotionBonusAmount: customLevelItem?.promotionBonusAmount !== undefined && customLevelItem?.promotionBonusAmount > 0
+            ? Number(customLevelItem.promotionBonusAmount)
+            : defaultPerk.bonus,
+          physicalItemName: customLevelItem?.physicalItemName?.trim() || defaultPerk.gift,
+          physicalItems: Array.isArray(customLevelItem?.physicalItems) && customLevelItem.physicalItems.length > 0
+            ? customLevelItem.physicalItems
+            : [customLevelItem?.physicalItemName?.trim() || defaultPerk.gift],
+          retentionMultiplier: customLevelItem?.retentionMultiplier || defaultPerk.multiplier,
+          allowanceAmount: customLevelItem?.allowanceAmount || defaultPerk.allowance,
+          perks: Array.isArray(customLevelItem?.perks) && customLevelItem.perks.length > 0
+            ? customLevelItem.perks
+            : defaultPerk.perks,
+          motivationQuote: customLevelItem?.motivationQuote || defaultPerk.quote,
+          projectName: customLevelItem?.project?.projectName || `Dự Án Level ${nextLevelNumber}`,
+        };
+      })(),
     };
   }
 

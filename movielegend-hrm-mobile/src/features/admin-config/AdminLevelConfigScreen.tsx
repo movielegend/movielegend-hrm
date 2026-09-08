@@ -40,6 +40,9 @@ export interface AdminLevelItem {
   retentionFloorGmv: number;
   promotionCeilingGmv: number;
   retentionMultiplier: number;
+  allowanceAmount?: number;
+  perks?: string[];
+  motivationQuote?: string;
   project: LevelStageProject;
 }
 
@@ -651,9 +654,87 @@ export const AdminLevelConfigScreen: React.FC = () => {
                   </View>
                 )}
 
+                {/* PHỤ LỤC QUYỀN LỢI & ĐẶC QUYỀN THĂNG CẤP */}
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Hệ Số Ví Điểm Thưởng Tết:</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="numeric"
+                    placeholder="VD: 1.5"
+                    placeholderTextColor="#94A3B8"
+                    value={String(editingItem.retentionMultiplier || 1.0)}
+                    onChangeText={(text) =>
+                      setEditingItem({
+                        ...editingItem,
+                        retentionMultiplier: Number(text) || 1.0,
+                      })
+                    }
+                  />
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Phụ Cấp Chuyên Môn / Chức Danh (VNĐ/tháng):</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="number-pad"
+                    placeholder="VD: 1000000"
+                    placeholderTextColor="#94A3B8"
+                    value={editingItem.allowanceAmount ? String(editingItem.allowanceAmount) : ''}
+                    onChangeText={(text) =>
+                      setEditingItem({
+                        ...editingItem,
+                        allowanceAmount: Number(text.replace(/[^0-9]/g, '')) || 0,
+                      })
+                    }
+                  />
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>
+                    Danh Sách Quyền Lợi & Đặc Quyền Mở Khóa (Mỗi quyền lợi 1 dòng):
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, { minHeight: 70, textAlignVertical: 'top' }]}
+                    placeholder="VD:&#10;• Ký HĐLĐ chính thức&#10;• Ưu tiên chọn ca làm&#10;• Mở khóa nhận việc con dự án"
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    value={
+                      Array.isArray(editingItem.perks)
+                        ? editingItem.perks.join('\n')
+                        : ''
+                    }
+                    onChangeText={(text) => {
+                      const list = text
+                        .split('\n')
+                        .map((s) => s.replace(/^[•\-\*]\s*/, '').trim())
+                        .filter(Boolean);
+                      setEditingItem({
+                        ...editingItem,
+                        perks: list,
+                      });
+                    }}
+                  />
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Thông Điệp Động Lực Thăng Cấp (Phụ lục):</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="VD: Nỗ lực hôm nay là nền tảng cho sự nghiệp ngày mai!"
+                    placeholderTextColor="#94A3B8"
+                    value={editingItem.motivationQuote || ''}
+                    onChangeText={(text) =>
+                      setEditingItem({
+                        ...editingItem,
+                        motivationQuote: text,
+                      })
+                    }
+                  />
+                </View>
+
                 <View style={styles.rewardGuideBox}>
                   <Text style={styles.rewardGuideText}>
-                    💡 <Text style={{ fontWeight: 'bold' }}>Quy tắc phân chia:</Text> Tiền mặt được phân bổ minh bạch theo Hệ số Level của các nhân sự nhận việc trong dự án. Phần thưởng hiển thị trực tiếp trên chi tiết Level & Dự án.
+                    💡 <Text style={{ fontWeight: 'bold' }}>Phụ lục quyền lợi:</Text> Toàn bộ phần thưởng, phụ cấp, hệ số và đặc quyền cấu hình tại đây sẽ tự động hiển thị trong Phụ Lục Quyền Lợi Level Tiếp Theo của nhân sự để tạo động lực thăng cấp.
                   </Text>
                 </View>
               </ScrollView>

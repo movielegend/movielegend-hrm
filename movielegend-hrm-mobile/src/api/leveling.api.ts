@@ -79,6 +79,35 @@ export interface UserLevelProgressData {
     leaderNote?: string;
     createdAt: string;
   } | null;
+  nextLevelPerks?: {
+    levelNumber: number;
+    levelName: string;
+    displayName: string;
+    colorHex: string;
+    promotionBonusAmount: number;
+    physicalItemName?: string;
+    physicalItems?: string[];
+    retentionMultiplier: number;
+    allowanceAmount?: number;
+    perks: string[];
+    motivationQuote?: string;
+    projectName?: string;
+  };
+}
+
+export interface NextLevelPerkAppendix {
+  levelNumber: number;
+  levelName: string;
+  displayName: string;
+  colorHex: string;
+  promotionBonusAmount: number;
+  physicalItemName?: string;
+  physicalItems?: string[];
+  retentionMultiplier: number;
+  allowanceAmount?: number;
+  perks: string[];
+  motivationQuote?: string;
+  projectName?: string;
 }
 
 export interface LevelPromotionRequestItem {
