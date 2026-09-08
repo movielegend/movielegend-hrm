@@ -17,6 +17,8 @@ import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { LiveClock } from '../../components/LiveClock';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
@@ -34,6 +36,15 @@ export function EmployeeDashboardScreen() {
     queryKey: ['my-vault'],
     queryFn: getMyVault,
   });
+
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress'],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 1;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#2196F3';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || `Cấp ${currentLevelNumber}`;
 
   const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
   const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
@@ -87,16 +98,40 @@ export function EmployeeDashboardScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={styles.avatar}>
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-              )}
-            </View>
+            <Pressable
+              style={styles.avatarWrapper}
+              onPress={() => router.push('/employee/leveling' as any)}
+            >
+              <View style={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </View>
+              {/* Level Rank Badge on Avatar */}
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+              </View>
+            </Pressable>
+
             <View style={styles.greetingInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{fullName}</Text>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <Pressable
+                  style={[
+                    styles.levelPill,
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
+                  ]}
+                  onPress={() => router.push('/employee/leveling' as any)}
+                >
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.userName} numberOfLines={1}>{fullName}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
@@ -396,6 +431,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  avatarWrapper: {
+    position: 'relative',
+    marginRight: spacing.md,
+  },
   avatar: {
     width: 52,
     height: 52,
@@ -403,20 +442,56 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
   },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+    paddingHorizontal: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  avatarLevelBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
   },
   greetingInfo: {
     flex: 1,
   },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 1,
   },
   userName: {
     fontSize: 20,
