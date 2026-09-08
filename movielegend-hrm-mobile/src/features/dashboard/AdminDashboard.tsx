@@ -10,6 +10,8 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { getVaultWithdrawalRequests } from '../../api/employees.api';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,6 +50,15 @@ export function AdminDashboard() {
       return unwrapData(response) as any;
     }
   });
+
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress'],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || (user as any)?.level || 8;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#D4AF37';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || 'Ban Điều Hành';
 
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
@@ -104,8 +115,8 @@ export function AdminDashboard() {
                 )}
               </View>
               {/* Level Rank Badge on Avatar */}
-              <View style={[styles.avatarLevelBadge, { backgroundColor: '#D4AF37' }]}>
-                <Text style={styles.avatarLevelBadgeText}>8</Text>
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
               </View>
             </Pressable>
 
@@ -115,13 +126,13 @@ export function AdminDashboard() {
                 <Pressable
                   style={[
                     styles.levelPill,
-                    { backgroundColor: '#D4AF3715', borderColor: '#D4AF3740' },
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
                   ]}
                   onPress={() => router.push('/admin/levels' as any)}
                 >
-                  <MaterialCommunityIcons name="crown" size={12} color="#D4AF37" />
-                  <Text style={[styles.levelPillText, { color: '#B45309' }]}>
-                    Lv.8 • Ban Điều Hành
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
                   </Text>
                 </Pressable>
               </View>
@@ -166,6 +177,64 @@ export function AdminDashboard() {
                 <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
                 <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
               </View>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Banner Cấp Bậc & Lộ Trình - Admin (Apple UI tinh tế) */}
+        <Pressable
+          style={styles.levelAppleCard}
+          onPress={() => router.push('/admin/levels' as any)}
+        >
+          {/* Top Section */}
+          <View style={styles.levelAppleHeaderRow}>
+            <View style={styles.levelAppleLeft}>
+              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
+                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
+              </View>
+              <View style={styles.levelAppleTitleBlock}>
+                <View style={styles.levelAppleBadgeRow}>
+                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
+                    Level {currentLevelNumber}: {levelTitle}
+                  </Text>
+                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
+                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
+                      Lv.{currentLevelNumber}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.levelAppleSubtitle}>
+                  Cấp bậc danh dự tối cao • Toàn quyền Quản trị Phân cấp
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
+              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Cấu hình</Text>
+              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
+            </View>
+          </View>
+
+          {/* Progress bar / Admin Management indicator */}
+          <View style={styles.levelAppleProgressContainer}>
+            <View style={styles.levelAppleProgressTrack}>
+              <View
+                style={[
+                  styles.levelAppleProgressFill,
+                  {
+                    width: '100%',
+                    backgroundColor: levelColor,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.levelAppleProgressFooter}>
+              <Text style={styles.levelAppleProgressFooterText}>
+                Đặc quyền Quản trị & Cấu hình 8 Level toàn công ty
+              </Text>
+              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
+                100%
+              </Text>
             </View>
           </View>
         </Pressable>
@@ -479,6 +548,112 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
     borderWidth: 1.5,
     borderColor: '#fff',
+  },
+  levelAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  levelAppleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  levelAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  levelAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  levelAppleTitleBlock: {
+    flex: 1,
+  },
+  levelAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelAppleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  levelApplePillTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  levelApplePillTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  levelAppleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  levelAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  levelAppleActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  levelAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  levelAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  levelAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  levelAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  levelAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  levelAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   heroButton: {
     borderRadius: 24,

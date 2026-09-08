@@ -184,21 +184,7 @@ export class LevelingService {
     if (!dept) throw new NotFoundException('Phòng ban không tồn tại');
 
     if (actor && !actor.roles.includes('ADMIN') && !actor.roles.includes('SUPER_ADMIN')) {
-      const allowedDepts = actor.scopes
-        .filter((s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId)
-        .map((s) => s.scopeId as string);
-
-      if (allowedDepts.length === 0) {
-        const userDepts = await this.prisma.departmentMember.findMany({
-          where: { userId: actor.userId, leftAt: null },
-          select: { departmentId: true },
-        });
-        userDepts.forEach((d) => allowedDepts.push(d.departmentId));
-      }
-
-      if (!allowedDepts.includes(departmentId)) {
-        throw new ForbiddenException('Bạn không có quyền cấu hình danh xưng cho phòng ban khác');
-      }
+      throw new ForbiddenException('Chỉ Quản trị viên (Admin) mới có quyền cấu hình danh xưng cấp bậc');
     }
 
     const results = await this.prisma.$transaction(

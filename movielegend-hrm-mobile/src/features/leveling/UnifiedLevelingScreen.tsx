@@ -123,13 +123,37 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
   const loadData = useCallback(async () => {
     try {
-      // 1. Load my progress (only needed for non-admin)
-      let currentProgress: UserLevelProgressData | null = null;
-      if (!isAdmin) {
-        currentProgress = await levelingApi.getMyLevelProgress().catch(() => null);
-        if (currentProgress) {
-          setProgressData(currentProgress);
-        }
+      // 1. Load my progress
+      let currentProgress: UserLevelProgressData | null = await levelingApi.getMyLevelProgress().catch(() => null);
+      if (currentProgress) {
+        setProgressData(currentProgress);
+      } else if (isAdmin) {
+        // Fallback for Admin account: Level 8 Executive
+        setProgressData({
+          userId: user?.id || 'admin',
+          fullName: user?.fullName || 'Admin',
+          avatarUrl: user?.avatarUrl,
+          departmentId: deptList[0]?.id || 'admin-dept',
+          departmentName: 'Ban Điều Hành',
+          currentLevel: {
+            levelNumber: 8,
+            levelName: 'Executive',
+            displayName: 'Ban Điều Hành',
+            badgeTitle: 'Executive (Admin)',
+            colorHex: '#D4AF37',
+            minTenureMonths: 24,
+            targetShiftsCount: 720,
+          },
+          nextLevel: null,
+          overallProgressPercent: 100,
+          metrics: {
+            tenure: { currentMonths: 36, targetMonths: 24, progressPercent: 100, isPassed: true },
+            shifts: { currentShifts: 1000, targetShifts: 720, progressPercent: 100, isPassed: true },
+            discipline: { penaltyScore: 0, currentScore: 100, progressPercent: 100, isPassed: true },
+            revenue: { currentRevenue: 0, targetRevenue: 0, progressPercent: 100, isPassed: true },
+          },
+          roadmap: [],
+        } as any);
       }
 
       // 2. Load Department Level Configs
@@ -319,7 +343,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           >
             <Ionicons
               name="people-outline"
-              size={16}
+              size={15}
               color={activeTab === 'members' ? '#2563EB' : '#94A3B8'}
             />
             <Text
@@ -342,7 +366,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           >
             <Ionicons
               name="settings-outline"
-              size={16}
+              size={15}
               color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
             />
             <Text
@@ -350,6 +374,24 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               numberOfLines={1}
             >
               Cấu Hình Danh Xưng
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'roadmap' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('roadmap')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="ribbon-outline"
+              size={15}
+              color={activeTab === 'roadmap' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text
+              style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Lộ Trình
             </Text>
           </TouchableOpacity>
         </View>
@@ -396,24 +438,6 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                 <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
               </View>
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'config' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('config')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="settings-outline"
-              size={15}
-              color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
-            />
-            <Text
-              style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}
-              numberOfLines={1}
-            >
-              Cấu Hình
-            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -491,7 +515,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               <View style={styles.roadmapCard}>
                 <View style={styles.roadmapHeaderRow}>
                   <Text style={styles.roadmapTitle}>Hệ Thống 8 Cấp Bậc ({activeDeptName})</Text>
-                  {isLeaderOrAdmin && (
+                  {isAdmin && (
                     <TouchableOpacity
                       style={styles.quickEditBtn}
                       onPress={() => setActiveTab('config')}
@@ -516,7 +540,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                           isCurrent && { backgroundColor: `${color}08`, borderRadius: 12, padding: 6 },
                         ]}
                         onPress={() => {
-                          if (isLeaderOrAdmin) {
+                          if (isAdmin) {
                             setActiveTab('config');
                           } else {
                             Alert.alert(
@@ -629,14 +653,17 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                       <TouchableOpacity
                         key={m.id || idx}
                         style={styles.memberCard}
-                        onPress={() =>
-                          setDirectChangeUser({
-                            id: m.id,
-                            fullName: memberName,
-                            currentLevelNumber: memberLevel,
-                            departmentName: activeDeptName,
-                          })
-                        }
+                        activeOpacity={isAdmin ? 0.7 : 1}
+                        onPress={() => {
+                          if (isAdmin) {
+                            setDirectChangeUser({
+                              id: m.id,
+                              fullName: memberName,
+                              currentLevelNumber: memberLevel,
+                              departmentName: activeDeptName,
+                            });
+                          }
+                        }}
                       >
                         <View style={styles.memberInfoRow}>
                           {avatarUri ? (
@@ -678,10 +705,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             </Text>
                           </View>
 
-                          <View style={styles.directChangeBtn}>
-                            <Ionicons name="flash" size={14} color="#FFF" />
-                            <Text style={styles.directChangeBtnText}>Đổi Level</Text>
-                          </View>
+                          {isAdmin && (
+                            <View style={styles.directChangeBtn}>
+                              <Ionicons name="flash" size={14} color="#FFF" />
+                              <Text style={styles.directChangeBtnText}>Đổi Level</Text>
+                            </View>
+                          )}
                         </View>
                       </TouchableOpacity>
                     );
@@ -797,9 +826,9 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* TAB 3: DIRECT LEVEL NAME CONFIGURATION                    */}
+          {/* TAB 3: DIRECT LEVEL NAME CONFIGURATION (ADMIN ONLY)     */}
           {/* ========================================================= */}
-          {activeTab === 'config' && isLeaderOrAdmin && (
+          {activeTab === 'config' && isAdmin && (
             <View style={styles.configContainer}>
               <View style={styles.configHeaderCard}>
                 <Ionicons name="options-outline" size={24} color="#2563EB" />
