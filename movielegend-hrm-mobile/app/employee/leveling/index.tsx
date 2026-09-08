@@ -1,6 +1,6 @@
 import React from 'react';
-import { TikTokStyleLevelingScreen } from '../../../src/features/leveling/TikTokStyleLevelingScreen';
+import { UnifiedLevelingScreen } from '../../../src/features/leveling/UnifiedLevelingScreen';
 
-export default function TikTokLevelingRoute() {
-  return <TikTokStyleLevelingScreen />;
+export default function EmployeeLevelingRoute() {
+  return <UnifiedLevelingScreen />;
 }

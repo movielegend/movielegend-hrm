@@ -1,13 +1,38 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../database/prisma.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
+import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { PromotionRequestStatus } from '@prisma/client';
 
 const STORAGE_DIR = path.join(process.cwd(), 'storage');
 const CONFIG_STORAGE_FILE = path.join(STORAGE_DIR, 'level_dept_configs.json');
 const PROJECT_STORAGE_FILE = path.join(STORAGE_DIR, 'level_dept_projects.json');
 const USER_LEVEL_STORAGE_FILE = path.join(STORAGE_DIR, 'level_user_levels.json');
+
+export interface StandardLevelDefinition {
+  levelNumber: number;
+  levelName: string;
+  defaultName: string;
+  colorHex: string;
+  defaultBadge: string;
+  promotionCeilingGmv?: number;
+  retentionFloorGmv?: number;
+  minTenureMonths: number;
+  targetShiftsCount: number;
+}
+
+export const STANDARD_LEVELS: StandardLevelDefinition[] = [
+  { levelNumber: 1, levelName: 'Level 1', defaultName: 'Thực tập', colorHex: '#9E9E9E', defaultBadge: 'Thực tập', minTenureMonths: 1, targetShiftsCount: 26 },
+  { levelNumber: 2, levelName: 'Level 2', defaultName: 'Chính thức', colorHex: '#2196F3', defaultBadge: 'Chính thức', minTenureMonths: 2, targetShiftsCount: 52 },
+  { levelNumber: 3, levelName: 'Level 3', defaultName: 'Senior', colorHex: '#00BCD4', defaultBadge: 'Senior', minTenureMonths: 6, targetShiftsCount: 150 },
+  { levelNumber: 4, levelName: 'Level 4', defaultName: 'Key Member', colorHex: '#4CAF50', defaultBadge: 'Key Member', minTenureMonths: 12, targetShiftsCount: 300 },
+  { levelNumber: 5, levelName: 'Level 5', defaultName: 'Team Leader', colorHex: '#FF9800', defaultBadge: 'Leader', minTenureMonths: 18, targetShiftsCount: 450 },
+  { levelNumber: 6, levelName: 'Level 6', defaultName: 'Manager', colorHex: '#E91E63', defaultBadge: 'Manager', minTenureMonths: 24, targetShiftsCount: 600 },
+  { levelNumber: 7, levelName: 'Level 7', defaultName: 'Director', colorHex: '#9C27B0', defaultBadge: 'Director', minTenureMonths: 36, targetShiftsCount: 900 },
+  { levelNumber: 8, levelName: 'Level 8', defaultName: 'Executive', colorHex: '#D4AF37', defaultBadge: 'Executive', minTenureMonths: 48, targetShiftsCount: 1200 },
+];
 
 export interface LevelGmvItem {
   levelNumber: number;
@@ -62,7 +87,6 @@ export class LevelingService {
   ];
 
   private projects: LevelDepartmentProjectItem[] = [];
-
   private departmentConfigs = new Map<string, any>();
   private departmentProjects = new Map<string, LevelDepartmentProjectItem[]>();
   private userLevels = new Map<string, number>();
@@ -123,6 +147,441 @@ export class LevelingService {
       // ignore
     }
   }
+
+  // =========================================================================
+  // 1. DEPARTMENT LEVEL CUSTOM NAMES & CONFIGS
+  // =========================================================================
+
+  public async getDepartmentLevelConfigs(departmentId: string) {
+    const dbConfigs = await this.prisma.departmentLevelConfig.findMany({
+      where: { departmentId },
+    });
+
+    const configMap = new Map(dbConfigs.map((c) => [c.levelNumber, c]));
+
+    return STANDARD_LEVELS.map((std) => {
+      const custom = configMap.get(std.levelNumber);
+      return {
+        levelNumber: std.levelNumber,
+        levelName: std.levelName,
+        defaultName: std.defaultName,
+        customLevelName: custom?.customLevelName || std.defaultName,
+        displayName: custom?.customLevelName || std.defaultName,
+        badgeTitle: custom?.badgeTitle || std.defaultBadge,
+        colorHex: std.colorHex,
+        minTenureMonths: std.minTenureMonths,
+        targetShiftsCount: std.targetShiftsCount,
+      };
+    });
+  }
+
+  public async saveDepartmentLevelConfigs(
+    departmentId: string,
+    configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>,
+  ) {
+    const dept = await this.prisma.department.findUnique({ where: { id: departmentId } });
+    if (!dept) throw new NotFoundException('Phòng ban không tồn tại');
+
+    const results = await this.prisma.$transaction(
+      configs.map((c) =>
+        this.prisma.departmentLevelConfig.upsert({
+          where: {
+            departmentId_levelNumber: {
+              departmentId,
+              levelNumber: c.levelNumber,
+            },
+          },
+          create: {
+            departmentId,
+            levelNumber: c.levelNumber,
+            customLevelName: c.customLevelName,
+            badgeTitle: c.badgeTitle || c.customLevelName,
+          },
+          update: {
+            customLevelName: c.customLevelName,
+            badgeTitle: c.badgeTitle || c.customLevelName,
+          },
+        }),
+      ),
+    );
+
+    this.realtimeEvents.emitToDepartment(departmentId, 'level:dept_config:updated', {
+      departmentId,
+      configs: results,
+    });
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:dept_config:updated', {
+      departmentId,
+      configs: results,
+    });
+
+    return { success: true, count: results.length };
+  }
+
+  // =========================================================================
+  // 2. USER PROGRESS & METRICS CALCULATION (%)
+  // =========================================================================
+
+  public async getUserLevelProgress(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        departmentLinks: {
+          where: { leftAt: null },
+          include: { department: true },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('Không tìm thấy thông tin nhân sự');
+
+    const currentLevelNumber = user.profile?.currentLevelNumber || this.userLevels.get(userId) || 1;
+    const nextLevelNumber = Math.min(8, currentLevelNumber + 1);
+
+    const primaryDept = user.departmentLinks[0]?.department;
+    const departmentId = primaryDept?.id;
+
+    // Lấy config của phòng ban
+    let deptConfigs: any[] = [];
+    if (departmentId) {
+      deptConfigs = await this.getDepartmentLevelConfigs(departmentId);
+    }
+    const currentConfig = deptConfigs.find((c) => c.levelNumber === currentLevelNumber) || STANDARD_LEVELS.find((s) => s.levelNumber === currentLevelNumber);
+    const nextConfig = deptConfigs.find((c) => c.levelNumber === nextLevelNumber) || STANDARD_LEVELS.find((s) => s.levelNumber === nextLevelNumber);
+
+    // 1. Thâm niên (Tenure)
+    const startDate = user.profile?.joinDate || user.createdAt;
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(startDate).getTime();
+    const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    const tenureMonths = Number((diffDays / 30.44).toFixed(1));
+
+    const targetMonths = nextConfig?.minTenureMonths || 6;
+    const tenurePercent = Math.min(100, Math.round((tenureMonths / targetMonths) * 100));
+
+    // 2. Số ca / Ngày công thực tế (Shifts / Workdays)
+    const attendanceCount = await this.prisma.attendanceRecord.count({
+      where: {
+        userId,
+        checkInAt: { not: undefined },
+      },
+    });
+
+    const targetShifts = nextConfig?.targetShiftsCount || 100;
+    const shiftsPercent = Math.min(100, Math.round((attendanceCount / targetShifts) * 100));
+
+    // 3. Kỷ luật & Đúng giờ (Discipline Score)
+    const lateCount = await this.prisma.attendanceRecord.count({
+      where: {
+        userId,
+        lateMinutes: { gt: 0 },
+      },
+    });
+    const disciplineScore = Math.max(0, 100 - lateCount * 2);
+    const disciplinePercent = Math.min(100, disciplineScore);
+
+    // 4. Doanh số GMV (nếu có cấu hình)
+    const gmvItem = this.gmvConfigs.find((g) => g.levelNumber === nextLevelNumber);
+    const targetGmv = gmvItem?.promotionCeilingGmv || 100;
+    const currentGmv = gmvItem?.currentGmv || 0;
+    const gmvPercent = Math.min(100, Math.round((currentGmv / targetGmv) * 100));
+
+    // 5. Tính Overall Progress %
+    // Weighted: 30% thâm niên + 35% ca làm + 20% kỷ luật + 15% gmv/nhiệm vụ
+    const overallProgressPercent = Math.min(
+      100,
+      Math.round(tenurePercent * 0.3 + shiftsPercent * 0.35 + disciplinePercent * 0.2 + gmvPercent * 0.15),
+    );
+
+    // Kiểm tra đơn thăng cấp đang chờ xử lý (nếu có)
+    const pendingRequest = await this.prisma.levelPromotionRequest.findFirst({
+      where: {
+        userId,
+        status: { in: [PromotionRequestStatus.PENDING, PromotionRequestStatus.SUPPLEMENT_REQUESTED] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      userId,
+      fullName: user.profile?.fullName || user.userCode,
+      avatarUrl: user.profile?.avatarUrl,
+      departmentId,
+      departmentName: primaryDept?.name || 'Chung',
+      currentLevel: {
+        levelNumber: currentLevelNumber,
+        levelName: `Level ${currentLevelNumber}`,
+        displayName: currentConfig?.customLevelName || currentConfig?.defaultName || `Level ${currentLevelNumber}`,
+        badgeTitle: currentConfig?.badgeTitle || currentConfig?.defaultBadge || `Level ${currentLevelNumber}`,
+        colorHex: currentConfig?.colorHex || '#2196F3',
+      },
+      nextLevel: {
+        levelNumber: nextLevelNumber,
+        levelName: `Level ${nextLevelNumber}`,
+        displayName: nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`,
+        badgeTitle: nextConfig?.badgeTitle || nextConfig?.defaultBadge || `Level ${nextLevelNumber}`,
+        colorHex: nextConfig?.colorHex || '#4CAF50',
+      },
+      overallProgressPercent,
+      metrics: {
+        tenure: {
+          currentMonths: tenureMonths,
+          targetMonths,
+          percent: tenurePercent,
+          startDate,
+        },
+        shifts: {
+          currentCount: attendanceCount,
+          targetCount: targetShifts,
+          percent: shiftsPercent,
+        },
+        discipline: {
+          lateCount,
+          score: disciplineScore,
+          percent: disciplinePercent,
+        },
+        gmv: {
+          currentGmv,
+          targetGmv,
+          percent: gmvPercent,
+          unit: gmvItem?.gmvUnit || 'Tr VNĐ',
+        },
+      },
+      pendingRequest: pendingRequest
+        ? {
+            id: pendingRequest.id,
+            status: pendingRequest.status,
+            fromLevelNumber: pendingRequest.fromLevelNumber,
+            toLevelNumber: pendingRequest.toLevelNumber,
+            submissionNote: pendingRequest.submissionNote,
+            evidenceImages: pendingRequest.evidenceImages,
+            leaderNote: pendingRequest.leaderNote,
+            createdAt: pendingRequest.createdAt,
+          }
+        : null,
+    };
+  }
+
+  // =========================================================================
+  // 3. EMPLOYEE SELF-PROMOTION REQUEST (WITH EVIDENCE IMAGES)
+  // =========================================================================
+
+  public async submitPromotionRequest(
+    userId: string,
+    dto: {
+      fromLevelNumber: number;
+      toLevelNumber: number;
+      submissionNote: string;
+      evidenceImages?: string[];
+      departmentId?: string;
+    },
+  ) {
+    let deptId = dto.departmentId;
+    if (!deptId) {
+      const link = await this.prisma.departmentMember.findFirst({
+        where: { userId, leftAt: null, isPrimary: true },
+      });
+      deptId = link?.departmentId;
+    }
+
+    if (!deptId) {
+      const anyLink = await this.prisma.departmentMember.findFirst({
+        where: { userId, leftAt: null },
+      });
+      deptId = anyLink?.departmentId;
+    }
+
+    if (!deptId) {
+      throw new BadRequestException('Bạn chưa thuộc phòng ban nào để nộp đề xuất lên cấp');
+    }
+
+    const created = await this.prisma.levelPromotionRequest.create({
+      data: {
+        userId,
+        departmentId: deptId,
+        fromLevelNumber: dto.fromLevelNumber,
+        toLevelNumber: dto.toLevelNumber,
+        submissionNote: dto.submissionNote,
+        evidenceImages: dto.evidenceImages || [],
+        status: PromotionRequestStatus.PENDING,
+      },
+      include: {
+        user: { include: { profile: true } },
+        department: true,
+      },
+    });
+
+    // Thông báo cho Leader phòng ban
+    this.realtimeEvents.emitToDepartment(deptId, 'level:promotion_request:created', {
+      requestId: created.id,
+      userId,
+      userName: created.user.profile?.fullName || created.user.userCode,
+      fromLevelNumber: created.fromLevelNumber,
+      toLevelNumber: created.toLevelNumber,
+      departmentId: deptId,
+      departmentName: created.department?.name,
+    });
+
+    return created;
+  }
+
+  public async getDepartmentPromotionRequests(
+    actor: AuthenticatedUser,
+    departmentId?: string,
+    status?: PromotionRequestStatus,
+  ) {
+    let targetDeptId = departmentId;
+    if (!targetDeptId && !actor.roles.includes('ADMIN')) {
+      const leaderScope = actor.scopes.find(
+        (s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId,
+      );
+      if (leaderScope?.scopeId) {
+        targetDeptId = leaderScope.scopeId;
+      }
+    }
+
+    const where: any = {
+      ...(targetDeptId ? { departmentId: targetDeptId } : {}),
+      ...(status ? { status } : {}),
+    };
+
+    return this.prisma.levelPromotionRequest.findMany({
+      where,
+      include: {
+        user: {
+          include: { profile: true },
+        },
+        department: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  public async reviewPromotionRequest(
+    requestId: string,
+    dto: {
+      status: 'APPROVED' | 'REJECTED' | 'SUPPLEMENT_REQUESTED';
+      leaderNote?: string;
+    },
+    actor: AuthenticatedUser,
+  ) {
+    const request = await this.prisma.levelPromotionRequest.findUnique({
+      where: { id: requestId },
+      include: { user: { include: { profile: true } } },
+    });
+
+    if (!request) throw new NotFoundException('Không tìm thấy đơn đề xuất');
+
+    const updated = await this.prisma.levelPromotionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: dto.status as PromotionRequestStatus,
+        leaderNote: dto.leaderNote,
+        decidedByUserId: actor.userId,
+        decidedAt: new Date(),
+      },
+    });
+
+    if (dto.status === 'APPROVED') {
+      // 1. Cập nhật currentLevelNumber trong profile
+      await this.prisma.employeeProfile.updateMany({
+        where: { userId: request.userId },
+        data: { currentLevelNumber: request.toLevelNumber },
+      });
+
+      // 2. Cập nhật memory & disk storage
+      this.userLevels.set(request.userId, request.toLevelNumber);
+      this.saveToStorage();
+
+      // 3. Emit Realtime chúc mừng
+      this.realtimeEvents.emitToUser(request.userId, 'level:promoted', {
+        userId: request.userId,
+        newLevelNumber: request.toLevelNumber,
+        leaderNote: dto.leaderNote,
+      });
+
+      this.realtimeEvents.emitToRoom('level:config_room', 'level:user_promoted', {
+        userId: request.userId,
+        targetLevelNumber: request.toLevelNumber,
+      });
+    } else {
+      // Emit Realtime phản hồi
+      this.realtimeEvents.emitToUser(request.userId, 'level:promotion_request:feedback', {
+        requestId,
+        status: dto.status,
+        leaderNote: dto.leaderNote,
+      });
+    }
+
+    return updated;
+  }
+
+  // =========================================================================
+  // 4. LEADER / ADMIN DIRECT LEVEL SETTING
+  // =========================================================================
+
+  public async setDirectUserLevel(
+    targetUserId: string,
+    levelNumber: number,
+    note: string,
+    actor: AuthenticatedUser,
+  ) {
+    if (levelNumber < 1 || levelNumber > 8) {
+      throw new BadRequestException('Level phải từ 1 đến 8');
+    }
+
+    const isAdmin = actor.roles.includes('ADMIN');
+    if (!isAdmin && levelNumber > 4) {
+      throw new ForbiddenException('Leader chỉ được phép gán cấp từ Level 1 đến Level 4');
+    }
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: { profile: true },
+    });
+    if (!targetUser) throw new NotFoundException('Không tìm thấy người dùng');
+
+    await this.prisma.employeeProfile.updateMany({
+      where: { userId: targetUserId },
+      data: { currentLevelNumber: levelNumber },
+    });
+
+    this.userLevels.set(targetUserId, levelNumber);
+    this.saveToStorage();
+
+    // Lưu audit log
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'user.level.direct_update',
+        entityType: 'User',
+        entityId: targetUserId,
+        metadata: {
+          previousLevelNumber: targetUser.profile?.currentLevelNumber || 1,
+          newLevelNumber: levelNumber,
+          note,
+        },
+      },
+    });
+
+    // Realtime emit
+    this.realtimeEvents.emitToUser(targetUserId, 'level:promoted', {
+      userId: targetUserId,
+      newLevelNumber: levelNumber,
+      note,
+    });
+
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:user_promoted', {
+      userId: targetUserId,
+      targetLevelNumber: levelNumber,
+    });
+
+    return { success: true, userId: targetUserId, newLevelNumber: levelNumber };
+  }
+
+  // =========================================================================
+  // 5. EXISTING PROJECT / GMV / TASK COMPATIBILITY
+  // =========================================================================
 
   public getGmvConfigs(): LevelGmvItem[] {
     return this.gmvConfigs;
@@ -187,7 +646,6 @@ export class LevelingService {
       this.departmentConfigs.set(`${departmentName}_${year}`, levels);
     }
 
-    // Convert Admin levels to LevelDepartmentProjectItem[]
     const convertedProjects: LevelDepartmentProjectItem[] = levels.map((lvl: any) => {
       const levelNumber = Number(lvl.levelNumber) || 1;
       const levelName = lvl.levelName || `Level ${levelNumber}`;
@@ -204,7 +662,6 @@ export class LevelingService {
               `Thực hiện quy trình chuẩn hóa Level ${levelNumber} phòng ${departmentName}`,
             ];
 
-      // Find existing project if any to preserve assigned user or progress
       const existingProject = this.findProjectList(departmentId, departmentName).find(
         (p) => p.levelNumber === levelNumber,
       );
@@ -249,17 +706,14 @@ export class LevelingService {
       };
     });
 
-    // Store in departmentProjects map
     this.departmentProjects.set(departmentId, convertedProjects);
     if (departmentName) {
       this.departmentProjects.set(departmentName, convertedProjects);
       this.departmentProjects.set(departmentName.toLowerCase().trim(), convertedProjects);
     }
 
-    // Persist changes to disk storage
     this.saveToStorage();
 
-    // Update GMV configs if provided in level items
     levels.forEach((lvl: any) => {
       const lvlNum = Number(lvl.levelNumber);
       if (lvlNum >= 1 && lvlNum <= 12 && (lvl.promotionCeilingGmv || lvl.retentionFloorGmv)) {
@@ -271,7 +725,6 @@ export class LevelingService {
       }
     });
 
-    // Realtime broadcast to department and global listeners
     this.realtimeEvents.emitToDepartment(departmentId, 'level:config:updated', {
       departmentId,
       departmentName,
@@ -309,7 +762,6 @@ export class LevelingService {
   public getProjects(departmentId?: string, departmentName?: string): LevelDepartmentProjectItem[] {
     const list = this.findProjectList(departmentId, departmentName);
     if (list === this.projects && departmentName && departmentName !== 'Phòng Livestream TikTok') {
-      // Clean template for specific department if not yet configured by admin
       return Array.from({ length: 8 }, (_, i) => {
         const lvlNum = i + 1;
         return {
@@ -404,7 +856,6 @@ export class LevelingService {
     subTask.reviewedAt = new Date().toISOString();
     subTask.reviewedBy = reviewerName;
 
-    // Recalculate completed count
     project.completedSubTasks = project.subTasks.filter(
       (t) => t.status === 'LEADER_APPROVED' || t.status === 'ADMIN_APPROVED',
     ).length;
