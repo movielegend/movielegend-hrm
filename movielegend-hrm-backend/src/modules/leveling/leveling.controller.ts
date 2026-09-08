@@ -39,8 +39,9 @@ export class LevelingController {
     body: {
       configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>;
     },
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.levelingService.saveDepartmentLevelConfigs(departmentId, body.configs);
+    return this.levelingService.saveDepartmentLevelConfigs(departmentId, body.configs, actor);
   }
 
   // =========================================================================

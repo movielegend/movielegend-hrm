@@ -96,34 +96,48 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     departmentName?: string;
   } | null>(null);
 
-  // Auto pick first department if not yet selected
-  useEffect(() => {
-    if (!selectedDeptId && deptList.length > 0) {
-      const defaultId = params.departmentId || progressData?.departmentId || deptList[0]?.id;
-      if (defaultId) {
-        setSelectedDeptId(defaultId);
-      }
-    }
-  }, [deptList, selectedDeptId, params.departmentId, progressData?.departmentId]);
+  // Leader department resolution
+  const leaderDeptId = progressData?.departmentId || user?.departmentLinks?.[0]?.departmentId || '';
+  const activeDeptId = isAdmin
+    ? (selectedDeptId || deptList[0]?.id || '')
+    : (leaderDeptId || selectedDeptId || '');
 
-  const activeDeptId = selectedDeptId || progressData?.departmentId || deptList[0]?.id || '';
   const activeDeptName =
     deptList.find((d) => d.id === activeDeptId)?.name ||
     progressData?.departmentName ||
+    user?.departmentLinks?.[0]?.department?.name ||
     'Phòng ban';
+
+  // Department locking: Admin can pick any department, Leader is strictly locked to their own department
+  useEffect(() => {
+    if (isAdmin) {
+      if (!selectedDeptId && deptList.length > 0) {
+        const defaultId = params.departmentId || deptList[0]?.id;
+        if (defaultId) setSelectedDeptId(defaultId);
+      }
+    } else {
+      if (leaderDeptId && selectedDeptId !== leaderDeptId) {
+        setSelectedDeptId(leaderDeptId);
+      }
+    }
+  }, [isAdmin, deptList, selectedDeptId, params.departmentId, leaderDeptId]);
 
   const loadData = useCallback(async () => {
     try {
       // 1. Load my progress (only needed for non-admin)
+      let currentProgress: UserLevelProgressData | null = null;
       if (!isAdmin) {
-        const myProgress = await levelingApi.getMyLevelProgress().catch(() => null);
-        if (myProgress) {
-          setProgressData(myProgress);
+        currentProgress = await levelingApi.getMyLevelProgress().catch(() => null);
+        if (currentProgress) {
+          setProgressData(currentProgress);
         }
       }
 
       // 2. Load Department Level Configs
-      const queryDeptId = selectedDeptId || params.departmentId || deptList[0]?.id || progressData?.departmentId;
+      const queryDeptId = isAdmin
+        ? (selectedDeptId || params.departmentId || deptList[0]?.id)
+        : (currentProgress?.departmentId || leaderDeptId || selectedDeptId);
+
       if (queryDeptId) {
         const configs = await levelingApi.getDepartmentLevelConfigs(queryDeptId).catch(() => []);
         if (Array.isArray(configs) && configs.length > 0) {
@@ -161,7 +175,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isAdmin, isLeaderOrAdmin, selectedDeptId, deptList, params.departmentId, progressData?.departmentId]);
+  }, [isAdmin, isLeaderOrAdmin, selectedDeptId, deptList, params.departmentId, leaderDeptId]);
 
   useEffect(() => {
     loadData();
@@ -362,10 +376,10 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         </View>
       )}
 
-      {/* Admin / Leader Department Selector Carousel */}
-      {isLeaderOrAdmin && deptList.length > 0 && (
+      {/* Admin Department Selector Carousel (Only Admin can choose/switch departments) */}
+      {isAdmin && deptList.length > 0 && (
         <View style={styles.deptSelectorContainer}>
-          <Text style={styles.deptSelectorLabel}>Phòng ban đang chọn:</Text>
+          <Text style={styles.deptSelectorLabel}>Chọn phòng ban quản trị:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptPillScroll}>
             {deptList.map((d) => {
               const isSelected = (selectedDeptId || activeDeptId) === d.id;
@@ -382,6 +396,17 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               );
             })}
           </ScrollView>
+        </View>
+      )}
+
+      {/* Leader Fixed Department Scope Badge (Leader only manages their own department) */}
+      {isLeader && activeDeptName && (
+        <View style={styles.leaderDeptBadgeContainer}>
+          <Ionicons name="business-outline" size={16} color="#38BDF8" />
+          <Text style={styles.leaderDeptBadgeText}>
+            Phòng ban phụ trách:{' '}
+            <Text style={{ fontWeight: '700', color: '#FFF' }}>{activeDeptName}</Text>
+          </Text>
         </View>
       )}
 
@@ -933,6 +958,23 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginBottom: 6,
     fontWeight: '600',
+  },
+  leaderDeptBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    marginHorizontal: 16,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+    gap: 8,
+  },
+  leaderDeptBadgeText: {
+    fontSize: 13,
+    color: '#94A3B8',
   },
   deptPillScroll: {
     flexDirection: 'row',

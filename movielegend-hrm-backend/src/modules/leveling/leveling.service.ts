@@ -178,9 +178,28 @@ export class LevelingService {
   public async saveDepartmentLevelConfigs(
     departmentId: string,
     configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>,
+    actor?: AuthenticatedUser,
   ) {
     const dept = await this.prisma.department.findUnique({ where: { id: departmentId } });
     if (!dept) throw new NotFoundException('Phòng ban không tồn tại');
+
+    if (actor && !actor.roles.includes('ADMIN') && !actor.roles.includes('SUPER_ADMIN')) {
+      const allowedDepts = actor.scopes
+        .filter((s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId)
+        .map((s) => s.scopeId as string);
+
+      if (allowedDepts.length === 0) {
+        const userDepts = await this.prisma.departmentMember.findMany({
+          where: { userId: actor.userId, leftAt: null },
+          select: { departmentId: true },
+        });
+        userDepts.forEach((d) => allowedDepts.push(d.departmentId));
+      }
+
+      if (!allowedDepts.includes(departmentId)) {
+        throw new ForbiddenException('Bạn không có quyền cấu hình danh xưng cho phòng ban khác');
+      }
+    }
 
     const results = await this.prisma.$transaction(
       configs.map((c) =>
@@ -431,13 +450,24 @@ export class LevelingService {
     status?: PromotionRequestStatus,
   ) {
     let targetDeptId = departmentId;
-    if (!targetDeptId && !actor.roles.includes('ADMIN')) {
-      const leaderScope = actor.scopes.find(
-        (s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId,
-      );
-      if (leaderScope?.scopeId) {
-        targetDeptId = leaderScope.scopeId;
+    if (!actor.roles.includes('ADMIN') && !actor.roles.includes('SUPER_ADMIN')) {
+      const allowedDepts = actor.scopes
+        .filter((s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId)
+        .map((s) => s.scopeId as string);
+
+      if (allowedDepts.length === 0) {
+        const userDepts = await this.prisma.departmentMember.findMany({
+          where: { userId: actor.userId, leftAt: null },
+          select: { departmentId: true },
+        });
+        userDepts.forEach((d) => allowedDepts.push(d.departmentId));
       }
+
+      if (departmentId && !allowedDepts.includes(departmentId)) {
+        throw new ForbiddenException('Bạn không có quyền xem đơn thăng cấp của phòng ban khác');
+      }
+
+      targetDeptId = departmentId || allowedDepts[0];
     }
 
     const where: any = {
@@ -530,9 +560,32 @@ export class LevelingService {
       throw new BadRequestException('Level phải từ 1 đến 8');
     }
 
-    const isAdmin = actor.roles.includes('ADMIN');
-    if (!isAdmin && levelNumber > 4) {
-      throw new ForbiddenException('Leader chỉ được phép gán cấp từ Level 1 đến Level 4');
+    const isAdmin = actor.roles.includes('ADMIN') || actor.roles.includes('SUPER_ADMIN');
+    if (!isAdmin) {
+      if (levelNumber > 4) {
+        throw new ForbiddenException('Leader chỉ được phép gán cấp từ Level 1 đến Level 4');
+      }
+
+      // Check if targetUser belongs to leader's department
+      const allowedDepts = actor.scopes
+        .filter((s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId)
+        .map((s) => s.scopeId as string);
+
+      if (allowedDepts.length === 0) {
+        const userDepts = await this.prisma.departmentMember.findMany({
+          where: { userId: actor.userId, leftAt: null },
+          select: { departmentId: true },
+        });
+        userDepts.forEach((d) => allowedDepts.push(d.departmentId));
+      }
+
+      const targetMember = await this.prisma.departmentMember.findFirst({
+        where: { userId: targetUserId, leftAt: null, departmentId: { in: allowedDepts } },
+      });
+
+      if (!targetMember) {
+        throw new ForbiddenException('Nhân sự này không thuộc phòng ban bạn quản lý');
+      }
     }
 
     const targetUser = await this.prisma.user.findUnique({
