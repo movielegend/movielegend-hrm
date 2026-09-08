@@ -315,13 +315,17 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
             onPress={() => setActiveTab('members')}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="people-outline"
-              size={18}
+              size={16}
               color={activeTab === 'members' ? '#2563EB' : '#94A3B8'}
             />
-            <Text style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}>
+            <Text
+              style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
               Nhân Sự & Duyệt
             </Text>
             {pendingCount > 0 && (
@@ -334,13 +338,17 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'config' && styles.tabBtnActive]}
             onPress={() => setActiveTab('config')}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="settings-outline"
-              size={18}
+              size={16}
               color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
             />
-            <Text style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}>
+            <Text
+              style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
               Cấu Hình Danh Xưng
             </Text>
           </TouchableOpacity>
@@ -352,28 +360,36 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'roadmap' && styles.tabBtnActive]}
             onPress={() => setActiveTab('roadmap')}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="ribbon-outline"
-              size={16}
+              size={15}
               color={activeTab === 'roadmap' ? '#2563EB' : '#94A3B8'}
             />
-            <Text style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}>
-              Lộ Trình Của Tôi
+            <Text
+              style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Lộ Trình
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
             onPress={() => setActiveTab('members')}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="people-outline"
-              size={16}
+              size={15}
               color={activeTab === 'members' ? '#2563EB' : '#94A3B8'}
             />
-            <Text style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}>
-              Nhân Sự & Duyệt
+            <Text
+              style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Nhân Sự
             </Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
@@ -385,14 +401,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'config' && styles.tabBtnActive]}
             onPress={() => setActiveTab('config')}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="settings-outline"
-              size={16}
+              size={15}
               color={activeTab === 'config' ? '#2563EB' : '#94A3B8'}
             />
-            <Text style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}>
-              Cấu Hình Level
+            <Text
+              style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Cấu Hình
             </Text>
           </TouchableOpacity>
         </View>
@@ -973,24 +993,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     marginHorizontal: 16,
     borderRadius: 12,
-    padding: 4,
+    padding: 3,
     marginBottom: 10,
     gap: 4,
+    alignItems: 'center',
+    height: 44,
   },
   tabBtn: {
     flex: 1,
+    height: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
     borderRadius: 9,
     gap: 4,
+    paddingHorizontal: 4,
   },
   tabBtnActive: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
     elevation: 2,
   },
   tabText: {
@@ -1004,14 +1028,18 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     backgroundColor: '#EF4444',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+    minWidth: 16,
+    height: 16,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
   },
   pendingBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
-    color: '#FFF',
+    color: '#FFFFFF',
+    lineHeight: 11,
   },
   deptSelectorContainer: {
     paddingHorizontal: 16,
@@ -1200,6 +1228,11 @@ const styles = StyleSheet.create({
   },
   subTabBtnActive: {
     backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   subTabText: {
     fontSize: 13,
