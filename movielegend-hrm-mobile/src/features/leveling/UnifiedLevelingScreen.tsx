@@ -15,9 +15,10 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useDepartments } from '../../hooks/useDepartments';
+import { fetchEmployees } from '../../api/employees.api';
 import {
   levelingApi,
   UserLevelProgressData,
@@ -32,8 +33,17 @@ import { DirectLevelChangeModal } from './DirectLevelChangeModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export const UnifiedLevelingScreen: React.FC = () => {
+export interface UnifiedLevelingScreenProps {
+  initialTab?: 'roadmap' | 'members' | 'config';
+  initialLeaderSubTab?: 'members_list' | 'pending_requests';
+}
+
+export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
+  initialTab: propInitialTab,
+  initialLeaderSubTab: propInitialLeaderSubTab,
+}) => {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string; subTab?: string; departmentId?: string }>();
   const { user } = useAuth();
 
   const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
@@ -42,8 +52,20 @@ export const UnifiedLevelingScreen: React.FC = () => {
     user?.roles?.includes('LEADER') ||
     user?.roles?.includes('HR');
 
-  const [activeTab, setActiveTab] = useState<'roadmap' | 'members' | 'config'>('roadmap');
-  const [leaderSubTab, setLeaderSubTab] = useState<'members_list' | 'pending_requests'>('members_list');
+  const resolvedTab =
+    propInitialTab ||
+    (params.tab === 'config' || params.tab === 'members' || params.tab === 'roadmap'
+      ? (params.tab as any)
+      : 'roadmap');
+
+  const resolvedSubTab =
+    propInitialLeaderSubTab ||
+    (params.subTab === 'pending_requests' || params.subTab === 'members_list'
+      ? (params.subTab as any)
+      : 'members_list');
+
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'members' | 'config'>(resolvedTab);
+  const [leaderSubTab, setLeaderSubTab] = useState<'members_list' | 'pending_requests'>(resolvedSubTab);
 
   const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
   const [promotionRequests, setPromotionRequests] = useState<LevelPromotionRequestItem[]>([]);
@@ -55,8 +77,11 @@ export const UnifiedLevelingScreen: React.FC = () => {
 
   // Department picker for Admin / Leader
   const { data: deptData } = useDepartments({ limit: 50 });
-  const deptList: Array<{ id: string; name: string }> = (deptData as any)?.data || (Array.isArray(deptData) ? deptData : []);
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  const deptList: Array<{ id: string; name: string }> =
+    (deptData as any)?.items ||
+    (deptData as any)?.data ||
+    (Array.isArray(deptData) ? deptData : []);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(params.departmentId || '');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -72,6 +97,16 @@ export const UnifiedLevelingScreen: React.FC = () => {
     departmentName?: string;
   } | null>(null);
 
+  // Auto pick first department if not yet selected
+  useEffect(() => {
+    if (!selectedDeptId && deptList.length > 0) {
+      const defaultId = params.departmentId || progressData?.departmentId || deptList[0]?.id;
+      if (defaultId) {
+        setSelectedDeptId(defaultId);
+      }
+    }
+  }, [deptList, selectedDeptId, params.departmentId, progressData?.departmentId]);
+
   const activeDeptId = selectedDeptId || progressData?.departmentId || deptList[0]?.id || '';
   const activeDeptName =
     deptList.find((d) => d.id === activeDeptId)?.name ||
@@ -84,13 +119,10 @@ export const UnifiedLevelingScreen: React.FC = () => {
       const myProgress = await levelingApi.getMyLevelProgress().catch(() => null);
       if (myProgress) {
         setProgressData(myProgress);
-        if (!selectedDeptId && myProgress.departmentId) {
-          setSelectedDeptId(myProgress.departmentId);
-        }
       }
 
       // 2. Load Department Level Configs
-      const queryDeptId = selectedDeptId || myProgress?.departmentId || deptList[0]?.id;
+      const queryDeptId = selectedDeptId || params.departmentId || myProgress?.departmentId || deptList[0]?.id;
       if (queryDeptId) {
         const configs = await levelingApi.getDepartmentLevelConfigs(queryDeptId).catch(() => []);
         if (Array.isArray(configs) && configs.length > 0) {
@@ -110,19 +142,17 @@ export const UnifiedLevelingScreen: React.FC = () => {
             })),
           );
         }
-      }
 
-      // 3. If Leader/Admin, load pending requests & department members
-      if (isLeaderOrAdmin && queryDeptId) {
-        const [requests, membersRes] = await Promise.all([
-          levelingApi.getDepartmentPromotionRequests(queryDeptId).catch(() => []),
-          import('../../api/employees.api')
-            .then((m) => m.fetchEmployees({ departmentId: queryDeptId, limit: 100 }))
-            .catch(() => ({ data: [] })),
-        ]);
+        // 3. If Leader/Admin, load pending requests & department members
+        if (isLeaderOrAdmin) {
+          const [requests, membersRes] = await Promise.all([
+            levelingApi.getDepartmentPromotionRequests(queryDeptId).catch(() => []),
+            fetchEmployees({ departmentId: queryDeptId, limit: 100 }).catch(() => ({ data: [] })),
+          ]);
 
-        setPromotionRequests(Array.isArray(requests) ? requests : []);
-        setDepartmentMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
+          setPromotionRequests(Array.isArray(requests) ? requests : []);
+          setDepartmentMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
+        }
       }
     } catch (e) {
       console.error('Failed to load leveling data:', e);
@@ -130,7 +160,7 @@ export const UnifiedLevelingScreen: React.FC = () => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isLeaderOrAdmin, selectedDeptId, deptList]);
+  }, [isLeaderOrAdmin, selectedDeptId, deptList, params.departmentId]);
 
   useEffect(() => {
     loadData();

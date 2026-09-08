@@ -2,5 +2,5 @@ import React from 'react';
 import { UnifiedLevelingScreen } from '../../../src/features/leveling/UnifiedLevelingScreen';
 
 export default function AdminLevelsRoute() {
-  return <UnifiedLevelingScreen />;
+  return <UnifiedLevelingScreen initialTab="config" />;
 }
