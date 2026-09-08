@@ -487,6 +487,20 @@ export class LevelingService {
     });
   }
 
+  public async getPromotionRequestById(requestId: string) {
+    const request = await this.prisma.levelPromotionRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+        department: true,
+      },
+    });
+    if (!request) throw new NotFoundException('Không tìm thấy đơn đề xuất');
+    return request;
+  }
+
   public async reviewPromotionRequest(
     requestId: string,
     dto: {

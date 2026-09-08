@@ -165,6 +165,11 @@ export const levelingApi = {
     return extractData<LevelPromotionRequestItem[]>(res);
   },
 
+  getPromotionRequestById: async (id: string): Promise<LevelPromotionRequestItem> => {
+    const res = await apiClient.get(`/leveling/promotion-requests/${id}`);
+    return extractData<LevelPromotionRequestItem>(res);
+  },
+
   reviewPromotionRequest: async (
     id: string,
     data: {

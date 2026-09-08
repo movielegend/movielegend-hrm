@@ -90,6 +90,12 @@ export class LevelingController {
     return this.levelingService.getDepartmentPromotionRequests(actor!, departmentId, status);
   }
 
+  @Get('promotion-requests/:id')
+  @ApiOperation({ summary: 'Lấy chi tiết 1 đơn đề xuất thăng cấp theo ID' })
+  async getPromotionRequestById(@Param('id') id: string) {
+    return this.levelingService.getPromotionRequestById(id);
+  }
+
   @Post('promotion-requests/:id/review')
   @ApiOperation({ summary: 'Leader thẩm định ảnh bằng chứng và duyệt / yêu cầu bổ sung' })
   async reviewPromotionRequest(

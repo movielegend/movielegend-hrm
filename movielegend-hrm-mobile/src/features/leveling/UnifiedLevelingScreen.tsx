@@ -15,7 +15,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useDepartments } from '../../hooks/useDepartments';
 import { fetchEmployees } from '../../api/employees.api';
@@ -179,6 +179,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   useEffect(() => {
     loadData();
   }, [loadData, selectedDeptId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = () => {
     setIsRefreshing(true);
@@ -681,7 +687,20 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                       <TouchableOpacity
                         key={req.id}
                         style={styles.requestCard}
-                        onPress={() => setSelectedReviewRequest(req)}
+                        onPress={() => {
+                          const routePath = isAdmin
+                            ? '/admin/levels/review-promotion'
+                            : '/leader/leveling/review-promotion';
+                          router.push({
+                            pathname: routePath as any,
+                            params: {
+                              requestId: req.id,
+                              fromLevelNumber: String(req.fromLevelNumber),
+                              toLevelNumber: String(req.toLevelNumber),
+                              departmentName: req.department?.name || activeDeptName,
+                            },
+                          });
+                        }}
                       >
                         <View style={styles.requestHeader}>
                           <LevelNameBadge
