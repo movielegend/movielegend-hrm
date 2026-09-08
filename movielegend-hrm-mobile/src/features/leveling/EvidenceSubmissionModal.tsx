@@ -41,6 +41,7 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
 }) => {
   const [note, setNote] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
@@ -235,19 +236,33 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
 
             {/* Image Grid */}
             {selectedImages.length > 0 && (
-              <View style={styles.imageGrid}>
-                {selectedImages.map((url, idx) => (
-                  <View key={idx} style={styles.imageThumbWrapper}>
-                    <Image source={{ uri: url }} style={styles.imageThumb} />
+              <View>
+                <View style={styles.imageGrid}>
+                  {selectedImages.map((url, idx) => (
                     <TouchableOpacity
-                      style={styles.removeImageBtn}
-                      onPress={() => handleRemoveImage(idx)}
-                      activeOpacity={0.8}
+                      key={idx}
+                      style={styles.imageThumbWrapper}
+                      onPress={() => setPreviewImageIndex(idx)}
+                      activeOpacity={0.85}
                     >
-                      <Ionicons name="close" size={14} color="#FFF" />
+                      <Image source={{ uri: url }} style={styles.imageThumb} />
+                      <View style={styles.zoomBadge}>
+                        <Ionicons name="scan-outline" size={12} color="#FFF" />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeImageBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleRemoveImage(idx);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="close" size={14} color="#FFF" />
+                      </TouchableOpacity>
                     </TouchableOpacity>
-                  </View>
-                ))}
+                  ))}
+                </View>
+                <Text style={styles.imageTapHint}>💡 Chạm vào ảnh để xem kích thước lớn</Text>
               </View>
             )}
           </ScrollView>
@@ -274,6 +289,74 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
           </View>
         </View>
       </View>
+
+      {/* Fullscreen Image Preview Lightbox Modal */}
+      {previewImageIndex !== null && selectedImages[previewImageIndex] && (
+        <Modal
+          visible={previewImageIndex !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewImageIndex(null)}
+        >
+          <View style={styles.lightboxOverlay}>
+            <View style={styles.lightboxHeader}>
+              <TouchableOpacity
+                style={styles.lightboxHeaderBtn}
+                onPress={() => setPreviewImageIndex(null)}
+              >
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+
+              <View style={styles.lightboxCounterBadge}>
+                <Text style={styles.lightboxCounterText}>
+                  {previewImageIndex + 1} / {selectedImages.length}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.lightboxHeaderBtn, { backgroundColor: 'rgba(239, 68, 68, 0.25)' }]}
+                onPress={() => {
+                  const idxToRemove = previewImageIndex;
+                  handleRemoveImage(idxToRemove);
+                  if (selectedImages.length <= 1) {
+                    setPreviewImageIndex(null);
+                  } else if (idxToRemove >= selectedImages.length - 1) {
+                    setPreviewImageIndex(selectedImages.length - 2);
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.lightboxImageContainer}>
+              {selectedImages.length > 1 && previewImageIndex > 0 && (
+                <TouchableOpacity
+                  style={[styles.lightboxNavBtn, styles.lightboxNavLeft]}
+                  onPress={() => setPreviewImageIndex((prev) => (prev !== null ? prev - 1 : 0))}
+                >
+                  <Ionicons name="chevron-back" size={24} color="#FFF" />
+                </TouchableOpacity>
+              )}
+
+              <Image
+                source={{ uri: selectedImages[previewImageIndex] }}
+                style={styles.lightboxImage}
+                resizeMode="contain"
+              />
+
+              {selectedImages.length > 1 && previewImageIndex < selectedImages.length - 1 && (
+                <TouchableOpacity
+                  style={[styles.lightboxNavBtn, styles.lightboxNavRight]}
+                  onPress={() => setPreviewImageIndex((prev) => (prev !== null ? prev + 1 : 0))}
+                >
+                  <Ionicons name="chevron-forward" size={24} color="#FFF" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </Modal>
   );
 };
@@ -425,6 +508,84 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  zoomBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageTapHint: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  lightboxOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+  },
+  lightboxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  lightboxHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxCounterBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  lightboxCounterText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  lightboxImageContainer: {
+    flex: 1,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxNavBtn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  lightboxNavLeft: {
+    left: 12,
+  },
+  lightboxNavRight: {
+    right: 12,
   },
   emptyImageText: {
     fontSize: 12,

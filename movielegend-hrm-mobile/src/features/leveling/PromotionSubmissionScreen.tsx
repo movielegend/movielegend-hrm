@@ -13,6 +13,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -45,6 +46,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
   const [note, setNote] = useState('');
   const [extraNote, setExtraNote] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
@@ -301,19 +303,33 @@ export const PromotionSubmissionScreen: React.FC = () => {
 
             {/* Images Grid */}
             {selectedImages.length > 0 && (
-              <View style={styles.imageGrid}>
-                {selectedImages.map((url, idx) => (
-                  <View key={idx} style={styles.imageWrapper}>
-                    <Image source={{ uri: url }} style={styles.imageThumb} />
+              <View>
+                <View style={styles.imageGrid}>
+                  {selectedImages.map((url, idx) => (
                     <TouchableOpacity
-                      style={styles.removeImgBtn}
-                      onPress={() => handleRemoveImage(idx)}
-                      activeOpacity={0.8}
+                      key={idx}
+                      style={styles.imageWrapper}
+                      onPress={() => setPreviewImageIndex(idx)}
+                      activeOpacity={0.85}
                     >
-                      <Ionicons name="close" size={14} color="#FFF" />
+                      <Image source={{ uri: url }} style={styles.imageThumb} />
+                      <View style={styles.zoomBadge}>
+                        <Ionicons name="scan-outline" size={13} color="#FFF" />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeImgBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleRemoveImage(idx);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="close" size={14} color="#FFF" />
+                      </TouchableOpacity>
                     </TouchableOpacity>
-                  </View>
-                ))}
+                  ))}
+                </View>
+                <Text style={styles.imageTapHint}>💡 Chạm vào ảnh để xem kích thước lớn</Text>
               </View>
             )}
           </View>
@@ -341,6 +357,83 @@ export const PromotionSubmissionScreen: React.FC = () => {
           <View style={{ height: 100 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Fullscreen Image Preview Lightbox Modal */}
+      {previewImageIndex !== null && selectedImages[previewImageIndex] && (
+        <Modal
+          visible={previewImageIndex !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewImageIndex(null)}
+        >
+          <View style={styles.lightboxOverlay}>
+            <SafeAreaView style={styles.lightboxSafeArea}>
+              {/* Lightbox Top Bar */}
+              <View style={styles.lightboxHeader}>
+                <TouchableOpacity
+                  style={styles.lightboxHeaderBtn}
+                  onPress={() => setPreviewImageIndex(null)}
+                >
+                  <Ionicons name="close" size={24} color="#FFF" />
+                </TouchableOpacity>
+
+                <View style={styles.lightboxCounterBadge}>
+                  <Text style={styles.lightboxCounterText}>
+                    {previewImageIndex + 1} / {selectedImages.length}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.lightboxHeaderBtn, { backgroundColor: 'rgba(239, 68, 68, 0.25)' }]}
+                  onPress={() => {
+                    const idxToRemove = previewImageIndex;
+                    handleRemoveImage(idxToRemove);
+                    if (selectedImages.length <= 1) {
+                      setPreviewImageIndex(null);
+                    } else if (idxToRemove >= selectedImages.length - 1) {
+                      setPreviewImageIndex(selectedImages.length - 2);
+                    }
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Lightbox Center Image & Navigation */}
+              <View style={styles.lightboxImageContainer}>
+                {selectedImages.length > 1 && previewImageIndex > 0 && (
+                  <TouchableOpacity
+                    style={[styles.lightboxNavBtn, styles.lightboxNavLeft]}
+                    onPress={() => setPreviewImageIndex((prev) => (prev !== null ? prev - 1 : 0))}
+                  >
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                )}
+
+                <Image
+                  source={{ uri: selectedImages[previewImageIndex] }}
+                  style={styles.lightboxImage}
+                  resizeMode="contain"
+                />
+
+                {selectedImages.length > 1 && previewImageIndex < selectedImages.length - 1 && (
+                  <TouchableOpacity
+                    style={[styles.lightboxNavBtn, styles.lightboxNavRight]}
+                    onPress={() => setPreviewImageIndex((prev) => (prev !== null ? prev + 1 : 0))}
+                  >
+                    <Ionicons name="chevron-forward" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Lightbox Bottom Footer */}
+              <View style={styles.lightboxFooter}>
+                <Text style={styles.lightboxFooterText}>Ảnh minh chứng xét duyệt thăng cấp</Text>
+              </View>
+            </SafeAreaView>
+          </View>
+        </Modal>
+      )}
 
       {/* Bottom Sticky Action Bar */}
       <View style={styles.bottomBar}>
@@ -614,6 +707,93 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  zoomBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageTapHint: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  lightboxOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+  },
+  lightboxSafeArea: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  lightboxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  lightboxHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxCounterBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  lightboxCounterText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  lightboxImageContainer: {
+    flex: 1,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxNavBtn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  lightboxNavLeft: {
+    left: 12,
+  },
+  lightboxNavRight: {
+    right: 12,
+  },
+  lightboxFooter: {
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  lightboxFooterText: {
+    fontSize: 13,
+    color: '#94A3B8',
   },
   dropzoneTitle: {
     fontSize: 13,
