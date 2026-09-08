@@ -30,6 +30,7 @@ import { LevelNameBadge, LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../compone
 import { EmployeeLevelProgressCard } from './EmployeeLevelProgressCard';
 import { LeaderPromotionReviewModal } from './LeaderPromotionReviewModal';
 import { DirectLevelChangeModal } from './DirectLevelChangeModal';
+import { useLevelProjects, BulletSubTask, LevelDepartmentProject } from './levelProjectsStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -142,6 +143,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       }
     }
   }, [isAdmin, deptList, selectedDeptId, params.departmentId, leaderDeptId]);
+
+  // Real-time reactive assigned tasks for current employee
+  const currentUserId = user?.id;
+  const currentUserName = user?.fullName || user?.userCode || '';
+  const { getAssignedSubTasksForUser } = useLevelProjects(activeDeptId, activeDeptName);
+  const myAssignedTasks = getAssignedSubTasksForUser(currentUserId, currentUserName);
 
   const loadData = useCallback(async () => {
     try {
@@ -941,6 +948,106 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                   }
                 />
               )}
+
+              {/* Nhiệm Vụ Cấp Bậc / Việc Con Được Leader Giao */}
+              <View style={styles.assignedTasksSection}>
+                <View style={styles.assignedTasksHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={styles.assignedTasksIconBox}>
+                      <Ionicons name="clipboard-outline" size={18} color="#0F766E" />
+                    </View>
+                    <View>
+                      <Text style={styles.assignedTasksHeaderTitle}>Công Việc Được Leader Giao</Text>
+                      <Text style={styles.assignedTasksHeaderSub}>
+                        {myAssignedTasks.length > 0
+                          ? `${myAssignedTasks.filter((i) => i.subTask.status === 'LEADER_APPROVED').length}/${myAssignedTasks.length} việc đã hoàn thành`
+                          : 'Dự án & đầu mục công việc cấp bậc'}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.assignedTasksViewAllBtn}
+                    onPress={() => router.push('/employee/level-projects' as any)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.assignedTasksViewAllText}>Chi tiết</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#0F766E" />
+                  </TouchableOpacity>
+                </View>
+
+                {myAssignedTasks.length === 0 ? (
+                  <View style={styles.emptyAssignedTasksBox}>
+                    <Ionicons name="folder-open-outline" size={36} color="#94A3B8" />
+                    <Text style={styles.emptyAssignedTasksTitle}>Chưa có công việc nào được giao</Text>
+                    <Text style={styles.emptyAssignedTasksSub}>
+                      Khi Trưởng nhóm (Leader) phân công các đầu mục việc trong dự án cho bạn, danh sách nhiệm vụ và phần thưởng sẽ hiển thị tại đây.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.assignedTasksList}>
+                    {myAssignedTasks.map((item) => {
+                      const { project, subTask } = item;
+                      const isApproved = subTask.status === 'LEADER_APPROVED';
+                      const isSubmitted = subTask.status === 'SUBMITTED';
+
+                      return (
+                        <TouchableOpacity
+                          key={subTask.id}
+                          style={[styles.assignedTaskRow, isSubmitted && styles.assignedTaskRowSubmitted]}
+                          onPress={() => router.push('/employee/level-projects' as any)}
+                          activeOpacity={0.7}
+                        >
+                          <View
+                            style={[
+                              styles.assignedTaskIndexCircle,
+                              isApproved && { backgroundColor: '#ECFDF5', borderColor: '#059669' },
+                              isSubmitted && { backgroundColor: '#FEF3C7', borderColor: '#D97706' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.assignedTaskIndexText,
+                                isApproved && { color: '#059669', fontWeight: 'bold' },
+                                isSubmitted && { color: '#B45309', fontWeight: 'bold' },
+                              ]}
+                            >
+                              {isApproved ? '✓' : subTask.orderNumber}
+                            </Text>
+                          </View>
+
+                          <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text
+                              style={[styles.assignedTaskTitle, isApproved && styles.assignedTaskTitleDone]}
+                              numberOfLines={1}
+                            >
+                              {subTask.title}
+                            </Text>
+                            <Text style={styles.assignedTaskSubText} numberOfLines={1}>
+                              {project.projectName || project.levelName} • {subTask.targetKpi || 'Nghiệm thu Vòng 1'}
+                            </Text>
+                          </View>
+
+                          <View>
+                            {isApproved ? (
+                              <View style={styles.tagApproved}>
+                                <Text style={styles.tagApprovedText}>Đã duyệt</Text>
+                              </View>
+                            ) : isSubmitted ? (
+                              <View style={styles.tagPending}>
+                                <Text style={styles.tagPendingText}>Chờ duyệt</Text>
+                              </View>
+                            ) : (
+                              <View style={styles.tagSubmitAction}>
+                                <Text style={styles.tagSubmitActionText}>Báo cáo</Text>
+                              </View>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
 
               {/* Interactive 8 Levels Roadmap */}
               <View style={styles.roadmapCard}>
@@ -2765,5 +2872,158 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  // Assigned Tasks Section Styles (Tab 1 Roadmap)
+  assignedTasksSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  assignedTasksHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  assignedTasksIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assignedTasksHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  assignedTasksHeaderSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  assignedTasksViewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 2,
+  },
+  assignedTasksViewAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  emptyAssignedTasksBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+  },
+  emptyAssignedTasksTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 8,
+  },
+  emptyAssignedTasksSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  assignedTasksList: {
+    marginTop: 10,
+    gap: 8,
+  },
+  assignedTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  assignedTaskRowSubmitted: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  assignedTaskIndexCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  assignedTaskIndexText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  assignedTaskTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  assignedTaskTitleDone: {
+    color: '#059669',
+    textDecorationLine: 'line-through',
+  },
+  assignedTaskSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  tagApproved: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  tagApprovedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  tagPending: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  tagPendingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  tagSubmitAction: {
+    backgroundColor: '#0F766E',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  tagSubmitActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
