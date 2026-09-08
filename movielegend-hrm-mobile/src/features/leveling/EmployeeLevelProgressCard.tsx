@@ -1,10 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserLevelProgressData } from '../../api/leveling.api';
-import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface EmployeeLevelProgressCardProps {
   progress: UserLevelProgressData | null;
@@ -17,48 +14,57 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
 }) => {
   if (!progress) return null;
 
-  const currentColor = progress.currentLevel.colorHex || '#2196F3';
-  const nextColor = progress.nextLevel.colorHex || '#4CAF50';
+  const currentColor = progress.currentLevel.colorHex || '#FF9800';
+  const nextColor = progress.nextLevel.colorHex || '#E91E63';
   const percent = progress.overallProgressPercent || 0;
-
   const isPending = !!progress.pendingRequest;
+
+  const tenurePercent = Math.min(100, progress.metrics.tenure.percent || 0);
+  const shiftsPercent = Math.min(100, progress.metrics.shifts.percent || 0);
+  const gmvPercent = Math.min(100, progress.metrics.gmv.percent || 0);
+  const disciplineScore = progress.metrics.discipline.score ?? 100;
 
   return (
     <View style={styles.card}>
-      {/* Header Level Transition */}
-      <View style={styles.headerRow}>
+      {/* 1. Header Level Transition */}
+      <View style={styles.headerContainer}>
+        {/* Current Level */}
         <View style={styles.levelBadgeBox}>
-          <View style={[styles.levelCircle, { borderColor: currentColor }]}>
+          <View style={[styles.levelCircle, { borderColor: currentColor, backgroundColor: `${currentColor}18` }]}>
             <Text style={[styles.levelCircleText, { color: currentColor }]}>
               {progress.currentLevel.levelNumber}
             </Text>
           </View>
-          <View>
+          <View style={styles.levelTextBox}>
             <Text style={styles.levelSub}>Cấp hiện tại</Text>
-            <Text style={[styles.levelTitle, { color: currentColor }]}>
+            <Text style={[styles.levelTitle, { color: currentColor }]} numberOfLines={1}>
               {progress.currentLevel.displayName}
             </Text>
           </View>
         </View>
 
-        <Ionicons name="arrow-forward-circle" size={24} color="#94A3B8" />
+        {/* Transition Arrow */}
+        <View style={styles.arrowWrapper}>
+          <Ionicons name="arrow-forward" size={16} color="#94A3B8" />
+        </View>
 
-        <View style={styles.levelBadgeBox}>
-          <View style={[styles.levelCircle, { borderColor: nextColor, backgroundColor: `${nextColor}15` }]}>
+        {/* Target Level */}
+        <View style={[styles.levelBadgeBox, { alignItems: 'flex-end' }]}>
+          <View style={[styles.levelCircle, { borderColor: nextColor, backgroundColor: `${nextColor}18` }]}>
             <Text style={[styles.levelCircleText, { color: nextColor }]}>
               {progress.nextLevel.levelNumber}
             </Text>
           </View>
-          <View>
+          <View style={[styles.levelTextBox, { alignItems: 'flex-end' }]}>
             <Text style={styles.levelSub}>Mục tiêu</Text>
-            <Text style={[styles.levelTitle, { color: nextColor }]}>
+            <Text style={[styles.levelTitle, { color: nextColor }]} numberOfLines={1}>
               {progress.nextLevel.displayName}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Progress Bar */}
+      {/* 2. Overall Progress Bar */}
       <View style={styles.progressContainer}>
         <View style={styles.progressLabelRow}>
           <Text style={styles.progressLabel}>Tiến độ thăng cấp tổng thể</Text>
@@ -74,71 +80,99 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
         </Text>
       </View>
 
-      {/* 4 Quantitative Breakdown Metrics */}
+      {/* 3. 2x2 Symmetrical Metrics Grid */}
       <View style={styles.metricsGrid}>
-        {/* Metric 1: Thâm niên */}
-        <View style={styles.metricCard}>
-          <View style={styles.metricHeader}>
-            <Ionicons name="time-outline" size={16} color="#2563EB" />
-            <Text style={styles.metricTitle}>Thâm niên</Text>
+        {/* Row 1 */}
+        <View style={styles.metricsRow}>
+          {/* Metric 1: Thâm niên */}
+          <View style={styles.metricCard}>
+            <View style={styles.metricTopRow}>
+              <View style={[styles.metricIconBg, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="time" size={14} color="#2563EB" />
+              </View>
+              <Text style={styles.metricTitle}>Thâm niên</Text>
+              <Text style={[styles.metricBadge, { color: tenurePercent >= 100 ? '#16A34A' : '#2563EB' }]}>
+                {tenurePercent}%
+              </Text>
+            </View>
+            <Text style={styles.metricValue}>
+              {progress.metrics.tenure.currentMonths} <Text style={styles.metricUnit}>/ {progress.metrics.tenure.targetMonths} th</Text>
+            </Text>
+            <View style={styles.miniBarBg}>
+              <View style={[styles.miniBarFill, { width: `${tenurePercent}%`, backgroundColor: '#2563EB' }]} />
+            </View>
           </View>
-          <Text style={styles.metricValue}>
-            {progress.metrics.tenure.currentMonths} / {progress.metrics.tenure.targetMonths} th
-          </Text>
-          <Text style={[styles.metricPercent, { color: progress.metrics.tenure.percent >= 100 ? '#16A34A' : '#64748B' }]}>
-            {progress.metrics.tenure.percent}% {progress.metrics.tenure.percent >= 100 ? '✅' : ''}
-          </Text>
+
+          {/* Metric 2: Số ca làm */}
+          <View style={styles.metricCard}>
+            <View style={styles.metricTopRow}>
+              <View style={[styles.metricIconBg, { backgroundColor: '#ECFDF5' }]}>
+                <Ionicons name="briefcase" size={14} color="#059669" />
+              </View>
+              <Text style={styles.metricTitle}>Số ca làm</Text>
+              <Text style={[styles.metricBadge, { color: shiftsPercent >= 100 ? '#16A34A' : '#059669' }]}>
+                {shiftsPercent}%
+              </Text>
+            </View>
+            <Text style={styles.metricValue}>
+              {progress.metrics.shifts.currentCount} <Text style={styles.metricUnit}>/ {progress.metrics.shifts.targetCount} ca</Text>
+            </Text>
+            <View style={styles.miniBarBg}>
+              <View style={[styles.miniBarFill, { width: `${shiftsPercent}%`, backgroundColor: '#059669' }]} />
+            </View>
+          </View>
         </View>
 
-        {/* Metric 2: Ca làm / Ngày công */}
-        <View style={styles.metricCard}>
-          <View style={styles.metricHeader}>
-            <Ionicons name="briefcase-outline" size={16} color="#059669" />
-            <Text style={styles.metricTitle}>Số ca làm</Text>
+        {/* Row 2 */}
+        <View style={styles.metricsRow}>
+          {/* Metric 3: Kỷ luật */}
+          <View style={styles.metricCard}>
+            <View style={styles.metricTopRow}>
+              <View style={[styles.metricIconBg, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="shield-checkmark" size={14} color="#D97706" />
+              </View>
+              <Text style={styles.metricTitle}>Kỷ luật</Text>
+              <Text style={[styles.metricBadge, { color: '#16A34A' }]}>
+                {disciplineScore}/100đ
+              </Text>
+            </View>
+            <Text style={styles.metricValue}>
+              {progress.metrics.discipline.lateCount === 0 ? '0 lỗi' : `${progress.metrics.discipline.lateCount} lần`} <Text style={styles.metricUnit}>đi trễ</Text>
+            </Text>
+            <View style={styles.miniBarBg}>
+              <View style={[styles.miniBarFill, { width: `${disciplineScore}%`, backgroundColor: '#D97706' }]} />
+            </View>
           </View>
-          <Text style={styles.metricValue}>
-            {progress.metrics.shifts.currentCount} / {progress.metrics.shifts.targetCount} ca
-          </Text>
-          <Text style={[styles.metricPercent, { color: progress.metrics.shifts.percent >= 100 ? '#16A34A' : '#64748B' }]}>
-            {progress.metrics.shifts.percent}% {progress.metrics.shifts.percent >= 100 ? '✅' : ''}
-          </Text>
-        </View>
 
-        {/* Metric 3: Kỷ luật */}
-        <View style={styles.metricCard}>
-          <View style={styles.metricHeader}>
-            <Ionicons name="shield-checkmark-outline" size={16} color="#D97706" />
-            <Text style={styles.metricTitle}>Kỷ luật</Text>
+          {/* Metric 4: Doanh số */}
+          <View style={styles.metricCard}>
+            <View style={styles.metricTopRow}>
+              <View style={[styles.metricIconBg, { backgroundColor: '#F3E8FF' }]}>
+                <Ionicons name="trending-up" size={14} color="#7C3AED" />
+              </View>
+              <Text style={styles.metricTitle}>Doanh số</Text>
+              <Text style={[styles.metricBadge, { color: gmvPercent >= 100 ? '#16A34A' : '#7C3AED' }]}>
+                {gmvPercent}%
+              </Text>
+            </View>
+            <Text style={styles.metricValue}>
+              {progress.metrics.gmv.currentGmv} <Text style={styles.metricUnit}>/ {progress.metrics.gmv.targetGmv} {progress.metrics.gmv.unit}</Text>
+            </Text>
+            <View style={styles.miniBarBg}>
+              <View style={[styles.miniBarFill, { width: `${gmvPercent}%`, backgroundColor: '#7C3AED' }]} />
+            </View>
           </View>
-          <Text style={styles.metricValue}>
-            {progress.metrics.discipline.lateCount === 0 ? '0 lỗi đi trễ' : `${progress.metrics.discipline.lateCount} lần trễ`}
-          </Text>
-          <Text style={[styles.metricPercent, { color: '#16A34A' }]}>
-            {progress.metrics.discipline.score}/100 đ ✅
-          </Text>
-        </View>
-
-        {/* Metric 4: Doanh số / Nhiệm vụ */}
-        <View style={styles.metricCard}>
-          <View style={styles.metricHeader}>
-            <Ionicons name="trending-up-outline" size={16} color="#7C3AED" />
-            <Text style={styles.metricTitle}>Doanh số</Text>
-          </View>
-          <Text style={styles.metricValue}>
-            {progress.metrics.gmv.currentGmv}/{progress.metrics.gmv.targetGmv} {progress.metrics.gmv.unit}
-          </Text>
-          <Text style={[styles.metricPercent, { color: progress.metrics.gmv.percent >= 100 ? '#16A34A' : '#64748B' }]}>
-            {progress.metrics.gmv.percent}%
-          </Text>
         </View>
       </View>
 
-      {/* Pending status banner if any */}
+      {/* 4. Pending status banner if any */}
       {isPending && (
         <View style={styles.pendingBanner}>
           <Ionicons name="hourglass-outline" size={18} color="#D97706" />
           <View style={{ flex: 1 }}>
-            <Text style={styles.pendingTitle}>Đề xuất lên Level {progress.pendingRequest?.toLevelNumber} đang chờ duyệt</Text>
+            <Text style={styles.pendingTitle}>
+              Đề xuất lên Level {progress.pendingRequest?.toLevelNumber} đang chờ duyệt
+            </Text>
             <Text style={styles.pendingNote}>
               {progress.pendingRequest?.status === 'SUPPLEMENT_REQUESTED'
                 ? `💬 Leader yêu cầu bổ sung: "${progress.pendingRequest.leaderNote}"`
@@ -148,19 +182,20 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
         </View>
       )}
 
-      {/* Action Button */}
+      {/* 5. Action Button */}
       <TouchableOpacity
         style={[
           styles.actionBtn,
           { backgroundColor: isPending ? '#D97706' : nextColor },
         ]}
         onPress={onOpenSubmitModal}
+        activeOpacity={0.85}
       >
         <Ionicons
-          name={isPending ? 'create-outline' : 'paper-plane-outline'}
-          size={18}
+          name={isPending ? 'create-outline' : 'paper-plane'}
+          size={16}
           color="#FFF"
-          style={{ marginRight: 6 }}
+          style={{ marginRight: 8 }}
         />
         <Text style={styles.actionBtnText}>
           {isPending ? 'Cập Nhật / Bổ Sung Báo Cáo' : 'Nộp Báo Cáo Thành Tích Lên Cấp'}
@@ -173,47 +208,69 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
-  headerRow: {
+  headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   levelBadgeBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
+  },
+  levelTextBox: {
+    flex: 1,
+    justifyContent: 'center',
   },
   levelCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   levelCircleText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
   },
   levelSub: {
     fontSize: 11,
     color: '#94A3B8',
+    fontWeight: '600',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   levelTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  arrowWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 6,
   },
   progressContainer: {
     marginBottom: 16,
@@ -222,104 +279,132 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   progressLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: '#334155',
   },
   progressPercent: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
   },
   progressBarBg: {
-    height: 10,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 5,
+    height: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 4,
   },
   progressHint: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#64748B',
     lineHeight: 16,
   },
   metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
     marginBottom: 16,
   },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   metricCard: {
-    width: (SCREEN_WIDTH - 64 - 8) / 2,
+    flex: 1,
     backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  metricHeader: {
+  metricTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+    marginBottom: 8,
+    gap: 6,
+  },
+  metricIconBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   metricTitle: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#64748B',
     fontWeight: '600',
+    flex: 1,
+  },
+  metricBadge: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   metricValue: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 2,
+    marginBottom: 8,
   },
-  metricPercent: {
-    fontSize: 11,
+  metricUnit: {
+    fontSize: 11.5,
     fontWeight: '600',
+    color: '#64748B',
+  },
+  miniBarBg: {
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  miniBarFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   pendingBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FEF3C7',
-    padding: 10,
-    borderRadius: 10,
+    padding: 12,
+    borderRadius: 12,
     marginBottom: 14,
-    gap: 8,
+    gap: 10,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
   pendingTitle: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#92400E',
   },
   pendingNote: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#B45309',
     marginTop: 2,
-    lineHeight: 15,
+    lineHeight: 16,
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 13,
+    borderRadius: 14,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   actionBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFF',
+    letterSpacing: 0.2,
   },
 });
+
