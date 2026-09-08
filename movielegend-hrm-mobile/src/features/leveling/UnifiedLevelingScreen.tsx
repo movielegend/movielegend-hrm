@@ -967,7 +967,11 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                   </View>
                   <TouchableOpacity
                     style={styles.assignedTasksViewAllBtn}
-                    onPress={() => router.push('/employee/level-projects' as any)}
+                    onPress={() =>
+                      router.push(
+                        (isLeader ? '/leader/level-projects' : '/employee/level-projects') as any
+                      )
+                    }
                     activeOpacity={0.7}
                   >
                     <Text style={styles.assignedTasksViewAllText}>Chi tiết</Text>
@@ -980,7 +984,9 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                     <Ionicons name="folder-open-outline" size={36} color="#94A3B8" />
                     <Text style={styles.emptyAssignedTasksTitle}>Chưa có công việc nào được giao</Text>
                     <Text style={styles.emptyAssignedTasksSub}>
-                      Khi Trưởng nhóm (Leader) phân công các đầu mục việc trong dự án cho bạn, danh sách nhiệm vụ và phần thưởng sẽ hiển thị tại đây.
+                      {isLeader
+                        ? 'Khi bạn tự nhận việc trong dự án hoặc được phân công việc con, danh sách nhiệm vụ của bạn sẽ hiển thị tại đây.'
+                        : 'Khi Trưởng nhóm (Leader) phân công các đầu mục việc trong dự án cho bạn, danh sách nhiệm vụ và phần thưởng sẽ hiển thị tại đây.'}
                     </Text>
                   </View>
                 ) : (
@@ -994,7 +1000,11 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                         <TouchableOpacity
                           key={subTask.id}
                           style={[styles.assignedTaskRow, isSubmitted && styles.assignedTaskRowSubmitted]}
-                          onPress={() => router.push('/employee/level-projects' as any)}
+                          onPress={() =>
+                            router.push(
+                              (isLeader ? '/leader/level-projects' : '/employee/level-projects') as any
+                            )
+                          }
                           activeOpacity={0.7}
                         >
                           <View
@@ -1038,7 +1048,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                               </View>
                             ) : (
                               <View style={styles.tagSubmitAction}>
-                                <Text style={styles.tagSubmitActionText}>Báo cáo</Text>
+                                <Text style={styles.tagSubmitActionText}>{isLeader ? 'Xem việc' : 'Báo cáo'}</Text>
                               </View>
                             )}
                           </View>
