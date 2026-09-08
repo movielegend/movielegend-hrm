@@ -19,6 +19,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useDepartments } from '../../hooks/useDepartments';
 import { fetchEmployees } from '../../api/employees.api';
+import { getAbsoluteImageUrl } from '../../utils/image';
 import {
   levelingApi,
   UserLevelProgressData,
@@ -250,17 +251,34 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       ) : progressData ? (
         <View style={styles.profileSummaryCard}>
           <View style={styles.avatarWrapper}>
-            <Image
-              source={
-                progressData.avatarUrl
-                  ? { uri: progressData.avatarUrl }
-                  : { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
-              }
-              style={[
-                styles.avatarImage,
-                { borderColor: progressData.currentLevel.colorHex || '#2196F3' },
-              ]}
-            />
+            {getAbsoluteImageUrl(progressData.avatarUrl) ? (
+              <Image
+                source={{ uri: getAbsoluteImageUrl(progressData.avatarUrl)! }}
+                style={[
+                  styles.avatarImage,
+                  { borderColor: progressData.currentLevel.colorHex || '#2196F3' },
+                ]}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.avatarFallback,
+                  {
+                    borderColor: progressData.currentLevel.colorHex || '#2196F3',
+                    backgroundColor: `${progressData.currentLevel.colorHex || '#2196F3'}25`,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.avatarFallbackText,
+                    { color: progressData.currentLevel.colorHex || '#2196F3' },
+                  ]}
+                >
+                  {(progressData.fullName || 'ML').trim().charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View
               style={[
                 styles.levelBadgeMini,
@@ -577,8 +595,9 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                 <View style={styles.membersList}>
                   {departmentMembers.map((m, idx) => {
                     const memberLevel = m.currentLevelNumber || m.profile?.currentLevelNumber || 1;
-                    const memberName = m.fullName || m.profile?.fullName || m.userCode;
-                    const avatarUri = m.avatarUrl || m.profile?.avatarUrl;
+                    const memberName = m.fullName || m.profile?.fullName || m.userCode || 'Nhân sự';
+                    const rawAvatar = m.avatarUrl || m.profile?.avatarUrl;
+                    const avatarUri = getAbsoluteImageUrl(rawAvatar);
 
                     return (
                       <TouchableOpacity
@@ -594,17 +613,34 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                         }
                       >
                         <View style={styles.memberInfoRow}>
-                          <Image
-                            source={
-                              avatarUri
-                                ? { uri: avatarUri }
-                                : { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
-                            }
-                            style={[
-                              styles.memberAvatar,
-                              { borderColor: LEVEL_COLORS[memberLevel] || '#2196F3' },
-                            ]}
-                          />
+                          {avatarUri ? (
+                            <Image
+                              source={{ uri: avatarUri }}
+                              style={[
+                                styles.memberAvatar,
+                                { borderColor: LEVEL_COLORS[memberLevel] || '#2196F3' },
+                              ]}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.memberAvatarFallback,
+                                {
+                                  borderColor: LEVEL_COLORS[memberLevel] || '#2196F3',
+                                  backgroundColor: `${LEVEL_COLORS[memberLevel] || '#2196F3'}25`,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.memberAvatarFallbackText,
+                                  { color: LEVEL_COLORS[memberLevel] || '#2196F3' },
+                                ]}
+                              >
+                                {memberName.trim().charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
                           <View style={{ flex: 1 }}>
                             <LevelNameBadge
                               name={memberName}
@@ -874,6 +910,18 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     borderWidth: 2.5,
+  },
+  avatarFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: 20,
+    fontWeight: '900',
   },
   levelBadgeMini: {
     position: 'absolute',
@@ -1169,6 +1217,18 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
+  },
+  memberAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarFallbackText: {
+    fontSize: 17,
+    fontWeight: '800',
   },
   memberMeta: {
     fontSize: 12,

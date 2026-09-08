@@ -16,6 +16,8 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
+import { Avatar } from '../../components/Avatar';
+import { useAuth } from '../../providers/AuthProvider';
 import { queryKeys } from '../../constants/queryKeys';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
@@ -60,6 +62,9 @@ const AttendanceMap = RawAttendanceMap as ComponentType<AttendanceMapProps>;
 export function AttendanceHomeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userName = user?.profile?.fullName || user?.userCode || 'Nhân viên';
+
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -91,10 +96,10 @@ export function AttendanceHomeScreen() {
         {/* User Info */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Image source={{ uri: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80' }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+            <Avatar name={userName} uri={user?.profile?.avatarUrl} size={44} />
             <View>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61' }}>Phùng Thanh Bình</Text>
-              <Text style={{ fontSize: 13, color: '#98A0A8' }}>Mã nhân viên: WT-9821</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61' }}>{userName}</Text>
+              <Text style={{ fontSize: 13, color: '#98A0A8' }}>Mã nhân viên: {user?.userCode || '---'}</Text>
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(30,136,229,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
@@ -653,8 +658,8 @@ export function AttendanceDetailScreen() {
 
         {/* User Info */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Image source={{ uri: getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 16 }} />
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{name}</Text>
+          <Avatar name={name} uri={user?.profile?.avatarUrl} size={80} />
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 12, marginBottom: 4 }}>{name}</Text>
           <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>{role}</Text>
           <View style={{ backgroundColor: '#111827', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF', textTransform: 'uppercase' }}>
@@ -973,7 +978,7 @@ export function AdminAttendanceScreen() {
               return (
                 <View key={record.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
                   <Pressable onPress={() => { if ((record as any).photo?.fileUrl) setSelectedImage(getAbsoluteImageUrl((record as any).photo.fileUrl) || null); }}>
-                    <Image source={{ uri: getAbsoluteImageUrl((record as any).photo?.fileUrl) || getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#ECEEF3' }} />
+                    <Avatar name={name} uri={(record as any).photo?.fileUrl || user?.profile?.avatarUrl} size={48} />
                   </Pressable>
                   <Pressable style={{ flex: 1, marginLeft: 12 }} onPress={() => router.push(`${basePath}/attendance/${record.id}`)}>
                     <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{name}</Text>
@@ -1059,8 +1064,8 @@ export function AdminAttendanceDetailScreen() {
 
         {/* User Info */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Image source={{ uri: getAbsoluteImageUrl(user?.profile?.avatarUrl) || 'https://via.placeholder.com/150' }} style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 16 }} />
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 }}>{name}</Text>
+          <Avatar name={name} uri={user?.profile?.avatarUrl} size={80} />
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 12, marginBottom: 4 }}>{name}</Text>
           <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>{role}</Text>
           <View style={{ backgroundColor: '#111827', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF', textTransform: 'uppercase' }}>
