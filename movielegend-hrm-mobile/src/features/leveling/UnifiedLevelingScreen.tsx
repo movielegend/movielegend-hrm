@@ -2373,11 +2373,11 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         departmentName={activeDeptName}
         onClose={() => setSelectedProjectForReview(null)}
         onApprove={async (lvlNum, feedback) => {
-          adminApproveProject(lvlNum, feedback);
+          await adminApproveProject(lvlNum, feedback);
           await loadData();
         }}
         onReject={async (lvlNum, feedback) => {
-          adminRejectProject(lvlNum, feedback);
+          await adminRejectProject(lvlNum, feedback);
           await loadData();
         }}
       />

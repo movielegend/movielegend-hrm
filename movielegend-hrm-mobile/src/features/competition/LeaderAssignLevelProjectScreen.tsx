@@ -357,13 +357,13 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   };
 
   // Handle submitting project to Admin
-  const handleSubmitProjectToAdmin = () => {
+  const handleSubmitProjectToAdmin = async () => {
     if (!adminReportText.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả nghiệm thu');
       return;
     }
 
-    submitProjectToAdmin(selectedLevelNumber, adminReportText.trim(), adminReportUrl.trim() || undefined);
+    await submitProjectToAdmin(selectedLevelNumber, adminReportText.trim(), adminReportUrl.trim() || undefined);
     setSubmitAdminModalVisible(false);
     Alert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.levelName} lên Ban Giám Đốc.`);
   };

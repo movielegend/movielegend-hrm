@@ -346,13 +346,13 @@ class LevelProjectsStore {
     void this.save();
   }
 
-  public submitProjectToAdmin(
+  public async submitProjectToAdmin(
     levelNumber: number,
     leaderReportNote: string,
     leaderReportUrl?: string,
     departmentId?: string,
     departmentName?: string,
-  ) {
+  ): Promise<void> {
     this.projects = this.projects.map((p) => {
       if (p.levelNumber !== levelNumber) return p;
       return {
@@ -363,25 +363,27 @@ class LevelProjectsStore {
         submittedToAdminAt: new Date().toISOString(),
       };
     });
-    void this.save();
+    await this.save();
 
     // Sync to backend API
-    void levelingApi
-      .submitProjectToAdmin(levelNumber, {
+    try {
+      await levelingApi.submitProjectToAdmin(levelNumber, {
         leaderReportNote,
         leaderReportUrl,
         departmentId: departmentId || this.currentDepartmentId,
         departmentName: departmentName || this.currentDepartmentName,
-      })
-      .catch(() => {});
+      });
+    } catch {
+      // offline / fallback
+    }
   }
 
-  public adminApproveProject(
+  public async adminApproveProject(
     levelNumber: number,
     adminFeedback?: string,
     departmentId?: string,
     departmentName?: string,
-  ) {
+  ): Promise<void> {
     this.projects = this.projects.map((p) => {
       if (p.levelNumber !== levelNumber) return p;
       return {
@@ -395,25 +397,27 @@ class LevelProjectsStore {
         })),
       };
     });
-    void this.save();
+    await this.save();
 
     // Sync to backend API
-    void levelingApi
-      .adminReviewProject(levelNumber, {
+    try {
+      await levelingApi.adminReviewProject(levelNumber, {
         status: 'ADMIN_APPROVED',
         adminFeedback,
         departmentId: departmentId || this.currentDepartmentId,
         departmentName: departmentName || this.currentDepartmentName,
-      })
-      .catch(() => {});
+      });
+    } catch {
+      // offline / fallback
+    }
   }
 
-  public adminRejectProject(
+  public async adminRejectProject(
     levelNumber: number,
     adminFeedback: string,
     departmentId?: string,
     departmentName?: string,
-  ) {
+  ): Promise<void> {
     this.projects = this.projects.map((p) => {
       if (p.levelNumber !== levelNumber) return p;
       return {
@@ -422,17 +426,19 @@ class LevelProjectsStore {
         adminFeedback,
       };
     });
-    void this.save();
+    await this.save();
 
     // Sync to backend API
-    void levelingApi
-      .adminReviewProject(levelNumber, {
+    try {
+      await levelingApi.adminReviewProject(levelNumber, {
         status: 'IN_PROGRESS',
         adminFeedback,
         departmentId: departmentId || this.currentDepartmentId,
         departmentName: departmentName || this.currentDepartmentName,
-      })
-      .catch(() => {});
+      });
+    } catch {
+      // offline / fallback
+    }
   }
 
   // Get all subtasks assigned to a specific employee or leader across all level projects
