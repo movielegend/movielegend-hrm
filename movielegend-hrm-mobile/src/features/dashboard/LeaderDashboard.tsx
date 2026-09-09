@@ -85,8 +85,8 @@ export function LeaderDashboard() {
   const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
 
   const vaultMilestone = useMemo(() => {
-    return getNextVaultMilestone(myVault, currentTime);
-  }, [myVault, currentTime]);
+    return getNextVaultMilestone(myVault, new Date());
+  }, [myVault]);
 
   const userDeptName = (user?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
   const isAccountantLeader = userDeptName.includes('kế toán') || userDeptName.includes('tài chính') || user?.role?.code === 'ACCOUNTANT';
