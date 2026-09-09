@@ -164,9 +164,31 @@ export class PayrollService {
     return payload;
   }
 
-  findPeriodPayrolls(periodId: string) {
+  async findPeriodPayrolls(periodId: string, actor?: AuthenticatedUser) {
+    let visibleDepartmentIds: string[] | null = null;
+    if (actor) {
+      const isRegionAdmin = this.scope.isRegionAdmin(actor);
+      visibleDepartmentIds = isRegionAdmin
+        ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+        : await this.scope.getVisibleDepartmentIds(actor);
+    }
     return this.prisma.payroll.findMany({
-      where: { payrollPeriodId: periodId },
+      where: {
+        payrollPeriodId: periodId,
+        ...(visibleDepartmentIds !== null
+          ? {
+              user: {
+                departmentLinks: {
+                  some: {
+                    departmentId: {
+                      in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+                    },
+                  },
+                },
+              },
+            }
+          : {}),
+      },
       include: { user: { select: { id: true, userCode: true, email: true, phone: true, profile: true } }, items: true },
       orderBy: { createdAt: 'desc' },
     });

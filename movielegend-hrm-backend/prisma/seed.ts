@@ -191,15 +191,15 @@ async function main() {
   });
 
 
-  const permissions = await Promise.all(
-    permissionCodes.map((code) =>
-      prisma.permission.upsert({
-        where: { code },
-        update: {},
-        create: { code, name: code },
-      }),
-    ),
-  );
+  const permissions = [];
+  for (const code of permissionCodes) {
+    const perm = await prisma.permission.upsert({
+      where: { code },
+      update: {},
+      create: { code, name: code },
+    });
+    permissions.push(perm);
+  }
 
   const admin = await prisma.role.upsert({
     where: { code: 'ADMIN' },
@@ -738,7 +738,6 @@ async function main() {
         isActive: true,
       },
       create: {
-        companyId: company.id,
         userCode,
         phone: regAdmin.phone,
         email: regAdmin.email,
@@ -986,13 +985,11 @@ async function main() {
 }
 
 main()
+  .catch((error: unknown) => {
+    console.error('Seed error:', error);
+    process.exit(1);
+  })
   .finally(async () => {
     await prisma.$disconnect();
-    process.exit(0);
-  })
-  .catch(async (error: unknown) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
   });
 

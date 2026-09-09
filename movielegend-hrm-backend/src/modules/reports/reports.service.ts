@@ -14,10 +14,14 @@ export class ReportScopeService {
   ) {}
 
   async scopedUserIds(actor: AuthenticatedUser, departmentId?: string): Promise<string[] | undefined> {
-    if (actor.roles.includes('ADMIN') || actor.permissions.includes('report.payroll.detail')) return undefined;
-    if (departmentId) this.departmentScope.assertDepartmentAccess(actor, departmentId);
-    const visible = departmentId ? [departmentId] : this.departmentScope.visibleDepartmentIds(actor);
-    if (!visible?.length) return [actor.userId];
+    if (this.departmentScope.isGlobalAdmin(actor)) return undefined;
+    if (departmentId) await this.departmentScope.assertDepartmentAccessAsync(actor, departmentId);
+    const visible = departmentId ? [departmentId] : await this.departmentScope.getVisibleDepartmentIds(actor);
+    if (visible === null) return undefined;
+    if (!visible?.length) {
+      if (this.departmentScope.isRegionAdmin(actor)) return [];
+      return [actor.userId];
+    }
     const members = await this.prisma.departmentMember.findMany({ where: { departmentId: { in: visible }, leftAt: null }, select: { userId: true } });
     return members.map((member) => member.userId);
   }
@@ -126,12 +130,19 @@ export class ReportsService {
     return [{ total, new: newly, accepted, inProgress, waitingReview, completed, overdue, completionRate: total ? completed / total : 0, averageCompletionTime: null }];
   }
 
-  async payroll(_query: DateRangeReportQueryDto, actor: AuthenticatedUser) {
+  async payroll(query: DateRangeReportQueryDto, actor: AuthenticatedUser) {
     if (!actor.permissions.includes('report.payroll.summary') && !actor.permissions.includes('report.payroll.detail')) {
       throw forbidden('PAYROLL_REPORT_FORBIDDEN', 'Cannot access payroll report');
     }
+    const userIds = await this.scope.scopedUserIds(actor, query.departmentId);
+    const range = this.range(query);
     const aggregate = await this.prisma.payroll.aggregate({
-      where: { status: { in: [PayrollStatus.APPROVED, PayrollStatus.LOCKED] } },
+      where: {
+        status: { in: [PayrollStatus.APPROVED, PayrollStatus.LOCKED] },
+        ...(userIds ? { userId: { in: userIds } } : {}),
+        ...(query.userId ? { userId: query.userId } : {}),
+        ...(range.gte || range.lte ? { periodEnd: range } : {}),
+      },
       _count: { id: true },
       _sum: { grossSalary: true, netSalary: true, bonusAmount: true, deductionAmount: true, overtimeAmount: true, insuranceAmount: true, taxAmount: true },
     });

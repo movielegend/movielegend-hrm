@@ -11,10 +11,7 @@ export class DepartmentScopeService {
   /** Returns true only if the actor has ADMIN role with GLOBAL scope (no region restriction). */
   isGlobalAdmin(actor: AuthenticatedUser): boolean {
     if (!actor.roles.includes('ADMIN')) return false;
-    // Global admin = has ADMIN role with GLOBAL scope (or no explicit scope — legacy data)
-    return actor.scopes?.some(
-      (s) => s.role === 'ADMIN' && (s.scopeType === RoleScopeType.GLOBAL || !s.scopeType),
-    ) ?? false;
+    return !this.isRegionAdmin(actor);
   }
 
   /** Returns true if the actor has ADMIN role scoped to a specific REGION. */
