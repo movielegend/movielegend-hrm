@@ -70,6 +70,12 @@ export interface LevelDepartmentProjectItem {
   projectName: string;
   totalSubTasks: number;
   completedSubTasks: number;
+  status?: 'PENDING_LEADER_ACCEPT' | 'IN_PROGRESS' | 'SUBMITTED_TO_ADMIN' | 'ADMIN_APPROVED';
+  leaderReportNote?: string;
+  leaderReportUrl?: string;
+  adminFeedback?: string;
+  submittedToAdminAt?: string;
+  adminApprovedAt?: string;
   rewardItem?: string;
   rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID' | 'MULTIPLE';
   cashAmount?: number;
@@ -1051,6 +1057,12 @@ export class LevelingService {
         projectName,
         totalSubTasks: subTasks.length,
         completedSubTasks: completedCount,
+        status: existingProject?.status || 'IN_PROGRESS',
+        leaderReportNote: existingProject?.leaderReportNote,
+        leaderReportUrl: existingProject?.leaderReportUrl,
+        adminFeedback: existingProject?.adminFeedback,
+        submittedToAdminAt: existingProject?.submittedToAdminAt,
+        adminApprovedAt: existingProject?.adminApprovedAt,
         rewardItem,
         rewardType,
         cashAmount,
@@ -1290,6 +1302,129 @@ export class LevelingService {
     }
 
     return { success: true, subTask, completedSubTasks: project.completedSubTasks };
+  }
+
+  public submitProjectToAdmin(
+    levelNumber: number,
+    leaderReportNote: string,
+    leaderReportUrl?: string,
+    departmentId?: string,
+    departmentName?: string,
+  ) {
+    const list = this.findProjectList(departmentId, departmentName);
+    const project = list.find((p) => p.levelNumber === levelNumber);
+    if (!project) throw new NotFoundException(`Project Level ${levelNumber} not found`);
+
+    project.status = 'SUBMITTED_TO_ADMIN';
+    project.leaderReportNote = leaderReportNote;
+    project.leaderReportUrl = leaderReportUrl;
+    project.submittedToAdminAt = new Date().toISOString();
+    this.saveToStorage();
+
+    // Realtime broadcast
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:project_submitted_to_admin', {
+      departmentId,
+      departmentName,
+      levelNumber,
+      projectName: project.projectName,
+      leaderReportNote,
+    });
+
+    // Notify Admins
+    this.prisma.userRole.findMany({
+      where: {
+        role: { code: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+      },
+      select: { userId: true },
+    }).then((roleHolders) => {
+      const targetUserIds = [...new Set(roleHolders.map((r) => r.userId))];
+      void this.sendLevelNotification(
+        targetUserIds,
+        'Nghiệm thu dự án cấp bậc 📑',
+        `Trưởng bộ phận phòng ${departmentName || project.departmentName || 'ban'} đã nộp báo cáo nghiệm thu dự án "${project.projectName || project.levelName}". Vui lòng kiểm tra và phê duyệt!`,
+        {
+          type: 'LEVEL_PROJECT_SUBMITTED_TO_ADMIN',
+          levelNumber,
+          departmentId,
+          departmentName,
+        }
+      );
+    }).catch(() => {});
+
+    return { success: true, project };
+  }
+
+  public adminReviewProject(
+    levelNumber: number,
+    status: 'ADMIN_APPROVED' | 'IN_PROGRESS',
+    adminFeedback?: string,
+    departmentId?: string,
+    departmentName?: string,
+    reviewerName?: string,
+  ) {
+    const list = this.findProjectList(departmentId, departmentName);
+    const project = list.find((p) => p.levelNumber === levelNumber);
+    if (!project) throw new NotFoundException(`Project Level ${levelNumber} not found`);
+
+    project.status = status;
+    project.adminFeedback = adminFeedback;
+    if (status === 'ADMIN_APPROVED') {
+      project.adminApprovedAt = new Date().toISOString();
+      project.subTasks.forEach((st) => {
+        if (st.status === 'LEADER_APPROVED' || st.status === 'SUBMITTED') {
+          st.status = 'ADMIN_APPROVED';
+        }
+      });
+      project.completedSubTasks = project.subTasks.length;
+    }
+    this.saveToStorage();
+
+    // Realtime broadcast
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:project_admin_reviewed', {
+      departmentId,
+      departmentName,
+      levelNumber,
+      projectName: project.projectName,
+      status,
+      adminFeedback,
+    });
+
+    // Notify Department Members & Leader
+    if (departmentId) {
+      this.prisma.departmentMember.findMany({
+        where: { departmentId, leftAt: null },
+        select: { userId: true },
+      }).then((members) => {
+        const memberIds = members.map((m) => m.userId);
+        if (status === 'ADMIN_APPROVED') {
+          void this.sendLevelNotification(
+            memberIds,
+            'Nghiệm thu dự án thành công 🏆🎉',
+            `Ban Giám Đốc (${reviewerName || 'Admin'}) đã chính thức phê duyệt nghiệm thu dự án "${project.projectName || project.levelName}" cho phòng ${departmentName || project.departmentName}!`,
+            {
+              type: 'LEVEL_PROJECT_ADMIN_APPROVED',
+              levelNumber,
+              departmentId,
+              departmentName,
+            }
+          );
+        } else {
+          void this.sendLevelNotification(
+            memberIds,
+            'Yêu cầu bổ sung/chỉnh sửa dự án ⚠️',
+            `Ban Giám Đốc yêu cầu hoàn thiện lại dự án "${project.projectName || project.levelName}": ${adminFeedback || 'Vui lòng kiểm tra lại các đầu việc con'}`,
+            {
+              type: 'LEVEL_PROJECT_ADMIN_REJECTED',
+              levelNumber,
+              departmentId,
+              departmentName,
+            }
+          );
+        }
+      }).catch(() => {});
+    }
+
+    return { success: true, project };
   }
 
   public clearAllData() {

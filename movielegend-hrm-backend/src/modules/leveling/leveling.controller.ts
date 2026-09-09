@@ -292,4 +292,48 @@ export class LevelingController {
       body.departmentName,
     );
   }
+
+  @Post('projects/:levelNumber/submit-to-admin')
+  @ApiOperation({ summary: 'Leader nộp báo cáo tổng kết dự án lên Admin' })
+  async submitProjectToAdmin(
+    @Param('levelNumber', ParseIntPipe) levelNumber: number,
+    @Body()
+    body: {
+      leaderReportNote: string;
+      leaderReportUrl?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+  ) {
+    return this.levelingService.submitProjectToAdmin(
+      levelNumber,
+      body.leaderReportNote,
+      body.leaderReportUrl,
+      body.departmentId,
+      body.departmentName,
+    );
+  }
+
+  @Post('projects/:levelNumber/admin-review')
+  @ApiOperation({ summary: 'Admin phê duyệt hoặc yêu cầu bổ sung dự án' })
+  async adminReviewProject(
+    @Param('levelNumber', ParseIntPipe) levelNumber: number,
+    @Body()
+    body: {
+      status: 'ADMIN_APPROVED' | 'IN_PROGRESS';
+      adminFeedback?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+    @CurrentUser() user?: any,
+  ) {
+    return this.levelingService.adminReviewProject(
+      levelNumber,
+      body.status,
+      body.adminFeedback,
+      body.departmentId,
+      body.departmentName,
+      user?.fullName || user?.name || 'Ban Giám Đốc',
+    );
+  }
 }

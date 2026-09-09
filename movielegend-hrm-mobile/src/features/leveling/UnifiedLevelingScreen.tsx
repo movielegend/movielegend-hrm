@@ -30,13 +30,14 @@ import { LevelNameBadge, LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../compone
 import { EmployeeLevelProgressCard } from './EmployeeLevelProgressCard';
 import { LeaderPromotionReviewModal } from './LeaderPromotionReviewModal';
 import { DirectLevelChangeModal } from './DirectLevelChangeModal';
-import { useLevelProjects, BulletSubTask, LevelDepartmentProject } from './levelProjectsStore';
+import { AdminProjectReviewModal } from './AdminProjectReviewModal';
+import { useLevelProjects, BulletSubTask, LevelDepartmentProject, isProjectConfigured } from './levelProjectsStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export interface UnifiedLevelingScreenProps {
   initialTab?: 'roadmap' | 'members' | 'config' | 'projects';
-  initialLeaderSubTab?: 'members_list' | 'pending_requests';
+  initialLeaderSubTab?: 'project_submissions' | 'members_list' | 'pending_requests';
   mode?: 'config_only' | 'review_only' | 'full';
 }
 
@@ -65,12 +66,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
   const resolvedSubTab =
     propInitialLeaderSubTab ||
-    (params.subTab === 'pending_requests' || params.subTab === 'members_list'
+    (params.subTab === 'project_submissions' || params.subTab === 'pending_requests' || params.subTab === 'members_list'
       ? (params.subTab as any)
-      : 'members_list');
+      : isAdmin ? 'project_submissions' : 'members_list');
 
   const [activeTab, setActiveTab] = useState<'roadmap' | 'members' | 'config' | 'projects'>(resolvedTab);
-  const [leaderSubTab, setLeaderSubTab] = useState<'members_list' | 'pending_requests'>(resolvedSubTab);
+  const [leaderSubTab, setLeaderSubTab] = useState<'project_submissions' | 'members_list' | 'pending_requests'>(resolvedSubTab);
 
   const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
   const [promotionRequests, setPromotionRequests] = useState<LevelPromotionRequestItem[]>([]);
@@ -117,6 +118,8 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     currentLevelNumber: number;
     departmentName?: string;
   } | null>(null);
+  const [selectedProjectForReview, setSelectedProjectForReview] =
+    useState<LevelDepartmentProject | null>(null);
 
   // Leader department resolution
   const leaderDeptId = progressData?.departmentId || user?.departmentLinks?.[0]?.departmentId || '';
@@ -144,11 +147,21 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     }
   }, [isAdmin, deptList, selectedDeptId, params.departmentId, leaderDeptId]);
 
-  // Real-time reactive assigned tasks for current employee
+  // Real-time reactive assigned tasks and department level projects
   const currentUserId = user?.id;
   const currentUserName = user?.fullName || user?.userCode || '';
-  const { getAssignedSubTasksForUser } = useLevelProjects(activeDeptId, activeDeptName);
+  const {
+    projects: deptLevelProjects,
+    getAssignedSubTasksForUser,
+    adminApproveProject,
+    adminRejectProject,
+  } = useLevelProjects(activeDeptId, activeDeptName);
   const myAssignedTasks = getAssignedSubTasksForUser(currentUserId, currentUserName);
+
+  const submittedDeptProjects = deptLevelProjects.filter(
+    (p) => p.status === 'SUBMITTED_TO_ADMIN' || p.status === 'ADMIN_APPROVED' || (p.subTasks && p.subTasks.length > 0)
+  );
+  const pendingAdminReviewCount = deptLevelProjects.filter((p) => p.status === 'SUBMITTED_TO_ADMIN').length;
 
   const loadData = useCallback(async () => {
     try {
@@ -730,6 +743,29 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       {isAdmin && currentMode === 'review_only' && (
         <View style={styles.tabContainer}>
           <TouchableOpacity
+            style={[styles.tabBtn, leaderSubTab === 'project_submissions' && styles.tabBtnActive]}
+            onPress={() => setLeaderSubTab('project_submissions')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="briefcase-outline"
+              size={15}
+              color={leaderSubTab === 'project_submissions' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text
+              style={[styles.tabText, leaderSubTab === 'project_submissions' && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              Dự Án ({submittedDeptProjects.length})
+            </Text>
+            {pendingAdminReviewCount > 0 && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingAdminReviewCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.tabBtn, leaderSubTab === 'pending_requests' && styles.tabBtnActive]}
             onPress={() => setLeaderSubTab('pending_requests')}
             activeOpacity={0.8}
@@ -743,7 +779,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               style={[styles.tabText, leaderSubTab === 'pending_requests' && styles.tabTextActive]}
               numberOfLines={1}
             >
-              Chờ Duyệt ({promotionRequests.length})
+              Minh Chứng ({promotionRequests.length})
             </Text>
             {pendingCount > 0 && (
               <View style={styles.pendingBadge}>
@@ -788,11 +824,11 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}
               numberOfLines={1}
             >
-              Duyệt Level
+              Duyệt Dự Án & Level
             </Text>
-            {pendingCount > 0 && (
+            {(pendingCount > 0 || pendingAdminReviewCount > 0) && (
               <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+                <Text style={styles.pendingBadgeText}>{pendingCount + pendingAdminReviewCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -1153,18 +1189,48 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           {/* ========================================================= */}
           {activeTab === 'members' && isLeaderOrAdmin && (
             <View style={styles.leaderContainer}>
-              {/* Leader Sub-tabs (Only show if not in Admin review_only mode where it is already at the top) */}
+              {/* Leader & Admin Sub-tabs (Only show if not in Admin review_only mode where it is already at the top) */}
               {(!isAdmin || currentMode !== 'review_only') && (
                 <View style={styles.subTabRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.subTabBtn,
+                      leaderSubTab === 'project_submissions' && styles.subTabBtnActive,
+                    ]}
+                    onPress={() => setLeaderSubTab('project_submissions')}
+                  >
+                    <Ionicons
+                      name="briefcase-outline"
+                      size={13}
+                      color={leaderSubTab === 'project_submissions' ? '#2563EB' : '#64748B'}
+                    />
+                    <Text
+                      style={[
+                        styles.subTabText,
+                        leaderSubTab === 'project_submissions' && styles.subTabTextActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Dự Án ({submittedDeptProjects.length})
+                    </Text>
+                    {pendingAdminReviewCount > 0 && <View style={styles.miniDot} />}
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     style={[styles.subTabBtn, leaderSubTab === 'members_list' && styles.subTabBtnActive]}
                     onPress={() => setLeaderSubTab('members_list')}
                   >
+                    <Ionicons
+                      name="people-outline"
+                      size={13}
+                      color={leaderSubTab === 'members_list' ? '#2563EB' : '#64748B'}
+                    />
                     <Text
                       style={[
                         styles.subTabText,
                         leaderSubTab === 'members_list' && styles.subTabTextActive,
                       ]}
+                      numberOfLines={1}
                     >
                       Thành Viên ({departmentMembers.length})
                     </Text>
@@ -1177,16 +1243,183 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                     ]}
                     onPress={() => setLeaderSubTab('pending_requests')}
                   >
+                    <Ionicons
+                      name="document-text-outline"
+                      size={13}
+                      color={leaderSubTab === 'pending_requests' ? '#2563EB' : '#64748B'}
+                    />
                     <Text
                       style={[
                         styles.subTabText,
                         leaderSubTab === 'pending_requests' && styles.subTabTextActive,
                       ]}
+                      numberOfLines={1}
                     >
-                      Chờ Duyệt Minh Chứng ({promotionRequests.length})
+                      Minh Chứng ({promotionRequests.length})
                     </Text>
                     {pendingCount > 0 && <View style={styles.miniDot} />}
                   </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Sub-tab 0: Department Submitted Level Projects */}
+              {leaderSubTab === 'project_submissions' && (
+                <View style={styles.projectSubmissionsContainer}>
+                  {submittedDeptProjects.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <Ionicons name="folder-open-outline" size={48} color="#94A3B8" />
+                      <Text style={styles.emptyTitle}>Chưa có dự án nào được giao</Text>
+                      <Text style={styles.emptySubtitle}>
+                        Vui lòng vào tab "Cấu Hình Dự Án" để giao dự án và các đầu việc con cho phòng {activeDeptName}.
+                      </Text>
+                    </View>
+                  ) : (
+                    submittedDeptProjects.map((proj) => {
+                      const completedCount = proj.subTasks.filter(
+                        (t) => t.status === 'LEADER_APPROVED' || (t.status as any) === 'ADMIN_APPROVED',
+                      ).length;
+                      const totalCount = proj.subTasks.length;
+                      const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                      const isSubmitted = proj.status === 'SUBMITTED_TO_ADMIN';
+                      const isApproved = proj.status === 'ADMIN_APPROVED';
+                      const lvlColor = LEVEL_COLORS[proj.levelNumber] || '#2563EB';
+
+                      return (
+                        <View key={proj.id || proj.levelNumber} style={styles.adminProjCard}>
+                          {/* Top row: Badge & Status */}
+                          <View style={styles.adminProjCardHeader}>
+                            <View style={[styles.adminProjLevelBadge, { backgroundColor: `${lvlColor}18`, borderColor: lvlColor }]}>
+                              <Ionicons name="trophy" size={12} color={lvlColor} style={{ marginRight: 4 }} />
+                              <Text style={[styles.adminProjLevelText, { color: lvlColor }]}>
+                                Level {proj.levelNumber} - {proj.levelName}
+                              </Text>
+                            </View>
+
+                            <View
+                              style={[
+                                styles.adminProjStatusBadge,
+                                isApproved
+                                  ? styles.statusBadgeApproved
+                                  : isSubmitted
+                                  ? styles.statusBadgeSubmitted
+                                  : styles.statusBadgeInProgress,
+                              ]}
+                            >
+                              <Ionicons
+                                name={isApproved ? 'checkmark-circle' : isSubmitted ? 'time' : 'hourglass-outline'}
+                                size={12}
+                                color={isApproved ? '#059669' : isSubmitted ? '#D97706' : '#2563EB'}
+                              />
+                              <Text
+                                style={[
+                                  styles.adminProjStatusText,
+                                  { color: isApproved ? '#059669' : isSubmitted ? '#D97706' : '#2563EB' },
+                                ]}
+                              >
+                                {isApproved
+                                  ? 'Đã Nghiệm Thu'
+                                  : isSubmitted
+                                  ? 'Chờ Admin Duyệt'
+                                  : 'Đang Thực Hiện'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Title */}
+                          <Text style={styles.adminProjTitle}>{proj.projectName}</Text>
+
+                          {/* Progress bar */}
+                          <View style={styles.adminProjProgressSection}>
+                            <View style={styles.adminProjProgressHeader}>
+                              <Text style={styles.adminProjProgressLabel}>Tiến độ việc con:</Text>
+                              <Text style={styles.adminProjProgressValue}>
+                                {completedCount}/{totalCount} ({percent}%)
+                              </Text>
+                            </View>
+                            <View style={styles.adminProjProgressBarTrack}>
+                              <View
+                                style={[
+                                  styles.adminProjProgressBarFill,
+                                  {
+                                    width: `${percent}%`,
+                                    backgroundColor: isApproved ? '#059669' : isSubmitted ? '#D97706' : lvlColor,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          </View>
+
+                          {/* Leader Report Snippet */}
+                          {proj.leaderReportNote ? (
+                            <View style={styles.adminProjLeaderSnippet}>
+                              <Ionicons name="chatbubble-ellipses-outline" size={14} color="#2563EB" />
+                              <Text style={styles.adminProjLeaderText} numberOfLines={2}>
+                                <Text style={{ fontWeight: '700' }}>Báo cáo Leader: </Text>
+                                {proj.leaderReportNote}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {/* Subtasks summary pills */}
+                          <View style={styles.adminProjPillsRow}>
+                            {proj.subTasks.slice(0, 3).map((st, sIdx) => {
+                              const isStApproved = st.status === 'LEADER_APPROVED' || (st.status as any) === 'ADMIN_APPROVED';
+                              return (
+                                <View
+                                  key={st.id || sIdx}
+                                  style={[
+                                    styles.adminProjPill,
+                                    isStApproved && styles.adminProjPillApproved,
+                                  ]}
+                                >
+                                  <Ionicons
+                                    name={isStApproved ? 'checkmark' : 'time-outline'}
+                                    size={10}
+                                    color={isStApproved ? '#059669' : '#64748B'}
+                                  />
+                                  <Text style={styles.adminProjPillText} numberOfLines={1}>
+                                    {st.title}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                            {proj.subTasks.length > 3 && (
+                              <View style={styles.adminProjPillMore}>
+                                <Text style={styles.adminProjPillMoreText}>+{proj.subTasks.length - 3} việc nữa</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* Action button */}
+                          <TouchableOpacity
+                            style={[
+                              styles.adminProjActionBtn,
+                              isSubmitted ? styles.adminProjActionBtnActive : styles.adminProjActionBtnNormal,
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => setSelectedProjectForReview(proj)}
+                          >
+                            <Ionicons
+                              name={isSubmitted ? 'shield-checkmark-outline' : 'eye-outline'}
+                              size={16}
+                              color={isSubmitted ? '#FFFFFF' : '#2563EB'}
+                              style={{ marginRight: 6 }}
+                            />
+                            <Text
+                              style={[
+                                styles.adminProjActionBtnText,
+                                isSubmitted ? styles.adminProjActionBtnTextActive : styles.adminProjActionBtnTextNormal,
+                              ]}
+                            >
+                              {isSubmitted
+                                ? 'Kiểm Tra Báo Cáo & Nghiệm Thu'
+                                : 'Xem Chi Tiết & Minh Chứng'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })
+                  )}
                 </View>
               )}
 
@@ -1939,6 +2172,21 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         isAdmin={isAdmin}
         onClose={() => setDirectChangeUser(null)}
         onSuccess={loadData}
+      />
+
+      <AdminProjectReviewModal
+        visible={!!selectedProjectForReview}
+        project={selectedProjectForReview}
+        departmentName={activeDeptName}
+        onClose={() => setSelectedProjectForReview(null)}
+        onApprove={async (lvlNum, feedback) => {
+          adminApproveProject(lvlNum, feedback);
+          await loadData();
+        }}
+        onReject={async (lvlNum, feedback) => {
+          adminRejectProject(lvlNum, feedback);
+          await loadData();
+        }}
       />
     </SafeAreaView>
   );
@@ -3035,5 +3283,179 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  projectSubmissionsContainer: {
+    paddingBottom: 20,
+  },
+  adminProjCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  adminProjCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  adminProjLevelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  adminProjLevelText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  adminProjStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  statusBadgeApproved: {
+    backgroundColor: '#ECFDF5',
+  },
+  statusBadgeSubmitted: {
+    backgroundColor: '#FFFBEB',
+  },
+  statusBadgeInProgress: {
+    backgroundColor: '#EFF6FF',
+  },
+  adminProjStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  adminProjTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  adminProjProgressSection: {
+    marginBottom: 10,
+  },
+  adminProjProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  adminProjProgressLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  adminProjProgressValue: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  adminProjProgressBarTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  adminProjProgressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  adminProjLeaderSnippet: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2563EB',
+    marginBottom: 10,
+    gap: 6,
+  },
+  adminProjLeaderText: {
+    fontSize: 12,
+    color: '#334155',
+    flex: 1,
+    lineHeight: 17,
+  },
+  adminProjPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  adminProjPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+    maxWidth: '48%',
+  },
+  adminProjPillApproved: {
+    backgroundColor: '#ECFDF5',
+  },
+  adminProjPillText: {
+    fontSize: 11,
+    color: '#475569',
+  },
+  adminProjPillMore: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  adminProjPillMoreText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  adminProjActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  adminProjActionBtnActive: {
+    backgroundColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  adminProjActionBtnNormal: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  adminProjActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  adminProjActionBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  adminProjActionBtnTextNormal: {
+    color: '#2563EB',
   },
 });

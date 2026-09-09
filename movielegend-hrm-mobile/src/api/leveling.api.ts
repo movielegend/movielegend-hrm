@@ -334,6 +334,32 @@ export const levelingApi = {
     return extractData(res);
   },
 
+  submitProjectToAdmin: async (
+    levelNumber: number,
+    data: {
+      leaderReportNote: string;
+      leaderReportUrl?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+  ): Promise<{ success: boolean; project: LevelDepartmentProject }> => {
+    const res = await apiClient.post(`/leveling/projects/${levelNumber}/submit-to-admin`, data);
+    return extractData(res);
+  },
+
+  adminReviewProject: async (
+    levelNumber: number,
+    data: {
+      status: 'ADMIN_APPROVED' | 'IN_PROGRESS';
+      adminFeedback?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+  ): Promise<{ success: boolean; project: LevelDepartmentProject }> => {
+    const res = await apiClient.post(`/leveling/projects/${levelNumber}/admin-review`, data);
+    return extractData(res);
+  },
+
   // =========================================================================
   // 7. Admin Department Configuration APIs
   // =========================================================================

@@ -38,6 +38,9 @@ export interface LevelDepartmentProject {
   isConfigured?: boolean;
   leaderReportNote?: string;
   leaderReportUrl?: string;
+  adminFeedback?: string;
+  submittedToAdminAt?: string;
+  adminApprovedAt?: string;
   subTasks: BulletSubTask[];
 }
 
@@ -137,6 +140,11 @@ class LevelProjectsStore {
           physicalItems: rp.physicalItems,
           physicalItemName: rp.physicalItemName,
           status: rp.status || 'IN_PROGRESS',
+          leaderReportNote: rp.leaderReportNote,
+          leaderReportUrl: rp.leaderReportUrl,
+          adminFeedback: rp.adminFeedback,
+          submittedToAdminAt: rp.submittedToAdminAt,
+          adminApprovedAt: rp.adminApprovedAt,
           subTasks: (rp.subTasks || []).map((st: any, sIdx: number) => ({
             id: st.id || `st-${idx + 1}-${sIdx + 1}`,
             orderNumber: st.orderNumber || sIdx + 1,
@@ -338,7 +346,13 @@ class LevelProjectsStore {
     void this.save();
   }
 
-  public submitProjectToAdmin(levelNumber: number, leaderReportNote: string, leaderReportUrl?: string) {
+  public submitProjectToAdmin(
+    levelNumber: number,
+    leaderReportNote: string,
+    leaderReportUrl?: string,
+    departmentId?: string,
+    departmentName?: string,
+  ) {
     this.projects = this.projects.map((p) => {
       if (p.levelNumber !== levelNumber) return p;
       return {
@@ -346,9 +360,79 @@ class LevelProjectsStore {
         status: 'SUBMITTED_TO_ADMIN',
         leaderReportNote,
         leaderReportUrl,
+        submittedToAdminAt: new Date().toISOString(),
       };
     });
     void this.save();
+
+    // Sync to backend API
+    void levelingApi
+      .submitProjectToAdmin(levelNumber, {
+        leaderReportNote,
+        leaderReportUrl,
+        departmentId: departmentId || this.currentDepartmentId,
+        departmentName: departmentName || this.currentDepartmentName,
+      })
+      .catch(() => {});
+  }
+
+  public adminApproveProject(
+    levelNumber: number,
+    adminFeedback?: string,
+    departmentId?: string,
+    departmentName?: string,
+  ) {
+    this.projects = this.projects.map((p) => {
+      if (p.levelNumber !== levelNumber) return p;
+      return {
+        ...p,
+        status: 'ADMIN_APPROVED',
+        adminFeedback,
+        adminApprovedAt: new Date().toISOString(),
+        subTasks: p.subTasks.map((st) => ({
+          ...st,
+          status: 'LEADER_APPROVED',
+        })),
+      };
+    });
+    void this.save();
+
+    // Sync to backend API
+    void levelingApi
+      .adminReviewProject(levelNumber, {
+        status: 'ADMIN_APPROVED',
+        adminFeedback,
+        departmentId: departmentId || this.currentDepartmentId,
+        departmentName: departmentName || this.currentDepartmentName,
+      })
+      .catch(() => {});
+  }
+
+  public adminRejectProject(
+    levelNumber: number,
+    adminFeedback: string,
+    departmentId?: string,
+    departmentName?: string,
+  ) {
+    this.projects = this.projects.map((p) => {
+      if (p.levelNumber !== levelNumber) return p;
+      return {
+        ...p,
+        status: 'IN_PROGRESS',
+        adminFeedback,
+      };
+    });
+    void this.save();
+
+    // Sync to backend API
+    void levelingApi
+      .adminReviewProject(levelNumber, {
+        status: 'IN_PROGRESS',
+        adminFeedback,
+        departmentId: departmentId || this.currentDepartmentId,
+        departmentName: departmentName || this.currentDepartmentName,
+      })
+      .catch(() => {});
   }
 
   // Get all subtasks assigned to a specific employee or leader across all level projects
@@ -525,7 +609,11 @@ export function useLevelProjects(departmentId?: string, departmentName?: string)
     rejectSubTask: (lvl: number, stId: string, feedback: string) =>
       levelProjectsStore.rejectSubTask(lvl, stId, feedback),
     submitProjectToAdmin: (lvl: number, note: string, url?: string) =>
-      levelProjectsStore.submitProjectToAdmin(lvl, note, url),
+      levelProjectsStore.submitProjectToAdmin(lvl, note, url, departmentId, departmentName),
+    adminApproveProject: (lvl: number, feedback?: string) =>
+      levelProjectsStore.adminApproveProject(lvl, feedback, departmentId, departmentName),
+    adminRejectProject: (lvl: number, feedback: string) =>
+      levelProjectsStore.adminRejectProject(lvl, feedback, departmentId, departmentName),
     getAssignedSubTasksForUser: (userId?: string, userName?: string) =>
       levelProjectsStore.getAssignedSubTasksForUser(userId, userName),
     fetchProjects: () => levelProjectsStore.fetchFromApi(departmentId, departmentName),
