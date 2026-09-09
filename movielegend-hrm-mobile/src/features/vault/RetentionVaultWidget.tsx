@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../providers/AuthProvider';
 import { getMyVault, withdrawVaultPoints } from '../../api/employees.api';
 import type {
   MyVaultResponse,
@@ -29,9 +30,11 @@ export interface RetentionVaultWidgetProps {
 
 export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data, isLoading, refetch } = useQuery<MyVaultResponse>({
-    queryKey: ['my-vault'],
+    queryKey: ['my-vault', user?.id],
     queryFn: getMyVault,
+    enabled: Boolean(user?.id),
   });
 
   const [modalVisible, setModalVisible] = useState(false);

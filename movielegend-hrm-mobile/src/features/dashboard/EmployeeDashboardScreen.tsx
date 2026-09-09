@@ -34,13 +34,15 @@ export function EmployeeDashboardScreen() {
   const { data: unreadData } = useUnreadNotificationCount();
   const unreadCount = unreadData?.count || 0;
   const { data: myVault } = useQuery({
-    queryKey: ['my-vault'],
+    queryKey: ['my-vault', user?.id],
     queryFn: getMyVault,
+    enabled: Boolean(user?.id),
   });
 
   const { data: levelProgress } = useQuery({
-    queryKey: ['my-level-progress'],
+    queryKey: ['my-level-progress', user?.id],
     queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+    enabled: Boolean(user?.id),
   });
 
   const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 1;

@@ -8,6 +8,8 @@ import {
   setAccessToken,
   setRefreshToken,
 } from '../storage/secure-token.storage';
+import { clearAppQueryClient } from './QueryProvider';
+import { levelProjectsStore } from '../features/leveling/levelProjectsStore';
 import type { AuthContextValue, LoginPayload } from '../types/auth.types';
 import type { AuthUser } from '../types/user.types';
 
@@ -21,6 +23,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const refreshToken = await getRefreshToken();
     if (!refreshToken) {
       await clearTokens();
+      clearAppQueryClient();
+      levelProjectsStore.clear();
       setUser(null);
       return false;
     }
@@ -31,6 +35,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return true;
     } catch {
       await clearTokens();
+      clearAppQueryClient();
+      levelProjectsStore.clear();
       setUser(null);
       return false;
     }
@@ -51,6 +57,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [refreshSession]);
 
   const login = useCallback(async (payload: LoginPayload) => {
+    clearAppQueryClient();
+    levelProjectsStore.clear();
     const response = await loginApi(payload);
     await Promise.all([setAccessToken(response.accessToken), setRefreshToken(response.refreshToken)]);
     setUser(response.user);
@@ -65,6 +73,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     } finally {
       await clearTokens();
+      clearAppQueryClient();
+      levelProjectsStore.clear();
       setUser(null);
     }
   }, []);
@@ -73,6 +83,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let mounted = true;
     setAuthExpiredHandler(() => {
       void clearTokens();
+      clearAppQueryClient();
+      levelProjectsStore.clear();
       if (mounted) setUser(null);
     });
 

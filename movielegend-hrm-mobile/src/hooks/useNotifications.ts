@@ -12,16 +12,20 @@ import { queryKeys } from '../constants/queryKeys';
 import type { DevicePlatform } from '../types/notification.types';
 
 export function useNotifications() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: queryKeys.notifications(),
+    queryKey: queryKeys.notifications(user?.id),
     queryFn: getMyNotifications,
+    enabled: Boolean(user),
   });
 }
 
 export function useUnreadNotificationCount() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: queryKeys.notificationUnreadCount(),
+    queryKey: queryKeys.notificationUnreadCount(user?.id),
     queryFn: getUnreadNotificationCount,
+    enabled: Boolean(user),
   });
 }
 
@@ -176,6 +180,5 @@ function platformForDevice(): DevicePlatform {
 }
 
 function invalidateNotifications(queryClient: ReturnType<typeof useQueryClient>): void {
-  void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
-  void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
+  void queryClient.invalidateQueries({ queryKey: ['notifications'] });
 }

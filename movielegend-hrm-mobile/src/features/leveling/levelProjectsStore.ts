@@ -586,6 +586,14 @@ class LevelProjectsStore {
       return true;
     });
   }
+
+  public clear(): void {
+    this.projects = [];
+    this.accessRequests = [];
+    this.currentDepartmentId = undefined;
+    this.currentDepartmentName = undefined;
+    this.listeners.forEach((listener) => listener());
+  }
 }
 
 export const levelProjectsStore = new LevelProjectsStore();
