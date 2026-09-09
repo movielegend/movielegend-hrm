@@ -30,8 +30,8 @@ export function getGuideFiles(): Record<GuideRoleKey, GuideItem> {
       label: 'Hướng dẫn cho Nhân viên',
       tabLabel: 'Nhân viên',
       title: 'Cẩm nang Hướng dẫn Sử dụng cho Nhân viên',
-      fileName: 'Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf',
-      url: resolveFileUrl('/uploads/Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf') || '',
+      fileName: 'user.pdf',
+      url: resolveFileUrl('/uploads/user.pdf') || '',
     },
     leader: {
       id: '2',
@@ -39,8 +39,8 @@ export function getGuideFiles(): Record<GuideRoleKey, GuideItem> {
       label: 'Hướng dẫn cho Quản lý (Leader)',
       tabLabel: 'Quản lý (Leader)',
       title: 'Cẩm nang Hướng dẫn Sử dụng Role Leader',
-      fileName: 'Cam_nang_huong_dan_su_dung_Role_Leader.pdf',
-      url: resolveFileUrl('/uploads/Cam_nang_huong_dan_su_dung_Role_Leader.pdf') || '',
+      fileName: 'leader.pdf',
+      url: resolveFileUrl('/uploads/leader.pdf') || '',
     },
     admin: {
       id: '3',
@@ -48,8 +48,8 @@ export function getGuideFiles(): Record<GuideRoleKey, GuideItem> {
       label: 'Hướng dẫn cho Quản trị (Admin)',
       tabLabel: 'Quản trị (Admin)',
       title: 'MovieLegend App Guide Chuyên Nghiệp (Admin)',
-      fileName: 'MovieLegend_App_Guide_Chuyen_Nghiep.pdf',
-      url: resolveFileUrl('/uploads/MovieLegend_App_Guide_Chuyen_Nghiep.pdf') || '',
+      fileName: 'admin.pdf',
+      url: resolveFileUrl('/uploads/admin.pdf') || '',
     },
   };
 }
@@ -73,8 +73,8 @@ export function UserGuideModal({
 }: UserGuideModalProps) {
   const guideFiles = useMemo(() => getGuideFiles(), [isVisible]);
 
-  const getDefaultGuideKey = (): GuideRoleKey => {
-    if (userRoles.includes('ADMIN') || userRoles.includes('HR') || userRoles.includes('ACCOUNTANT')) {
+  const getRoleGuideKey = (): GuideRoleKey => {
+    if (userRoles.includes('ADMIN')) {
       return 'admin';
     }
     if (userRoles.includes('LEADER')) {
@@ -83,29 +83,16 @@ export function UserGuideModal({
     return 'user';
   };
 
-  const getAvailableGuideKeys = (): GuideRoleKey[] => {
-    if (userRoles.includes('ADMIN') || userRoles.includes('HR') || userRoles.includes('ACCOUNTANT')) {
-      return ['admin', 'leader', 'user'];
-    }
-    if (userRoles.includes('LEADER')) {
-      return ['leader', 'user'];
-    }
-    return ['user'];
-  };
-
-  const availableKeys = useMemo(() => getAvailableGuideKeys(), [userRoles]);
-  const [selectedGuideKey, setSelectedGuideKey] = useState<GuideRoleKey>(getDefaultGuideKey);
+  const activeGuideKey = getRoleGuideKey();
+  const activeGuide = guideFiles[activeGuideKey] || guideFiles.user;
   const [viewMode, setViewMode] = useState<'prompt' | 'viewing'>(initialViewMode);
   const [isDownloading, setIsDownloading] = useState(false);
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [localPdfUri, setLocalPdfUri] = useState<string | null>(null);
 
-  const activeGuide = guideFiles[selectedGuideKey] || guideFiles.user;
-
   useEffect(() => {
     if (isVisible) {
-      setSelectedGuideKey(getDefaultGuideKey());
       setViewMode(initialViewMode);
     } else {
       setPdfHtml(null);
@@ -117,7 +104,7 @@ export function UserGuideModal({
     if (isVisible && viewMode === 'viewing') {
       loadPdf(activeGuide.url, activeGuide.fileName);
     }
-  }, [isVisible, viewMode, selectedGuideKey]);
+  }, [isVisible, viewMode, activeGuideKey]);
 
   const loadPdf = async (pdfUrl: string, fileName: string) => {
     try {
@@ -136,16 +123,25 @@ export function UserGuideModal({
         await FileSystem.deleteAsync(targetPath, { idempotent: true });
       }
 
-      const { uri, status } = await FileSystem.downloadAsync(pdfUrl, targetPath, {
+      let downloadResult = await FileSystem.downloadAsync(pdfUrl, targetPath, {
         headers: { 'ngrok-skip-browser-warning': 'true' },
       });
 
-      if (status !== 200) {
-        throw new Error(`Download status: ${status}`);
+      if (downloadResult.status !== 200) {
+        const fallbackUrl = resolveFileUrl(`/uploads/${fileName}`);
+        if (fallbackUrl && fallbackUrl !== pdfUrl) {
+          downloadResult = await FileSystem.downloadAsync(fallbackUrl, targetPath, {
+            headers: { 'ngrok-skip-browser-warning': 'true' },
+          });
+        }
       }
 
-      setLocalPdfUri(uri);
-      const base64 = await FileSystem.readAsStringAsync(uri, {
+      if (downloadResult.status !== 200) {
+        throw new Error(`Download status: ${downloadResult.status} for ${pdfUrl}`);
+      }
+
+      setLocalPdfUri(downloadResult.uri);
+      const base64 = await FileSystem.readAsStringAsync(downloadResult.uri, {
         encoding: 'base64',
       });
 
@@ -275,7 +271,7 @@ export function UserGuideModal({
           <View style={styles.promptContainer}>
             <View style={styles.iconContainer}>
               <Ionicons
-                name={selectedGuideKey === 'admin' ? 'shield-checkmark' : selectedGuideKey === 'leader' ? 'people' : 'book'}
+                name={activeGuideKey === 'admin' ? 'shield-checkmark' : activeGuideKey === 'leader' ? 'people' : 'book'}
                 size={44}
                 color="#0F172A"
               />
@@ -318,26 +314,6 @@ export function UserGuideModal({
               </Pressable>
             </View>
 
-            {/* Role tabs if multiple guides are accessible */}
-            {availableKeys.length > 1 && (
-              <View style={styles.tabBar}>
-                {availableKeys.map((key) => {
-                  const isSelected = key === selectedGuideKey;
-                  return (
-                    <Pressable
-                      key={key}
-                      style={[styles.tabItem, isSelected && styles.tabItemActive]}
-                      onPress={() => setSelectedGuideKey(key)}
-                    >
-                      <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>
-                        {guideFiles[key].tabLabel}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-
             {/* PDF Viewer */}
             <View style={styles.webviewWrapper}>
               {Platform.OS === 'web' ? (
@@ -361,7 +337,7 @@ export function UserGuideModal({
                 </View>
               ) : pdfHtml ? (
                 <WebView
-                  key={`webview-${selectedGuideKey}`}
+                  key={`webview-${activeGuideKey}`}
                   source={{ html: pdfHtml, baseUrl: '' }}
                   style={styles.webview}
                   originWhitelist={['*']}
@@ -505,38 +481,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    padding: 6,
-    gap: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  tabItem: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: 'transparent',
-  },
-  tabItemActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  tabTextActive: {
-    color: '#0F172A',
-    fontWeight: '700',
   },
   webviewWrapper: {
     flex: 1,

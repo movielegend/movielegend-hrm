@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -123,7 +124,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
         setTitle(cleanName);
       }
     } catch (err: any) {
-      showAlert('Lỗi', err.message || 'Không thể chọn file');
+      Alert.alert('Lỗi', err.message || 'Không thể chọn file');
     }
   };
 
@@ -138,15 +139,15 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
 
   const handleSubmit = async () => {
     if (!selectedFile) {
-      showAlert('Thiếu tệp', 'Vui lòng chọn file tài liệu cần tải lên');
+      Alert.alert('Thiếu tệp', 'Vui lòng chọn file tài liệu cần tải lên');
       return;
     }
     if (!title.trim()) {
-      showAlert('Thiếu tiêu đề', 'Vui lòng nhập tên tài liệu');
+      Alert.alert('Thiếu tiêu đề', 'Vui lòng nhập tên tài liệu');
       return;
     }
     if (!isGlobalAdmin && (!selectedDeptId || selectedDeptId === '__ALL__')) {
-      showAlert(
+      Alert.alert(
         'Chưa chọn phòng ban',
         'Vui lòng chọn phòng ban cụ thể trong danh sách áp dụng. Chỉ Admin tổng mới có quyền đăng tài liệu cho toàn công ty.'
       );
@@ -178,18 +179,21 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
         fileSize: selectedFile.size,
       });
 
-      showAlert('Thành công', 'Đã tải lên và lưu tài liệu thành công!', () => {
-        handleReset();
-        onSuccess();
-        onClose();
-      });
+      handleReset();
+      onSuccess();
+      onClose();
+
+      // Đóng modal trước rồi mới hiển thị popup thành công để không bị che khuất trên mobile (iOS/Android)
+      setTimeout(() => {
+        showAlert('Thành công', 'Đã tải lên và lưu tài liệu thành công!');
+      }, Platform.OS === 'web' ? 50 : 350);
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.message ||
         err.response?.data?.error?.message ||
         err.message ||
         'Không thể lưu tài liệu. Vui lòng thử lại.';
-      showAlert('Lỗi tải lên', errorMsg);
+      Alert.alert('Lỗi tải lên', errorMsg);
     } finally {
       setIsUploading(false);
     }
