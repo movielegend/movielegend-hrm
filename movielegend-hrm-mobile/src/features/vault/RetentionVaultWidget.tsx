@@ -54,19 +54,34 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const vault = data?.vault;
   const stats = data?.stats || {
     totalGrantedPoints: 0,
+    totalGrantedCash: 0,
     instantBonusPoints: 0,
     unlockedQuarterPoints: 0,
     lockedQuarterPoints: 0,
     unlockedPoints: 0,
+    unlockedCash: 0,
+    totalWithdrawnPoints: 0,
+    totalWithdrawnCash: 0,
+    remainingPoints: 0,
+    remainingCash: 0,
     maxWithdrawable: 0,
+    maxWithdrawableCash: 0,
     cashValuePerPoint: 1000,
   };
 
   const cashValuePerPoint = stats.cashValuePerPoint || 1000;
-  const unlockedCash = stats.unlockedPoints * cashValuePerPoint;
-  const maxWithdrawableCash = stats.maxWithdrawable * cashValuePerPoint;
-  const instantCash = stats.instantBonusPoints * cashValuePerPoint;
-  const totalGrantedCash = stats.totalGrantedPoints * cashValuePerPoint;
+  const totalGrantedPoints = stats.totalGrantedPoints || 0;
+  const totalGrantedCash = stats.totalGrantedCash ?? (totalGrantedPoints * cashValuePerPoint);
+  const instantBonusPoints = stats.instantBonusPoints || 0;
+  const instantCash = instantBonusPoints * cashValuePerPoint;
+  const unlockedPoints = stats.unlockedPoints || 0;
+  const unlockedCash = stats.unlockedCash ?? (unlockedPoints * cashValuePerPoint);
+  const totalWithdrawnPoints = stats.totalWithdrawnPoints ?? 0;
+  const totalWithdrawnCash = stats.totalWithdrawnCash ?? (totalWithdrawnPoints * cashValuePerPoint);
+  const remainingPoints = stats.remainingPoints ?? Math.max(0, totalGrantedPoints - totalWithdrawnPoints);
+  const remainingCash = stats.remainingCash ?? (remainingPoints * cashValuePerPoint);
+  const maxWithdrawable = stats.maxWithdrawable || 0;
+  const maxWithdrawableCash = stats.maxWithdrawableCash ?? (maxWithdrawable * cashValuePerPoint);
 
   const packages: ProjectGrantPackage[] = vault?.packages || [];
   const legacyMilestones: VestingMilestone[] = vault?.milestones || [];
@@ -313,59 +328,67 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           </View>
         </View>
 
-        {/* Main Available Balance Centerpiece */}
+        {/* Main Available Balance Centerpiece: SỐ ĐIỂM CÒN LẠI TRONG VÍ */}
         <View style={styles.vipBalanceCenterpiece}>
-          <Text style={styles.vipBalanceLabel}>DỰ TOÁN TIỀN THƯỞNG TÍCH LŨY</Text>
+          <Text style={styles.vipBalanceLabel}>SỐ ĐIỂM CÒN LẠI TRONG VÍ</Text>
           <View style={styles.vipAmountRow}>
-            <Text style={styles.vipAmountNumber}>{totalGrantedCash.toLocaleString('vi-VN')}</Text>
-            <Text style={styles.vipCurrency}>VNĐ</Text>
+            <Text style={styles.vipAmountNumber}>{remainingPoints.toLocaleString('vi-VN')}</Text>
+            <Text style={styles.vipCurrency}>điểm</Text>
           </View>
           <View style={styles.vipPillRow}>
             <View style={styles.vipPointPill}>
-              <MaterialCommunityIcons name="star-four-points" size={12} color="#059669" />
-              <Text style={styles.vipPointPillText}>{stats.totalGrantedPoints.toLocaleString('vi-VN')} điểm tích lũy</Text>
+              <MaterialCommunityIcons name="cash-multiple" size={13} color="#065F46" />
+              <Text style={styles.vipPointPillText}>
+                Tương đương: {remainingCash.toLocaleString('vi-VN')} VNĐ
+              </Text>
             </View>
-            {stats.instantBonusPoints > 0 && (
+            {instantBonusPoints > 0 && (
               <View style={styles.vipInstantPill}>
                 <MaterialCommunityIcons name="lightning-bolt" size={12} color="#D97706" />
                 <Text style={styles.vipInstantPillText}>
-                  Gồm {stats.instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
+                  Gồm {instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
                 </Text>
               </View>
             )}
           </View>
         </View>
 
-        {/* Sub-metrics: 2 Equal Columns */}
+        {/* Sub-metrics: 3 Equal Columns */}
         <View style={styles.vipMetricsGrid}>
           <View style={styles.vipMetricCol}>
-            <Text style={styles.vipMetricLabel}>Số Dư Đã Mở Khóa</Text>
-            <Text style={styles.vipMetricValue}>{unlockedCash.toLocaleString('vi-VN')} đ</Text>
-            <Text style={styles.vipMetricSub}>{stats.unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
+            <Text style={styles.vipMetricLabel}>Tổng Tích Lũy</Text>
+            <Text style={styles.vipMetricValue}>{totalGrantedPoints.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSub}>~{totalGrantedCash.toLocaleString('vi-VN')} đ</Text>
           </View>
           <View style={styles.vipMetricDivider} />
           <View style={styles.vipMetricCol}>
-            <Text style={styles.vipMetricLabel}>Hạn Mức Tối Đa (Kèm ứng)</Text>
-            <Text style={styles.vipMetricValueGold}>{maxWithdrawableCash.toLocaleString('vi-VN')} đ</Text>
-            <Text style={styles.vipMetricSubGold}>{stats.maxWithdrawable.toLocaleString('vi-VN')} điểm</Text>
+            <Text style={styles.vipMetricLabel}>Đã Rút / Quy Đổi</Text>
+            <Text style={styles.vipMetricValueOrange}>{totalWithdrawnPoints.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSubOrange}>~{totalWithdrawnCash.toLocaleString('vi-VN')} đ</Text>
+          </View>
+          <View style={styles.vipMetricDivider} />
+          <View style={styles.vipMetricCol}>
+            <Text style={styles.vipMetricLabel}>Khả Dụng Rút</Text>
+            <Text style={styles.vipMetricValueGold}>{unlockedPoints.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSubGold}>~{unlockedCash.toLocaleString('vi-VN')} đ</Text>
           </View>
         </View>
 
         {/* Primary CTA Withdraw Button: Chỉ mở khi đã đến kỳ hạn mở khóa */}
-        {stats.maxWithdrawable > 0 ? (
+        {maxWithdrawable > 0 ? (
           <TouchableOpacity
             style={styles.vipWithdrawActionBtn}
             onPress={openWithdrawModal}
             activeOpacity={0.85}
           >
             <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#FFFFFF" />
-            <Text style={styles.vipWithdrawActionText}>YÊU CẦU TẤT TOÁN THƯỞNG</Text>
+            <Text style={styles.vipWithdrawActionText}>YÊU CẦU QUY ĐỔI / RÚT ĐIỂM</Text>
           </TouchableOpacity>
         ) : (
           <View style={[styles.vipWithdrawActionBtn, styles.vipWithdrawActionBtnDisabled]}>
             <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" />
             <Text style={styles.vipWithdrawActionTextDisabled}>
-              CHƯA ĐẾN HẠN TẤT TOÁN THƯỞNG
+              CHƯA ĐẾN HẠN RÚT ĐIỂM
             </Text>
           </View>
         )}
@@ -858,7 +881,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.withdrawalHistoryContainer}>
           <View style={styles.withdrawalHistoryHeader}>
             <MaterialCommunityIcons name="clipboard-text-clock-outline" size={18} color="#92400E" />
-            <Text style={styles.withdrawalHistoryTitle}>Yêu Cầu Rút Tiền Đang Xử Lý & Gần Đây</Text>
+            <Text style={styles.withdrawalHistoryTitle}>Lịch Sử Rút & Quy Đổi Điểm Thưởng</Text>
           </View>
           {data.withdrawalRequests.map((req) => {
             const isPendingAdmin = req.status === 'PENDING_ADMIN';
@@ -893,10 +916,10 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             const statusLabel = isPaid
               ? '✅ Đã chuyển tiền thành công'
               : isPendingAcc
-              ? '💼 Chờ Kế toán chuyển tiền'
+              ? '💼 Chờ Kế toán chi tiền'
               : isPendingAdmin
-              ? '⏳ Chờ Admin duyệt'
-              : '❌ Đã từ chối (Đã hoàn điểm)';
+              ? '⏳ Chờ Admin duyệt quy đổi'
+              : '❌ Đã từ chối (Hoàn điểm)';
 
             return (
               <View key={req.id} style={[styles.withdrawalReqCard, { borderColor: statusBorder }]}>
@@ -906,7 +929,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                       {req.cashAmount.toLocaleString('vi-VN')} VNĐ
                     </Text>
                     <Text style={styles.withdrawalReqPoints}>
-                      ({req.pointsWithdrawn.toLocaleString('vi-VN')} điểm)
+                      Quy đổi: {req.pointsWithdrawn.toLocaleString('vi-VN')} điểm
                     </Text>
                   </View>
                   <View style={[styles.withdrawalStatusBadge, { backgroundColor: statusBg, borderColor: statusBorder }]}>
@@ -1171,7 +1194,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 <View style={styles.modalHeaderBadge}>
                   <Ionicons name="cash-outline" size={20} color="#D97706" />
                 </View>
-                <Text style={styles.modalTitle}>Yêu Cầu Tất Toán Thưởng</Text>
+                <Text style={styles.modalTitle}>Yêu Cầu Quy Đổi & Rút Điểm</Text>
               </View>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
                 <Ionicons name="close" size={20} color="#6B7280" />
@@ -1180,7 +1203,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
               {/* Point Input */}
-              <Text style={styles.inputLabel}>Số điểm muốn nhận (Tối đa {stats.maxWithdrawable.toLocaleString('vi-VN')} đ):</Text>
+              <Text style={styles.inputLabel}>Số điểm muốn quy đổi (Tối đa {maxWithdrawable.toLocaleString('vi-VN')} điểm):</Text>
               <View style={styles.pointsInputRow}>
                 <TextInput
                   style={styles.pointsTextInput}
@@ -1191,18 +1214,51 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 />
                 <TouchableOpacity
                   style={styles.maxBtn}
-                  onPress={() => setWithdrawPointsInput(stats.maxWithdrawable.toString())}
+                  onPress={() => setWithdrawPointsInput(maxWithdrawable.toString())}
                 >
-                  <Text style={styles.maxBtnText}>Nhận hết</Text>
+                  <Text style={styles.maxBtnText}>Tất cả</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Conversion Preview */}
+              {/* Quick Percentage Buttons */}
+              <View style={styles.quickPercentRow}>
+                {[25, 50, 75, 100].map((pct) => {
+                  const calculatedPoints = Math.floor((maxWithdrawable * pct) / 100);
+                  const isSelected = pointsToWithdraw === calculatedPoints && calculatedPoints > 0;
+                  return (
+                    <TouchableOpacity
+                      key={pct}
+                      style={[styles.quickPercentBtn, isSelected && styles.quickPercentBtnActive]}
+                      onPress={() => setWithdrawPointsInput(calculatedPoints.toString())}
+                    >
+                      <Text style={[styles.quickPercentText, isSelected && styles.quickPercentTextActive]}>
+                        {pct === 100 ? '100% (Tối đa)' : `${pct}%`}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Conversion Preview Box */}
               <View style={styles.conversionBox}>
-                <Text style={styles.conversionFormula}>Dự toán số tiền thưởng:</Text>
-                <Text style={styles.conversionTotal}>
-                  {cashToWithdraw.toLocaleString('vi-VN')} VNĐ
-                </Text>
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionLabel}>Tỷ giá quy đổi:</Text>
+                  <Text style={styles.conversionRateText}>1 điểm = 1.000 VNĐ</Text>
+                </View>
+                <View style={styles.conversionDivider} />
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionFormula}>Thành tiền thực nhận:</Text>
+                  <Text style={styles.conversionTotal}>
+                    +{cashToWithdraw.toLocaleString('vi-VN')} VNĐ
+                  </Text>
+                </View>
+                <View style={styles.conversionDivider} />
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionRemainingLabel}>Điểm còn lại sau rút:</Text>
+                  <Text style={styles.conversionRemainingValue}>
+                    {Math.max(0, remainingPoints - pointsToWithdraw).toLocaleString('vi-VN')} điểm (~{Math.max(0, (remainingPoints - pointsToWithdraw) * cashValuePerPoint).toLocaleString('vi-VN')} đ)
+                  </Text>
+                </View>
               </View>
 
               {/* Reverse Waterfall Advance Warning */}
@@ -1222,9 +1278,9 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
               <View style={styles.directPayoutNoticeBox}>
                 <MaterialCommunityIcons name="shield-check-outline" size={22} color="#059669" />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.directPayoutTitle, { color: '#065F46' }]}>Quy trình chi trả nội bộ:</Text>
+                  <Text style={[styles.directPayoutTitle, { color: '#065F46' }]}>Quy trình phê duyệt & chi trả:</Text>
                   <Text style={styles.directPayoutDesc}>
-                    Yêu cầu sẽ được chuyển đến Ban Giám Đốc phê duyệt, sau đó Kế toán sẽ thực hiện chi trả theo quy định của công ty.
+                    Sau khi bạn gửi yêu cầu, Admin sẽ phê duyệt xác nhận quy đổi. Tiếp theo bộ phận Kế toán sẽ thực hiện chi trả tiền mặt/chuyển khoản cho bạn.
                   </Text>
                 </View>
               </View>
@@ -1247,7 +1303,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.submitWithdrawText}>
-                  GỬI YÊU CẦU ({cashToWithdraw.toLocaleString('vi-VN')} VNĐ)
+                  XÁC NHẬN GỬI YÊU CẦU ({cashToWithdraw.toLocaleString('vi-VN')} VNĐ)
                 </Text>
               )}
             </TouchableOpacity>
@@ -1431,6 +1487,16 @@ const styles = StyleSheet.create({
   vipMetricSub: {
     fontSize: 10,
     color: '#64748B',
+    marginTop: 1,
+  },
+  vipMetricValueOrange: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#EA580C',
+  },
+  vipMetricSubOrange: {
+    fontSize: 10,
+    color: '#C2410C',
     marginTop: 1,
   },
   vipMetricValueGold: {
@@ -1940,26 +2006,84 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#4338CA',
   },
+  quickPercentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  quickPercentBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  quickPercentBtnActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#D97706',
+  },
+  quickPercentText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  quickPercentTextActive: {
+    color: '#B45309',
+    fontWeight: '800',
+  },
   conversionBox: {
+    backgroundColor: '#ECFDF5',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 10,
+  },
+  conversionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ECFDF5',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    marginBottom: 8,
+    paddingVertical: 2,
   },
-  conversionFormula: {
-    fontSize: 12,
+  conversionDivider: {
+    height: 1,
+    backgroundColor: '#A7F3D0',
+    marginVertical: 6,
+    opacity: 0.6,
+  },
+  conversionLabel: {
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#065F46',
   },
+  conversionRateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  conversionFormula: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#065F46',
+  },
   conversionTotal: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '900',
     color: '#059669',
+  },
+  conversionRemainingLabel: {
+    fontSize: 11,
+    color: '#047857',
+    fontWeight: '500',
+  },
+  conversionRemainingValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
   },
   advanceWarningBox: {
     flexDirection: 'row',

@@ -105,16 +105,24 @@ const EN_TO_VI: Record<string, string> = {
   'Asset assigned': 'Tài sản được bàn giao',
 };
 
+function stripEmojis(str?: string): string {
+  if (!str) return str || '';
+  return str
+    .replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function NotificationItem({ target, onPress }: { target: NotificationTargetDto; onPress: () => void }) {
   const item = target.notification;
   const isUnread = !target.readAt;
-  const iconName = getNotificationIcon(item.type, item.title);
-  const iconColor = getNotificationColor(item.type, item.title);
-  const displayTitle = EN_TO_VI[item.title] || item.title;
+  const rawTitle = EN_TO_VI[item.title] || item.title;
+  const displayTitle = stripEmojis(rawTitle);
 
-  const displayBody = (item.body?.startsWith('GIPHY_STICKER:') || item.body?.startsWith('LOTTIE_STICKER:') || item.body?.startsWith('STATIC_STICKER:'))
+  const rawBody = (item.body?.startsWith('GIPHY_STICKER:') || item.body?.startsWith('LOTTIE_STICKER:') || item.body?.startsWith('STATIC_STICKER:'))
     ? '[Nhãn dán]'
     : item.body;
+  const displayBody = stripEmojis(rawBody);
 
   return (
     <Pressable 
@@ -122,9 +130,6 @@ export function NotificationItem({ target, onPress }: { target: NotificationTarg
       onPress={onPress}
       android_ripple={{ color: 'rgba(0,0,0,0.05)' }}
     >
-      <View style={[styles.iconContainer, { backgroundColor: isUnread ? iconColor : `${iconColor}15` }]}>
-        <MaterialCommunityIcons name={iconName} size={24} color={isUnread ? '#fff' : iconColor} />
-      </View>
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <Text style={[styles.title, isUnread && styles.titleUnread]} numberOfLines={2}>
@@ -152,8 +157,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: spacing.md,
-    flexDirection: 'row',
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: 'transparent',
     shadowColor: '#000',
@@ -166,13 +169,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderColor: '#e2e8f0',
     shadowOpacity: 0.08,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     flex: 1,

@@ -42,11 +42,13 @@ interface WithdrawalRequestsManagerProps {
 function getInitials(name?: string, fallback = 'NV'): string {
   if (!name) return fallback;
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return fallback;
-  if (parts.length === 1) return (parts[0] || '').slice(0, 2).toUpperCase();
-  const first = parts[0]?.[0] || '';
-  const last = parts[parts.length - 1]?.[0] || '';
-  return (first + last).toUpperCase() || fallback;
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  if (parts.length === 1 && first) return first.slice(0, 2).toUpperCase();
+  if (parts.length > 1 && first && last && first[0] && last[0]) {
+    return (first[0] + last[0]).toUpperCase();
+  }
+  return fallback;
 }
 
 // Helper to normalize bank code for VietQR Quick Pay API

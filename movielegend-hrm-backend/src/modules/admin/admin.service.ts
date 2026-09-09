@@ -809,10 +809,10 @@ export class AdminService {
       const totalCashFormatted = (points * cashValuePerPoint).toLocaleString('vi-VN');
       const title =
         grantType === GrantVaultType.PROJECT_INSTANT
-          ? 'Thưởng nóng Dự án ⚡'
+          ? 'Thưởng nóng Dự án'
           : grantType === GrantVaultType.PROJECT_VESTING
-          ? 'Thưởng dự án Tích lũy 📈'
-          : 'Trao thưởng Đặc quyền Ví Tết 🧧';
+          ? 'Thưởng dự án Tích lũy'
+          : 'Trao thưởng Đặc quyền Ví Tết';
       const body =
         grantType === GrantVaultType.PROJECT_INSTANT
           ? `Bạn vừa được thưởng nóng ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ) từ "${note}". Số điểm này có thể rút ngay về ngân hàng!`
@@ -995,7 +995,7 @@ export class AdminService {
       const totalCashFormatted = (points * cashValuePerPoint).toLocaleString('vi-VN');
       const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
         type: 'SYSTEM' as NotificationType,
-        title: `Trao gói thưởng: ${title} 🎁`,
+        title: `Trao gói thưởng: ${title}`,
         body: `Bạn vừa được trao gói thưởng "${title}" với ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ), chia thành ${N} đợt rút trong ${durationMonths} tháng!`,
       });
       if (notif) this.notifications.emitCreated(notif);
@@ -1375,7 +1375,7 @@ export class AdminService {
       if (adminIds.length > 0) {
         const adminNotif = await this.notifications.createForUsers(tx as any, adminIds, {
           type: 'SYSTEM' as NotificationType,
-          title: 'Yêu cầu rút Ví Thưởng mới ⏳',
+          title: 'Yêu cầu rút Ví Thưởng mới',
           body: `Nhân viên ${employeeName} vừa gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ)${dto.note ? ` (Ghi chú: ${dto.note})` : ''}. Vui lòng phê duyệt.`,
         });
         if (adminNotif) this.notifications.emitCreated(adminNotif);
@@ -1384,10 +1384,17 @@ export class AdminService {
       // 5.2 Notify Employee
       const notif = await this.notifications.createForUsers(tx as any, [userId], {
         type: 'SYSTEM' as NotificationType,
-        title: 'Yêu cầu rút điểm Ví Tết đã được gửi 💸',
+        title: 'Yêu cầu rút điểm Ví Tết đã được gửi',
         body: `Bạn đã gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}. Yêu cầu đang được chuyển đến Ban Giám Đốc để phê duyệt.`,
       });
       if (notif) this.notifications.emitCreated(notif);
+
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_created', {
+        requestId: request.id,
+        userId,
+        pointsWithdrawn: dto.points,
+        cashAmount: totalCash,
+      });
 
       return {
         success: true,
@@ -1567,7 +1574,7 @@ export class AdminService {
       if (accountantIds.length > 0) {
         const notifAccountants = await this.notifications.createForUsers(tx as any, accountantIds, {
           type: 'SYSTEM' as NotificationType,
-          title: 'Lệnh chi tiền Ví Thưởng 💼',
+          title: 'Lệnh chi tiền Ví Thưởng',
           body: `Admin đã phê duyệt yêu cầu rút tiền của ${empName} (~${cashFormatted} VNĐ). Vui lòng thực hiện chuyển khoản vào TK ${request.bankName} - ${request.bankAccountNumber} (${request.bankAccountName}) và xác nhận.`,
         });
         if (notifAccountants) this.notifications.emitCreated(notifAccountants);
@@ -1576,10 +1583,16 @@ export class AdminService {
       // Notify Employee
       const notifEmployee = await this.notifications.createForUsers(tx as any, [request.userId], {
         type: 'SYSTEM' as NotificationType,
-        title: 'Yêu cầu rút tiền đã được Ban Giám Đốc duyệt ✅',
-        body: `Ban Giám Đốc đã phê duyệt yêu cầu rút ${cashFormatted} VNĐ của bạn. Yêu cầu đang được chuyển sang bộ phận Kế toán để thực hiện chi trả 💸.`,
+        title: 'Yêu cầu rút tiền đã được Ban Giám Đốc duyệt',
+        body: `Ban Giám Đốc đã phê duyệt yêu cầu rút ${cashFormatted} VNĐ của bạn. Yêu cầu đang được chuyển sang bộ phận Kế toán để thực hiện chi trả.`,
       });
       if (notifEmployee) this.notifications.emitCreated(notifEmployee);
+
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_updated', {
+        requestId: id,
+        userId: request.userId,
+        status: 'PENDING_ACCOUNTANT',
+      });
 
       return updated;
     });
@@ -1642,10 +1655,16 @@ export class AdminService {
       const cashFormatted = Number(request.cashAmount).toLocaleString('vi-VN');
       const notifPaid = await this.notifications.createForUsers(tx as any, [request.userId], {
         type: 'SYSTEM' as NotificationType,
-        title: 'Chuyển tiền thưởng thành công 🎉💸',
+        title: 'Chuyển tiền thưởng thành công',
         body: `Bộ phận Kế toán đã hoàn tất chuyển ${cashFormatted} VNĐ về tài khoản ${request.bankName} (${request.bankAccountNumber} - ${request.bankAccountName})${dto.transactionReference ? ` [Mã GD: ${dto.transactionReference}]` : ''}. Vui lòng kiểm tra tài khoản ngân hàng!`,
       });
       if (notifPaid) this.notifications.emitCreated(notifPaid);
+
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_updated', {
+        requestId: id,
+        userId: request.userId,
+        status: 'PAID',
+      });
 
       return updated;
     });
@@ -1769,10 +1788,16 @@ export class AdminService {
       const cashFormatted = Number(request.cashAmount).toLocaleString('vi-VN');
       const notifReject = await this.notifications.createForUsers(tx as any, [request.userId], {
         type: 'SYSTEM' as NotificationType,
-        title: 'Yêu cầu rút tiền bị từ chối ❌',
+        title: 'Yêu cầu rút tiền bị từ chối',
         body: `Yêu cầu rút ${cashFormatted} VNĐ của bạn đã bị từ chối. Lý do: "${dto.reason}". Số điểm tương ứng (${request.pointsWithdrawn.toLocaleString('vi-VN')} điểm) đã được hoàn trả lại vào ví của bạn.`,
       });
       if (notifReject) this.notifications.emitCreated(notifReject);
+
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_updated', {
+        requestId: id,
+        userId: request.userId,
+        status: 'REJECTED',
+      });
 
       return updated;
     });
@@ -1862,6 +1887,25 @@ export class AdminService {
 
     const totalGrantedPoints = totalPackagePoints > 0 ? totalPackagePoints : vault.grantedPoints;
     const unlockedPoints = instantBonusPoints + unlockedQuarterPoints;
+    const remainingPoints = instantBonusPoints + unlockedQuarterPoints + lockedQuarterPoints;
+
+    // Tally total withdrawn points
+    let totalWithdrawnPoints = 0;
+    (vault.packages || []).forEach((pkg) => {
+      (pkg.milestones || []).forEach((m) => {
+        totalWithdrawnPoints += (m.withdrawnPoints || 0);
+      });
+    });
+    (vault.milestones || []).forEach((m) => {
+      if (m.isWithdrawn) {
+        totalWithdrawnPoints += (m.pointsToUnlock || 0);
+      }
+    });
+
+    const totalGrantedCash = totalGrantedPoints * cashValuePerPoint;
+    const totalWithdrawnCash = totalWithdrawnPoints * cashValuePerPoint;
+    const remainingCash = remainingPoints * cashValuePerPoint;
+    const unlockedCash = unlockedPoints * cashValuePerPoint;
 
     // Calculate maxWithdrawable based on milestone policy:
     let totalPackageWithdrawable = 0;
@@ -1913,6 +1957,7 @@ export class AdminService {
     }
 
     const maxWithdrawable = instantBonusPoints + totalPackageWithdrawable + legacyWithdrawable;
+    const maxWithdrawableCash = maxWithdrawable * cashValuePerPoint;
 
     return {
       isVaultEnabled: Boolean(user.isRewardVaultEnabled),
@@ -1920,11 +1965,18 @@ export class AdminService {
       withdrawalRequests: withdrawalRequests || [],
       stats: {
         totalGrantedPoints,
+        totalGrantedCash,
         instantBonusPoints,
         unlockedQuarterPoints,
         lockedQuarterPoints,
         unlockedPoints,
+        unlockedCash,
+        totalWithdrawnPoints,
+        totalWithdrawnCash,
+        remainingPoints,
+        remainingCash,
         maxWithdrawable,
+        maxWithdrawableCash,
         cashValuePerPoint,
       },
     };

@@ -156,11 +156,18 @@ export interface BulkGrantProjectPackagePayload {
 
 export interface MyVaultStats {
   totalGrantedPoints: number;
+  totalGrantedCash?: number;
   instantBonusPoints: number;
   unlockedQuarterPoints: number;
   lockedQuarterPoints: number;
   unlockedPoints: number;
+  unlockedCash?: number;
+  totalWithdrawnPoints?: number;
+  totalWithdrawnCash?: number;
+  remainingPoints?: number;
+  remainingCash?: number;
   maxWithdrawable: number;
+  maxWithdrawableCash?: number;
   cashValuePerPoint: number;
 }
 
