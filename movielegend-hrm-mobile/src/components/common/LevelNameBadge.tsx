@@ -10,6 +10,13 @@ export const LEVEL_COLORS: Record<number, string> = {
   6: '#E91E63', // Manager (Hồng đậm)
   7: '#9C27B0', // Director (Tím hoàng gia)
   8: '#D4AF37', // Executive (Vàng Gold)
+  9: '#059669', // Master (Xanh lục bảo)
+  10: '#DC2626', // Grandmaster (Đỏ Ruby)
+  11: '#7C3AED', // Legend (Tím Neon)
+  12: '#2563EB', // Champion (Lam đậm)
+  13: '#F59E0B', // Mythic (Hổ phách)
+  14: '#06B6D4', // Immortal (Băng ngọc)
+  15: '#E11D48', // Supreme (Hồng ngọc)
 };
 
 export const LEVEL_DEFAULT_NAMES: Record<number, string> = {
@@ -21,6 +28,13 @@ export const LEVEL_DEFAULT_NAMES: Record<number, string> = {
   6: 'Manager',
   7: 'Director',
   8: 'Executive',
+  9: 'Master',
+  10: 'Grandmaster',
+  11: 'Legend',
+  12: 'Champion',
+  13: 'Mythic',
+  14: 'Immortal',
+  15: 'Supreme',
 };
 
 interface LevelNameBadgeProps {
@@ -46,8 +60,8 @@ export const LevelNameBadge: React.FC<LevelNameBadgeProps> = ({
   badgeTextStyle,
   size = 'md',
 }) => {
-  const safeLevel = Math.max(1, Math.min(8, levelNumber || 1));
-  const colorHex = LEVEL_COLORS[safeLevel] || '#2196F3';
+  const safeLevel = Math.max(1, levelNumber || 1);
+  const colorHex = LEVEL_COLORS[safeLevel] || (safeLevel > 8 ? '#D4AF37' : '#2196F3');
   const displayBadge = badgeTitle || LEVEL_DEFAULT_NAMES[safeLevel] || `Lv.${safeLevel}`;
 
   const fontSize = size === 'sm' ? 13 : size === 'lg' ? 18 : 15;
@@ -93,15 +107,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   nameText: {
     fontWeight: '700',
+    flexShrink: 1,
   },
   badgeContainer: {
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
+    flexShrink: 1,
   },
   badgeText: {
     fontWeight: '600',

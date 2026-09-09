@@ -310,10 +310,11 @@ export class LevelingController {
       body.departmentName,
     );
   }
+
   @Get('user-level/:userId')
   @ApiOperation({ summary: 'Lấy Level hiện tại của Nhân sự từ Backend' })
   async getUserLevel(@Param('userId') userId: string) {
-    return { userId, levelNumber: this.levelingService.getUserLevel(userId) };
+    return { userId, levelNumber: await this.levelingService.getUserLevel(userId) };
   }
 
   @Post('user-level/:userId')
@@ -329,5 +330,49 @@ export class LevelingController {
       throw forbidden('FORBIDDEN_ADMIN_ONLY', 'Chỉ Admin mới có quyền cập nhật Level cho Nhân sự');
     }
     return this.levelingService.updateUserLevel(userId, Number(body.levelNumber) || 1);
+  }
+
+  @Post('projects/:levelNumber/submit-to-admin')
+  @ApiOperation({ summary: 'Leader nộp báo cáo tổng kết dự án lên Admin' })
+  async submitProjectToAdmin(
+    @Param('levelNumber', ParseIntPipe) levelNumber: number,
+    @Body()
+    body: {
+      leaderReportNote: string;
+      leaderReportUrl?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+  ) {
+    return this.levelingService.submitProjectToAdmin(
+      levelNumber,
+      body.leaderReportNote,
+      body.leaderReportUrl,
+      body.departmentId,
+      body.departmentName,
+    );
+  }
+
+  @Post('projects/:levelNumber/admin-review')
+  @ApiOperation({ summary: 'Admin phê duyệt hoặc yêu cầu bổ sung dự án' })
+  async adminReviewProject(
+    @Param('levelNumber', ParseIntPipe) levelNumber: number,
+    @Body()
+    body: {
+      status: 'ADMIN_APPROVED' | 'IN_PROGRESS';
+      adminFeedback?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+    @CurrentUser() user?: any,
+  ) {
+    return this.levelingService.adminReviewProject(
+      levelNumber,
+      body.status,
+      body.adminFeedback,
+      body.departmentId,
+      body.departmentName,
+      user?.fullName || user?.name || 'Ban Giám Đốc',
+    );
   }
 }

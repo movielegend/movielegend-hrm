@@ -30,10 +30,17 @@ export interface LevelDepartmentProject {
   projectName: string;
   adminNote: string;
   rewardItem: string;
+  rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID' | 'MULTIPLE';
+  cashAmount?: number;
+  physicalItems?: string[];
+  physicalItemName?: string;
   status: ProjectAcceptanceStatus;
   isConfigured?: boolean;
   leaderReportNote?: string;
   leaderReportUrl?: string;
+  adminFeedback?: string;
+  submittedToAdminAt?: string;
+  adminApprovedAt?: string;
   subTasks: BulletSubTask[];
 }
 
@@ -68,19 +75,8 @@ export const isProjectConfigured = (project?: LevelDepartmentProject | null): bo
 const STORAGE_KEY = 'ML_LEVEL_DEPARTMENT_PROJECTS_V6';
 const REQUESTS_STORAGE_KEY = 'ML_PROJECT_ACCESS_REQUESTS_V2';
 
-// Clean Level projects initial template
-const INITIAL_PROJECTS: LevelDepartmentProject[] = Array.from({ length: 5 }, (_, i) => ({
-  id: `proj-lvl-${i + 1}`,
-  levelNumber: i + 1,
-  levelName: `Level ${i + 1}`,
-  targetTierTitle: `Level ${i + 1} lên Level ${i + 2}`,
-  departmentName: '',
-  projectName: `Dự Án Level ${i + 1}`,
-  adminNote: '',
-  rewardItem: '',
-  status: 'IN_PROGRESS',
-  subTasks: [],
-}));
+// Initial empty projects list
+const INITIAL_PROJECTS: LevelDepartmentProject[] = [];
 
 // Singleton Store with In-Memory State & PubSub
 class LevelProjectsStore {
@@ -101,10 +97,10 @@ class LevelProjectsStore {
       if (stored) {
         this.projects = JSON.parse(stored);
       } else {
-        await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(INITIAL_PROJECTS));
+        this.projects = [];
       }
     } catch {
-      this.projects = INITIAL_PROJECTS;
+      this.projects = [];
     }
 
     try {
@@ -129,26 +125,44 @@ class LevelProjectsStore {
       this.currentDepartmentName = departmentName || this.currentDepartmentName;
 
       const remoteData = await levelingApi.getProjects(this.currentDepartmentId, this.currentDepartmentName);
-      if (Array.isArray(remoteData) && remoteData.length > 0) {
-        this.projects = remoteData.map((rp: any) => ({
-          id: rp.id || `proj-lvl-${rp.levelNumber}`,
-          levelNumber: Number(rp.levelNumber),
-          levelName: rp.levelName || `Level ${rp.levelNumber}`,
-          targetTierTitle: rp.targetTierTitle || `Level ${rp.levelNumber} lên Level ${Number(rp.levelNumber) + 1}`,
+      if (Array.isArray(remoteData)) {
+        this.projects = remoteData.map((rp: any, idx: number) => ({
+          id: rp.id || `proj-${idx + 1}`,
+          levelNumber: Number(rp.levelNumber || idx + 1),
+          levelName: rp.projectName || `Dự án ${idx + 1}`,
+          targetTierTitle: rp.projectName || `Dự án ${idx + 1}`,
           departmentName: rp.departmentName || this.currentDepartmentName || 'Phòng ban',
-          projectName: rp.projectName || `Dự Án Level ${rp.levelNumber}`,
+          projectName: rp.projectName || `Dự án ${idx + 1}`,
           adminNote: rp.adminNote || '',
           rewardItem: rp.rewardItem || '',
+          rewardType: rp.rewardType,
+          cashAmount: rp.cashAmount ? Number(rp.cashAmount) : undefined,
+          physicalItems: rp.physicalItems,
+          physicalItemName: rp.physicalItemName,
           status: rp.status || 'IN_PROGRESS',
-          subTasks: (rp.subTasks || []).map((st: any, idx: number) => ({
-            id: st.id || `st-${rp.levelNumber}-${idx + 1}`,
-            orderNumber: st.orderNumber || idx + 1,
-            title: st.title || `Công việc con ${idx + 1}`,
+          leaderReportNote: rp.leaderReportNote,
+          leaderReportUrl: rp.leaderReportUrl,
+          adminFeedback: rp.adminFeedback,
+          submittedToAdminAt: rp.submittedToAdminAt,
+          adminApprovedAt: rp.adminApprovedAt,
+          subTasks: (rp.subTasks || []).map((st: any, sIdx: number) => ({
+            id: st.id || `st-${idx + 1}-${sIdx + 1}`,
+            orderNumber: st.orderNumber || sIdx + 1,
+            title: st.title || `Công việc con ${sIdx + 1}`,
             description: st.description || '',
             targetKpi: st.targetKpi || '',
             assignedToUserId: st.assignedUserId || st.assignedToUserId,
             assignedToUserName: st.assignedUserName || st.assignedToUserName,
-            status: st.status === 'LEADER_APPROVED' ? 'LEADER_APPROVED' : st.status === 'SUBMITTED' ? 'SUBMITTED' : (st.assignedUserId || st.assignedToUserId) ? 'ASSIGNED' : 'UNASSIGNED',
+            status:
+              st.status === 'ADMIN_APPROVED'
+                ? 'ADMIN_APPROVED'
+                : st.status === 'LEADER_APPROVED'
+                ? 'LEADER_APPROVED'
+                : st.status === 'SUBMITTED'
+                ? 'SUBMITTED'
+                : (st.assignedUserId || st.assignedToUserId)
+                ? 'ASSIGNED'
+                : 'UNASSIGNED',
             submissionNote: st.submissionNote,
             evidenceUrl: st.evidenceUrl,
             evidenceImages: st.evidenceImages,
@@ -341,7 +355,13 @@ class LevelProjectsStore {
     void this.save();
   }
 
-  public submitProjectToAdmin(levelNumber: number, leaderReportNote: string, leaderReportUrl?: string) {
+  public async submitProjectToAdmin(
+    levelNumber: number,
+    leaderReportNote: string,
+    leaderReportUrl?: string,
+    departmentId?: string,
+    departmentName?: string,
+  ): Promise<void> {
     this.projects = this.projects.map((p) => {
       if (p.levelNumber !== levelNumber) return p;
       return {
@@ -349,9 +369,85 @@ class LevelProjectsStore {
         status: 'SUBMITTED_TO_ADMIN',
         leaderReportNote,
         leaderReportUrl,
+        submittedToAdminAt: new Date().toISOString(),
       };
     });
-    void this.save();
+    await this.save();
+
+    // Sync to backend API
+    try {
+      await levelingApi.submitProjectToAdmin(levelNumber, {
+        leaderReportNote,
+        leaderReportUrl,
+        departmentId: departmentId || this.currentDepartmentId,
+        departmentName: departmentName || this.currentDepartmentName,
+      });
+    } catch {
+      // offline / fallback
+    }
+  }
+
+  public async adminApproveProject(
+    levelNumber: number,
+    adminFeedback?: string,
+    departmentId?: string,
+    departmentName?: string,
+  ): Promise<void> {
+    this.projects = this.projects.map((p) => {
+      if (p.levelNumber !== levelNumber) return p;
+      return {
+        ...p,
+        status: 'ADMIN_APPROVED',
+        adminFeedback,
+        adminApprovedAt: new Date().toISOString(),
+        subTasks: p.subTasks.map((st) => ({
+          ...st,
+          status: 'LEADER_APPROVED',
+        })),
+      };
+    });
+    await this.save();
+
+    // Sync to backend API
+    try {
+      await levelingApi.adminReviewProject(levelNumber, {
+        status: 'ADMIN_APPROVED',
+        adminFeedback,
+        departmentId: departmentId || this.currentDepartmentId,
+        departmentName: departmentName || this.currentDepartmentName,
+      });
+    } catch {
+      // offline / fallback
+    }
+  }
+
+  public async adminRejectProject(
+    levelNumber: number,
+    adminFeedback: string,
+    departmentId?: string,
+    departmentName?: string,
+  ): Promise<void> {
+    this.projects = this.projects.map((p) => {
+      if (p.levelNumber !== levelNumber) return p;
+      return {
+        ...p,
+        status: 'IN_PROGRESS',
+        adminFeedback,
+      };
+    });
+    await this.save();
+
+    // Sync to backend API
+    try {
+      await levelingApi.adminReviewProject(levelNumber, {
+        status: 'IN_PROGRESS',
+        adminFeedback,
+        departmentId: departmentId || this.currentDepartmentId,
+        departmentName: departmentName || this.currentDepartmentName,
+      });
+    } catch {
+      // offline / fallback
+    }
   }
 
   // Get all subtasks assigned to a specific employee or leader across all level projects
@@ -528,7 +624,11 @@ export function useLevelProjects(departmentId?: string, departmentName?: string)
     rejectSubTask: (lvl: number, stId: string, feedback: string) =>
       levelProjectsStore.rejectSubTask(lvl, stId, feedback),
     submitProjectToAdmin: (lvl: number, note: string, url?: string) =>
-      levelProjectsStore.submitProjectToAdmin(lvl, note, url),
+      levelProjectsStore.submitProjectToAdmin(lvl, note, url, departmentId, departmentName),
+    adminApproveProject: (lvl: number, feedback?: string) =>
+      levelProjectsStore.adminApproveProject(lvl, feedback, departmentId, departmentName),
+    adminRejectProject: (lvl: number, feedback: string) =>
+      levelProjectsStore.adminRejectProject(lvl, feedback, departmentId, departmentName),
     getAssignedSubTasksForUser: (userId?: string, userName?: string) =>
       levelProjectsStore.getAssignedSubTasksForUser(userId, userName),
     fetchProjects: () => levelProjectsStore.fetchFromApi(departmentId, departmentName),

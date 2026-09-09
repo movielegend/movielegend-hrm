@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/AuthProvider';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import {
@@ -23,6 +24,7 @@ import {
   LevelDepartmentProject,
   LevelProjectPermissionRequest,
 } from '../leveling/levelProjectsStore';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 
 export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const { user } = useAuth();
@@ -36,6 +38,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     getProjectByLevel,
     acceptProject,
     assignSubTask,
+    submitSubTask,
     approveSubTask,
     rejectSubTask,
     submitProjectToAdmin,
@@ -43,8 +46,38 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     getPendingAccessRequests,
   } = useLevelProjects(leaderDeptId, leaderDeptName);
 
-  const [selectedLevelNumber, setSelectedLevelNumber] = useState<number>(1);
-  const currentProject: LevelDepartmentProject | undefined = getProjectByLevel(selectedLevelNumber);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [projectSectionTab, setProjectSectionTab] = useState<'active' | 'history'>('active');
+
+  const activeProjects = useMemo(() => {
+    return projects.filter((p) => p.status !== 'ADMIN_APPROVED');
+  }, [projects]);
+
+  const completedProjects = useMemo(() => {
+    return projects.filter((p) => p.status === 'ADMIN_APPROVED');
+  }, [projects]);
+
+  const displayedProjects = useMemo(() => {
+    if (projectSectionTab === 'history') {
+      return completedProjects;
+    }
+    return activeProjects.length > 0 ? activeProjects : projects;
+  }, [projectSectionTab, activeProjects, completedProjects, projects]);
+
+  // Auto-select first project when displayed projects load or change
+  useEffect(() => {
+    if (displayedProjects.length > 0) {
+      if (!selectedProjectId || !displayedProjects.some((p) => p.id === selectedProjectId)) {
+        setSelectedProjectId(displayedProjects[0].id);
+      }
+    }
+  }, [displayedProjects, selectedProjectId]);
+
+  const currentProject = useMemo(() => {
+    return displayedProjects.find((p) => p.id === selectedProjectId) || displayedProjects[0];
+  }, [displayedProjects, selectedProjectId]);
+
+  const selectedLevelNumber = currentProject?.levelNumber || 1;
 
   // Quick Filter State
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SUBMITTED' | 'ASSIGNED' | 'LEADER_APPROVED' | 'UNASSIGNED'>('ALL');
@@ -52,6 +85,9 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   // Detail Page / Modal State
   const [activeSubTask, setActiveSubTask] = useState<BulletSubTask | null>(null);
   const [leaderFeedbackText, setLeaderFeedbackText] = useState('');
+  const [leaderSelfReportText, setLeaderSelfReportText] = useState('');
+  const [leaderSelfEvidenceUrl, setLeaderSelfEvidenceUrl] = useState('');
+  const [leaderSelfImages, setLeaderSelfImages] = useState<string[]>([]);
   const [searchMemberQuery, setSearchMemberQuery] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -95,6 +131,89 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     return teamList.filter((m) => m.name.toLowerCase().includes(q) || m.role.toLowerCase().includes(q));
   }, [teamList, searchMemberQuery]);
 
+  const [showRewardBreakdown, setShowRewardBreakdown] = useState(false);
+
+  // Parse total cash pool from current project
+  const totalCashPool = useMemo(() => {
+    if (currentProject?.cashAmount && currentProject.cashAmount > 0) {
+      return currentProject.cashAmount;
+    }
+    // Fallback parse numeric amount from rewardItem string
+    if (currentProject?.rewardItem) {
+      const match = currentProject.rewardItem.replace(/\./g, '').match(/(\d+)\s*VNĐ/i);
+      if (match && match[1]) {
+        return Number(match[1]) || 0;
+      }
+    }
+    return 0;
+  }, [currentProject?.cashAmount, currentProject?.rewardItem]);
+
+  // Parse physical items from current project
+  const physicalItemList = useMemo(() => {
+    if (Array.isArray(currentProject?.physicalItems) && currentProject.physicalItems.length > 0) {
+      return currentProject.physicalItems;
+    }
+    if (currentProject?.physicalItemName?.trim()) {
+      return currentProject.physicalItemName.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    }
+    if (currentProject?.rewardItem?.includes('🎁')) {
+      const giftPart = currentProject.rewardItem.split('🎁')[1]?.split('+')[0]?.trim();
+      if (giftPart) return [giftPart.replace(/\(Hiện vật chung\)/g, '').trim()];
+    }
+    return [];
+  }, [currentProject?.physicalItems, currentProject?.physicalItemName, currentProject?.rewardItem]);
+
+  // Compute participating members in this level project and their Level multiplier weight
+  const participatingMembers = useMemo(() => {
+    if (!currentProject) return [];
+    const userMap = new Map<
+      string,
+      {
+        userId: string;
+        userName: string;
+        levelNumber: number;
+        levelWeight: number;
+        taskCount: number;
+        isLeader: boolean;
+      }
+    >();
+
+    (currentProject.subTasks || []).forEach((st) => {
+      if (st.assignedToUserId) {
+        const uId = st.assignedToUserId;
+        const isLeaderUser = uId === currentLeaderId || uId === 'leader-me';
+        const uName = isLeaderUser ? `${currentLeaderName} (Leader)` : (st.assignedToUserName || 'Nhân sự');
+
+        if (!userMap.has(uId)) {
+          const emp = realEmployees.find((e) => e.id === uId);
+          const lvl = emp?.profile?.currentLevelNumber || (isLeaderUser ? Math.max(selectedLevelNumber, 3) : 1);
+
+          // Level multiplier: Lv.1 = 1.0, Lv.2 = 1.5, Lv.3 = 2.0, Lv.4 = 2.5, Lv.5 = 3.0, Lv.6 = 3.5, Lv.7 = 4.0, Lv.8 = 5.0
+          const weight =
+            lvl <= 1 ? 1.0 : lvl === 2 ? 1.5 : lvl === 3 ? 2.0 : lvl === 4 ? 2.5 : lvl === 5 ? 3.0 : lvl === 6 ? 3.5 : lvl === 7 ? 4.0 : 5.0;
+
+          userMap.set(uId, {
+            userId: uId,
+            userName: uName,
+            levelNumber: lvl,
+            levelWeight: weight,
+            taskCount: 1,
+            isLeader: isLeaderUser,
+          });
+        } else {
+          const existing = userMap.get(uId)!;
+          existing.taskCount += 1;
+        }
+      }
+    });
+
+    return Array.from(userMap.values());
+  }, [currentProject, realEmployees, currentLeaderId, currentLeaderName, selectedLevelNumber]);
+
+  const totalTeamWeight = useMemo(() => {
+    return participatingMembers.reduce((sum, m) => sum + m.levelWeight, 0);
+  }, [participatingMembers]);
+
   // Handle Leader accepts project from Admin
   const handleAcceptProject = () => {
     acceptProject(selectedLevelNumber);
@@ -105,6 +224,63 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const handleOpenTaskModal = (task: BulletSubTask) => {
     setActiveSubTask(task);
     setLeaderFeedbackText(task.leaderFeedback || '');
+    setLeaderSelfReportText(task.submissionNote || '');
+    setLeaderSelfEvidenceUrl(task.evidenceUrl || '');
+    setLeaderSelfImages(task.evidenceImages || []);
+  };
+
+  // Image Picker action for Leader
+  const handlePickLeaderImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets) {
+        const newUris = result.assets.map((a) => a.uri);
+        setLeaderSelfImages((prev) => [...prev, ...newUris]);
+      }
+    } catch {
+      Alert.alert('Thông báo', 'Không thể mở thư viện ảnh');
+    }
+  };
+
+  const handleRemoveLeaderImage = (indexToRemove: number) => {
+    setLeaderSelfImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  // Handle Leader submitting report for their own assigned subtask
+  const handleLeaderSubmitReport = () => {
+    if (!activeSubTask || !currentProject) return;
+    if (!leaderSelfReportText.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập nội dung báo cáo kết quả thực hiện');
+      return;
+    }
+
+    submitSubTask(
+      selectedLevelNumber,
+      activeSubTask.id,
+      leaderSelfReportText.trim(),
+      leaderSelfEvidenceUrl.trim() || undefined,
+      leaderSelfImages
+    );
+
+    setActiveSubTask((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: 'SUBMITTED',
+            submissionNote: leaderSelfReportText.trim(),
+            evidenceUrl: leaderSelfEvidenceUrl.trim() || undefined,
+            evidenceImages: leaderSelfImages,
+            submittedAt: new Date().toISOString(),
+          }
+        : null
+    );
+
+    Alert.alert('Thành Công', 'Đã nộp báo cáo kết quả thực hiện cho đầu mục công việc này.');
   };
 
   // Handle assigning member to a specific subtask
@@ -181,28 +357,18 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   };
 
   // Handle submitting project to Admin
-  const handleSubmitProjectToAdmin = () => {
+  const handleSubmitProjectToAdmin = async () => {
     if (!adminReportText.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả nghiệm thu');
       return;
     }
 
-    submitProjectToAdmin(selectedLevelNumber, adminReportText.trim(), adminReportUrl.trim() || undefined);
+    await submitProjectToAdmin(selectedLevelNumber, adminReportText.trim(), adminReportUrl.trim() || undefined);
     setSubmitAdminModalVisible(false);
     Alert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.levelName} lên Ban Giám Đốc.`);
   };
 
-  if (!currentProject) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={{ padding: 20 }}>
-          <Text style={{ fontSize: 16, color: '#64748B' }}>Không tìm thấy dự án cấp bậc.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const subTasks = currentProject.subTasks || [];
+  const subTasks = currentProject?.subTasks || [];
   const totalSubTasks = subTasks.length;
   const approvedSubTasks = subTasks.filter((t) => t.status === 'LEADER_APPROVED').length;
   const progressPercent = totalSubTasks > 0 ? Math.round((approvedSubTasks / totalSubTasks) * 100) : 0;
@@ -217,6 +383,28 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     return subTasks.filter((t) => t.status === statusFilter);
   }, [subTasks, statusFilter]);
 
+  if (!currentProject || projects.length === 0) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.topSafeArea}>
+          <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
+          <View style={styles.topHeader}>
+            <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
+          </View>
+        </SafeAreaView>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Ionicons name="folder-open-outline" size={60} color="#94A3B8" />
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginTop: 14 }}>
+            Chưa có dự án nào
+          </Text>
+          <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+            Phòng ban {leaderDeptName ? `"${leaderDeptName}"` : 'của bạn'} hiện chưa có dự án nào được giao từ Admin. Khi Admin tạo dự án và các đầu việc con cho phòng ban, dự án sẽ tự động xuất hiện tại đây để bạn phân bổ cho nhân sự.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.topSafeArea}>
@@ -225,9 +413,9 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
         {/* Top Header with Deep Teal Background */}
         <View style={styles.topHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Dự Án Cấp Bậc</Text>
+            <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
           </View>
-          {currentProject.status === 'IN_PROGRESS' && (
+          {currentProject?.status === 'IN_PROGRESS' && (
             <TouchableOpacity
               style={styles.headerSubmitBtn}
               onPress={() => setSubmitAdminModalVisible(true)}
@@ -240,104 +428,354 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       </SafeAreaView>
 
       <View style={styles.bodyWrapper}>
-        {/* Level Selector with Smart Badges */}
-        <View style={styles.levelSelectorContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelSelectorScroll}>
-          {projects.map((proj) => {
-            const isSelected = proj.levelNumber === selectedLevelNumber;
-            const projPendingSubTasks = proj.subTasks.filter((t) => t.status === 'SUBMITTED').length;
-            const projPendingRequests = getPendingAccessRequests(leaderDeptId, proj.levelNumber).length;
-            const projTotalBadge = projPendingSubTasks + projPendingRequests;
+        {/* Section Tabs: Đang Thực Hiện vs Lịch Sử Hoàn Thành */}
+        <View style={styles.sectionTabsContainer}>
+          <TouchableOpacity
+            style={[styles.sectionTabBtn, projectSectionTab === 'active' && styles.sectionTabBtnActive]}
+            onPress={() => setProjectSectionTab('active')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="flash-outline"
+              size={14}
+              color={projectSectionTab === 'active' ? '#0F766E' : '#64748B'}
+            />
+            <Text
+              style={[
+                styles.sectionTabText,
+                projectSectionTab === 'active' && styles.sectionTabTextActive,
+              ]}
+            >
+              Đang Thực Hiện ({activeProjects.length})
+            </Text>
+          </TouchableOpacity>
 
-            return (
-              <TouchableOpacity
-                key={proj.id}
-                style={[styles.levelItem, isSelected && styles.levelItemActive]}
-                onPress={() => {
-                  setSelectedLevelNumber(proj.levelNumber);
-                  setStatusFilter('ALL');
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.levelText, isSelected && styles.levelTextActive]}>
-                  {proj.levelName}
-                </Text>
-                {projTotalBadge > 0 && (
-                  <View style={[styles.levelBadge, isSelected && styles.levelBadgeActive]}>
-                    <Text style={[styles.levelBadgeText, isSelected && styles.levelBadgeTextActive]}>
-                      {projTotalBadge}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+          <TouchableOpacity
+            style={[styles.sectionTabBtn, projectSectionTab === 'history' && styles.sectionTabBtnActive]}
+            onPress={() => setProjectSectionTab('history')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="trophy-outline"
+              size={14}
+              color={projectSectionTab === 'history' ? '#059669' : '#64748B'}
+            />
+            <Text
+              style={[
+                styles.sectionTabText,
+                projectSectionTab === 'history' && styles.sectionTabTextActive,
+              ]}
+            >
+              Lịch Sử Hoàn Thành ({completedProjects.length})
+            </Text>
+            {completedProjects.length > 0 && (
+              <View style={styles.sectionTabDot} />
+            )}
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Permission Requests Section (Xin làm dự án vượt cấp) */}
-        {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length > 0 && (
-          <View style={styles.accessRequestSection}>
-            <View style={styles.accessRequestHeaderRow}>
-              <View style={styles.accessRequestIconBox}>
-                <Ionicons name="hand-right" size={16} color="#D97706" />
-              </View>
-              <Text style={styles.accessRequestHeaderTitle}>
-                Yêu cầu xin làm dự án ({getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length})
-              </Text>
+        {projectSectionTab === 'history' && completedProjects.length === 0 ? (
+          <View style={styles.emptyHistoryBox}>
+            <Ionicons name="ribbon-outline" size={56} color="#94A3B8" />
+            <Text style={styles.emptyHistoryTitle}>Chưa có dự án nào hoàn thành</Text>
+            <Text style={styles.emptyHistorySubtitle}>
+              Khi Leader nộp báo cáo tổng kết và Ban Giám Đốc phê duyệt nghiệm thu, toàn bộ dự án, đầu việc con và minh chứng của nhân sự sẽ được lưu trữ vĩnh viễn tại mục Lịch Sử này.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Level Selector with Smart Badges */}
+            <View style={styles.levelSelectorContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelSelectorScroll}>
+                {displayedProjects.map((proj) => {
+                  const isSelected = proj.id === currentProject?.id;
+                  const projPendingSubTasks = proj.subTasks.filter((t) => t.status === 'SUBMITTED').length;
+                  const projPendingRequests = getPendingAccessRequests(leaderDeptId, proj.levelNumber).length;
+                  const projTotalBadge = projPendingSubTasks + projPendingRequests;
+
+                  return (
+                    <TouchableOpacity
+                      key={proj.id}
+                      style={[styles.levelItem, isSelected && styles.levelItemActive]}
+                      onPress={() => {
+                        setSelectedProjectId(proj.id);
+                        setStatusFilter('ALL');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.levelText, isSelected && styles.levelTextActive]} numberOfLines={1}>
+                        {proj.projectName || proj.levelName}
+                      </Text>
+                      {projTotalBadge > 0 && (
+                        <View style={[styles.levelBadge, isSelected && styles.levelBadgeActive]}>
+                          <Text style={[styles.levelBadgeText, isSelected && styles.levelBadgeTextActive]}>
+                            {projTotalBadge}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
 
-            {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).map((req) => (
-              <View key={req.id} style={styles.accessRequestCard}>
-                <View style={styles.accessRequestCardTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.accessRequestUserName}>{req.userName}</Text>
-                    <Text style={styles.accessRequestUserMeta}>
-                      Đang ở Level {req.userCurrentLevel} • Xin làm {req.levelName}
+            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+              {/* Completed Project Celebration / Notice Card */}
+              {currentProject?.status === 'ADMIN_APPROVED' && (
+                <View style={styles.adminApprovedCard}>
+                  <View style={styles.adminApprovedHeader}>
+                    <View style={styles.adminApprovedIconBox}>
+                      <Ionicons name="checkmark-done-circle" size={24} color="#059669" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.adminApprovedBadgeTitle}>ĐÃ NGHIỆM THU HOÀN TẤT</Text>
+                      <Text style={styles.adminApprovedSubTitle}>
+                        Ban Giám Đốc đã phê duyệt nghiệm thu dự án này thành công
+                      </Text>
+                      {Boolean(currentProject.adminApprovedAt) && (
+                        <Text style={styles.adminApprovedDateText}>
+                          Thời gian: {new Date(currentProject.adminApprovedAt!).toLocaleDateString('vi-VN')}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {Boolean(currentProject.adminFeedback) && (
+                    <View style={styles.adminFeedbackBox}>
+                      <Text style={styles.adminFeedbackLabel}>Đánh giá của Ban Giám Đốc:</Text>
+                      <Text style={styles.adminFeedbackText}>"{currentProject.adminFeedback}"</Text>
+                    </View>
+                  )}
+
+                  {Boolean(currentProject.leaderReportNote) && (
+                    <View style={styles.leaderReportNoteBox}>
+                      <Text style={styles.leaderReportNoteLabel}>Báo cáo nghiệm thu của Leader:</Text>
+                      <Text style={styles.leaderReportNoteText}>{currentProject.leaderReportNote}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Permission Requests Section (Xin làm dự án vượt cấp) */}
+              {projectSectionTab === 'active' && getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length > 0 && (
+                <View style={styles.accessRequestSection}>
+                  <View style={styles.accessRequestHeaderRow}>
+                    <View style={styles.accessRequestIconBox}>
+                      <Ionicons name="hand-right" size={16} color="#D97706" />
+                    </View>
+                    <Text style={styles.accessRequestHeaderTitle}>
+                      Yêu cầu xin làm dự án ({getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length})
                     </Text>
                   </View>
-                  <Text style={styles.accessRequestTimeText}>{req.requestedAt}</Text>
+
+                  {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).map((req) => (
+                    <View key={req.id} style={styles.accessRequestCard}>
+                      <View style={styles.accessRequestCardTop}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.accessRequestUserName}>{req.userName}</Text>
+                          <Text style={styles.accessRequestUserMeta}>
+                            Đang ở Level {req.userCurrentLevel} • Xin làm {req.levelName}
+                          </Text>
+                        </View>
+                        <Text style={styles.accessRequestTimeText}>{req.requestedAt}</Text>
+                      </View>
+
+                      {Boolean(req.reason) && (
+                        <View style={styles.accessRequestReasonBox}>
+                          <Text style={styles.accessRequestReasonLabel}>Lý do:</Text>
+                          <Text style={styles.accessRequestReasonText}>"{req.reason}"</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.accessRequestActionsRow}>
+                        <TouchableOpacity
+                          style={styles.accessRequestRejectBtn}
+                          onPress={() => handleRejectAccessRequest(req.id, req.userName, req.levelName)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.accessRequestRejectBtnText}>Từ chối</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.accessRequestApproveBtn}
+                          onPress={() => handleApproveAccessRequest(req.id, req.userName, req.levelName)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.accessRequestApproveBtnText}>Phê duyệt cho làm</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
                 </View>
+              )}
 
-                {Boolean(req.reason) && (
-                  <View style={styles.accessRequestReasonBox}>
-                    <Text style={styles.accessRequestReasonLabel}>Lý do:</Text>
-                    <Text style={styles.accessRequestReasonText}>"{req.reason}"</Text>
-                  </View>
-                )}
-
-                <View style={styles.accessRequestActionsRow}>
-                  <TouchableOpacity
-                    style={styles.accessRequestRejectBtn}
-                    onPress={() => handleRejectAccessRequest(req.id, req.userName, req.levelName)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.accessRequestRejectBtnText}>Từ chối</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.accessRequestApproveBtn}
-                    onPress={() => handleApproveAccessRequest(req.id, req.userName, req.levelName)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.accessRequestApproveBtnText}>Phê duyệt cho làm</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Project Summary & Progress */}
+              {/* Project Summary & Progress */}
         <View style={styles.projectSummary}>
           <Text style={styles.projectName}>{currentProject.projectName}</Text>
           <View style={styles.progressRow}>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
             </View>
-            <Text style={styles.progressLabel}>{approvedSubTasks}/10 hoàn thành</Text>
+            <Text style={styles.progressLabel}>{approvedSubTasks}/{totalSubTasks} hoàn thành</Text>
           </View>
+
+          {/* PROJECT REWARD SUMMARY BOX */}
+          <View style={styles.rewardSummaryCard}>
+            <View style={styles.rewardSummaryHeader}>
+              <Ionicons name="gift-outline" size={16} color="#B45309" />
+              <Text style={styles.rewardSummaryTitle}>Phần Thưởng: {currentProject.projectName || currentProject.levelName}</Text>
+            </View>
+
+            {totalCashPool > 0 && (
+              <View style={styles.rewardCashRow}>
+                <Text style={styles.rewardBadgeMoney}>💵 Tiền mặt</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rewardCashValText}>
+                    {totalCashPool.toLocaleString('vi-VN')} VNĐ
+                  </Text>
+                  <Text style={styles.rewardCashSubText}>
+                    (Tự động chia theo Hệ số Level của các thành viên nhận việc)
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {physicalItemList.length > 0 && (
+              <View style={styles.rewardPhysicalRow}>
+                <Text style={styles.rewardBadgeGift}>🎁 Hiện vật</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rewardPhysicalValText}>
+                    {physicalItemList.join(' • ')}
+                  </Text>
+                  <Text style={styles.rewardPhysicalSubText}>
+                    (Hiện vật để chung cho cả team hoàn thành dự án)
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {totalCashPool === 0 && physicalItemList.length === 0 && (
+              <Text style={styles.rewardNoneText}>
+                {currentProject.rewardItem ? currentProject.rewardItem : 'Chưa có phần thưởng cụ thể cho dự án này.'}
+              </Text>
+            )}
+
+            {/* LEVEL MULTIPLIER BREAKDOWN TOGGLE / SECTION */}
+            {totalCashPool > 0 && (
+              <View style={styles.multiplierBox}>
+                <TouchableOpacity
+                  style={styles.multiplierToggleBtn}
+                  onPress={() => setShowRewardBreakdown((prev) => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="calculator-outline" size={15} color="#1E40AF" />
+                    <Text style={styles.multiplierToggleText}>
+                      Bảng Phân Bổ Tiền Thưởng ({participatingMembers.length} nhân sự tham gia)
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={showRewardBreakdown ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color="#1E40AF"
+                  />
+                </TouchableOpacity>
+
+                {showRewardBreakdown && (
+                  <View style={styles.breakdownTable}>
+                    <Text style={styles.breakdownGuideText}>
+                      💡 <Text style={{ fontWeight: 'bold' }}>Công thức chia:</Text> Tiền của mỗi nhân sự = (Hệ số Level của cá nhân / Tổng hệ số team) × {totalCashPool.toLocaleString('vi-VN')} VNĐ.
+                    </Text>
+
+                    {participatingMembers.length === 0 ? (
+                      <Text style={styles.noParticipantsText}>
+                        Chưa có nhân sự nào được giao việc con trong dự án này. Hãy giao việc con bên dưới để hệ số tự động kích hoạt!
+                      </Text>
+                    ) : (
+                      participatingMembers.map((m) => {
+                        const shareAmount =
+                          totalTeamWeight > 0 ? Math.round((m.levelWeight / totalTeamWeight) * totalCashPool) : 0;
+                        const percentStr =
+                          totalTeamWeight > 0 ? ((m.levelWeight / totalTeamWeight) * 100).toFixed(1) : '0';
+                        const colorHex = LEVEL_COLORS[m.levelNumber] || '#2196F3';
+
+                        return (
+                          <View key={m.userId} style={styles.memberShareRow}>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={styles.memberShareName}>{m.userName}</Text>
+                                <View style={[styles.memberLevelBadge, { backgroundColor: colorHex }]}>
+                                  <Text style={styles.memberLevelBadgeText}>Level {m.levelNumber}</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.memberShareMeta}>
+                                Hệ số: <Text style={{ fontWeight: 'bold', color: '#1E40AF' }}>{m.levelWeight}x</Text> • Nhận {m.taskCount} việc con ({percentStr}%)
+                              </Text>
+                            </View>
+
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={styles.memberShareAmount}>
+                                {shareAmount.toLocaleString('vi-VN')} đ
+                              </Text>
+                              <Text style={styles.memberShareStatus}>Ước tính nhận</Text>
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
+
+                    <View style={styles.breakdownFooterNotice}>
+                      <Ionicons name="information-circle-outline" size={13} color="#059669" />
+                      <Text style={styles.breakdownFooterNoticeText}>
+                        Phần thưởng hiển thị minh bạch tại chi tiết Level (không tự động cộng vào ví).
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Action to submit project to Admin when all subtasks are approved or project in progress */}
+          {currentProject.status === 'IN_PROGRESS' && (
+            <View style={styles.leaderSubmitAdminActionBox}>
+              {approvedSubTasks === totalSubTasks && totalSubTasks > 0 ? (
+                <View style={styles.allTasksReadyNotice}>
+                  <Ionicons name="sparkles" size={16} color="#059669" />
+                  <Text style={styles.allTasksReadyText}>
+                    Toàn bộ {totalSubTasks} đầu việc con đã được Leader duyệt đạt!
+                  </Text>
+                </View>
+              ) : null}
+              <TouchableOpacity
+                style={[
+                  styles.submitProjectToAdminMainBtn,
+                  approvedSubTasks === totalSubTasks && totalSubTasks > 0 && styles.submitProjectToAdminMainBtnHighlight,
+                ]}
+                onPress={() => setSubmitAdminModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.submitProjectToAdminMainBtnText}>
+                  {approvedSubTasks === totalSubTasks && totalSubTasks > 0
+                    ? 'NỘP BÁO CÁO TỔNG KẾT LÊN ADMIN'
+                    : 'Nộp Báo Cáo Nghiệm Thu Lên Admin'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {currentProject.status === 'SUBMITTED_TO_ADMIN' && (
+            <View style={styles.submittedToAdminBannerBox}>
+              <Ionicons name="hourglass-outline" size={20} color="#D97706" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.submittedToAdminBannerTitle}>Đã Gửi Báo Cáo Nghiệm Thu Lên Admin</Text>
+                <Text style={styles.submittedToAdminBannerSub}>
+                  Đang chờ Ban Giám Đốc kiểm tra hồ sơ và phê duyệt nghiệm thu hoàn tất.
+                </Text>
+              </View>
+            </View>
+          )}
 
           {currentProject.status === 'PENDING_LEADER_ACCEPT' && (
             <TouchableOpacity
@@ -501,19 +939,21 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
           )}
         </View>
       </ScrollView>
-      </View>
+      </>
+    )}
+    </View>
 
-      {/* EXPANDABLE FULL PAGE DETAIL & APPROVAL MODAL */}
+      {/* EXPANDABLE FULL PAGE DETAIL & APPROVAL / SUBMISSION MODAL */}
       <Modal visible={activeSubTask !== null} animationType="slide" transparent={false}>
         <View style={styles.container}>
           <SafeAreaView style={styles.topSafeArea}>
-            <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+            <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
 
             {/* Top Page Header */}
             <View style={styles.fullPageHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.fullPageLevelTag}>
-                  Việc con #{activeSubTask?.orderNumber} • {currentProject.levelName}
+                  {currentProject.levelName} - Việc con #{activeSubTask?.orderNumber}
                 </Text>
                 <Text style={styles.fullPageTitle}>{activeSubTask?.title}</Text>
               </View>
@@ -536,218 +976,363 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
               automaticallyAdjustKeyboardInsets={true}
               keyboardDismissMode="interactive"
             >
-              {/* KPI Requirements Banner */}
-              {activeSubTask?.targetKpi ? (
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiCardLabel}>Chỉ tiêu KPI yêu cầu:</Text>
-                  <Text style={styles.kpiCardValue}>{activeSubTask.targetKpi}</Text>
-                  {activeSubTask.description ? (
-                    <Text style={styles.kpiCardDesc}>{activeSubTask.description}</Text>
-                  ) : null}
-                </View>
-              ) : null}
 
-              {/* PHẦN BÁO CÁO THỰC HIỆN: Chỉ hiển thị khi nhân viên đã nộp hoặc đã duyệt */}
-              {(activeSubTask?.status === 'SUBMITTED' || activeSubTask?.status === 'LEADER_APPROVED' || activeSubTask?.submissionNote) && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện Của Nhân Sự</Text>
 
-                  <View style={styles.reportContentBox}>
-                    <Text style={styles.reportAuthor}>
-                      Người thực hiện: <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{activeSubTask?.assignedToUserName || 'Chưa phân công'}</Text>
-                    </Text>
-                    <Text style={styles.reportText}>
-                      {activeSubTask?.submissionNote || 'Đã gửi báo cáo hoàn thành.'}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* PHẦN KẾT QUẢ & MINH CHỨNG ĐÍNH KÈM */}
-              {(Boolean(activeSubTask?.evidenceUrl) || (Boolean(activeSubTask?.evidenceImages) && (activeSubTask?.evidenceImages?.length ?? 0) > 0)) && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>2. Kết Quả & Minh Chứng Đính Kèm</Text>
-
-                  {/* Link file / Drive nếu có */}
-                  {Boolean(activeSubTask?.evidenceUrl) && (
-                    <View style={styles.evidenceItemCard}>
-                      <Text style={styles.evidenceItemLabel}>Tài liệu / Báo cáo chi tiết:</Text>
-                      <Text style={styles.evidenceLinkText} selectable>
-                        {activeSubTask?.evidenceUrl}
+              {/* ========================================================= */}
+              {/* CASE 1: ĐẦU VIỆC DO CHÍNH LEADER THỰC HIỆN                */}
+              {/* FORM BÁO CÁO ĐỒNG NHẤT 1:1 VỚI FORM NHÂN VIÊN             */}
+              {/* ========================================================= */}
+              {activeSubTask?.assignedToUserId === currentLeaderId ? (
+                <>
+                  {/* Approved Status Banner */}
+                  {activeSubTask?.status === 'LEADER_APPROVED' && (
+                    <View style={styles.approvedBanner}>
+                      <Text style={styles.approvedBannerText}>
+                        Leader đã duyệt Vòng 1. Kết quả đang chờ Ban Giám Đốc / Admin xét duyệt nâng cấp bậc tại kỳ họp cuối tháng.
                       </Text>
+                      {activeSubTask.leaderFeedback ? (
+                        <Text style={styles.approvedFeedbackText}>
+                          Ghi chú: "{activeSubTask.leaderFeedback}"
+                        </Text>
+                      ) : null}
                     </View>
                   )}
 
-                  {/* Ảnh chụp minh chứng nếu có */}
-                  {Boolean(activeSubTask?.evidenceImages && activeSubTask.evidenceImages.length > 0) && (
-                    <View style={styles.evidenceItemCard}>
-                      <Text style={styles.evidenceItemLabel}>Ảnh chụp minh chứng thực tế:</Text>
+                  {/* Rework Alert if any */}
+                  {activeSubTask?.leaderFeedback && activeSubTask.status !== 'LEADER_APPROVED' && (
+                    <View style={styles.reworkAlertBox}>
+                      <Text style={styles.reworkAlertTitle}>Yêu cầu bổ sung / sửa lại trước đó:</Text>
+                      <Text style={styles.reworkAlertDesc}>{activeSubTask.leaderFeedback}</Text>
+                    </View>
+                  )}
+
+                  {/* PHẦN 1: BÁO CÁO THỰC HIỆN */}
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện</Text>
+                    <Text style={styles.sectionBlockSub}>
+                      Nhập tóm tắt kết quả, số liệu đạt được và ghi chú gửi cấp trên
+                    </Text>
+
+                    <TextInput
+                      style={styles.formTextArea}
+                      placeholder="Nhập nội dung báo cáo kết quả thực hiện..."
+                      placeholderTextColor="#94A3B8"
+                      value={leaderSelfReportText}
+                      onChangeText={setLeaderSelfReportText}
+                      editable={activeSubTask?.status !== 'LEADER_APPROVED'}
+                      multiline
+                    />
+                  </View>
+
+                  {/* PHẦN 2: KẾT QUẢ & MINH CHỨNG ĐÍNH KÈM */}
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.sectionBlockTitle}>2. Kết Quả & Minh Chứng Đính Kèm</Text>
+                    <Text style={styles.sectionBlockSub}>
+                      Đính kèm link file báo cáo và ảnh chụp thực tế
+                    </Text>
+
+                    {/* Link Input */}
+                    <Text style={styles.inputLabel}>Link tài liệu / Báo cáo (Google Drive / Sheet):</Text>
+                    <TextInput
+                      style={styles.formTextInput}
+                      placeholder="https://drive.google.com/..."
+                      placeholderTextColor="#94A3B8"
+                      value={leaderSelfEvidenceUrl}
+                      onChangeText={setLeaderSelfEvidenceUrl}
+                      editable={activeSubTask?.status !== 'LEADER_APPROVED'}
+                      autoCapitalize="none"
+                    />
+
+                    {/* Photos Attachment */}
+                    <View style={styles.photoSectionHeader}>
+                      <Text style={styles.inputLabel}>Ảnh chụp minh chứng thực tế ({leaderSelfImages.length}):</Text>
+                      {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                        <TouchableOpacity style={styles.addPhotoBtn} onPress={handlePickLeaderImage} activeOpacity={0.8}>
+                          <Text style={styles.addPhotoBtnText}>+ Thêm ảnh từ thư viện</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {leaderSelfImages.length > 0 ? (
                       <View style={styles.imageGrid}>
-                        {activeSubTask?.evidenceImages?.map((imgUri, idx) => (
-                          <TouchableOpacity
-                            key={idx}
-                            onPress={() => setPreviewImage(imgUri)}
-                            activeOpacity={0.8}
-                          >
-                            <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
-                          </TouchableOpacity>
+                        {leaderSelfImages.map((imgUri, idx) => (
+                          <View key={idx} style={styles.imageItemWrapper}>
+                            <TouchableOpacity onPress={() => setPreviewImage(imgUri)} activeOpacity={0.8}>
+                              <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
+                            </TouchableOpacity>
+                            {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                              <TouchableOpacity
+                                style={styles.removePhotoBtn}
+                                onPress={() => handleRemoveLeaderImage(idx)}
+                              >
+                                <Text style={styles.removePhotoBtnText}>Xóa</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.noImagesText}>Chưa có ảnh minh chứng nào được thêm.</Text>
+                    )}
+                  </View>
+
+                  {/* Submit Action Button */}
+                  {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                    <View style={styles.submitButtonBox}>
+                      <TouchableOpacity
+                        style={styles.submitMainBtn}
+                        onPress={handleLeaderSubmitReport}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.submitMainBtnText}>
+                          {activeSubTask?.status === 'SUBMITTED' ? 'CẬP NHẬT BÁO CÁO & MINH CHỨNG' : 'NỘP BÁO CÁO & MINH CHỨNG'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Tùy chọn chuyển giao cho thành viên khác */}
+                  {activeSubTask?.status !== 'LEADER_APPROVED' && (
+                    <View style={[styles.sectionBlock, { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 16 }]}>
+                      <Text style={[styles.sectionBlockTitle, { fontSize: 13, color: '#64748B' }]}>
+                        Chuyển Giao Việc Cho Thành Viên Khác (Tùy chọn)
+                      </Text>
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm tên nhân sự để chuyển giao..."
+                        placeholderTextColor="#94A3B8"
+                        value={searchMemberQuery}
+                        onChangeText={setSearchMemberQuery}
+                      />
+                      <View style={styles.memberList}>
+                        {filteredTeamList
+                          .filter((m) => !m.isMe)
+                          .map((m) => (
+                            <TouchableOpacity
+                              key={m.id}
+                              style={styles.memberItem}
+                              onPress={() => handleConfirmAssign(m)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.memberName}>{m.name}</Text>
+                                <Text style={styles.memberRole}>{m.role}</Text>
+                              </View>
+                              <Text style={styles.tagBlue}>Giao việc</Text>
+                            </TouchableOpacity>
+                          ))}
                       </View>
                     </View>
                   )}
-                </View>
-              )}
+                </>
+              ) : (
+                /* ========================================================= */
+                /* CASE 2: ĐẦU VIỆC GIAO CHO NHÂN SỰ / CHƯA PHÂN CÔNG        */
+                /* ========================================================= */
+                <>
+                  {/* PHẦN BÁO CÁO THỰC HIỆN CỦA NHÂN SỰ (Nếu nhân sự đã nộp) */}
+                  {(activeSubTask?.status === 'SUBMITTED' || activeSubTask?.status === 'LEADER_APPROVED' || activeSubTask?.submissionNote) && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện Của Nhân Sự</Text>
 
-              {/* Leader Feedback Input & Review Actions */}
-              {activeSubTask?.status === 'SUBMITTED' && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>3. Đánh Giá & Nhận Xét Của Leader (Tùy chọn)</Text>
-                  <Text style={styles.sectionBlockSub}>
-                    Ghi nhận xét lưu vào hồ sơ hoặc nêu rõ điểm cần hoàn thiện nếu yêu cầu sửa lại
-                  </Text>
-                  <TextInput
-                    style={styles.formTextArea}
-                    placeholder="Nhập nhận xét đánh giá hoặc hướng dẫn sửa lại..."
-                    placeholderTextColor="#94A3B8"
-                    value={leaderFeedbackText}
-                    onChangeText={setLeaderFeedbackText}
-                    multiline
-                  />
-
-                  <View style={styles.reviewActionsBox}>
-                    <TouchableOpacity
-                      style={styles.approveMainBtn}
-                      onPress={() => handleApproveSubTask(activeSubTask.id)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.approveMainBtnText}>XÁC NHẬN DUYỆT VÒNG 1</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      onPress={() => handleRejectSubTask(activeSubTask.id)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.rejectBtnText}>YÊU CẦU BỔ SUNG / SỬA LẠI</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {activeSubTask?.status === 'LEADER_APPROVED' && (
-                <View style={styles.approvedNoticeBanner}>
-                  <Text style={styles.approvedNoticeText}>
-                    Leader đã hoàn tất duyệt Vòng 1. Kết quả được lưu vào hồ sơ để Ban Giám Đốc / Admin xét duyệt nâng cấp bậc chính thức tại kỳ họp cuối tháng.
-                  </Text>
-                  {activeSubTask.leaderFeedback ? (
-                    <Text style={styles.approvedFeedbackText}>
-                      Nhận xét của Leader: "{activeSubTask.leaderFeedback}"
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-
-              {/* PHẦN PHÂN CÔNG NHÂN SỰ */}
-              {activeSubTask?.status !== 'SUBMITTED' && activeSubTask?.status !== 'LEADER_APPROVED' && (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionBlockTitle}>
-                    {activeSubTask?.assignedToUserName ? `Đổi Người Thực Hiện (Hiện tại: ${activeSubTask.assignedToUserName}):` : 'Phân Công Người Thực Hiện:'}
-                  </Text>
-
-                  {/* Nút Giao Nhanh Cho Chính Leader */}
-                  <TouchableOpacity
-                    style={[
-                      styles.assignSelfCard,
-                      activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfCardActive,
-                    ]}
-                    onPress={() => handleConfirmAssign({ id: currentLeaderId, name: currentLeaderName, rawName: currentLeaderName })}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.assignSelfTitle, activeSubTask?.assignedToUserId === currentLeaderId && { color: '#0F766E' }]}>
-                        Giao việc này cho chính tôi (Leader)
-                      </Text>
-                      <Text style={styles.assignSelfDesc}>
-                        {activeSubTask?.assignedToUserId === currentLeaderId
-                          ? 'Bạn đang trực tiếp phụ trách việc con này'
-                          : 'Bấm để tự nhận việc và nộp kết quả nghiệm thu'}
-                      </Text>
+                      <View style={styles.reportContentBox}>
+                        <Text style={styles.reportAuthor}>
+                          Người thực hiện: <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{activeSubTask?.assignedToUserName || 'Chưa phân công'}</Text>
+                        </Text>
+                        <Text style={styles.reportText}>
+                          {activeSubTask?.submissionNote || 'Đã gửi báo cáo hoàn thành.'}
+                        </Text>
+                      </View>
                     </View>
-                    <View
-                      style={[
-                        styles.assignSelfBadge,
-                        activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.assignSelfBadgeText,
-                          activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeTextActive,
-                        ]}
-                      >
-                        {activeSubTask?.assignedToUserId === currentLeaderId ? 'ĐÃ CHỌN' : 'TỰ NHẬN'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                  )}
 
-                  <Text style={styles.orDividerText}>— HOẶC CHỌN THÀNH VIÊN TRONG TEAM —</Text>
+                  {/* PHẦN KẾT QUẢ & MINH CHỨNG ĐÍNH KÈM */}
+                  {(Boolean(activeSubTask?.evidenceUrl) || (Boolean(activeSubTask?.evidenceImages) && (activeSubTask?.evidenceImages?.length ?? 0) > 0)) && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>2. Kết Quả & Minh Chứng Đính Kèm</Text>
 
-                  {activeSubTask?.leaderFeedback ? (
-                    <View style={styles.reworkAlertBox}>
-                      <Text style={styles.reworkAlertTitle}>Yêu cầu sửa lại trước đó:</Text>
-                      <Text style={styles.reworkAlertDesc}>{activeSubTask.leaderFeedback}</Text>
-                    </View>
-                  ) : null}
+                      {/* Link file / Drive nếu có */}
+                      {Boolean(activeSubTask?.evidenceUrl) && (
+                        <View style={styles.evidenceItemCard}>
+                          <Text style={styles.evidenceItemLabel}>Tài liệu / Báo cáo chi tiết:</Text>
+                          <Text style={styles.evidenceLinkText} selectable>
+                            {activeSubTask?.evidenceUrl}
+                          </Text>
+                        </View>
+                      )}
 
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Tìm tên nhân sự..."
-                    placeholderTextColor="#94A3B8"
-                    value={searchMemberQuery}
-                    onChangeText={setSearchMemberQuery}
-                  />
-
-                  <View style={styles.memberList}>
-                    {filteredTeamList.map((m) => {
-                      const isCurrent = activeSubTask?.assignedToUserId === m.id;
-                      return (
-                        <TouchableOpacity
-                          key={m.id}
-                          style={[
-                            styles.memberItem,
-                            isCurrent && styles.memberItemActive,
-                            m.isMe && styles.memberItemSelf,
-                          ]}
-                          onPress={() => handleConfirmAssign(m)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Text
-                                style={[
-                                  styles.memberName,
-                                  isCurrent && { color: '#0F766E', fontWeight: 'bold' },
-                                  m.isMe && { fontWeight: 'bold' },
-                                ]}
+                      {/* Ảnh chụp minh chứng nếu có */}
+                      {Boolean(activeSubTask?.evidenceImages && activeSubTask.evidenceImages.length > 0) && (
+                        <View style={styles.evidenceItemCard}>
+                          <Text style={styles.evidenceItemLabel}>Ảnh chụp minh chứng thực tế:</Text>
+                          <View style={styles.imageGrid}>
+                            {activeSubTask?.evidenceImages?.map((imgUri, idx) => (
+                              <TouchableOpacity
+                                key={idx}
+                                onPress={() => setPreviewImage(imgUri)}
+                                activeOpacity={0.8}
                               >
-                                {m.name}
-                              </Text>
-                              {m.isMe && (
-                                <View style={styles.selfTagBadge}>
-                                  <Text style={styles.selfTagBadgeText}>Chính tôi</Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text style={styles.memberRole}>{m.role}</Text>
+                                <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
+                              </TouchableOpacity>
+                            ))}
                           </View>
-                          {isCurrent ? (
-                            <Text style={styles.selectedAssigneeText}>Đã chọn</Text>
-                          ) : null}
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Leader Feedback Input & Review Actions */}
+                  {activeSubTask?.status === 'SUBMITTED' && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>3. Đánh Giá & Nhận Xét Của Leader (Tùy chọn)</Text>
+                      <Text style={styles.sectionBlockSub}>
+                        Ghi nhận xét lưu vào hồ sơ hoặc nêu rõ điểm cần hoàn thiện nếu yêu cầu sửa lại
+                      </Text>
+                      <TextInput
+                        style={styles.formTextArea}
+                        placeholder="Nhập nhận xét đánh giá hoặc hướng dẫn sửa lại..."
+                        placeholderTextColor="#94A3B8"
+                        value={leaderFeedbackText}
+                        onChangeText={setLeaderFeedbackText}
+                        multiline
+                      />
+
+                      <View style={styles.reviewActionsBox}>
+                        <TouchableOpacity
+                          style={styles.approveMainBtn}
+                          onPress={() => handleApproveSubTask(activeSubTask.id)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.approveMainBtnText}>XÁC NHẬN DUYỆT VÒNG 1</Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
+
+                        <TouchableOpacity
+                          style={styles.rejectBtn}
+                          onPress={() => handleRejectSubTask(activeSubTask.id)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.rejectBtnText}>YÊU CẦU BỔ SUNG / SỬA LẠI</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  {activeSubTask?.status === 'LEADER_APPROVED' && (
+                    <View style={styles.approvedNoticeBanner}>
+                      <Text style={styles.approvedNoticeText}>
+                        Leader đã hoàn tất duyệt Vòng 1. Kết quả được lưu vào hồ sơ để Ban Giám Đốc / Admin xét duyệt nâng cấp bậc chính thức tại kỳ họp cuối tháng.
+                      </Text>
+                      {activeSubTask.leaderFeedback ? (
+                        <Text style={styles.approvedFeedbackText}>
+                          Nhận xét của Leader: "{activeSubTask.leaderFeedback}"
+                        </Text>
+                      ) : null}
+                    </View>
+                  )}
+
+                  {/* PHẦN PHÂN CÔNG NHÂN SỰ (Nếu chưa nộp hoặc chưa duyệt) */}
+                  {activeSubTask?.status !== 'SUBMITTED' && activeSubTask?.status !== 'LEADER_APPROVED' && (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionBlockTitle}>
+                        {activeSubTask?.assignedToUserName ? `Đổi Người Thực Hiện (Hiện tại: ${activeSubTask.assignedToUserName}):` : 'Phân Công Người Thực Hiện:'}
+                      </Text>
+
+                      {/* Nút Giao Nhanh Cho Chính Leader */}
+                      <TouchableOpacity
+                        style={[
+                          styles.assignSelfCard,
+                          activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfCardActive,
+                        ]}
+                        onPress={() => handleConfirmAssign({ id: currentLeaderId, name: currentLeaderName, rawName: currentLeaderName })}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.assignSelfTitle, activeSubTask?.assignedToUserId === currentLeaderId && { color: '#0F766E' }]}>
+                            Giao việc này cho chính tôi (Leader)
+                          </Text>
+                          <Text style={styles.assignSelfDesc}>
+                            {activeSubTask?.assignedToUserId === currentLeaderId
+                              ? 'Bạn đang trực tiếp phụ trách việc con này'
+                              : 'Bấm để tự nhận việc và mở form nộp báo cáo'}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.assignSelfBadge,
+                            activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.assignSelfBadgeText,
+                              activeSubTask?.assignedToUserId === currentLeaderId && styles.assignSelfBadgeTextActive,
+                            ]}
+                          >
+                            {activeSubTask?.assignedToUserId === currentLeaderId ? 'ĐÃ CHỌN' : 'TỰ NHẬN'}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <Text style={styles.orDividerText}>— HOẶC CHỌN THÀNH VIÊN TRONG TEAM —</Text>
+
+                      {activeSubTask?.leaderFeedback ? (
+                        <View style={styles.reworkAlertBox}>
+                          <Text style={styles.reworkAlertTitle}>Yêu cầu sửa lại trước đó:</Text>
+                          <Text style={styles.reworkAlertDesc}>{activeSubTask.leaderFeedback}</Text>
+                        </View>
+                      ) : null}
+
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm tên nhân sự..."
+                        placeholderTextColor="#94A3B8"
+                        value={searchMemberQuery}
+                        onChangeText={setSearchMemberQuery}
+                      />
+
+                      <View style={styles.memberList}>
+                        {filteredTeamList.map((m) => {
+                          const isCurrent = activeSubTask?.assignedToUserId === m.id;
+                          return (
+                            <TouchableOpacity
+                              key={m.id}
+                              style={[
+                                styles.memberItem,
+                                isCurrent && styles.memberItemActive,
+                                m.isMe && styles.memberItemSelf,
+                              ]}
+                              onPress={() => handleConfirmAssign(m)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <Text
+                                    style={[
+                                      styles.memberName,
+                                      isCurrent && { color: '#0F766E', fontWeight: 'bold' },
+                                      m.isMe && { fontWeight: 'bold' },
+                                    ]}
+                                  >
+                                    {m.name}
+                                  </Text>
+                                  {m.isMe && (
+                                    <View style={styles.selfTagBadge}>
+                                      <Text style={styles.selfTagBadgeText}>Chính tôi</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text style={styles.memberRole}>{m.role}</Text>
+                              </View>
+                              {isCurrent ? (
+                                <Text style={styles.selectedAssigneeText}>Đã chọn</Text>
+                              ) : null}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+                </>
               )}
             </ScrollView>
           </KeyboardAvoidingView>
@@ -999,6 +1584,173 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#059669',
     fontWeight: '600',
+  },
+  rewardSummaryCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginTop: 12,
+  },
+  rewardSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  rewardSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  rewardCashRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  rewardBadgeMoney: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#059669',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  rewardCashValText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#059669',
+  },
+  rewardCashSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  rewardPhysicalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  rewardBadgeGift: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#D97706',
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  rewardPhysicalValText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  rewardPhysicalSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  rewardNoneText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+  },
+  multiplierBox: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 8,
+  },
+  multiplierToggleBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  multiplierToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  breakdownTable: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  breakdownGuideText: {
+    fontSize: 11,
+    color: '#1E40AF',
+    backgroundColor: '#EFF6FF',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 10,
+    lineHeight: 16,
+  },
+  noParticipantsText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+    paddingVertical: 6,
+  },
+  memberShareRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  memberShareName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  memberLevelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  memberLevelBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  memberShareMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  memberShareAmount: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#059669',
+  },
+  memberShareStatus: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  breakdownFooterNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  breakdownFooterNoticeText: {
+    fontSize: 10.5,
+    color: '#059669',
+    fontWeight: '500',
   },
   acceptBtn: {
     backgroundColor: '#2563EB',
@@ -1683,5 +2435,304 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+
+  /* Form & Submission Styles matching Employee screen */
+  approvedBanner: {
+    backgroundColor: '#ECFDF5',
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  approvedBannerText: {
+    fontSize: 14,
+    color: '#065F46',
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  inputLabel: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  formTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    color: '#0F172A',
+    marginBottom: 14,
+  },
+  photoSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addPhotoBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  addPhotoBtnText: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: 'bold',
+  },
+  imageItemWrapper: {
+    position: 'relative',
+  },
+  removePhotoBtn: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  removePhotoBtnText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  noImagesText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  submitButtonBox: {
+    marginVertical: 16,
+    paddingBottom: 20,
+  },
+  submitMainBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  submitMainBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+
+  /* Section Tabs Styles */
+  sectionTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  sectionTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    gap: 6,
+  },
+  sectionTabBtnActive: {
+    backgroundColor: '#CCFBF1',
+    borderWidth: 1,
+    borderColor: '#0D9488',
+  },
+  sectionTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  sectionTabTextActive: {
+    color: '#0F766E',
+    fontWeight: '700',
+  },
+  sectionTabDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#059669',
+  },
+
+  /* Empty History Box */
+  emptyHistoryBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: '#F8FAFC',
+  },
+  emptyHistoryTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 14,
+    textAlign: 'center',
+  },
+  emptyHistorySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
+  /* Admin Approved Celebration Card */
+  adminApprovedCard: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  adminApprovedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  adminApprovedIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminApprovedBadgeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.5,
+  },
+  adminApprovedSubTitle: {
+    fontSize: 12,
+    color: '#047857',
+    marginTop: 2,
+  },
+  adminApprovedDateText: {
+    fontSize: 11,
+    color: '#059669',
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  adminFeedbackBox: {
+    backgroundColor: '#FFFFFF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#059669',
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 10,
+  },
+  adminFeedbackLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+    marginBottom: 3,
+  },
+  adminFeedbackText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  leaderReportNoteBox: {
+    backgroundColor: '#F0FDF4',
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  leaderReportNoteLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+    marginBottom: 3,
+  },
+  leaderReportNoteText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 18,
+  },
+
+  /* Submit to Admin Action Box */
+  leaderSubmitAdminActionBox: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#FDE68A',
+  },
+  allTasksReadyNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  allTasksReadyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
+    flex: 1,
+  },
+  submitProjectToAdminMainBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    paddingVertical: 12,
+    borderRadius: 10,
+    shadowColor: '#0F766E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  submitProjectToAdminMainBtnHighlight: {
+    backgroundColor: '#059669',
+  },
+  submitProjectToAdminMainBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  submittedToAdminBannerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 14,
+    gap: 10,
+  },
+  submittedToAdminBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  submittedToAdminBannerSub: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 16,
   },
 });

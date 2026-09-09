@@ -10,6 +10,8 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { getVaultWithdrawalRequests } from '../../api/employees.api';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,6 +50,15 @@ export function AdminDashboard() {
       return unwrapData(response) as any;
     }
   });
+
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress'],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || (user as any)?.level || 8;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#D4AF37';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || 'Ban Điều Hành';
 
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
@@ -104,8 +115,8 @@ export function AdminDashboard() {
                 )}
               </View>
               {/* Level Rank Badge on Avatar */}
-              <View style={[styles.avatarLevelBadge, { backgroundColor: '#D4AF37' }]}>
-                <Text style={styles.avatarLevelBadgeText}>8</Text>
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
               </View>
             </Pressable>
 
@@ -115,13 +126,13 @@ export function AdminDashboard() {
                 <Pressable
                   style={[
                     styles.levelPill,
-                    { backgroundColor: '#D4AF3715', borderColor: '#D4AF3740' },
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
                   ]}
                   onPress={() => router.push('/admin/levels' as any)}
                 >
-                  <MaterialCommunityIcons name="crown" size={12} color="#D4AF37" />
-                  <Text style={[styles.levelPillText, { color: '#B45309' }]}>
-                    Lv.8 • Ban Điều Hành
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
                   </Text>
                 </Pressable>
               </View>
@@ -129,19 +140,13 @@ export function AdminDashboard() {
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/admin/notifications')}>
+          <View style={styles.headerRight}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
             </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat')}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#111827" />
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat' as any)}>
+              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>
@@ -354,14 +359,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 28,
+    alignItems: 'center',
+    marginBottom: 24,
     marginTop: 4,
   },
   userInfoWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
   },
   avatarWrapper: {
     position: 'relative',
@@ -401,12 +409,14 @@ const styles = StyleSheet.create({
   userInfo: {
     justifyContent: 'center',
     flex: 1,
+    minWidth: 0,
   },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 2,
+    flexWrap: 'wrap',
   },
   levelPill: {
     flexDirection: 'row',
@@ -426,7 +436,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   userName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: appleTheme.textPrimary,
   },
@@ -434,6 +444,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: appleTheme.hint,
     fontWeight: '500',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
     width: 44,
@@ -445,6 +461,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   notificationBadge: {
     position: 'absolute',
@@ -465,7 +486,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  notificationDot: {
+  badgeDot: {
     position: 'absolute',
     top: 10,
     right: 12,
@@ -473,6 +494,114 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  levelAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  levelAppleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  levelAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  levelAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  levelAppleTitleBlock: {
+    flex: 1,
+  },
+  levelAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelAppleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  levelApplePillTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  levelApplePillTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  levelAppleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  levelAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  levelAppleActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  levelAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  levelAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  levelAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  levelAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  levelAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  levelAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   heroButton: {
     borderRadius: 24,

@@ -29,7 +29,8 @@ import {
   LevelProjectPermissionRequest,
 } from './levelProjectsStore';
 import { useLevelGmv } from './levelGmvStore';
-import { levelingApi } from '../../api/leveling.api';
+import { levelingApi, UserLevelProgressData } from '../../api/leveling.api';
+import { NextLevelPerksAppendixModal } from './NextLevelPerksAppendixModal';
 
 export interface LevelPerkItem {
   id: string;
@@ -463,6 +464,18 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       socket.off('level:data_reset', handleDataReset);
     };
   }, [getSocket, userDeptId, userDeptName, setProjects, fetchProjects, user?.id]);
+
+  const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
+  const [appendixModalVisible, setAppendixModalVisible] = useState(false);
+
+  useEffect(() => {
+    void levelingApi
+      .getMyLevelProgress()
+      .then((data) => {
+        if (data) setProgressData(data);
+      })
+      .catch(() => {});
+  }, []);
 
   const [selectedLevel, setSelectedLevel] = useState<number>(currentUserLevelNumber);
   // Base definition templates for Staff (1 -> 12)
@@ -1084,9 +1097,39 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                 )}
               </View>
 
-              <Text style={styles.projectDescText}>
-                • {currentProjectForTier?.rewardItem ? `Phần thưởng thăng cấp: ${currentProjectForTier.rewardItem}` : selectedTier.projectSub}
-              </Text>
+              {currentProjectForTier?.rewardItem ? (
+                <View style={styles.tierRewardCard}>
+                  <View style={styles.tierRewardHeaderRow}>
+                    <Ionicons name="gift-outline" size={14} color="#B45309" />
+                    <Text style={styles.tierRewardTitle}>Phần thưởng Level & Dự án:</Text>
+                  </View>
+                  <Text style={styles.tierRewardContentText}>
+                    {currentProjectForTier.rewardItem}
+                  </Text>
+                  <Text style={styles.tierRewardNoteText}>
+                    (Tiền mặt tự động phân bổ theo Hệ số Level của cá nhân khi tham gia việc con; Hiện vật lưu giữ chung cho cả đội)
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.projectDescText}>
+                  • {selectedTier.projectSub}
+                </Text>
+              )}
+
+              {/* NEXT LEVEL PERKS & MOTIVATION APPENDIX LINK */}
+              <TouchableOpacity
+                style={styles.openAppendixBtn}
+                onPress={() => setAppendixModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <Ionicons name="document-text-outline" size={16} color="#1E40AF" />
+                  <Text style={styles.openAppendixBtnText} numberOfLines={1}>
+                    Xem Phụ Lục Quyền Lợi & Động Lực Thăng Cấp
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color="#1E40AF" />
+              </TouchableOpacity>
 
               {/* DANH SÁCH VIỆC CON GIAO CHO CÁ NHÂN TẠI LEVEL NÀY */}
               <View style={styles.assignedTasksBlock}>
@@ -1522,11 +1565,35 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* NEXT LEVEL PERKS APPENDIX MODAL */}
+      <NextLevelPerksAppendixModal
+        visible={appendixModalVisible}
+        onClose={() => setAppendixModalVisible(false)}
+        progress={progressData}
+      />
+
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  openAppendixBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  openAppendixBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -2257,10 +2324,37 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  projectLevelTagBadgeText: {
-    fontSize: 11,
+  tierRewardCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  tierRewardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  tierRewardTitle: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#0F766E',
+    color: '#92400E',
+  },
+  tierRewardContentText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#78350F',
+    lineHeight: 18,
+  },
+  tierRewardNoteText: {
+    fontSize: 10.5,
+    color: '#B45309',
+    marginTop: 4,
+    lineHeight: 14,
   },
   assignedTasksBlock: {
     marginTop: 12,

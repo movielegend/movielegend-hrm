@@ -3,8 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../database/prisma.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { PromotionRequestStatus } from '@prisma/client';
+import { NotificationType, PromotionRequestStatus } from '@prisma/client';
 
 const STORAGE_DIR = path.join(process.cwd(), 'storage');
 const CONFIG_STORAGE_FILE = path.join(STORAGE_DIR, 'level_dept_configs.json');
@@ -69,7 +70,17 @@ export interface LevelDepartmentProjectItem {
   projectName: string;
   totalSubTasks: number;
   completedSubTasks: number;
+  status?: 'PENDING_LEADER_ACCEPT' | 'IN_PROGRESS' | 'SUBMITTED_TO_ADMIN' | 'ADMIN_APPROVED';
+  leaderReportNote?: string;
+  leaderReportUrl?: string;
+  adminFeedback?: string;
+  submittedToAdminAt?: string;
+  adminApprovedAt?: string;
   rewardItem?: string;
+  rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID' | 'MULTIPLE';
+  cashAmount?: number;
+  physicalItems?: string[];
+  physicalItemName?: string;
   subTasks: BulletSubTaskItem[];
 }
 
@@ -94,8 +105,32 @@ export class LevelingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly notifications: NotificationsService,
   ) {
     this.loadFromStorage();
+  }
+
+  private async sendLevelNotification(
+    userIds: string[],
+    title: string,
+    body: string,
+    metadata?: any,
+  ) {
+    try {
+      const validUserIds = [...new Set(userIds)].filter(Boolean);
+      if (validUserIds.length === 0) return;
+      const notif = await this.notifications.createForUsers(this.prisma as any, validUserIds, {
+        type: 'SYSTEM' as NotificationType,
+        title,
+        body,
+        metadata,
+      });
+      if (notif) {
+        this.notifications.emitCreated(notif);
+      }
+    } catch (e) {
+      // ignore
+    }
   }
 
   private loadFromStorage() {
@@ -158,47 +193,56 @@ export class LevelingService {
     });
 
     const configMap = new Map(dbConfigs.map((c) => [c.levelNumber, c]));
+    const adminLevels = this.departmentConfigs.get(departmentId) || [];
+    const adminLevelMap = new Map(
+      (Array.isArray(adminLevels) ? adminLevels : []).map((l: any) => [Number(l.levelNumber), l]),
+    );
 
     return STANDARD_LEVELS.map((std) => {
       const custom = configMap.get(std.levelNumber);
+      const adminLvl = adminLevelMap.get(std.levelNumber);
       return {
         levelNumber: std.levelNumber,
         levelName: std.levelName,
         defaultName: std.defaultName,
-        customLevelName: custom?.customLevelName || std.defaultName,
-        displayName: custom?.customLevelName || std.defaultName,
+        customLevelName: custom?.customLevelName || adminLvl?.levelName || std.defaultName,
+        displayName: custom?.customLevelName || adminLvl?.levelName || std.defaultName,
         badgeTitle: custom?.badgeTitle || std.defaultBadge,
         colorHex: std.colorHex,
         minTenureMonths: std.minTenureMonths,
         targetShiftsCount: std.targetShiftsCount,
+        rewardType: adminLvl?.rewardType || 'HYBRID',
+        promotionBonusAmount: adminLvl?.promotionBonusAmount !== undefined ? adminLvl.promotionBonusAmount : (std.levelNumber >= 2 ? (std.levelNumber - 1) * 500000 : 0),
+        physicalItemName: adminLvl?.physicalItemName || (std.levelNumber === 2 ? 'Huy hiệu nhân viên chính thức + Áo đồng phục' : std.levelNumber === 3 ? 'Kỷ niệm chương Senior' : ''),
+        allowanceAmount: adminLvl?.allowanceAmount !== undefined ? adminLvl.allowanceAmount : (std.levelNumber >= 2 ? (std.levelNumber - 1) * 300000 : 0),
+        retentionMultiplier: adminLvl?.retentionMultiplier ?? (1.0 + (std.levelNumber - 1) * 0.2),
+        perks: adminLvl?.perks || [],
+        motivationQuote: adminLvl?.motivationQuote || '',
       };
     });
   }
 
   public async saveDepartmentLevelConfigs(
     departmentId: string,
-    configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>,
+    configs: Array<{
+      levelNumber: number;
+      customLevelName: string;
+      badgeTitle?: string;
+      rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+      promotionBonusAmount?: number;
+      physicalItemName?: string;
+      allowanceAmount?: number;
+      retentionMultiplier?: number;
+      perks?: string[];
+      motivationQuote?: string;
+    }>,
     actor?: AuthenticatedUser,
   ) {
     const dept = await this.prisma.department.findUnique({ where: { id: departmentId } });
     if (!dept) throw new NotFoundException('Phòng ban không tồn tại');
 
     if (actor && !actor.roles.includes('ADMIN') && !actor.roles.includes('SUPER_ADMIN')) {
-      const allowedDepts = actor.scopes
-        .filter((s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId)
-        .map((s) => s.scopeId as string);
-
-      if (allowedDepts.length === 0) {
-        const userDepts = await this.prisma.departmentMember.findMany({
-          where: { userId: actor.userId, leftAt: null },
-          select: { departmentId: true },
-        });
-        userDepts.forEach((d) => allowedDepts.push(d.departmentId));
-      }
-
-      if (!allowedDepts.includes(departmentId)) {
-        throw new ForbiddenException('Bạn không có quyền cấu hình danh xưng cho phòng ban khác');
-      }
+      throw new ForbiddenException('Chỉ Quản trị viên (Admin) mới có quyền cấu hình danh xưng cấp bậc');
     }
 
     const results = await this.prisma.$transaction(
@@ -224,13 +268,55 @@ export class LevelingService {
       ),
     );
 
+    // Merge rewards and perks into departmentConfigs storage
+    const currentAdminLevels = (this.departmentConfigs.get(departmentId) as any[]) || [];
+    const updatedAdminLevels = configs.map((c) => {
+      const existing = currentAdminLevels.find((l: any) => l.levelNumber === c.levelNumber);
+      return {
+        id: existing?.id || `lvl-${c.levelNumber}`,
+        levelNumber: c.levelNumber,
+        levelName: c.customLevelName || `Level ${c.levelNumber}`,
+        colorHex: existing?.colorHex || (STANDARD_LEVELS.find((s) => s.levelNumber === c.levelNumber)?.colorHex || '#2196F3'),
+        rewardType: c.rewardType || existing?.rewardType || 'HYBRID',
+        promotionBonusAmount: c.promotionBonusAmount !== undefined ? c.promotionBonusAmount : (existing?.promotionBonusAmount || 0),
+        physicalItemName: c.physicalItemName !== undefined ? c.physicalItemName : (existing?.physicalItemName || ''),
+        retentionFloorGmv: existing?.retentionFloorGmv || 0,
+        promotionCeilingGmv: existing?.promotionCeilingGmv || 0,
+        retentionMultiplier: c.retentionMultiplier !== undefined ? c.retentionMultiplier : (existing?.retentionMultiplier || 1.0),
+        allowanceAmount: c.allowanceAmount !== undefined ? c.allowanceAmount : (existing?.allowanceAmount || 0),
+        perks: c.perks || existing?.perks || [],
+        motivationQuote: c.motivationQuote || existing?.motivationQuote || '',
+        project: existing?.project || { projectName: '', subTaskBullets: [] },
+      };
+    });
+
+    this.departmentConfigs.set(departmentId, updatedAdminLevels);
+    this.departmentConfigs.set(`${departmentId}_2026`, updatedAdminLevels);
+    if (dept.name) {
+      this.departmentConfigs.set(dept.name, updatedAdminLevels);
+      this.departmentConfigs.set(dept.name.toLowerCase().trim(), updatedAdminLevels);
+      this.departmentConfigs.set(`${dept.name}_2026`, updatedAdminLevels);
+      this.departmentConfigs.set(`${dept.name.toLowerCase().trim()}_2026`, updatedAdminLevels);
+    }
+    this.saveToStorage();
+
     this.realtimeEvents.emitToDepartment(departmentId, 'level:dept_config:updated', {
       departmentId,
       configs: results,
     });
+    this.realtimeEvents.emitToDepartment(departmentId, 'level:config:updated', {
+      departmentId,
+      departmentName: dept.name,
+      levels: updatedAdminLevels,
+    });
     this.realtimeEvents.emitToRoom('level:config_room', 'level:dept_config:updated', {
       departmentId,
       configs: results,
+    });
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:config:updated', {
+      departmentId,
+      departmentName: dept.name,
+      levels: updatedAdminLevels,
     });
 
     return { success: true, count: results.length };
@@ -378,6 +464,196 @@ export class LevelingService {
             createdAt: pendingRequest.createdAt,
           }
         : null,
+      nextLevelPerks: (() => {
+        const DEFAULT_LEVEL_PERKS: Record<
+          number,
+          {
+            bonus: number;
+            gift: string;
+            multiplier: number;
+            allowance: number;
+            perks: string[];
+            quote: string;
+          }
+        > = {
+          1: {
+            bonus: 0,
+            gift: 'Bộ quà hội nhập + Đồng phục thương hiệu',
+            multiplier: 1.0,
+            allowance: 0,
+            perks: ['Đào tạo hội nhập 1-1', 'Tham gia ca làm việc chuẩn', 'Tích lũy ngày công & thâm niên'],
+            quote: 'Bước khởi đầu vững chắc trên hành trình phát triển nghề nghiệp!',
+          },
+          2: {
+            bonus: 500000,
+            gift: 'Bộ Giftset thương hiệu MovieLegend',
+            multiplier: 1.2,
+            allowance: 300000,
+            perks: [
+              'Ký HĐLĐ chính thức',
+              'Hưởng đầy đủ phụ cấp chuyên cần & trách nhiệm',
+              'Mở khóa nhận việc con trong Dự Án Cấp Bậc',
+              'Hệ số thưởng Tết 1.2x',
+            ],
+            quote: 'Khẳng định năng lực chính thức, tự tin bứt phá các mốc mục tiêu!',
+          },
+          3: {
+            bonus: 1500000,
+            gift: 'Tai nghe chụp tai chuyên nghiệp',
+            multiplier: 1.5,
+            allowance: 800000,
+            perks: [
+              'Phụ cấp chuyên môn Senior +800.000đ/tháng',
+              'Ưu tiên lựa chọn ca làm việc linh hoạt',
+              'Được hướng dẫn và hỗ trợ nhân sự Level 1-2',
+              'Hệ số thưởng Tết 1.5x',
+            ],
+            quote: 'Trở thành chuyên viên nòng cốt, dẫn dắt chất lượng chuyên môn toàn ca!',
+          },
+          4: {
+            bonus: 3000000,
+            gift: 'Đồng hồ thông minh Smartwatch',
+            multiplier: 2.0,
+            allowance: 1500000,
+            perks: [
+              'Phụ cấp Key Member +1.500.000đ/tháng',
+              'Tham gia hội đồng nghiệm thu & đánh giá dự án',
+              'Quyền đăng ký làm dự án vượt cấp',
+              'Hệ số thưởng Tết 2.0x',
+            ],
+            quote: 'Nhân tố chủ chốt tạo nên sự đột phá cho phòng ban!',
+          },
+          5: {
+            bonus: 5000000,
+            gift: 'Máy tính bảng iPad / Tablet công việc',
+            multiplier: 2.5,
+            allowance: 3000000,
+            perks: [
+              'Phụ cấp quản trị Team Leader +3.000.000đ/tháng',
+              'Quyền quản lý, phân công và duyệt Vòng 1 cho toàn team',
+              'Tham gia các buổi họp định hướng chiến lược với Ban Giám Đốc',
+              'Hệ số thưởng Tết 2.5x',
+            ],
+            quote: 'Dẫn dắt đội ngũ, kiến tạo thành tích xuất sắc và nâng tầm tập thể!',
+          },
+          6: {
+            bonus: 8000000,
+            gift: 'Laptop doanh nhân mỏng nhẹ cao cấp',
+            multiplier: 3.0,
+            allowance: 5000000,
+            perks: [
+              'Phụ cấp quản lý cấp cao Manager +5.000.000đ/tháng',
+              'Quản lý ngân sách & chỉ tiêu KPI phòng ban',
+              'Quyền đề xuất khen thưởng và bổ nhiệm nhân sự',
+              'Hệ số thưởng Tết 3.0x',
+            ],
+            quote: 'Nhà quản trị tài ba, dẫn dắt sự thịnh vượng và mở rộng quy mô!',
+          },
+          7: {
+            bonus: 15000000,
+            gift: 'Chuyến du lịch nghỉ dưỡng 5 sao trong nước',
+            multiplier: 4.0,
+            allowance: 8000000,
+            perks: [
+              'Tham gia cơ chế phân chia lợi nhuận khối kinh doanh',
+              'Hoạch định chiến lược tăng trưởng toàn diện',
+              'Hệ số thưởng Tết 4.0x',
+            ],
+            quote: 'Tầm nhìn chiến lược, đồng hành cùng Ban Điều Hành định hình tương lai!',
+          },
+          8: {
+            bonus: 25000000,
+            gift: 'Kỷ niệm chương mạ vàng vinh danh Executive trọn đời',
+            multiplier: 5.0,
+            allowance: 12000000,
+            perks: [
+              'Chế độ đãi ngộ đặc biệt cấp Ban Điều Hành',
+              'Quyền biểu quyết các quyết sách trọng yếu của tổ chức',
+              'Hệ số thưởng Tết 5.0x',
+            ],
+            quote: 'Đỉnh cao vinh quang và tầm ảnh hưởng vượt bậc tại MovieLegend!',
+          },
+        };
+
+        const defaultPerk = DEFAULT_LEVEL_PERKS[nextLevelNumber] || DEFAULT_LEVEL_PERKS[8];
+
+        // Check if admin configured custom perks for this department
+        const adminDeptConfigs = departmentId ? this.getAdminDepartmentConfig(departmentId, 2026, primaryDept?.name) : null;
+        const customLevelItem = Array.isArray(adminDeptConfigs) ? adminDeptConfigs.find((l: any) => l.levelNumber === nextLevelNumber) : null;
+
+        const rewardType = customLevelItem?.rewardType || (customLevelItem?.promotionBonusAmount && !customLevelItem?.physicalItemName ? 'CASH' : customLevelItem?.physicalItemName && !customLevelItem?.promotionBonusAmount ? 'PHYSICAL_ITEM' : 'HYBRID');
+
+        let promotionBonusAmount = 0;
+        let physicalItemName = '';
+        let physicalItems: string[] = [];
+
+        if (customLevelItem) {
+          if (rewardType === 'CASH') {
+            promotionBonusAmount = Number(customLevelItem.promotionBonusAmount) || 0;
+            physicalItemName = '';
+            physicalItems = [];
+          } else if (rewardType === 'PHYSICAL_ITEM') {
+            promotionBonusAmount = 0;
+            physicalItemName = customLevelItem.physicalItemName?.trim() || '';
+            physicalItems = physicalItemName ? [physicalItemName] : [];
+          } else {
+            // HYBRID
+            promotionBonusAmount = Number(customLevelItem.promotionBonusAmount) || 0;
+            physicalItemName = customLevelItem.physicalItemName?.trim() || '';
+            physicalItems = physicalItemName ? [physicalItemName] : [];
+          }
+        } else {
+          promotionBonusAmount = defaultPerk.bonus;
+          physicalItemName = defaultPerk.gift;
+          physicalItems = [defaultPerk.gift];
+        }
+
+        const retentionMultiplier = customLevelItem?.retentionMultiplier !== undefined
+          ? Number(customLevelItem.retentionMultiplier)
+          : defaultPerk.multiplier;
+
+        const allowanceAmount = customLevelItem?.allowanceAmount !== undefined
+          ? Number(customLevelItem.allowanceAmount)
+          : (customLevelItem ? 0 : defaultPerk.allowance);
+
+        let perks: string[] = [];
+        if (Array.isArray(customLevelItem?.perks) && customLevelItem.perks.length > 0) {
+          perks = customLevelItem.perks;
+        } else if (customLevelItem) {
+          perks = [
+            `Bổ nhiệm danh xưng chính thức: ${nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`}`,
+            `Mở khóa nhận việc con trong Dự Án Cấp Bậc (Dự Án Lv.${nextLevelNumber})`,
+          ];
+          if (allowanceAmount > 0) {
+            perks.push(`Phụ cấp chuyên môn / chức danh +${allowanceAmount.toLocaleString('vi-VN')}đ/tháng`);
+          }
+          if (retentionMultiplier > 1) {
+            perks.push(`Hệ số tính điểm thưởng Tết ${retentionMultiplier}x`);
+          }
+          if (rewardType === 'CASH' && promotionBonusAmount > 0) {
+            perks.push(`Thưởng nóng thăng cấp ${promotionBonusAmount.toLocaleString('vi-VN')} VNĐ`);
+          } else if (rewardType !== 'CASH' && physicalItemName) {
+            perks.push(`Hiện vật vinh danh: ${physicalItemName}`);
+          }
+        } else {
+          perks = defaultPerk.perks;
+        }
+
+        return {
+          levelNumber: nextLevelNumber,
+          levelName: nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`,
+          displayName: nextConfig?.customLevelName || nextConfig?.defaultName || `Level ${nextLevelNumber}`,
+          colorHex: nextConfig?.colorHex || '#4CAF50',
+          promotionBonusAmount,
+          physicalItemName,
+          physicalItems,
+          retentionMultiplier,
+          allowanceAmount,
+          perks,
+          motivationQuote: customLevelItem?.motivationQuote || defaultPerk.quote,
+          projectName: customLevelItem?.project?.projectName || `Dự Án Level ${nextLevelNumber}`,
+        };
+      })(),
     };
   }
 
@@ -697,7 +973,8 @@ export class LevelingService {
     const y = year || 2026;
     const key1 = `${departmentId}_${y}`;
     const key2 = `${departmentName || ''}_${y}`;
-    return this.departmentConfigs.get(key1) || this.departmentConfigs.get(key2) || null;
+    const key3 = `${(departmentName || '').toLowerCase().trim()}_${y}`;
+    return this.departmentConfigs.get(key1) || this.departmentConfigs.get(key2) || this.departmentConfigs.get(key3) || null;
   }
 
   public saveAdminDepartmentConfig(payload: {
@@ -711,6 +988,7 @@ export class LevelingService {
     this.departmentConfigs.set(configKey, levels);
     if (departmentName) {
       this.departmentConfigs.set(`${departmentName}_${year}`, levels);
+      this.departmentConfigs.set(`${departmentName.toLowerCase().trim()}_${year}`, levels);
     }
 
     const convertedProjects: LevelDepartmentProjectItem[] = levels.map((lvl: any) => {
@@ -718,8 +996,21 @@ export class LevelingService {
       const levelName = lvl.levelName || `Level ${levelNumber}`;
       const projectName =
         lvl.project?.projectName || `Dự Án Level ${levelNumber} - ${departmentName}`;
-      const rewardItem =
-        lvl.physicalItemName || `Thưởng thăng cấp Level ${levelNumber} - ${departmentName}`;
+      const rewardType = lvl.rewardType || (lvl.promotionBonusAmount > 0 && lvl.physicalItemName ? 'HYBRID' : lvl.promotionBonusAmount > 0 ? 'CASH' : 'PHYSICAL_ITEM');
+      const cashAmount = Number(lvl.promotionBonusAmount || lvl.cashAmount || 0);
+      const physicalItemName = lvl.physicalItemName || '';
+      const physicalItems = Array.isArray(lvl.physicalItems) ? lvl.physicalItems : (physicalItemName ? [physicalItemName] : []);
+
+      let rewardSummaryParts: string[] = [];
+      if (cashAmount > 0) {
+        rewardSummaryParts.push(`💵 ${cashAmount.toLocaleString('vi-VN')} VNĐ (Chia theo hệ số Level)`);
+      }
+      if (physicalItems.length > 0) {
+        rewardSummaryParts.push(`🎁 ${physicalItems.join(', ')} (Hiện vật chung)`);
+      }
+      const rewardItem = rewardSummaryParts.length > 0
+        ? rewardSummaryParts.join(' + ')
+        : (lvl.rewardItem || `Thưởng thăng cấp Level ${levelNumber} - ${departmentName}`);
 
       const rawBullets: string[] =
         Array.isArray(lvl.project?.subTaskBullets) && lvl.project.subTaskBullets.length > 0
@@ -744,7 +1035,7 @@ export class LevelingService {
           id: subTaskId,
           orderNumber: idx + 1,
           title: cleanTitle,
-          targetKpi: 'Nghiệm thu đạt chuẩn 100%',
+          targetKpi: '',
           status: existingSub?.status || 'PENDING',
           assignedUserId: existingSub?.assignedUserId,
           assignedUserName: existingSub?.assignedUserName,
@@ -768,7 +1059,17 @@ export class LevelingService {
         projectName,
         totalSubTasks: subTasks.length,
         completedSubTasks: completedCount,
+        status: existingProject?.status || 'IN_PROGRESS',
+        leaderReportNote: existingProject?.leaderReportNote,
+        leaderReportUrl: existingProject?.leaderReportUrl,
+        adminFeedback: existingProject?.adminFeedback,
+        submittedToAdminAt: existingProject?.submittedToAdminAt,
+        adminApprovedAt: existingProject?.adminApprovedAt,
         rewardItem,
+        rewardType,
+        cashAmount,
+        physicalItems,
+        physicalItemName,
         subTasks,
       };
     });
@@ -807,6 +1108,26 @@ export class LevelingService {
       projects: convertedProjects,
     });
 
+    // Notify department members about updated project configuration
+    if (departmentId) {
+      this.prisma.departmentMember.findMany({
+        where: { departmentId, leftAt: null },
+        select: { userId: true },
+      }).then((members) => {
+        const memberIds = members.map((m) => m.userId);
+        void this.sendLevelNotification(
+          memberIds,
+          'Dự án cấp bậc mới được cập nhật 🏆',
+          `Ban Giám Đốc đã cập nhật cấu hình dự án và danh mục công việc cho phòng ${departmentName || 'ban'}.`,
+          {
+            type: 'LEVEL_CONFIG_UPDATED',
+            departmentId,
+            departmentName,
+          }
+        );
+      }).catch(() => {});
+    }
+
     return { success: true, count: convertedProjects.length, departmentName };
   }
 
@@ -823,27 +1144,11 @@ export class LevelingService {
         return this.departmentProjects.get(lower)!;
       }
     }
-    return this.projects;
+    return [];
   }
 
   public getProjects(departmentId?: string, departmentName?: string): LevelDepartmentProjectItem[] {
-    const list = this.findProjectList(departmentId, departmentName);
-    if (list === this.projects && departmentName && departmentName !== 'Phòng Livestream TikTok') {
-      return Array.from({ length: 8 }, (_, i) => {
-        const lvlNum = i + 1;
-        return {
-          levelNumber: lvlNum,
-          levelName: `Level ${lvlNum}`,
-          departmentName: departmentName,
-          projectName: `Dự Án Level ${lvlNum}`,
-          totalSubTasks: 0,
-          completedSubTasks: 0,
-          rewardItem: '',
-          subTasks: [],
-        };
-      });
-    }
-    return list;
+    return this.findProjectList(departmentId, departmentName);
   }
 
   public getProjectByLevel(
@@ -875,6 +1180,23 @@ export class LevelingService {
     subTask.assignedUserId = assignedUserId;
     subTask.assignedUserName = assignedUserName;
     this.saveToStorage();
+
+    // Notify assigned employee
+    if (assignedUserId) {
+      void this.sendLevelNotification(
+        [assignedUserId],
+        'Giao việc dự án mới 📋',
+        `Bạn vừa được giao đầu việc "${subTask.title}" thuộc ${project.projectName || project.levelName}.`,
+        {
+          type: 'LEVEL_PROJECT_ASSIGNED',
+          levelNumber,
+          subTaskId,
+          departmentId,
+          departmentName,
+        }
+      );
+    }
+
     return { success: true, subTask };
   }
 
@@ -900,6 +1222,28 @@ export class LevelingService {
     subTask.evidenceImages = evidenceImages;
     subTask.submittedAt = new Date().toISOString();
     this.saveToStorage();
+
+    // Notify Leader and Admins
+    this.prisma.userRole.findMany({
+      where: {
+        role: { code: { in: ['LEADER', 'ADMIN'] } },
+      },
+      select: { userId: true },
+    }).then((roleHolders) => {
+      const targetUserIds = [...new Set(roleHolders.map((r) => r.userId))];
+      void this.sendLevelNotification(
+        targetUserIds,
+        'Nhân sự nộp báo cáo dự án 📑',
+        `${subTask.assignedUserName || 'Nhân sự'} đã nộp báo cáo việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
+        {
+          type: 'LEVEL_PROJECT_SUBMITTED',
+          levelNumber,
+          subTaskId,
+          departmentId,
+          departmentName,
+        }
+      );
+    }).catch(() => {});
 
     return { success: true, subTask };
   }
@@ -928,7 +1272,183 @@ export class LevelingService {
     ).length;
     this.saveToStorage();
 
+    // Notify assigned employee about approval or rework
+    if (subTask.assignedUserId) {
+      if (status === 'LEADER_APPROVED') {
+        void this.sendLevelNotification(
+          [subTask.assignedUserId],
+          'Duyệt hoàn thành việc con 🎉',
+          `Leader ${reviewerName || ''} đã duyệt Vòng 1 việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
+          {
+            type: 'LEVEL_PROJECT_APPROVED',
+            levelNumber,
+            subTaskId,
+            departmentId,
+            departmentName,
+          }
+        );
+      } else {
+        void this.sendLevelNotification(
+          [subTask.assignedUserId],
+          'Yêu cầu bổ sung báo cáo ⚠️',
+          `Leader yêu cầu bạn kiểm tra và sửa lại báo cáo việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
+          {
+            type: 'LEVEL_PROJECT_REWORK',
+            levelNumber,
+            subTaskId,
+            departmentId,
+            departmentName,
+          }
+        );
+      }
+    }
+
     return { success: true, subTask, completedSubTasks: project.completedSubTasks };
+  }
+
+  public submitProjectToAdmin(
+    levelNumber: number,
+    leaderReportNote: string,
+    leaderReportUrl?: string,
+    departmentId?: string,
+    departmentName?: string,
+  ) {
+    const list = this.findProjectList(departmentId, departmentName);
+    const project = list.find((p) => p.levelNumber === levelNumber);
+    if (!project) throw new NotFoundException(`Project Level ${levelNumber} not found`);
+
+    project.status = 'SUBMITTED_TO_ADMIN';
+    project.leaderReportNote = leaderReportNote;
+    project.leaderReportUrl = leaderReportUrl;
+    project.submittedToAdminAt = new Date().toISOString();
+    this.saveToStorage();
+
+    // Realtime broadcast
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:project_submitted_to_admin', {
+      departmentId,
+      departmentName,
+      levelNumber,
+      projectName: project.projectName,
+      leaderReportNote,
+    });
+
+    // Notify Admins
+    this.prisma.userRole.findMany({
+      where: {
+        role: { code: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+      },
+      select: { userId: true },
+    }).then((roleHolders) => {
+      const targetUserIds = [...new Set(roleHolders.map((r) => r.userId))];
+      void this.sendLevelNotification(
+        targetUserIds,
+        'Nghiệm thu dự án cấp bậc 📑',
+        `Trưởng bộ phận phòng ${departmentName || project.departmentName || 'ban'} đã nộp báo cáo nghiệm thu dự án "${project.projectName || project.levelName}". Vui lòng kiểm tra và phê duyệt!`,
+        {
+          type: 'LEVEL_PROJECT_SUBMITTED_TO_ADMIN',
+          levelNumber,
+          departmentId,
+          departmentName,
+        }
+      );
+    }).catch(() => {});
+
+    return { success: true, project };
+  }
+
+  public adminReviewProject(
+    levelNumber: number,
+    status: 'ADMIN_APPROVED' | 'IN_PROGRESS',
+    adminFeedback?: string,
+    departmentId?: string,
+    departmentName?: string,
+    reviewerName?: string,
+  ) {
+    const list = this.findProjectList(departmentId, departmentName);
+    const project = list.find((p) => p.levelNumber === levelNumber);
+    if (!project) throw new NotFoundException(`Project Level ${levelNumber} not found`);
+
+    project.status = status;
+    project.adminFeedback = adminFeedback;
+    if (status === 'ADMIN_APPROVED') {
+      project.adminApprovedAt = new Date().toISOString();
+      project.subTasks.forEach((st) => {
+        st.status = 'ADMIN_APPROVED';
+      });
+      project.completedSubTasks = project.subTasks.length;
+    } else {
+      project.submittedToAdminAt = undefined;
+    }
+
+    if (departmentId) {
+      this.departmentProjects.set(departmentId, list);
+    }
+    if (departmentName) {
+      this.departmentProjects.set(departmentName, list);
+      this.departmentProjects.set(departmentName.toLowerCase().trim(), list);
+    }
+
+    // Also update departmentConfigs cache if exists
+    const configKey = departmentId ? `${departmentId}_2026` : undefined;
+    if (configKey && this.departmentConfigs.has(configKey)) {
+      const levels = this.departmentConfigs.get(configKey) || [];
+      const lvl = levels.find((l: any) => Number(l.levelNumber) === levelNumber);
+      if (lvl) {
+        if (!lvl.project) lvl.project = {};
+        lvl.project.status = status;
+        lvl.project.adminApprovedAt = project.adminApprovedAt;
+        lvl.project.adminFeedback = project.adminFeedback;
+      }
+    }
+
+    this.saveToStorage();
+
+    // Realtime broadcast
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:project_admin_reviewed', {
+      departmentId,
+      departmentName,
+      levelNumber,
+      projectName: project.projectName,
+      status,
+      adminFeedback,
+    });
+
+    // Notify Department Members & Leader
+    if (departmentId) {
+      this.prisma.departmentMember.findMany({
+        where: { departmentId, leftAt: null },
+        select: { userId: true },
+      }).then((members) => {
+        const memberIds = members.map((m) => m.userId);
+        if (status === 'ADMIN_APPROVED') {
+          void this.sendLevelNotification(
+            memberIds,
+            'Nghiệm thu dự án thành công 🏆🎉',
+            `Ban Giám Đốc (${reviewerName || 'Admin'}) đã chính thức phê duyệt nghiệm thu dự án "${project.projectName || project.levelName}" cho phòng ${departmentName || project.departmentName}!`,
+            {
+              type: 'LEVEL_PROJECT_ADMIN_APPROVED',
+              levelNumber,
+              departmentId,
+              departmentName,
+            }
+          );
+        } else {
+          void this.sendLevelNotification(
+            memberIds,
+            'Yêu cầu bổ sung/chỉnh sửa dự án ⚠️',
+            `Ban Giám Đốc yêu cầu hoàn thiện lại dự án "${project.projectName || project.levelName}": ${adminFeedback || 'Vui lòng kiểm tra lại các đầu việc con'}`,
+            {
+              type: 'LEVEL_PROJECT_ADMIN_REJECTED',
+              levelNumber,
+              departmentId,
+              departmentName,
+            }
+          );
+        }
+      }).catch(() => {});
+    }
+
+    return { success: true, project };
   }
 
   public clearAllData() {
@@ -964,6 +1484,18 @@ export class LevelingService {
       targetLevelNumber: levelNumber,
       targetLevelName: `Level ${levelNumber}`,
     });
+
+    // Notify user about promotion
+    void this.sendLevelNotification(
+      [userId],
+      'Chúc mừng thăng cấp bậc mới 🌟🎖️',
+      `Bạn đã được xét duyệt nâng lên Level ${levelNumber} thành công!`,
+      {
+        type: 'LEVEL_PROMOTED',
+        levelNumber,
+      }
+    );
+
     return { success: true, userId, levelNumber };
   }
 }

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
@@ -10,6 +10,9 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { getMyVault } from '../../api/employees.api';
+import { getNextVaultMilestone } from '../vault/vault-utils';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
 import { ContourHeroPattern } from './components/ContourHeroPattern';
@@ -60,9 +63,22 @@ export function HRDashboard() {
     queryFn: getMyVault,
   });
 
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress'],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 5;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#FF9800';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || `Cấp ${currentLevelNumber}`;
+
   const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
   const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
   const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
+
+  const vaultMilestone = useMemo(() => {
+    return getNextVaultMilestone(myVault, new Date());
+  }, [myVault]);
 
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
@@ -102,32 +118,50 @@ export function HRDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={styles.avatar}>
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-              )}
-            </View>
+            <Pressable 
+              style={styles.avatarWrapper}
+              onPress={() => router.push('/hr/leveling' as any)}
+            >
+              <View style={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </View>
+              {/* Level Rank Badge on Avatar */}
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+              </View>
+            </Pressable>
+
             <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName || 'HR Manager'}</Text>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <Pressable
+                  style={[
+                    styles.levelPill,
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
+                  ]}
+                  onPress={() => router.push('/hr/leveling' as any)}
+                >
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'HR Manager'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/(tabs)/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
+              {unreadCount > 0 && <View style={styles.badgeDot} />}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/chat' as any)}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#111827" />
+              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
             </Pressable>
           </View>
         </View>
@@ -182,33 +216,142 @@ export function HRDashboard() {
           </View>
         </Pressable>
 
-        {/* Banner Ví Thưởng Tết & Nhân Tài (Hiển thị nổi bật khi được mở quyền) */}
-        {isVaultEnabled && (
-          <Pressable
-            style={styles.vaultBanner}
-            onPress={() => router.push('/employee/vault' as any)}
-          >
-            <View style={styles.vaultBannerLeft}>
-              <View style={styles.vaultBannerIconWrap}>
-                <MaterialCommunityIcons name="gift" size={24} color="#D97706" />
+        {/* Banner Cấp Bậc & Lộ Trình (Phong cách Apple UI tinh tế, sang trọng) */}
+        <Pressable
+          style={styles.levelAppleCard}
+          onPress={() => router.push('/hr/leveling' as any)}
+        >
+          {/* Top Section */}
+          <View style={styles.levelAppleHeaderRow}>
+            <View style={styles.levelAppleLeft}>
+              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
+                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
               </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.vaultBannerTitle}>Ví Thưởng</Text>
-                  <View style={styles.vipBadge}>
-                    <Text style={styles.vipBadgeText}>VIP</Text>
+              <View style={styles.levelAppleTitleBlock}>
+                <View style={styles.levelAppleBadgeRow}>
+                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
+                    Level {currentLevelNumber}: {levelTitle}
+                  </Text>
+                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
+                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
+                      Lv.{currentLevelNumber}
+                    </Text>
                   </View>
                 </View>
-                <Text style={styles.vaultBannerPoints}>
-                  Khả dụng: <Text style={styles.vaultBannerPointsBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                  {totalGrantedPoints > 0 ? ` • Quỹ tích lũy: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                <Text style={styles.levelAppleSubtitle}>
+                  {levelProgress?.nextLevel
+                    ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                    : 'Cấp bậc danh dự tối cao'}
                 </Text>
               </View>
             </View>
-            <View style={styles.vaultBannerRight}>
-              <Text style={styles.vaultBannerActionText}>Mở ví</Text>
-              <MaterialCommunityIcons name="chevron-right" size={18} color="#D97706" />
+
+            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
+              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Lộ trình</Text>
+              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
             </View>
+          </View>
+
+          {/* Full-width elegant progress bar */}
+          <View style={styles.levelAppleProgressContainer}>
+            <View style={styles.levelAppleProgressTrack}>
+              <View
+                style={[
+                  styles.levelAppleProgressFill,
+                  {
+                    width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                    backgroundColor: levelColor,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.levelAppleProgressFooter}>
+              <Text style={styles.levelAppleProgressFooterText}>
+                {levelProgress?.nextLevel
+                  ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
+                  : 'Đã hoàn thành toàn bộ lộ trình cấp bậc'}
+              </Text>
+              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
+                {levelProgress?.overallProgressPercent || 0}%
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Banner Ví Thưởng & Vạch thời gian đếm ngược đến hạn rút (Hiển thị nổi bật khi được trao điểm/mở quyền) */}
+        {isVaultEnabled && (
+          <Pressable
+            style={styles.vaultAppleCard}
+            onPress={() => router.push('/employee/vault' as any)}
+          >
+            {/* Top Section */}
+            <View style={styles.vaultAppleHeaderRow}>
+              <View style={styles.vaultAppleLeft}>
+                <View style={styles.vaultAppleIconCircle}>
+                  <MaterialCommunityIcons name="gift" size={22} color="#D97706" />
+                </View>
+                <View style={styles.vaultAppleTitleBlock}>
+                  <View style={styles.vaultAppleBadgeRow}>
+                    <Text style={styles.vaultAppleTitle} numberOfLines={1}>
+                      Ví Thưởng Tích Lũy
+                    </Text>
+                    <View style={styles.vaultAppleVipBadge}>
+                      <Text style={styles.vaultAppleVipBadgeText}>VIP</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.vaultAppleSubtitle}>
+                    Khả dụng: <Text style={styles.vaultAppleSubtitleBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                    {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.vaultAppleActionBtn}>
+                <Text style={styles.vaultAppleActionText}>Mở ví</Text>
+                <MaterialCommunityIcons name="chevron-right" size={14} color="#92400E" />
+              </View>
+            </View>
+
+            {/* Vạch thời gian & Đếm ngược đến hạn rút */}
+            {vaultMilestone ? (
+              <View style={styles.vaultAppleProgressContainer}>
+                <View style={styles.vaultAppleProgressTrack}>
+                  <View
+                    style={[
+                      styles.vaultAppleProgressFill,
+                      {
+                        width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
+                        backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706',
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.vaultAppleProgressFooter}>
+                  <View style={styles.vaultAppleProgressFooterLeft}>
+                    <MaterialCommunityIcons
+                      name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
+                      size={13}
+                      color={vaultMilestone.isAllUnlocked ? '#059669' : '#D97706'}
+                    />
+                    <Text style={styles.vaultAppleProgressFooterText}>
+                      {vaultMilestone.isAllUnlocked
+                        ? 'Đã mở khóa tất cả các đợt rút'
+                        : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.vaultAppleProgressFooterPercent,
+                      { color: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706' },
+                    ]}
+                  >
+                    {vaultMilestone.isAllUnlocked
+                      ? '100% Hoàn tất'
+                      : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </Pressable>
         )}
 
@@ -220,7 +363,7 @@ export function HRDashboard() {
               icon="star-circle-outline" 
               title="Cấp của bạn" 
               color="#F59E0B" 
-              onPress={() => router.push('/leader/leveling' as any)} 
+              onPress={() => router.push('/hr/leveling' as any)} 
             />
             <GridItem 
               icon="briefcase-outline" 
@@ -240,7 +383,7 @@ export function HRDashboard() {
               icon="clipboard-check-outline" 
               title="Duyệt level" 
               color="#8B5CF6" 
-              onPress={() => router.push('/employee/competition/review' as any)} 
+              onPress={() => router.push('/hr/leveling' as any)} 
             />
             <GridItem 
               icon="history" 
@@ -508,14 +651,20 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xl,
+    alignItems: 'center',
+    marginBottom: 24,
     marginTop: 4,
   },
   userInfoWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
+  },
+  avatarWrapper: {
+    position: 'relative',
   },
   avatar: {
     width: 56,
@@ -525,6 +674,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+    paddingHorizontal: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  avatarLevelBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
+  },
   avatarText: {
     fontSize: 24,
     fontWeight: '700',
@@ -532,21 +705,49 @@ const styles = StyleSheet.create({
   },
   userInfo: {
     justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+    flexWrap: 'wrap',
+  },
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
   },
   userName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: appleTheme.textPrimary,
+    marginBottom: 2,
   },
   dateText: {
     fontSize: 12,
     color: appleTheme.hint,
     fontWeight: '500',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
     width: 44,
@@ -558,6 +759,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   notificationBadge: {
     position: 'absolute',
@@ -577,6 +783,123 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  levelAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  levelAppleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  levelAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  levelAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  levelAppleTitleBlock: {
+    flex: 1,
+  },
+  levelAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelAppleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  levelApplePillTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  levelApplePillTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  levelAppleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  levelAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  levelAppleActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  levelAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  levelAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  levelAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  levelAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  levelAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  levelAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   heroButton: {
     borderRadius: 24,
@@ -637,64 +960,129 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  vaultBanner: {
+  vaultAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  vaultAppleHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  vaultAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  vaultAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FEF3C7',
-    borderRadius: 20,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
-  vaultBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  vaultAppleTitleBlock: {
     flex: 1,
   },
-  vaultBannerIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FDE68A',
+  vaultAppleBadgeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 2,
   },
-  vaultBannerTitle: {
+  vaultAppleTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#92400E',
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
   },
-  vipBadge: {
+  vaultAppleVipBadge: {
     backgroundColor: '#D97706',
     paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingVertical: 1.5,
     borderRadius: 6,
   },
-  vipBadgeText: {
+  vaultAppleVipBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  vaultBannerPoints: {
+  vaultAppleSubtitle: {
     fontSize: 12,
-    color: '#B45309',
+    color: '#64748B',
+    fontWeight: '500',
   },
-  vaultBannerPointsBold: {
-    fontWeight: '700',
-    color: '#92400E',
+  vaultAppleSubtitleBold: {
+    fontWeight: '800',
+    color: '#059669',
   },
-  vaultBannerRight: {
+  vaultAppleActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
-  vaultBannerActionText: {
-    fontSize: 13,
+  vaultAppleActionText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#D97706',
+    color: '#92400E',
+  },
+  vaultAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+  },
+  vaultAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  vaultAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  vaultAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  vaultAppleProgressFooterLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  vaultAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '500',
+  },
+  vaultAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   section: {
     marginBottom: spacing.lg,

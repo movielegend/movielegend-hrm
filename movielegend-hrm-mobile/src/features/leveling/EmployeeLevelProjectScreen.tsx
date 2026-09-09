@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/AuthProvider';
 import {
@@ -21,6 +22,7 @@ import {
   BulletSubTask,
   LevelDepartmentProject,
 } from './levelProjectsStore';
+import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 
 export const EmployeeLevelProjectScreen: React.FC = () => {
   const { user } = useAuth();
@@ -97,6 +99,21 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
     Alert.alert('Thành Công', 'Đã nộp báo cáo và minh chứng cho Leader duyệt Vòng 1.');
   };
 
+  const userLevel = (user as any)?.profile?.currentLevelNumber || (user as any)?.currentLevelNumber || 1;
+  const userMultiplier =
+    userLevel <= 1 ? 1.0 : userLevel === 2 ? 1.5 : userLevel === 3 ? 2.0 : userLevel === 4 ? 2.5 : userLevel === 5 ? 3.0 : userLevel === 6 ? 3.5 : userLevel === 7 ? 4.0 : 5.0;
+
+  // Distinct projects the employee is participating in
+  const involvedProjects = useMemo(() => {
+    const map = new Map<number, LevelDepartmentProject>();
+    assignedItems.forEach((item) => {
+      if (!map.has(item.project.levelNumber)) {
+        map.set(item.project.levelNumber, item.project);
+      }
+    });
+    return Array.from(map.values());
+  }, [assignedItems]);
+
   const totalTasks = assignedItems.length;
   const approvedTasks = assignedItems.filter((i) => i.subTask.status === 'LEADER_APPROVED').length;
   const progressPercent = totalTasks > 0 ? Math.round((approvedTasks / totalTasks) * 100) : 0;
@@ -126,6 +143,78 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
             <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
           </View>
         </View>
+
+        {/* EMPLOYEE PROJECT REWARDS SUMMARY CARD */}
+        {involvedProjects.map((proj) => {
+          const cashPool = proj.cashAmount || (proj.rewardItem ? Number(proj.rewardItem.replace(/\./g, '').match(/(\d+)\s*VNĐ/i)?.[1] || 0) : 0);
+          const physicalItems = proj.physicalItems || (proj.physicalItemName ? [proj.physicalItemName] : []);
+
+          // Calculate total team weight in this project
+          let totalWeight = 0;
+          const assignedUserIds = new Set<string>();
+          (proj.subTasks || []).forEach((st) => {
+            if (st.assignedToUserId && !assignedUserIds.has(st.assignedToUserId)) {
+              assignedUserIds.add(st.assignedToUserId);
+              const uWeight = st.assignedToUserId === currentUserId ? userMultiplier : 1.5;
+              totalWeight += uWeight;
+            }
+          });
+          if (totalWeight === 0) totalWeight = userMultiplier;
+
+          const estimatedCashShare = cashPool > 0 ? Math.round((userMultiplier / totalWeight) * cashPool) : 0;
+          const userColor = LEVEL_COLORS[userLevel] || '#2196F3';
+
+          return (
+            <View key={proj.id} style={styles.projectRewardCard}>
+              <View style={styles.projectRewardHeaderRow}>
+                <View style={styles.projectRewardTitleGroup}>
+                  <Ionicons name="gift" size={16} color="#D97706" />
+                  <Text style={styles.projectRewardTitle}>Phần Thưởng {proj.levelName}</Text>
+                </View>
+                <View style={[styles.levelBadgeMini, { backgroundColor: userColor }]}>
+                  <Text style={styles.levelBadgeMiniText}>Cấp của bạn: Lv.{userLevel} ({userMultiplier}x)</Text>
+                </View>
+              </View>
+
+              {cashPool > 0 && (
+                <View style={styles.cashRewardSection}>
+                  <View style={styles.cashRewardRow}>
+                    <Text style={styles.cashRewardLabel}>Quỹ tiền mặt dự án:</Text>
+                    <Text style={styles.cashRewardTotal}>{cashPool.toLocaleString('vi-VN')} VNĐ</Text>
+                  </View>
+
+                  <View style={styles.userShareBox}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.userShareTitle}>Ước tính phần của bạn:</Text>
+                      <Text style={styles.userShareSub}>
+                        Hệ số Level {userLevel} ({userMultiplier}x) • Tự động phân bổ
+                      </Text>
+                    </View>
+                    <Text style={styles.userShareAmount}>
+                      💵 {estimatedCashShare.toLocaleString('vi-VN')} đ
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {physicalItems.length > 0 && (
+                <View style={styles.physicalRewardSection}>
+                  <Text style={styles.physicalRewardLabel}>Quà hiện vật chung của team:</Text>
+                  <Text style={styles.physicalRewardItems}>
+                    🎁 {physicalItems.join(' • ')}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.rewardNoticeRow}>
+                <Ionicons name="information-circle-outline" size={13} color="#059669" />
+                <Text style={styles.rewardNoticeText}>
+                  Phần thưởng hiển thị trên hồ sơ cấp bậc (không tự động chuyển vào ví).
+                </Text>
+              </View>
+            </View>
+          );
+        })}
 
         {/* Assigned Subtasks List */}
         <View style={styles.listContainer}>
@@ -228,22 +317,27 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
               automaticallyAdjustKeyboardInsets={true}
               keyboardDismissMode="interactive"
             >
-              {/* KPI Requirements Card */}
-              {activeItem?.subTask.targetKpi ? (
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiCardLabel}>Chỉ tiêu KPI yêu cầu:</Text>
-                  <Text style={styles.kpiCardValue}>{activeItem.subTask.targetKpi}</Text>
-                  {activeItem.subTask.description ? (
-                    <Text style={styles.kpiCardDesc}>{activeItem.subTask.description}</Text>
-                  ) : null}
-                </View>
-              ) : null}
+
 
               {/* Approved Status Banner */}
               {activeItem?.subTask.status === 'LEADER_APPROVED' && (
                 <View style={styles.approvedBanner}>
                   <Text style={styles.approvedBannerText}>
                     Leader đã duyệt Vòng 1. Kết quả đang chờ Ban Giám Đốc / Admin xét duyệt nâng cấp bậc tại kỳ họp cuối tháng.
+                  </Text>
+                </View>
+              )}
+
+              {/* Leader Feedback / Rework Notice */}
+              {Boolean(activeItem?.subTask.leaderFeedback) && activeItem?.subTask.status !== 'LEADER_APPROVED' && (
+                <View style={styles.leaderFeedbackBox}>
+                  <View style={styles.leaderFeedbackHeader}>
+                    <Ionicons name="chatbubble-ellipses" size={16} color="#DC2626" />
+                    <Text style={styles.leaderFeedbackTitle}>Yêu Cầu Sửa / Bổ Sung Từ Leader:</Text>
+                  </View>
+                  <Text style={styles.leaderFeedbackText}>"{activeItem?.subTask.leaderFeedback}"</Text>
+                  <Text style={styles.leaderFeedbackGuide}>
+                    Vui lòng điều chỉnh lại báo cáo, hình ảnh hoặc link tài liệu bên dưới rồi bấm "Cập Nhật Báo Cáo" để gửi lại Leader.
                   </Text>
                 </View>
               )}
@@ -408,10 +502,113 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: 'hidden',
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#059669',
-    borderRadius: 3,
+  projectRewardCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 12,
+  },
+  projectRewardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  projectRewardTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  projectRewardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  levelBadgeMini: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  levelBadgeMiniText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  cashRewardSection: {
+    marginBottom: 6,
+  },
+  cashRewardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  cashRewardLabel: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  cashRewardTotal: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  userShareBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    padding: 8,
+    gap: 8,
+  },
+  userShareTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  userShareSub: {
+    fontSize: 10,
+    color: '#047857',
+    marginTop: 1,
+  },
+  userShareAmount: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#047857',
+  },
+  physicalRewardSection: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 6,
+  },
+  physicalRewardLabel: {
+    fontSize: 10.5,
+    color: '#92400E',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  physicalRewardItems: {
+    fontSize: 12,
+    color: '#78350F',
+    fontWeight: '600',
+  },
+  rewardNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  rewardNoticeText: {
+    fontSize: 10,
+    color: '#059669',
+    fontStyle: 'italic',
   },
   listContainer: {
     marginTop: 4,
@@ -715,5 +912,36 @@ const styles = StyleSheet.create({
   fullPreviewImage: {
     width: '100%',
     height: '75%',
+  },
+  leaderFeedbackBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+  },
+  leaderFeedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  leaderFeedbackTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  leaderFeedbackText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  leaderFeedbackGuide: {
+    fontSize: 11,
+    color: '#7F1D1D',
+    lineHeight: 16,
   },
 });

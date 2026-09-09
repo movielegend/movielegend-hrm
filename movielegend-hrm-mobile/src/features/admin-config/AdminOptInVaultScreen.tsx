@@ -61,7 +61,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     );
     Alert.alert(
       'Cấp Quỹ Thưởng Thành Công!',
-      `Đã cấp Quỹ Thưởng Giữ Chân ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) mở khóa 25%/Quý cho ${grantingUser.name}.`,
+      `Đã cấp Quỹ Thưởng Đồng Hành ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) mở khóa 25%/Quý cho ${grantingUser.name}.`,
       [{ text: 'Đóng', onPress: () => setGrantingUser(null) }]
     );
   };
@@ -73,7 +73,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
         {/* Executive Header Card */}
         <View style={styles.executiveHeaderCard}>
           <Text style={styles.title}>Quản Lý Cấp Quyền Ví Thưởng</Text>
-          <Text style={styles.sub}>Kích hoạt tính năng Opt-in & Cấp Quỹ Thưởng Giữ Chân Nhân Tài</Text>
+          <Text style={styles.sub}>Kích hoạt tính năng Opt-in & Cấp Quỹ Thưởng Đồng Hành & Cống Hiến</Text>
         </View>
 
         <Text style={styles.sectionHeaderTitle}>DANH SÁCH NHÂN SỰ CỐT CÁN:</Text>
@@ -108,7 +108,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
               </View>
             ) : (
               <View style={styles.vaultDisabledBox}>
-                <Text style={styles.vaultDisabledText}>Chưa bật đặc quyền Ví Điểm Tết</Text>
+                <Text style={styles.vaultDisabledText}>Chưa bật đặc quyền Ví Điểm Thưởng</Text>
                 <TouchableOpacity style={styles.enableBtn} onPress={() => { setGrantingUser(u); setPointsToGrant('50000'); }}>
                   <Text style={styles.enableBtnText}>Bật & Cấp Quỹ</Text>
                 </TouchableOpacity>
@@ -125,7 +125,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cấp Quỹ Thưởng Giữ Chân</Text>
+              <Text style={styles.modalTitle}>Cấp Quỹ Thưởng Đồng Hành & Cống Hiến</Text>
               <TouchableOpacity onPress={() => setGrantingUser(null)}>
                 <Text style={{ fontSize: 18, color: '#64748B', fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>

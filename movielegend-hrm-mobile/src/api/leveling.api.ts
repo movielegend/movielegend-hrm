@@ -22,6 +22,13 @@ export interface DepartmentLevelItem {
   colorHex: string;
   minTenureMonths: number;
   targetShiftsCount: number;
+  rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+  promotionBonusAmount?: number;
+  physicalItemName?: string;
+  allowanceAmount?: number;
+  retentionMultiplier?: number;
+  perks?: string[];
+  motivationQuote?: string;
 }
 
 export interface UserLevelProgressData {
@@ -79,6 +86,35 @@ export interface UserLevelProgressData {
     leaderNote?: string;
     createdAt: string;
   } | null;
+  nextLevelPerks?: {
+    levelNumber: number;
+    levelName: string;
+    displayName: string;
+    colorHex: string;
+    promotionBonusAmount: number;
+    physicalItemName?: string;
+    physicalItems?: string[];
+    retentionMultiplier: number;
+    allowanceAmount?: number;
+    perks: string[];
+    motivationQuote?: string;
+    projectName?: string;
+  };
+}
+
+export interface NextLevelPerkAppendix {
+  levelNumber: number;
+  levelName: string;
+  displayName: string;
+  colorHex: string;
+  promotionBonusAmount: number;
+  physicalItemName?: string;
+  physicalItems?: string[];
+  retentionMultiplier: number;
+  allowanceAmount?: number;
+  perks: string[];
+  motivationQuote?: string;
+  projectName?: string;
 }
 
 export interface LevelPromotionRequestItem {
@@ -121,7 +157,18 @@ export const levelingApi = {
 
   saveDepartmentLevelConfigs: async (
     departmentId: string,
-    configs: Array<{ levelNumber: number; customLevelName: string; badgeTitle?: string }>,
+    configs: Array<{
+      levelNumber: number;
+      customLevelName: string;
+      badgeTitle?: string;
+      rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
+      promotionBonusAmount?: number;
+      physicalItemName?: string;
+      allowanceAmount?: number;
+      retentionMultiplier?: number;
+      perks?: string[];
+      motivationQuote?: string;
+    }>,
   ): Promise<{ success: boolean; count: number }> => {
     const res = await apiClient.post(`/leveling/departments/${departmentId}/configs`, { configs });
     return extractData(res);
@@ -284,6 +331,32 @@ export const levelingApi = {
       `/leveling/projects/${levelNumber}/subtasks/${subTaskId}/review`,
       { status, departmentId, departmentName },
     );
+    return extractData(res);
+  },
+
+  submitProjectToAdmin: async (
+    levelNumber: number,
+    data: {
+      leaderReportNote: string;
+      leaderReportUrl?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+  ): Promise<{ success: boolean; project: LevelDepartmentProject }> => {
+    const res = await apiClient.post(`/leveling/projects/${levelNumber}/submit-to-admin`, data);
+    return extractData(res);
+  },
+
+  adminReviewProject: async (
+    levelNumber: number,
+    data: {
+      status: 'ADMIN_APPROVED' | 'IN_PROGRESS';
+      adminFeedback?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+  ): Promise<{ success: boolean; project: LevelDepartmentProject }> => {
+    const res = await apiClient.post(`/leveling/projects/${levelNumber}/admin-review`, data);
     return extractData(res);
   },
 
