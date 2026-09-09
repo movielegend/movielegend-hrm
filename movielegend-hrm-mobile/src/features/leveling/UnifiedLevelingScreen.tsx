@@ -2374,10 +2374,34 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         onClose={() => setSelectedProjectForReview(null)}
         onApprove={async (lvlNum, feedback) => {
           await adminApproveProject(lvlNum, feedback);
+          setSelectedProjectForReview((prev) =>
+            prev && prev.levelNumber === lvlNum
+              ? {
+                  ...prev,
+                  status: 'ADMIN_APPROVED',
+                  adminFeedback: feedback,
+                  adminApprovedAt: new Date().toISOString(),
+                  subTasks: prev.subTasks.map((st) => ({
+                    ...st,
+                    status: 'ADMIN_APPROVED',
+                  })),
+                }
+              : null,
+          );
           await loadData();
         }}
         onReject={async (lvlNum, feedback) => {
           await adminRejectProject(lvlNum, feedback);
+          setSelectedProjectForReview((prev) =>
+            prev && prev.levelNumber === lvlNum
+              ? {
+                  ...prev,
+                  status: 'IN_PROGRESS',
+                  adminFeedback: feedback,
+                  submittedToAdminAt: undefined,
+                }
+              : null,
+          );
           await loadData();
         }}
       />

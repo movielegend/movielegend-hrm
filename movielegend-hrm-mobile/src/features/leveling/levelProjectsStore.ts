@@ -153,7 +153,16 @@ class LevelProjectsStore {
             targetKpi: st.targetKpi || '',
             assignedToUserId: st.assignedUserId || st.assignedToUserId,
             assignedToUserName: st.assignedUserName || st.assignedToUserName,
-            status: st.status === 'LEADER_APPROVED' ? 'LEADER_APPROVED' : st.status === 'SUBMITTED' ? 'SUBMITTED' : (st.assignedUserId || st.assignedToUserId) ? 'ASSIGNED' : 'UNASSIGNED',
+            status:
+              st.status === 'ADMIN_APPROVED'
+                ? 'ADMIN_APPROVED'
+                : st.status === 'LEADER_APPROVED'
+                ? 'LEADER_APPROVED'
+                : st.status === 'SUBMITTED'
+                ? 'SUBMITTED'
+                : (st.assignedUserId || st.assignedToUserId)
+                ? 'ASSIGNED'
+                : 'UNASSIGNED',
             submissionNote: st.submissionNote,
             evidenceUrl: st.evidenceUrl,
             evidenceImages: st.evidenceImages,
