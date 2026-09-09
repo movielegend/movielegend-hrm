@@ -2237,66 +2237,75 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                         {/* SubTasks Section */}
                         <View style={styles.subTasksContainer}>
                           <View style={styles.subTasksHeaderRow}>
+                            <Ionicons name="list" size={15} color="#1E293B" />
                             <Text style={styles.subTasksHeaderTitle}>
                               CÁC ĐẦU VIỆC CON ({currentProj.subTasks.length}):
                             </Text>
                           </View>
 
                           {currentProj.subTasks.length > 0 ? (
-                            currentProj.subTasks.map((taskStr, taskIdx) => (
-                              <View key={taskIdx} style={styles.subTaskItemRow}>
-                                <View style={styles.subTaskIndexCircle}>
-                                  <Text style={styles.subTaskIndexCircleText}>{taskIdx + 1}</Text>
-                                </View>
-
-                                {editingSubTaskIdx === taskIdx ? (
-                                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <TextInput
-                                      style={[styles.configInput, { flex: 1, marginBottom: 0 }]}
-                                      value={editingSubTaskText}
-                                      onChangeText={setEditingSubTaskText}
-                                      autoFocus
-                                    />
-                                    <TouchableOpacity
-                                      style={styles.saveInlineEditBtn}
-                                      onPress={() => handleSaveEditSubTask(currentProj.id, taskIdx)}
-                                    >
-                                      <Ionicons name="checkmark" size={16} color="#FFF" />
-                                    </TouchableOpacity>
+                            <View style={styles.subTasksListWrapper}>
+                              {currentProj.subTasks.map((taskStr, taskIdx) => (
+                                <View key={taskIdx} style={styles.subTaskItemRow}>
+                                  <View style={styles.subTaskIndexCircle}>
+                                    <Text style={styles.subTaskIndexCircleText}>{taskIdx + 1}</Text>
                                   </View>
-                                ) : (
-                                  <>
-                                    <Text style={styles.subTaskItemText} numberOfLines={2}>
-                                      {taskStr}
-                                    </Text>
-                                    <View style={styles.subTaskActionRow}>
+
+                                  {editingSubTaskIdx === taskIdx ? (
+                                    <View style={styles.subTaskEditingRow}>
+                                      <TextInput
+                                        style={styles.subTaskEditInput}
+                                        value={editingSubTaskText}
+                                        onChangeText={setEditingSubTaskText}
+                                        autoFocus
+                                      />
                                       <TouchableOpacity
-                                        onPress={() => handleStartEditSubTask(taskIdx, taskStr)}
-                                        style={styles.subTaskActionBtn}
+                                        style={styles.saveInlineEditBtn}
+                                        onPress={() => handleSaveEditSubTask(currentProj.id, taskIdx)}
+                                        activeOpacity={0.7}
                                       >
-                                        <Ionicons name="pencil-outline" size={15} color="#2563EB" />
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        onPress={() => handleDeleteSubTask(currentProj.id, taskIdx)}
-                                        style={styles.subTaskActionBtn}
-                                      >
-                                        <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                                        <Ionicons name="checkmark" size={16} color="#FFF" />
                                       </TouchableOpacity>
                                     </View>
-                                  </>
-                                )}
-                              </View>
-                            ))
+                                  ) : (
+                                    <>
+                                      <Text style={styles.subTaskItemText} numberOfLines={2}>
+                                        {taskStr}
+                                      </Text>
+                                      <View style={styles.subTaskActionRow}>
+                                        <TouchableOpacity
+                                          onPress={() => handleStartEditSubTask(taskIdx, taskStr)}
+                                          style={styles.subTaskActionBtn}
+                                          activeOpacity={0.7}
+                                        >
+                                          <Ionicons name="pencil" size={14} color="#2563EB" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                          onPress={() => handleDeleteSubTask(currentProj.id, taskIdx)}
+                                          style={[styles.subTaskActionBtn, styles.subTaskDeleteBtn]}
+                                          activeOpacity={0.7}
+                                        >
+                                          <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                                        </TouchableOpacity>
+                                      </View>
+                                    </>
+                                  )}
+                                </View>
+                              ))}
+                            </View>
                           ) : (
-                            <Text style={styles.emptySubTasksNotice}>
-                              Chưa có đầu việc con nào. Hãy nhập tên việc con bên dưới để thêm vào dự án!
-                            </Text>
+                            <View style={styles.emptySubTasksBox}>
+                              <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                              <Text style={styles.emptySubTasksNotice}>
+                                Chưa có đầu việc con nào. Hãy nhập tên việc con bên dưới để thêm vào dự án!
+                              </Text>
+                            </View>
                           )}
 
                           <View style={styles.addSubTaskRow}>
                             <TextInput
-                              style={[styles.configInput, { flex: 1, marginBottom: 0 }]}
-                              placeholder="+ Nhập đầu việc con mới..."
+                              style={styles.addSubTaskInput}
+                              placeholder="+ Nhập tên đầu việc con..."
                               placeholderTextColor="#94A3B8"
                               value={newSubTaskInput}
                               onChangeText={setNewSubTaskInput}
@@ -2305,8 +2314,10 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             <TouchableOpacity
                               style={styles.addSubTaskBtn}
                               onPress={() => handleAddSubTask(currentProj.id)}
+                              activeOpacity={0.8}
                             >
-                              <Text style={styles.addSubTaskBtnText}>+ Thêm</Text>
+                              <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 2 }} />
+                              <Text style={styles.addSubTaskBtnText}>Thêm</Text>
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -3639,5 +3650,145 @@ const styles = StyleSheet.create({
   },
   adminProjActionBtnTextNormal: {
     color: '#2563EB',
+  },
+
+  /* SubTasks Section in Project Config */
+  subTasksContainer: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  subTasksHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  subTasksHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    letterSpacing: 0.3,
+  },
+  subTasksListWrapper: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  subTaskItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 10,
+  },
+  subTaskIndexCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E0E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subTaskIndexCircleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3730A3',
+  },
+  subTaskItemText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  subTaskActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  subTaskActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subTaskDeleteBtn: {
+    backgroundColor: '#FEF2F2',
+  },
+  subTaskEditingRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  subTaskEditInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#2563EB',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  saveInlineEditBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySubTasksBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    padding: 10,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 12,
+  },
+  emptySubTasksNotice: {
+    flex: 1,
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+  },
+  addSubTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addSubTaskInput: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  addSubTaskBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  addSubTaskBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
