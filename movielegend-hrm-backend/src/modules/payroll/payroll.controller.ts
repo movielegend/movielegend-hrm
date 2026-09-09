@@ -63,8 +63,8 @@ export class PayrollPeriodsController {
 
   @Get(':id/payrolls')
   @Permissions('payroll.read_all')
-  payrolls(@Param('id') id: string) {
-    return this.payroll.findPeriodPayrolls(id);
+  payrolls(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.findPeriodPayrolls(id, actor);
   }
 }
 

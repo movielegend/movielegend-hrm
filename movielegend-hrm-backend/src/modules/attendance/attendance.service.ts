@@ -534,7 +534,7 @@ export class AttendanceService {
       include: this.attendanceInclude(),
     });
     if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Không tìm thấy bảng công');
-    this.assertAttendanceAccess(actor, record.userId, record.departmentId);
+    await this.assertAttendanceAccess(actor, record.userId, record.departmentId);
     const location = await this.locationFromRecord(record);
     return this.toAttendanceDetail(record, location);
   }
@@ -956,12 +956,13 @@ export class AttendanceService {
     const visible = await this.scope.getVisibleDepartmentIds(actor);
     if (visible === null) return null;
     if (visible.length) return visible;
+    if (this.scope.isRegionAdmin(actor)) return [];
     return [await this.scope.getPrimaryDepartmentId(actor.userId)];
   }
 
-  private assertAttendanceAccess(actor: AuthenticatedUser, userId: string, departmentId: string): void {
+  private async assertAttendanceAccess(actor: AuthenticatedUser, userId: string, departmentId: string): Promise<void> {
     if (userId === actor.userId) return;
-    if (actor.permissions.includes('attendance.read') && this.scope.canAccessDepartment(actor, departmentId)) return;
+    if (actor.permissions.includes('attendance.read') && (await this.scope.canAccessDepartmentAsync(actor, departmentId))) return;
     throw forbidden('ATTENDANCE_FORBIDDEN', 'Không có quyền xem bảng công này');
   }
 
