@@ -1299,6 +1299,13 @@ export class AdminService {
       });
       if (notif) this.notifications.emitCreated(notif);
 
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_created', {
+        requestId: request.id,
+        userId,
+        pointsWithdrawn: dto.points,
+        cashAmount: totalCash,
+      });
+
       return {
         success: true,
         requestId: request.id,
@@ -1469,6 +1476,12 @@ export class AdminService {
       });
       if (notifEmployee) this.notifications.emitCreated(notifEmployee);
 
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_updated', {
+        requestId: id,
+        userId: request.userId,
+        status: 'PENDING_ACCOUNTANT',
+      });
+
       return updated;
     });
   }
@@ -1534,6 +1547,12 @@ export class AdminService {
         body: `Bộ phận Kế toán đã hoàn tất chuyển ${cashFormatted} VNĐ về tài khoản ${request.bankName} (${request.bankAccountNumber} - ${request.bankAccountName})${dto.transactionReference ? ` [Mã GD: ${dto.transactionReference}]` : ''}. Vui lòng kiểm tra tài khoản ngân hàng!`,
       });
       if (notifPaid) this.notifications.emitCreated(notifPaid);
+
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_updated', {
+        requestId: id,
+        userId: request.userId,
+        status: 'PAID',
+      });
 
       return updated;
     });
@@ -1659,6 +1678,12 @@ export class AdminService {
       });
       if (notifReject) this.notifications.emitCreated(notifReject);
 
+      this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_updated', {
+        requestId: id,
+        userId: request.userId,
+        status: 'REJECTED',
+      });
+
       return updated;
     });
   }
@@ -1747,6 +1772,25 @@ export class AdminService {
 
     const totalGrantedPoints = totalPackagePoints > 0 ? totalPackagePoints : vault.grantedPoints;
     const unlockedPoints = instantBonusPoints + unlockedQuarterPoints;
+    const remainingPoints = instantBonusPoints + unlockedQuarterPoints + lockedQuarterPoints;
+
+    // Tally total withdrawn points
+    let totalWithdrawnPoints = 0;
+    (vault.packages || []).forEach((pkg) => {
+      (pkg.milestones || []).forEach((m) => {
+        totalWithdrawnPoints += (m.withdrawnPoints || 0);
+      });
+    });
+    (vault.milestones || []).forEach((m) => {
+      if (m.isWithdrawn) {
+        totalWithdrawnPoints += (m.pointsToUnlock || 0);
+      }
+    });
+
+    const totalGrantedCash = totalGrantedPoints * cashValuePerPoint;
+    const totalWithdrawnCash = totalWithdrawnPoints * cashValuePerPoint;
+    const remainingCash = remainingPoints * cashValuePerPoint;
+    const unlockedCash = unlockedPoints * cashValuePerPoint;
 
     // Calculate maxWithdrawable based on milestone policy:
     let totalPackageWithdrawable = 0;
@@ -1798,6 +1842,7 @@ export class AdminService {
     }
 
     const maxWithdrawable = instantBonusPoints + totalPackageWithdrawable + legacyWithdrawable;
+    const maxWithdrawableCash = maxWithdrawable * cashValuePerPoint;
 
     return {
       isVaultEnabled: Boolean(user.isRewardVaultEnabled),
@@ -1805,11 +1850,18 @@ export class AdminService {
       withdrawalRequests: withdrawalRequests || [],
       stats: {
         totalGrantedPoints,
+        totalGrantedCash,
         instantBonusPoints,
         unlockedQuarterPoints,
         lockedQuarterPoints,
         unlockedPoints,
+        unlockedCash,
+        totalWithdrawnPoints,
+        totalWithdrawnCash,
+        remainingPoints,
+        remainingCash,
         maxWithdrawable,
+        maxWithdrawableCash,
         cashValuePerPoint,
       },
     };
