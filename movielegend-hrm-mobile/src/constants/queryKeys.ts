@@ -3,6 +3,7 @@ export const queryKeys = {
   approval: (id: string) => ['approval', id] as const,
   employees: <T extends object>(filters: T) => ['employees', filters] as const,
   employeeReport: <T extends object>(filters: T) => ['employee-report', filters] as const,
+  scopedEmployees: <T extends object>(filters: T) => ['scoped-employees', filters] as const,
   employee: (id: string) => ['employee', id] as const,
   departments: <T extends object>(filters: T = {} as T) => ['departments', filters] as const,
   department: (id: string) => ['department', id] as const,
