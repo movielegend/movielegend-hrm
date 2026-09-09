@@ -328,6 +328,20 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                 </View>
               )}
 
+              {/* Leader Feedback / Rework Notice */}
+              {Boolean(activeItem?.subTask.leaderFeedback) && activeItem?.subTask.status !== 'LEADER_APPROVED' && (
+                <View style={styles.leaderFeedbackBox}>
+                  <View style={styles.leaderFeedbackHeader}>
+                    <Ionicons name="chatbubble-ellipses" size={16} color="#DC2626" />
+                    <Text style={styles.leaderFeedbackTitle}>Yêu Cầu Sửa / Bổ Sung Từ Leader:</Text>
+                  </View>
+                  <Text style={styles.leaderFeedbackText}>"{activeItem?.subTask.leaderFeedback}"</Text>
+                  <Text style={styles.leaderFeedbackGuide}>
+                    Vui lòng điều chỉnh lại báo cáo, hình ảnh hoặc link tài liệu bên dưới rồi bấm "Cập Nhật Báo Cáo" để gửi lại Leader.
+                  </Text>
+                </View>
+              )}
+
               {/* PHẦN 1: BÁO CÁO THỰC HIỆN */}
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện</Text>
@@ -898,5 +912,36 @@ const styles = StyleSheet.create({
   fullPreviewImage: {
     width: '100%',
     height: '75%',
+  },
+  leaderFeedbackBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+  },
+  leaderFeedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  leaderFeedbackTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  leaderFeedbackText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  leaderFeedbackGuide: {
+    fontSize: 11,
+    color: '#7F1D1D',
+    lineHeight: 16,
   },
 });

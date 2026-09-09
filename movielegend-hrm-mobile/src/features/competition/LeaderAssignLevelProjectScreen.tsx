@@ -736,6 +736,47 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
             )}
           </View>
 
+          {/* Action to submit project to Admin when all subtasks are approved or project in progress */}
+          {currentProject.status === 'IN_PROGRESS' && (
+            <View style={styles.leaderSubmitAdminActionBox}>
+              {approvedSubTasks === totalSubTasks && totalSubTasks > 0 ? (
+                <View style={styles.allTasksReadyNotice}>
+                  <Ionicons name="sparkles" size={16} color="#059669" />
+                  <Text style={styles.allTasksReadyText}>
+                    Toàn bộ {totalSubTasks} đầu việc con đã được Leader duyệt đạt!
+                  </Text>
+                </View>
+              ) : null}
+              <TouchableOpacity
+                style={[
+                  styles.submitProjectToAdminMainBtn,
+                  approvedSubTasks === totalSubTasks && totalSubTasks > 0 && styles.submitProjectToAdminMainBtnHighlight,
+                ]}
+                onPress={() => setSubmitAdminModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.submitProjectToAdminMainBtnText}>
+                  {approvedSubTasks === totalSubTasks && totalSubTasks > 0
+                    ? 'NỘP BÁO CÁO TỔNG KẾT LÊN ADMIN'
+                    : 'Nộp Báo Cáo Nghiệm Thu Lên Admin'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {currentProject.status === 'SUBMITTED_TO_ADMIN' && (
+            <View style={styles.submittedToAdminBannerBox}>
+              <Ionicons name="hourglass-outline" size={20} color="#D97706" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.submittedToAdminBannerTitle}>Đã Gửi Báo Cáo Nghiệm Thu Lên Admin</Text>
+                <Text style={styles.submittedToAdminBannerSub}>
+                  Đang chờ Ban Giám Đốc kiểm tra hồ sơ và phê duyệt nghiệm thu hoàn tất.
+                </Text>
+              </View>
+            </View>
+          )}
+
           {currentProject.status === 'PENDING_LEADER_ACCEPT' && (
             <TouchableOpacity
               style={styles.acceptBtn}
@@ -2625,5 +2666,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#334155',
     lineHeight: 18,
+  },
+
+  /* Submit to Admin Action Box */
+  leaderSubmitAdminActionBox: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#FDE68A',
+  },
+  allTasksReadyNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  allTasksReadyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
+    flex: 1,
+  },
+  submitProjectToAdminMainBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    paddingVertical: 12,
+    borderRadius: 10,
+    shadowColor: '#0F766E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  submitProjectToAdminMainBtnHighlight: {
+    backgroundColor: '#059669',
+  },
+  submitProjectToAdminMainBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  submittedToAdminBannerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 14,
+    gap: 10,
+  },
+  submittedToAdminBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  submittedToAdminBannerSub: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 16,
   },
 });
