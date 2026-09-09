@@ -917,50 +917,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         </View>
       )}
 
-      {isLeader && (
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'roadmap' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('roadmap')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="ribbon-outline"
-              size={15}
-              color={activeTab === 'roadmap' ? '#2563EB' : '#94A3B8'}
-            />
-            <Text
-              style={[styles.tabText, activeTab === 'roadmap' && styles.tabTextActive]}
-              numberOfLines={1}
-            >
-              Lộ Trình
-            </Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('members')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="people-outline"
-              size={15}
-              color={activeTab === 'members' ? '#2563EB' : '#94A3B8'}
-            />
-            <Text
-              style={[styles.tabText, activeTab === 'members' && styles.tabTextActive]}
-              numberOfLines={1}
-            >
-              Nhân Sự
-            </Text>
-            {pendingCount > 0 && (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Admin Department Selector Carousel (Only Admin can choose/switch departments) */}
       {isAdmin && deptList.length > 0 && (
@@ -1233,7 +1190,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           {/* ========================================================= */}
           {/* TAB 2: MEMBERS MANAGEMENT & PROMOTION APPROVALS           */}
           {/* ========================================================= */}
-          {activeTab === 'members' && isLeaderOrAdmin && (
+          {activeTab === 'members' && isAdmin && (
             <View style={styles.leaderContainer}>
               {/* Leader & Admin Sub-tabs (Only show if not in Admin review_only mode where it is already at the top) */}
               {(!isAdmin || currentMode !== 'review_only') && (

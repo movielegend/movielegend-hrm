@@ -398,7 +398,6 @@ export function LeaderDashboard() {
                 onPress={() => router.push('/leader/disbursement' as any)}
               />
             )}
-            <GridItem icon="clipboard-check-outline" title="Duyệt level" color="#8B5CF6" onPress={() => router.push('/employee/competition/review' as any)} />
             <GridItem icon="file-document-multiple" title="Duyệt đơn" color="#EA580C" onPress={() => router.push('/leader/(tabs)/approvals' as any)} />
             <GridItem icon="file-document-edit-outline" title="Đơn của tôi" color="#0284C7" onPress={() => router.push('/employee/requests' as any)} />
             <GridItem icon="calendar-clock" title="Lịch sử công" color="#6366F1" onPress={() => router.push('/leader/attendance-history' as any)} />
