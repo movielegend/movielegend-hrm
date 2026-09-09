@@ -823,6 +823,7 @@ model User {
   rewardWithdrawalRequests        RewardWithdrawalRequest[]
   projectGrantPackages            ProjectGrantPackage[]
   levelPromotionRequests          LevelPromotionRequest[]
+  departmentDocuments             DepartmentDocument[]         @relation("DeptDocUploader")
 
   @@map("users")
 }
@@ -923,6 +924,7 @@ model Company {
   kpiTemplates      KpiTemplate[]
   reviewCycles      PerformanceReviewCycle[]
   systemSettings    SystemSetting[]
+  departmentDocuments DepartmentDocument[]
 
   @@map("companies")
 }
@@ -1019,6 +1021,7 @@ model Department {
   assets                Asset[]
   levelConfigs          DepartmentLevelConfig[]
   levelPromotionRequests LevelPromotionRequest[]
+  documents             DepartmentDocument[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1171,6 +1174,32 @@ model EmployeeDocument {
   @@index([employeeId])
   @@index([verifiedById])
   @@map("employee_documents")
+}
+
+model DepartmentDocument {
+  id           String      @id @default(uuid()) @db.Uuid
+  companyId    String      @db.Uuid
+  departmentId String?     @db.Uuid
+  title        String
+  description  String?
+  category     String      @default("GENERAL")
+  fileName     String
+  fileUrl      String
+  storageKey   String?
+  mimeType     String?
+  fileSize     Int?
+  uploadedById String      @db.Uuid
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  company      Company     @relation(fields: [companyId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id])
+  uploadedBy   User        @relation("DeptDocUploader", fields: [uploadedById], references: [id])
+
+  @@index([companyId, departmentId])
+  @@index([departmentId])
+  @@map("department_documents")
 }
 
 model UserApprovalRequest {

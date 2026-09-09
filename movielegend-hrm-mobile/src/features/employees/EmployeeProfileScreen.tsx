@@ -104,6 +104,7 @@ export function EmployeeProfileScreen() {
             <ActionRow icon="calendar-clock" title="Bảng công" onPress={() => router.push('/employee/timesheet' as any)} />
             <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/employee/payslip' as any)} />
             <ActionRow icon="text-box-check-outline" title="Hợp đồng lao động" onPress={() => router.push('/employee/contracts' as any)} />
+            <ActionRow icon="folder-text-outline" title="Tài liệu nội bộ" onPress={() => router.push('/employee/documents' as any)} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/employee/assets' as any)} />
             <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} />
             <ActionRow icon="message-text-outline" title="Nhóm chat" onPress={() => router.push('/employee/chat' as any)} />

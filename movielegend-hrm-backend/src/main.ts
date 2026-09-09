@@ -32,7 +32,7 @@ async function bootstrap() {
       contentSecurityPolicy: false,
       crossOriginOpenerPolicy: false,
       crossOriginResourcePolicy: false,
-      xFrameOptions: { action: 'deny' },
+      xFrameOptions: false,
     }),
   );
 

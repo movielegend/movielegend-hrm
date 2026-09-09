@@ -137,6 +137,19 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type === 'SYSTEM' && contractId) {
     return `${base}/contracts/${contractId}`;
   }
+
+  const documentId = stringMeta(notification.metadata, 'documentId');
+  if (
+    documentId ||
+    stringMeta(notification.metadata, 'screen') === 'DocumentList' ||
+    notification.type.startsWith('DOCUMENT_') ||
+    t.includes('tài liệu')
+  ) {
+    if (user?.roles.includes('ADMIN')) return '/admin/documents';
+    if (user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT')) return '/hr/documents';
+    if (user?.roles.includes('LEADER')) return '/leader/documents';
+    return '/employee/documents';
+  }
   
   return null;
 }
@@ -147,7 +160,7 @@ export function getNotificationIcon(type: string, title?: string): any {
   if (type.startsWith('ASSET_')) return 'desktop-mac';
   if (type.startsWith('MATERIAL_ISSUE_') || type.startsWith('STOCK_')) return 'package-variant-closed';
   if (type.startsWith('PAYROLL_') || type.startsWith('PAYSLIP_')) return 'cash-multiple';
-  if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_')) return 'file-document-outline';
+  if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || title?.toLowerCase().includes('tài liệu')) return 'file-document-outline';
   if (type.startsWith('CHAT_')) return 'chat-processing-outline';
   if (type.startsWith('VIOLATION_')) return 'gavel';
   if (type.startsWith('NEWSFEED_')) return 'newspaper-variant-outline';
@@ -170,6 +183,8 @@ export function getNotificationColor(type: string, title?: string): string {
   if (type.includes('REJECTED') || type.includes('FAILED')) return colors.danger;
   if (type.includes('APPROVED') || type.includes('CONFIRMED')) return colors.success;
   if (type === 'SYSTEM' && (title === 'Phân ca mới' || title === 'Phân ca làm việc mới')) return colors.primary;
+  if (type.startsWith('DOCUMENT_') || title?.toLowerCase().includes('tài liệu')) return colors.primary;
   
   return colors.muted;
 }
+

@@ -5,7 +5,8 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
 export interface SelectOption {
-  id: string;
+  id?: string;
+  value?: string;
   label: string;
   subtitle?: string;
 }
@@ -13,7 +14,7 @@ export interface SelectOption {
 interface SelectModalProps {
   visible: boolean;
   title: string;
-  options: SelectOption[];
+  options?: SelectOption[];
   selectedValue?: string | null | undefined;
   onSelect?: (option: SelectOption) => void;
   onClose: () => void;
@@ -26,7 +27,7 @@ interface SelectModalProps {
 export function SelectModal({
   visible,
   title,
-  options,
+  options = [],
   selectedValue,
   onSelect,
   onClose,
@@ -35,6 +36,14 @@ export function SelectModal({
   selectedValues = [],
   onSelectMulti,
 }: SelectModalProps) {
+  if (!visible) return null;
+
+  const safeOptions = Array.isArray(options) ? options : [];
+
+  const getOptionId = (item: SelectOption, index: number): string => {
+    return String(item.id ?? item.value ?? index);
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -50,19 +59,20 @@ export function SelectModal({
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Đang tải dữ liệu...</Text>
             </View>
-          ) : options.length === 0 ? (
+          ) : safeOptions.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Không có dữ liệu</Text>
             </View>
           ) : (
             <FlatList
-              data={options}
-              keyExtractor={(item) => item.id}
+              data={safeOptions}
+              keyExtractor={(item, index) => getOptionId(item, index)}
               contentContainerStyle={styles.listContainer}
-              renderItem={({ item }) => {
+              renderItem={({ item, index }) => {
+                const itemId = getOptionId(item, index);
                 const isSelected = isMulti 
-                  ? selectedValues.includes(item.id)
-                  : item.id === selectedValue;
+                  ? selectedValues.includes(itemId)
+                  : (item.id === selectedValue || item.value === selectedValue || itemId === selectedValue);
                 
                 return (
                   <Pressable

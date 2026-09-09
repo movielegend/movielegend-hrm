@@ -1,6 +1,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, Modal } from 'react-native';
+import { Image, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useMemo, useState, useCallback, type ComponentType } from 'react';
@@ -63,7 +63,7 @@ export function AttendanceHomeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const userName = user?.profile?.fullName || user?.userCode || 'Nhân viên';
+  const userName = user?.fullName || user?.userCode || 'Nhân viên';
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
@@ -96,7 +96,7 @@ export function AttendanceHomeScreen() {
         {/* User Info */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Avatar name={userName} uri={user?.profile?.avatarUrl} size={44} />
+            <Avatar name={userName} uri={user?.avatarUrl} size={44} />
             <View>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61' }}>{userName}</Text>
               <Text style={{ fontSize: 13, color: '#98A0A8' }}>Mã nhân viên: {user?.userCode || '---'}</Text>
@@ -258,6 +258,17 @@ export function AttendanceCheckInScreen() {
     } finally {
       setUploading(false);
     }
+  }
+
+  if (schedule.isLoading || locations.isLoading) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#1E88E5" />
+          <Text style={{ marginTop: 12, color: '#98A0A8' }}>Đang tải lịch làm việc...</Text>
+        </View>
+      </Screen>
+    );
   }
 
   return (

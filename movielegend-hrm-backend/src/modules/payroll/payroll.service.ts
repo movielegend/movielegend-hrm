@@ -71,6 +71,7 @@ export class PayrollService {
       ? [PayrollPeriodStatus.DRAFT, PayrollPeriodStatus.CALCULATED]
       : [PayrollPeriodStatus.DRAFT, PayrollPeriodStatus.CALCULATED];
     if (!allowed.includes(period.status)) throw conflict('PAYROLL_PERIOD_NOT_CALCULABLE', 'Payroll period cannot be calculated now');
+    const originalStatus = period.status;
     const claimed = await this.prisma.payrollPeriod.updateMany({
       where: { id, status: { in: allowed } },
       data: { status: PayrollPeriodStatus.CALCULATING },
@@ -99,7 +100,7 @@ export class PayrollService {
       this.realtime.emitToRoom('payroll:admin', 'payroll:period-updated', { id, status: updated.status });
       return updated;
     } catch (error) {
-      await this.prisma.payrollPeriod.update({ where: { id }, data: { status: PayrollPeriodStatus.DRAFT } });
+      await this.prisma.payrollPeriod.update({ where: { id }, data: { status: originalStatus } });
       throw error;
     }
   }

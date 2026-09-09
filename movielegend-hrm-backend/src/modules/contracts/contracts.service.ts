@@ -129,35 +129,40 @@ export class ContractsService {
     
     const isInUse = template.contracts.length > 0;
 
-    return this.prisma.$transaction(async (tx) => {
+    // Collect file keys to delete AFTER transaction succeeds
+    const fileKeysToDelete: string[] = [];
+    if (!isInUse) {
+      for (const version of template.versions) {
+        if (version.templateFileUrl) {
+          const key = this.storageService.extractKeyFromUrl(version.templateFileUrl);
+          if (key) fileKeysToDelete.push(key);
+        }
+      }
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
       // Soft delete template
       await tx.contractTemplate.update({
         where: { id },
         data: { deletedAt: new Date() },
       });
 
-      // Try to delete files from cloud ONLY IF it's not used by any contracts
-      // If it is in use, we must keep the physical file so that pending contracts can still generate their PDFs.
-      if (!isInUse) {
-        for (const version of template.versions) {
-          if (version.templateFileUrl) {
-            const key = this.storageService.extractKeyFromUrl(version.templateFileUrl);
-            if (key) {
-               try {
-                 await this.storageService.delete(key);
-               } catch (err) {
-                 console.warn(`Could not delete file ${key} from storage:`, err);
-               }
-            }
-          }
-        }
-      }
-
       await tx.auditLog.create({
         data: { actorUserId: actor.userId, action: 'CONTRACT_TEMPLATE_DELETED', entityType: 'ContractTemplate', entityId: id },
       });
       return { success: true };
     });
+
+    // Delete files from cloud AFTER transaction commits successfully
+    for (const key of fileKeysToDelete) {
+      try {
+        await this.storageService.delete(key);
+      } catch (err) {
+        console.warn(`Could not delete file ${key} from storage:`, err);
+      }
+    }
+
+    return result;
   }
 
   async createContract(dto: CreateEmployeeContractDto, actor: AuthenticatedUser) {

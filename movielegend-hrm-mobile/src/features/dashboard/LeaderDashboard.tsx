@@ -51,19 +51,7 @@ export function LeaderDashboard() {
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: myTasks } = useMyTasks({ limit: 10 });
 
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const timeString = currentTime.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
 
   const { data: dashboardData } = useQuery({
     queryKey: ['dashboard', 'LEADER'],
@@ -364,6 +352,7 @@ export function LeaderDashboard() {
             <GridItem icon="view-grid-outline" title="Phân ca" color="#EC4899" onPress={() => router.push('/leader/shift-management' as any)} />
             <GridItem icon="account-tie-outline" title="Nhân sự" color="#10B981" onPress={() => router.push('/leader/employees' as any)} />
             <GridItem icon="file-document-outline" title="Hợp đồng" color="#0D9488" onPress={() => router.push('/leader/contracts' as any)} />
+            <GridItem icon="folder-text-outline" title="Tài liệu" color="#2563EB" onPress={() => router.push('/leader/documents' as any)} />
             <GridItem icon="laptop" title="Tài sản" color="#64748B" onPress={() => router.push('/leader/assets' as any)} />
             <GridItem icon="message-draw" title="Góp ý" color="#E11D48" onPress={() => router.push('/leader/feedbacks' as any)} />
           </View>

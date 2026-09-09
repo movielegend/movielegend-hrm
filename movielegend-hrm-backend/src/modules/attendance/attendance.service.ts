@@ -224,7 +224,7 @@ export class AttendanceService {
             storageKey: photo.storageKey,
           });
         } catch (error) {
-          // Nếu watermark lỗi, vẫn tiếp tục lưu ảnh gốc
+          console.warn('Watermark processing failed', error instanceof Error ? error.message : error);
         }
 
         const attached = await tx.uploadedFile.updateMany({
@@ -344,7 +344,7 @@ export class AttendanceService {
             storageKey: photo.storageKey,
           });
         } catch (error) {
-          // Continue if watermarking fails
+          console.warn('Watermark processing failed', error instanceof Error ? error.message : error);
         }
 
         const attached = await tx.uploadedFile.updateMany({

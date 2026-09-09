@@ -14,6 +14,7 @@ export interface Branch {
   longitude?: number;
   allowedRadius?: number;
   isActive: boolean;
+  isHeadquarters?: boolean;
   createdAt: string;
   departments?: { id: string; name: string; code: string }[];
 }
@@ -27,6 +28,7 @@ export interface CreateBranchDto {
   longitude?: number;
   allowedRadius?: number;
   isActive?: boolean;
+  isHeadquarters?: boolean;
   departmentIds?: string[];
 }
 

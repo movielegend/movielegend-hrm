@@ -249,7 +249,11 @@ export class AuthService {
       where: { phone: dto.phone },
       include: this.userInclude(),
     });
-    if (!user) throw unauthorized('INVALID_CREDENTIALS', 'Số điện thoại hoặc mật khẩu không đúng');
+    if (!user) {
+      // Dummy bcrypt compare to prevent timing attack (user enumeration)
+      await bcrypt.compare(dto.password, '$2b$10$invalidhashfortimingequaliz');
+      throw unauthorized('INVALID_CREDENTIALS', 'Số điện thoại hoặc mật khẩu không đúng');
+    }
 
     const passwordOk = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordOk) throw unauthorized('INVALID_CREDENTIALS', 'Số điện thoại hoặc mật khẩu không đúng');

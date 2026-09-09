@@ -91,6 +91,12 @@ export function MyProfileScreen() {
               onPress={showGuideManual}
             />
             <InfoRow
+              icon="folder-text-outline"
+              label="Tài liệu nội bộ"
+              value="Xem tài liệu"
+              onPress={() => router.push('/employee/documents' as any)}
+            />
+            <InfoRow
               icon="account-remove-outline"
               label="Quyền sở hữu & Xóa tài khoản"
               value="Yêu cầu hủy"

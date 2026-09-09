@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
   pageText: { fontSize: 16, fontWeight: '500', color: colors.text, marginHorizontal: 16 },
   webviewContainer: { flex: 1, backgroundColor: '#f3f4f6' },
   webview: { flex: 1, backgroundColor: 'transparent' },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10 },
+  loadingOverlay: { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10 },
   quickEdit: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: colors.border },
   nudgeBtn: { backgroundColor: '#f3f4f6', padding: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.border },
   footer: { padding: 16, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border },

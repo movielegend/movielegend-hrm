@@ -39,8 +39,8 @@ export class UploadsService {
     const parsed = await parseMultipartRequest(request);
     if (!parsed.file) throw badRequest('UPLOAD_FILE_REQUIRED', 'File is required');
     const purpose = parsePurpose(parsed.purpose);
-    if (!actor && purpose !== UploadPurpose.FACE_REGISTRATION) {
-      throw forbidden('UPLOAD_UNAUTHORIZED', 'Authentication is required for this upload purpose');
+    if (!actor) {
+      throw forbidden('UPLOAD_UNAUTHORIZED', 'Authentication is required for upload');
     }
 
     const policy = uploadPolicies[purpose];
@@ -201,16 +201,37 @@ function parsePurpose(value?: string): UploadPurpose {
   return UploadPurpose[value as keyof typeof UploadPurpose];
 }
 
+const extensionToMime: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.doc': 'application/msword',
+  '.xls': 'application/vnd.ms-excel',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+};
+
 function validateFile(file: ParsedFile, policy: (typeof uploadPolicies)[UploadPurpose]) {
   if (file.buffer.length > policy.maxSize) {
     throw badRequest('UPLOAD_FILE_TOO_LARGE', 'File is too large');
   }
-  if (!policy.mimeTypes.includes(file.mimeType)) {
-    throw badRequest('UPLOAD_MIME_NOT_ALLOWED', 'MIME type is not allowed');
-  }
   const extension = path.extname(file.fileName).toLowerCase();
   if (!extension || !policy.extensions.includes(extension)) {
     throw badRequest('UPLOAD_MIME_NOT_ALLOWED', 'File extension is not allowed');
+  }
+  if (!policy.mimeTypes.includes(file.mimeType)) {
+    const inferred = extensionToMime[extension];
+    if (inferred && policy.mimeTypes.includes(inferred)) {
+      file.mimeType = inferred;
+    } else {
+      throw badRequest('UPLOAD_MIME_NOT_ALLOWED', 'MIME type is not allowed');
+    }
   }
   if (!signatureMatches(file.buffer, file.mimeType)) {
     throw badRequest('UPLOAD_SIGNATURE_INVALID', 'File signature does not match MIME type');
@@ -230,7 +251,29 @@ function signatureMatches(buffer: Buffer, mimeType: string): boolean {
     return true; // Soft fallback for valid image mimeType uploads
   }
   if (mimeType === 'application/pdf') return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
-  if (mimeType.includes('officedocument')) return buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+  if (
+    mimeType.includes('officedocument') ||
+    mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  ) {
+    return buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+  }
+  if (
+    mimeType === 'application/msword' ||
+    mimeType === 'application/vnd.ms-excel' ||
+    mimeType === 'application/vnd.ms-powerpoint'
+  ) {
+    return (
+      (buffer.length >= 8 &&
+        buffer[0] === 0xd0 &&
+        buffer[1] === 0xcf &&
+        buffer[2] === 0x11 &&
+        buffer[3] === 0xe0) ||
+      (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04)
+    );
+  }
+  if (mimeType === 'text/plain' || mimeType === 'text/csv') return true;
   if (mimeType.startsWith('video/')) {
     if (buffer.length < 12) return false;
     const ftyp = buffer.subarray(4, 8).toString('ascii');
@@ -247,6 +290,14 @@ function extensionFor(fileName: string, mimeType: string): string {
     'image/png': '.png',
     'image/webp': '.webp',
     'application/pdf': '.pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+    'application/msword': '.doc',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.ms-powerpoint': '.ppt',
+    'text/plain': '.txt',
+    'text/csv': '.csv',
     'video/mp4': '.mp4',
     'video/quicktime': '.mov',
   };
@@ -292,8 +343,16 @@ async function parseMultipartRequest(request: Request): Promise<ParsedMultipart>
       const ext = path.extname(fileName).toLowerCase();
       if (ext === '.pdf') mimeType = 'application/pdf';
       else if (ext === '.docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      else if (ext === '.xlsx') mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      else if (ext === '.pptx') mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      else if (ext === '.doc') mimeType = 'application/msword';
+      else if (ext === '.xls') mimeType = 'application/vnd.ms-excel';
+      else if (ext === '.ppt') mimeType = 'application/vnd.ms-powerpoint';
+      else if (ext === '.csv') mimeType = 'text/csv';
+      else if (ext === '.txt') mimeType = 'text/plain';
       else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
       else if (ext === '.png') mimeType = 'image/png';
+      else if (ext === '.webp') mimeType = 'image/webp';
     }
     parsed.file = {
       fileName,

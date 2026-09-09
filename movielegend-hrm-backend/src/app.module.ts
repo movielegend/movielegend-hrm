@@ -66,6 +66,7 @@ import { ShiftSwapsModule } from './modules/shift-swaps/shift-swaps.module';
 import { VoiceCallModule } from './modules/voice-call/voice-call.module';
 import { CompetitionModule } from './modules/competition/competition.module';
 import { LevelingModule } from './modules/leveling/leveling.module';
+import { DepartmentDocumentsModule } from './modules/department-documents/department-documents.module';
 
 @Module({
   imports: [
@@ -87,6 +88,9 @@ import { LevelingModule } from './modules/leveling/leveling.module';
                 res.set('Access-Control-Allow-Origin', '*');
                 res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
                 res.set('Access-Control-Allow-Headers', '*');
+                if (typeof res.removeHeader === 'function') {
+                  res.removeHeader('X-Frame-Options');
+                }
               },
             },
           },
@@ -150,6 +154,7 @@ import { LevelingModule } from './modules/leveling/leveling.module';
     VoiceCallModule,
     CompetitionModule,
     LevelingModule,
+    DepartmentDocumentsModule,
   ],
   providers: [
     {

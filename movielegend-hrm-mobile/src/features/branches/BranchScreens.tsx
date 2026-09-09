@@ -13,7 +13,7 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
 import { FilterChip } from '../../components/FilterChip';
-import { useBranches, useCreateBranch, useDeleteBranch, useUpdateBranch, useBranch } from '../../api/branches.api';
+import { useBranches, useCreateBranch, useDeleteBranch, useUpdateBranch, useBranch, type Branch } from '../../api/branches.api';
 import { useRegions } from '../../api/regions.api';
 import { getDepartments } from '../../api/departments.api';
 import { useQuery } from '@tanstack/react-query';

@@ -141,6 +141,11 @@ export function HRProfileScreen() {
               onPress={() => router.push('/hr/contracts' as any)} 
             />
             <ActionRow 
+              icon="folder-text-outline" 
+              title="Tài liệu nội bộ" 
+              onPress={() => router.push('/hr/documents' as any)} 
+            />
+            <ActionRow 
               icon="laptop" 
               title="Vật tư & Cấp phát thiết bị" 
               onPress={() => router.push('/hr/assets' as any)} 

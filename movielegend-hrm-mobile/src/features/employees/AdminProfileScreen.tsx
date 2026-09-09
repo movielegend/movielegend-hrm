@@ -130,7 +130,8 @@ export function AdminProfileScreen() {
             <ActionRow icon="clipboard-check-outline" title="Duyệt đơn" onPress={() => router.push('/leader/employee-requests')} />
             <ActionRow icon="account-check-outline" title="Duyệt tài khoản" onPress={() => router.push('/admin/approvals')} />
             <ActionRow icon="swap-horizontal" title="Luân chuyển PB" onPress={() => router.push('/admin/cross-department')} />
-            <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} isLast={isHR} />
+            <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} />
+            <ActionRow icon="folder-text-outline" title="Tài liệu nội bộ" onPress={() => router.push('/admin/documents' as any)} isLast={isHR} />
             {!isHR && <ActionRow icon="message-draw" title="Quản lý Góp ý" onPress={() => router.push('/admin/feedbacks' as any)} isLast />}
           </View>
         </View>

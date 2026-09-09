@@ -231,6 +231,12 @@ export function AdminDashboard() {
               onPress={() => router.push('/admin/contracts')}
             />
             <GridItem
+              icon="folder-text-outline"
+              title="Tài liệu"
+              color="#2563EB"
+              onPress={() => router.push('/admin/documents' as any)}
+            />
+            <GridItem
               icon="message-draw"
               title="Góp ý"
               color="#E11D48"

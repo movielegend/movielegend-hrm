@@ -5,7 +5,8 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
 export interface MultiSelectOption {
-  id: string;
+  id?: string;
+  value?: string;
   label: string;
   subtitle?: string;
 }
@@ -23,7 +24,7 @@ interface MultiSelectModalProps {
 export function MultiSelectModal({
   visible,
   title,
-  options,
+  options = [],
   selectedValues = [],
   onSelect,
   onClose,
@@ -39,7 +40,15 @@ export function MultiSelectModal({
     }
   }, [visible, selectedValues]);
 
-  const filteredOptions = options.filter(o => 
+  if (!visible) return null;
+
+  const safeOptions = Array.isArray(options) ? options : [];
+
+  const getOptionId = (item: MultiSelectOption, index: number): string => {
+    return String(item.id ?? item.value ?? index);
+  };
+
+  const filteredOptions = safeOptions.filter(o => 
     o.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
     (o.subtitle && o.subtitle.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -93,14 +102,15 @@ export function MultiSelectModal({
           ) : (
             <FlatList
               data={filteredOptions}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item, index) => getOptionId(item, index)}
               contentContainerStyle={styles.listContainer}
-              renderItem={({ item }) => {
-                const isSelected = localSelected.has(item.id);
+              renderItem={({ item, index }) => {
+                const itemId = getOptionId(item, index);
+                const isSelected = localSelected.has(itemId);
                 return (
                   <Pressable
                     style={[styles.optionRow, isSelected && styles.optionRowSelected]}
-                    onPress={() => toggleSelect(item.id)}
+                    onPress={() => toggleSelect(itemId)}
                   >
                     <View style={styles.optionContent}>
                       <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>

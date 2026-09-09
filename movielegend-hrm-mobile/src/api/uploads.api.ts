@@ -53,7 +53,27 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
     const formData = new FormData();
     formData.append('purpose', input.purpose);
     const fileBlob = await fetch(input.uri).then(r => r.blob());
-    formData.append('file', fileBlob, input.name);
+    
+    const extMatch = input.name.match(/\.([a-zA-Z0-9]+)$/);
+    const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : '';
+    const mimeByExt: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+      '.pdf': 'application/pdf',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.doc': 'application/msword',
+      '.xls': 'application/vnd.ms-excel',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.txt': 'text/plain',
+      '.csv': 'text/csv',
+    };
+    const effectiveMime = targetMimeType || mimeByExt[ext] || fileBlob.type || 'application/octet-stream';
+    const safeFile = new File([fileBlob], input.name, { type: effectiveMime });
+    formData.append('file', safeFile, input.name);
 
     const response = await fetch(endpoint, {
       method: 'POST',

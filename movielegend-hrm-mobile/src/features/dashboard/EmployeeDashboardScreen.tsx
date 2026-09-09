@@ -350,6 +350,12 @@ export function EmployeeDashboardScreen() {
               onPress={() => router.push('/employee/contracts')}
             />
             <GridItem
+              icon="folder-text-outline"
+              title="Tài liệu"
+              color="#2563EB"
+              onPress={() => router.push('/employee/documents' as any)}
+            />
+            <GridItem
               icon="message-draw"
               title="Góp ý"
               color="#E11D48"

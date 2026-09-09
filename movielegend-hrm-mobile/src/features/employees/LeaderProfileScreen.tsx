@@ -105,6 +105,7 @@ export function LeaderProfileScreen() {
             <ActionRow icon="help-circle-outline" title="Yêu cầu VTTB" onPress={() => router.push('/leader/material-issues' as any)} />
             <ActionRow icon="account-multiple" title="Nhân sự phòng" onPress={() => router.push('/leader/employees' as any)} />
             <ActionRow icon="calendar-check" title="Phân ca làm" onPress={() => router.push('/leader/shift-management' as any)} />
+            <ActionRow icon="folder-text-outline" title="Tài liệu nội bộ" onPress={() => router.push('/leader/documents' as any)} />
             <ActionRow icon="newspaper-variant-outline" title="Bảng tin" onPress={() => router.push('/leader/newsfeed' as any)} />
             <ActionRow icon="chat" title="Nhóm Chat" onPress={() => router.push('/leader/chat' as any)} isLast />
           </View>

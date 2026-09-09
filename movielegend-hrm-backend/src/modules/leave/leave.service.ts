@@ -167,6 +167,16 @@ export class LeaveService {
       });
 
       // Cập nhật hồi tố (retroactive) penalty cho các bảng công đã tồn tại trong khoảng thời gian nghỉ
+      // Chỉ sửa nếu payroll period tương ứng chưa bị khóa
+      const lockedPeriods = await tx.payrollPeriod.findMany({
+        where: {
+          status: { in: ['LOCKED', 'APPROVED'] },
+          startDate: { lte: request.endDate },
+          endDate: { gte: request.startDate },
+        },
+        select: { startDate: true, endDate: true },
+      });
+
       const attendanceRecords = await tx.attendanceRecord.findMany({
         where: {
           userId: request.userId,
@@ -176,6 +186,12 @@ export class LeaveService {
       });
       for (const record of attendanceRecords) {
         if (record.latePenaltyLevel === null) continue;
+        // Bỏ qua record thuộc payroll đã khóa
+        const isInLockedPeriod = lockedPeriods.some(
+          p => record.workDate >= p.startDate && record.workDate <= p.endDate
+        );
+        if (isInLockedPeriod) continue;
+
         if (record.latePenaltyLevel <= 3) {
           await tx.attendanceRecord.update({
             where: { id: record.id },
@@ -346,14 +362,27 @@ export class LeaveService {
       where: { userId_leaveTypeId_year: { userId, leaveTypeId, year } },
     });
     if (!balance) {
-      const leaveType = await this.prisma.leaveType.findUnique({ where: { id: leaveTypeId } });
+      const [leaveType, profile] = await Promise.all([
+        this.prisma.leaveType.findUnique({ where: { id: leaveTypeId } }),
+        this.prisma.employeeProfile.findUnique({ where: { userId }, select: { joinDate: true } }),
+      ]);
       const annualQuota = Number(leaveType?.annualQuotaDays || 12);
+      // Prorate quota nếu nhân viên vào làm giữa năm
+      let proratedQuota = annualQuota;
+      if (profile?.joinDate) {
+        const joinYear = profile.joinDate.getFullYear();
+        if (joinYear === year) {
+          const joinMonth = profile.joinDate.getMonth(); // 0-based
+          const remainingMonths = 12 - joinMonth;
+          proratedQuota = Math.round((annualQuota * remainingMonths) / 12);
+        }
+      }
       balance = await this.prisma.leaveBalance.create({
         data: {
           userId,
           leaveTypeId,
           year,
-          balanceDays: annualQuota,
+          balanceDays: proratedQuota,
           usedDays: 0,
         },
       });

@@ -275,6 +275,12 @@ export function HRDashboard() {
               onPress={() => router.navigate('/hr/contracts' as any)} 
             />
             <GridItem 
+              icon="folder-text-outline" 
+              title="Tài liệu" 
+              color="#2563EB" 
+              onPress={() => router.push('/hr/documents' as any)} 
+            />
+            <GridItem 
               icon="view-grid-outline" 
               title="Phân ca" 
               color="#EC4899" 

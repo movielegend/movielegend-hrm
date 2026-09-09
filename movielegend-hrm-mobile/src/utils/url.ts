@@ -2,7 +2,7 @@ import { assertApiUrl } from '../constants/env';
 
 export function resolveFileUrl(uri?: string | null): string | null {
   if (!uri) return null;
-  let url = uri;
+  let url = decodeURIComponent(uri);
   if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('file:')) {
     return url;
   }
