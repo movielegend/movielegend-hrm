@@ -83,15 +83,44 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const b = (notification.body || '').toLowerCase();
   const text = `${t} ${b}`;
 
+  const notifType = notification.type || '';
+  const metaType = stringMeta(notification.metadata, 'type') || '';
+
+  // 1. Leveling & Level Projects Routing
   if (
+    notifType.startsWith('LEVEL_') ||
+    metaType.startsWith('LEVEL_') ||
+    t.includes('dự án') ||
+    t.includes('cấp bậc') ||
+    t.includes('việc con') ||
+    t.includes('thăng cấp') ||
+    t.includes('level') ||
+    b.includes('dự án') ||
+    b.includes('việc con') ||
+    b.includes('cấp bậc') ||
+    b.includes('thăng cấp')
+  ) {
+    if (base === '/admin') return '/admin/levels';
+    if (base === '/leader') return '/leader/level-projects';
+    return '/employee/level-projects';
+  }
+
+  // 2. Bonus Vault & Points Routing
+  if (
+    notifType.startsWith('VAULT_') ||
+    metaType.startsWith('VAULT_') ||
     text.includes('ví thưởng') ||
+    text.includes('điểm thưởng') ||
+    text.includes('thưởng cuối năm') ||
     text.includes('rút ví') ||
     text.includes('rút điểm') ||
     text.includes('thưởng tết') ||
     text.includes('lệnh chi tiền') ||
     text.includes('chi trả') ||
     text.includes('tất toán') ||
-    text.includes('yêu cầu rút')
+    text.includes('yêu cầu rút') ||
+    text.includes('trao gói thưởng') ||
+    text.includes('trao điểm thưởng')
   ) {
     if (base === '/admin') {
       return '/admin/tet-wallet?tab=WITHDRAWALS';
@@ -142,6 +171,9 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
 }
 
 export function getNotificationIcon(type: string, title?: string): any {
+  const t = (title || '').toLowerCase();
+  if (t.includes('dự án') || t.includes('cấp bậc') || t.includes('việc con') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return 'trophy-award';
+  if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('rút tiền') || t.includes('rút ví') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return 'wallet-giftcard';
   if (type.startsWith('TASK_')) return 'clipboard-check-outline';
   if (type.startsWith('ASSET_INCIDENT_')) return 'alert-circle-outline';
   if (type.startsWith('ASSET_')) return 'desktop-mac';
@@ -160,6 +192,9 @@ export function getNotificationIcon(type: string, title?: string): any {
 }
 
 export function getNotificationColor(type: string, title?: string): string {
+  const t = (title || '').toLowerCase();
+  if (t.includes('dự án') || t.includes('cấp bậc') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return '#0F766E';
+  if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return '#D97706';
   if (type.startsWith('TASK_')) return colors.primary;
   if (type.startsWith('ASSET_INCIDENT_')) return colors.danger;
   if (type.startsWith('ASSET_')) return colors.warning;
@@ -167,8 +202,8 @@ export function getNotificationColor(type: string, title?: string): string {
   if (type.startsWith('PAYROLL_')) return colors.success;
   if (type === 'ACCOUNT_APPROVAL_REQUESTED') return colors.warning;
   if (type === 'NEWSFEED_POST_PENDING') return colors.warning;
-  if (type.includes('REJECTED') || type.includes('FAILED')) return colors.danger;
-  if (type.includes('APPROVED') || type.includes('CONFIRMED')) return colors.success;
+  if (type.includes('REJECTED') || type.includes('FAILED') || t.includes('từ chối') || t.includes('sửa lại')) return colors.danger;
+  if (type.includes('APPROVED') || type.includes('CONFIRMED') || t.includes('thành công') || t.includes('đã duyệt')) return colors.success;
   if (type === 'SYSTEM' && (title === 'Phân ca mới' || title === 'Phân ca làm việc mới')) return colors.primary;
   
   return colors.muted;

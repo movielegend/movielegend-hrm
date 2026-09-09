@@ -3,8 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../database/prisma.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { PromotionRequestStatus } from '@prisma/client';
+import { NotificationType, PromotionRequestStatus } from '@prisma/client';
 
 const STORAGE_DIR = path.join(process.cwd(), 'storage');
 const CONFIG_STORAGE_FILE = path.join(STORAGE_DIR, 'level_dept_configs.json');
@@ -98,8 +99,32 @@ export class LevelingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly notifications: NotificationsService,
   ) {
     this.loadFromStorage();
+  }
+
+  private async sendLevelNotification(
+    userIds: string[],
+    title: string,
+    body: string,
+    metadata?: any,
+  ) {
+    try {
+      const validUserIds = [...new Set(userIds)].filter(Boolean);
+      if (validUserIds.length === 0) return;
+      const notif = await this.notifications.createForUsers(this.prisma as any, validUserIds, {
+        type: 'SYSTEM' as NotificationType,
+        title,
+        body,
+        metadata,
+      });
+      if (notif) {
+        this.notifications.emitCreated(notif);
+      }
+    } catch (e) {
+      // ignore
+    }
   }
 
   private loadFromStorage() {
@@ -1069,6 +1094,26 @@ export class LevelingService {
       projects: convertedProjects,
     });
 
+    // Notify department members about updated project configuration
+    if (departmentId) {
+      this.prisma.departmentMember.findMany({
+        where: { departmentId, leftAt: null },
+        select: { userId: true },
+      }).then((members) => {
+        const memberIds = members.map((m) => m.userId);
+        void this.sendLevelNotification(
+          memberIds,
+          'Dự án cấp bậc mới được cập nhật 🏆',
+          `Ban Giám Đốc đã cập nhật cấu hình dự án và danh mục công việc cho phòng ${departmentName || 'ban'}.`,
+          {
+            type: 'LEVEL_CONFIG_UPDATED',
+            departmentId,
+            departmentName,
+          }
+        );
+      }).catch(() => {});
+    }
+
     return { success: true, count: convertedProjects.length, departmentName };
   }
 
@@ -1121,6 +1166,23 @@ export class LevelingService {
     subTask.assignedUserId = assignedUserId;
     subTask.assignedUserName = assignedUserName;
     this.saveToStorage();
+
+    // Notify assigned employee
+    if (assignedUserId) {
+      void this.sendLevelNotification(
+        [assignedUserId],
+        'Giao việc dự án mới 📋',
+        `Bạn vừa được giao đầu việc "${subTask.title}" thuộc ${project.projectName || project.levelName}.`,
+        {
+          type: 'LEVEL_PROJECT_ASSIGNED',
+          levelNumber,
+          subTaskId,
+          departmentId,
+          departmentName,
+        }
+      );
+    }
+
     return { success: true, subTask };
   }
 
@@ -1146,6 +1208,28 @@ export class LevelingService {
     subTask.evidenceImages = evidenceImages;
     subTask.submittedAt = new Date().toISOString();
     this.saveToStorage();
+
+    // Notify Leader and Admins
+    this.prisma.userRole.findMany({
+      where: {
+        role: { code: { in: ['LEADER', 'ADMIN'] } },
+      },
+      select: { userId: true },
+    }).then((roleHolders) => {
+      const targetUserIds = [...new Set(roleHolders.map((r) => r.userId))];
+      void this.sendLevelNotification(
+        targetUserIds,
+        'Nhân sự nộp báo cáo dự án 📑',
+        `${subTask.assignedUserName || 'Nhân sự'} đã nộp báo cáo việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
+        {
+          type: 'LEVEL_PROJECT_SUBMITTED',
+          levelNumber,
+          subTaskId,
+          departmentId,
+          departmentName,
+        }
+      );
+    }).catch(() => {});
 
     return { success: true, subTask };
   }
@@ -1173,6 +1257,37 @@ export class LevelingService {
       (t) => t.status === 'LEADER_APPROVED' || t.status === 'ADMIN_APPROVED',
     ).length;
     this.saveToStorage();
+
+    // Notify assigned employee about approval or rework
+    if (subTask.assignedUserId) {
+      if (status === 'LEADER_APPROVED') {
+        void this.sendLevelNotification(
+          [subTask.assignedUserId],
+          'Duyệt hoàn thành việc con 🎉',
+          `Leader ${reviewerName || ''} đã duyệt Vòng 1 việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
+          {
+            type: 'LEVEL_PROJECT_APPROVED',
+            levelNumber,
+            subTaskId,
+            departmentId,
+            departmentName,
+          }
+        );
+      } else {
+        void this.sendLevelNotification(
+          [subTask.assignedUserId],
+          'Yêu cầu bổ sung báo cáo ⚠️',
+          `Leader yêu cầu bạn kiểm tra và sửa lại báo cáo việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
+          {
+            type: 'LEVEL_PROJECT_REWORK',
+            levelNumber,
+            subTaskId,
+            departmentId,
+            departmentName,
+          }
+        );
+      }
+    }
 
     return { success: true, subTask, completedSubTasks: project.completedSubTasks };
   }
@@ -1210,6 +1325,18 @@ export class LevelingService {
       targetLevelNumber: levelNumber,
       targetLevelName: `Level ${levelNumber}`,
     });
+
+    // Notify user about promotion
+    void this.sendLevelNotification(
+      [userId],
+      'Chúc mừng thăng cấp bậc mới 🌟🎖️',
+      `Bạn đã được xét duyệt nâng lên Level ${levelNumber} thành công!`,
+      {
+        type: 'LEVEL_PROMOTED',
+        levelNumber,
+      }
+    );
+
     return { success: true, userId, levelNumber };
   }
 }
