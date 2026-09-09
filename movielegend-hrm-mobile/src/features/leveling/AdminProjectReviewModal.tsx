@@ -288,52 +288,85 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
                 </View>
               ) : null}
 
-              {/* Admin Decision Section */}
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Ionicons name="shield-checkmark-outline" size={16} color="#4F46E5" />
-                  <Text style={styles.cardTitle}>Quyết Định Nghiệm Thu Của Ban Giám Đốc</Text>
-                </View>
-
-                <Text style={styles.inputLabel}>Ghi chú chỉ đạo / Nhận xét nghiệm thu (tùy chọn):</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Nhập nhận xét, đánh giá kết quả dự án hoặc lưu ý bổ sung..."
-                  placeholderTextColor="#94A3B8"
-                  value={adminFeedback}
-                  onChangeText={setAdminFeedback}
-                  multiline
-                  numberOfLines={3}
-                />
-
-                <View style={styles.actionButtonsRow}>
-                  <TouchableOpacity
-                    style={[styles.btnReject, isSubmitting && styles.btnDisabled]}
-                    onPress={handleReject}
-                    disabled={isSubmitting}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="refresh-outline" size={16} color="#DC2626" style={{ marginRight: 6 }} />
-                    <Text style={styles.btnRejectText}>Yêu Cầu Sửa</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.btnApprove, isSubmitting && styles.btnDisabled]}
-                    onPress={handleApprove}
-                    disabled={isSubmitting}
-                    activeOpacity={0.8}
-                  >
-                    {isSubmitting ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Ionicons name="checkmark-circle-outline" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
-                        <Text style={styles.btnApproveText}>Phê Duyệt Nghiệm Thu</Text>
-                      </>
-                    )}
+              {/* If already approved: Read-only Completed Notice Card */}
+              {isAdminApproved ? (
+                <View style={[styles.card, styles.approvedNoticeCard]}>
+                  <View style={styles.cardHeader}>
+                    <Ionicons name="checkmark-done-circle" size={22} color="#059669" />
+                    <Text style={[styles.cardTitle, { color: '#065F46', fontSize: 15 }]}>
+                      Dự Án Đã Nghiệm Thu Hoàn Tất 🏆
+                    </Text>
+                  </View>
+                  <Text style={styles.approvedNoticeSub}>
+                    Dự án này đã được Ban Giám Đốc nghiệm thu chính thức và lưu trữ vào lịch sử hoàn thành của phòng ban.
+                  </Text>
+                  {project.adminApprovedAt && (
+                    <View style={styles.approvedDateRow}>
+                      <Ionicons name="calendar-outline" size={14} color="#059669" />
+                      <Text style={styles.approvedDateText}>
+                        Thời gian nghiệm thu: {new Date(project.adminApprovedAt).toLocaleString('vi-VN')}
+                      </Text>
+                    </View>
+                  )}
+                  {Boolean(project.adminFeedback) && (
+                    <View style={styles.approvedFeedbackBox}>
+                      <Text style={styles.approvedFeedbackLabel}>Ý kiến chỉ đạo của Ban Giám Đốc:</Text>
+                      <Text style={styles.approvedFeedbackText}>"{project.adminFeedback}"</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.btnCloseArchive} onPress={onClose} activeOpacity={0.8}>
+                    <Ionicons name="checkmark" size={16} color="#059669" style={{ marginRight: 6 }} />
+                    <Text style={styles.btnCloseArchiveText}>Đóng Hồ Sơ Nghiệm Thu</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              ) : (
+                /* Admin Decision Section when project is in progress or awaiting review */
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Ionicons name="shield-checkmark-outline" size={16} color="#4F46E5" />
+                    <Text style={styles.cardTitle}>Quyết Định Nghiệm Thu Của Ban Giám Đốc</Text>
+                  </View>
+
+                  <Text style={styles.inputLabel}>Ghi chú chỉ đạo / Nhận xét nghiệm thu (tùy chọn):</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Nhập nhận xét, đánh giá kết quả dự án hoặc lưu ý bổ sung..."
+                    placeholderTextColor="#94A3B8"
+                    value={adminFeedback}
+                    onChangeText={setAdminFeedback}
+                    multiline
+                    numberOfLines={3}
+                  />
+
+                  <View style={styles.actionButtonsRow}>
+                    <TouchableOpacity
+                      style={[styles.btnReject, isSubmitting && styles.btnDisabled]}
+                      onPress={handleReject}
+                      disabled={isSubmitting}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="refresh-outline" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+                      <Text style={styles.btnRejectText}>Yêu Cầu Sửa</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.btnApprove, isSubmitting && styles.btnDisabled]}
+                      onPress={handleApprove}
+                      disabled={isSubmitting}
+                      activeOpacity={0.8}
+                    >
+                      {isSubmitting ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="checkmark-circle-outline" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
+                          <Text style={styles.btnApproveText}>Phê Duyệt Nghiệm Thu</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               <View style={{ height: 40 }} />
             </ScrollView>
@@ -915,5 +948,65 @@ const styles = StyleSheet.create({
   zoomImage: {
     width: SCREEN_WIDTH - 20,
     height: '80%',
+  },
+
+  /* Approved Read-Only Notice Styles */
+  approvedNoticeCard: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1.5,
+  },
+  approvedNoticeSub: {
+    fontSize: 13,
+    color: '#065F46',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  approvedDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  approvedDateText: {
+    fontSize: 12,
+    color: '#047857',
+    fontWeight: '600',
+  },
+  approvedFeedbackBox: {
+    backgroundColor: '#FFFFFF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#059669',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 8,
+  },
+  approvedFeedbackLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+    marginBottom: 3,
+  },
+  approvedFeedbackText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  btnCloseArchive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#059669',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  btnCloseArchiveText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#059669',
   },
 });
