@@ -51,22 +51,38 @@ export function MonthlyTimesheetScreen() {
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
 
-  const isHR = user?.roles?.some(
-    (r) =>
-      String(r).toUpperCase().includes('HR') ||
-      String(r).toUpperCase().includes('ADMIN') ||
-      (String(r).toUpperCase().includes('LEADER') && (user?.department?.name || '').toLowerCase().includes('nhân sự'))
+  const deptName = (user?.department?.name || user?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
+  const isAdmin = Boolean(
+    user?.roles?.some((r) => String(r).toUpperCase().includes('ADMIN')) ||
+    user?.role?.code === 'ADMIN'
+  );
+  const isLeader = Boolean(
+    user?.roles?.some((r) => String(r).toUpperCase().includes('LEADER')) ||
+    user?.role?.code === 'LEADER'
+  );
+  const isHRRole = Boolean(
+    user?.roles?.some((r) => String(r).toUpperCase().includes('HR')) ||
+    user?.role?.code === 'HR'
   );
 
+  // Leader phòng Nhân sự / Hành chính nhân sự
+  const isLeaderHR = isLeader && (deptName.includes('nhân sự') || deptName.includes('hcns') || deptName.includes('hr'));
+
+  // Quyền xem tab Toàn công ty / Miền: Admin, HR hoặc Leader HR
+  const canViewCompany = isAdmin || isHRRole || isLeaderHR;
+
+  // Quyền tải ảnh / đổi ảnh bảng công: CHỈ LEADER HR (Admin chỉ xem)
+  const canUploadTimesheet = isLeaderHR;
+
   useEffect(() => {
-    if (isHR) {
+    if (canViewCompany) {
       getDepartments()
         .then((res) => {
           setDepartments(res.items || []);
         })
         .catch(() => {});
     }
-  }, [isHR]);
+  }, [canViewCompany]);
 
   const fetchTimesheet = useCallback(async () => {
     try {
@@ -315,23 +331,25 @@ export function MonthlyTimesheetScreen() {
                   <MaterialCommunityIcons name="eye-outline" size={16} color="#059669" />
                   <Text style={styles.empViewBtnText}>Xem ảnh bảng công</Text>
                 </Pressable>
-                <Pressable
-                  style={styles.empReuploadBtn}
-                  onPress={() => handleUploadUserTimesheetImage(item.userId, item.fullName)}
-                  disabled={isThisUploading}
-                >
-                  {isThisUploading ? (
-                    <ActivityIndicator size="small" color="#64748B" />
-                  ) : (
-                    <>
-                      <MaterialCommunityIcons name="camera-retake-outline" size={15} color="#475569" />
-                      <Text style={styles.empReuploadBtnText}>Đổi ảnh khác</Text>
-                    </>
-                  )}
-                </Pressable>
+                {canUploadTimesheet && (
+                  <Pressable
+                    style={styles.empReuploadBtn}
+                    onPress={() => handleUploadUserTimesheetImage(item.userId, item.fullName)}
+                    disabled={isThisUploading}
+                  >
+                    {isThisUploading ? (
+                      <ActivityIndicator size="small" color="#64748B" />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="camera-retake-outline" size={15} color="#475569" />
+                        <Text style={styles.empReuploadBtnText}>Đổi ảnh khác</Text>
+                      </>
+                    )}
+                  </Pressable>
+                )}
               </View>
             </View>
-          ) : (
+          ) : canUploadTimesheet ? (
             <Pressable
               style={styles.empUploadNewBtn}
               onPress={() => handleUploadUserTimesheetImage(item.userId, item.fullName)}
@@ -346,6 +364,11 @@ export function MonthlyTimesheetScreen() {
                 </>
               )}
             </Pressable>
+          ) : (
+            <View style={styles.empNoImageNotice}>
+              <MaterialCommunityIcons name="image-off-outline" size={16} color="#94A3B8" />
+              <Text style={styles.empNoImageNoticeText}>Chưa có ảnh bảng công</Text>
+            </View>
           )}
         </View>
       </View>
@@ -361,7 +384,7 @@ export function MonthlyTimesheetScreen() {
           <Text style={styles.topTitle}>Bảng Chấm Công</Text>
         </View>
 
-        {isHR && (
+        {canViewCompany && (
           <View style={styles.tabContainer}>
             <View style={styles.segmentedControl}>
               <Pressable
@@ -1214,5 +1237,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#fff',
+  },
+  empNoImageNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  empNoImageNoticeText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
   },
 });
