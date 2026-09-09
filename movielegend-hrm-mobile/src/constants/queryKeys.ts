@@ -32,6 +32,7 @@ export const queryKeys = {
   taskExtensionPending: <T extends object>(filters: T = {} as T) => ['task-extensions', 'pending', filters] as const,
   crossDepartmentRequests: <T extends object>(filters: T = {} as T) => ['cross-department-requests', filters] as const,
   crossDepartmentRequest: (id: string) => ['cross-department-requests', 'detail', id] as const,
+  scopedEmployees: <T extends object>(filters: T = {} as T) => ['employees', 'scoped', filters] as const,
   notifications: (userId?: string) => ['notifications', 'me', userId ?? 'current'] as const,
   notificationUnreadCount: (userId?: string) => ['notifications', 'unread-count', userId ?? 'current'] as const,
 };

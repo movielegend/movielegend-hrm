@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -6,67 +6,75 @@ import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Ionicons } from '@expo/vector-icons';
 import { saveUserGuideStatus } from '../storage/user-guide.storage';
-import { apiUrl } from '../constants/env';
+import { resolveFileUrl } from '../utils/url';
 import Toast from 'react-native-toast-message';
 import type { UserRole } from '../types/user.types';
 
-export type GuideRoleKey = 'user' | 'admin' | 'leader';
+export type GuideRoleKey = 'user' | 'leader' | 'admin';
 
 export interface GuideItem {
   id: string;
   key: GuideRoleKey;
   label: string;
+  tabLabel: string;
   title: string;
   fileName: string;
   url: string;
 }
 
-const BASE_SERVER_URL = apiUrl.replace(/\/api\/v1\/?$/, '');
+export function getGuideFiles(): Record<GuideRoleKey, GuideItem> {
+  return {
+    user: {
+      id: '1',
+      key: 'user',
+      label: 'Hướng dẫn cho Nhân viên',
+      tabLabel: 'Nhân viên',
+      title: 'Cẩm nang Hướng dẫn Sử dụng cho Nhân viên',
+      fileName: 'Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf',
+      url: resolveFileUrl('/uploads/Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf') || '',
+    },
+    leader: {
+      id: '2',
+      key: 'leader',
+      label: 'Hướng dẫn cho Quản lý (Leader)',
+      tabLabel: 'Quản lý (Leader)',
+      title: 'Cẩm nang Hướng dẫn Sử dụng Role Leader',
+      fileName: 'Cam_nang_huong_dan_su_dung_Role_Leader.pdf',
+      url: resolveFileUrl('/uploads/Cam_nang_huong_dan_su_dung_Role_Leader.pdf') || '',
+    },
+    admin: {
+      id: '3',
+      key: 'admin',
+      label: 'Hướng dẫn cho Quản trị (Admin)',
+      tabLabel: 'Quản trị (Admin)',
+      title: 'MovieLegend App Guide Chuyên Nghiệp (Admin)',
+      fileName: 'MovieLegend_App_Guide_Chuyen_Nghiep.pdf',
+      url: resolveFileUrl('/uploads/MovieLegend_App_Guide_Chuyen_Nghiep.pdf') || '',
+    },
+  };
+}
 
-export const GUIDE_FILES: Record<GuideRoleKey, GuideItem> = {
-  user: {
-    id: '1',
-    key: 'user',
-    label: 'Hướng dẫn cho Nhân viên',
-    title: 'Cẩm nang Hướng dẫn Sử dụng cho Nhân viên',
-    fileName: 'Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf',
-    url: `${BASE_SERVER_URL}/uploads/Cam_nang_huong_dan_su_dung_cho_nhan_vien_Movielegend.pdf`,
-  },
-  admin: {
-    id: '2',
-    key: 'admin',
-    label: 'Hướng dẫn cho Admin (Chuyên Nghiệp)',
-    title: 'MovieLegend App Guide Chuyên Nghiệp (Admin)',
-    fileName: 'MovieLegend_App_Guide_Chuyen_Nghiep.pdf',
-    url: `${BASE_SERVER_URL}/uploads/MovieLegend_App_Guide_Chuyen_Nghiep.pdf`,
-  },
-  leader: {
-    id: '3',
-    key: 'leader',
-    label: 'Hướng dẫn cho Leader (Quản lý)',
-    title: 'Cẩm nang Hướng dẫn Sử dụng Role Leader',
-    fileName: 'Cam_nang_huong_dan_su_dung_Role_Leader.pdf',
-    url: `${BASE_SERVER_URL}/uploads/Cam_nang_huong_dan_su_dung_Role_Leader.pdf`,
-  },
-};
+export const GUIDE_FILES = getGuideFiles();
 
 interface UserGuideModalProps {
   userId: string;
   userRoles?: UserRole[];
   isVisible: boolean;
   onClose: () => void;
+  initialViewMode?: 'prompt' | 'viewing';
 }
 
-export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: UserGuideModalProps) {
-  const [viewMode, setViewMode] = useState<'prompt' | 'viewing'>('prompt');
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [pdfHtml, setPdfHtml] = useState<string | null>(null);
-  const [loadingPdf, setLoadingPdf] = useState(false);
-  const [localPdfUri, setLocalPdfUri] = useState<string | null>(null);
+export function UserGuideModal({
+  userId,
+  userRoles = [],
+  isVisible,
+  onClose,
+  initialViewMode = 'prompt',
+}: UserGuideModalProps) {
+  const guideFiles = useMemo(() => getGuideFiles(), [isVisible]);
 
-  // Lock guide strictly based on user's role
-  const getRoleGuideKey = (): GuideRoleKey => {
-    if (userRoles.includes('ADMIN') || userRoles.includes('HR')) {
+  const getDefaultGuideKey = (): GuideRoleKey => {
+    if (userRoles.includes('ADMIN') || userRoles.includes('HR') || userRoles.includes('ACCOUNTANT')) {
       return 'admin';
     }
     if (userRoles.includes('LEADER')) {
@@ -75,27 +83,47 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
     return 'user';
   };
 
-  const activeGuideKey = getRoleGuideKey();
-  const activeGuide = GUIDE_FILES[activeGuideKey];
+  const getAvailableGuideKeys = (): GuideRoleKey[] => {
+    if (userRoles.includes('ADMIN') || userRoles.includes('HR') || userRoles.includes('ACCOUNTANT')) {
+      return ['admin', 'leader', 'user'];
+    }
+    if (userRoles.includes('LEADER')) {
+      return ['leader', 'user'];
+    }
+    return ['user'];
+  };
+
+  const availableKeys = useMemo(() => getAvailableGuideKeys(), [userRoles]);
+  const [selectedGuideKey, setSelectedGuideKey] = useState<GuideRoleKey>(getDefaultGuideKey);
+  const [viewMode, setViewMode] = useState<'prompt' | 'viewing'>(initialViewMode);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [pdfHtml, setPdfHtml] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [localPdfUri, setLocalPdfUri] = useState<string | null>(null);
+
+  const activeGuide = guideFiles[selectedGuideKey] || guideFiles.user;
 
   useEffect(() => {
-    if (isVisible && viewMode === 'viewing') {
-      loadPdf(activeGuide.url, activeGuide.fileName);
+    if (isVisible) {
+      setSelectedGuideKey(getDefaultGuideKey());
+      setViewMode(initialViewMode);
     } else {
       setPdfHtml(null);
       setLocalPdfUri(null);
     }
-  }, [isVisible, viewMode, activeGuideKey]);
+  }, [isVisible, initialViewMode]);
+
+  useEffect(() => {
+    if (isVisible && viewMode === 'viewing') {
+      loadPdf(activeGuide.url, activeGuide.fileName);
+    }
+  }, [isVisible, viewMode, selectedGuideKey]);
 
   const loadPdf = async (pdfUrl: string, fileName: string) => {
     try {
       setLoadingPdf(true);
 
       if (Platform.OS === 'web') {
-        const html = `
-          <iframe src="${pdfUrl}" width="100%" height="100%" style="border: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></iframe>
-        `;
-        setPdfHtml(html);
         setLoadingPdf(false);
         return;
       }
@@ -103,7 +131,6 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
       const cleanName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
       const targetPath = `${FileSystem.documentDirectory}${cleanName}`;
 
-      // Delete cached file if present to ensure fresh download
       const existingInfo = await FileSystem.getInfoAsync(targetPath);
       if (existingInfo.exists) {
         await FileSystem.deleteAsync(targetPath, { idempotent: true });
@@ -211,10 +238,13 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
           }
         }
       } else {
-        const link = document.createElement('a');
-        link.href = activeGuide.url;
-        link.download = fileName;
-        link.click();
+        if (typeof window !== 'undefined') {
+          const link = document.createElement('a');
+          link.href = activeGuide.url;
+          link.download = fileName;
+          link.target = '_blank';
+          link.click();
+        }
       }
       Toast.show({
         type: 'success',
@@ -238,14 +268,14 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
       visible={isVisible}
       transparent
       animationType="fade"
-      onRequestClose={() => {}}
+      onRequestClose={onClose}
     >
       <View style={styles.overlay}>
         {viewMode === 'prompt' ? (
           <View style={styles.promptContainer}>
             <View style={styles.iconContainer}>
               <Ionicons
-                name={activeGuideKey === 'admin' ? 'shield-checkmark' : activeGuideKey === 'leader' ? 'people' : 'book'}
+                name={selectedGuideKey === 'admin' ? 'shield-checkmark' : selectedGuideKey === 'leader' ? 'people' : 'book'}
                 size={44}
                 color="#0F172A"
               />
@@ -268,7 +298,10 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
           <View style={styles.viewerContainer}>
             {/* Top Header */}
             <View style={styles.viewerHeader}>
-              <View style={{ flex: 1, marginRight: 8 }}>
+              <Pressable style={styles.closeButton} onPress={onClose}>
+                <Ionicons name="close" size={22} color="#0F172A" />
+              </Pressable>
+              <View style={{ flex: 1, marginHorizontal: 8 }}>
                 <Text style={styles.viewerTitle} numberOfLines={1}>
                   {activeGuide.title}
                 </Text>
@@ -278,23 +311,57 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="download-outline" size={18} color="#FFFFFF" />
+                    <Ionicons name="download-outline" size={16} color="#FFFFFF" />
                     <Text style={styles.downloadButtonText}>Tải về</Text>
                   </>
                 )}
               </Pressable>
             </View>
 
+            {/* Role tabs if multiple guides are accessible */}
+            {availableKeys.length > 1 && (
+              <View style={styles.tabBar}>
+                {availableKeys.map((key) => {
+                  const isSelected = key === selectedGuideKey;
+                  return (
+                    <Pressable
+                      key={key}
+                      style={[styles.tabItem, isSelected && styles.tabItemActive]}
+                      onPress={() => setSelectedGuideKey(key)}
+                    >
+                      <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>
+                        {guideFiles[key].tabLabel}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
             {/* PDF Viewer */}
             <View style={styles.webviewWrapper}>
-              {loadingPdf ? (
+              {Platform.OS === 'web' ? (
+                <View style={styles.webViewer}>
+                  {activeGuide.url ? (
+                    <iframe
+                      src={activeGuide.url}
+                      style={{ width: '100%', height: '100%', border: 'none' } as any}
+                      title={activeGuide.title}
+                    />
+                  ) : (
+                    <View style={styles.loadingContainer}>
+                      <Text style={styles.errorText}>Đang chuẩn bị tài liệu...</Text>
+                    </View>
+                  )}
+                </View>
+              ) : loadingPdf ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#FFFFFF" />
                   <Text style={styles.loadingText}>Đang tải cẩm nang...</Text>
                 </View>
               ) : pdfHtml ? (
                 <WebView
-                  key={`webview-${activeGuideKey}`}
+                  key={`webview-${selectedGuideKey}`}
                   source={{ html: pdfHtml, baseUrl: '' }}
                   style={styles.webview}
                   originWhitelist={['*']}
@@ -314,8 +381,8 @@ export function UserGuideModal({ userId, userRoles = [], isVisible, onClose }: U
             {/* Footer */}
             <View style={styles.viewerFooter}>
               <Pressable style={styles.startButton} onPress={handleFinishViewing}>
-                <Text style={styles.startButtonText}>Đã hiểu & Bắt đầu</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <Text style={styles.startButtonText}>Đã hiểu & Đóng</Text>
+                <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
               </Pressable>
             </View>
           </View>
@@ -409,14 +476,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
+  closeButton: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
   viewerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -424,18 +496,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0F172A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    gap: 6,
+    gap: 4,
   },
   downloadButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    padding: 6,
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  tabItemActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  tabTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
   },
   webviewWrapper: {
     flex: 1,
+    backgroundColor: '#525659',
+  },
+  webViewer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#525659',
   },
   webview: {
@@ -473,7 +583,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   viewerFooter: {
-    padding: 14,
+    padding: 12,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
@@ -483,13 +593,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0F172A',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 12,
     gap: 8,
   },
   startButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

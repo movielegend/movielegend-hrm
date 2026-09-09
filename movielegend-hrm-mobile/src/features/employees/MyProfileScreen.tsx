@@ -85,8 +85,8 @@ export function MyProfileScreen() {
               onPress={() => router.push('/employee/update-face' as any)}
             />
             <InfoRow
-              icon="file-document-outline"
-              label="Cẩm nang PDF"
+              icon="information-outline"
+              label="Hướng dẫn sử dụng"
               value="Xem chi tiết"
               onPress={showGuideManual}
             />

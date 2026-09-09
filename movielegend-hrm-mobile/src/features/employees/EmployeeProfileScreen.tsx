@@ -116,7 +116,7 @@ export function EmployeeProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="file-document-outline" title="Cẩm nang PDF" onPress={showGuideManual} />
+            <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={showGuideManual} />
             <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
             <ActionRow icon="account-remove-outline" title="Quyền sở hữu & Xóa tài khoản" onPress={() => setIsDeleting(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
