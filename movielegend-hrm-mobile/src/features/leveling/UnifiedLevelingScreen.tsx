@@ -120,6 +120,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   } | null>(null);
   const [selectedProjectForReview, setSelectedProjectForReview] =
     useState<LevelDepartmentProject | null>(null);
+  const [projectConfigSubTab, setProjectConfigSubTab] = useState<'active' | 'history'>('active');
 
   // Leader department resolution
   const leaderDeptId = progressData?.departmentId || user?.departmentLinks?.[0]?.departmentId || '';
@@ -1898,7 +1899,148 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                 </View>
               </View>
 
-              {adminProjects.length === 0 ? (
+              {/* Projects Subtabs: Active Projects vs Completed History */}
+              <View style={styles.subTabRow}>
+                <TouchableOpacity
+                  style={[styles.subTabBtn, projectConfigSubTab === 'active' && styles.subTabBtnActive]}
+                  onPress={() => setProjectConfigSubTab('active')}
+                >
+                  <Ionicons
+                    name="construct-outline"
+                    size={14}
+                    color={projectConfigSubTab === 'active' ? '#2563EB' : '#64748B'}
+                  />
+                  <Text
+                    style={[
+                      styles.subTabText,
+                      projectConfigSubTab === 'active' && styles.subTabTextActive,
+                    ]}
+                  >
+                    Dự Án Đang Chạy ({adminProjects.length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.subTabBtn, projectConfigSubTab === 'history' && styles.subTabBtnActive]}
+                  onPress={() => setProjectConfigSubTab('history')}
+                >
+                  <Ionicons
+                    name="trophy-outline"
+                    size={14}
+                    color={projectConfigSubTab === 'history' ? '#059669' : '#64748B'}
+                  />
+                  <Text
+                    style={[
+                      styles.subTabText,
+                      projectConfigSubTab === 'history' && styles.subTabTextActive,
+                    ]}
+                  >
+                    Lịch Sử Hoàn Thành ({deptLevelProjects.filter((p) => p.status === 'ADMIN_APPROVED').length})
+                  </Text>
+                  {deptLevelProjects.filter((p) => p.status === 'ADMIN_APPROVED').length > 0 && (
+                    <View style={[styles.miniDot, { backgroundColor: '#059669' }]} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {projectConfigSubTab === 'history' ? (
+                <View style={styles.completedHistoryContainer}>
+                  {deptLevelProjects.filter((p) => p.status === 'ADMIN_APPROVED').length === 0 ? (
+                    <View style={styles.emptyProjectContainer}>
+                      <Ionicons name="ribbon-outline" size={54} color="#94A3B8" />
+                      <Text style={styles.emptyProjectTitle}>Chưa có dự án nào hoàn thành</Text>
+                      <Text style={styles.emptyProjectSubtitle}>
+                        Khi Leader nộp báo cáo tổng kết và Ban Giám Đốc phê duyệt nghiệm thu xong, toàn bộ hồ sơ, kết quả việc con và minh chứng sẽ được lưu trữ vĩnh viễn tại mục Lịch Sử này.
+                      </Text>
+                    </View>
+                  ) : (
+                    deptLevelProjects
+                      .filter((p) => p.status === 'ADMIN_APPROVED')
+                      .map((p, pIdx) => {
+                        const lvlColor = LEVEL_COLORS[p.levelNumber] || '#059669';
+                        const completedCount = p.subTasks.filter(
+                          (t) => t.status === 'LEADER_APPROVED' || (t.status as any) === 'ADMIN_APPROVED',
+                        ).length;
+                        const totalCount = p.subTasks.length;
+
+                        return (
+                          <View key={p.id || pIdx} style={styles.completedProjCard}>
+                            {/* Top Row: Level Badge & Completed Badge */}
+                            <View style={styles.completedProjHeader}>
+                              <View style={[styles.adminProjLevelBadge, { backgroundColor: `${lvlColor}18`, borderColor: lvlColor }]}>
+                                <Ionicons name="trophy" size={12} color={lvlColor} style={{ marginRight: 4 }} />
+                                <Text style={[styles.adminProjLevelText, { color: lvlColor }]}>
+                                  Level {p.levelNumber} - {p.levelName}
+                                </Text>
+                              </View>
+
+                              <View style={styles.completedBadgeTag}>
+                                <Ionicons name="checkmark-done-circle" size={13} color="#059669" />
+                                <Text style={styles.completedBadgeTagText}>Đã Nghiệm Thu Hoàn Tất</Text>
+                              </View>
+                            </View>
+
+                            {/* Title */}
+                            <Text style={styles.completedProjTitle}>{p.projectName}</Text>
+
+                            {/* Meta date */}
+                            {p.adminApprovedAt && (
+                              <View style={styles.completedMetaRow}>
+                                <Ionicons name="calendar-outline" size={13} color="#64748B" />
+                                <Text style={styles.completedMetaText}>
+                                  Ngày nghiệm thu: {new Date(p.adminApprovedAt).toLocaleDateString('vi-VN')}
+                                </Text>
+                              </View>
+                            )}
+
+                            {/* Reward item summary */}
+                            {p.rewardItem ? (
+                              <View style={styles.completedRewardSnippet}>
+                                <Ionicons name="gift-outline" size={13} color="#D97706" />
+                                <Text style={styles.completedRewardText} numberOfLines={1}>
+                                  {p.rewardItem}
+                                </Text>
+                              </View>
+                            ) : null}
+
+                            {/* Leader Report Snippet */}
+                            {p.leaderReportNote ? (
+                              <View style={styles.adminProjLeaderSnippet}>
+                                <Ionicons name="chatbubble-ellipses-outline" size={14} color="#059669" />
+                                <Text style={styles.adminProjLeaderText} numberOfLines={2}>
+                                  <Text style={{ fontWeight: '700' }}>Báo cáo Leader: </Text>
+                                  {p.leaderReportNote}
+                                </Text>
+                              </View>
+                            ) : null}
+
+                            {/* Subtasks completed pills */}
+                            <View style={styles.adminProjPillsRow}>
+                              {p.subTasks.map((st, sIdx) => (
+                                <View key={st.id || sIdx} style={[styles.adminProjPill, styles.adminProjPillApproved]}>
+                                  <Ionicons name="checkmark-circle" size={11} color="#059669" />
+                                  <Text style={styles.adminProjPillText} numberOfLines={1}>
+                                    {st.title} {st.assignedToUserName ? `(${st.assignedToUserName})` : ''}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+
+                            {/* View Evidence / Archive Button */}
+                            <TouchableOpacity
+                              style={styles.completedReviewBtn}
+                              activeOpacity={0.8}
+                              onPress={() => setSelectedProjectForReview(p)}
+                            >
+                              <Ionicons name="document-text-outline" size={16} color="#059669" style={{ marginRight: 6 }} />
+                              <Text style={styles.completedReviewBtnText}>Xem Lại Hồ Sơ & Minh Chứng Nghiệm Thu</Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })
+                  )}
+                </View>
+              ) : adminProjects.length === 0 ? (
                 <View style={styles.emptyProjectContainer}>
                   <Ionicons name="folder-open-outline" size={54} color="#94A3B8" />
                   <Text style={styles.emptyProjectTitle}>Chưa có dự án nào cho phòng {activeDeptName}</Text>
@@ -2050,14 +2192,14 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             </TouchableOpacity>
                           </View>
 
-                          {/* Cash Amount */}
+                          {/* Cash Amount Input */}
                           {(currentProj.rewardType === 'CASH' || currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && (
                             <View style={{ marginTop: 8 }}>
-                              <Text style={styles.configFieldLabel}>Quỹ Thưởng Tiền Mặt Dự Án (VNĐ):</Text>
+                              <Text style={styles.configFieldLabel}>Tổng Tiền Thưởng Dự Án (VNĐ):</Text>
                               <TextInput
                                 style={styles.configInput}
                                 keyboardType="number-pad"
-                                placeholder="VD: 10000000"
+                                placeholder="VD: 5000000"
                                 placeholderTextColor="#94A3B8"
                                 value={currentProj.promotionBonusAmount ? String(currentProj.promotionBonusAmount) : ''}
                                 onChangeText={(txt) =>
@@ -2069,19 +2211,19 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                               />
                               {Boolean(currentProj.promotionBonusAmount && currentProj.promotionBonusAmount > 0) && (
                                 <Text style={styles.configCashPreview}>
-                                  💰 Quỹ thưởng: {currentProj.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ (Khi Leader phân chia các đầu việc con cho nhân sự, quỹ thưởng tự động chia theo Hệ số Level của nhân sự tham gia)
+                                  💰 Thưởng: {currentProj.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ (Chia theo hệ số Level thành viên)
                                 </Text>
                               )}
                             </View>
                           )}
 
-                          {/* Physical Item */}
+                          {/* Physical Gift Input */}
                           {(currentProj.rewardType === 'PHYSICAL_ITEM' || currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && (
                             <View style={{ marginTop: 8 }}>
-                              <Text style={styles.configFieldLabel}>Quà Tặng Hiện Vật Dự Án (Để chung cho cả team):</Text>
+                              <Text style={styles.configFieldLabel}>Quà Tặng Hiện Vật Chung Cho Dự Án:</Text>
                               <TextInput
                                 style={styles.configInput}
-                                placeholder="VD: Chuyến dã ngoại toàn đội, Bữa tiệc liên hoan..."
+                                placeholder="VD: Chuyến du lịch team, Bữa tiệc mừng công, Quà tặng công nghệ..."
                                 placeholderTextColor="#94A3B8"
                                 value={currentProj.physicalItemName || ''}
                                 onChangeText={(txt) =>
@@ -2092,86 +2234,81 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                           )}
                         </View>
 
-                        {/* SubTasks (Danh sách đầu việc con) */}
-                        <Text style={[styles.configFieldLabel, { marginTop: 14, fontSize: 12, fontWeight: '700', color: '#1E293B' }]}>
-                          DANH SÁCH ĐẦU CÔNG VIỆC CON ({currentProj.subTasks.length} việc):
-                        </Text>
-                        <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 6 }}>
-                          Leader sẽ phân chia từng đầu việc con này cho các nhân sự trong phòng ban.
-                        </Text>
+                        {/* SubTasks Section */}
+                        <View style={styles.subTasksContainer}>
+                          <View style={styles.subTasksHeaderRow}>
+                            <Text style={styles.subTasksHeaderTitle}>
+                              CÁC ĐẦU VIỆC CON ({currentProj.subTasks.length}):
+                            </Text>
+                          </View>
 
-                        <View style={styles.subTasksListBox}>
                           {currentProj.subTasks.length > 0 ? (
-                            currentProj.subTasks.map((bullet, idx) => (
-                              <View key={idx} style={styles.subTaskRow}>
-                                {editingSubTaskIdx === idx ? (
-                                  <View style={styles.editSubTaskInlineRow}>
+                            currentProj.subTasks.map((taskStr, taskIdx) => (
+                              <View key={taskIdx} style={styles.subTaskItemRow}>
+                                <View style={styles.subTaskIndexCircle}>
+                                  <Text style={styles.subTaskIndexCircleText}>{taskIdx + 1}</Text>
+                                </View>
+
+                                {editingSubTaskIdx === taskIdx ? (
+                                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                     <TextInput
-                                      style={[styles.configInput, { flex: 1 }]}
+                                      style={[styles.configInput, { flex: 1, marginBottom: 0 }]}
                                       value={editingSubTaskText}
                                       onChangeText={setEditingSubTaskText}
+                                      autoFocus
                                     />
                                     <TouchableOpacity
-                                      style={styles.saveBulletInlineBtn}
-                                      onPress={() => handleEditSubTask(currentProj.id, idx, editingSubTaskText)}
+                                      style={styles.saveInlineEditBtn}
+                                      onPress={() => handleSaveEditSubTask(currentProj.id, taskIdx)}
                                     >
-                                      <Text style={styles.saveBulletInlineBtnText}>Lưu</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                      style={styles.cancelBulletInlineBtn}
-                                      onPress={() => setEditingSubTaskIdx(null)}
-                                    >
-                                      <Text style={styles.cancelBulletInlineBtnText}>Hủy</Text>
+                                      <Ionicons name="checkmark" size={16} color="#FFF" />
                                     </TouchableOpacity>
                                   </View>
                                 ) : (
-                                  <View style={styles.subTaskDisplayRow}>
-                                    <Text style={styles.subTaskBulletText}>• {bullet}</Text>
-                                    <View style={styles.subTaskActionsRow}>
+                                  <>
+                                    <Text style={styles.subTaskItemText} numberOfLines={2}>
+                                      {taskStr}
+                                    </Text>
+                                    <View style={styles.subTaskActionRow}>
                                       <TouchableOpacity
-                                        style={styles.editSubTaskPillBtn}
-                                        onPress={() => {
-                                          setEditingSubTaskIdx(idx);
-                                          setEditingSubTaskText(bullet);
-                                        }}
+                                        onPress={() => handleStartEditSubTask(taskIdx, taskStr)}
+                                        style={styles.subTaskActionBtn}
                                       >
-                                        <Text style={styles.editSubTaskPillBtnText}>Sửa</Text>
+                                        <Ionicons name="pencil-outline" size={15} color="#2563EB" />
                                       </TouchableOpacity>
                                       <TouchableOpacity
-                                        style={styles.deleteSubTaskPillBtn}
-                                        onPress={() => handleDeleteSubTask(currentProj.id, idx)}
+                                        onPress={() => handleDeleteSubTask(currentProj.id, taskIdx)}
+                                        style={styles.subTaskActionBtn}
                                       >
-                                        <Text style={styles.deleteSubTaskPillBtnText}>Xóa</Text>
+                                        <Ionicons name="trash-outline" size={15} color="#EF4444" />
                                       </TouchableOpacity>
                                     </View>
-                                  </View>
+                                  </>
                                 )}
                               </View>
                             ))
                           ) : (
                             <Text style={styles.emptySubTasksNotice}>
-                              Chưa có việc con nào trong dự án này. Hãy thêm đầu việc bên dưới!
+                              Chưa có đầu việc con nào. Hãy nhập tên việc con bên dưới để thêm vào dự án!
                             </Text>
                           )}
-                        </View>
 
-                        {/* Add SubTask Input */}
-                        <View style={styles.addSubTaskRow}>
-                          <TextInput
-                            style={[styles.configInput, { flex: 1 }]}
-                            placeholder="+ Nhập đầu việc con mới..."
-                            placeholderTextColor="#94A3B8"
-                            value={newSubTaskInput}
-                            onChangeText={setNewSubTaskInput}
-                            onSubmitEditing={() => handleAddSubTask(currentProj.id)}
-                            returnKeyType="done"
-                          />
-                          <TouchableOpacity
-                            style={styles.addSubTaskBtn}
-                            onPress={() => handleAddSubTask(currentProj.id)}
-                          >
-                            <Text style={styles.addSubTaskBtnText}>+ Thêm việc</Text>
-                          </TouchableOpacity>
+                          <View style={styles.addSubTaskRow}>
+                            <TextInput
+                              style={[styles.configInput, { flex: 1, marginBottom: 0 }]}
+                              placeholder="+ Nhập đầu việc con mới..."
+                              placeholderTextColor="#94A3B8"
+                              value={newSubTaskInput}
+                              onChangeText={setNewSubTaskInput}
+                              onSubmitEditing={() => handleAddSubTask(currentProj.id)}
+                            />
+                            <TouchableOpacity
+                              style={styles.addSubTaskBtn}
+                              onPress={() => handleAddSubTask(currentProj.id)}
+                            >
+                              <Text style={styles.addSubTaskBtnText}>+ Thêm</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       </View>
                     );

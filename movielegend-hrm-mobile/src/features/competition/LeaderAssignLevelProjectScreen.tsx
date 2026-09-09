@@ -47,19 +47,35 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   } = useLevelProjects(leaderDeptId, leaderDeptName);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [projectSectionTab, setProjectSectionTab] = useState<'active' | 'history'>('active');
 
-  // Auto-select first project when projects load or change
+  const activeProjects = useMemo(() => {
+    return projects.filter((p) => p.status !== 'ADMIN_APPROVED');
+  }, [projects]);
+
+  const completedProjects = useMemo(() => {
+    return projects.filter((p) => p.status === 'ADMIN_APPROVED');
+  }, [projects]);
+
+  const displayedProjects = useMemo(() => {
+    if (projectSectionTab === 'history') {
+      return completedProjects;
+    }
+    return activeProjects.length > 0 ? activeProjects : projects;
+  }, [projectSectionTab, activeProjects, completedProjects, projects]);
+
+  // Auto-select first project when displayed projects load or change
   useEffect(() => {
-    if (projects.length > 0) {
-      if (!selectedProjectId || !projects.some((p) => p.id === selectedProjectId)) {
-        setSelectedProjectId(projects[0].id);
+    if (displayedProjects.length > 0) {
+      if (!selectedProjectId || !displayedProjects.some((p) => p.id === selectedProjectId)) {
+        setSelectedProjectId(displayedProjects[0].id);
       }
     }
-  }, [projects, selectedProjectId]);
+  }, [displayedProjects, selectedProjectId]);
 
   const currentProject = useMemo(() => {
-    return projects.find((p) => p.id === selectedProjectId) || projects[0];
-  }, [projects, selectedProjectId]);
+    return displayedProjects.find((p) => p.id === selectedProjectId) || displayedProjects[0];
+  }, [displayedProjects, selectedProjectId]);
 
   const selectedLevelNumber = currentProject?.levelNumber || 1;
 
@@ -399,7 +415,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
           </View>
-          {currentProject.status === 'IN_PROGRESS' && (
+          {currentProject?.status === 'IN_PROGRESS' && (
             <TouchableOpacity
               style={styles.headerSubmitBtn}
               onPress={() => setSubmitAdminModalVisible(true)}
@@ -412,96 +428,188 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       </SafeAreaView>
 
       <View style={styles.bodyWrapper}>
-        {/* Level Selector with Smart Badges */}
-        <View style={styles.levelSelectorContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelSelectorScroll}>
-          {projects.map((proj) => {
-            const isSelected = proj.id === currentProject?.id;
-            const projPendingSubTasks = proj.subTasks.filter((t) => t.status === 'SUBMITTED').length;
-            const projPendingRequests = getPendingAccessRequests(leaderDeptId, proj.levelNumber).length;
-            const projTotalBadge = projPendingSubTasks + projPendingRequests;
+        {/* Section Tabs: Đang Thực Hiện vs Lịch Sử Hoàn Thành */}
+        <View style={styles.sectionTabsContainer}>
+          <TouchableOpacity
+            style={[styles.sectionTabBtn, projectSectionTab === 'active' && styles.sectionTabBtnActive]}
+            onPress={() => setProjectSectionTab('active')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="flash-outline"
+              size={14}
+              color={projectSectionTab === 'active' ? '#0F766E' : '#64748B'}
+            />
+            <Text
+              style={[
+                styles.sectionTabText,
+                projectSectionTab === 'active' && styles.sectionTabTextActive,
+              ]}
+            >
+              Đang Thực Hiện ({activeProjects.length})
+            </Text>
+          </TouchableOpacity>
 
-            return (
-              <TouchableOpacity
-                key={proj.id}
-                style={[styles.levelItem, isSelected && styles.levelItemActive]}
-                onPress={() => {
-                  setSelectedProjectId(proj.id);
-                  setStatusFilter('ALL');
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.levelText, isSelected && styles.levelTextActive]} numberOfLines={1}>
-                  {proj.projectName || proj.levelName}
-                </Text>
-                {projTotalBadge > 0 && (
-                  <View style={[styles.levelBadge, isSelected && styles.levelBadgeActive]}>
-                    <Text style={[styles.levelBadgeText, isSelected && styles.levelBadgeTextActive]}>
-                      {projTotalBadge}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+          <TouchableOpacity
+            style={[styles.sectionTabBtn, projectSectionTab === 'history' && styles.sectionTabBtnActive]}
+            onPress={() => setProjectSectionTab('history')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="trophy-outline"
+              size={14}
+              color={projectSectionTab === 'history' ? '#059669' : '#64748B'}
+            />
+            <Text
+              style={[
+                styles.sectionTabText,
+                projectSectionTab === 'history' && styles.sectionTabTextActive,
+              ]}
+            >
+              Lịch Sử Hoàn Thành ({completedProjects.length})
+            </Text>
+            {completedProjects.length > 0 && (
+              <View style={styles.sectionTabDot} />
+            )}
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Permission Requests Section (Xin làm dự án vượt cấp) */}
-        {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length > 0 && (
-          <View style={styles.accessRequestSection}>
-            <View style={styles.accessRequestHeaderRow}>
-              <View style={styles.accessRequestIconBox}>
-                <Ionicons name="hand-right" size={16} color="#D97706" />
-              </View>
-              <Text style={styles.accessRequestHeaderTitle}>
-                Yêu cầu xin làm dự án ({getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length})
-              </Text>
+        {projectSectionTab === 'history' && completedProjects.length === 0 ? (
+          <View style={styles.emptyHistoryBox}>
+            <Ionicons name="ribbon-outline" size={56} color="#94A3B8" />
+            <Text style={styles.emptyHistoryTitle}>Chưa có dự án nào hoàn thành</Text>
+            <Text style={styles.emptyHistorySubtitle}>
+              Khi Leader nộp báo cáo tổng kết và Ban Giám Đốc phê duyệt nghiệm thu, toàn bộ dự án, đầu việc con và minh chứng của nhân sự sẽ được lưu trữ vĩnh viễn tại mục Lịch Sử này.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Level Selector with Smart Badges */}
+            <View style={styles.levelSelectorContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelSelectorScroll}>
+                {displayedProjects.map((proj) => {
+                  const isSelected = proj.id === currentProject?.id;
+                  const projPendingSubTasks = proj.subTasks.filter((t) => t.status === 'SUBMITTED').length;
+                  const projPendingRequests = getPendingAccessRequests(leaderDeptId, proj.levelNumber).length;
+                  const projTotalBadge = projPendingSubTasks + projPendingRequests;
+
+                  return (
+                    <TouchableOpacity
+                      key={proj.id}
+                      style={[styles.levelItem, isSelected && styles.levelItemActive]}
+                      onPress={() => {
+                        setSelectedProjectId(proj.id);
+                        setStatusFilter('ALL');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.levelText, isSelected && styles.levelTextActive]} numberOfLines={1}>
+                        {proj.projectName || proj.levelName}
+                      </Text>
+                      {projTotalBadge > 0 && (
+                        <View style={[styles.levelBadge, isSelected && styles.levelBadgeActive]}>
+                          <Text style={[styles.levelBadgeText, isSelected && styles.levelBadgeTextActive]}>
+                            {projTotalBadge}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
 
-            {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).map((req) => (
-              <View key={req.id} style={styles.accessRequestCard}>
-                <View style={styles.accessRequestCardTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.accessRequestUserName}>{req.userName}</Text>
-                    <Text style={styles.accessRequestUserMeta}>
-                      Đang ở Level {req.userCurrentLevel} • Xin làm {req.levelName}
+            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+              {/* Completed Project Celebration / Notice Card */}
+              {currentProject?.status === 'ADMIN_APPROVED' && (
+                <View style={styles.adminApprovedCard}>
+                  <View style={styles.adminApprovedHeader}>
+                    <View style={styles.adminApprovedIconBox}>
+                      <Ionicons name="checkmark-done-circle" size={24} color="#059669" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.adminApprovedBadgeTitle}>ĐÃ NGHIỆM THU HOÀN TẤT</Text>
+                      <Text style={styles.adminApprovedSubTitle}>
+                        Ban Giám Đốc đã phê duyệt nghiệm thu dự án này thành công
+                      </Text>
+                      {Boolean(currentProject.adminApprovedAt) && (
+                        <Text style={styles.adminApprovedDateText}>
+                          Thời gian: {new Date(currentProject.adminApprovedAt!).toLocaleDateString('vi-VN')}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {Boolean(currentProject.adminFeedback) && (
+                    <View style={styles.adminFeedbackBox}>
+                      <Text style={styles.adminFeedbackLabel}>Đánh giá của Ban Giám Đốc:</Text>
+                      <Text style={styles.adminFeedbackText}>"{currentProject.adminFeedback}"</Text>
+                    </View>
+                  )}
+
+                  {Boolean(currentProject.leaderReportNote) && (
+                    <View style={styles.leaderReportNoteBox}>
+                      <Text style={styles.leaderReportNoteLabel}>Báo cáo nghiệm thu của Leader:</Text>
+                      <Text style={styles.leaderReportNoteText}>{currentProject.leaderReportNote}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Permission Requests Section (Xin làm dự án vượt cấp) */}
+              {projectSectionTab === 'active' && getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length > 0 && (
+                <View style={styles.accessRequestSection}>
+                  <View style={styles.accessRequestHeaderRow}>
+                    <View style={styles.accessRequestIconBox}>
+                      <Ionicons name="hand-right" size={16} color="#D97706" />
+                    </View>
+                    <Text style={styles.accessRequestHeaderTitle}>
+                      Yêu cầu xin làm dự án ({getPendingAccessRequests(leaderDeptId, selectedLevelNumber).length})
                     </Text>
                   </View>
-                  <Text style={styles.accessRequestTimeText}>{req.requestedAt}</Text>
+
+                  {getPendingAccessRequests(leaderDeptId, selectedLevelNumber).map((req) => (
+                    <View key={req.id} style={styles.accessRequestCard}>
+                      <View style={styles.accessRequestCardTop}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.accessRequestUserName}>{req.userName}</Text>
+                          <Text style={styles.accessRequestUserMeta}>
+                            Đang ở Level {req.userCurrentLevel} • Xin làm {req.levelName}
+                          </Text>
+                        </View>
+                        <Text style={styles.accessRequestTimeText}>{req.requestedAt}</Text>
+                      </View>
+
+                      {Boolean(req.reason) && (
+                        <View style={styles.accessRequestReasonBox}>
+                          <Text style={styles.accessRequestReasonLabel}>Lý do:</Text>
+                          <Text style={styles.accessRequestReasonText}>"{req.reason}"</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.accessRequestActionsRow}>
+                        <TouchableOpacity
+                          style={styles.accessRequestRejectBtn}
+                          onPress={() => handleRejectAccessRequest(req.id, req.userName, req.levelName)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.accessRequestRejectBtnText}>Từ chối</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.accessRequestApproveBtn}
+                          onPress={() => handleApproveAccessRequest(req.id, req.userName, req.levelName)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.accessRequestApproveBtnText}>Phê duyệt cho làm</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
                 </View>
+              )}
 
-                {Boolean(req.reason) && (
-                  <View style={styles.accessRequestReasonBox}>
-                    <Text style={styles.accessRequestReasonLabel}>Lý do:</Text>
-                    <Text style={styles.accessRequestReasonText}>"{req.reason}"</Text>
-                  </View>
-                )}
-
-                <View style={styles.accessRequestActionsRow}>
-                  <TouchableOpacity
-                    style={styles.accessRequestRejectBtn}
-                    onPress={() => handleRejectAccessRequest(req.id, req.userName, req.levelName)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.accessRequestRejectBtnText}>Từ chối</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.accessRequestApproveBtn}
-                    onPress={() => handleApproveAccessRequest(req.id, req.userName, req.levelName)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.accessRequestApproveBtnText}>Phê duyệt cho làm</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Project Summary & Progress */}
+              {/* Project Summary & Progress */}
         <View style={styles.projectSummary}>
           <Text style={styles.projectName}>{currentProject.projectName}</Text>
           <View style={styles.progressRow}>
@@ -790,7 +898,9 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
           )}
         </View>
       </ScrollView>
-      </View>
+      </>
+    )}
+    </View>
 
       {/* EXPANDABLE FULL PAGE DETAIL & APPROVAL / SUBMISSION MODAL */}
       <Modal visible={activeSubTask !== null} animationType="slide" transparent={false}>
@@ -2369,5 +2479,151 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+
+  /* Section Tabs Styles */
+  sectionTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  sectionTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    gap: 6,
+  },
+  sectionTabBtnActive: {
+    backgroundColor: '#CCFBF1',
+    borderWidth: 1,
+    borderColor: '#0D9488',
+  },
+  sectionTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  sectionTabTextActive: {
+    color: '#0F766E',
+    fontWeight: '700',
+  },
+  sectionTabDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#059669',
+  },
+
+  /* Empty History Box */
+  emptyHistoryBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: '#F8FAFC',
+  },
+  emptyHistoryTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 14,
+    textAlign: 'center',
+  },
+  emptyHistorySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
+  /* Admin Approved Celebration Card */
+  adminApprovedCard: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  adminApprovedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  adminApprovedIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminApprovedBadgeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.5,
+  },
+  adminApprovedSubTitle: {
+    fontSize: 12,
+    color: '#047857',
+    marginTop: 2,
+  },
+  adminApprovedDateText: {
+    fontSize: 11,
+    color: '#059669',
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  adminFeedbackBox: {
+    backgroundColor: '#FFFFFF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#059669',
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 10,
+  },
+  adminFeedbackLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+    marginBottom: 3,
+  },
+  adminFeedbackText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  leaderReportNoteBox: {
+    backgroundColor: '#F0FDF4',
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  leaderReportNoteLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+    marginBottom: 3,
+  },
+  leaderReportNoteText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 18,
   },
 });
