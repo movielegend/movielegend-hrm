@@ -145,7 +145,6 @@ export function BranchListScreen() {
           {groupedSections.map((section) => (
             <View key={section.regionId} style={{ marginBottom: 24 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
-                <MaterialCommunityIcons name={section.regionId === 'HQ' ? 'star' : 'earth'} size={20} color={section.regionId === 'HQ' ? '#D97706' : '#3B82F6'} />
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{section.regionName}</Text>
                 <Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 'auto' }}>
                   {section.regionId === 'HQ' ? '' : 'Khu vực điều hành • '}{section.branches.length} chi nhánh
@@ -168,8 +167,7 @@ export function BranchListScreen() {
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                               <Text style={styles.cardTitle}>{branch.name}</Text>
                               {branch.isHeadquarters && (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, gap: 4 }}>
-                                  <MaterialCommunityIcons name="star" size={12} color="#D97706" />
+                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                                   <Text style={{ fontSize: 10, fontWeight: '600', color: '#D97706' }}>Trụ sở</Text>
                                 </View>
                               )}
@@ -372,7 +370,6 @@ export function BranchCreateScreen() {
                   backgroundColor: '#FFFFFF'
                 }}
               >
-                <MaterialCommunityIcons name="earth" size={20} color="#3B82F6" style={{ marginRight: 10 }} />
                 <Text style={{ flex: 1, color: selectedRegionName ? '#111827' : '#9CA3AF', fontSize: 15 }}>
                   {selectedRegionName || 'Chọn Vùng / Miền (Ví dụ: Miền Bắc...)'}
                 </Text>
@@ -604,7 +601,6 @@ export function BranchEditScreen() {
                   backgroundColor: '#FFFFFF'
                 }}
               >
-                <MaterialCommunityIcons name="earth" size={20} color="#3B82F6" style={{ marginRight: 10 }} />
                 <Text style={{ flex: 1, color: selectedRegionName ? '#111827' : '#9CA3AF', fontSize: 15 }}>
                   {selectedRegionName || 'Không gắn miền (Chưa phân miền)'}
                 </Text>
