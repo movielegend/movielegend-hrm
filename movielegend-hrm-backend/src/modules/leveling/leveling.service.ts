@@ -1373,12 +1373,34 @@ export class LevelingService {
     if (status === 'ADMIN_APPROVED') {
       project.adminApprovedAt = new Date().toISOString();
       project.subTasks.forEach((st) => {
-        if (st.status === 'LEADER_APPROVED' || st.status === 'SUBMITTED') {
-          st.status = 'ADMIN_APPROVED';
-        }
+        st.status = 'ADMIN_APPROVED';
       });
       project.completedSubTasks = project.subTasks.length;
+    } else {
+      project.submittedToAdminAt = undefined;
     }
+
+    if (departmentId) {
+      this.departmentProjects.set(departmentId, list);
+    }
+    if (departmentName) {
+      this.departmentProjects.set(departmentName, list);
+      this.departmentProjects.set(departmentName.toLowerCase().trim(), list);
+    }
+
+    // Also update departmentConfigs cache if exists
+    const configKey = departmentId ? `${departmentId}_2026` : undefined;
+    if (configKey && this.departmentConfigs.has(configKey)) {
+      const levels = this.departmentConfigs.get(configKey) || [];
+      const lvl = levels.find((l: any) => Number(l.levelNumber) === levelNumber);
+      if (lvl) {
+        if (!lvl.project) lvl.project = {};
+        lvl.project.status = status;
+        lvl.project.adminApprovedAt = project.adminApprovedAt;
+        lvl.project.adminFeedback = project.adminFeedback;
+      }
+    }
+
     this.saveToStorage();
 
     // Realtime broadcast
