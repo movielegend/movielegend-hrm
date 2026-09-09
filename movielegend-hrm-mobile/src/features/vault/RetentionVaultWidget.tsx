@@ -528,7 +528,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             let pkgUnlockedPoints = 0;
             let pkgLockedPoints = 0;
             milestones.forEach((m) => {
-              const remaining = Math.max(0, m.pointsToUnlock - m.withdrawnPoints);
+              const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
               if (remaining > 0) {
                 if (new Date(m.unlockDate) <= now) {
                   pkgUnlockedPoints += remaining;
@@ -550,6 +550,23 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
             // Determine active/unlocked milestone indices
             const firstLockedIdx = milestones.findIndex((m) => new Date(m.unlockDate) > now && (m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0);
+
+            // Format compact points helper
+            const formatCompactPoints = (pts: number) => {
+              if (!pts || pts <= 0) return '0 đ';
+              if (pts >= 1_000_000) {
+                const val = (pts / 1_000_000).toFixed(pts % 1_000_000 === 0 ? 0 : 1);
+                return `${val}M đ`;
+              }
+              if (pts >= 1_000) {
+                const val = (pts / 1_000).toFixed(pts % 1_000 === 0 ? 0 : 0);
+                return `${val}k đ`;
+              }
+              return `${pts.toLocaleString('vi-VN')} đ`;
+            };
+
+            const isScrollable = milestones.length > 4;
+            const nodeWidth = 96;
 
             return (
               <View key={pkg.id || pIdx} style={styles.packageCard}>
@@ -580,149 +597,275 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
                 {/* --- HORIZONTAL TRACKER (EXACT DESIGN MATCH) --- */}
                 <View style={styles.horizontalTrackerCard}>
-                  {/* Top Icons & Connecting Progress Lines Track */}
-                  <View style={styles.horizontalTrackRow}>
-                    {milestones.map((m, mIdx) => {
-                      const unlockDate = new Date(m.unlockDate);
-                      const isPassed = unlockDate <= now;
-                      const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
-                      const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
-                      const isUnlockedAvailable = isPassed && remaining > 0;
-                      const isCurrentUpcoming = mIdx === firstLockedIdx;
+                  {isScrollable && (
+                    <View style={styles.scrollHintRow}>
+                      <Text style={styles.scrollHintText}>Lộ trình {milestones.length} đợt</Text>
+                      <View style={styles.scrollHintBadge}>
+                        <MaterialCommunityIcons name="gesture-swipe-horizontal" size={13} color="#D97706" />
+                        <Text style={styles.scrollHintBadgeText}>Vuốt ngang xem thêm</Text>
+                      </View>
+                    </View>
+                  )}
 
-                      // Icon selection
-                      const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
+                  {isScrollable ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.horizontalTrackerScrollContent}
+                    >
+                      <View style={{ width: milestones.length * nodeWidth }}>
+                        {/* Top Icons & Connecting Progress Lines Track */}
+                        <View style={[styles.horizontalTrackRow, { width: milestones.length * nodeWidth, paddingHorizontal: (nodeWidth - 32) / 2 }]}>
+                          {milestones.map((m, mIdx) => {
+                            const unlockDate = new Date(m.unlockDate);
+                            const isPassed = unlockDate <= now;
+                            const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                            const isUnlockedAvailable = isPassed && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0;
+                            const isCurrentUpcoming = mIdx === firstLockedIdx;
 
-                      // Colors
-                      const iconColor = isFullyWithdrawn
-                        ? '#DC2626' // Red
-                        : isUnlockedAvailable
-                        ? '#EE4D2D' // Shopee Active Orange
-                        : isCurrentUpcoming
-                        ? '#EE4D2D' // Current upcoming in orange
-                        : '#CBD5E1'; // Muted Grey
+                            const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
+                            const iconColor = isFullyWithdrawn
+                              ? '#DC2626'
+                              : isUnlockedAvailable || isCurrentUpcoming
+                              ? '#EE4D2D'
+                              : '#CBD5E1';
 
-                      const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
-                      const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
+                            const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
+                            const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
 
-                      // Connecting line to the next node
-                      let lineType: 'full' | 'half' | 'none' = 'none';
-                      const nextM = milestones[mIdx + 1];
-                      if (nextM) {
-                        const nextUnlockDate = new Date(nextM.unlockDate);
-                        const nextPassed = nextUnlockDate <= now;
-                        const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
+                            let lineType: 'full' | 'half' | 'none' = 'none';
+                            const nextM = milestones[mIdx + 1];
+                            if (nextM) {
+                              const nextUnlockDate = new Date(nextM.unlockDate);
+                              const nextPassed = nextUnlockDate <= now;
+                              const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
 
-                        if (nextPassed || nextFullyWithdrawn) {
-                          lineType = 'full';
-                        } else if (isPassed || isFullyWithdrawn) {
-                          lineType = 'half';
-                        } else {
-                          lineType = 'none';
-                        }
-                      }
+                              if (nextPassed || nextFullyWithdrawn) {
+                                lineType = 'full';
+                              } else if (isPassed || isFullyWithdrawn) {
+                                lineType = 'half';
+                              } else {
+                                lineType = 'none';
+                              }
+                            }
 
-                      return (
-                        <React.Fragment key={m.id || mIdx}>
-                          {/* Node Icon + Caret Indicator */}
-                          <View style={styles.trackNodeWrapper}>
-                            <MaterialCommunityIcons
-                              name={iconName}
-                              size={26}
-                              color={iconColor}
-                            />
-                            <View style={styles.trackCaretSlot}>
-                              {showCaret && (
-                                <MaterialCommunityIcons
-                                  name="chevron-down"
-                                  size={15}
-                                  color={caretColor}
-                                />
-                              )}
-                            </View>
-                          </View>
-
-                          {/* Connecting Bar */}
-                          {mIdx < milestones.length - 1 && (
-                            <View style={styles.trackLineWrapper}>
-                              {lineType === 'full' ? (
-                                <View style={[styles.trackLine, styles.trackLineFull]} />
-                              ) : lineType === 'half' ? (
-                                <View style={styles.trackLineHalfContainer}>
-                                  <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
-                                  <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                            return (
+                              <React.Fragment key={m.id || mIdx}>
+                                <View style={styles.trackNodeWrapper}>
+                                  <MaterialCommunityIcons name={iconName} size={24} color={iconColor} />
+                                  <View style={styles.trackCaretSlot}>
+                                    {showCaret && <MaterialCommunityIcons name="chevron-down" size={14} color={caretColor} />}
+                                  </View>
                                 </View>
-                              ) : (
-                                <View style={[styles.trackLine, styles.trackLineInactive]} />
-                              )}
-                            </View>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </View>
 
-                  {/* Node Labels Row */}
-                  <View style={styles.trackLabelsRow}>
-                    {milestones.map((m, mIdx) => {
-                      const unlockDate = new Date(m.unlockDate);
-                      const isPassed = unlockDate <= now;
-                      const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
-                      const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
-                      const isUnlockedAvailable = isPassed && remaining > 0;
-                      const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
-
-                      const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
-
-                      return (
-                        <View key={m.id || mIdx} style={styles.trackLabelCol}>
-                          <Text
-                            style={[
-                              styles.trackNodeTitle,
-                              isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
-                              isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {m.title || `Đợt ${mIdx + 1}`}
-                          </Text>
-                          <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
-
-                          {/* Status Tag Pill */}
-                          <View
-                            style={[
-                              styles.trackNodePill,
-                              isFullyWithdrawn && styles.trackPillWithdrawn,
-                              isUnlockedAvailable && styles.trackPillUnlocked,
-                              !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillUpcoming,
-                              !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillLocked,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.trackNodePillText,
-                                isFullyWithdrawn && styles.trackPillTextWithdrawn,
-                                isUnlockedAvailable && styles.trackPillTextUnlocked,
-                                !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillTextUpcoming,
-                                !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillTextLocked,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {isFullyWithdrawn
-                                ? `Đã rút (-${(m.withdrawnPoints || 0).toLocaleString('vi-VN')} đ)`
-                                : isPartiallyWithdrawn
-                                ? `Còn ${remaining.toLocaleString('vi-VN')} đ`
-                                : isUnlockedAvailable
-                                ? `Mở khóa (${m.pointsToUnlock.toLocaleString('vi-VN')} đ)`
-                                : mIdx === firstLockedIdx
-                                ? `⏳ Đếm (${m.pointsToUnlock.toLocaleString('vi-VN')} đ)`
-                                : `${m.pointsToUnlock.toLocaleString('vi-VN')} đ`}
-                            </Text>
-                          </View>
+                                {mIdx < milestones.length - 1 && (
+                                  <View style={[styles.trackLineWrapper, { width: nodeWidth - 32, flex: 0, marginHorizontal: 0 }]}>
+                                    {lineType === 'full' ? (
+                                      <View style={[styles.trackLine, styles.trackLineFull]} />
+                                    ) : lineType === 'half' ? (
+                                      <View style={styles.trackLineHalfContainer}>
+                                        <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                                        <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                                      </View>
+                                    ) : (
+                                      <View style={[styles.trackLine, styles.trackLineInactive]} />
+                                    )}
+                                  </View>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
                         </View>
-                      );
-                    })}
-                  </View>
+
+                        {/* Node Labels Row */}
+                        <View style={[styles.trackLabelsRow, { width: milestones.length * nodeWidth }]}>
+                          {milestones.map((m, mIdx) => {
+                            const unlockDate = new Date(m.unlockDate);
+                            const isPassed = unlockDate <= now;
+                            const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                            const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                            const isUnlockedAvailable = isPassed && remaining > 0;
+                            const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
+
+                            const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                            return (
+                              <View key={m.id || mIdx} style={[styles.trackLabelCol, { width: nodeWidth, flex: 0, paddingHorizontal: 3 }]}>
+                                <Text
+                                  style={[
+                                    styles.trackNodeTitle,
+                                    isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
+                                    isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {m.title || `Đợt ${mIdx + 1}`}
+                                </Text>
+                                <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
+
+                                <View
+                                  style={[
+                                    styles.trackNodePill,
+                                    isFullyWithdrawn && styles.trackPillWithdrawn,
+                                    isUnlockedAvailable && styles.trackPillUnlocked,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillUpcoming,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillLocked,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.trackNodePillText,
+                                      isFullyWithdrawn && styles.trackPillTextWithdrawn,
+                                      isUnlockedAvailable && styles.trackPillTextUnlocked,
+                                      !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillTextUpcoming,
+                                      !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillTextLocked,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {isFullyWithdrawn
+                                      ? `Đã rút`
+                                      : isPartiallyWithdrawn
+                                      ? `Còn ${formatCompactPoints(remaining)}`
+                                      : isUnlockedAvailable
+                                      ? `Mở (+${formatCompactPoints(m.pointsToUnlock)})`
+                                      : mIdx === firstLockedIdx
+                                      ? `⏳ Đếm (${formatCompactPoints(m.pointsToUnlock)})`
+                                      : `${formatCompactPoints(m.pointsToUnlock)}`}
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </ScrollView>
+                  ) : (
+                    <>
+                      {/* Top Icons & Connecting Progress Lines Track */}
+                      <View style={styles.horizontalTrackRow}>
+                        {milestones.map((m, mIdx) => {
+                          const unlockDate = new Date(m.unlockDate);
+                          const isPassed = unlockDate <= now;
+                          const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                          const isUnlockedAvailable = isPassed && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0;
+                          const isCurrentUpcoming = mIdx === firstLockedIdx;
+
+                          const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
+                          const iconColor = isFullyWithdrawn
+                            ? '#DC2626'
+                            : isUnlockedAvailable || isCurrentUpcoming
+                            ? '#EE4D2D'
+                            : '#CBD5E1';
+
+                          const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
+                          const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
+
+                          let lineType: 'full' | 'half' | 'none' = 'none';
+                          const nextM = milestones[mIdx + 1];
+                          if (nextM) {
+                            const nextUnlockDate = new Date(nextM.unlockDate);
+                            const nextPassed = nextUnlockDate <= now;
+                            const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
+
+                            if (nextPassed || nextFullyWithdrawn) {
+                              lineType = 'full';
+                            } else if (isPassed || isFullyWithdrawn) {
+                              lineType = 'half';
+                            } else {
+                              lineType = 'none';
+                            }
+                          }
+
+                          return (
+                            <React.Fragment key={m.id || mIdx}>
+                              <View style={styles.trackNodeWrapper}>
+                                <MaterialCommunityIcons name={iconName} size={26} color={iconColor} />
+                                <View style={styles.trackCaretSlot}>
+                                  {showCaret && <MaterialCommunityIcons name="chevron-down" size={15} color={caretColor} />}
+                                </View>
+                              </View>
+
+                              {mIdx < milestones.length - 1 && (
+                                <View style={styles.trackLineWrapper}>
+                                  {lineType === 'full' ? (
+                                    <View style={[styles.trackLine, styles.trackLineFull]} />
+                                  ) : lineType === 'half' ? (
+                                    <View style={styles.trackLineHalfContainer}>
+                                      <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                                      <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                                    </View>
+                                  ) : (
+                                    <View style={[styles.trackLine, styles.trackLineInactive]} />
+                                  )}
+                                </View>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </View>
+
+                      {/* Node Labels Row */}
+                      <View style={styles.trackLabelsRow}>
+                        {milestones.map((m, mIdx) => {
+                          const unlockDate = new Date(m.unlockDate);
+                          const isPassed = unlockDate <= now;
+                          const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                          const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                          const isUnlockedAvailable = isPassed && remaining > 0;
+                          const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
+
+                          const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                          return (
+                            <View key={m.id || mIdx} style={styles.trackLabelCol}>
+                              <Text
+                                style={[
+                                  styles.trackNodeTitle,
+                                  isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
+                                  isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {m.title || `Đợt ${mIdx + 1}`}
+                              </Text>
+                              <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
+
+                              <View
+                                style={[
+                                  styles.trackNodePill,
+                                  isFullyWithdrawn && styles.trackPillWithdrawn,
+                                  isUnlockedAvailable && styles.trackPillUnlocked,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillUpcoming,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillLocked,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.trackNodePillText,
+                                    isFullyWithdrawn && styles.trackPillTextWithdrawn,
+                                    isUnlockedAvailable && styles.trackPillTextUnlocked,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillTextUpcoming,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillTextLocked,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {isFullyWithdrawn
+                                    ? `Đã rút`
+                                    : isPartiallyWithdrawn
+                                    ? `Còn ${formatCompactPoints(remaining)}`
+                                    : isUnlockedAvailable
+                                    ? `Mở (+${formatCompactPoints(m.pointsToUnlock)})`
+                                    : mIdx === firstLockedIdx
+                                    ? `⏳ Đếm (${formatCompactPoints(m.pointsToUnlock)})`
+                                    : `${formatCompactPoints(m.pointsToUnlock)}`}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
                 </View>
 
                 {/* Package Bottom Summary */}
@@ -2440,14 +2583,44 @@ const styles = StyleSheet.create({
     height: 20,
     backgroundColor: '#FDE68A',
   },
+  scrollHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  scrollHintText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  scrollHintBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  scrollHintBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#B45309',
+  },
   horizontalTrackerCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     marginVertical: 10,
     borderWidth: 1,
     borderColor: '#FDE68A',
+  },
+  horizontalTrackerScrollContent: {
+    paddingHorizontal: 4,
+    paddingBottom: 4,
   },
   horizontalTrackRow: {
     flexDirection: 'row',
@@ -2508,23 +2681,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   trackNodeTitle: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#334155',
+    color: '#1E293B',
     marginBottom: 2,
     textAlign: 'center',
   },
   trackNodeDate: {
-    fontSize: 10,
-    color: '#94A3B8',
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: '#64748B',
     marginBottom: 4,
   },
   trackNodePill: {
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 64,
   },
   trackPillWithdrawn: {
     backgroundColor: '#FEE2E2',
@@ -2547,7 +2722,7 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   trackNodePillText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '700',
     textAlign: 'center',
   },
