@@ -52,8 +52,9 @@ export function AdminDashboard() {
   });
 
   const { data: levelProgress } = useQuery({
-    queryKey: ['my-level-progress'],
+    queryKey: ['my-level-progress', user?.id],
     queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+    enabled: Boolean(user?.id),
   });
 
   const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || (user as any)?.level || 8;
