@@ -94,8 +94,7 @@ export function DocumentListScreen() {
     const resolved = resolveFileUrl(url);
     if (resolved) return resolved;
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const base = 'http://localhost:3001';
-    return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+    return resolveFileUrl(url) || url;
   };
 
   const handleOpenDocument = async (doc: DepartmentDocument) => {
