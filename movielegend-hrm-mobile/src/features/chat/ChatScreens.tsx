@@ -320,6 +320,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
   const deleteMessage = useDeleteMessage(groupId);
+  const markAsRead = useMarkGroupAsRead();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
 
@@ -377,8 +378,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   );
 
   useEffect(() => {
-    if (groupId) joinChatRoom(groupId);
-  }, [groupId, joinChatRoom]);
+    if (groupId) {
+      joinChatRoom(groupId);
+      markAsRead.mutateAsync(groupId).catch(console.error);
+    }
+  }, [groupId, messageItems.length, joinChatRoom]);
 
   async function handleSendSticker(stickerUrl: string, type: string) {
     setIsStickerOpen(false);

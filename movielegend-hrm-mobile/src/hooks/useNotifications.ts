@@ -8,7 +8,8 @@ if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { registerDeviceToken, revokeDeviceToken } from '../api/device-tokens.api';
 import { getMyNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from '../api/notifications.api';
-import { queryKeys } from '../constants/queryKeys';
+import { markGroupAsRead } from '../api/chat.api';
+import { queryKeys, chatKeys } from '../constants/queryKeys';
 import type { DevicePlatform } from '../types/notification.types';
 
 export function useNotifications() {
@@ -68,6 +69,7 @@ export function usePushNotificationSetup() {
   const { user } = useAuth();
   const registerDevice = useRegisterCurrentDeviceToken();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     try {
@@ -102,6 +104,26 @@ export function usePushNotificationSetup() {
               DeviceEventEmitter.emit('voice_call:action_open', data);
             }
             return;
+          }
+
+          // Tự động đánh dấu đã đọc cho thông báo
+          const notifId = data?.notificationId || data?.id;
+          if (notifId && notifId !== 'mock') {
+            markNotificationRead(notifId)
+              .then(() => {
+                void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              })
+              .catch(() => {});
+          }
+
+          // Tự động đánh dấu đã đọc cho nhóm chat nếu đây là thông báo tin nhắn
+          const groupId = data?.groupId || (data?.metadata as any)?.groupId;
+          if ((data?.type?.startsWith('CHAT_') || data?.type === 'CHAT_MESSAGE') && groupId) {
+            markGroupAsRead(groupId)
+              .then(() => {
+                void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+              })
+              .catch(() => {});
           }
           
           if (data && data.type) {
