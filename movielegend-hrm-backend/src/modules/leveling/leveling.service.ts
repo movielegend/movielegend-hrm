@@ -973,7 +973,8 @@ export class LevelingService {
     const y = year || 2026;
     const key1 = `${departmentId}_${y}`;
     const key2 = `${departmentName || ''}_${y}`;
-    return this.departmentConfigs.get(key1) || this.departmentConfigs.get(key2) || null;
+    const key3 = `${(departmentName || '').toLowerCase().trim()}_${y}`;
+    return this.departmentConfigs.get(key1) || this.departmentConfigs.get(key2) || this.departmentConfigs.get(key3) || null;
   }
 
   public saveAdminDepartmentConfig(payload: {
@@ -987,6 +988,7 @@ export class LevelingService {
     this.departmentConfigs.set(configKey, levels);
     if (departmentName) {
       this.departmentConfigs.set(`${departmentName}_${year}`, levels);
+      this.departmentConfigs.set(`${departmentName.toLowerCase().trim()}_${year}`, levels);
     }
 
     const convertedProjects: LevelDepartmentProjectItem[] = levels.map((lvl: any) => {

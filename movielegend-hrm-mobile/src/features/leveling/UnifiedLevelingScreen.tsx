@@ -155,6 +155,8 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
     getAssignedSubTasksForUser,
     adminApproveProject,
     adminRejectProject,
+    setProjects: setStoreProjects,
+    fetchProjects,
   } = useLevelProjects(activeDeptId, activeDeptName);
   const myAssignedTasks = getAssignedSubTasksForUser(currentUserId, currentUserName);
 
@@ -236,8 +238,10 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
         // 4. Load projects for Admin (Department Projects - NOT divided by level)
         if (isAdmin && queryDeptId) {
-          const rawProjects = await levelingApi.getProjects(queryDeptId, activeDeptName).catch(() => []);
-          const adminConfig = await levelingApi.getAdminDepartmentConfig(queryDeptId, 2026, activeDeptName).catch(() => null);
+          const [rawProjects, adminConfig] = await Promise.all([
+            levelingApi.getProjects(queryDeptId, activeDeptName).catch(() => []),
+            levelingApi.getAdminDepartmentConfig(queryDeptId, 2026, activeDeptName).catch(() => null),
+          ]);
           const adminLevelList = Array.isArray(adminConfig) ? adminConfig : [];
 
           const loadedProjects: Array<{
@@ -249,16 +253,16 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             subTasks: string[];
           }> = [];
 
-          if (Array.isArray(adminLevelList) && adminLevelList.length > 0 && adminLevelList.some((l: any) => l.project?.projectName)) {
+          if (Array.isArray(adminLevelList) && adminLevelList.length > 0 && adminLevelList.some((l: any) => l.project?.projectName || (l.project?.subTaskBullets && l.project.subTaskBullets.length > 0))) {
             adminLevelList.forEach((l: any, idx: number) => {
               if (l.project?.projectName || (l.project?.subTaskBullets && l.project.subTaskBullets.length > 0)) {
                 loadedProjects.push({
                   id: l.id || `proj-${queryDeptId}-${idx + 1}`,
-                  projectName: l.project?.projectName || `Dự Án ${idx + 1}`,
+                  projectName: l.project?.projectName || l.levelName || `Dự Án ${idx + 1}`,
                   rewardType: l.rewardType || 'HYBRID',
                   promotionBonusAmount: l.promotionBonusAmount !== undefined ? l.promotionBonusAmount : 5000000,
                   physicalItemName: l.physicalItemName || '',
-                  subTasks: l.project?.subTaskBullets || [],
+                  subTasks: Array.isArray(l.project?.subTaskBullets) ? l.project.subTaskBullets : [],
                 });
               }
             });
@@ -268,15 +272,28 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                 id: p.id || `proj-${queryDeptId}-${idx + 1}`,
                 projectName: p.projectName || `Dự Án ${idx + 1}`,
                 rewardType: p.rewardType || 'HYBRID',
-                promotionBonusAmount: p.cashAmount || p.promotionBonusAmount || 5000000,
+                promotionBonusAmount: p.cashAmount || (p as any).promotionBonusAmount || 5000000,
+                physicalItemName: p.physicalItemName || '',
+                subTasks: (p.subTasks || []).map((t: any) => (typeof t === 'string' ? t : t.title || t.name || '')).filter(Boolean),
+              });
+            });
+          } else if (Array.isArray(deptLevelProjects) && deptLevelProjects.length > 0) {
+            deptLevelProjects.forEach((p: any, idx: number) => {
+              loadedProjects.push({
+                id: p.id || `proj-${queryDeptId}-${idx + 1}`,
+                projectName: p.projectName || `Dự Án ${idx + 1}`,
+                rewardType: p.rewardType || 'HYBRID',
+                promotionBonusAmount: p.cashAmount || (p as any).promotionBonusAmount || 5000000,
                 physicalItemName: p.physicalItemName || '',
                 subTasks: (p.subTasks || []).map((t: any) => (typeof t === 'string' ? t : t.title || t.name || '')).filter(Boolean),
               });
             });
           }
 
-          setAdminProjects(loadedProjects);
-          setSelectedProjectId((prev) => (prev && loadedProjects.some((p) => p.id === prev) ? prev : loadedProjects[0]?.id || ''));
+          if (loadedProjects.length > 0) {
+            setAdminProjects(loadedProjects);
+            setSelectedProjectId((prev) => (prev && loadedProjects.some((p) => p.id === prev) ? prev : loadedProjects[0]?.id || ''));
+          }
         }
       }
     } catch (e) {
@@ -449,6 +466,33 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         },
       }));
 
+      // Immediately sync to store
+      const convertedProjects: LevelDepartmentProject[] = adminProjects.map((p, idx) => ({
+        id: p.id,
+        levelNumber: idx + 1,
+        levelName: p.projectName,
+        targetTierTitle: p.projectName,
+        departmentName: activeDeptName,
+        projectName: p.projectName,
+        adminNote: '',
+        rewardItem: p.promotionBonusAmount ? `${p.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ` : '',
+        rewardType: p.rewardType,
+        cashAmount: p.promotionBonusAmount,
+        physicalItems: p.physicalItemName ? [p.physicalItemName] : [],
+        physicalItemName: p.physicalItemName,
+        status: 'IN_PROGRESS',
+        isConfigured: true,
+        subTasks: p.subTasks.map((tStr, sIdx) => ({
+          id: `st-${idx + 1}-${sIdx + 1}`,
+          orderNumber: sIdx + 1,
+          title: tStr,
+          description: '',
+          targetKpi: '',
+          status: 'UNASSIGNED',
+        })),
+      }));
+      setStoreProjects(convertedProjects);
+
       await levelingApi.saveAdminDepartmentConfig({
         departmentId: activeDeptId,
         departmentName: activeDeptName,
@@ -460,7 +504,8 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         'Thành Công',
         `Đã lưu toàn bộ Dự án & Việc con phòng ban ${activeDeptName}! Dữ liệu đã chuyển về cho Leader để giao các đầu việc cho nhân sự.`,
       );
-      loadData();
+      await fetchProjects();
+      await loadData();
     } catch (err: any) {
       Alert.alert('Lỗi lưu dự án', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
