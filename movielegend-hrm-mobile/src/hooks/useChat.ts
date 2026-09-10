@@ -6,6 +6,8 @@ export function useChatGroups() {
   return useQuery({
     queryKey: chatKeys.groups(),
     queryFn: () => fetchMyChatGroups(),
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -13,6 +15,8 @@ export function useAllChatGroups() {
   return useQuery({
     queryKey: chatKeys.allGroups(),
     queryFn: () => fetchAllChatGroups(),
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -21,7 +25,8 @@ export function useChatMessages(groupId: string) {
     queryKey: chatKeys.messages(groupId),
     queryFn: () => fetchChatMessages(groupId),
     enabled: Boolean(groupId),
-    refetchInterval: 10_000, // polling mỗi 10s cho chat
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 }
 

@@ -67,6 +67,12 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('connect', () => {
         console.log('Socket connected successfully:', socket?.id);
         setIsConnected(true);
+        if (joinedChatGroupIds.current.size > 0) {
+          joinedChatGroupIds.current.forEach((gId) => {
+            socket?.emit('chat:join', { groupId: gId });
+            void queryClient.invalidateQueries({ queryKey: chatKeys.messages(gId) });
+          });
+        }
       });
       socket.on('disconnect', (reason) => {
         console.log('Socket disconnected:', reason);
