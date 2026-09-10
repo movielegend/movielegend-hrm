@@ -94,7 +94,17 @@ export class ChatService {
       skip,
       take,
       include: {
-        sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+        sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+        replyTo: {
+          select: {
+            id: true,
+            content: true,
+            fileUrl: true,
+            fileType: true,
+            fileName: true,
+            sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+          }
+        }
       }
     });
   }
@@ -151,6 +161,7 @@ export class ChatService {
       data: {
         groupId,
         senderId: userId,
+        replyToId: dto.replyToId,
         content: dto.content,
         fileUrl: dto.fileUrl,
         fileType: dto.fileType,
@@ -158,7 +169,17 @@ export class ChatService {
         mentions: dto.mentions ?? []
       },
       include: {
-        sender: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+        sender: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
+        replyTo: {
+          select: {
+            id: true,
+            content: true,
+            fileUrl: true,
+            fileType: true,
+            fileName: true,
+            sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+          }
+        }
       }
     });
 
@@ -496,6 +517,15 @@ export class ChatService {
         data: { readAt: new Date() }
       });
     }
+
+    // Update lastReadAt on ChatGroupMember
+    await this.prisma.chatGroupMember.updateMany({
+      where: { groupId, userId },
+      data: { lastReadAt: new Date() }
+    });
+
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:group_read', { groupId, userId, readAt: new Date() });
+
     return { success: true, markedCount: targetIdsToUpdate.length };
   }
 
@@ -627,5 +657,70 @@ export class ChatService {
     });
 
     return { success: true, reactions: currentReactions };
+  }
+
+  async getMessageReactionDetails(groupId: string, messageId: string) {
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, groupId: true, reactions: true }
+    });
+    if (!message || message.groupId !== groupId) throw new NotFoundException('Message not found');
+
+    const reactionsMap = (message.reactions as Record<string, string>) || {};
+    const userIds = Object.keys(reactionsMap);
+    if (userIds.length === 0) return [];
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        userCode: true,
+        profile: { select: { fullName: true, avatarUrl: true } }
+      }
+    });
+
+    return users.map(u => ({
+      user: {
+        id: u.id,
+        userCode: u.userCode,
+        fullName: u.profile?.fullName || u.userCode,
+        avatarUrl: u.profile?.avatarUrl
+      },
+      emoji: reactionsMap[u.id]
+    }));
+  }
+
+  async getMessageSeenDetails(groupId: string, messageId: string) {
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, groupId: true, createdAt: true }
+    });
+    if (!message || message.groupId !== groupId) throw new NotFoundException('Message not found');
+
+    // Get group members who read messages on or after this message's createdAt
+    const members = await this.prisma.chatGroupMember.findMany({
+      where: { groupId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            profile: { select: { fullName: true, avatarUrl: true } }
+          }
+        }
+      }
+    });
+
+    return members
+      .filter(m => m.lastReadAt && new Date(m.lastReadAt) >= new Date(message.createdAt))
+      .map(m => ({
+        user: {
+          id: m.user.id,
+          userCode: m.user.userCode,
+          fullName: m.user.profile?.fullName || m.user.userCode,
+          avatarUrl: m.user.profile?.avatarUrl
+        },
+        readAt: m.lastReadAt
+      }));
   }
 }

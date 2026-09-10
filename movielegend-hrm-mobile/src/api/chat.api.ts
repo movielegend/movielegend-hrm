@@ -16,6 +16,22 @@ export interface ChatMessage {
   id: string;
   groupId: string;
   senderId: string;
+  replyToId?: string | null;
+  replyTo?: {
+    id: string;
+    content?: string | null;
+    fileUrl?: string | null;
+    fileType?: string | null;
+    fileName?: string | null;
+    sender?: {
+      id: string;
+      userCode?: string;
+      profile?: {
+        fullName?: string;
+        avatarUrl?: string;
+      };
+    };
+  } | null;
   content?: string;
   fileUrl?: string;
   fileType?: string;
@@ -25,8 +41,10 @@ export interface ChatMessage {
   createdAt: string;
   sender?: {
     id: string;
+    userCode?: string;
     profile?: {
       fullName: string;
+      avatarUrl?: string;
     };
   };
 }
@@ -56,6 +74,8 @@ export interface SendMessagePayload {
   fileType?: string;
   fileName?: string;
   mentions?: string[];
+  replyToId?: string;
+  replyTo?: any;
 }
 
 export async function sendChatMessage(groupId: string, payload: SendMessagePayload) {
@@ -90,6 +110,36 @@ export async function deleteChatMessage(groupId: string, messageId: string) {
 
 export async function reactChatMessage(groupId: string, messageId: string, emoji: string) {
   const response = await apiClient.post<ApiResponse<any>>(`/chat/groups/${groupId}/messages/${messageId}/react`, { emoji });
+  return unwrapData(response);
+}
+
+export interface MessageReactionUser {
+  user: {
+    id: string;
+    userCode: string;
+    fullName: string;
+    avatarUrl?: string;
+  };
+  emoji: string;
+}
+
+export async function fetchMessageReactionDetails(groupId: string, messageId: string) {
+  const response = await apiClient.get<ApiResponse<MessageReactionUser[]>>(`/chat/groups/${groupId}/messages/${messageId}/reactions`);
+  return unwrapData(response);
+}
+
+export interface MessageSeenUser {
+  user: {
+    id: string;
+    userCode: string;
+    fullName: string;
+    avatarUrl?: string;
+  };
+  readAt?: string;
+}
+
+export async function fetchMessageSeenDetails(groupId: string, messageId: string) {
+  const response = await apiClient.get<ApiResponse<MessageSeenUser[]>>(`/chat/groups/${groupId}/messages/${messageId}/seen-by`);
   return unwrapData(response);
 }
 

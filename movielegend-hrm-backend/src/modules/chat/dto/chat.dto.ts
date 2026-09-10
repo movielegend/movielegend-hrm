@@ -27,4 +27,9 @@ export class CreateChatMessageDto {
   @IsString({ each: true })
   @IsOptional()
   mentions?: string[];
+
+  @ApiPropertyOptional({ description: 'ID tin nhắn được trích dẫn trả lời' })
+  @IsString()
+  @IsOptional()
+  replyToId?: string;
 }

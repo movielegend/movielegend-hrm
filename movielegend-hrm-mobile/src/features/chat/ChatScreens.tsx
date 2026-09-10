@@ -33,7 +33,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
@@ -368,8 +368,16 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
+  const [detailMessage, setDetailMessage] = useState<any | null>(null);
+  const [detailTab, setDetailTab] = useState<'reactions' | 'seen'>('reactions');
+  const [selectedReactionFilter, setSelectedReactionFilter] = useState<string>('ALL');
+  const flatListRef = useRef<FlatList>(null);
+
   const deleteMessageMutation = useDeleteMessage(groupId);
   const reactMessageMutation = useReactMessage(groupId);
+  const reactionDetailsQuery = useMessageReactionDetails(groupId, detailMessage?.id || '', !!detailMessage);
+  const seenDetailsQuery = useMessageSeenDetails(groupId, detailMessage?.id || '', !!detailMessage);
   const { initiateCall } = useVoiceCall();
 
   async function handleCopyText(content?: string) {
@@ -508,6 +516,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     setMentions([]);
     const currentImages = [...selectedImages];
     setSelectedImages([]);
+    const currentReplyTo = replyingMessage;
+    setReplyingMessage(null);
 
     if (currentImages.length > 0) {
       setIsUploading(true);
@@ -538,12 +548,15 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           fileUrl,
           fileType,
           mentions: currentMentions.length > 0 ? currentMentions : undefined,
+          replyToId: currentReplyTo?.id,
+          replyTo: currentReplyTo,
         });
       } catch (error) {
         const normalized = normalizeApiError(error);
         showAlert('Lỗi', normalized.message);
         setText(content);
         setSelectedImages(currentImages);
+        setReplyingMessage(currentReplyTo);
       } finally {
         setIsUploading(false);
       }
@@ -552,12 +565,15 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         {
           content: content || undefined,
           mentions: currentMentions.length > 0 ? currentMentions : undefined,
+          replyToId: currentReplyTo?.id,
+          replyTo: currentReplyTo,
         },
         {
           onError: error => {
             const normalized = normalizeApiError(error);
             showAlert('Lỗi', normalized.message);
             setText(content);
+            setReplyingMessage(currentReplyTo);
           },
         }
       );
@@ -643,6 +659,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
           {/* Messages */}
           <FlatList
+            ref={flatListRef}
             style={styles.messageList}
             contentContainerStyle={styles.messageListContent}
             data={sortedMessages}
@@ -714,6 +731,44 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     {!isMine && !msg.content?.startsWith('LOTTIE_STICKER:') && !msg.content?.startsWith('STATIC_STICKER:') && !msg.content?.startsWith('GIPHY_STICKER:') && (
                       <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
                     )}
+
+                    {/* Quoted Message (Reply Block) */}
+                    {!!msg.replyTo && (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          if (msg.replyTo?.id && flatListRef.current) {
+                            const targetIndex = sortedMessages.findIndex((m: any) => m.id === msg.replyTo.id);
+                            if (targetIndex !== -1) {
+                              try {
+                                flatListRef.current.scrollToIndex({ index: targetIndex, animated: true, viewPosition: 0.5 });
+                              } catch (e) {}
+                            }
+                          }
+                        }}
+                        style={[
+                          styles.quoteBlock,
+                          isMine ? styles.quoteBlockMine : styles.quoteBlockOther
+                        ]}
+                      >
+                        <View style={[styles.quoteIndicator, isMine ? styles.quoteIndicatorMine : styles.quoteIndicatorOther]} />
+                        <View style={{ flex: 1, paddingLeft: 6 }}>
+                          <Text style={[styles.quoteSender, isMine ? styles.quoteSenderMine : styles.quoteSenderOther]} numberOfLines={1}>
+                            {msg.replyTo.sender?.profile?.fullName || (msg.replyTo.sender?.userCode === 'NV000001' ? 'Admin' : msg.replyTo.sender?.userCode) || 'Người dùng'}
+                          </Text>
+                          <Text style={[styles.quoteText, isMine ? styles.quoteTextMine : styles.quoteTextOther]} numberOfLines={2}>
+                            {msg.replyTo.content || (msg.replyTo.fileType === 'IMAGE' ? '[Hình ảnh]' : msg.replyTo.fileType === 'IMAGE_ALBUM' ? '[Bộ sưu tập ảnh]' : '[Tệp tin]')}
+                          </Text>
+                        </View>
+                        {msg.replyTo.fileUrl && (msg.replyTo.fileType === 'IMAGE' || msg.replyTo.fileType === 'IMAGE_ALBUM') && (
+                          <Image
+                            source={{ uri: resolveImageUrl(msg.replyTo.fileType === 'IMAGE_ALBUM' ? (() => { try { return JSON.parse(msg.replyTo.fileUrl)[0]; } catch(e) { return msg.replyTo.fileUrl; } })() : msg.replyTo.fileUrl) || '' }}
+                            style={styles.quoteThumb}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    )}
+
                     {msg.fileUrl && (msg.fileType === 'IMAGE' || msg.fileType === 'IMAGE_ALBUM') && (
                       <View>
                         {msg.fileType === 'IMAGE_ALBUM' ? (() => {
@@ -876,7 +931,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                           activeOpacity={0.8}
                           onPress={() => {
                             if (!msg.id?.startsWith('temp-')) {
-                              setActiveActionMessage(msg);
+                              setDetailMessage(msg);
+                              setDetailTab('reactions');
+                              setSelectedReactionFilter('ALL');
                             }
                           }}
                           style={[
@@ -922,6 +979,33 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 )}
                 keyboardShouldPersistTaps="handled"
               />
+            </View>
+          )}
+
+          {/* Reply Preview Bar Above Input */}
+          {!!replyingMessage && (
+            <View style={styles.replyPreviewBar}>
+              <View style={styles.replyPreviewIndicator} />
+              <View style={{ flex: 1, paddingLeft: 10, paddingRight: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="reply" size={14} color="#2563EB" />
+                  <Text style={styles.replyPreviewSender} numberOfLines={1}>
+                    Đang trả lời {replyingMessage.sender?.profile?.fullName || (replyingMessage.sender?.userCode === 'NV000001' ? 'Admin' : replyingMessage.sender?.userCode) || 'Người dùng'}
+                  </Text>
+                </View>
+                <Text style={styles.replyPreviewText} numberOfLines={1}>
+                  {replyingMessage.content || (replyingMessage.fileType === 'IMAGE' ? '[Hình ảnh]' : replyingMessage.fileType === 'IMAGE_ALBUM' ? '[Bộ sưu tập ảnh]' : '[Tệp tin]')}
+                </Text>
+              </View>
+              {replyingMessage.fileUrl && (replyingMessage.fileType === 'IMAGE' || replyingMessage.fileType === 'IMAGE_ALBUM') && (
+                <Image
+                  source={{ uri: resolveImageUrl(replyingMessage.fileType === 'IMAGE_ALBUM' ? (() => { try { return JSON.parse(replyingMessage.fileUrl)[0]; } catch(e) { return replyingMessage.fileUrl; } })() : replyingMessage.fileUrl) || '' }}
+                  style={styles.replyPreviewThumb}
+                />
+              )}
+              <TouchableOpacity onPress={() => setReplyingMessage(null)} style={styles.replyPreviewCloseBtn}>
+                <MaterialCommunityIcons name="close-circle" size={20} color="#94A3B8" />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1010,7 +1094,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           }}
         />
 
-        {/* Long Press Message Action Sheet (Zalo / Messenger Style) */}
+        {/* Long Press Message Action Sheet (Zalo Style) */}
         <Modal
           visible={!!activeActionMessage}
           transparent={true}
@@ -1022,7 +1106,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             onPress={() => setActiveActionMessage(null)}
           >
             <Pressable style={styles.actionModalCard} onPress={(e) => e.stopPropagation?.()}>
-              {/* Quick Reactions Bar (Messenger Style) */}
+              {/* Floating Quick Reactions Bar (Zalo Style) */}
               <View style={styles.reactionBar}>
                 {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => {
                   const isCurrentEmoji = activeActionMessage?.reactions && user?.id && activeActionMessage.reactions[user.id] === emoji;
@@ -1041,87 +1125,271 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                         }
                       }}
                     >
-                      <Text style={[styles.reactionEmoji, isCurrentEmoji && { transform: [{ scale: 1.2 }] }]}>{emoji}</Text>
+                      <Text style={[styles.reactionEmoji, isCurrentEmoji && { transform: [{ scale: 1.25 }] }]}>{emoji}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              <View style={styles.actionModalDivider} />
+              {/* Action Menu Grid (Zalo Style) */}
+              <View style={styles.zaloActionGrid}>
+                {/* 1. Trả lời */}
+                <TouchableOpacity
+                  style={styles.zaloActionBtn}
+                  onPress={() => {
+                    const msg = activeActionMessage;
+                    setActiveActionMessage(null);
+                    setReplyingMessage(msg);
+                  }}
+                >
+                  <View style={[styles.zaloActionIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                    <MaterialCommunityIcons name="reply" size={22} color="#2563EB" />
+                  </View>
+                  <Text style={styles.zaloActionLabel}>Trả lời</Text>
+                </TouchableOpacity>
 
-              {/* Action 1: Sao chép văn bản (Copy text) */}
-              {!!activeActionMessage?.content &&
-                activeActionMessage.content !== 'Tin nhắn đã bị thu hồi' &&
-                !activeActionMessage.content.startsWith('LOTTIE_STICKER:') &&
-                !activeActionMessage.content.startsWith('STATIC_STICKER:') &&
-                !activeActionMessage.content.startsWith('GIPHY_STICKER:') && (
-                  <TouchableOpacity
-                    style={styles.actionModalRow}
-                    onPress={() => handleCopyText(activeActionMessage.content)}
-                  >
-                    <View style={[styles.actionModalIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                      <MaterialCommunityIcons name="content-copy" size={20} color="#2563EB" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.actionModalRowText}>Sao chép tin nhắn</Text>
-                      <Text style={styles.actionModalRowSub}>Lưu nội dung vào bộ nhớ tạm</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
+                {/* 2. Sao chép (nếu có nội dung chữ) */}
+                {!!activeActionMessage?.content &&
+                  activeActionMessage.content !== 'Tin nhắn đã bị thu hồi' &&
+                  !activeActionMessage.content.startsWith('LOTTIE_STICKER:') &&
+                  !activeActionMessage.content.startsWith('STATIC_STICKER:') &&
+                  !activeActionMessage.content.startsWith('GIPHY_STICKER:') && (
+                    <TouchableOpacity
+                      style={styles.zaloActionBtn}
+                      onPress={() => handleCopyText(activeActionMessage.content)}
+                    >
+                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#ECFDF5' }]}>
+                        <MaterialCommunityIcons name="content-copy" size={22} color="#059669" />
+                      </View>
+                      <Text style={styles.zaloActionLabel}>Sao chép</Text>
+                    </TouchableOpacity>
+                  )}
 
-              {/* Action 2: Lưu ảnh về máy (Download image) */}
-              {!!activeActionMessage?.fileUrl &&
-                (activeActionMessage.fileType === 'IMAGE' || activeActionMessage.fileType === 'IMAGE_ALBUM') && (
-                  <TouchableOpacity
-                    style={styles.actionModalRow}
-                    onPress={() => {
-                      let urlToDownload = activeActionMessage.fileUrl;
-                      if (activeActionMessage.fileType === 'IMAGE_ALBUM') {
-                        try {
-                          const urls = JSON.parse(activeActionMessage.fileUrl);
-                          urlToDownload = urls[0];
-                        } catch (e) {}
-                      }
-                      handleDownloadImage(urlToDownload);
-                    }}
-                  >
-                    <View style={[styles.actionModalIconWrap, { backgroundColor: '#ECFDF5' }]}>
-                      <MaterialCommunityIcons name="download-outline" size={20} color="#059669" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.actionModalRowText}>Lưu ảnh về máy</Text>
-                      <Text style={styles.actionModalRowSub}>Tải vào Thư viện ảnh thiết bị</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
+                {/* 3. Lưu ảnh (nếu là ảnh) */}
+                {!!activeActionMessage?.fileUrl &&
+                  (activeActionMessage.fileType === 'IMAGE' || activeActionMessage.fileType === 'IMAGE_ALBUM') && (
+                    <TouchableOpacity
+                      style={styles.zaloActionBtn}
+                      onPress={() => {
+                        let urlToDownload = activeActionMessage.fileUrl;
+                        if (activeActionMessage.fileType === 'IMAGE_ALBUM') {
+                          try {
+                            const urls = JSON.parse(activeActionMessage.fileUrl);
+                            urlToDownload = urls[0];
+                          } catch (e) {}
+                        }
+                        handleDownloadImage(urlToDownload);
+                      }}
+                    >
+                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                        <MaterialCommunityIcons name="download" size={22} color="#D97706" />
+                      </View>
+                      <Text style={styles.zaloActionLabel}>Lưu ảnh</Text>
+                    </TouchableOpacity>
+                  )}
 
-              {/* Action 3: Thu hồi tin nhắn (Recall message) */}
-              {(Boolean(user?.id && (activeActionMessage?.sender?.id === user.id || activeActionMessage?.senderId === user.id)) ||
-                user?.roles?.includes('ADMIN')) &&
-                activeActionMessage?.content !== 'Tin nhắn đã bị thu hồi' && (
-                  <TouchableOpacity
-                    style={styles.actionModalRow}
-                    onPress={() => handleRecallMessage(activeActionMessage)}
-                  >
-                    <View style={[styles.actionModalIconWrap, { backgroundColor: '#FEF2F2' }]}>
-                      <MaterialCommunityIcons name="delete-restore" size={20} color="#EF4444" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.actionModalRowText, { color: '#EF4444' }]}>Thu hồi tin nhắn</Text>
-                      <Text style={styles.actionModalRowSub}>Gỡ bỏ tin nhắn với mọi người</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
+                {/* 4. Xem chi tiết người thả cảm xúc / người xem */}
+                <TouchableOpacity
+                  style={styles.zaloActionBtn}
+                  onPress={() => {
+                    const msg = activeActionMessage;
+                    setActiveActionMessage(null);
+                    setDetailMessage(msg);
+                    setDetailTab('reactions');
+                    setSelectedReactionFilter('ALL');
+                  }}
+                >
+                  <View style={[styles.zaloActionIconWrap, { backgroundColor: '#EEF2FF' }]}>
+                    <MaterialCommunityIcons name="account-eye-outline" size={22} color="#4F46E5" />
+                  </View>
+                  <Text style={styles.zaloActionLabel}>Chi tiết</Text>
+                </TouchableOpacity>
 
-              {/* Action 4: Hủy / Đóng */}
-              <TouchableOpacity
-                style={[styles.actionModalRow, { borderBottomWidth: 0, justifyContent: 'center', marginTop: 4, paddingVertical: 12 }]}
-                onPress={() => setActiveActionMessage(null)}
-              >
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#64748B' }}>Đóng</Text>
-              </TouchableOpacity>
+                {/* 5. Thu hồi tin nhắn */}
+                {(Boolean(user?.id && (activeActionMessage?.sender?.id === user.id || activeActionMessage?.senderId === user.id)) ||
+                  user?.roles?.includes('ADMIN')) &&
+                  activeActionMessage?.content !== 'Tin nhắn đã bị thu hồi' && (
+                    <TouchableOpacity
+                      style={styles.zaloActionBtn}
+                      onPress={() => handleRecallMessage(activeActionMessage)}
+                    >
+                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#FEF2F2' }]}>
+                        <MaterialCommunityIcons name="delete-restore" size={22} color="#EF4444" />
+                      </View>
+                      <Text style={[styles.zaloActionLabel, { color: '#EF4444' }]}>Thu hồi</Text>
+                    </TouchableOpacity>
+                  )}
+              </View>
             </Pressable>
           </Pressable>
+        </Modal>
+
+        {/* Message Reaction & Seen Details Modal (Zalo Style) */}
+        <Modal
+          visible={!!detailMessage}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setDetailMessage(null)}
+        >
+          <View style={styles.detailModalBackdrop}>
+            <View style={styles.detailModalCard}>
+              {/* Header */}
+              <View style={styles.detailModalHeader}>
+                <Text style={styles.detailModalTitle}>Chi tiết tin nhắn</Text>
+                <TouchableOpacity onPress={() => setDetailMessage(null)} style={{ padding: 4 }}>
+                  <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Segmented Tab: Cảm xúc vs Đã xem */}
+              <View style={styles.detailSegmentedBar}>
+                <TouchableOpacity
+                  style={[styles.detailSegmentTab, detailTab === 'reactions' && styles.detailSegmentTabActive]}
+                  onPress={() => setDetailTab('reactions')}
+                >
+                  <Text style={[styles.detailSegmentTabText, detailTab === 'reactions' && styles.detailSegmentTabTextActive]}>
+                    Cảm xúc ({detailMessage?.reactions ? Object.keys(detailMessage.reactions).length : 0})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.detailSegmentTab, detailTab === 'seen' && styles.detailSegmentTabActive]}
+                  onPress={() => setDetailTab('seen')}
+                >
+                  <Text style={[styles.detailSegmentTabText, detailTab === 'seen' && styles.detailSegmentTabTextActive]}>
+                    Đã xem ({seenDetailsQuery.data?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Tab 1: Reactions */}
+              {detailTab === 'reactions' && (
+                <View style={{ flex: 1 }}>
+                  {/* Reaction filter tabs */}
+                  {(() => {
+                    const reactionCounts: Record<string, number> = {};
+                    let total = 0;
+                    if (detailMessage?.reactions) {
+                      Object.values(detailMessage.reactions).forEach((emoji: any) => {
+                        if (typeof emoji === 'string') {
+                          reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
+                          total += 1;
+                        }
+                      });
+                    }
+                    const availableEmojis = Object.keys(reactionCounts);
+
+                    return (
+                      <View style={styles.detailFilterBar}>
+                        <TouchableOpacity
+                          style={[styles.detailFilterPill, selectedReactionFilter === 'ALL' && styles.detailFilterPillActive]}
+                          onPress={() => setSelectedReactionFilter('ALL')}
+                        >
+                          <Text style={[styles.detailFilterPillText, selectedReactionFilter === 'ALL' && styles.detailFilterPillTextActive]}>
+                            Tất cả {total}
+                          </Text>
+                        </TouchableOpacity>
+                        {availableEmojis.map((emoji) => (
+                          <TouchableOpacity
+                            key={emoji}
+                            style={[styles.detailFilterPill, selectedReactionFilter === emoji && styles.detailFilterPillActive]}
+                            onPress={() => setSelectedReactionFilter(emoji)}
+                          >
+                            <Text style={[styles.detailFilterPillText, selectedReactionFilter === emoji && styles.detailFilterPillTextActive]}>
+                              {emoji} {reactionCounts[emoji]}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  })()}
+
+                  {/* List of reacted users */}
+                  {reactionDetailsQuery.isLoading ? (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    </View>
+                  ) : (() => {
+                    const list = (reactionDetailsQuery.data || []).filter((item: any) =>
+                      selectedReactionFilter === 'ALL' || item.emoji === selectedReactionFilter
+                    );
+
+                    if (list.length === 0) {
+                      return (
+                        <View style={{ padding: 40, alignItems: 'center' }}>
+                          <Text style={{ fontSize: 14, color: '#94A3B8' }}>Chưa có cảm xúc nào</Text>
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <FlatList
+                        data={list}
+                        keyExtractor={(item: any) => item.user.id}
+                        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+                        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 6 }} />}
+                        renderItem={({ item }: { item: any }) => (
+                          <View style={styles.detailUserRow}>
+                            <View style={styles.detailUserAvatar}>
+                              {item.user.avatarUrl ? (
+                                <Image source={{ uri: item.user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                              ) : (
+                                <Text style={styles.detailUserAvatarText}>{getInitials(item.user.fullName)}</Text>
+                              )}
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <Text style={styles.detailUserName}>{item.user.fullName}</Text>
+                              <Text style={styles.detailUserCode}>{item.user.userCode}</Text>
+                            </View>
+                            <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+                          </View>
+                        )}
+                      />
+                    );
+                  })()}
+                </View>
+              )}
+
+              {/* Tab 2: Seen by */}
+              {detailTab === 'seen' && (
+                <View style={{ flex: 1 }}>
+                  {seenDetailsQuery.isLoading ? (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    </View>
+                  ) : (seenDetailsQuery.data || []).length === 0 ? (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 14, color: '#94A3B8' }}>Chưa có ai xem tin nhắn này</Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={seenDetailsQuery.data || []}
+                      keyExtractor={(item: any) => item.user.id}
+                      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+                      ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 6 }} />}
+                      renderItem={({ item }: { item: any }) => (
+                        <View style={styles.detailUserRow}>
+                          <View style={styles.detailUserAvatar}>
+                            {item.user.avatarUrl ? (
+                              <Image source={{ uri: item.user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                            ) : (
+                              <Text style={styles.detailUserAvatarText}>{getInitials(item.user.fullName)}</Text>
+                            )}
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <Text style={styles.detailUserName}>{item.user.fullName}</Text>
+                            <Text style={styles.detailUserCode}>{item.user.userCode}</Text>
+                          </View>
+                          {!!item.readAt && (
+                            <Text style={{ fontSize: 12, color: '#94A3B8' }}>{timeAgo(item.readAt)}</Text>
+                          )}
+                        </View>
+                      )}
+                    />
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
         </Modal>
 
         {/* Sticker Modal */}
@@ -1623,5 +1891,249 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
+  },
+
+  /* Quote Block inside message bubble */
+  quoteBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    padding: 6,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  quoteBlockMine: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  quoteBlockOther: {
+    backgroundColor: '#F1F5F9',
+  },
+  quoteIndicator: {
+    width: 3,
+    borderRadius: 2,
+    alignSelf: 'stretch',
+  },
+  quoteIndicatorMine: {
+    backgroundColor: '#FFFFFF',
+  },
+  quoteIndicatorOther: {
+    backgroundColor: '#2563EB',
+  },
+  quoteSender: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  quoteSenderMine: {
+    color: '#FFFFFF',
+  },
+  quoteSenderOther: {
+    color: '#2563EB',
+  },
+  quoteText: {
+    fontSize: 12,
+  },
+  quoteTextMine: {
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  quoteTextOther: {
+    color: '#475569',
+  },
+  quoteThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+
+  /* Reply Preview Bar above input */
+  replyPreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    position: 'relative',
+  },
+  replyPreviewIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: '#2563EB',
+  },
+  replyPreviewSender: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  replyPreviewText: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 2,
+  },
+  replyPreviewThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  replyPreviewCloseBtn: {
+    padding: 4,
+  },
+
+  /* Zalo Action Grid */
+  zaloActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  zaloActionBtn: {
+    alignItems: 'center',
+    width: '22%',
+    paddingVertical: 6,
+  },
+  zaloActionIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  zaloActionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+    textAlign: 'center',
+  },
+
+  /* Detail Modal */
+  detailModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  detailModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '65%',
+    paddingTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  detailModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  detailModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  detailSegmentedBar: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginVertical: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 3,
+  },
+  detailSegmentTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  detailSegmentTabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  detailSegmentTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  detailSegmentTabTextActive: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  detailFilterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  detailFilterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+  },
+  detailFilterPillActive: {
+    backgroundColor: '#DBEAFE',
+  },
+  detailFilterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  detailFilterPillTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  detailUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  detailUserAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  detailUserAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  detailUserName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  detailUserCode: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
   },
 });

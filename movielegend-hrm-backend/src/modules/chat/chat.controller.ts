@@ -117,5 +117,23 @@ export class ChatController {
   ) {
     return this.chatService.reactToMessage(groupId, messageId, emoji, user);
   }
+
+  @ApiOperation({ summary: 'Lấy chi tiết danh sách người thả cảm xúc' })
+  @Get('groups/:groupId/messages/:messageId/reactions')
+  getMessageReactions(
+    @Param('groupId') groupId: string,
+    @Param('messageId') messageId: string
+  ) {
+    return this.chatService.getMessageReactionDetails(groupId, messageId);
+  }
+
+  @ApiOperation({ summary: 'Lấy danh sách người đã xem tin nhắn' })
+  @Get('groups/:groupId/messages/:messageId/seen-by')
+  getMessageSeenBy(
+    @Param('groupId') groupId: string,
+    @Param('messageId') messageId: string
+  ) {
+    return this.chatService.getMessageSeenDetails(groupId, messageId);
+  }
 }
 

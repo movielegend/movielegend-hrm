@@ -3068,6 +3068,7 @@ model ChatGroupMember {
   userId    String    @db.Uuid
   joinedAt  DateTime  @default(now())
   clearedAt DateTime?
+  lastReadAt DateTime?
 
   group ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -3081,6 +3082,7 @@ model ChatMessage {
   id        String   @id @default(uuid()) @db.Uuid
   groupId   String   @db.Uuid
   senderId  String   @db.Uuid
+  replyToId String?  @db.Uuid
   content   String?
   fileUrl   String?
   fileType  String?
@@ -3090,11 +3092,14 @@ model ChatMessage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  group  ChatGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  sender User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  group   ChatGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender  User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo ChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies ChatMessage[] @relation("MessageReplies")
 
   @@index([groupId, createdAt])
   @@index([senderId])
+  @@index([replyToId])
   @@map("chat_messages")
 }
 

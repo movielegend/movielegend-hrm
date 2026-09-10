@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, markGroupAsRead, deleteChatMessage, reactChatMessage, type SendMessagePayload } from '../api/chat.api';
+import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, markGroupAsRead, deleteChatMessage, reactChatMessage, fetchMessageReactionDetails, fetchMessageSeenDetails, type SendMessagePayload } from '../api/chat.api';
 import { chatKeys } from '../constants/queryKeys';
 
 export function useChatGroups() {
@@ -49,6 +49,8 @@ export function useSendMessage(groupId: string) {
         _tempId: tempId,
         groupId,
         senderId: user?.id,
+        replyToId: payload.replyToId,
+        replyTo: payload.replyTo,
         content: payload.content,
         fileUrl: payload.fileUrl,
         fileType: payload.fileType,
@@ -242,4 +244,23 @@ export function useReactMessage(groupId: string) {
     },
   });
 }
+
+export function useMessageReactionDetails(groupId: string, messageId: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['chat', 'messages', groupId, messageId, 'reactions'],
+    queryFn: () => fetchMessageReactionDetails(groupId, messageId),
+    enabled: Boolean(groupId && messageId && enabled),
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useMessageSeenDetails(groupId: string, messageId: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['chat', 'messages', groupId, messageId, 'seen'],
+    queryFn: () => fetchMessageSeenDetails(groupId, messageId),
+    enabled: Boolean(groupId && messageId && enabled),
+    staleTime: 1000 * 30,
+  });
+}
+
 
