@@ -150,8 +150,28 @@ export function useDeleteMessage(groupId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (messageId: string) => deleteChatMessage(groupId, messageId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.messages(groupId) });
-    }
+    onSuccess: (_res: any, messageId: string) => {
+      queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {
+        if (!old) return old;
+        const markRecalled = (m: any) => {
+          if (m.id === messageId || m._tempId === messageId) {
+            return {
+              ...m,
+              content: 'Tin nhắn đã bị thu hồi',
+              fileUrl: null,
+              fileType: null,
+              fileName: null,
+            };
+          }
+          return m;
+        };
+        if (Array.isArray(old)) return old.map(markRecalled);
+        if (old.items && Array.isArray(old.items)) {
+          return { ...old, items: old.items.map(markRecalled) };
+        }
+        return old;
+      });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+    },
   });
 }

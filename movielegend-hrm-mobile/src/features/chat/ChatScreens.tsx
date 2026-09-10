@@ -39,6 +39,8 @@ import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { useVoiceCall } from '../voice-call/VoiceCallProvider';
+import * as Clipboard from 'expo-clipboard';
+import { downloadAndSaveImage } from '../../utils/file-download';
 
 // ── Helpers ──
 
@@ -363,8 +365,50 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [mentions, setMentions] = useState<string[]>([]);
   const [isStickerOpen, setIsStickerOpen] = useState(false);
   const [isCallModalVisible, setIsCallModalVisible] = useState(false);
+  const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
+  const deleteMessageMutation = useDeleteMessage(groupId);
   const { initiateCall } = useVoiceCall();
+
+  async function handleCopyText(content?: string) {
+    if (!content) return;
+    await Clipboard.setStringAsync(content);
+    setActiveActionMessage(null);
+    showAlert('Thành công', 'Đã sao chép tin nhắn');
+  }
+
+  async function handleDownloadImage(imageUrl?: string) {
+    if (!imageUrl) return;
+    setIsDownloading(true);
+    try {
+      const fullUrl = resolveImageUrl(imageUrl) || imageUrl;
+      await downloadAndSaveImage(fullUrl);
+      showAlert('Thành công', 'Đã lưu ảnh vào thiết bị');
+    } catch (e) {
+      showAlert('Lỗi', 'Không thể lưu ảnh vào thiết bị');
+    } finally {
+      setIsDownloading(false);
+      setActiveActionMessage(null);
+    }
+  }
+
+  function handleRecallMessage(msg: any) {
+    if (!msg?.id) return;
+    setActiveActionMessage(null);
+    showConfirm({
+      title: 'Thu hồi tin nhắn',
+      message: 'Bạn có chắc chắn muốn thu hồi tin nhắn này với tất cả mọi người?',
+      confirmLabel: 'Thu hồi',
+      onConfirm: () => {
+        deleteMessageMutation.mutate(msg.id, {
+          onError: (err) => {
+            showAlert('Lỗi', normalizeApiError(err).message);
+          },
+        });
+      },
+    });
+  }
 
   // Sort newest first for inverted list with defensive filtering
   const sortedMessages = useMemo(() => {
@@ -610,19 +654,43 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               if (!msg) return null;
               const isMine = Boolean(user?.id && (msg.sender?.id === user.id || msg.senderId === user.id));
               const senderName = msg.sender?.profile?.fullName ?? (msg.sender?.userCode === 'NV000001' ? 'Admin' : msg.sender?.userCode) ?? 'User';
+              const isRecalled = msg.content === 'Tin nhắn đã bị thu hồi';
+
+              if (isRecalled) {
+                return (
+                  <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
+                    {!isMine && (
+                      <View style={[styles.messageBubbleAvatar, msg.sender?.profile?.avatarUrl ? { backgroundColor: 'transparent', overflow: 'hidden' } : {}]}>
+                        {msg.sender?.profile?.avatarUrl ? (
+                          <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                        ) : (
+                          <Text style={styles.messageBubbleAvatarText}>
+                            {getInitials(senderName || 'U')}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                    <View style={[styles.messageBubble, styles.recalledBubble, isMine ? styles.recalledBubbleMine : styles.recalledBubbleOther]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <MaterialCommunityIcons name="undo-variant" size={15} color="#94A3B8" />
+                        <Text style={styles.recalledText}>Tin nhắn đã bị thu hồi</Text>
+                      </View>
+                      <Text style={[styles.messageTime, { color: '#94A3B8', marginTop: 2 }]}>
+                        {timeAgo(msg.createdAt)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }
 
               return (
                 <Pressable
                   onLongPress={() => {
-                    if (isMine && msg.id && !msg.id.startsWith('temp-')) {
-                      showConfirm({
-                        title: 'Thu hồi tin nhắn',
-                        message: 'Bạn có chắc chắn muốn thu hồi tin nhắn này?',
-                        confirmLabel: 'Thu hồi',
-                        onConfirm: () => deleteMessage.mutate(msg.id) 
-                      });
+                    if (!msg.id?.startsWith('temp-')) {
+                      setActiveActionMessage(msg);
                     }
                   }}
+                  delayLongPress={300}
                 >
                   <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
                     {!isMine && (
@@ -667,15 +735,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                               <Pressable
                                 onPress={() => setViewingAlbum(albumUrls)}
                                 onLongPress={() => {
-                                  if (isMine) {
-                                    showConfirm({
-                                      title: 'Thu hồi tin nhắn',
-                                      message: 'Bạn có chắc chắn muốn thu hồi album ảnh này?',
-                                      confirmLabel: 'Thu hồi',
-                                      onConfirm: () => deleteMessage.mutate(msg.id)
-                                    });
+                                  if (!msg.id?.startsWith('temp-')) {
+                                    setActiveActionMessage(msg);
                                   }
                                 }}
+                                delayLongPress={300}
                                 style={{ width: 170, height: 180, position: 'relative', marginTop: 6 }}
                               >
                                 {/* Layer 3 (Bottom Stacked Card) */}
@@ -746,15 +810,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                           <Pressable 
                             onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}
                             onLongPress={() => {
-                              if (isMine) {
-                                showConfirm({
-                                  title: 'Thu hồi tin nhắn',
-                                  message: 'Bạn có chắc chắn muốn thu hồi tin nhắn ảnh này?',
-                                  confirmLabel: 'Thu hồi',
-                                  onConfirm: () => deleteMessage.mutate(msg.id)
-                                });
+                              if (!msg.id?.startsWith('temp-')) {
+                                setActiveActionMessage(msg);
                               }
                             }}
+                            delayLongPress={300}
                           >
                             <Image
                               source={{ uri: resolveImageUrl(msg.fileUrl) || '' }}
@@ -894,13 +954,139 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           </View>
         </View>
 
-        {/* Image Viewer Modal */}
+        {/* Image Viewer Modal with Download Button */}
         <ImageViewing
           images={viewingAlbum ? viewingAlbum.map(u => ({ uri: resolveImageUrl(u) || u })) : (viewingImage ? [{ uri: viewingImage }] : [])}
           imageIndex={0}
           visible={!!viewingImage || !!viewingAlbum}
           onRequestClose={() => { setViewingImage(null); setViewingAlbum(null); }}
+          HeaderComponent={({ imageIndex }) => {
+            const currentImg = viewingAlbum ? viewingAlbum[imageIndex] : viewingImage;
+            return (
+              <SafeAreaView edges={['top']} style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 10 }}>
+                <TouchableOpacity
+                  style={styles.imageViewerDownloadBtn}
+                  onPress={() => handleDownloadImage(currentImg || '')}
+                  disabled={isDownloading}
+                >
+                  <MaterialCommunityIcons name={isDownloading ? 'loading' : 'download'} size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+              </SafeAreaView>
+            );
+          }}
         />
+
+        {/* Long Press Message Action Sheet (Zalo / Messenger Style) */}
+        <Modal
+          visible={!!activeActionMessage}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setActiveActionMessage(null)}
+        >
+          <Pressable
+            style={styles.actionModalBackdrop}
+            onPress={() => setActiveActionMessage(null)}
+          >
+            <Pressable style={styles.actionModalCard} onPress={(e) => e.stopPropagation?.()}>
+              {/* Quick Reactions Bar (Messenger Style) */}
+              <View style={styles.reactionBar}>
+                {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={styles.reactionItem}
+                    onPress={async () => {
+                      const msg = activeActionMessage;
+                      setActiveActionMessage(null);
+                      if (msg) {
+                        try {
+                          await sendMessage.mutateAsync({
+                            content: emoji,
+                          });
+                        } catch (e) {}
+                      }
+                    }}
+                  >
+                    <Text style={styles.reactionEmoji}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.actionModalDivider} />
+
+              {/* Action 1: Sao chép văn bản (Copy text) */}
+              {!!activeActionMessage?.content &&
+                activeActionMessage.content !== 'Tin nhắn đã bị thu hồi' &&
+                !activeActionMessage.content.startsWith('LOTTIE_STICKER:') &&
+                !activeActionMessage.content.startsWith('STATIC_STICKER:') &&
+                !activeActionMessage.content.startsWith('GIPHY_STICKER:') && (
+                  <TouchableOpacity
+                    style={styles.actionModalRow}
+                    onPress={() => handleCopyText(activeActionMessage.content)}
+                  >
+                    <View style={[styles.actionModalIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                      <MaterialCommunityIcons name="content-copy" size={20} color="#2563EB" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.actionModalRowText}>Sao chép tin nhắn</Text>
+                      <Text style={styles.actionModalRowSub}>Lưu nội dung vào bộ nhớ tạm</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+              {/* Action 2: Lưu ảnh về máy (Download image) */}
+              {!!activeActionMessage?.fileUrl &&
+                (activeActionMessage.fileType === 'IMAGE' || activeActionMessage.fileType === 'IMAGE_ALBUM') && (
+                  <TouchableOpacity
+                    style={styles.actionModalRow}
+                    onPress={() => {
+                      let urlToDownload = activeActionMessage.fileUrl;
+                      if (activeActionMessage.fileType === 'IMAGE_ALBUM') {
+                        try {
+                          const urls = JSON.parse(activeActionMessage.fileUrl);
+                          urlToDownload = urls[0];
+                        } catch (e) {}
+                      }
+                      handleDownloadImage(urlToDownload);
+                    }}
+                  >
+                    <View style={[styles.actionModalIconWrap, { backgroundColor: '#ECFDF5' }]}>
+                      <MaterialCommunityIcons name="download-outline" size={20} color="#059669" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.actionModalRowText}>Lưu ảnh về máy</Text>
+                      <Text style={styles.actionModalRowSub}>Tải vào Thư viện ảnh thiết bị</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+              {/* Action 3: Thu hồi tin nhắn (Recall message) */}
+              {(Boolean(user?.id && (activeActionMessage?.sender?.id === user.id || activeActionMessage?.senderId === user.id)) ||
+                user?.roles?.includes('ADMIN')) &&
+                activeActionMessage?.content !== 'Tin nhắn đã bị thu hồi' && (
+                  <TouchableOpacity
+                    style={styles.actionModalRow}
+                    onPress={() => handleRecallMessage(activeActionMessage)}
+                  >
+                    <View style={[styles.actionModalIconWrap, { backgroundColor: '#FEF2F2' }]}>
+                      <MaterialCommunityIcons name="delete-restore" size={20} color="#EF4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.actionModalRowText, { color: '#EF4444' }]}>Thu hồi tin nhắn</Text>
+                      <Text style={styles.actionModalRowSub}>Gỡ bỏ tin nhắn với mọi người</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+              {/* Action 4: Hủy / Đóng */}
+              <TouchableOpacity
+                style={[styles.actionModalRow, { borderBottomWidth: 0, justifyContent: 'center', marginTop: 4, paddingVertical: 12 }]}
+                onPress={() => setActiveActionMessage(null)}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '600', color: '#64748B' }}>Đóng</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Sticker Modal */}
         <StickerPickerModal
@@ -1274,5 +1460,98 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.text,
+  },
+  // Recalled Message Styling
+  recalledBubble: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  recalledBubbleMine: {
+    backgroundColor: '#F8FAFC',
+  },
+  recalledBubbleOther: {
+    backgroundColor: '#F1F5F9',
+  },
+  recalledText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  // Image Viewer Download Button
+  imageViewerDownloadBtn: {
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Long-press Action Sheet Modal
+  actionModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  actionModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  reactionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  reactionItem: {
+    padding: 6,
+    borderRadius: 20,
+  },
+  reactionEmoji: {
+    fontSize: 26,
+  },
+  actionModalDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 6,
+  },
+  actionModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 14,
+  },
+  actionModalIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionModalRowText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  actionModalRowSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
   },
 });

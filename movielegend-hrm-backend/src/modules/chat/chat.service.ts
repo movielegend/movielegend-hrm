@@ -568,30 +568,23 @@ export class ChatService {
       }
     }
 
-    await this.prisma.chatMessage.delete({ where: { id: messageId } });
-
-    // Phát tín hiệu websocket bằng payload ảo để ứng dụng di động tự fetch lại tin nhắn mới nhất
-    if (group) {
-      if (group.departmentId) {
-        this.realtime.emitToDepartment(group.departmentId, 'chat:message', { groupId });
-        const members = await this.prisma.departmentMember.findMany({
-          where: { departmentId: group.departmentId, leftAt: null },
-          select: { userId: true }
-        });
-        for (const m of members) {
-          this.realtime.emitToUser(m.userId, 'chat:message', { groupId });
-        }
-      } else {
-        this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', { groupId });
-        const members = await this.prisma.chatGroupMember.findMany({
-          where: { groupId }
-        });
-        for (const m of members) {
-          this.realtime.emitToUser(m.userId, 'chat:message', { groupId });
-        }
+    const updatedMessage = await this.prisma.chatMessage.update({
+      where: { id: messageId },
+      data: {
+        content: 'Tin nhắn đã bị thu hồi',
+        fileUrl: null,
+        fileType: null,
+        fileName: null,
+      },
+      include: {
+        sender: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
       }
-    }
+    });
 
-    return { success: true };
+    // Phát tín hiệu WebSocket tức thì cho các thành viên trong nhóm
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message_recalled', { groupId, messageId, message: updatedMessage });
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', updatedMessage);
+
+    return { success: true, message: updatedMessage };
   }
 }

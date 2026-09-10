@@ -150,6 +150,32 @@ export function SocketProvider({ children }: PropsWithChildren) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
       });
 
+      socket.on('chat:message_recalled', (data: { groupId: string; messageId: string; message?: any }) => {
+        if (data?.groupId && data?.messageId) {
+          queryClient.setQueryData(chatKeys.messages(data.groupId), (old: any) => {
+            if (!old) return old;
+            const markRecalled = (m: any) => {
+              if (m.id === data.messageId || m._tempId === data.messageId) {
+                return {
+                  ...m,
+                  content: 'Tin nhắn đã bị thu hồi',
+                  fileUrl: null,
+                  fileType: null,
+                  fileName: null,
+                };
+              }
+              return m;
+            };
+            if (old.items && Array.isArray(old.items)) {
+              return { ...old, items: old.items.map(markRecalled) };
+            }
+            if (Array.isArray(old)) return old.map(markRecalled);
+            return old;
+          });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+        }
+      });
+
       socket.on('newsfeed:like_updated', (data: { postId: string; userId: string; liked: boolean }) => {
         const updatePostLike = (post: any) => {
           if (!post || post.id !== data.postId) return post;
