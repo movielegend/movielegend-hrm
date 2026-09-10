@@ -19,8 +19,8 @@ export async function downloadAndSaveImage(imageUrl: string, suggestedName?: str
       return true;
     }
 
-    const filename = suggestedName || `mvl_image_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.jpg`;
-    const localUri = `${FileSystem.documentDirectory}${filename}`;
+    const docDir = (FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || '';
+    const localUri = `${docDir}${filename}`;
     const result = await FileSystem.downloadAsync(imageUrl, localUri);
 
     if (result.status === 200) {

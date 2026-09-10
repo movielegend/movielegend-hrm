@@ -176,6 +176,28 @@ export function SocketProvider({ children }: PropsWithChildren) {
         }
       });
 
+      socket.on('chat:message_reacted', (data: { groupId: string; messageId: string; reactions: any }) => {
+        if (data?.groupId && data?.messageId) {
+          queryClient.setQueryData(chatKeys.messages(data.groupId), (old: any) => {
+            if (!old) return old;
+            const updateReaction = (m: any) => {
+              if (m.id === data.messageId || m._tempId === data.messageId) {
+                return {
+                  ...m,
+                  reactions: data.reactions,
+                };
+              }
+              return m;
+            };
+            if (old.items && Array.isArray(old.items)) {
+              return { ...old, items: old.items.map(updateReaction) };
+            }
+            if (Array.isArray(old)) return old.map(updateReaction);
+            return old;
+          });
+        }
+      });
+
       socket.on('newsfeed:like_updated', (data: { postId: string; userId: string; liked: boolean }) => {
         const updatePostLike = (post: any) => {
           if (!post || post.id !== data.postId) return post;

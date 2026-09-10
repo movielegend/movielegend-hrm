@@ -106,5 +106,16 @@ export class ChatController {
   ) {
     return this.chatService.deleteMessage(groupId, messageId, user);
   }
+
+  @ApiOperation({ summary: 'Thả cảm xúc tin nhắn' })
+  @Post('groups/:groupId/messages/:messageId/react')
+  reactMessage(
+    @Param('groupId') groupId: string,
+    @Param('messageId') messageId: string,
+    @Body('emoji') emoji: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.chatService.reactToMessage(groupId, messageId, emoji, user);
+  }
 }
 

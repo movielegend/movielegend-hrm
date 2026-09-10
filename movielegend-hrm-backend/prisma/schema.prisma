@@ -3086,6 +3086,7 @@ model ChatMessage {
   fileType  String?
   fileName  String?
   mentions  String[] @db.Uuid
+  reactions Json?    @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -587,4 +587,45 @@ export class ChatService {
 
     return { success: true, message: updatedMessage };
   }
+
+  async reactToMessage(groupId: string, messageId: string, emoji: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const userId = actor.userId;
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      include: { group: true }
+    });
+
+    if (!message) throw new NotFoundException('Message not found');
+    if (message.groupId !== groupId) throw new ForbiddenException('Message does not belong to this group');
+
+    let currentReactions: Record<string, string> = {};
+    if (message.reactions && typeof message.reactions === 'object') {
+      currentReactions = { ...(message.reactions as Record<string, string>) };
+    }
+
+    // Toggle logic: if user clicked the same emoji -> remove it. Otherwise, set emoji.
+    if (currentReactions[userId] === emoji) {
+      delete currentReactions[userId];
+    } else {
+      currentReactions[userId] = emoji;
+    }
+
+    await this.prisma.chatMessage.update({
+      where: { id: messageId },
+      data: {
+        reactions: currentReactions
+      }
+    });
+
+    // Realtime broadcast to all group members
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message_reacted', {
+      groupId,
+      messageId,
+      userId,
+      emoji,
+      reactions: currentReactions
+    });
+
+    return { success: true, reactions: currentReactions };
+  }
 }

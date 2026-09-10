@@ -33,7 +33,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
@@ -369,6 +369,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [isDownloading, setIsDownloading] = useState(false);
 
   const deleteMessageMutation = useDeleteMessage(groupId);
+  const reactMessageMutation = useReactMessage(groupId);
   const { initiateCall } = useVoiceCall();
 
   async function handleCopyText(content?: string) {
@@ -856,6 +857,39 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     ]}>
                       {timeAgo(msg.createdAt)}
                     </Text>
+
+                    {/* Floating Reaction Badge attached to bubble */}
+                    {!!msg.reactions && typeof msg.reactions === 'object' && Object.keys(msg.reactions).length > 0 && (() => {
+                      const reactionMap: Record<string, number> = {};
+                      let total = 0;
+                      Object.values(msg.reactions).forEach((emoji: any) => {
+                        if (typeof emoji === 'string') {
+                          reactionMap[emoji] = (reactionMap[emoji] || 0) + 1;
+                          total += 1;
+                        }
+                      });
+                      const uniqueEmojis = Object.keys(reactionMap);
+                      if (uniqueEmojis.length === 0) return null;
+
+                      return (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            if (!msg.id?.startsWith('temp-')) {
+                              setActiveActionMessage(msg);
+                            }
+                          }}
+                          style={[
+                            styles.messageReactionBadge,
+                            isMine ? styles.messageReactionBadgeMine : styles.messageReactionBadgeOther,
+                          ]}
+                        >
+                          <Text style={styles.messageReactionBadgeText}>
+                            {uniqueEmojis.slice(0, 3).join('')}{total > 1 ? ` ${total}` : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
                   </View>
                 </View>
               </Pressable>
@@ -990,25 +1024,27 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             <Pressable style={styles.actionModalCard} onPress={(e) => e.stopPropagation?.()}>
               {/* Quick Reactions Bar (Messenger Style) */}
               <View style={styles.reactionBar}>
-                {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => (
-                  <TouchableOpacity
-                    key={emoji}
-                    style={styles.reactionItem}
-                    onPress={async () => {
-                      const msg = activeActionMessage;
-                      setActiveActionMessage(null);
-                      if (msg) {
-                        try {
-                          await sendMessage.mutateAsync({
-                            content: emoji,
+                {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => {
+                  const isCurrentEmoji = activeActionMessage?.reactions && user?.id && activeActionMessage.reactions[user.id] === emoji;
+                  return (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[styles.reactionItem, isCurrentEmoji && styles.reactionItemActive]}
+                      onPress={() => {
+                        const msg = activeActionMessage;
+                        setActiveActionMessage(null);
+                        if (msg?.id) {
+                          reactMessageMutation.mutate({
+                            messageId: msg.id,
+                            emoji,
                           });
-                        } catch (e) {}
-                      }
-                    }}
-                  >
-                    <Text style={styles.reactionEmoji}>{emoji}</Text>
-                  </TouchableOpacity>
-                ))}
+                        }
+                      }}
+                    >
+                      <Text style={[styles.reactionEmoji, isCurrentEmoji && { transform: [{ scale: 1.2 }] }]}>{emoji}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               <View style={styles.actionModalDivider} />
@@ -1553,5 +1589,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
+  },
+  reactionItemActive: {
+    backgroundColor: '#E0F2FE',
+    transform: [{ scale: 1.15 }],
+  },
+  messageReactionBadge: {
+    position: 'absolute',
+    bottom: -10,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 3,
+    zIndex: 10,
+  },
+  messageReactionBadgeMine: {
+    right: 8,
+  },
+  messageReactionBadgeOther: {
+    right: 8,
+  },
+  messageReactionBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
   },
 });

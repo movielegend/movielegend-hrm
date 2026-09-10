@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, markGroupAsRead, deleteChatMessage, type SendMessagePayload } from '../api/chat.api';
+import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, markGroupAsRead, deleteChatMessage, reactChatMessage, type SendMessagePayload } from '../api/chat.api';
 import { chatKeys } from '../constants/queryKeys';
 
 export function useChatGroups() {
@@ -59,8 +59,8 @@ export function useSendMessage(groupId: string) {
           id: user?.id,
           userCode: user?.userCode,
           profile: {
-            fullName: user?.profile?.fullName || user?.userCode || 'Tôi',
-            avatarUrl: user?.profile?.avatarUrl,
+            fullName: (user as any)?.profile?.fullName || user?.userCode || 'Tôi',
+            avatarUrl: (user as any)?.profile?.avatarUrl,
           },
         },
       };
@@ -175,3 +175,71 @@ export function useDeleteMessage(groupId: string) {
     },
   });
 }
+
+export function useReactMessage(groupId: string) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) =>
+      reactChatMessage(groupId, messageId, emoji),
+    onMutate: async ({ messageId, emoji }) => {
+      await queryClient.cancelQueries({ queryKey: chatKeys.messages(groupId) });
+      const previousMessages = queryClient.getQueryData(chatKeys.messages(groupId));
+
+      if (user?.id) {
+        queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {
+          if (!old) return old;
+          const toggleReaction = (m: any) => {
+            if (m.id === messageId || m._tempId === messageId) {
+              const currentReactions = { ...(m.reactions || {}) };
+              if (currentReactions[user.id] === emoji) {
+                delete currentReactions[user.id];
+              } else {
+                currentReactions[user.id] = emoji;
+              }
+              return {
+                ...m,
+                reactions: currentReactions,
+              };
+            }
+            return m;
+          };
+          if (Array.isArray(old)) return old.map(toggleReaction);
+          if (old.items && Array.isArray(old.items)) {
+            return { ...old, items: old.items.map(toggleReaction) };
+          }
+          return old;
+        });
+      }
+
+      return { previousMessages };
+    },
+    onError: (_err, _vars, context: any) => {
+      if (context?.previousMessages) {
+        queryClient.setQueryData(chatKeys.messages(groupId), context.previousMessages);
+      }
+    },
+    onSuccess: (res: any, { messageId }) => {
+      if (res?.reactions) {
+        queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {
+          if (!old) return old;
+          const update = (m: any) => {
+            if (m.id === messageId || m._tempId === messageId) {
+              return {
+                ...m,
+                reactions: res.reactions,
+              };
+            }
+            return m;
+          };
+          if (Array.isArray(old)) return old.map(update);
+          if (old.items && Array.isArray(old.items)) {
+            return { ...old, items: old.items.map(update) };
+          }
+          return old;
+        });
+      }
+    },
+  });
+}
+

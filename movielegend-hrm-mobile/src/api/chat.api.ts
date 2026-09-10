@@ -21,6 +21,7 @@ export interface ChatMessage {
   fileType?: string;
   fileName?: string;
   mentions?: string[];
+  reactions?: Record<string, string>;
   createdAt: string;
   sender?: {
     id: string;
@@ -86,3 +87,9 @@ export async function deleteChatMessage(groupId: string, messageId: string) {
   const response = await apiClient.delete<ApiResponse<any>>(`/chat/groups/${groupId}/messages/${messageId}`);
   return unwrapData(response);
 }
+
+export async function reactChatMessage(groupId: string, messageId: string, emoji: string) {
+  const response = await apiClient.post<ApiResponse<any>>(`/chat/groups/${groupId}/messages/${messageId}/react`, { emoji });
+  return unwrapData(response);
+}
+
