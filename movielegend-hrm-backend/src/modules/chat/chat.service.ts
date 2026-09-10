@@ -116,14 +116,12 @@ export class ChatService {
 
   async sendMessage(actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, groupId: string, dto: CreateChatMessageDto) {
     const userId = actor.userId;
-    const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
+    const group = await this.prisma.chatGroup.findUnique({
+      where: { id: groupId },
+      include: { members: { select: { userId: true } } }
+    });
     if (!group) throw new NotFoundException('Chat group not found');
 
-    const senderUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { roles: { include: { role: true } } }
-    });
-    
     const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
 
     const member = await this.prisma.chatGroupMember.findUnique({
@@ -167,82 +165,84 @@ export class ChatService {
     const isAdmin = message.sender?.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
     const senderName = isAdmin ? 'Admin' : (message.sender?.profile?.fullName ?? message.sender.userCode);
 
-    // Phát tín hiệu qua WebSocket cho tất cả user
+    // Phát tín hiệu qua WebSocket ngay lập tức tới tất cả các kênh và thành viên
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
     if (group.departmentId) {
       this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
-      
-      const members = await this.prisma.departmentMember.findMany({
-        where: { departmentId: group.departmentId, leftAt: null },
-        select: { userId: true }
-      });
-      for (const m of members) {
+    }
+    if (group.members && group.members.length > 0) {
+      for (const m of group.members) {
         this.realtime.emitToUser(m.userId, 'chat:message', message);
-      }
-
-      const notifyMembers = members.filter(m => m.userId !== userId);
-      if (notifyMembers.length > 0) {
-        await this.prisma.$transaction(async (tx) => {
-          const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
-            ? '[Nhãn dán]'
-            : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
-
-          const payload = await this.notifications.createForUsers(
-            tx as any,
-            notifyMembers.map(m => m.userId),
-            {
-              type: 'CHAT_MESSAGE',
-              title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
-              body: notificationBody,
-              metadata: { groupId: group.id, messageId: message.id }
-            }
-          );
-          if (payload) this.notifications.emitCreated(payload);
-        });
-      }
-    } else {
-      this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
-      
-      const members = await this.prisma.chatGroupMember.findMany({
-        where: { groupId }
-      });
-      for (const m of members) {
-        this.realtime.emitToUser(m.userId, 'chat:message', message);
-      }
-      
-      const otherMembers = members.filter(m => m.userId !== userId);
-      console.log(`[ChatService] Sending message from ${userId} to groupId ${groupId}`);
-      console.log(`[ChatService] Found ${members.length} members, otherMembers: ${otherMembers.length}`);
-      
-      if (otherMembers.length > 0) {
-        try {
-          await this.prisma.$transaction(async (tx) => {
-            const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
-              ? '[Nhãn dán]'
-              : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
-
-            const payload = await this.notifications.createForUsers(
-              tx as any,
-              otherMembers.map(m => m.userId),
-              {
-                type: 'CHAT_MESSAGE',
-                title: group.type === 'DIRECT' 
-                  ? `Tin nhắn mới từ ${senderName}` 
-                  : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
-                body: notificationBody,
-                metadata: { groupId: group.id, messageId: message.id }
-              }
-            );
-            console.log(`[ChatService] Notification created successfully:`, !!payload);
-            if (payload) {
-              this.notifications.emitCreated(payload);
-              console.log(`[ChatService] Emitted notification.created to users`);
-            }
-          });
-        } catch (error) {
-          console.error(`[ChatService] Failed to create notification:`, error);
-        }
       }
     }
+
+    // Xử lý tạo thông báo (Notification) ngầm non-blocking trong background
+    setImmediate(async () => {
+      try {
+        if (group.departmentId) {
+          const members = await this.prisma.departmentMember.findMany({
+            where: { departmentId: group.departmentId, leftAt: null },
+            select: { userId: true }
+          });
+          for (const m of members) {
+            this.realtime.emitToUser(m.userId, 'chat:message', message);
+          }
+
+          const notifyMembers = members.filter(m => m.userId !== userId);
+          if (notifyMembers.length > 0) {
+            await this.prisma.$transaction(async (tx) => {
+              const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
+                ? '[Nhãn dán]'
+                : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+
+              const payload = await this.notifications.createForUsers(
+                tx as any,
+                notifyMembers.map(m => m.userId),
+                {
+                  type: 'CHAT_MESSAGE',
+                  title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
+                  body: notificationBody,
+                  metadata: { groupId: group.id, messageId: message.id }
+                }
+              );
+              if (payload) this.notifications.emitCreated(payload);
+            });
+          }
+        } else {
+          const members = await this.prisma.chatGroupMember.findMany({
+            where: { groupId }
+          });
+          for (const m of members) {
+            this.realtime.emitToUser(m.userId, 'chat:message', message);
+          }
+
+          const otherMembers = members.filter(m => m.userId !== userId);
+          if (otherMembers.length > 0) {
+            await this.prisma.$transaction(async (tx) => {
+              const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
+                ? '[Nhãn dán]'
+                : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+
+              const payload = await this.notifications.createForUsers(
+                tx as any,
+                otherMembers.map(m => m.userId),
+                {
+                  type: 'CHAT_MESSAGE',
+                  title: group.type === 'DIRECT' 
+                    ? `Tin nhắn mới từ ${senderName}` 
+                    : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
+                  body: notificationBody,
+                  metadata: { groupId: group.id, messageId: message.id }
+                }
+              );
+              if (payload) this.notifications.emitCreated(payload);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[ChatService] Background notification error:', err);
+      }
+    });
 
     return message;
   }

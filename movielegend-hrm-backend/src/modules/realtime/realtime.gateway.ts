@@ -41,6 +41,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
       client.data.roles = payload.roles ?? [];
       client.data.scopes = payload.scopes ?? [];
       client.join(`user:${payload.sub}`);
+      client.join('company');
       for (const scope of payload.scopes ?? []) {
         if (scope.scopeId) client.join(`department:${scope.scopeId}`);
       }

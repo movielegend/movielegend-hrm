@@ -366,16 +366,22 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
   const { initiateCall } = useVoiceCall();
 
-  const messageItems = Array.isArray(messages.data)
-    ? messages.data
-    : (messages.data as any)?.items ?? [];
+  // Sort newest first for inverted list with defensive filtering
+  const sortedMessages = useMemo(() => {
+    const raw = Array.isArray(messages.data)
+      ? messages.data
+      : (messages.data as any)?.items ?? [];
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((m: any) => m && typeof m === 'object' && (m.id || m._tempId))
+      .sort((a: any, b: any) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
+  }, [messages.data]);
 
   const { joinChatRoom } = useSocketStatus();
-
-  // Sort newest first for inverted list
-  const sortedMessages = [...messageItems].sort(
-    (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
 
   useEffect(() => {
     if (groupId) {
@@ -443,16 +449,15 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   async function handleSend() {
     if (!text.trim() && selectedImages.length === 0) return;
     const content = text.trim();
+    const currentMentions = [...mentions];
     setText('');
+    setMentions([]);
     const currentImages = [...selectedImages];
     setSelectedImages([]);
-    setIsUploading(true);
 
-    try {
-      let fileUrl: string | undefined;
-      let fileType: string | undefined;
-
-      if (currentImages.length > 0) {
+    if (currentImages.length > 0) {
+      setIsUploading(true);
+      try {
         const uploadResults = await Promise.all(
           currentImages.map((uri, idx) =>
             uploadFile({
@@ -464,6 +469,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )
         );
 
+        let fileUrl: string | undefined;
+        let fileType: string | undefined;
         if (uploadResults.length === 1) {
           fileUrl = uploadResults[0].fileUrl;
           fileType = 'IMAGE';
@@ -471,22 +478,35 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           fileUrl = JSON.stringify(uploadResults.map(r => r.fileUrl));
           fileType = 'IMAGE_ALBUM';
         }
-      }
 
-      await sendMessage.mutateAsync({
-        content: content || undefined,
-        fileUrl,
-        fileType,
-        mentions: mentions.length > 0 ? mentions : undefined
-      });
-      setMentions([]);
-    } catch (error) {
-      const normalized = normalizeApiError(error);
-      showAlert('Lỗi', normalized.message);
-      setText(content); // restore text if failed
-      setSelectedImages(currentImages);
-    } finally {
-      setIsUploading(false);
+        await sendMessage.mutateAsync({
+          content: content || undefined,
+          fileUrl,
+          fileType,
+          mentions: currentMentions.length > 0 ? currentMentions : undefined,
+        });
+      } catch (error) {
+        const normalized = normalizeApiError(error);
+        showAlert('Lỗi', normalized.message);
+        setText(content);
+        setSelectedImages(currentImages);
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      sendMessage.mutate(
+        {
+          content: content || undefined,
+          mentions: currentMentions.length > 0 ? currentMentions : undefined,
+        },
+        {
+          onError: error => {
+            const normalized = normalizeApiError(error);
+            showAlert('Lỗi', normalized.message);
+            setText(content);
+          },
+        }
+      );
     }
   }
 
@@ -510,7 +530,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             <View style={styles.chatHeaderInfo}>
               <Text style={styles.chatHeaderName}>{(decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat').replace('NV000001', 'Admin')}</Text>
               <Text style={styles.chatHeaderMeta}>
-                {messageItems.length} tin nhắn
+                {sortedMessages.length} tin nhắn
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -572,19 +592,20 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             style={styles.messageList}
             contentContainerStyle={styles.messageListContent}
             data={sortedMessages}
-            keyExtractor={(msg: any) => msg.id}
+            keyExtractor={(msg: any, index: number) => String(msg?.id || msg?._tempId || `msg-${index}`)}
             inverted
             refreshing={messages.isRefetching}
             onRefresh={() => void messages.refetch()}
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
             renderItem={({ item: msg }) => {
-              const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
+              if (!msg) return null;
+              const isMine = Boolean(user?.id && (msg.sender?.id === user.id || msg.senderId === user.id));
               const senderName = msg.sender?.profile?.fullName ?? (msg.sender?.userCode === 'NV000001' ? 'Admin' : msg.sender?.userCode) ?? 'User';
 
               return (
                 <Pressable
                   onLongPress={() => {
-                    if (isMine) {
+                    if (isMine && msg.id && !msg.id.startsWith('temp-')) {
                       showConfirm({
                         title: 'Thu hồi tin nhắn',
                         message: 'Bạn có chắc chắn muốn thu hồi tin nhắn này?',
@@ -601,7 +622,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                           <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
                         ) : (
                           <Text style={styles.messageBubbleAvatarText}>
-                            {getInitials(senderName)}
+                            {getInitials(senderName || 'U')}
                           </Text>
                         )}
                       </View>
@@ -854,7 +875,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             <Pressable
               style={[styles.chatSendBtn, (!text.trim() && selectedImages.length === 0) && styles.chatSendBtnDisabled]}
               onPress={handleSend}
-              disabled={(!text.trim() && selectedImages.length === 0) || sendMessage.isPending || isUploading}
+              disabled={(!text.trim() && selectedImages.length === 0) || isUploading}
             >
               <MaterialCommunityIcons name={isUploading ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>

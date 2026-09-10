@@ -4,7 +4,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 import { createHrmSocket } from '../api/socket';
-import { queryKeys, chatKeys } from '../constants/queryKeys';
+import { queryKeys, chatKeys, newsfeedKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
 
@@ -107,11 +107,115 @@ export function SocketProvider({ children }: PropsWithChildren) {
         }
       });
       socket.on('chat:message', (message: any) => {
+        if (message?.groupId) {
+          queryClient.setQueryData(chatKeys.messages(message.groupId), (old: any) => {
+            if (!old) return [message];
+            const updateList = (list: any[]) => {
+              const idx = list.findIndex((m: any) => m.id === message.id || (m._tempId && m.senderId === message.senderId && m.content === message.content));
+              if (idx !== -1) {
+                const copy = [...list];
+                copy[idx] = message;
+                return copy;
+              }
+              return [...list, message];
+            };
+
+            if (Array.isArray(old)) return updateList(old);
+            if (old.items && Array.isArray(old.items)) {
+              return {
+                ...old,
+                items: updateList(old.items),
+              };
+            }
+            return [message];
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
         void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
-        if (message.groupId) {
-          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(message.groupId) });
-        }
+      });
+
+      socket.on('newsfeed:like_updated', (data: { postId: string; userId: string; liked: boolean }) => {
+        const updatePostLike = (post: any) => {
+          if (!post || post.id !== data.postId) return post;
+          const currentLikes = post.likes || [];
+          const hasLiked = currentLikes.some((l: any) => l.userId === data.userId);
+          let newLikes = currentLikes;
+          if (data.liked && !hasLiked) {
+            newLikes = [...currentLikes, { userId: data.userId, postId: data.postId }];
+          } else if (!data.liked && hasLiked) {
+            newLikes = currentLikes.filter((l: any) => l.userId !== data.userId);
+          }
+          return {
+            ...post,
+            likes: newLikes,
+            _count: {
+              ...post._count,
+              likes: newLikes.length,
+            },
+          };
+        };
+
+        queryClient.setQueriesData({ queryKey: newsfeedKeys.all }, (old: any) => {
+          if (!old) return old;
+          if (Array.isArray(old)) return old.map(updatePostLike);
+          if (old.items && Array.isArray(old.items)) {
+            return { ...old, items: old.items.map(updatePostLike) };
+          }
+          return old;
+        });
+        queryClient.setQueryData(['newsfeed', data.postId], (old: any) => updatePostLike(old));
+      });
+
+      socket.on('newsfeed:comment_added', (data: { postId: string; comment: any }) => {
+        const updatePostComment = (post: any) => {
+          if (!post || post.id !== data.postId) return post;
+          const comments = post.comments || [];
+          if (comments.some((c: any) => c.id === data.comment.id)) return post;
+          return {
+            ...post,
+            comments: [data.comment, ...comments],
+            _count: {
+              ...post._count,
+              comments: (post._count?.comments ?? comments.length) + 1,
+            },
+          };
+        };
+
+        queryClient.setQueriesData({ queryKey: newsfeedKeys.all }, (old: any) => {
+          if (!old) return old;
+          if (Array.isArray(old)) return old.map(updatePostComment);
+          if (old.items && Array.isArray(old.items)) {
+            return { ...old, items: old.items.map(updatePostComment) };
+          }
+          return old;
+        });
+        queryClient.setQueryData(['newsfeed', data.postId], (old: any) => updatePostComment(old));
+      });
+
+      socket.on('newsfeed:post_created', (newPost: any) => {
+        queryClient.setQueriesData({ queryKey: newsfeedKeys.all }, (old: any) => {
+          if (!old) return old;
+          if (Array.isArray(old)) {
+            if (old.some((p: any) => p.id === newPost.id)) return old;
+            return [newPost, ...old];
+          }
+          if (old.items && Array.isArray(old.items)) {
+            if (old.items.some((p: any) => p.id === newPost.id)) return old;
+            return { ...old, items: [newPost, ...old.items] };
+          }
+          return old;
+        });
+      });
+
+      socket.on('newsfeed:post_deleted', (data: { postId: string }) => {
+        queryClient.setQueriesData({ queryKey: newsfeedKeys.all }, (old: any) => {
+          if (!old) return old;
+          if (Array.isArray(old)) return old.filter((p: any) => p.id !== data.postId);
+          if (old.items && Array.isArray(old.items)) {
+            return { ...old, items: old.items.filter((p: any) => p.id !== data.postId) };
+          }
+          return old;
+        });
       });
       socket.on('cross-department:updated', (payload: CrossDepartmentSocketPayload | any) => {
         void queryClient.invalidateQueries({ queryKey: ['cross-department-requests'] });

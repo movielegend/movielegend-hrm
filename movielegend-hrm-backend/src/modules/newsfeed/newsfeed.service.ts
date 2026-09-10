@@ -5,13 +5,15 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { RealtimeEventsService } from '../realtime/realtime-events.service';
 
 @Injectable()
 export class NewsfeedService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
-    private scope: DepartmentScopeService
+    private scope: DepartmentScopeService,
+    private realtimeEvents: RealtimeEventsService,
   ) {}
 
   async createPost(user: AuthenticatedUser, dto: CreateNewsfeedPostDto) {
@@ -279,38 +281,52 @@ export class NewsfeedService {
     const existing = await this.prisma.postLike.findUnique({
       where: { postId_userId: { postId, userId } }
     });
+    
+    let liked = false;
     if (existing) {
       await this.prisma.postLike.delete({ where: { id: existing.id } });
-      return { liked: false };
+      liked = false;
+    } else {
+      await this.prisma.postLike.create({ data: { postId, userId } });
+      liked = true;
     }
-    await this.prisma.postLike.create({ data: { postId, userId } });
 
-    // Notify the author
-    const post = await this.prisma.newsfeedPost.findUnique({
-      where: { id: postId },
-      select: { authorId: true, title: true }
-    });
-    const liker = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { profile: true, roles: { include: { role: true } } }
-    });
-    
-    if (post && post.authorId !== userId && liker) {
-      const isAdmin = liker.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
-      const likerName = isAdmin ? 'Admin' : (liker.profile?.fullName || liker.userCode || 'Người dùng');
+    // Phát tín hiệu Realtime tức thì cho toàn bộ người dùng đang online (0ms latency)
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:like_updated', { postId, userId, liked });
 
-      const notifPayload = await this.prisma.$transaction(async (tx) => {
-        return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: 'SYSTEM' as any,
-          title: 'Có người vừa thả tim bài viết của bạn',
-          body: `${likerName} đã thích bài viết của bạn.`,
-          metadata: { postId, action: 'LIKE' }
+    // Xử lý gửi thông báo ngầm (background non-blocking)
+    setImmediate(async () => {
+      try {
+        if (!liked) return;
+        const post = await this.prisma.newsfeedPost.findUnique({
+          where: { id: postId },
+          select: { authorId: true, title: true }
         });
-      });
-      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
-    }
+        const liker = await this.prisma.user.findUnique({
+          where: { id: userId },
+          include: { profile: true, roles: { include: { role: true } } }
+        });
+        
+        if (post && post.authorId !== userId && liker) {
+          const isAdmin = liker.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+          const likerName = isAdmin ? 'Admin' : (liker.profile?.fullName || liker.userCode || 'Người dùng');
 
-    return { liked: true };
+          const notifPayload = await this.prisma.$transaction(async (tx) => {
+            return this.notificationsService.createForUsers(tx, [post.authorId], {
+              type: 'SYSTEM' as any,
+              title: 'Có người vừa thả tim bài viết của bạn',
+              body: `${likerName} đã thích bài viết của bạn.`,
+              metadata: { postId, action: 'LIKE' }
+            });
+          });
+          if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+        }
+      } catch (err) {
+        console.error('[NewsfeedService] Background like notification error:', err);
+      }
+    });
+
+    return { liked };
   }
 
   async addComment(userId: string, postId: string, dto: CreateCommentDto) {
@@ -325,25 +341,35 @@ export class NewsfeedService {
       }
     });
 
-    const post = await this.prisma.newsfeedPost.findUnique({
-      where: { id: postId },
-      select: { authorId: true }
-    });
-    
-    if (post && post.authorId !== userId && comment.author) {
-      const isAdmin = comment.author.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
-      const commenterName = isAdmin ? 'Admin' : (comment.author.profile?.fullName || comment.author.userCode || 'Người dùng');
+    // Phát tín hiệu Realtime tức thì cho toàn bộ người dùng
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:comment_added', { postId, comment });
 
-      const notifPayload = await this.prisma.$transaction(async (tx) => {
-        return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: 'SYSTEM' as any,
-          title: 'Bình luận mới về bài viết của bạn',
-          body: `${commenterName} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
-          metadata: { postId, action: 'COMMENT' }
+    // Xử lý gửi thông báo ngầm
+    setImmediate(async () => {
+      try {
+        const post = await this.prisma.newsfeedPost.findUnique({
+          where: { id: postId },
+          select: { authorId: true }
         });
-      });
-      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
-    }
+        
+        if (post && post.authorId !== userId && comment.author) {
+          const isAdmin = comment.author.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+          const commenterName = isAdmin ? 'Admin' : (comment.author.profile?.fullName || comment.author.userCode || 'Người dùng');
+
+          const notifPayload = await this.prisma.$transaction(async (tx) => {
+            return this.notificationsService.createForUsers(tx, [post.authorId], {
+              type: 'SYSTEM' as any,
+              title: 'Bình luận mới về bài viết của bạn',
+              body: `${commenterName} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
+              metadata: { postId, action: 'COMMENT' }
+            });
+          });
+          if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+        }
+      } catch (err) {
+        console.error('[NewsfeedService] Background comment notification error:', err);
+      }
+    });
 
     return comment;
   }
@@ -354,16 +380,25 @@ export class NewsfeedService {
 
     const deletedPost = await this.prisma.newsfeedPost.delete({ where: { id } });
 
+    // Phát tín hiệu xóa bài Realtime
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:post_deleted', { postId: id });
+
     if (currentUser && post.authorId !== currentUser.userId) {
-      const notifPayload = await this.prisma.$transaction(async (tx) => {
-        return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: 'SYSTEM' as any,
-          title: 'Bài đăng bị thu hồi',
-          body: `Bài đăng "${post.title || (post.content && post.content.length > 30 ? post.content.substring(0, 30) + '...' : post.content) || 'của bạn'}" đã bị quản trị viên thu hồi.`,
-          metadata: { postId: post.id, action: 'DELETE' }
-        });
+      setImmediate(async () => {
+        try {
+          const notifPayload = await this.prisma.$transaction(async (tx) => {
+            return this.notificationsService.createForUsers(tx, [post.authorId], {
+              type: 'SYSTEM' as any,
+              title: 'Bài đăng bị thu hồi',
+              body: `Bài đăng "${post.title || (post.content && post.content.length > 30 ? post.content.substring(0, 30) + '...' : post.content) || 'của bạn'}" đã bị quản trị viên thu hồi.`,
+              metadata: { postId: post.id, action: 'DELETE' }
+            });
+          });
+          if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+        } catch (err) {
+          console.error('[NewsfeedService] Background delete notification error:', err);
+        }
       });
-      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
     }
 
     return deletedPost;

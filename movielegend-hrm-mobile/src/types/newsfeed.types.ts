@@ -43,6 +43,8 @@ export interface CreateNewsfeedPostPayload {
   title?: string;
   content: string;
   departmentId?: string;
+  images?: string[];
+  attachments?: string[];
 }
 
 export interface CreateCommentPayload {

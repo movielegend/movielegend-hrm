@@ -21,6 +21,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton } from '../../components/Buttons';
 import ImageView from '../../components/ImageViewer/ImageViewer';
+import { FacebookPhotoGrid, type FacebookGridLayoutType } from './components/FacebookPhotoGrid';
 import { Screen } from '../../components/Screen';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
@@ -71,6 +72,19 @@ function getUserDisplayName(user: any): string {
 
 function getInitials(name: string): string {
   return name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
+}
+
+function extractPostLayout(post?: NewsfeedPostDto | null): FacebookGridLayoutType {
+  if (post?.attachments && Array.isArray(post.attachments)) {
+    const layoutTag = post.attachments.find((a) => typeof a === 'string' && a.startsWith('layout:'));
+    if (layoutTag) {
+      const type = layoutTag.replace('layout:', '').trim().toUpperCase() as FacebookGridLayoutType;
+      if (type === 'CLASSIC' || type === 'COLUMN' || type === 'GRID' || type === 'CAROUSEL') {
+        return type;
+      }
+    }
+  }
+  return 'CLASSIC';
 }
 
 // ── Newsfeed List Screen ──
@@ -200,15 +214,13 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
                     {post.content}
                   </Text>
 
-                  {/* Images */}
+                  {/* Images - Facebook Multi-Photo Grid */}
                   {post.images && post.images.length > 0 ? (
-                    <Pressable onPress={(e) => {
-                      e.stopPropagation?.();
-                      setViewerImages(post.images.map(img => ({ uri: resolveImageUrl(img) || '' })));
-                      setViewerVisible(true);
-                    }}>
-                      <Image source={{ uri: resolveImageUrl(post.images[0]) || '' }} style={styles.postImage} resizeMode="cover" />
-                    </Pressable>
+                    <FacebookPhotoGrid
+                      images={post.images}
+                      resolveUrl={resolveImageUrl}
+                      layoutType={extractPostLayout(post)}
+                    />
                   ) : null}
 
                   {/* Divider */}
@@ -378,17 +390,13 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
           <Text style={styles.postContentFull}>{post.content}</Text>
 
+          {/* Images - Facebook Multi-Photo Grid */}
           {post.images && post.images.length > 0 ? (
-            <Pressable onPress={() => {
-              setViewerImages(post.images.map(img => ({ uri: resolveImageUrl(img) || '' })));
-              setViewerVisible(true);
-            }}>
-              <Image 
-                source={{ uri: resolveImageUrl(post.images[0]) || '' }} 
-                style={styles.postImage} 
-                resizeMode="cover" 
-              />
-            </Pressable>
+            <FacebookPhotoGrid
+              images={post.images}
+              resolveUrl={resolveImageUrl}
+              layoutType={extractPostLayout(post)}
+            />
           ) : null}
 
           <View style={styles.postDivider} />
@@ -480,51 +488,77 @@ export function CreatePostScreen() {
   const createPost = useCreatePost();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [selectedLayout, setSelectedLayout] = useState<FacebookGridLayoutType>('CLASSIC');
   const [uploading, setUploading] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const { showAlert } = useAppAlert();
 
-  async function pickImage() {
-    let fileUri = '';
-    let fileName = '';
-    let fileMimeType = '';
+  async function pickImages() {
+    let assetsToUpload: Array<{ uri: string; name: string; mimeType: string }> = [];
 
     if (Platform.OS === 'web') {
-      const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, type: 'image/*' });
-      if (picked.canceled || !picked.assets?.[0]) return;
-      const file = picked.assets[0];
-      fileUri = file.uri;
-      fileName = file.name;
-      fileMimeType = file.mimeType ?? 'image/jpeg';
+      const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, type: 'image/*', multiple: true });
+      if (picked.canceled || !picked.assets?.length) return;
+      assetsToUpload = picked.assets.map((file) => ({
+        uri: file.uri,
+        name: file.name,
+        mimeType: file.mimeType ?? 'image/jpeg',
+      }));
     } else {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 1,
+        allowsMultipleSelection: true,
+        quality: 0.9,
       });
 
-      if (result.canceled || !result.assets[0]) return;
-      const asset = result.assets[0];
-      fileUri = asset.uri;
-      fileName = asset.fileName ?? `image_${Date.now()}.jpg`;
-      fileMimeType = asset.mimeType ?? 'image/jpeg';
+      if (result.canceled || !result.assets?.length) return;
+      assetsToUpload = result.assets.map((asset) => ({
+        uri: asset.uri,
+        name: asset.fileName ?? `image_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.jpg`,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+      }));
     }
 
     setUploading(true);
     try {
-      const uploaded = await uploadFile({
-        uri: fileUri,
-        name: fileName,
-        mimeType: fileMimeType,
-        purpose: 'TASK_ATTACHMENT',
-      });
-      setImageUri(uploaded.fileUrl);
+      const uploadPromises = assetsToUpload.map((item) =>
+        uploadFile({
+          uri: item.uri,
+          name: item.name,
+          mimeType: item.mimeType,
+          purpose: 'TASK_ATTACHMENT',
+        })
+      );
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map((r) => r.fileUrl);
+      setImages((prev) => [...prev, ...newUrls]);
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert('Lỗi', normalized.message);
     } finally {
       setUploading(false);
     }
+  }
+
+  function handleRemoveImage(indexToRemove: number) {
+    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  }
+
+  function handleSetPrimaryImage(indexToPrimary: number) {
+    if (indexToPrimary === 0) return;
+    setImages((prev) => {
+      const next = [...prev];
+      const [selected] = next.splice(indexToPrimary, 1);
+      next.unshift(selected);
+      return next;
+    });
+  }
+
+  function handlePreviewImage(index: number) {
+    setViewerIndex(index);
+    setViewerVisible(true);
   }
 
   async function submit() {
@@ -536,7 +570,8 @@ export function CreatePostScreen() {
       await createPost.mutateAsync({
         title: title.trim() || '',
         content: content.trim(),
-        ...(imageUri ? { images: [imageUri] } : {}),
+        ...(images.length > 0 ? { images } : {}),
+        attachments: [`layout:${selectedLayout}`],
       });
       showAlert('Thành công', 'Đã đăng bài mới');
       router.back();
@@ -575,14 +610,170 @@ export function CreatePostScreen() {
             />
           </Field>
           
-          <Field label="Hình ảnh">
-            <Pressable style={styles.imagePickerBtn} onPress={() => void pickImage()}>
+          <Field label={`Hình ảnh ${images.length > 0 ? `(${images.length})` : ''}`}>
+            <Pressable
+              style={styles.imagePickerBtn}
+              onPress={() => void pickImages()}
+              disabled={uploading}
+            >
               <MaterialCommunityIcons name="image-plus" size={24} color="#111827" />
-              <Text style={styles.imagePickerText}>{uploading ? 'Đang tải lên...' : (imageUri ? 'Đổi hình ảnh' : 'Thêm hình ảnh')}</Text>
+              <Text style={styles.imagePickerText}>
+                {uploading
+                  ? 'Đang tải ảnh lên...'
+                  : images.length > 0
+                  ? '+ Thêm hình ảnh khác'
+                  : 'Thêm hình ảnh'}
+              </Text>
             </Pressable>
-            {imageUri ? (
-              <Image source={{ uri: resolveImageUrl(imageUri) || '' }} style={styles.previewImage} resizeMode="cover" />
-            ) : null}
+
+            {images.length >= 2 && (
+              <View style={styles.layoutSelectorCard}>
+                <View style={styles.layoutSelectorHeader}>
+                  <MaterialCommunityIcons name="view-dashboard-variant-outline" size={18} color="#0F172A" />
+                  <Text style={styles.layoutSelectorTitle}>Bố cục hiển thị (Facebook style):</Text>
+                </View>
+
+                <View style={styles.layoutChipsRow}>
+                  <Pressable
+                    style={[
+                      styles.layoutChip,
+                      selectedLayout === 'CLASSIC' && styles.layoutChipActive,
+                    ]}
+                    onPress={() => setSelectedLayout('CLASSIC')}
+                  >
+                    <MaterialCommunityIcons
+                      name="view-agenda-outline"
+                      size={18}
+                      color={selectedLayout === 'CLASSIC' ? '#FFFFFF' : '#334155'}
+                    />
+                    <Text
+                      style={[
+                        styles.layoutChipText,
+                        selectedLayout === 'CLASSIC' && styles.layoutChipTextActive,
+                      ]}
+                    >
+                      Cổ điển
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[
+                      styles.layoutChip,
+                      selectedLayout === 'COLUMN' && styles.layoutChipActive,
+                    ]}
+                    onPress={() => setSelectedLayout('COLUMN')}
+                  >
+                    <MaterialCommunityIcons
+                      name="view-split-vertical"
+                      size={18}
+                      color={selectedLayout === 'COLUMN' ? '#FFFFFF' : '#334155'}
+                    />
+                    <Text
+                      style={[
+                        styles.layoutChipText,
+                        selectedLayout === 'COLUMN' && styles.layoutChipTextActive,
+                      ]}
+                    >
+                      Cột dọc
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[
+                      styles.layoutChip,
+                      selectedLayout === 'GRID' && styles.layoutChipActive,
+                    ]}
+                    onPress={() => setSelectedLayout('GRID')}
+                  >
+                    <MaterialCommunityIcons
+                      name="view-grid-outline"
+                      size={18}
+                      color={selectedLayout === 'GRID' ? '#FFFFFF' : '#334155'}
+                    />
+                    <Text
+                      style={[
+                        styles.layoutChipText,
+                        selectedLayout === 'GRID' && styles.layoutChipTextActive,
+                      ]}
+                    >
+                      Lưới đều
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[
+                      styles.layoutChip,
+                      selectedLayout === 'CAROUSEL' && styles.layoutChipActive,
+                    ]}
+                    onPress={() => setSelectedLayout('CAROUSEL')}
+                  >
+                    <MaterialCommunityIcons
+                      name="view-carousel-outline"
+                      size={18}
+                      color={selectedLayout === 'CAROUSEL' ? '#FFFFFF' : '#334155'}
+                    />
+                    <Text
+                      style={[
+                        styles.layoutChipText,
+                        selectedLayout === 'CAROUSEL' && styles.layoutChipTextActive,
+                      ]}
+                    >
+                      Trình chiếu
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            {images.length > 0 && (
+              <View style={{ marginTop: 12 }}>
+                <View style={styles.previewHeaderRow}>
+                  <Text style={styles.previewHeaderLabel}>Xem trước bố cục ({images.length} ảnh):</Text>
+                  <Text style={styles.previewHintText}>Chạm ảnh để phóng to</Text>
+                </View>
+                <FacebookPhotoGrid
+                  images={images}
+                  resolveUrl={resolveImageUrl}
+                  showDeleteButton={true}
+                  onDeleteImage={handleRemoveImage}
+                  layoutType={selectedLayout}
+                />
+
+                {images.length > 1 && (
+                  <View style={styles.thumbnailStripSection}>
+                    <Text style={styles.thumbnailStripTitle}>
+                      Quản lý thứ tự ảnh (Chạm ⭐ để chọn làm ảnh chính/ảnh bìa):
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailStrip}>
+                      {images.map((img, idx) => (
+                        <View key={`thumb-${idx}`} style={styles.thumbnailItemWrapper}>
+                          <Image source={{ uri: resolveImageUrl(img) || img }} style={styles.thumbnailImg} />
+                          {idx === 0 ? (
+                            <View style={styles.primaryBadge}>
+                              <Text style={styles.primaryBadgeText}>Ảnh chính</Text>
+                            </View>
+                          ) : (
+                            <Pressable
+                              style={styles.setPrimaryBtn}
+                              onPress={() => handleSetPrimaryImage(idx)}
+                            >
+                              <MaterialCommunityIcons name="star-outline" size={12} color="#FFFFFF" />
+                              <Text style={styles.setPrimaryBtnText}>Làm ảnh chính</Text>
+                            </Pressable>
+                          )}
+                          <Pressable
+                            style={styles.thumbDeleteBtn}
+                            onPress={() => handleRemoveImage(idx)}
+                          >
+                            <MaterialCommunityIcons name="close" size={12} color="#FFFFFF" />
+                          </Pressable>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            )}
           </Field>
 
           <PrimaryButton
@@ -670,7 +861,11 @@ export function PendingNewsfeedListScreen() {
                   </Text>
                   
                   {post.images && post.images.length > 0 ? (
-                    <Image source={{ uri: resolveImageUrl(post.images[0]) || '' }} style={styles.postImage} resizeMode="cover" />
+                    <FacebookPhotoGrid
+                      images={post.images}
+                      resolveUrl={resolveImageUrl}
+                      layoutType={extractPostLayout(post)}
+                    />
                   ) : null}
                 </Pressable>
               );
@@ -783,17 +978,13 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
           {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
           <Text style={styles.postContentFull}>{post.content}</Text>
 
+          {/* Images - Facebook Multi-Photo Grid */}
           {(post as any).images && (post as any).images.length > 0 ? (
-            <Pressable onPress={() => {
-              setViewerImages((post as any).images.map((img: string) => ({ uri: resolveImageUrl(img) || '' })));
-              setViewerVisible(true);
-            }}>
-              <Image 
-                source={{ uri: resolveImageUrl((post as any).images[0]) || '' }} 
-                style={styles.postImage} 
-                resizeMode="cover" 
-              />
-            </Pressable>
+            <FacebookPhotoGrid
+              images={(post as any).images}
+              resolveUrl={resolveImageUrl}
+              layoutType={extractPostLayout(post as any)}
+            />
           ) : null}
 
           <View style={styles.postDivider} />
@@ -1104,10 +1295,205 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 12,
   },
+  selectedImagesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
+  },
+  previewImageWrapper: {
+    width: '48%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  previewImageTouchable: {
+    width: '100%',
+    height: '100%',
+  },
+  previewGridImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewZoomBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    right: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  previewZoomText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  previewHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  previewHeaderLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  previewHintText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+  },
   postImage: {
     width: '100%',
     height: 200,
     borderRadius: 12,
     marginTop: 12,
+  },
+  // Layout selector bar
+  layoutSelectorCard: {
+    marginTop: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  layoutSelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  layoutSelectorTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  layoutChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  layoutChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  layoutChipActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  layoutChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  layoutChipTextActive: {
+    color: '#FFFFFF',
+  },
+  // Thumbnail reorder & cover photo strip
+  thumbnailStripSection: {
+    marginTop: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  thumbnailStripTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
+  },
+  thumbnailStrip: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  thumbnailItemWrapper: {
+    width: 90,
+    height: 90,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  thumbnailImg: {
+    width: '100%',
+    height: '100%',
+  },
+  primaryBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#059669',
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  primaryBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  setPrimaryBtn: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  setPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  thumbDeleteBtn: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
