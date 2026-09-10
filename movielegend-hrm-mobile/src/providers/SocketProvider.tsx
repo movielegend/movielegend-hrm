@@ -107,27 +107,37 @@ export function SocketProvider({ children }: PropsWithChildren) {
         }
       });
       socket.on('chat:message', (message: any) => {
-        if (message?.groupId) {
+        if (message?.groupId && message?.id) {
           queryClient.setQueryData(chatKeys.messages(message.groupId), (old: any) => {
-            if (!old) return [message];
+            if (!old) return { items: [message], pagination: {} };
             const updateList = (list: any[]) => {
-              const idx = list.findIndex((m: any) => m.id === message.id || (m._tempId && m.senderId === message.senderId && m.content === message.content));
-              if (idx !== -1) {
+              if (list.some((m: any) => m.id === message.id)) {
+                return list;
+              }
+              const tempIdx = list.findIndex((m: any) =>
+                m._tempId &&
+                m.senderId === message.senderId &&
+                (
+                  (message.fileUrl && m.fileUrl === message.fileUrl) ||
+                  (message.content && m.content === message.content)
+                )
+              );
+              if (tempIdx !== -1) {
                 const copy = [...list];
-                copy[idx] = message;
+                copy[tempIdx] = message;
                 return copy;
               }
               return [...list, message];
             };
 
-            if (Array.isArray(old)) return updateList(old);
             if (old.items && Array.isArray(old.items)) {
               return {
                 ...old,
                 items: updateList(old.items),
               };
             }
-            return [message];
+            if (Array.isArray(old)) return updateList(old);
+            return { items: [message], pagination: {} };
           });
         }
         void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });

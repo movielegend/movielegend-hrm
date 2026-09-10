@@ -83,11 +83,11 @@ export function useSendMessage(groupId: string) {
       queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {
         if (!old) return { items: [serverMsg], pagination: {} };
         const updateList = (list: any[]) => {
-          const idx = list.findIndex(m => m.id === context?.tempId || m._tempId === context?.tempId);
-          if (idx !== -1) {
+          const tempIdx = list.findIndex(m => m.id === context?.tempId || m._tempId === context?.tempId);
+          if (tempIdx !== -1) {
             const copy = [...list];
-            copy[idx] = serverMsg;
-            return copy;
+            copy[tempIdx] = serverMsg;
+            return copy.filter((m, idx) => m.id !== serverMsg.id || idx === tempIdx);
           }
           if (list.some(m => m.id === serverMsg.id)) return list;
           return [...list, serverMsg];

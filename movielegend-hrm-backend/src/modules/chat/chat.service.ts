@@ -165,14 +165,13 @@ export class ChatService {
     const isAdmin = message.sender?.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
     const senderName = isAdmin ? 'Admin' : (message.sender?.profile?.fullName ?? message.sender.userCode);
 
-    // Phát tín hiệu qua WebSocket ngay lập tức tới tất cả các kênh và thành viên
+    // Phát tín hiệu qua WebSocket duy nhất tới phòng chat và các thành viên
     this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
-    if (group.departmentId) {
-      this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
-    }
     if (group.members && group.members.length > 0) {
       for (const m of group.members) {
-        this.realtime.emitToUser(m.userId, 'chat:message', message);
+        if (m.userId !== userId) {
+          this.realtime.emitToUser(m.userId, 'chat:message', message);
+        }
       }
     }
 
@@ -184,9 +183,6 @@ export class ChatService {
             where: { departmentId: group.departmentId, leftAt: null },
             select: { userId: true }
           });
-          for (const m of members) {
-            this.realtime.emitToUser(m.userId, 'chat:message', message);
-          }
 
           const notifyMembers = members.filter(m => m.userId !== userId);
           if (notifyMembers.length > 0) {

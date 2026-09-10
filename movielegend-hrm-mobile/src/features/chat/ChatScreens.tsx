@@ -372,13 +372,21 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       ? messages.data
       : (messages.data as any)?.items ?? [];
     if (!Array.isArray(raw)) return [];
-    return raw
-      .filter((m: any) => m && typeof m === 'object' && (m.id || m._tempId))
-      .sort((a: any, b: any) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return timeB - timeA;
-      });
+
+    const seen = new Set<string>();
+    const unique = raw.filter((m: any) => {
+      if (!m || typeof m !== 'object') return false;
+      const key = m.id || m._tempId;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique.sort((a: any, b: any) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
   }, [messages.data]);
 
   const { joinChatRoom } = useSocketStatus();
@@ -447,6 +455,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   }
 
   async function handleSend() {
+    if (isUploading || sendMessage.isPending) return;
     if (!text.trim() && selectedImages.length === 0) return;
     const content = text.trim();
     const currentMentions = [...mentions];
@@ -873,11 +882,14 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               />
             </View>
             <Pressable
-              style={[styles.chatSendBtn, (!text.trim() && selectedImages.length === 0) && styles.chatSendBtnDisabled]}
+              style={[
+                styles.chatSendBtn,
+                ((!text.trim() && selectedImages.length === 0) || isUploading || sendMessage.isPending) && styles.chatSendBtnDisabled,
+              ]}
               onPress={handleSend}
-              disabled={(!text.trim() && selectedImages.length === 0) || isUploading}
+              disabled={(!text.trim() && selectedImages.length === 0) || isUploading || sendMessage.isPending}
             >
-              <MaterialCommunityIcons name={isUploading ? 'loading' : 'send'} size={20} color="#fff" />
+              <MaterialCommunityIcons name={isUploading || sendMessage.isPending ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>
           </View>
         </View>
