@@ -388,7 +388,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       joinChatRoom(groupId);
       markAsRead.mutateAsync(groupId).catch(console.error);
     }
-  }, [groupId, messageItems.length, joinChatRoom]);
+  }, [groupId, sortedMessages.length, joinChatRoom]);
 
   async function handleSendSticker(stickerUrl: string, type: string) {
     setIsStickerOpen(false);
