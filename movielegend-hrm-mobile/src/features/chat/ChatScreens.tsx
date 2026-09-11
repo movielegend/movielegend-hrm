@@ -1104,20 +1104,40 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           </View>
         </View>
 
-        {/* Image Viewer Modal with Download Button */}
+        {/* Image Viewer Modal with Close & Download Buttons */}
         <ImageViewing
-          images={viewingAlbum ? viewingAlbum.map(u => ({ uri: resolveImageUrl(u) || u })) : (viewingImage ? [{ uri: viewingImage }] : [])}
+          images={viewingAlbum ? viewingAlbum.map(u => ({ uri: resolveImageUrl(u) || u })) : (viewingImage ? [{ uri: resolveImageUrl(viewingImage) || viewingImage }] : [])}
           imageIndex={0}
           visible={!!viewingImage || !!viewingAlbum}
           onRequestClose={() => { setViewingImage(null); setViewingAlbum(null); }}
           HeaderComponent={({ imageIndex }) => {
             const currentImg = viewingAlbum ? viewingAlbum[imageIndex] : viewingImage;
+            const totalCount = viewingAlbum ? viewingAlbum.length : 1;
             return (
-              <SafeAreaView edges={['top']} style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 10 }}>
+              <SafeAreaView edges={['top']} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 }}>
+                <TouchableOpacity
+                  style={styles.imageViewerDownloadBtn}
+                  onPress={() => { setViewingImage(null); setViewingAlbum(null); }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                {totalCount > 1 ? (
+                  <View style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
+                      {imageIndex + 1} / {totalCount}
+                    </Text>
+                  </View>
+                ) : (
+                  <View />
+                )}
+
                 <TouchableOpacity
                   style={styles.imageViewerDownloadBtn}
                   onPress={() => handleDownloadImage(currentImg || '')}
                   disabled={isDownloading}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <MaterialCommunityIcons name={isDownloading ? 'loading' : 'download'} size={22} color="#FFFFFF" />
                 </TouchableOpacity>
