@@ -144,3 +144,18 @@ export async function fetchMessageSeenDetails(groupId: string, messageId: string
   return unwrapData(response);
 }
 
+export interface ChatGroupMemberSummary {
+  id: string;
+  userId: string;
+  userCode: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  user?: any;
+}
+
+export async function fetchGroupMembers(groupId: string) {
+  const response = await apiClient.get<ApiResponse<ChatGroupMemberSummary[]>>(`/chat/groups/${groupId}/members`);
+  return unwrapData(response);
+}
+
+

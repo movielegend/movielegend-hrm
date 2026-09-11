@@ -33,7 +33,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails, useGroupMembers } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { uploadFile } from '../../api/uploads.api';
 import { assertSocketUrl } from '../../constants/env';
@@ -334,25 +334,58 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     limit: 100,
     departmentId: currentGroup?.departmentId || undefined
   });
+  const groupMembersQuery = useGroupMembers(groupId);
 
-  const mentionCandidates = useMemo(() => {
+  const availableMembers = useMemo(() => {
+    // 1. From group members API
+    const fromApi = groupMembersQuery.data;
+    if (Array.isArray(fromApi) && fromApi.length > 0) {
+      return fromApi.map((m: any) => ({
+        id: m.userId || m.id || m.user?.id,
+        userCode: m.userCode || m.user?.userCode || '',
+        fullName: m.fullName || m.user?.profile?.fullName || m.user?.userCode || m.userCode || 'Thành viên',
+        avatarUrl: m.avatarUrl || m.user?.profile?.avatarUrl || null,
+      })).filter((item: any) => item.id);
+    }
+
+    // 2. From currentGroup.members (populated by getMyGroups / getAllGroups)
     if (currentGroup?.members && Array.isArray(currentGroup.members) && currentGroup.members.length > 0) {
       return currentGroup.members
         .map((m: any) => {
           const u = m.user;
-          const uId = m.userId || u?.id;
+          const uId = m.userId || u?.id || m.id;
           if (!uId) return null;
           return {
             id: uId,
-            userCode: u?.userCode || '',
-            fullName: u?.profile?.fullName || u?.userCode || 'Thành viên',
-            avatarUrl: u?.profile?.avatarUrl
+            userCode: u?.userCode || m.userCode || '',
+            fullName: u?.profile?.fullName || m.fullName || u?.userCode || m.userCode || 'Thành viên',
+            avatarUrl: u?.profile?.avatarUrl || m.avatarUrl || null,
           };
         })
-        .filter(Boolean);
+        .filter(Boolean) as any[];
     }
-    return Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []);
-  }, [currentGroup?.members, employees.data]);
+
+    // 3. Fallback to employees if available (for admin/HR users)
+    const rawEmployees = Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []);
+    if (Array.isArray(rawEmployees) && rawEmployees.length > 0) {
+      return rawEmployees.map((item: any) => ({
+        id: item.id,
+        userCode: item.userCode || '',
+        fullName: item.profile?.fullName || item.fullName || item.userCode || 'Thành viên',
+        avatarUrl: item.profile?.avatarUrl || item.avatarUrl || null,
+      }));
+    }
+
+    return [];
+  }, [groupMembersQuery.data, currentGroup?.members, employees.data]);
+
+  const mentionCandidates = useMemo(() => {
+    return availableMembers;
+  }, [availableMembers]);
+
+  const callCandidates = useMemo(() => {
+    return availableMembers.filter((m: any) => m.id !== user?.id);
+  }, [availableMembers, user?.id]);
   const insets = useSafeAreaInsets();
 
   const [text, setText] = useState('');
@@ -607,21 +640,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 onPress={() => {
-                  if (!currentGroup) {
-                    showAlert('Vui lòng đợi', 'Đang tải thông tin nhóm chat...');
-                    return;
-                  }
                   const targetUserId = currentGroup?.otherUserId || (currentGroup?.type === 'DIRECT' ? currentGroup?.members?.find((m: any) => m.userId !== user?.id)?.userId : undefined);
                   if (currentGroup?.type === 'DIRECT' && targetUserId) {
                     initiateCall(targetUserId, currentGroup.name || 'Người dùng', currentGroup.otherUserAvatar);
-                  } else if (currentGroup?.members && currentGroup.members.length === 2) {
-                    const otherMember = currentGroup.members.find((m: any) => m.userId !== user?.id);
-                    if (otherMember) {
-                      const u = otherMember.user;
-                      initiateCall(otherMember.userId, u?.profile?.fullName || u?.username || u?.userCode || 'Người dùng', u?.profile?.avatarUrl);
-                    } else {
-                      setIsCallModalVisible(true);
-                    }
                   } else {
                     setIsCallModalVisible(true);
                   }
@@ -1413,39 +1434,57 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         {/* Call User Selection Modal */}
         <Modal visible={isCallModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsCallModalVisible(false)}>
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Chọn người để gọi</Text>
-                <TouchableOpacity onPress={() => setIsCallModalVisible(false)}>
+            <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#111827' }}>Chọn người để gọi</Text>
+                <TouchableOpacity onPress={() => setIsCallModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <MaterialCommunityIcons name="close" size={24} color="#666" />
                 </TouchableOpacity>
               </View>
               <FlatList
-                data={currentGroup?.members?.length > 0 ? currentGroup.members.map((m: any) => ({ ...m.user, id: m.userId, fullName: m.user?.profile?.fullName, avatarUrl: m.user?.profile?.avatarUrl })) : (employees.data?.items ?? [])}
+                data={callCandidates}
                 keyExtractor={(item: any) => item.id}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                  <View style={{ paddingVertical: 40, alignItems: 'center', justifyContent: 'center' }}>
+                    <MaterialCommunityIcons name="account-off-outline" size={48} color="#D1D5DB" />
+                    <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14, textAlign: 'center' }}>
+                      {groupMembersQuery.isLoading ? 'Đang tải danh sách thành viên...' : 'Không tìm thấy thành viên nào khác trong nhóm để gọi'}
+                    </Text>
+                  </View>
+                }
                 renderItem={({ item }) => {
-                  if (item.id === user?.id) return null; // Don't call yourself
-                  const displayName = item.fullName ?? item.profile?.fullName ?? item.userCode;
-                  const avatar = item.avatarUrl ?? item.profile?.avatarUrl;
+                  const displayName = item.fullName ?? item.userCode ?? 'Người dùng';
+                  const avatar = item.avatarUrl;
                   return (
                     <TouchableOpacity
-                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}
                       onPress={() => {
                         setIsCallModalVisible(false);
                         initiateCall(item.id, displayName, avatar);
                       }}
                     >
-                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(displayName)}</Text>
+                      {avatar ? (
+                        <Image source={{ uri: resolveImageUrl(avatar) || avatar }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
+                      ) : (
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{getInitials(displayName)}</Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>{displayName}</Text>
+                        {item.userCode ? (
+                          <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{item.userCode}</Text>
+                        ) : null}
                       </View>
-                      <Text style={{ fontSize: 16, flex: 1 }}>{displayName}</Text>
-                      <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center' }}>
+                        <MaterialCommunityIcons name="phone" size={20} color="#10B981" />
+                      </View>
                     </TouchableOpacity>
                   );
                 }}
               />
             </View>
-
           </View>
         </Modal>
 

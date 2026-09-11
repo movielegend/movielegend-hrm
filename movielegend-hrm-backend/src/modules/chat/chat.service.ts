@@ -330,6 +330,31 @@ export class ChatService {
     });
     const directMemberMap = Object.fromEntries(directMembers.map(m => [m.groupId, m]));
 
+    // 3. Batch fetch department members for department groups
+    const deptIds = groups.filter(g => g.type === 'DEPARTMENT' && g.departmentId).map(g => g.departmentId!);
+    const deptMembers = deptIds.length > 0 ? await this.prisma.departmentMember.findMany({
+      where: { departmentId: { in: deptIds }, leftAt: null },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            profile: { select: { fullName: true, avatarUrl: true } }
+          }
+        }
+      }
+    }) : [];
+    const deptMemberMap: Record<string, any[]> = {};
+    for (const dm of deptMembers) {
+      if (!deptMemberMap[dm.departmentId]) {
+        deptMemberMap[dm.departmentId] = [];
+      }
+      deptMemberMap[dm.departmentId].push({
+        userId: dm.userId,
+        user: dm.user
+      });
+    }
+
     const resultGroups = [];
     for (const group of groups) {
       const latestMessage = latestMessageMap[group.id];
@@ -337,6 +362,11 @@ export class ChatService {
       let finalName = group.name;
       let otherUserId: string | undefined;
       let otherUserAvatar: string | undefined;
+      let members = (group as any).members;
+
+      if (group.type === 'DEPARTMENT' && group.departmentId) {
+        members = deptMemberMap[group.departmentId] || [];
+      }
 
       if (group.type === 'DIRECT') {
         const otherMember = directMemberMap[group.id];
@@ -349,6 +379,7 @@ export class ChatService {
 
       resultGroups.push({
         ...group,
+        members,
         name: finalName,
         otherUserId,
         otherUserAvatar,
@@ -358,6 +389,58 @@ export class ChatService {
     }
 
     return resultGroups;
+  }
+
+  async getGroupMembers(groupId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const group = await this.prisma.chatGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                userCode: true,
+                profile: { select: { fullName: true, avatarUrl: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+    if (!group) throw new NotFoundException('Chat group not found');
+
+    if (group.type === 'DEPARTMENT' && group.departmentId) {
+      const deptMembers = await this.prisma.departmentMember.findMany({
+        where: { departmentId: group.departmentId, leftAt: null },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } }
+            }
+          }
+        }
+      });
+      return deptMembers.map(dm => ({
+        id: dm.userId,
+        userId: dm.userId,
+        userCode: dm.user?.userCode || '',
+        fullName: dm.user?.profile?.fullName || dm.user?.userCode || 'Thành viên',
+        avatarUrl: dm.user?.profile?.avatarUrl || null,
+        user: dm.user,
+      }));
+    }
+
+    return (group.members || []).map(m => ({
+      id: m.userId,
+      userId: m.userId,
+      userCode: m.user?.userCode || '',
+      fullName: m.user?.profile?.fullName || m.user?.userCode || 'Thành viên',
+      avatarUrl: m.user?.profile?.avatarUrl || null,
+      user: m.user,
+    }));
   }
 
   async createTaskGroup(taskId: string, name: string, memberIds: string[]) {
@@ -461,6 +544,31 @@ export class ChatService {
       orderBy: { updatedAt: 'desc' }
     });
 
+    // Batch fetch department members for department groups
+    const deptIds = groups.filter(g => g.type === 'DEPARTMENT' && g.departmentId).map(g => g.departmentId!);
+    const deptMembers = deptIds.length > 0 ? await this.prisma.departmentMember.findMany({
+      where: { departmentId: { in: deptIds }, leftAt: null },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            profile: { select: { fullName: true, avatarUrl: true } }
+          }
+        }
+      }
+    }) : [];
+    const deptMemberMap: Record<string, any[]> = {};
+    for (const dm of deptMembers) {
+      if (!deptMemberMap[dm.departmentId]) {
+        deptMemberMap[dm.departmentId] = [];
+      }
+      deptMemberMap[dm.departmentId].push({
+        userId: dm.userId,
+        user: dm.user
+      });
+    }
+
     const resultGroups = [];
     for (const group of groups) {
       // Lấy tin nhắn mới nhất cho mỗi nhóm
@@ -471,6 +579,12 @@ export class ChatService {
       });
 
       let finalName = group.name;
+      let members = (group as any).members;
+
+      if (group.type === 'DEPARTMENT' && group.departmentId) {
+        members = deptMemberMap[group.departmentId] || [];
+      }
+
       if (group.type === 'DIRECT' && group.members?.length === 2) {
         const u1 = group.members[0].user;
         const name1 = u1?.profile?.fullName || u1?.userCode || 'Người dùng';
@@ -485,6 +599,7 @@ export class ChatService {
 
       resultGroups.push({
         ...group,
+        members,
         name: finalName,
         latestMessage,
       });

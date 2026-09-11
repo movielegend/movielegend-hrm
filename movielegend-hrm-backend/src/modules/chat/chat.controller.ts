@@ -18,6 +18,15 @@ export class ChatController {
     return this.chatService.getMyGroups(user.userId);
   }
 
+  @ApiOperation({ summary: 'Lấy danh sách thành viên trong nhóm chat' })
+  @Get('groups/:groupId/members')
+  getGroupMembers(
+    @Param('groupId') groupId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.chatService.getGroupMembers(groupId, user);
+  }
+
   @ApiOperation({ summary: 'Lấy tin nhắn trong nhóm chat' })
   @Get('groups/:groupId/messages')
   getMessages(

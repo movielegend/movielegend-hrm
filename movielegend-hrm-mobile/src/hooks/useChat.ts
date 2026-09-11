@@ -263,4 +263,15 @@ export function useMessageSeenDetails(groupId: string, messageId: string, enable
   });
 }
 
+export function useGroupMembers(groupId: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['chat', 'groups', groupId, 'members'],
+    queryFn: () => require('../api/chat.api').fetchGroupMembers(groupId),
+    enabled: Boolean(groupId && enabled),
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
+  });
+}
+
+
 
