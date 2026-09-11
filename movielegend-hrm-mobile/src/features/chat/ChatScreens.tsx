@@ -372,6 +372,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [detailMessage, setDetailMessage] = useState<any | null>(null);
   const [detailTab, setDetailTab] = useState<'reactions' | 'seen'>('reactions');
   const [selectedReactionFilter, setSelectedReactionFilter] = useState<string>('ALL');
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const deleteMessageMutation = useDeleteMessage(groupId);
@@ -725,6 +726,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                   <View style={[
                     styles.messageBubble,
                     isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
+                    !!msg.replyTo && styles.messageBubbleWithReply,
+                    msg.id === highlightedMessageId && (isMine ? styles.messageBubbleHighlightedMine : styles.messageBubbleHighlightedOther),
                     msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {},
                     msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
                   ]}>
@@ -732,17 +735,25 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                       <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
                     )}
 
-                    {/* Quoted Message (Reply Block) */}
+                    {/* Quoted Message (Reply Block - Zalo Style) */}
                     {!!msg.replyTo && (
                       <TouchableOpacity
-                        activeOpacity={0.85}
+                        activeOpacity={0.75}
                         onPress={() => {
                           if (msg.replyTo?.id && flatListRef.current) {
                             const targetIndex = sortedMessages.findIndex((m: any) => m.id === msg.replyTo.id);
                             if (targetIndex !== -1) {
                               try {
                                 flatListRef.current.scrollToIndex({ index: targetIndex, animated: true, viewPosition: 0.5 });
-                              } catch (e) {}
+                              } catch (e) {
+                                try {
+                                  flatListRef.current.scrollToOffset({ offset: targetIndex * 70, animated: true });
+                                } catch (e2) {}
+                              }
+                              setHighlightedMessageId(msg.replyTo.id);
+                              setTimeout(() => {
+                                setHighlightedMessageId((prev) => (prev === msg.replyTo.id ? null : prev));
+                              }, 2000);
                             }
                           }
                         }}
@@ -752,11 +763,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                         ]}
                       >
                         <View style={[styles.quoteIndicator, isMine ? styles.quoteIndicatorMine : styles.quoteIndicatorOther]} />
-                        <View style={{ flex: 1, paddingLeft: 6 }}>
+                        <View style={{ flex: 1, paddingLeft: 8, paddingRight: 4 }}>
                           <Text style={[styles.quoteSender, isMine ? styles.quoteSenderMine : styles.quoteSenderOther]} numberOfLines={1}>
                             {msg.replyTo.sender?.profile?.fullName || (msg.replyTo.sender?.userCode === 'NV000001' ? 'Admin' : msg.replyTo.sender?.userCode) || 'Người dùng'}
                           </Text>
-                          <Text style={[styles.quoteText, isMine ? styles.quoteTextMine : styles.quoteTextOther]} numberOfLines={2}>
+                          <Text style={[styles.quoteText, isMine ? styles.quoteTextMine : styles.quoteTextOther]} numberOfLines={3}>
                             {msg.replyTo.content || (msg.replyTo.fileType === 'IMAGE' ? '[Hình ảnh]' : msg.replyTo.fileType === 'IMAGE_ALBUM' ? '[Bộ sưu tập ảnh]' : '[Tệp tin]')}
                           </Text>
                         </View>
@@ -1893,23 +1904,50 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
 
+  messageBubbleWithReply: {
+    minWidth: 190,
+    maxWidth: '82%',
+  },
+  messageBubbleHighlightedMine: {
+    borderColor: '#60A5FA',
+    borderWidth: 2,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  messageBubbleHighlightedOther: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 2,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
   /* Quote Block inside message bubble */
   quoteBlock: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    padding: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     marginBottom: 6,
+    alignSelf: 'stretch',
+    minWidth: 160,
     overflow: 'hidden',
   },
   quoteBlockMine: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   quoteBlockOther: {
     backgroundColor: '#F1F5F9',
   },
   quoteIndicator: {
-    width: 3,
+    width: 3.5,
     borderRadius: 2,
     alignSelf: 'stretch',
   },
@@ -1920,7 +1958,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
   },
   quoteSender: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -1931,17 +1969,18 @@ const styles = StyleSheet.create({
     color: '#2563EB',
   },
   quoteText: {
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
   },
   quoteTextMine: {
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   quoteTextOther: {
-    color: '#475569',
+    color: '#334155',
   },
   quoteThumb: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 6,
     marginLeft: 6,
   },
