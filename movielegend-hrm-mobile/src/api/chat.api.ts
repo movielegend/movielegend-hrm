@@ -79,7 +79,8 @@ export interface SendMessagePayload {
 }
 
 export async function sendChatMessage(groupId: string, payload: SendMessagePayload) {
-  const response = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/groups/${groupId}/messages`, payload);
+  const { replyTo, ...body } = payload;
+  const response = await apiClient.post<ApiResponse<ChatMessage>>(`/chat/groups/${groupId}/messages`, body);
   return unwrapData(response);
 }
 

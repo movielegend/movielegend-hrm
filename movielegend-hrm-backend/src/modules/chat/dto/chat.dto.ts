@@ -32,4 +32,8 @@ export class CreateChatMessageDto {
   @IsString()
   @IsOptional()
   replyToId?: string;
+
+  @ApiPropertyOptional({ description: 'Thông tin tin nhắn được trích dẫn (tuỳ chọn)' })
+  @IsOptional()
+  replyTo?: any;
 }
