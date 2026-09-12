@@ -260,10 +260,17 @@ export class NewsfeedService {
       include: {
         author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
         comments: {
+          where: { parentId: null },
           include: {
-            author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+            author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
+            replies: {
+              include: {
+                author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+              },
+              orderBy: { createdAt: 'asc' }
+            }
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'asc' }
         },
         likes: { 
           include: { 
@@ -334,15 +341,21 @@ export class NewsfeedService {
       data: {
         postId,
         authorId: userId,
-        content: dto.content
+        content: dto.content,
+        parentId: dto.parentId || null
       },
       include: {
-        author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+        author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
+        replies: {
+          include: {
+            author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+          }
+        }
       }
     });
 
     // Phát tín hiệu Realtime tức thì cho toàn bộ người dùng
-    this.realtimeEvents.emitToRoom('company', 'newsfeed:comment_added', { postId, comment });
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:comment_added', { postId, comment, parentId: dto.parentId });
 
     // Xử lý gửi thông báo ngầm
     setImmediate(async () => {

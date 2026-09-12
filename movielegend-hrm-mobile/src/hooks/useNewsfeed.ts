@@ -106,10 +106,11 @@ export function useDeletePost() {
 export function useAddComment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ postId, content }: { postId: string; content: string }) =>
-      commentPost(postId, content),
-    onSuccess: () => {
+    mutationFn: ({ postId, content, parentId }: { postId: string; content: string; parentId?: string }) =>
+      commentPost(postId, content, parentId),
+    onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: newsfeedKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['newsfeed', variables.postId] });
     },
   });
 }

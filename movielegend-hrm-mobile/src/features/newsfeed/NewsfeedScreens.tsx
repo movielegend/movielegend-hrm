@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import {
   FlatList,
   Pressable,
@@ -11,6 +11,7 @@ import {
   Image,
   Platform,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -306,6 +307,8 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
   const [commentText, setCommentText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
+  const commentInputRef = useRef<TextInput>(null);
 
   function confirmDelete() {
     showConfirm({
@@ -328,10 +331,18 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   const post = postQuery.data;
 
+  const comments: PostCommentDto[] = post?.comments ?? [];
+
+  const totalCommentsCount = useMemo(() => {
+    return comments.reduce((sum, c) => sum + 1 + (c.replies?.length ?? 0), 0);
+  }, [comments]);
+
   if (postQuery.isLoading) {
     return (
       <Screen>
-        <PageHeader title="Chi tiết bài đăng" />
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
+          <PageHeader title="Chi tiết bài đăng" showBack />
+        </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: colors.muted }}>Đang tải...</Text>
         </View>
@@ -342,20 +353,38 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   if (!post) {
     return (
       <Screen>
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
+          <PageHeader title="Chi tiết bài đăng" showBack />
+        </View>
         <EmptyState title="Không tìm thấy bài đăng" />
       </Screen>
     );
   }
 
   const authorName = getUserDisplayName(post.author);
-  const comments = post.comments ?? [];
   const likedNames = post.likes?.map((l: any) => getUserDisplayName(l.user)).filter(Boolean) || [];
+
+  function handleStartReply(targetCommentId: string, targetAuthorName: string) {
+    setReplyingTo({ id: targetCommentId, authorName: targetAuthorName });
+    setTimeout(() => {
+      commentInputRef.current?.focus();
+    }, 100);
+  }
+
+  function handleCancelReply() {
+    setReplyingTo(null);
+  }
 
   async function handleComment() {
     if (!commentText.trim()) return;
     try {
-      await addComment.mutateAsync({ postId: post.id, content: commentText.trim() });
+      await addComment.mutateAsync({
+        postId: post.id,
+        content: commentText.trim(),
+        parentId: replyingTo?.id,
+      });
       setCommentText('');
+      setReplyingTo(null);
       postQuery.refetch();
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -365,16 +394,19 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   return (
     <Screen>
-      <PageHeader
-        title="Chi tiết bài đăng"
-        right={
-          canModerate ? (
-            <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
-              <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-            </Pressable>
-          ) : undefined
-        }
-      />
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
+        <PageHeader
+          title="Chi tiết bài đăng"
+          showBack
+          right={
+            canModerate ? (
+              <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
+                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+              </Pressable>
+            ) : undefined
+          }
+        />
+      </View>
       <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
         <View style={styles.postCard}>
           <View style={styles.authorRow}>
@@ -410,7 +442,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
             </Pressable>
             <View style={styles.actionItem}>
               <MaterialCommunityIcons name="comment-outline" size={20} color={colors.muted} />
-              <Text style={styles.actionLabel}>{comments.length}</Text>
+              <Text style={styles.actionLabel}>{totalCommentsCount}</Text>
             </View>
           </View>
 
@@ -427,21 +459,66 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
         {/* Comments section */}
         <View style={styles.commentsSection}>
           <Text style={styles.commentsTitle}>
-            Bình luận ({comments.length})
+            Bình luận ({totalCommentsCount})
           </Text>
 
           {comments.map((c: PostCommentDto) => {
             const cName = getUserDisplayName(c.author);
+            const replies = c.replies ?? [];
             return (
-              <View key={c.id} style={styles.commentCard}>
-                <View style={styles.commentAvatar}>
-                  <Text style={styles.commentAvatarText}>{getInitials(cName)}</Text>
+              <View key={c.id} style={styles.commentThread}>
+                {/* Parent comment */}
+                <View style={styles.commentCard}>
+                  <View style={styles.commentAvatar}>
+                    <Text style={styles.commentAvatarText}>{getInitials(cName)}</Text>
+                  </View>
+                  <View style={styles.commentBody}>
+                    <View style={styles.commentBubble}>
+                      <Text style={styles.commentAuthor}>{cName}</Text>
+                      <Text style={styles.commentContent}>{c.content}</Text>
+                    </View>
+                    <View style={styles.commentActionRow}>
+                      <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleStartReply(c.id, cName)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={styles.commentReplyBtn}>Trả lời</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.commentBody}>
-                  <Text style={styles.commentAuthor}>{cName}</Text>
-                  <Text style={styles.commentContent}>{c.content}</Text>
-                  <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
-                </View>
+
+                {/* Sub-replies */}
+                {replies.length > 0 && (
+                  <View style={styles.repliesContainer}>
+                    {replies.map((reply: PostCommentDto) => {
+                      const replyName = getUserDisplayName(reply.author);
+                      return (
+                        <View key={reply.id} style={styles.replyCard}>
+                          <View style={styles.replyAvatar}>
+                            <Text style={styles.replyAvatarText}>{getInitials(replyName)}</Text>
+                          </View>
+                          <View style={styles.replyBody}>
+                            <View style={styles.replyBubble}>
+                              <Text style={styles.commentAuthor}>{replyName}</Text>
+                              <Text style={styles.commentContent}>{reply.content}</Text>
+                            </View>
+                            <View style={styles.commentActionRow}>
+                              <Text style={styles.commentTime}>{timeAgo(reply.createdAt)}</Text>
+                              <TouchableOpacity
+                                onPress={() => handleStartReply(c.id, replyName)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Text style={styles.commentReplyBtn}>Trả lời</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             );
           })}
@@ -452,23 +529,39 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
         </View>
       </ScrollView>
 
-      {/* Comment input */}
-      <View style={[styles.commentInputRow, { margin: 16, marginTop: 0 }]}>
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Viết bình luận..."
-          placeholderTextColor={colors.muted}
-          value={commentText}
-          onChangeText={setCommentText}
-          multiline
-        />
-        <Pressable
-          style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
-          onPress={handleComment}
-          disabled={!commentText.trim() || addComment.isPending}
-        >
-          <MaterialCommunityIcons name="send" size={20} color="#fff" />
-        </Pressable>
+      {/* Comment input area */}
+      <View style={styles.commentInputContainer}>
+        {replyingTo && (
+          <View style={styles.replyingBanner}>
+            <View style={styles.replyingBannerLeft}>
+              <MaterialCommunityIcons name="reply" size={16} color="#2563EB" />
+              <Text style={styles.replyingBannerText} numberOfLines={1}>
+                Đang trả lời <Text style={{ fontWeight: '700' }}>@{replyingTo.authorName}</Text>
+              </Text>
+            </View>
+            <TouchableOpacity onPress={handleCancelReply} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialCommunityIcons name="close" size={18} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        )}
+        <View style={styles.commentInputRow}>
+          <TextInput
+            ref={commentInputRef}
+            style={styles.commentInput}
+            placeholder={replyingTo ? `Trả lời @${replyingTo.authorName}...` : 'Viết bình luận...'}
+            placeholderTextColor={colors.muted}
+            value={commentText}
+            onChangeText={setCommentText}
+            multiline
+          />
+          <Pressable
+            style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
+            onPress={handleComment}
+            disabled={!commentText.trim() || addComment.isPending}
+          >
+            <MaterialCommunityIcons name="send" size={20} color="#fff" />
+          </Pressable>
+        </View>
       </View>
 
       <ImageView
@@ -940,7 +1033,9 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   if (postQuery.isLoading) {
     return (
       <Screen>
-        <PageHeader title="Chi tiết bài đăng" />
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
+          <PageHeader title="Chi tiết bài đăng" showBack />
+        </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: colors.muted }}>Đang tải...</Text>
         </View>
@@ -951,6 +1046,9 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   if (!post) {
     return (
       <Screen>
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
+          <PageHeader title="Chi tiết bài đăng" showBack />
+        </View>
         <EmptyState title="Không tìm thấy bài đăng" />
       </Screen>
     );
@@ -961,7 +1059,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Chi tiết bài viết" />
+        <PageHeader title="Chi tiết bài viết" showBack />
 
         <View style={styles.postCard}>
           <View style={styles.authorRow}>
@@ -1149,7 +1247,7 @@ const styles = StyleSheet.create({
 
   // Comments
   commentsSection: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   commentsTitle: {
     fontSize: 16,
@@ -1157,28 +1255,37 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
+  commentThread: {
+    gap: 8,
+  },
   commentCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
     gap: 10,
+    alignItems: 'flex-start',
   },
   commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   commentAvatarText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
   },
   commentBody: {
     flex: 1,
+  },
+  commentBubble: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   commentAuthor: {
     fontSize: 13,
@@ -1187,13 +1294,62 @@ const styles = StyleSheet.create({
   },
   commentContent: {
     fontSize: 14,
-    color: '#475569',
+    color: '#334155',
     marginTop: 2,
+    lineHeight: 20,
+  },
+  commentActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
+    paddingLeft: 6,
   },
   commentTime: {
     fontSize: 11,
     color: colors.muted,
-    marginTop: 4,
+  },
+  commentReplyBtn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  repliesContainer: {
+    marginLeft: 36,
+    borderLeftWidth: 2,
+    borderLeftColor: '#E2E8F0',
+    paddingLeft: 10,
+    gap: 10,
+    marginTop: 2,
+  },
+  replyCard: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  replyAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  replyAvatarText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  replyBody: {
+    flex: 1,
+  },
+  replyBubble: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   noComments: {
     fontSize: 14,
@@ -1203,18 +1359,46 @@ const styles = StyleSheet.create({
   },
 
   // Comment input
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
+  commentInputContainer: {
+    margin: 16,
+    marginTop: 0,
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  replyingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DBEAFE',
+  },
+  replyingBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  replyingBannerText: {
+    fontSize: 12,
+    color: '#2563EB',
+    flex: 1,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    padding: 8,
   },
   commentInput: {
     flex: 1,

@@ -33,6 +33,11 @@ export class CreateCommentDto {
   @ApiProperty({ description: 'Nội dung bình luận' })
   @IsString()
   content!: string;
+
+  @ApiPropertyOptional({ description: 'ID của bình luận cha (nếu trả lời bình luận)' })
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
 }
 
 export enum NewsfeedPostStatusEnum {

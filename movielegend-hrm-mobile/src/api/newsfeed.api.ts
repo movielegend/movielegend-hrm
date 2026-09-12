@@ -38,14 +38,18 @@ export interface NewsfeedComment {
   id: string;
   postId: string;
   authorId: string;
+  parentId?: string | null;
   content: string;
   createdAt: string;
   author?: {
     id: string;
+    userCode?: string;
     profile?: {
       fullName: string;
+      avatarUrl?: string | null;
     };
   };
+  replies?: NewsfeedComment[];
 }
 
 export async function fetchNewsfeed(params?: { departmentId?: string; page?: number; limit?: number }) {
@@ -85,8 +89,8 @@ export async function likePost(postId: string) {
   return unwrapData(response);
 }
 
-export async function commentPost(postId: string, content: string) {
-  const response = await apiClient.post<ApiResponse<NewsfeedComment>>(`/newsfeed/${postId}/comments`, { content });
+export async function commentPost(postId: string, content: string, parentId?: string) {
+  const response = await apiClient.post<ApiResponse<NewsfeedComment>>(`/newsfeed/${postId}/comments`, { content, parentId });
   return unwrapData(response);
 }
 
