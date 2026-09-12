@@ -15,11 +15,12 @@ import {
   Modal, 
   ScrollView,
   Keyboard,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
-import { registerEmployee } from '../../api/registration.api';
+import { registerEmployee, checkAccountAvailability } from '../../api/registration.api';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { EmptyState } from '../../components/EmptyState';
@@ -96,9 +97,14 @@ export function RegistrationIntroScreen() {
 export function RegistrationAccountScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
+  const [checking, setChecking] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+
   const {
     control,
     handleSubmit,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<AccountStepValues>({
     resolver: zodResolver(accountSchema),
@@ -110,11 +116,77 @@ export function RegistrationAccountScreen() {
       confirmPassword: values.confirmPassword,
     },
   });
-  const submit = handleSubmit((data) => {
+
+  const submit = handleSubmit(async (data) => {
     Keyboard.dismiss();
-    update(data);
-    router.push('/register/personal');
+    setDuplicateError(null);
+    setChecking(true);
+
+    try {
+      const checkRes = await checkAccountAvailability({
+        phone: data.phone,
+        email: data.email,
+      });
+
+      if (!checkRes.isAvailable) {
+        if (checkRes.phoneDuplicate) {
+          setError('phone', {
+            type: 'manual',
+            message: 'Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng nhập số khác.',
+          });
+        }
+        if (checkRes.emailDuplicate) {
+          setError('email', {
+            type: 'manual',
+            message: 'Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác.',
+          });
+        }
+        setDuplicateError(
+          checkRes.message || 'Thông tin đã tồn tại trên hệ thống. Vui lòng kiểm tra và nhập lại!'
+        );
+        return;
+      }
+
+      // Thông tin hợp lệ -> chuyển sang bước 2
+      update(data);
+      router.push('/register/personal');
+    } catch (err: any) {
+      // Nếu có lỗi mạng bất ngờ, vẫn cho qua bước tiếp theo
+      update(data);
+      router.push('/register/personal');
+    } finally {
+      setChecking(false);
+    }
   });
+
+  const handleCheckPhoneBlur = async (phoneVal?: string) => {
+    if (!phoneVal || phoneVal.length < 10) return;
+    try {
+      const res = await checkAccountAvailability({ phone: phoneVal });
+      if (res.phoneDuplicate) {
+        setError('phone', {
+          type: 'manual',
+          message: 'Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng nhập số khác.',
+        });
+        setDuplicateError('Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng kiểm tra lại!');
+      }
+    } catch (_) {}
+  };
+
+  const handleCheckEmailBlur = async (emailVal?: string) => {
+    if (!emailVal || !emailVal.includes('@')) return;
+    try {
+      const res = await checkAccountAvailability({ email: emailVal });
+      if (res.emailDuplicate) {
+        setError('email', {
+          type: 'manual',
+          message: 'Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác.',
+        });
+        setDuplicateError('Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác!');
+      }
+    } catch (_) {}
+  };
+
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: 'transparent' }}>
@@ -138,15 +210,134 @@ export function RegistrationAccountScreen() {
               <StepBar currentStep={1} />
             </View>
 
+            {duplicateError ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 18,
+                }}
+              >
+                <Ionicons name="alert-circle" size={22} color="#DC2626" />
+                <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#B91C1C', lineHeight: 18 }}>
+                  {duplicateError}
+                </Text>
+              </View>
+            ) : null}
+
             <View style={{ gap: 20 }}>
-              <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
-              <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" maxLength={10} label="Số điện thoại" value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 10))} error={errors.phone?.message} />} />
-              <Controller control={control} name="email" render={({ field }) => <FormField autoCapitalize="none" keyboardType="email-address" label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} />} />
-              <Controller control={control} name="password" render={({ field }) => <FormField isPassword label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
-              <Controller control={control} name="confirmPassword" render={({ field }) => <FormField isPassword label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
+              <Controller
+                control={control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormField
+                    label="Họ tên"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={errors.fullName?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field }) => (
+                  <FormField
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    label="Số điện thoại"
+                    value={field.value}
+                    onChangeText={(val) => {
+                      if (duplicateError) setDuplicateError(null);
+                      clearErrors('phone');
+                      field.onChange(val.replace(/\D/g, '').slice(0, 10));
+                    }}
+                    onBlur={() => handleCheckPhoneBlur(field.value || '')}
+                    error={errors.phone?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="email"
+                render={({ field }) => (
+                  <FormField
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    label="Email"
+                    value={field.value}
+                    onChangeText={(val) => {
+                      if (duplicateError) setDuplicateError(null);
+                      clearErrors('email');
+                      field.onChange(val);
+                    }}
+                    onBlur={() => handleCheckEmailBlur(field.value || '')}
+                    error={errors.email?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="password"
+                render={({ field }) => (
+                  <FormField
+                    isPassword
+                    label="Mật khẩu"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={errors.password?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormField
+                    isPassword
+                    label="Nhập lại mật khẩu"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={errors.confirmPassword?.message}
+                  />
+                )}
+              />
               
-              <Pressable onPress={submit} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 16, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
+              <Pressable
+                onPress={submit}
+                disabled={checking}
+                style={{
+                  backgroundColor: checking ? '#475569' : '#0F172A',
+                  height: 56,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 16,
+                  flexDirection: 'row',
+                  gap: 8,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
+                  elevation: 3,
+                }}
+              >
+                {checking ? (
+                  <>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                      ĐANG KIỂM TRA...
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
+                )}
               </Pressable>
             </View>
           </ScrollView>
@@ -159,7 +350,18 @@ export function RegistrationAccountScreen() {
 export function RegistrationPersonalScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
-  const { control, handleSubmit, formState: { errors }, watch, setValue } = useForm<ProfileStepValues>({
+  const [checking, setChecking] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+
+  const {
+    control,
+    handleSubmit,
+    setError,
+    clearErrors,
+    formState: { errors },
+    watch,
+    setValue,
+  } = useForm<ProfileStepValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       idCardNumber: values.idCardNumber,
@@ -175,11 +377,50 @@ export function RegistrationPersonalScreen() {
   const gender = watch('gender');
   const joinDate = watch('joinDate');
 
-  const submit = handleSubmit((data) => {
+  const submit = handleSubmit(async (data) => {
     Keyboard.dismiss();
-    update(data);
-    router.push('/register/department');
+    setDuplicateError(null);
+    setChecking(true);
+
+    try {
+      if (data.idCardNumber) {
+        const checkRes = await checkAccountAvailability({
+          idCardNumber: data.idCardNumber,
+        });
+
+        if (checkRes.idCardDuplicate) {
+          setError('idCardNumber', {
+            type: 'manual',
+            message: 'Số CCCD/CMND này đã được đăng ký trên hệ thống. Vui lòng kiểm tra lại.',
+          });
+          setDuplicateError('Số CCCD/CMND này đã tồn tại trên hệ thống. Vui lòng kiểm tra và nhập lại!');
+          return;
+        }
+      }
+
+      update(data);
+      router.push('/register/department');
+    } catch (err: any) {
+      update(data);
+      router.push('/register/department');
+    } finally {
+      setChecking(false);
+    }
   });
+
+  const handleCheckIdCardBlur = async (idCardVal?: string) => {
+    if (!idCardVal || idCardVal.length < 9) return;
+    try {
+      const res = await checkAccountAvailability({ idCardNumber: idCardVal });
+      if (res.idCardDuplicate) {
+        setError('idCardNumber', {
+          type: 'manual',
+          message: 'Số CCCD/CMND này đã được đăng ký trên hệ thống. Vui lòng kiểm tra lại.',
+        });
+        setDuplicateError('Số CCCD/CMND này đã tồn tại trên hệ thống. Vui lòng kiểm tra và nhập lại!');
+      }
+    } catch (_) {}
+  };
 
   return (
     <Screen>
@@ -204,8 +445,47 @@ export function RegistrationPersonalScreen() {
               <StepBar currentStep={2} />
             </View>
 
+            {duplicateError ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 18,
+                }}
+              >
+                <Ionicons name="alert-circle" size={22} color="#DC2626" />
+                <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#B91C1C', lineHeight: 18 }}>
+                  {duplicateError}
+                </Text>
+              </View>
+            ) : null}
+
             <View style={{ gap: 20 }}>
-              <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="Số CCCD" maxLength={12} value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 12))} error={errors.idCardNumber?.message} keyboardType="numeric" />} />
+              <Controller
+                control={control}
+                name="idCardNumber"
+                render={({ field }) => (
+                  <FormField
+                    label="Số CCCD"
+                    maxLength={12}
+                    value={field.value}
+                    onChangeText={(val) => {
+                      if (duplicateError) setDuplicateError(null);
+                      clearErrors('idCardNumber');
+                      field.onChange(val.replace(/\D/g, '').slice(0, 12));
+                    }}
+                    onBlur={() => handleCheckIdCardBlur(field.value)}
+                    error={errors.idCardNumber?.message}
+                    keyboardType="numeric"
+                  />
+                )}
+              />
               
               <View>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
@@ -334,8 +614,30 @@ export function RegistrationPersonalScreen() {
                 }}
               />
               
-              <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
+              <Pressable
+                onPress={submit}
+                disabled={checking}
+                style={{
+                  backgroundColor: checking ? '#475569' : '#111827',
+                  height: 60,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 16,
+                  flexDirection: 'row',
+                  gap: 8,
+                }}
+              >
+                {checking ? (
+                  <>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>
+                      ĐANG KIỂM TRA...
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
+                )}
               </Pressable>
             </View>
           </ScrollView>

@@ -6,4 +6,5 @@ weights/
 scratch/
 movielegend-hrm-backend/storage/*
 !movielegend-hrm-backend/storage/*.pdf
+movielegend-hrm-web/
 

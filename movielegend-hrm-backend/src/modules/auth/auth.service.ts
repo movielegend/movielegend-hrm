@@ -244,6 +244,43 @@ export class AuthService {
     });
   }
 
+  async checkAvailability(dto: { phone?: string; email?: string; idCardNumber?: string }) {
+    const duplicates: { phone?: boolean; email?: boolean; idCardNumber?: boolean } = {};
+
+    const [existingPhone, existingEmail, existingCard] = await Promise.all([
+      dto.phone ? this.prisma.user.findUnique({ where: { phone: dto.phone.trim() }, select: { id: true } }) : null,
+      dto.email ? this.prisma.user.findUnique({ where: { email: dto.email.trim().toLowerCase() }, select: { id: true } }) : null,
+      dto.idCardNumber ? this.prisma.employeeProfile.findUnique({ where: { idCardNumber: dto.idCardNumber.trim() }, select: { id: true } }) : null,
+    ]);
+
+    if (existingPhone) duplicates.phone = true;
+    if (existingEmail) duplicates.email = true;
+    if (existingCard) duplicates.idCardNumber = true;
+
+    const isDuplicate = Boolean(duplicates.phone || duplicates.email || duplicates.idCardNumber);
+    let message: string | undefined;
+
+    if (isDuplicate) {
+      if (duplicates.phone && duplicates.email) {
+        message = 'Cả Số điện thoại và Email đều đã được đăng ký trên hệ thống. Vui lòng nhập lại thông tin khác.';
+      } else if (duplicates.phone) {
+        message = 'Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng nhập số khác.';
+      } else if (duplicates.email) {
+        message = 'Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác.';
+      } else if (duplicates.idCardNumber) {
+        message = 'Số CCCD/CMND này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.';
+      }
+    }
+
+    return {
+      isAvailable: !isDuplicate,
+      phoneDuplicate: Boolean(duplicates.phone),
+      emailDuplicate: Boolean(duplicates.email),
+      idCardDuplicate: Boolean(duplicates.idCardNumber),
+      message,
+    };
+  }
+
   async login(dto: LoginDto, meta: RequestMeta) {
     const user = await this.prisma.user.findUnique({
       where: { phone: dto.phone },
@@ -827,3 +864,4 @@ export class AuthService {
     return { message: 'Bàn giao quyền Quản trị viên và đăng ký hủy tài khoản thành công. Tài khoản sẽ được chuyển vào mốc 30 ngày khôi phục.' };
   }
 }
+
