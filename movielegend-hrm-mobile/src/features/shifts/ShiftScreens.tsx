@@ -84,15 +84,53 @@ function TimePickerField({ label, value, onChange }: { label: string; value: str
     </View>
   );
 }
+function getWorkDateDisplay(workDate: string | Date) {
+  const formatted = formatDate(workDate);
+  if (!formatted || formatted === '-') return { day: '--', month: '--' };
+  const parts = formatted.split('-');
+  if (parts.length === 3) {
+    return {
+      day: parseInt(parts[2], 10),
+      month: `Thg ${parseInt(parts[1], 10)}`,
+    };
+  }
+  const d = new Date(workDate);
+  return { day: d.getDate(), month: `Thg ${d.getMonth() + 1}` };
+}
 
 export function EmployeeScheduleScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const schedule = useMySchedule();
   const { showAlert } = useAppAlert();
-  const todayShift = useMemo(() => findTodayShift(schedule.data ?? []), [schedule.data]);
-  
+  const today = businessDateToday();
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+
+  const allAssignments = schedule.data ?? [];
+
+  const todayShift = useMemo(() => findTodayShift(allAssignments, today), [allAssignments, today]);
+
+  const upcomingShifts = useMemo(() => {
+    return allAssignments
+      .filter((a) => {
+        const d = formatDate(a.workDate);
+        return d > today && a.status !== 'CANCELLED';
+      })
+      .sort((a, b) => formatDate(a.workDate).localeCompare(formatDate(b.workDate)));
+  }, [allAssignments, today]);
+
+  const pastShifts = useMemo(() => {
+    return allAssignments
+      .filter((a) => {
+        const d = formatDate(a.workDate);
+        return d < today;
+      })
+      .sort((a, b) => formatDate(b.workDate).localeCompare(formatDate(a.workDate)));
+  }, [allAssignments, today]);
+
   const rolePrefix = useMemo(() => getHomeRouteForUser(user), [user]);
+
+  const displayList = activeTab === 'upcoming' ? upcomingShifts : pastShifts;
 
   return (
     <Screen>
@@ -102,7 +140,7 @@ export function EmployeeScheduleScreen() {
       >
         <PageHeader 
           title="Lịch làm việc cá nhân" 
-          subtitle={`Hôm nay: ${businessDateToday()}`} 
+          subtitle={`Hôm nay: ${today}`} 
         />
         
         <SectionCard title="Ca làm việc hôm nay">
@@ -169,40 +207,80 @@ export function EmployeeScheduleScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard title="Danh sách ca sắp tới">
-          {(schedule.data ?? []).length ? (schedule.data ?? []).map((assignment) => (
-            <View key={assignment.id} style={styles.upcomingShiftRow}>
-              <View style={styles.dateBox}>
-                <Text style={styles.dateDayText}>{new Date(assignment.workDate).getDate()}</Text>
-                <Text style={styles.dateMonthText}>Thg {new Date(assignment.workDate).getMonth() + 1}</Text>
-              </View>
-              <View style={styles.upcomingShiftInfo}>
-                <Text style={styles.upcomingShiftTitle}>{assignment.shift?.name ?? assignment.shiftId}</Text>
-                <View style={styles.timeRow}>
-                  <MaterialCommunityIcons name="timer-outline" size={14} color={colors.muted} />
-                  <Text style={styles.timeText}>{formatShiftRange(assignment.shift?.startTime, assignment.shift?.endTime)}</Text>
+        {/* Tab Segment Selector */}
+        <View style={styles.scheduleTabRow}>
+          <Pressable
+            style={[styles.scheduleTabBtn, activeTab === 'upcoming' && styles.scheduleTabBtnActive]}
+            onPress={() => setActiveTab('upcoming')}
+          >
+            <MaterialCommunityIcons
+              name="calendar-clock"
+              size={18}
+              color={activeTab === 'upcoming' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text style={[styles.scheduleTabBtnText, activeTab === 'upcoming' && styles.scheduleTabBtnTextActive]}>
+              Ca sắp tới ({upcomingShifts.length})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.scheduleTabBtn, activeTab === 'past' && styles.scheduleTabBtnActive]}
+            onPress={() => setActiveTab('past')}
+          >
+            <MaterialCommunityIcons
+              name="history"
+              size={18}
+              color={activeTab === 'past' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text style={[styles.scheduleTabBtnText, activeTab === 'past' && styles.scheduleTabBtnTextActive]}>
+              Lịch sử ca ({pastShifts.length})
+            </Text>
+          </Pressable>
+        </View>
+
+        <SectionCard title={activeTab === 'upcoming' ? `Danh sách ca sắp tới (${upcomingShifts.length})` : `Lịch sử ca làm việc (${pastShifts.length})`}>
+          {displayList.length ? displayList.map((assignment) => {
+            const dateInfo = getWorkDateDisplay(assignment.workDate);
+            return (
+              <View key={assignment.id} style={styles.upcomingShiftRow}>
+                <View style={[styles.dateBox, activeTab === 'past' && styles.dateBoxPast]}>
+                  <Text style={[styles.dateDayText, activeTab === 'past' && styles.dateDayTextPast]}>{dateInfo.day}</Text>
+                  <Text style={[styles.dateMonthText, activeTab === 'past' && styles.dateMonthTextPast]}>{dateInfo.month}</Text>
+                </View>
+                <View style={styles.upcomingShiftInfo}>
+                  <Text style={styles.upcomingShiftTitle}>{assignment.shift?.name ?? assignment.shiftId}</Text>
+                  <View style={styles.timeRow}>
+                    <MaterialCommunityIcons name="timer-outline" size={14} color={colors.muted} />
+                    <Text style={styles.timeText}>{formatShiftRange(assignment.shift?.startTime, assignment.shift?.endTime)}</Text>
+                  </View>
+                </View>
+                <View style={styles.statusBox}>
+                  <StatusBadge 
+                    label={
+                      assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                        ? (activeTab === 'past' ? 'Đã diễn ra' : 'Đã phân ca') 
+                        : assignment.status === 'CANCELLED' 
+                        ? 'Đã hủy' 
+                        : assignment.status
+                    } 
+                    tone={
+                      assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                        ? (activeTab === 'past' ? 'neutral' : 'info') 
+                        : assignment.status === 'CANCELLED' 
+                        ? 'danger' 
+                        : 'neutral'
+                    } 
+                  />
                 </View>
               </View>
-              <View style={styles.statusBox}>
-                <StatusBadge 
-                  label={
-                    assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
-                      ? 'Đã phân ca' 
-                      : assignment.status === 'CANCELLED' 
-                      ? 'Đã hủy' 
-                      : assignment.status
-                  } 
-                  tone={
-                    assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
-                      ? 'info' 
-                      : assignment.status === 'CANCELLED' 
-                      ? 'danger' 
-                      : 'neutral'
-                  } 
-                />
-              </View>
-            </View>
-          )) : <EmptyState title="Trống" message="Chưa có ca làm việc nào trong thời gian tới." />}
+            );
+          }) : (
+            <EmptyState 
+              title={activeTab === 'upcoming' ? 'Chưa có ca sắp tới' : 'Chưa có lịch sử ca'} 
+              message={activeTab === 'upcoming' ? 'Bạn hiện chưa có ca làm việc nào được phân trong thời gian tới.' : 'Bạn chưa có ca làm việc nào trong quá khứ.'} 
+              icon={activeTab === 'upcoming' ? 'calendar-check-outline' : 'history'}
+            />
+          )}
         </SectionCard>
       </ScrollView>
     </Screen>
@@ -777,15 +855,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing.md,
   },
+  dateBoxPast: {
+    backgroundColor: '#F1F5F9',
+  },
   dateDayText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#0284C7',
   },
+  dateDayTextPast: {
+    color: '#64748B',
+  },
   dateMonthText: {
     fontSize: 11,
     fontWeight: '500',
     color: '#0284C7',
+  },
+  dateMonthTextPast: {
+    color: '#94A3B8',
+  },
+  scheduleTabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: spacing.xs,
+  },
+  scheduleTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  scheduleTabBtnActive: {
+    backgroundColor: '#0F172A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  scheduleTabBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  scheduleTabBtnTextActive: {
+    color: '#FFFFFF',
   },
   upcomingShiftInfo: {
     flex: 1,
