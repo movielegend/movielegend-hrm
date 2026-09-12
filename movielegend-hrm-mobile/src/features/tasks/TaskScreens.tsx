@@ -219,7 +219,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const isAdmin = hasAnyPermission(user, ['task.assign_any']) || Boolean(user?.roles?.includes('ADMIN'));
 
   const isAssignee = item.assignments?.some((a: any) => a.userId === user?.id);
-  const canManageSubtasks = (isDepartmentTask || isGroupTask || isAssignee || isCreator || isAdmin) && (isDepartmentLeader || isGroupLeader || isCreator || isAdmin || isAssignee) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
+  const canManageSubtasks = (isAdmin || isCreator || (isDepartmentTask && isDepartmentLeader) || (isGroupTask && isGroupLeader)) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
 
   const childTasks = item.childTasks ?? [];
   const completedChildCount = childTasks.filter((c: any) => c.status === 'COMPLETED').length;
