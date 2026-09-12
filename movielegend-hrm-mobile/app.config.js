@@ -1,8 +1,24 @@
-export default ({ config }) => {
-  return {
+const { withGradleProperties } = require('@expo/config-plugins');
+
+function withDisableNewArch(config) {
+  return withGradleProperties(config, (cfg) => {
+    cfg.modResults = cfg.modResults.map((item) => {
+      if (item.type === 'property' && item.key === 'newArchEnabled') {
+        return { ...item, value: 'false' };
+      }
+      return item;
+    });
+    return cfg;
+  });
+}
+
+module.exports = ({ config }) => {
+  const customConfig = {
     ...config,
+    newArchEnabled: false,
     android: {
       ...config.android,
+      newArchEnabled: false,
       config: {
         ...config.android?.config,
         googleMaps: {
@@ -11,4 +27,6 @@ export default ({ config }) => {
       }
     }
   };
+
+  return withDisableNewArch(customConfig);
 };
