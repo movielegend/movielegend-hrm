@@ -8,16 +8,7 @@ import { LogBox, View, Text } from 'react-native';
 import { usePushNotificationSetup } from '../src/hooks/useNotifications';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-// Conditionally register LiveKit globals — native WebRTC module is
-// unavailable in Expo Go, so we guard with try/catch.
-try {
-  const livekit = require('@livekit/react-native');
-  if (typeof livekit?.registerGlobals === 'function') {
-    livekit.registerGlobals();
-  }
-} catch (e) {
-  console.warn('[LiveKit] Native module not available, skipping registerGlobals:', e);
-}
+// LiveKit globals are registered dynamically inside VoiceCallProvider on demand
 
 LogBox.ignoreLogs([
   'expo-notifications: Android Push notifications',

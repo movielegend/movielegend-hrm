@@ -7,10 +7,13 @@ import { CallingScreen } from './CallingScreen';
 import { ActiveCallScreen } from './ActiveCallScreen';
 import { showIncomingCallNotification, dismissCallNotification } from '../../services/call-notification';
 
-let useLastNotificationResponse = (): any => null;
+let Notifications: any = null;
 if (Platform.OS !== 'web' && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
-  const Notifications = require('expo-notifications');
-  useLastNotificationResponse = Notifications.useLastNotificationResponse;
+  try {
+    Notifications = require('expo-notifications');
+  } catch (e) {
+    // Ignore if not supported
+  }
 }
 
 // ── Conditional LiveKit imports (unavailable in Expo Go) ──
@@ -176,6 +179,17 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     };
   }, [socket, resetCall, clearCallTimeout]);
 
+  function ensureLiveKitGlobals() {
+    try {
+      const livekit = require('@livekit/react-native');
+      if (typeof livekit?.registerGlobals === 'function') {
+        livekit.registerGlobals();
+      }
+    } catch (e) {
+      console.warn('[LiveKit] registerGlobals failed or not available:', e);
+    }
+  }
+
   // ── Permissions ──
   const ensurePermissions = async (): Promise<boolean> => {
     try {
@@ -197,6 +211,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
 
+    ensureLiveKitGlobals();
     setTargetId(userId);
     setTargetName(name);
     setTargetAvatar(avatar || null);
@@ -219,6 +234,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
 
+    ensureLiveKitGlobals();
     dismissCallNotification();
     socket.emit('voice_call:accept', { callerId: cid });
   };
@@ -289,27 +305,35 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   }, [socket, pendingAction]);
 
   // ── Handle cold start tap from push notification ──
-  const lastNotificationResponse = useLastNotificationResponse();
   useEffect(() => {
-    if (
-      lastNotificationResponse &&
-      lastNotificationResponse.notification.request.content.data &&
-      lastNotificationResponse.notification.request.content.data.type === 'VOICE_CALL_INCOMING'
-    ) {
-      const actionId = lastNotificationResponse.actionIdentifier;
-      const data = lastNotificationResponse.notification.request.content.data as any;
-      
-      if (actionId === 'ACCEPT') {
-        if (socket) acceptCall(data.callerId);
-        else setPendingAction({ type: 'accept', callerId: data.callerId });
-      } else if (actionId === 'REJECT') {
-        if (socket) rejectCall(data.callerId);
-        else setPendingAction({ type: 'reject', callerId: data.callerId });
-      } else {
-        handleIncomingCallFromNotification(data);
+    async function checkLastNotification() {
+      try {
+        if (!Notifications || Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return;
+        if (typeof Notifications.getLastNotificationResponseAsync !== 'function') return;
+        const lastNotificationResponse = await Notifications.getLastNotificationResponseAsync();
+        if (
+          lastNotificationResponse?.notification?.request?.content?.data &&
+          lastNotificationResponse.notification.request.content.data.type === 'VOICE_CALL_INCOMING'
+        ) {
+          const actionId = lastNotificationResponse.actionIdentifier;
+          const data = lastNotificationResponse.notification.request.content.data as any;
+          
+          if (actionId === 'ACCEPT') {
+            if (socket) acceptCall(data.callerId);
+            else setPendingAction({ type: 'accept', callerId: data.callerId });
+          } else if (actionId === 'REJECT') {
+            if (socket) rejectCall(data.callerId);
+            else setPendingAction({ type: 'reject', callerId: data.callerId });
+          } else {
+            handleIncomingCallFromNotification(data);
+          }
+        }
+      } catch (e) {
+        console.warn('Error checking last notification response:', e);
       }
     }
-  }, [lastNotificationResponse, socket, handleIncomingCallFromNotification]);
+    void checkLastNotification();
+  }, [socket, handleIncomingCallFromNotification]);
 
   // ── End call ──
   const endCall = (duration?: number | any) => {

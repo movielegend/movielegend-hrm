@@ -86,74 +86,79 @@ export function usePushNotificationSetup() {
       }
 
       // Lắng nghe sự kiện người dùng bấm vào thông báo
-      const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-        try {
-          const data = response.notification.request.content.data;
-          const actionId = response.actionIdentifier;
-          console.log('--- Người dùng bấm vào thông báo. Data:', data, 'Action:', actionId);
-          
-          // Handle voice call notification tap
-          if (data && data.type === 'VOICE_CALL_INCOMING') {
-            const { DeviceEventEmitter } = require('react-native');
-            if (actionId === 'ACCEPT') {
-              DeviceEventEmitter.emit('voice_call:action_accept', data.callerId);
-            } else if (actionId === 'REJECT') {
-              DeviceEventEmitter.emit('voice_call:action_reject', data.callerId);
-            } else {
-              // Just opened the notification
-              DeviceEventEmitter.emit('voice_call:action_open', data);
-            }
-            return;
-          }
-
-          // Tự động đánh dấu đã đọc cho thông báo
-          const notifId = data?.notificationId || data?.id;
-          if (notifId && notifId !== 'mock') {
-            markNotificationRead(notifId)
-              .then(() => {
-                void queryClient.invalidateQueries({ queryKey: ['notifications'] });
-              })
-              .catch(() => {});
-          }
-
-          // Tự động đánh dấu đã đọc cho nhóm chat nếu đây là thông báo tin nhắn
-          const groupId = data?.groupId || (data?.metadata as any)?.groupId;
-          if ((data?.type?.startsWith('CHAT_') || data?.type === 'CHAT_MESSAGE') && groupId) {
-            markGroupAsRead(groupId)
-              .then(() => {
-                void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
-              })
-              .catch(() => {});
-          }
-          
-          if (data && data.type) {
-            const mockTarget = {
-              id: data.notificationId || 'mock',
-              notificationId: data.notificationId || 'mock',
-              notification: {
-                id: data.notificationId,
-                type: data.type,
-                title: data.title || response.notification.request.content.title,
-                body: data.body || response.notification.request.content.body,
-                taskId: data.taskId,
-                metadata: data.metadata,
-              },
-            };
-            const route = require('../utils/notification-routing').notificationRoute(mockTarget, user);
-            if (route) {
-              router.push(route as any);
+      let responseListener: any = null;
+      if (Notifications && typeof Notifications.addNotificationResponseReceivedListener === 'function') {
+        responseListener = Notifications.addNotificationResponseReceivedListener((response: any) => {
+          try {
+            const data = response.notification.request.content.data;
+            const actionId = response.actionIdentifier;
+            console.log('--- Người dùng bấm vào thông báo. Data:', data, 'Action:', actionId);
+            
+            // Handle voice call notification tap
+            if (data && data.type === 'VOICE_CALL_INCOMING') {
+              const { DeviceEventEmitter } = require('react-native');
+              if (actionId === 'ACCEPT') {
+                DeviceEventEmitter.emit('voice_call:action_accept', data.callerId);
+              } else if (actionId === 'REJECT') {
+                DeviceEventEmitter.emit('voice_call:action_reject', data.callerId);
+              } else {
+                // Just opened the notification
+                DeviceEventEmitter.emit('voice_call:action_open', data);
+              }
               return;
             }
+
+            // Tự động đánh dấu đã đọc cho thông báo
+            const notifId = data?.notificationId || data?.id;
+            if (notifId && notifId !== 'mock') {
+              markNotificationRead(notifId)
+                .then(() => {
+                  void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                })
+                .catch(() => {});
+            }
+
+            // Tự động đánh dấu đã đọc cho nhóm chat nếu đây là thông báo tin nhắn
+            const groupId = data?.groupId || (data?.metadata as any)?.groupId;
+            if ((data?.type?.startsWith('CHAT_') || data?.type === 'CHAT_MESSAGE') && groupId) {
+              markGroupAsRead(groupId)
+                .then(() => {
+                  void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+                })
+                .catch(() => {});
+            }
+            
+            if (data && data.type) {
+              const mockTarget = {
+                id: data.notificationId || 'mock',
+                notificationId: data.notificationId || 'mock',
+                notification: {
+                  id: data.notificationId,
+                  type: data.type,
+                  title: data.title || response.notification.request.content.title,
+                  body: data.body || response.notification.request.content.body,
+                  taskId: data.taskId,
+                  metadata: data.metadata,
+                },
+              };
+              const route = require('../utils/notification-routing').notificationRoute(mockTarget, user);
+              if (route) {
+                router.push(route as any);
+                return;
+              }
+            }
+            
+            router.push('/(tabs)/notifications');
+          } catch (e) {
+            console.warn('Error handling notification click:', e);
           }
-          
-          router.push('/(tabs)/notifications');
-        } catch (e) {
-          console.warn('Error handling notification click:', e);
-        }
-      });
+        });
+      }
 
       return () => {
-        responseListener.remove();
+        if (responseListener && typeof responseListener.remove === 'function') {
+          responseListener.remove();
+        }
       };
     } catch (e) {
       console.warn('Failed notification setup:', e);
