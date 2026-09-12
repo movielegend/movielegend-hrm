@@ -2,7 +2,14 @@ export const BUSINESS_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
 type DateInput = string | number | Date | null | undefined;
 
-const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+const isoDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  day: '2-digit',
+  month: '2-digit',
+  timeZone: BUSINESS_TIME_ZONE,
+  year: 'numeric',
+});
+
+const displayDateFormatter = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: '2-digit',
   timeZone: BUSINESS_TIME_ZONE,
@@ -25,12 +32,17 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
 });
 
 export function businessDateToday(date: Date = new Date()): string {
-  return dateFormatter.format(date);
+  return isoDateFormatter.format(date);
+}
+
+export function toIsoDate(value: DateInput): string {
+  const date = toDate(value);
+  return date ? isoDateFormatter.format(date) : '';
 }
 
 export function formatDate(value: DateInput): string {
   const date = toDate(value);
-  return date ? dateFormatter.format(date) : '-';
+  return date ? displayDateFormatter.format(date) : '-';
 }
 
 export function formatTime(value: DateInput): string {
@@ -114,8 +126,9 @@ export function formatDateYYYYMMDD(d: Date = new Date()): string {
 export function parseDateYYYYMMDD(str?: string | null): Date {
   if (!str) return new Date();
   const cleanStr = str.split('T')[0];
+  if (!cleanStr) return new Date(str);
   const parts = cleanStr.split('-');
-  if (parts.length === 3) {
+  if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
     const year = Number(parts[0]);
     const month = Number(parts[1]) - 1;
     const day = Number(parts[2]);

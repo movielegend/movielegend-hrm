@@ -13,7 +13,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { businessDateToday, formatDate, formatShiftRange } from '../../utils/date-time';
+import { businessDateToday, formatDate, formatShiftRange, toIsoDate } from '../../utils/date-time';
 import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
 import { getHomeRouteForUser } from '../../utils/role-routing';
@@ -87,10 +87,10 @@ function TimePickerField({ label, value, onChange }: { label: string; value: str
 function getWorkDateDisplay(workDate: string | Date) {
   const formatted = formatDate(workDate);
   if (!formatted || formatted === '-') return { day: '--', month: '--' };
-  const parts = formatted.split('-');
-  if (parts.length === 3) {
+  const parts = formatted.split('/');
+  if (parts.length === 3 && parts[0] && parts[1]) {
     return {
-      day: parseInt(parts[2], 10),
+      day: parseInt(parts[0], 10),
       month: `Thg ${parseInt(parts[1], 10)}`,
     };
   }
@@ -103,30 +103,31 @@ export function EmployeeScheduleScreen() {
   const { user } = useAuth();
   const schedule = useMySchedule();
   const { showAlert } = useAppAlert();
-  const today = businessDateToday();
+  const todayIso = businessDateToday();
+  const todayDisplay = formatDate(new Date());
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
   const allAssignments = schedule.data ?? [];
 
-  const todayShift = useMemo(() => findTodayShift(allAssignments, today), [allAssignments, today]);
+  const todayShift = useMemo(() => findTodayShift(allAssignments, todayIso), [allAssignments, todayIso]);
 
   const upcomingShifts = useMemo(() => {
     return allAssignments
       .filter((a) => {
-        const d = formatDate(a.workDate);
-        return d > today && a.status !== 'CANCELLED';
+        const d = toIsoDate(a.workDate);
+        return d > todayIso && a.status !== 'CANCELLED';
       })
-      .sort((a, b) => formatDate(a.workDate).localeCompare(formatDate(b.workDate)));
-  }, [allAssignments, today]);
+      .sort((a, b) => toIsoDate(a.workDate).localeCompare(toIsoDate(b.workDate)));
+  }, [allAssignments, todayIso]);
 
   const pastShifts = useMemo(() => {
     return allAssignments
       .filter((a) => {
-        const d = formatDate(a.workDate);
-        return d < today;
+        const d = toIsoDate(a.workDate);
+        return d < todayIso;
       })
-      .sort((a, b) => formatDate(b.workDate).localeCompare(formatDate(a.workDate)));
-  }, [allAssignments, today]);
+      .sort((a, b) => toIsoDate(b.workDate).localeCompare(toIsoDate(a.workDate)));
+  }, [allAssignments, todayIso]);
 
   const rolePrefix = useMemo(() => getHomeRouteForUser(user), [user]);
 
@@ -140,7 +141,7 @@ export function EmployeeScheduleScreen() {
       >
         <PageHeader 
           title="Lịch làm việc cá nhân" 
-          subtitle={`Hôm nay: ${today}`} 
+          subtitle={`Hôm nay: ${todayDisplay}`} 
         />
         
         <SectionCard title="Ca làm việc hôm nay">
