@@ -16,22 +16,6 @@ if (Platform.OS !== 'web' && Constants.executionEnvironment !== ExecutionEnviron
   }
 }
 
-// ── Conditional LiveKit imports (unavailable in Expo Go) ──
-let LiveKitRoom: any = ({ children }: any) => <>{children}</>;
-let useRoomContext: any = () => ({ state: 'connected' });
-let useLocalParticipant: any = () => ({ localParticipant: null });
-let AudioSession: any = null;
-
-try {
-  const livekit = require('@livekit/react-native');
-  if (livekit?.LiveKitRoom) LiveKitRoom = livekit.LiveKitRoom;
-  if (livekit?.useRoomContext) useRoomContext = livekit.useRoomContext;
-  if (livekit?.useLocalParticipant) useLocalParticipant = livekit.useLocalParticipant;
-  if (livekit?.AudioSession) AudioSession = livekit.AudioSession;
-} catch (e) {
-  console.warn('LiveKit native module fallback active:', e);
-}
-
 // ── Types ──
 interface VoiceCallContextType {
   initiateCall: (targetUserId: string, targetName: string, targetAvatar?: string | null) => void;
@@ -397,42 +381,28 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
         )}
 
         {callState === 'ACTIVE' && token && (
-          <LiveKitRoom
+          <ActiveCallLiveKitWrapper
             serverUrl={liveKitUrl}
             token={token}
-            connect={true}
-            audio={true}
-            video={false}
-            onConnected={(room: any) => { roomRef.current = room; }}
-          >
-            <ActiveCallInner
-              peerName={callerId ? callerName : targetName}
-              peerAvatar={callerId ? callerAvatar : targetAvatar}
-              isMuted={isMuted}
-              isSpeaker={isSpeaker}
-              onToggleMute={toggleMute}
-              onToggleSpeaker={toggleSpeaker}
-              onEndCall={endCall}
-              roomRef={roomRef}
-            />
-          </LiveKitRoom>
+            peerName={callerId ? callerName : targetName}
+            peerAvatar={callerId ? callerAvatar : targetAvatar}
+            isMuted={isMuted}
+            isSpeaker={isSpeaker}
+            onToggleMute={toggleMute}
+            onToggleSpeaker={toggleSpeaker}
+            onEndCall={endCall}
+            roomRef={roomRef}
+          />
         )}
       </Modal>
     </VoiceCallContext.Provider>
   );
 }
 
-// ── Active call wrapper to access room context ──
-function ActiveCallInner({
-  peerName,
-  peerAvatar,
-  isMuted,
-  isSpeaker,
-  onToggleMute,
-  onToggleSpeaker,
-  onEndCall,
-  roomRef,
-}: {
+// ── Active call dynamic wrapper ──
+function ActiveCallLiveKitWrapper(props: {
+  serverUrl: string;
+  token: string;
   peerName: string;
   peerAvatar?: string | null;
   isMuted: boolean;
@@ -442,36 +412,73 @@ function ActiveCallInner({
   onEndCall: (duration?: number) => void;
   roomRef: React.MutableRefObject<any>;
 }) {
-  const room = useRoomContext();
-  const { localParticipant } = useLocalParticipant();
+  let LiveKitModule: any = null;
+  try {
+    LiveKitModule = require('@livekit/react-native');
+  } catch (e) {
+    console.warn('LiveKit not available:', e);
+  }
 
-  useEffect(() => {
-    if (room) {
-      roomRef.current = room;
-    }
-  }, [room, roomRef]);
+  if (!LiveKitModule?.LiveKitRoom) {
+    return (
+      <ActiveCallScreen
+        peerName={props.peerName}
+        peerAvatar={props.peerAvatar}
+        isMuted={props.isMuted}
+        isSpeaker={props.isSpeaker}
+        onToggleMute={props.onToggleMute}
+        onToggleSpeaker={props.onToggleSpeaker}
+        onEndCall={props.onEndCall}
+      />
+    );
+  }
 
-  // Sync mute state with LiveKit local participant
-  useEffect(() => {
-    try {
-      if (localParticipant) {
-        localParticipant.setMicrophoneEnabled(!isMuted);
+  const { LiveKitRoom, useRoomContext, useLocalParticipant } = LiveKitModule;
+
+  function ActiveCallContent() {
+    const room = useRoomContext?.() || { state: 'connected' };
+    const { localParticipant } = useLocalParticipant?.() || { localParticipant: null };
+
+    useEffect(() => {
+      if (room) {
+        props.roomRef.current = room;
       }
-    } catch (e) {
-      console.warn('Failed to sync mute state:', e);
-    }
-  }, [localParticipant, isMuted]);
+    }, [room]);
+
+    useEffect(() => {
+      try {
+        if (localParticipant) {
+          localParticipant.setMicrophoneEnabled(!props.isMuted);
+        }
+      } catch (e) {
+        console.warn('Failed to sync mute state:', e);
+      }
+    }, [localParticipant, props.isMuted]);
+
+    return (
+      <ActiveCallScreen
+        peerName={props.peerName}
+        peerAvatar={props.peerAvatar}
+        isMuted={props.isMuted}
+        isSpeaker={props.isSpeaker}
+        onToggleMute={props.onToggleMute}
+        onToggleSpeaker={props.onToggleSpeaker}
+        onEndCall={props.onEndCall}
+        connectionState={room?.state}
+      />
+    );
+  }
 
   return (
-    <ActiveCallScreen
-      peerName={peerName}
-      peerAvatar={peerAvatar}
-      isMuted={isMuted}
-      isSpeaker={isSpeaker}
-      onToggleMute={onToggleMute}
-      onToggleSpeaker={onToggleSpeaker}
-      onEndCall={onEndCall}
-      connectionState={room?.state}
-    />
+    <LiveKitRoom
+      serverUrl={props.serverUrl}
+      token={props.token}
+      connect={true}
+      audio={true}
+      video={false}
+      onConnected={(room: any) => { props.roomRef.current = room; }}
+    >
+      <ActiveCallContent />
+    </LiveKitRoom>
   );
 }
