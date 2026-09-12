@@ -18,7 +18,12 @@
       "bundleIdentifier": "com.dinhhoc.movielegendhrmmobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["audio", "voip", "fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "audio",
+          "voip",
+          "fetch",
+          "remote-notification"
+        ],
         "NSMicrophoneUsageDescription": "Ứng dụng cần quyền sử dụng microphone để thực hiện các cuộc gọi âm thanh.",
         "NSCameraUsageDescription": "Ứng dụng cần quyền truy cập camera để chụp ảnh xác thực khuôn mặt khi chấm công."
       }
@@ -81,6 +86,7 @@
         "expo-build-properties",
         {
           "android": {
+            "newArchEnabled": false,
             "usesCleartextTraffic": true,
             "packagingOptions": {
               "pickFirsts": [
@@ -97,14 +103,17 @@
       "expo-web-browser",
       "expo-document-picker",
       "expo-sharing",
-      "./withWebRTCExclude.js",
       "@livekit/react-native-expo-plugin"
     ],
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "8f0cce1a-a3e4-4754-8965-6f6fc48f4b80"
       }
     },
+    "newArchEnabled": false,
     "runtimeVersion": "1.0.0"
   }
 }

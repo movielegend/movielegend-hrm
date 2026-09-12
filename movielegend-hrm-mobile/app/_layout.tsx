@@ -11,10 +11,12 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 // Conditionally register LiveKit globals — native WebRTC module is
 // unavailable in Expo Go, so we guard with try/catch.
 try {
-  const { registerGlobals } = require('@livekit/react-native');
-  registerGlobals();
+  const livekit = require('@livekit/react-native');
+  if (typeof livekit?.registerGlobals === 'function') {
+    livekit.registerGlobals();
+  }
 } catch (e) {
-  console.warn('[LiveKit] Native module not available (Expo Go?), skipping registerGlobals:', e);
+  console.warn('[LiveKit] Native module not available, skipping registerGlobals:', e);
 }
 
 LogBox.ignoreLogs([
