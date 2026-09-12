@@ -529,7 +529,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                     <Text style={styles.commentAvatarText}>{getInitials(cName)}</Text>
                   </View>
                   <View style={styles.commentBody}>
-                    <View style={styles.commentBubble}>
+                    <View style={[styles.commentBubble, summary.total > 0 && styles.commentBubbleWithReactions]}>
                       <Text style={styles.commentAuthor}>{cName}</Text>
                       <Text style={styles.commentContent}>{c.content}</Text>
                       {summary.total > 0 && (
@@ -552,7 +552,6 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         style={styles.commentActionBtn}
                       >
-                        {reactionInfo.emoji && <Text style={{ fontSize: 12, marginRight: 2 }}>{reactionInfo.emoji}</Text>}
                         <Text style={[styles.commentActionBtnText, { color: reactionInfo.color }]}>
                           {reactionInfo.label}
                         </Text>
@@ -562,13 +561,6 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Text style={styles.commentReplyBtn}>Trả lời</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setReactionPickerCommentId(c.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ paddingHorizontal: 2 }}
-                      >
-                        <MaterialCommunityIcons name="emoticon-happy-outline" size={14} color={colors.muted} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -589,7 +581,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                             <Text style={styles.replyAvatarText}>{getInitials(replyName)}</Text>
                           </View>
                           <View style={styles.replyBody}>
-                            <View style={styles.replyBubble}>
+                            <View style={[styles.replyBubble, replySummary.total > 0 && styles.commentBubbleWithReactions]}>
                               <Text style={styles.commentAuthor}>{replyName}</Text>
                               <Text style={styles.commentContent}>{reply.content}</Text>
                               {replySummary.total > 0 && (
@@ -612,7 +604,6 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 style={styles.commentActionBtn}
                               >
-                                {replyReactionInfo.emoji && <Text style={{ fontSize: 12, marginRight: 2 }}>{replyReactionInfo.emoji}</Text>}
                                 <Text style={[styles.commentActionBtnText, { color: replyReactionInfo.color }]}>
                                   {replyReactionInfo.label}
                                 </Text>
@@ -622,13 +613,6 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               >
                                 <Text style={styles.commentReplyBtn}>Trả lời</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => setReactionPickerCommentId(reply.id)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                style={{ paddingHorizontal: 2 }}
-                              >
-                                <MaterialCommunityIcons name="emoticon-happy-outline" size={14} color={colors.muted} />
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -1436,26 +1420,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignSelf: 'flex-start',
     maxWidth: '100%',
+    minWidth: 70,
     position: 'relative',
+  },
+  commentBubbleWithReactions: {
+    marginBottom: 8,
   },
   commentReactionBadge: {
     position: 'absolute',
-    bottom: -10,
-    right: -4,
+    bottom: -8,
+    right: -6,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 3,
   },
   commentReactionEmojis: {
     fontSize: 11,
@@ -1479,8 +1467,8 @@ const styles = StyleSheet.create({
   commentActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 6,
+    gap: 14,
+    marginTop: 4,
     paddingLeft: 6,
   },
   commentActionBtn: {
@@ -1506,7 +1494,7 @@ const styles = StyleSheet.create({
     borderLeftColor: '#E2E8F0',
     paddingLeft: 10,
     gap: 12,
-    marginTop: 4,
+    marginTop: 6,
   },
   replyCard: {
     flexDirection: 'row',
@@ -1536,6 +1524,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignSelf: 'flex-start',
     maxWidth: '100%',
+    minWidth: 60,
     position: 'relative',
   },
   // Floating Reaction Modal
