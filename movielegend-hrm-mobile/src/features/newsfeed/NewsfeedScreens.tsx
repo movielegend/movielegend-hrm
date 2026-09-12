@@ -341,7 +341,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
     return (
       <Screen>
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack />
+          <PageHeader title="Chi tiết bài đăng" showBack={false} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: colors.muted }}>Đang tải...</Text>
@@ -354,7 +354,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
     return (
       <Screen>
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack />
+          <PageHeader title="Chi tiết bài đăng" showBack={false} />
         </View>
         <EmptyState title="Không tìm thấy bài đăng" />
       </Screen>
@@ -397,7 +397,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
       <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
         <PageHeader
           title="Chi tiết bài đăng"
-          showBack
+          showBack={false}
           right={
             canModerate ? (
               <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
@@ -1034,7 +1034,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
     return (
       <Screen>
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack />
+          <PageHeader title="Chi tiết bài đăng" showBack={false} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: colors.muted }}>Đang tải...</Text>
@@ -1047,7 +1047,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
     return (
       <Screen>
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack />
+          <PageHeader title="Chi tiết bài đăng" showBack={false} />
         </View>
         <EmptyState title="Không tìm thấy bài đăng" />
       </Screen>
@@ -1059,7 +1059,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Chi tiết bài viết" showBack />
+        <PageHeader title="Chi tiết bài viết" showBack={false} />
 
         <View style={styles.postCard}>
           <View style={styles.authorRow}>
