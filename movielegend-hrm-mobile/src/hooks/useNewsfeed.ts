@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchNewsfeed, fetchNewsfeedPost, createPost, likePost, commentPost, deletePost, fetchPendingPosts, approvePost } from '../api/newsfeed.api';
+import { fetchNewsfeed, fetchNewsfeedPost, createPost, likePost, commentPost, reactComment, deletePost, fetchPendingPosts, approvePost } from '../api/newsfeed.api';
 import { newsfeedKeys } from '../constants/queryKeys';
 
 export function useNewsfeedPosts(departmentId?: string) {
@@ -108,6 +108,18 @@ export function useAddComment() {
   return useMutation({
     mutationFn: ({ postId, content, parentId }: { postId: string; content: string; parentId?: string }) =>
       commentPost(postId, content, parentId),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: newsfeedKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['newsfeed', variables.postId] });
+    },
+  });
+}
+
+export function useReactComment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, commentId, emoji }: { postId: string; commentId: string; emoji: string }) =>
+      reactComment(postId, commentId, emoji),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: newsfeedKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['newsfeed', variables.postId] });

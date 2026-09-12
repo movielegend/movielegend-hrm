@@ -32,6 +32,7 @@ export interface PostCommentDto {
     userCode: string;
     profile?: { fullName: string; avatarUrl?: string | null } | null;
   };
+  reactions?: Record<string, string>;
   replies?: PostCommentDto[];
 }
 

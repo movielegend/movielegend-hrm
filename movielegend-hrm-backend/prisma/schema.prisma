@@ -3015,6 +3015,7 @@ model PostComment {
   authorId  String        @db.Uuid
   parentId  String?       @db.Uuid
   content   String
+  reactions Json?         @default("{}")
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 

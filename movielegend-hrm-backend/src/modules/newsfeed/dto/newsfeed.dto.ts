@@ -56,3 +56,10 @@ export class ApprovePostDto {
   @IsString()
   rejectionReason?: string;
 }
+
+export class ReactCommentDto {
+  @ApiProperty({ description: 'Icon cảm xúc (emoji: 👍, ❤️, 😂, 😮, 😢, 🔥)' })
+  @IsString()
+  emoji!: string;
+}
+

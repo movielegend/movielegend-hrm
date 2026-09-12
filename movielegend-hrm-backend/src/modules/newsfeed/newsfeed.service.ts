@@ -387,6 +387,43 @@ export class NewsfeedService {
     return comment;
   }
 
+  async reactComment(userId: string, postId: string, commentId: string, emoji: string) {
+    const comment = await this.prisma.postComment.findUnique({
+      where: { id: commentId },
+      select: { id: true, postId: true, reactions: true, authorId: true }
+    });
+    if (!comment) throw new NotFoundException('Bình luận không tồn tại');
+
+    let currentReactions = (comment.reactions as Record<string, string>) || {};
+    if (typeof currentReactions !== 'object' || currentReactions === null) {
+      currentReactions = {};
+    } else {
+      currentReactions = { ...currentReactions };
+    }
+
+    if (currentReactions[userId] === emoji) {
+      delete currentReactions[userId];
+    } else {
+      currentReactions[userId] = emoji;
+    }
+
+    await this.prisma.postComment.update({
+      where: { id: commentId },
+      data: {
+        reactions: currentReactions
+      }
+    });
+
+    // Realtime emit
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:comment_reacted', {
+      postId,
+      commentId,
+      reactions: currentReactions
+    });
+
+    return { success: true, reactions: currentReactions };
+  }
+
   async deletePost(id: string, currentUser?: AuthenticatedUser) {
     const post = await this.prisma.newsfeedPost.findUnique({ where: { id } });
     if (!post) throw new NotFoundException('Post not found');

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState, useCallback, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import {
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,6 +39,7 @@ import {
   useCreatePost,
   useLikePost,
   useAddComment,
+  useReactComment,
   useDeletePost,
 } from '../../hooks/useNewsfeed';
 import type { NewsfeedPostDto, PostLikeDto, PostCommentDto } from '../../types/newsfeed.types';
@@ -45,6 +47,41 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAppAlert } from '../../contexts/AlertContext';
 
 // ── Helpers ──
+
+const COMMENT_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+
+function getCommentReactionSummary(reactions?: Record<string, string> | null) {
+  if (!reactions || typeof reactions !== 'object') return { total: 0, emojis: [] as string[] };
+  const entries = Object.values(reactions).filter(Boolean);
+  if (entries.length === 0) return { total: 0, emojis: [] as string[] };
+  const countMap: Record<string, number> = {};
+  for (const e of entries) {
+    if (typeof e === 'string') {
+      countMap[e] = (countMap[e] || 0) + 1;
+    }
+  }
+  const emojis = Object.keys(countMap).sort((a, b) => countMap[b] - countMap[a]).slice(0, 3);
+  return { total: entries.length, emojis };
+}
+
+function getReactionInfo(emoji?: string | null) {
+  switch (emoji) {
+    case '👍':
+      return { label: 'Thích', color: '#2563EB', emoji: '👍' };
+    case '❤️':
+      return { label: 'Yêu thích', color: '#EF4444', emoji: '❤️' };
+    case '😂':
+      return { label: 'Haha', color: '#F59E0B', emoji: '😂' };
+    case '😮':
+      return { label: 'Wow', color: '#F59E0B', emoji: '😮' };
+    case '😢':
+      return { label: 'Buồn', color: '#F59E0B', emoji: '😢' };
+    case '🔥':
+      return { label: 'Tuyệt vời', color: '#EA580C', emoji: '🔥' };
+    default:
+      return { label: 'Thích', color: '#64748B', emoji: null };
+  }
+}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -303,11 +340,13 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   const postQuery = useNewsfeedPost(postId);
   const likePostMutation = useLikePost();
   const addComment = useAddComment();
+  const reactCommentMutation = useReactComment();
   const removePost = useDeletePost();
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
+  const [reactionPickerCommentId, setReactionPickerCommentId] = useState<string | null>(null);
   const commentInputRef = useRef<TextInput>(null);
 
   function confirmDelete() {
@@ -373,6 +412,19 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   function handleCancelReply() {
     setReplyingTo(null);
+  }
+
+  function handleToggleOrReact(commentId: string, currentEmoji?: string | null) {
+    if (currentEmoji) {
+      reactCommentMutation.mutate({ postId: post.id, commentId, emoji: currentEmoji });
+    } else {
+      reactCommentMutation.mutate({ postId: post.id, commentId, emoji: '👍' });
+    }
+  }
+
+  function handleSelectReaction(commentId: string, emoji: string) {
+    setReactionPickerCommentId(null);
+    reactCommentMutation.mutate({ postId: post.id, commentId, emoji });
   }
 
   async function handleComment() {
@@ -465,6 +517,10 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           {comments.map((c: PostCommentDto) => {
             const cName = getUserDisplayName(c.author);
             const replies = c.replies ?? [];
+            const myEmoji = user?.id ? (c.reactions?.[user.id] ?? null) : null;
+            const reactionInfo = getReactionInfo(myEmoji);
+            const summary = getCommentReactionSummary(c.reactions);
+
             return (
               <View key={c.id} style={styles.commentThread}>
                 {/* Parent comment */}
@@ -476,14 +532,43 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                     <View style={styles.commentBubble}>
                       <Text style={styles.commentAuthor}>{cName}</Text>
                       <Text style={styles.commentContent}>{c.content}</Text>
+                      {summary.total > 0 && (
+                        <TouchableOpacity
+                          style={styles.commentReactionBadge}
+                          activeOpacity={0.8}
+                          onPress={() => setReactionPickerCommentId(c.id)}
+                        >
+                          <Text style={styles.commentReactionEmojis}>{summary.emojis.join('')}</Text>
+                          <Text style={styles.commentReactionCount}>{summary.total}</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                     <View style={styles.commentActionRow}>
                       <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleToggleOrReact(c.id, myEmoji)}
+                        onLongPress={() => setReactionPickerCommentId(c.id)}
+                        delayLongPress={250}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.commentActionBtn}
+                      >
+                        {reactionInfo.emoji && <Text style={{ fontSize: 12, marginRight: 2 }}>{reactionInfo.emoji}</Text>}
+                        <Text style={[styles.commentActionBtnText, { color: reactionInfo.color }]}>
+                          {reactionInfo.label}
+                        </Text>
+                      </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleStartReply(c.id, cName)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Text style={styles.commentReplyBtn}>Trả lời</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setReactionPickerCommentId(c.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ paddingHorizontal: 2 }}
+                      >
+                        <MaterialCommunityIcons name="emoticon-happy-outline" size={14} color={colors.muted} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -494,6 +579,10 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                   <View style={styles.repliesContainer}>
                     {replies.map((reply: PostCommentDto) => {
                       const replyName = getUserDisplayName(reply.author);
+                      const replyMyEmoji = user?.id ? (reply.reactions?.[user.id] ?? null) : null;
+                      const replyReactionInfo = getReactionInfo(replyMyEmoji);
+                      const replySummary = getCommentReactionSummary(reply.reactions);
+
                       return (
                         <View key={reply.id} style={styles.replyCard}>
                           <View style={styles.replyAvatar}>
@@ -503,14 +592,43 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
                             <View style={styles.replyBubble}>
                               <Text style={styles.commentAuthor}>{replyName}</Text>
                               <Text style={styles.commentContent}>{reply.content}</Text>
+                              {replySummary.total > 0 && (
+                                <TouchableOpacity
+                                  style={styles.commentReactionBadge}
+                                  activeOpacity={0.8}
+                                  onPress={() => setReactionPickerCommentId(reply.id)}
+                                >
+                                  <Text style={styles.commentReactionEmojis}>{replySummary.emojis.join('')}</Text>
+                                  <Text style={styles.commentReactionCount}>{replySummary.total}</Text>
+                                </TouchableOpacity>
+                              )}
                             </View>
                             <View style={styles.commentActionRow}>
                               <Text style={styles.commentTime}>{timeAgo(reply.createdAt)}</Text>
+                              <TouchableOpacity
+                                onPress={() => handleToggleOrReact(reply.id, replyMyEmoji)}
+                                onLongPress={() => setReactionPickerCommentId(reply.id)}
+                                delayLongPress={250}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={styles.commentActionBtn}
+                              >
+                                {replyReactionInfo.emoji && <Text style={{ fontSize: 12, marginRight: 2 }}>{replyReactionInfo.emoji}</Text>}
+                                <Text style={[styles.commentActionBtnText, { color: replyReactionInfo.color }]}>
+                                  {replyReactionInfo.label}
+                                </Text>
+                              </TouchableOpacity>
                               <TouchableOpacity
                                 onPress={() => handleStartReply(c.id, replyName)}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               >
                                 <Text style={styles.commentReplyBtn}>Trả lời</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => setReactionPickerCommentId(reply.id)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={{ paddingHorizontal: 2 }}
+                              >
+                                <MaterialCommunityIcons name="emoticon-happy-outline" size={14} color={colors.muted} />
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -563,6 +681,38 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           </Pressable>
         </View>
       </View>
+
+      {/* Floating Reaction Picker Modal */}
+      <Modal
+        visible={!!reactionPickerCommentId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReactionPickerCommentId(null)}
+      >
+        <Pressable
+          style={styles.reactionModalBackdrop}
+          onPress={() => setReactionPickerCommentId(null)}
+        >
+          <Pressable style={styles.reactionBarCard} onPress={(e) => e.stopPropagation?.()}>
+            <Text style={styles.reactionBarTitle}>Bày tỏ cảm xúc</Text>
+            <View style={styles.reactionBar}>
+              {COMMENT_REACTIONS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={styles.reactionItem}
+                  onPress={() => {
+                    if (reactionPickerCommentId) {
+                      handleSelectReaction(reactionPickerCommentId, emoji);
+                    }
+                  }}
+                >
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <ImageView
         images={viewerImages}
@@ -1286,6 +1436,34 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignSelf: 'flex-start',
     maxWidth: '100%',
+    position: 'relative',
+  },
+  commentReactionBadge: {
+    position: 'absolute',
+    bottom: -10,
+    right: -4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  commentReactionEmojis: {
+    fontSize: 11,
+  },
+  commentReactionCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
   },
   commentAuthor: {
     fontSize: 13,
@@ -1302,8 +1480,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 4,
+    marginTop: 6,
     paddingLeft: 6,
+  },
+  commentActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentActionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   commentTime: {
     fontSize: 11,
@@ -1319,8 +1505,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: '#E2E8F0',
     paddingLeft: 10,
-    gap: 10,
-    marginTop: 2,
+    gap: 12,
+    marginTop: 4,
   },
   replyCard: {
     flexDirection: 'row',
@@ -1350,6 +1536,48 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignSelf: 'flex-start',
     maxWidth: '100%',
+    position: 'relative',
+  },
+  // Floating Reaction Modal
+  reactionModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionBarCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  reactionBarTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 10,
+  },
+  reactionBar: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  reactionItem: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactionEmoji: {
+    fontSize: 26,
   },
   noComments: {
     fontSize: 14,

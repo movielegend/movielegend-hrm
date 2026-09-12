@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Delete, Query, UseGuards, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NewsfeedService } from './newsfeed.service';
-import { CreateNewsfeedPostDto, CreateCommentDto, ApprovePostDto } from './dto/newsfeed.dto';
+import { CreateNewsfeedPostDto, CreateCommentDto, ApprovePostDto, ReactCommentDto } from './dto/newsfeed.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -54,6 +54,17 @@ export class NewsfeedController {
   @Post(':id/comments')
   addComment(@Param('id') id: string, @Body() dto: CreateCommentDto, @CurrentUser() user: AuthenticatedUser) {
     return this.newsfeedService.addComment(user.userId, id, dto);
+  }
+
+  @ApiOperation({ summary: 'Thả icon cảm xúc vào bình luận' })
+  @Post(':id/comments/:commentId/react')
+  reactComment(
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: ReactCommentDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.newsfeedService.reactComment(user.userId, id, commentId, dto.emoji);
   }
 
   @ApiOperation({ summary: 'Xóa bài đăng (Admin kiểm duyệt)' })
