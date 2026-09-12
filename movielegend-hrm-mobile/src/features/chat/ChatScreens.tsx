@@ -723,6 +723,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 );
               }
 
+              const hasReactions = !!msg.reactions && typeof msg.reactions === 'object' && Object.keys(msg.reactions).length > 0;
+
               return (
                 <Pressable
                   onLongPress={() => {
@@ -732,7 +734,12 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                   }}
                   delayLongPress={300}
                 >
-                  <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
+                  <View style={[
+                    styles.messageRow,
+                    isMine && styles.messageRowMine,
+                    hasReactions && { marginBottom: 12 },
+                    Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }
+                  ]}>
                     {!isMine && (
                       <View style={[styles.messageBubbleAvatar, msg.sender?.profile?.avatarUrl ? { backgroundColor: 'transparent', overflow: 'hidden' } : {}]}>
                         {msg.sender?.profile?.avatarUrl ? (
@@ -939,7 +946,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     <Text style={[
                       styles.messageTime,
                       isMine && styles.messageTimeMine,
-                      msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {},
+                      msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, left: 10, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 10, color: '#fff' } : {},
                       (msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:')) ? { color: colors.muted } : {}
                     ]}>
                       {timeAgo(msg.createdAt)}
@@ -1681,13 +1688,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderBottomRightRadius: 16,
     borderBottomLeftRadius: 16,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   messageImageOnly: {
     width: 220,
     height: 220,
     borderRadius: 16,
     marginBottom: 0,
+    overflow: 'hidden',
   },
 
   imageViewerContainer: {
@@ -1934,21 +1942,21 @@ const styles = StyleSheet.create({
   },
   messageReactionBadge: {
     position: 'absolute',
-    bottom: -10,
+    bottom: -8,
     right: 8,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 4,
     zIndex: 10,
   },
   messageReactionBadgeMine: {
