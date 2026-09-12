@@ -37,6 +37,12 @@
       },
       "ios": {
         "enterpriseProvisioning": "adhoc"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://movielegend-hrm-hfjo.onrender.com/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "https://movielegend-hrm-hfjo.onrender.com",
+        "NODE_OPTIONS": "--max-old-space-size=4096",
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -Dkotlin.compiler.execution.strategy=in-process"
       }
     }
   },
