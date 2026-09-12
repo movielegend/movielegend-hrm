@@ -16,6 +16,7 @@
       }
     },
     "preview": {
+      "developmentClient": false,
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -26,11 +27,13 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://movielegend-hrm-hfjo.onrender.com/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://movielegend-hrm-hfjo.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCsSPp2vj3uEo4wgp2wwkj051CLr04NeFE",
         "NODE_OPTIONS": "--max-old-space-size=4096",
         "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -Dkotlin.compiler.execution.strategy=in-process"
       }
     },
     "production": {
+      "developmentClient": false,
       "autoIncrement": true,
       "android": {
         "buildType": "apk"
@@ -41,11 +44,13 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://movielegend-hrm-hfjo.onrender.com/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://movielegend-hrm-hfjo.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCsSPp2vj3uEo4wgp2wwkj051CLr04NeFE",
         "NODE_OPTIONS": "--max-old-space-size=4096",
         "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -Dkotlin.compiler.execution.strategy=in-process"
       }
     },
     "debug_apk": {
+      "developmentClient": false,
       "distribution": "internal",
       "android": {
         "buildType": "apk",
@@ -53,7 +58,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://movielegend-hrm-hfjo.onrender.com/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "https://movielegend-hrm-hfjo.onrender.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://movielegend-hrm-hfjo.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCsSPp2vj3uEo4wgp2wwkj051CLr04NeFE"
       }
     }
   },
