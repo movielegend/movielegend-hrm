@@ -163,7 +163,8 @@ export function usePushNotificationSetup() {
               }
             }
             
-            router.push('/(tabs)/notifications');
+            const base = require('../utils/notification-routing').roleBase(user);
+            router.push(`${base}/notifications` as any);
           } catch (e) {
             console.warn('Error handling notification click:', e);
           }
