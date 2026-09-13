@@ -123,15 +123,21 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const [projectConfigSubTab, setProjectConfigSubTab] = useState<'active' | 'history'>('active');
 
   // Leader department resolution
-  const leaderDeptId = progressData?.departmentId || user?.departmentLinks?.[0]?.departmentId || '';
+  const leaderDeptId =
+    progressData?.departmentId ||
+    (user as any)?.departmentId ||
+    user?.department?.id ||
+    user?.scopes?.find((s) => s.scopeType === 'DEPARTMENT')?.scopeId ||
+    '';
   const activeDeptId = isAdmin
     ? (selectedDeptId || deptList[0]?.id || '')
-    : (leaderDeptId || selectedDeptId || '');
+    : (leaderDeptId || selectedDeptId || deptList[0]?.id || '');
 
   const activeDeptName =
     deptList.find((d) => d.id === activeDeptId)?.name ||
     progressData?.departmentName ||
-    user?.departmentLinks?.[0]?.department?.name ||
+    user?.department?.name ||
+    (user as any)?.departmentName ||
     'Phòng ban';
 
   // Department locking: Admin can pick any department, Leader is strictly locked to their own department
@@ -199,12 +205,51 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           },
           roadmap: [],
         } as any);
+      } else {
+        // Fallback for Leader, HR, Employee when progress record is not yet initialized on backend
+        const userLevel = (user as any)?.profile?.currentLevelNumber || (user as any)?.currentLevelNumber || 1;
+        const currentLvlCfg = {
+          levelNumber: userLevel,
+          levelName: `Level ${userLevel}`,
+          displayName: LEVEL_DEFAULT_NAMES[userLevel] || `Level ${userLevel}`,
+          badgeTitle: LEVEL_DEFAULT_NAMES[userLevel] || `Level ${userLevel}`,
+          colorHex: LEVEL_COLORS[userLevel] || '#2196F3',
+          minTenureMonths: userLevel === 1 ? 1 : userLevel * 3,
+          targetShiftsCount: userLevel * 30,
+        };
+        const nextLevelNum = Math.min(8, userLevel + 1);
+        const nextLvlCfg = {
+          levelNumber: nextLevelNum,
+          levelName: `Level ${nextLevelNum}`,
+          displayName: LEVEL_DEFAULT_NAMES[nextLevelNum] || `Level ${nextLevelNum}`,
+          badgeTitle: LEVEL_DEFAULT_NAMES[nextLevelNum] || `Level ${nextLevelNum}`,
+          colorHex: LEVEL_COLORS[nextLevelNum] || '#3B82F6',
+          minTenureMonths: nextLevelNum * 3,
+          targetShiftsCount: nextLevelNum * 30,
+        };
+        setProgressData({
+          userId: user?.id || '',
+          fullName: user?.fullName || 'Nhân sự',
+          avatarUrl: user?.avatarUrl,
+          departmentId: leaderDeptId || activeDeptId || deptList[0]?.id || '',
+          departmentName: activeDeptName || 'Phòng ban',
+          currentLevel: currentLvlCfg,
+          nextLevel: userLevel >= 8 ? null : nextLvlCfg,
+          overallProgressPercent: Math.min(100, Math.round((userLevel / 8) * 100)),
+          metrics: {
+            tenure: { currentMonths: 1, targetMonths: nextLvlCfg.minTenureMonths, progressPercent: 30, isPassed: false },
+            shifts: { currentShifts: 0, targetShifts: nextLvlCfg.targetShiftsCount, progressPercent: 0, isPassed: false },
+            discipline: { penaltyScore: 0, currentScore: 100, progressPercent: 100, isPassed: true },
+            revenue: { currentRevenue: 0, targetRevenue: 0, progressPercent: 100, isPassed: true },
+          },
+          roadmap: [],
+        } as any);
       }
 
       // 2. Load Department Level Configs
       const queryDeptId = isAdmin
         ? (selectedDeptId || params.departmentId || deptList[0]?.id)
-        : (currentProgress?.departmentId || leaderDeptId || selectedDeptId);
+        : (currentProgress?.departmentId || leaderDeptId || selectedDeptId || deptList[0]?.id);
 
       if (queryDeptId) {
         const configs = await levelingApi.getDepartmentLevelConfigs(queryDeptId).catch(() => []);
@@ -236,6 +281,21 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           setPromotionRequests(Array.isArray(requests) ? requests : []);
           setDepartmentMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
         }
+      } else {
+        setDeptLevelConfigs(
+          Array.from({ length: 8 }, (_, i) => ({
+            levelNumber: i + 1,
+            levelName: `Level ${i + 1}`,
+            defaultName: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+            customLevelName: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+            displayName: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+            badgeTitle: LEVEL_DEFAULT_NAMES[i + 1] || `Level ${i + 1}`,
+            colorHex: LEVEL_COLORS[i + 1] || '#2196F3',
+            minTenureMonths: i === 0 ? 1 : i === 1 ? 2 : i === 2 ? 6 : (i + 1) * 3,
+            targetShiftsCount: (i + 1) * 30,
+          })),
+        );
+      }
 
         // 4. Load projects for Admin (Department Projects - NOT divided by level)
         if (isAdmin && queryDeptId) {
