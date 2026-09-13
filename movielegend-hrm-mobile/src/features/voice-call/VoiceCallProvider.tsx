@@ -339,17 +339,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 
   // ── Toggle speaker ──
   const toggleSpeaker = useCallback(async () => {
-    setIsSpeaker(prev => {
-      const newVal = !prev;
-      try {
-        if (AudioSession) {
-          AudioSession.showAudioRoutePicker?.();
-        }
-      } catch (e) {
-        console.warn('Failed to toggle speaker:', e);
-      }
-      return newVal;
-    });
+    setIsSpeaker(prev => !prev);
   }, []);
 
 

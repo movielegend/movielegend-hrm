@@ -65,13 +65,7 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
     ]).start();
 
     return () => {
-      isMounted = false;
       Vibration.cancel();
-      if (currentSound) {
-        currentSound.stopAsync().then(() => {
-          currentSound?.unloadAsync();
-        }).catch(() => {}); // ignore errors on unmount
-      }
     };
   }, []);
 
