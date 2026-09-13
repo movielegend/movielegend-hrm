@@ -13,7 +13,11 @@ import {
   Platform,
   RefreshControl,
   TouchableOpacity,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -348,6 +352,25 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
   const [reactionPickerCommentId, setReactionPickerCommentId] = useState<string | null>(null);
   const commentInputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   function confirmDelete() {
     showConfirm({
@@ -445,226 +468,248 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   }
 
   return (
-    <Screen>
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-        <PageHeader
-          title="Chi tiết bài đăng"
-          showBack={false}
-          right={
-            canModerate ? (
-              <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
-                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-              </Pressable>
-            ) : undefined
-          }
-        />
-      </View>
-      <ScrollView contentContainerStyle={styles.content} style={{ flex: 1 }}>
-        <View style={styles.postCard}>
-          <View style={styles.authorRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
-            </View>
-            <View style={styles.authorInfo}>
-              <Text style={styles.authorName}>{authorName}</Text>
-              <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
-            </View>
-          </View>
-
-          {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
-          <Text style={styles.postContentFull}>{post.content}</Text>
-
-          {/* Images - Facebook Multi-Photo Grid */}
-          {post.images && post.images.length > 0 ? (
-            <FacebookPhotoGrid
-              images={post.images}
-              resolveUrl={resolveImageUrl}
-              layoutType={extractPostLayout(post)}
-            />
-          ) : null}
-
-          <View style={styles.postDivider} />
-          <View style={styles.actionsRow}>
-            <Pressable
-              style={styles.actionItem}
-              onPress={() => likePostMutation.mutate(post.id)}
-            >
-              <MaterialCommunityIcons name="heart-outline" size={20} color={colors.muted} />
-              <Text style={styles.actionLabel}>{post._count?.likes ?? post.likes?.length ?? 0}</Text>
-            </Pressable>
-            <View style={styles.actionItem}>
-              <MaterialCommunityIcons name="comment-outline" size={20} color={colors.muted} />
-              <Text style={styles.actionLabel}>{totalCommentsCount}</Text>
-            </View>
-          </View>
-
-          {likedNames.length > 0 && (
-            <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'flex-start' }}>
-              <MaterialCommunityIcons name="heart" size={16} color="#111827" style={{ marginRight: 6, marginTop: 2 }} />
-              <Text style={{ fontSize: 13, color: colors.text, flex: 1, lineHeight: 20 }}>
-                Thích bởi <Text style={{ fontWeight: '600' }}>{likedNames.join(', ')}</Text>
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Comments section */}
-        <View style={styles.commentsSection}>
-          <Text style={styles.commentsTitle}>
-            Bình luận ({totalCommentsCount})
-          </Text>
-
-          {comments.map((c: PostCommentDto) => {
-            const cName = getUserDisplayName(c.author);
-            const replies = c.replies ?? [];
-            const myEmoji = user?.id ? (c.reactions?.[user.id] ?? null) : null;
-            const reactionInfo = getReactionInfo(myEmoji);
-            const summary = getCommentReactionSummary(c.reactions);
-
-            return (
-              <View key={c.id} style={styles.commentThread}>
-                {/* Parent comment */}
-                <View style={styles.commentCard}>
-                  <View style={styles.commentAvatar}>
-                    <Text style={styles.commentAvatarText}>{getInitials(cName)}</Text>
-                  </View>
-                  <View style={styles.commentBody}>
-                    <View style={[styles.commentBubble, summary.total > 0 && styles.commentBubbleWithReactions]}>
-                      <Text style={styles.commentAuthor}>{cName}</Text>
-                      <Text style={styles.commentContent}>{c.content}</Text>
-                      {summary.total > 0 && (
-                        <TouchableOpacity
-                          style={styles.commentReactionBadge}
-                          activeOpacity={0.8}
-                          onPress={() => setReactionPickerCommentId(c.id)}
-                        >
-                          <Text style={styles.commentReactionEmojis}>{summary.emojis.join('')}</Text>
-                          <Text style={styles.commentReactionCount}>{summary.total}</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <View style={styles.commentActionRow}>
-                      <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleToggleOrReact(c.id, myEmoji)}
-                        onLongPress={() => setReactionPickerCommentId(c.id)}
-                        delayLongPress={250}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={styles.commentActionBtn}
-                      >
-                        <Text style={[styles.commentActionBtnText, { color: reactionInfo.color }]}>
-                          {reactionInfo.label}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleStartReply(c.id, cName)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Text style={styles.commentReplyBtn}>Trả lời</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Sub-replies */}
-                {replies.length > 0 && (
-                  <View style={styles.repliesContainer}>
-                    {replies.map((reply: PostCommentDto) => {
-                      const replyName = getUserDisplayName(reply.author);
-                      const replyMyEmoji = user?.id ? (reply.reactions?.[user.id] ?? null) : null;
-                      const replyReactionInfo = getReactionInfo(replyMyEmoji);
-                      const replySummary = getCommentReactionSummary(reply.reactions);
-
-                      return (
-                        <View key={reply.id} style={styles.replyCard}>
-                          <View style={styles.replyAvatar}>
-                            <Text style={styles.replyAvatarText}>{getInitials(replyName)}</Text>
-                          </View>
-                          <View style={styles.replyBody}>
-                            <View style={[styles.replyBubble, replySummary.total > 0 && styles.commentBubbleWithReactions]}>
-                              <Text style={styles.commentAuthor}>{replyName}</Text>
-                              <Text style={styles.commentContent}>{reply.content}</Text>
-                              {replySummary.total > 0 && (
-                                <TouchableOpacity
-                                  style={styles.commentReactionBadge}
-                                  activeOpacity={0.8}
-                                  onPress={() => setReactionPickerCommentId(reply.id)}
-                                >
-                                  <Text style={styles.commentReactionEmojis}>{replySummary.emojis.join('')}</Text>
-                                  <Text style={styles.commentReactionCount}>{replySummary.total}</Text>
-                                </TouchableOpacity>
-                              )}
-                            </View>
-                            <View style={styles.commentActionRow}>
-                              <Text style={styles.commentTime}>{timeAgo(reply.createdAt)}</Text>
-                              <TouchableOpacity
-                                onPress={() => handleToggleOrReact(reply.id, replyMyEmoji)}
-                                onLongPress={() => setReactionPickerCommentId(reply.id)}
-                                delayLongPress={250}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                style={styles.commentActionBtn}
-                              >
-                                <Text style={[styles.commentActionBtnText, { color: replyReactionInfo.color }]}>
-                                  {replyReactionInfo.label}
-                                </Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => handleStartReply(c.id, replyName)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              >
-                                <Text style={styles.commentReplyBtn}>Trả lời</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            );
-          })}
-
-          {comments.length === 0 && (
-            <Text style={styles.noComments}>Chưa có bình luận nào</Text>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Comment input area */}
-      <View style={styles.commentInputContainer}>
-        {replyingTo && (
-          <View style={styles.replyingBanner}>
-            <View style={styles.replyingBannerLeft}>
-              <MaterialCommunityIcons name="reply" size={16} color="#2563EB" />
-              <Text style={styles.replyingBannerText} numberOfLines={1}>
-                Đang trả lời <Text style={{ fontWeight: '700' }}>@{replyingTo.authorName}</Text>
-              </Text>
-            </View>
-            <TouchableOpacity onPress={handleCancelReply} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <MaterialCommunityIcons name="close" size={18} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-        )}
-        <View style={styles.commentInputRow}>
-          <TextInput
-            ref={commentInputRef}
-            style={styles.commentInput}
-            placeholder={replyingTo ? `Trả lời @${replyingTo.authorName}...` : 'Viết bình luận...'}
-            placeholderTextColor={colors.muted}
-            value={commentText}
-            onChangeText={setCommentText}
-            multiline
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
+      <StatusBar style="dark" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        enabled={Platform.OS === 'ios' ? true : isKeyboardVisible}
+      >
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
+          <PageHeader
+            title="Chi tiết bài đăng"
+            showBack={false}
+            right={
+              canModerate ? (
+                <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
+                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                </Pressable>
+              ) : undefined
+            }
           />
-          <Pressable
-            style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
-            onPress={handleComment}
-            disabled={!commentText.trim() || addComment.isPending}
-          >
-            <MaterialCommunityIcons name="send" size={20} color="#fff" />
-          </Pressable>
         </View>
-      </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
+          <View style={styles.postCard}>
+            <View style={styles.authorRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
+              </View>
+              <View style={styles.authorInfo}>
+                <Text style={styles.authorName}>{authorName}</Text>
+                <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+              </View>
+            </View>
+
+            {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
+            <Text style={styles.postContentFull}>{post.content}</Text>
+
+            {/* Images - Facebook Multi-Photo Grid */}
+            {post.images && post.images.length > 0 ? (
+              <FacebookPhotoGrid
+                images={post.images}
+                resolveUrl={resolveImageUrl}
+                layoutType={extractPostLayout(post)}
+              />
+            ) : null}
+
+            <View style={styles.postDivider} />
+            <View style={styles.actionsRow}>
+              <Pressable
+                style={styles.actionItem}
+                onPress={() => likePostMutation.mutate(post.id)}
+              >
+                <MaterialCommunityIcons name="heart-outline" size={20} color={colors.muted} />
+                <Text style={styles.actionLabel}>{post._count?.likes ?? post.likes?.length ?? 0}</Text>
+              </Pressable>
+              <View style={styles.actionItem}>
+                <MaterialCommunityIcons name="comment-outline" size={20} color={colors.muted} />
+                <Text style={styles.actionLabel}>{totalCommentsCount}</Text>
+              </View>
+            </View>
+
+            {likedNames.length > 0 && (
+              <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'flex-start' }}>
+                <MaterialCommunityIcons name="heart" size={16} color="#111827" style={{ marginRight: 6, marginTop: 2 }} />
+                <Text style={{ fontSize: 13, color: colors.text, flex: 1, lineHeight: 20 }}>
+                  Thích bởi <Text style={{ fontWeight: '600' }}>{likedNames.join(', ')}</Text>
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Comments section */}
+          <View style={styles.commentsSection}>
+            <Text style={styles.commentsTitle}>
+              Bình luận ({totalCommentsCount})
+            </Text>
+
+            {comments.map((c: PostCommentDto) => {
+              const cName = getUserDisplayName(c.author);
+              const replies = c.replies ?? [];
+              const myEmoji = user?.id ? (c.reactions?.[user.id] ?? null) : null;
+              const reactionInfo = getReactionInfo(myEmoji);
+              const summary = getCommentReactionSummary(c.reactions);
+
+              return (
+                <View key={c.id} style={styles.commentThread}>
+                  {/* Parent comment */}
+                  <View style={styles.commentCard}>
+                    <View style={styles.commentAvatar}>
+                      <Text style={styles.commentAvatarText}>{getInitials(cName)}</Text>
+                    </View>
+                    <View style={styles.commentBody}>
+                      <View style={[styles.commentBubble, summary.total > 0 && styles.commentBubbleWithReactions]}>
+                        <Text style={styles.commentAuthor}>{cName}</Text>
+                        <Text style={styles.commentContent}>{c.content}</Text>
+                        {summary.total > 0 && (
+                          <TouchableOpacity
+                            style={styles.commentReactionBadge}
+                            activeOpacity={0.8}
+                            onPress={() => setReactionPickerCommentId(c.id)}
+                          >
+                            <Text style={styles.commentReactionEmojis}>{summary.emojis.join('')}</Text>
+                            <Text style={styles.commentReactionCount}>{summary.total}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <View style={styles.commentActionRow}>
+                        <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                        <TouchableOpacity
+                          onPress={() => handleToggleOrReact(c.id, myEmoji)}
+                          onLongPress={() => setReactionPickerCommentId(c.id)}
+                          delayLongPress={250}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={styles.commentActionBtn}
+                        >
+                          <Text style={[styles.commentActionBtnText, { color: reactionInfo.color }]}>
+                            {reactionInfo.label}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleStartReply(c.id, cName)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Text style={styles.commentReplyBtn}>Trả lời</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Sub-replies */}
+                  {replies.length > 0 && (
+                    <View style={styles.repliesContainer}>
+                      {replies.map((reply: PostCommentDto) => {
+                        const replyName = getUserDisplayName(reply.author);
+                        const replyMyEmoji = user?.id ? (reply.reactions?.[user.id] ?? null) : null;
+                        const replyReactionInfo = getReactionInfo(replyMyEmoji);
+                        const replySummary = getCommentReactionSummary(reply.reactions);
+
+                        return (
+                          <View key={reply.id} style={styles.replyCard}>
+                            <View style={styles.replyAvatar}>
+                              <Text style={styles.replyAvatarText}>{getInitials(replyName)}</Text>
+                            </View>
+                            <View style={styles.replyBody}>
+                              <View style={[styles.replyBubble, replySummary.total > 0 && styles.commentBubbleWithReactions]}>
+                                <Text style={styles.commentAuthor}>{replyName}</Text>
+                                <Text style={styles.commentContent}>{reply.content}</Text>
+                                {replySummary.total > 0 && (
+                                  <TouchableOpacity
+                                    style={styles.commentReactionBadge}
+                                    activeOpacity={0.8}
+                                    onPress={() => setReactionPickerCommentId(reply.id)}
+                                  >
+                                    <Text style={styles.commentReactionEmojis}>{replySummary.emojis.join('')}</Text>
+                                    <Text style={styles.commentReactionCount}>{replySummary.total}</Text>
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                              <View style={styles.commentActionRow}>
+                                <Text style={styles.commentTime}>{timeAgo(reply.createdAt)}</Text>
+                                <TouchableOpacity
+                                  onPress={() => handleToggleOrReact(reply.id, replyMyEmoji)}
+                                  onLongPress={() => setReactionPickerCommentId(reply.id)}
+                                  delayLongPress={250}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  style={styles.commentActionBtn}
+                                >
+                                  <Text style={[styles.commentActionBtnText, { color: replyReactionInfo.color }]}>
+                                    {replyReactionInfo.label}
+                                  </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => handleStartReply(c.id, replyName)}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                >
+                                  <Text style={styles.commentReplyBtn}>Trả lời</Text>
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+
+            {comments.length === 0 && (
+              <Text style={styles.noComments}>Chưa có bình luận nào</Text>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Comment input area */}
+        <View
+          style={[
+            styles.commentInputContainer,
+            {
+              marginBottom: isKeyboardVisible
+                ? (Platform.OS === 'ios' ? 8 : 10)
+                : Math.max(insets.bottom, 12),
+            },
+          ]}
+        >
+          {replyingTo && (
+            <View style={styles.replyingBanner}>
+              <View style={styles.replyingBannerLeft}>
+                <MaterialCommunityIcons name="reply" size={16} color="#2563EB" />
+                <Text style={styles.replyingBannerText} numberOfLines={1}>
+                  Đang trả lời <Text style={{ fontWeight: '700' }}>@{replyingTo.authorName}</Text>
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleCancelReply} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <MaterialCommunityIcons name="close" size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={styles.commentInputRow}>
+            <TextInput
+              ref={commentInputRef}
+              style={styles.commentInput}
+              placeholder={replyingTo ? `Trả lời @${replyingTo.authorName}...` : 'Viết bình luận...'}
+              placeholderTextColor={colors.muted}
+              value={commentText}
+              onChangeText={setCommentText}
+              multiline
+            />
+            <Pressable
+              style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
+              onPress={handleComment}
+              disabled={!commentText.trim() || addComment.isPending}
+            >
+              <MaterialCommunityIcons name="send" size={20} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
 
       {/* Floating Reaction Picker Modal */}
       <Modal
@@ -704,7 +749,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
         visible={viewerVisible}
         onRequestClose={() => setViewerVisible(false)}
       />
-    </Screen>
+    </SafeAreaView>
   );
 }
 
