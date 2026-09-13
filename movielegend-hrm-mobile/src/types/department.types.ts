@@ -7,7 +7,11 @@ export interface Department {
   name: string;
   description?: string | null;
   leaderUserId?: string | null;
-  leader?: { profile?: { fullName: string } | null } | null;
+  leader?: {
+    id?: string;
+    userCode?: string;
+    profile?: { fullName: string; avatarUrl?: string | null } | null;
+  } | null;
   branch?: {
     id: string;
     name: string;

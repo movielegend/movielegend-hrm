@@ -87,9 +87,12 @@ export class DepartmentsService {
         _count: { select: { members: { where: { leftAt: null } } } },
         leader: {
           select: {
+            id: true,
+            userCode: true,
             profile: {
               select: {
                 fullName: true,
+                avatarUrl: true,
               },
             },
           },

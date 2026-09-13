@@ -35,7 +35,9 @@ import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
 import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails, useGroupMembers } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
+import { usePublicDepartments } from '../../hooks/useDepartments';
 import { uploadFile } from '../../api/uploads.api';
+import { createDirectChat } from '../../api/chat.api';
 import { assertSocketUrl } from '../../constants/env';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { useVoiceCall } from '../voice-call/VoiceCallProvider';
@@ -183,11 +185,124 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
 export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all' }) {
   const router = useRouter();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
   const markAsRead = useMarkGroupAsRead();
   const groups = scope === 'all' ? allGroups : myGroups;
   const groupItems = Array.isArray(groups.data) ? groups.data : [];
+
+  const departmentsQuery = usePublicDepartments({ limit: 100 });
+  const employeesQuery = useScopedEmployees({ limit: 100 });
+
+  const [isLeaderModalVisible, setLeaderModalVisible] = useState(false);
+  const [leaderSearch, setLeaderSearch] = useState('');
+  const [connectingLeaderId, setConnectingLeaderId] = useState<string | null>(null);
+
+  // Extract all department leaders
+  const departmentLeaders = useMemo(() => {
+    const map = new Map<string, {
+      userId: string;
+      fullName: string;
+      userCode?: string;
+      avatarUrl?: string | null;
+      departmentName: string;
+      branchName?: string;
+    }>();
+
+    // 1. From departments
+    const deptItems = Array.isArray(departmentsQuery.data)
+      ? departmentsQuery.data
+      : (departmentsQuery.data?.items ?? []);
+
+    for (const d of deptItems) {
+      if (d.leader && d.leader.id) {
+        const uId = d.leader.id;
+        if (uId === user?.id) continue;
+        map.set(uId, {
+          userId: uId,
+          fullName: d.leader.profile?.fullName || d.leader.userCode || 'Trưởng phòng',
+          userCode: d.leader.userCode,
+          avatarUrl: resolveImageUrl(d.leader.profile?.avatarUrl),
+          departmentName: d.name,
+          branchName: d.branch?.name,
+        });
+      }
+    }
+
+    // 2. Also check scoped employees for any with role LEADER or leadership positions
+    const empItems = Array.isArray(employeesQuery.data)
+      ? employeesQuery.data
+      : (employeesQuery.data?.items ?? []);
+
+    for (const e of empItems) {
+      const isLeaderRole = (e.roles as any)?.some((r: any) => r.role?.code === 'LEADER' || r.code === 'LEADER') ||
+        e.position?.name?.toLowerCase().includes('trưởng') ||
+        e.position?.name?.toLowerCase().includes('leader') ||
+        e.position?.name?.toLowerCase().includes('quản lý');
+
+      if (isLeaderRole && e.id && e.id !== user?.id) {
+        if (!map.has(e.id)) {
+          map.set(e.id, {
+            userId: e.id,
+            fullName: e.fullName || e.profile?.fullName || e.userCode || 'Trưởng phòng',
+            userCode: e.userCode,
+            avatarUrl: resolveImageUrl(e.avatarUrl || e.profile?.avatarUrl),
+            departmentName: e.department?.name || 'Phòng ban',
+            branchName: undefined,
+          });
+        }
+      }
+    }
+
+    return Array.from(map.values());
+  }, [departmentsQuery.data, employeesQuery.data, user?.id]);
+
+  const filteredLeaders = useMemo(() => {
+    if (!leaderSearch.trim()) return departmentLeaders;
+    const q = leaderSearch.toLowerCase().trim();
+    return departmentLeaders.filter(
+      (l) =>
+        l.fullName.toLowerCase().includes(q) ||
+        l.departmentName.toLowerCase().includes(q) ||
+        (l.userCode && l.userCode.toLowerCase().includes(q)) ||
+        (l.branchName && l.branchName.toLowerCase().includes(q))
+    );
+  }, [departmentLeaders, leaderSearch]);
+
+  const handleOpenDirectChat = async (leader: { userId: string; fullName: string }) => {
+    try {
+      setConnectingLeaderId(leader.userId);
+      const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' :
+        user?.roles?.includes('HR') ? '/hr/chat' :
+          user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
+
+      // Check if direct chat already exists in user's chat groups
+      const existingGroup = groupItems.find((g: any) => {
+        if (g.type !== 'DIRECT') return false;
+        return g.members?.some((m: any) => m.userId === leader.userId);
+      });
+
+      if (existingGroup) {
+        setLeaderModalVisible(false);
+        router.push(`${basePath}/${existingGroup.id}?name=${encodeURIComponent(leader.fullName)}` as any);
+        return;
+      }
+
+      // Create new direct chat
+      const created = await createDirectChat(leader.userId);
+      await queryClient.invalidateQueries({ queryKey: ['chat', 'my-groups'] });
+      setLeaderModalVisible(false);
+      const groupId = created?.id || (created as any)?.data?.id;
+      if (groupId) {
+        router.push(`${basePath}/${groupId}?name=${encodeURIComponent(leader.fullName)}` as any);
+      }
+    } catch (err) {
+      console.error('Failed to open direct chat with leader:', err);
+    } finally {
+      setConnectingLeaderId(null);
+    }
+  };
 
   return (
     <Screen>
@@ -200,6 +315,80 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           subtitle={scope === 'all' ? 'Tất cả nhóm chat trong công ty' : 'Trao đổi nội bộ công ty'}
           showBack={false}
         />
+
+        {/* ── Section: Trưởng phòng các bộ phận (Leader Directory Carousel) ── */}
+        {departmentLeaders.length > 0 && (
+          <View style={styles.leadersSection}>
+            <View style={styles.leadersHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <MaterialCommunityIcons name="shield-account-outline" size={20} color="#2563EB" />
+                <Text style={styles.leadersSectionTitle}>Trưởng phòng các bộ phận</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setLeaderModalVisible(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+              >
+                <Text style={styles.leadersSeeAllText}>Xem tất cả ({departmentLeaders.length})</Text>
+                <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.leadersCarousel}
+            >
+              {departmentLeaders.map((leader) => (
+                <TouchableOpacity
+                  key={leader.userId}
+                  style={styles.leaderCard}
+                  activeOpacity={0.7}
+                  disabled={connectingLeaderId === leader.userId}
+                  onPress={() => handleOpenDirectChat(leader)}
+                >
+                  <View style={styles.leaderAvatarContainer}>
+                    {leader.avatarUrl ? (
+                      <Image source={{ uri: leader.avatarUrl }} style={styles.leaderAvatar} />
+                    ) : (
+                      <View style={styles.leaderAvatarFallback}>
+                        <Text style={styles.leaderAvatarInitials}>{getInitials(leader.fullName)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.leaderCrownBadge}>
+                      <MaterialCommunityIcons name="crown" size={11} color="#FFF" />
+                    </View>
+                  </View>
+
+                  <Text style={styles.leaderCardName} numberOfLines={1}>
+                    {leader.fullName}
+                  </Text>
+
+                  <View style={styles.leaderDeptBadge}>
+                    <Text style={styles.leaderDeptText} numberOfLines={1}>
+                      {leader.departmentName}
+                    </Text>
+                  </View>
+
+                  <View style={styles.leaderMsgButton}>
+                    {connectingLeaderId === leader.userId ? (
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="message-outline" size={13} color="#2563EB" />
+                        <Text style={styles.leaderMsgButtonText}>Nhắn tin</Text>
+                      </>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Section title for recent chats */}
+        <View style={styles.chatSectionTitleRow}>
+          <Text style={styles.chatSectionTitle}>Đoạn chat gần đây</Text>
+        </View>
 
         <View style={styles.groupList}>
           {groupItems.length > 0 ? (
@@ -297,6 +486,101 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           ) : null}
         </View>
       </ScrollView>
+
+      {/* ── Modal: Danh sách Tất cả Trưởng phòng ── */}
+      <Modal
+        visible={isLeaderModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLeaderModalVisible(false)}
+      >
+        <View style={styles.leaderModalOverlay}>
+          <View style={styles.leaderModalContainer}>
+            {/* Header */}
+            <View style={styles.leaderModalHeader}>
+              <View>
+                <Text style={styles.leaderModalTitle}>Trưởng phòng các bộ phận</Text>
+                <Text style={styles.leaderModalSubtitle}>Chọn Trưởng phòng để nhắn tin trao đổi công việc</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setLeaderModalVisible(false)}
+                style={styles.leaderModalCloseBtn}
+              >
+                <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search */}
+            <View style={styles.leaderSearchBox}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
+              <TextInput
+                style={styles.leaderSearchInput}
+                placeholder="Tìm theo tên hoặc phòng ban..."
+                placeholderTextColor="#94A3B8"
+                value={leaderSearch}
+                onChangeText={setLeaderSearch}
+              />
+              {leaderSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setLeaderSearch('')}>
+                  <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* List */}
+            <FlatList
+              data={filteredLeaders}
+              keyExtractor={(item) => item.userId}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.leaderListItem}
+                  activeOpacity={0.7}
+                  disabled={connectingLeaderId === item.userId}
+                  onPress={() => handleOpenDirectChat(item)}
+                >
+                  <View style={styles.leaderListAvatarContainer}>
+                    {item.avatarUrl ? (
+                      <Image source={{ uri: item.avatarUrl }} style={styles.leaderListAvatar} />
+                    ) : (
+                      <View style={styles.leaderListAvatarFallback}>
+                        <Text style={styles.leaderListAvatarInitials}>{getInitials(item.fullName)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.leaderCrownBadgeSmall}>
+                      <MaterialCommunityIcons name="crown" size={9} color="#FFF" />
+                    </View>
+                  </View>
+
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.leaderListName}>{item.fullName}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                      <Text style={styles.leaderListDept}>{item.departmentName}</Text>
+                      {item.branchName && (
+                        <Text style={styles.leaderListBranch}>• {item.branchName}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.leaderListActionBtn}>
+                    {connectingLeaderId === item.userId ? (
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    ) : (
+                      <MaterialCommunityIcons name="chat-outline" size={20} color="#2563EB" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <MaterialCommunityIcons name="account-search-outline" size={44} color="#CBD5E1" />
+                  <Text style={{ marginTop: 8, fontSize: 14, color: '#94A3B8' }}>Không tìm thấy Trưởng phòng phù hợp</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -2241,5 +2525,254 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 1,
+  },
+
+  // Leader Directory Carousel & Modal Styles
+  leadersSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  leadersHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  leadersSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  leadersSeeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  leadersCarousel: {
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  leaderCard: {
+    width: 125,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  leaderAvatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  leaderAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  leaderAvatarFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#C7D2FE',
+  },
+  leaderAvatarInitials: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  leaderCrownBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#F59E0B',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  leaderCardName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  leaderDeptBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 8,
+    maxWidth: '100%',
+  },
+  leaderDeptText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#2563EB',
+    textAlign: 'center',
+  },
+  leaderMsgButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  leaderMsgButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
+  chatSectionTitleRow: {
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  chatSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  leaderModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  leaderModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingTop: 16,
+  },
+  leaderModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  leaderModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  leaderModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  leaderModalCloseBtn: {
+    padding: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+  },
+  leaderSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  leaderSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    padding: 0,
+  },
+  leaderListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  leaderListAvatarContainer: {
+    position: 'relative',
+  },
+  leaderListAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  leaderListAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  leaderListAvatarInitials: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  leaderCrownBadgeSmall: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    width: 15,
+    height: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  leaderListName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  leaderListDept: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '500',
+  },
+  leaderListBranch: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  leaderListActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
