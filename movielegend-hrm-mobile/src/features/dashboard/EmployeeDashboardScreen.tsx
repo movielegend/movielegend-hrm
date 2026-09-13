@@ -15,6 +15,7 @@ import { getMyVault } from '../../api/employees.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
 import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
 import { Screen } from '../../components/Screen';
+import { spacing } from '../../theme/spacing';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { LiveClock } from '../../components/LiveClock';
 import { levelingApi } from '../../api/leveling.api';
