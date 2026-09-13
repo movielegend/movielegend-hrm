@@ -15,8 +15,7 @@ import { getMyVault } from '../../api/employees.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
 import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
 import { Screen } from '../../components/Screen';
-import { spacing } from '../../theme/spacing';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { LiveClock } from '../../components/LiveClock';
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
@@ -31,8 +30,8 @@ export function EmployeeDashboardScreen() {
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: schedule } = useMySchedule();
   const { data: myTasks } = useMyTasks({ limit: 100 });
-  const { data: unreadData } = useUnreadNotificationCount();
-  const unreadCount = unreadData?.count || 0;
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
   const { data: myVault } = useQuery({
     queryKey: ['my-vault', user?.id],
     queryFn: getMyVault,
@@ -144,10 +143,23 @@ export function EmployeeDashboardScreen() {
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && <View style={styles.badgeDot} />}
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
+              {unreadChat > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadChat > 99 ? '99+' : unreadChat}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
@@ -661,6 +673,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
     borderWidth: 1.5,
     borderColor: '#fff',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    zIndex: 10,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   heroCard: {
     borderRadius: 24,

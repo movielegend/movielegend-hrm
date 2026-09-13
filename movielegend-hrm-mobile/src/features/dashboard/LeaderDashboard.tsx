@@ -14,7 +14,7 @@ import { spacing } from '../../theme/spacing';
 import { getDashboardByRole, getLeaderActivities } from '../../api/dashboard.api';
 import { getMyVault, getVaultWithdrawalRequests } from '../../api/employees.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
@@ -47,8 +47,8 @@ export function LeaderDashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'TASKS' | 'ACTIVITY'>('TASKS');
-  const { data: unreadData } = useUnreadNotificationCount();
-  const unreadCount = unreadData?.count || 0;
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: myTasks } = useMyTasks({ limit: 10 });
 
@@ -177,10 +177,23 @@ export function LeaderDashboard() {
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && <View style={styles.badgeDot} />}
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/leader/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
+              {unreadChat > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadChat > 99 ? '99+' : unreadChat}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>

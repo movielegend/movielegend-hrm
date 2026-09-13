@@ -5,8 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
-import { useAuth } from '../../providers/AuthProvider';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { getMyVault } from '../../api/employees.api';
@@ -39,8 +38,8 @@ export function HRDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data: unreadData } = useUnreadNotificationCount();
-  const unreadCount = typeof unreadData === 'number' ? unreadData : (unreadData as any)?.count || 0;
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
   const { data: currentAttendance } = useCurrentAttendance();
   const [activeTab, setActiveTab] = useState<'TASKS' | 'ACTIVITY'>('TASKS');
   
@@ -160,10 +159,23 @@ export function HRDashboard() {
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/(tabs)/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && <View style={styles.badgeDot} />}
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
+              {unreadChat > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadChat > 99 ? '99+' : unreadChat}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>

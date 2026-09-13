@@ -6,7 +6,7 @@ import { apiClient, unwrapData } from '../../api/client';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { getVaultWithdrawalRequests } from '../../api/employees.api';
@@ -38,8 +38,8 @@ export function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data: unreadData } = useUnreadNotificationCount();
-  const unreadCount = unreadData?.count || 0;
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
 
   const { data: feedbackData, isLoading: isLoadingFeedbacks } = useFeedbacksForManagement({ limit: 5, status: 'SEND' });
 
@@ -144,10 +144,23 @@ export function AdminDashboard() {
           <View style={styles.headerRight}>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && <View style={styles.badgeDot} />}
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
+              {unreadChat > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadChat > 99 ? '99+' : unreadChat}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>

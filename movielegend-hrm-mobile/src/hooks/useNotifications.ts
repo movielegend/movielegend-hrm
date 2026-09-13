@@ -8,7 +8,7 @@ if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { registerDeviceToken, revokeDeviceToken } from '../api/device-tokens.api';
 import { getMyNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from '../api/notifications.api';
-import { markGroupAsRead } from '../api/chat.api';
+import { markGroupAsRead, fetchMyChatGroups } from '../api/chat.api';
 import { queryKeys, chatKeys } from '../constants/queryKeys';
 import type { DevicePlatform } from '../types/notification.types';
 
@@ -25,8 +25,23 @@ export function useUnreadNotificationCount() {
   const { user } = useAuth();
   return useQuery({
     queryKey: queryKeys.notificationUnreadCount(user?.id),
-    queryFn: getUnreadNotificationCount,
-    enabled: Boolean(user),
+    queryFn: async () => {
+      const res = await getUnreadNotificationCount();
+      return typeof res === 'number' ? res : (res as any)?.count ?? 0;
+    },
+    enabled: Boolean(user?.id),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useUnreadChatCount() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['my-chat-groups-unread-total', user?.id],
+    queryFn: fetchMyChatGroups,
+    enabled: Boolean(user?.id),
+    select: (groups) => groups?.reduce((sum: number, g: any) => sum + (g.unreadCount || 0), 0) || 0,
+    refetchInterval: 15_000,
   });
 }
 
