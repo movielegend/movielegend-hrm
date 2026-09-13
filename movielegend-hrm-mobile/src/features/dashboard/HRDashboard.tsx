@@ -395,12 +395,6 @@ export function HRDashboard() {
               onPress={() => router.push('/employee/vault' as any)}
             />
             <GridItem 
-              icon="clipboard-check-outline" 
-              title="Duyệt level" 
-              color="#8B5CF6" 
-              onPress={() => router.push('/hr/leveling' as any)} 
-            />
-            <GridItem 
               icon="history" 
               title="Lịch sử công" 
               color="#6366F1" 
