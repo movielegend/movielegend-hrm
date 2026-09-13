@@ -133,6 +133,7 @@ export function useCreateCustomChat() {
     mutationFn: (data: { name: string; memberIds: string[] }) => createCustomChat(data.name, data.memberIds),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
     },
   });
 }

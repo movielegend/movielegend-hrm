@@ -33,7 +33,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails, useGroupMembers } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails, useGroupMembers, useCreateCustomChat } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { usePublicDepartments } from '../../hooks/useDepartments';
 import { uploadFile } from '../../api/uploads.api';
@@ -185,19 +185,41 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
 export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all' }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { showAlert } = useAppAlert();
   const queryClient = useQueryClient();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
   const markAsRead = useMarkGroupAsRead();
+  const createCustomChatMutation = useCreateCustomChat();
   const groups = scope === 'all' ? allGroups : myGroups;
   const groupItems = Array.isArray(groups.data) ? groups.data : [];
 
   const departmentsQuery = usePublicDepartments({ limit: 100 });
-  const employeesQuery = useScopedEmployees({ limit: 100 });
+  const employeesQuery = useScopedEmployees({ limit: 200 });
 
+  // Admin Role Detection (Global Admin, Region Admin 1, Region Admin 2)
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    (!user?.scopes || user?.scopes.length === 0 || user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType)))
+  );
+  const isRegionAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
+  );
+  const isAdmin = isGlobalAdmin || isRegionAdmin || user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
+
+  // Leader Directory Modal State
   const [isLeaderModalVisible, setLeaderModalVisible] = useState(false);
   const [leaderSearch, setLeaderSearch] = useState('');
   const [connectingLeaderId, setConnectingLeaderId] = useState<string | null>(null);
+
+  // Create Group Modal State (Admin)
+  const [isCreateGroupModalVisible, setCreateGroupModalVisible] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [filterDeptId, setFilterDeptId] = useState<string>('all');
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   // Extract all department leaders
   const departmentLeaders = useMemo(() => {
@@ -270,6 +292,49 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
     );
   }, [departmentLeaders, leaderSearch]);
 
+  // Candidates for Custom Group Creation
+  const candidateEmployees = useMemo(() => {
+    const raw = Array.isArray(employeesQuery.data)
+      ? employeesQuery.data
+      : (employeesQuery.data?.items ?? []);
+
+    return raw.filter((e: any) => e.id && e.id !== user?.id);
+  }, [employeesQuery.data, user?.id]);
+
+  const filteredCandidateEmployees = useMemo(() => {
+    let list = candidateEmployees;
+    if (filterDeptId !== 'all') {
+      list = list.filter((e: any) => e.department?.id === filterDeptId || e.departmentId === filterDeptId);
+    }
+    if (memberSearchQuery.trim()) {
+      const q = memberSearchQuery.toLowerCase().trim();
+      list = list.filter((e: any) => {
+        const name = (e.fullName || e.profile?.fullName || '').toLowerCase();
+        const code = (e.userCode || '').toLowerCase();
+        const dept = (e.department?.name || '').toLowerCase();
+        return name.includes(q) || code.includes(q) || dept.includes(q);
+      });
+    }
+    return list;
+  }, [candidateEmployees, filterDeptId, memberSearchQuery]);
+
+  const availableDepartments = useMemo(() => {
+    const list = Array.isArray(departmentsQuery.data)
+      ? departmentsQuery.data
+      : (departmentsQuery.data?.items ?? []);
+    return list;
+  }, [departmentsQuery.data]);
+
+  const selectedMembers = useMemo(() => {
+    return candidateEmployees.filter((e: any) => selectedMemberIds.includes(e.id));
+  }, [candidateEmployees, selectedMemberIds]);
+
+  const toggleMemberSelection = (userId: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
   const handleOpenDirectChat = async (leader: { userId: string; fullName: string }) => {
     try {
       setConnectingLeaderId(leader.userId);
@@ -304,6 +369,44 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
     }
   };
 
+  const handleCreateGroup = async () => {
+    const trimmedName = newGroupName.trim();
+    if (!trimmedName) {
+      showAlert('Thông báo', 'Vui lòng nhập tên nhóm chat');
+      return;
+    }
+    if (selectedMemberIds.length === 0) {
+      showAlert('Thông báo', 'Vui lòng chọn ít nhất 1 thành viên tham gia nhóm');
+      return;
+    }
+
+    try {
+      setIsCreatingGroup(true);
+      const res: any = await createCustomChatMutation.mutateAsync({
+        name: trimmedName,
+        memberIds: selectedMemberIds,
+      });
+      const newGroupId = res?.id || res?.data?.id;
+      setCreateGroupModalVisible(false);
+      setNewGroupName('');
+      setSelectedMemberIds([]);
+      setMemberSearchQuery('');
+      setFilterDeptId('all');
+
+      if (newGroupId) {
+        const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' :
+          user?.roles?.includes('HR') ? '/hr/chat' :
+            user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
+        router.push(`${basePath}/${newGroupId}?name=${encodeURIComponent(trimmedName)}` as any);
+      }
+    } catch (err: any) {
+      console.error('Failed to create custom group:', err);
+      showAlert('Lỗi', normalizeApiError(err)?.message || 'Không thể tạo nhóm chat, vui lòng thử lại');
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
+
   return (
     <Screen>
       <ScrollView
@@ -314,6 +417,18 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           title="Nhóm Chat"
           subtitle={scope === 'all' ? 'Tất cả nhóm chat trong công ty' : 'Trao đổi nội bộ công ty'}
           showBack={false}
+          right={
+            isAdmin ? (
+              <TouchableOpacity
+                style={styles.headerCreateGroupBtn}
+                activeOpacity={0.8}
+                onPress={() => setCreateGroupModalVisible(true)}
+              >
+                <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+                <Text style={styles.headerCreateGroupBtnText}>Tạo nhóm</Text>
+              </TouchableOpacity>
+            ) : undefined
+          }
         />
 
         {/* ── Section: Trưởng phòng các bộ phận (Leader Directory Carousel) ── */}
@@ -486,6 +601,214 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           ) : null}
         </View>
       </ScrollView>
+
+      {/* ── Modal: Tạo nhóm Chat Mới (Admin) ── */}
+      <Modal
+        visible={isCreateGroupModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          if (!isCreatingGroup) setCreateGroupModalVisible(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          style={styles.leaderModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={[styles.leaderModalContainer, { height: '90%', maxHeight: '90%' }]}>
+            {/* Header */}
+            <View style={styles.leaderModalHeader}>
+              <View>
+                <Text style={styles.leaderModalTitle}>Tạo nhóm chat mới</Text>
+                <Text style={styles.leaderModalSubtitle}>
+                  {isGlobalAdmin ? 'Admin Tổng • Mời thành viên toàn công ty' : isRegionAdmin ? 'Admin Miền • Mời thành viên trong miền' : 'Mời thành viên tham gia nhóm'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setCreateGroupModalVisible(false)}
+                style={styles.leaderModalCloseBtn}
+                disabled={isCreatingGroup}
+              >
+                <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Form: Group Name Input */}
+            <View style={styles.createGroupNameContainer}>
+              <Text style={styles.createGroupInputLabel}>Tên nhóm chat <Text style={{ color: '#EF4444' }}>*</Text></Text>
+              <View style={styles.createGroupNameInputWrap}>
+                <MaterialCommunityIcons name="account-group-outline" size={20} color="#64748B" />
+                <TextInput
+                  style={styles.createGroupNameInput}
+                  placeholder="Nhập tên nhóm (VD: Dự án Phim Tết, Ban Quản Lý...)"
+                  placeholderTextColor="#94A3B8"
+                  value={newGroupName}
+                  onChangeText={setNewGroupName}
+                />
+              </View>
+            </View>
+
+            {/* Search Input */}
+            <View style={[styles.leaderSearchBox, { marginVertical: 6 }]}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
+              <TextInput
+                style={styles.leaderSearchInput}
+                placeholder="Tìm nhân sự theo tên hoặc mã NV..."
+                placeholderTextColor="#94A3B8"
+                value={memberSearchQuery}
+                onChangeText={setMemberSearchQuery}
+              />
+              {memberSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setMemberSearchQuery('')}>
+                  <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Department Filter Tabs */}
+            {availableDepartments.length > 0 && (
+              <View style={{ height: 44 }}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.deptFilterScroll}
+                >
+                  <TouchableOpacity
+                    style={[styles.deptFilterChip, filterDeptId === 'all' && styles.deptFilterChipActive]}
+                    onPress={() => setFilterDeptId('all')}
+                  >
+                    <Text style={[styles.deptFilterChipText, filterDeptId === 'all' && styles.deptFilterChipTextActive]}>
+                      Tất cả ({candidateEmployees.length})
+                    </Text>
+                  </TouchableOpacity>
+                  {availableDepartments.map((dept: any) => (
+                    <TouchableOpacity
+                      key={dept.id}
+                      style={[styles.deptFilterChip, filterDeptId === dept.id && styles.deptFilterChipActive]}
+                      onPress={() => setFilterDeptId(dept.id)}
+                    >
+                      <Text style={[styles.deptFilterChipText, filterDeptId === dept.id && styles.deptFilterChipTextActive]}>
+                        {dept.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Selected Members Chips */}
+            {selectedMembers.length > 0 && (
+              <View style={styles.selectedMembersSection}>
+                <Text style={styles.selectedMembersCount}>
+                  Đã chọn ({selectedMembers.length}):
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+                >
+                  {selectedMembers.map((m: any) => {
+                    const avatar = resolveImageUrl(m.avatarUrl || m.profile?.avatarUrl);
+                    const name = m.fullName || m.profile?.fullName || m.userCode || 'Thành viên';
+                    return (
+                      <View key={m.id} style={styles.selectedMemberChip}>
+                        {avatar ? (
+                          <Image source={{ uri: avatar }} style={styles.selectedMemberChipAvatar} />
+                        ) : (
+                          <View style={styles.selectedMemberChipFallback}>
+                            <Text style={styles.selectedMemberChipFallbackText}>{getInitials(name)}</Text>
+                          </View>
+                        )}
+                        <Text style={styles.selectedMemberChipName} numberOfLines={1}>{name}</Text>
+                        <TouchableOpacity
+                          onPress={() => toggleMemberSelection(m.id)}
+                          style={styles.selectedMemberChipRemove}
+                        >
+                          <MaterialCommunityIcons name="close" size={12} color="#64748B" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Candidate List */}
+            <FlatList
+              data={filteredCandidateEmployees}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+              renderItem={({ item }) => {
+                const isSelected = selectedMemberIds.includes(item.id);
+                const avatar = resolveImageUrl(item.avatarUrl || item.profile?.avatarUrl);
+                const name = item.fullName || item.profile?.fullName || item.userCode || 'Thành viên';
+                const deptName = item.department?.name || item.departmentName || 'Phòng ban';
+
+                return (
+                  <TouchableOpacity
+                    style={[styles.memberSelectRow, isSelected && styles.memberSelectRowActive]}
+                    activeOpacity={0.7}
+                    onPress={() => toggleMemberSelection(item.id)}
+                  >
+                    <View style={styles.memberSelectCheckbox}>
+                      {isSelected ? (
+                        <MaterialCommunityIcons name="checkbox-marked-circle" size={24} color="#2563EB" />
+                      ) : (
+                        <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={24} color="#CBD5E1" />
+                      )}
+                    </View>
+
+                    {avatar ? (
+                      <Image source={{ uri: avatar }} style={styles.memberSelectAvatar} />
+                    ) : (
+                      <View style={styles.memberSelectAvatarFallback}>
+                        <Text style={styles.memberSelectAvatarInitials}>{getInitials(name)}</Text>
+                      </View>
+                    )}
+
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.memberSelectName}>{name}</Text>
+                        {item.userCode ? <Text style={styles.memberSelectCode}>({item.userCode})</Text> : null}
+                      </View>
+                      <Text style={styles.memberSelectDept}>{deptName}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <MaterialCommunityIcons name="account-search-outline" size={44} color="#CBD5E1" />
+                  <Text style={{ marginTop: 8, fontSize: 14, color: '#94A3B8' }}>Không tìm thấy nhân sự phù hợp</Text>
+                </View>
+              }
+            />
+
+            {/* Bottom Submit Action */}
+            <View style={styles.createGroupFooter}>
+              <TouchableOpacity
+                style={[
+                  styles.createGroupSubmitBtn,
+                  (!newGroupName.trim() || selectedMemberIds.length === 0 || isCreatingGroup) && styles.createGroupSubmitBtnDisabled
+                ]}
+                disabled={!newGroupName.trim() || selectedMemberIds.length === 0 || isCreatingGroup}
+                onPress={handleCreateGroup}
+              >
+                {isCreatingGroup ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check" size={20} color="#FFFFFF" />
+                    <Text style={styles.createGroupSubmitBtnText}>
+                      Tạo nhóm {selectedMemberIds.length > 0 ? `(${selectedMemberIds.length} thành viên)` : ''}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* ── Modal: Danh sách Tất cả Trưởng phòng ── */}
       <Modal
@@ -2774,5 +3097,203 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Create Custom Group Styles (Admin)
+  headerCreateGroupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  headerCreateGroupBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  createGroupNameContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  createGroupInputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  createGroupNameInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  createGroupNameInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    padding: 0,
+  },
+  deptFilterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+    paddingVertical: 6,
+  },
+  deptFilterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  deptFilterChipActive: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#93C5FD',
+  },
+  deptFilterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  deptFilterChipTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  selectedMembersSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#FAFAFA',
+  },
+  selectedMembersCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 4,
+  },
+  selectedMemberChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 16,
+    paddingLeft: 4,
+    paddingRight: 8,
+    paddingVertical: 3,
+    gap: 5,
+  },
+  selectedMemberChipAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  selectedMemberChipFallback: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedMemberChipFallbackText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  selectedMemberChipName: {
+    fontSize: 12,
+    color: '#1E293B',
+    maxWidth: 90,
+  },
+  selectedMemberChipRemove: {
+    padding: 2,
+  },
+  memberSelectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  memberSelectRowActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  memberSelectCheckbox: {
+    marginRight: 10,
+  },
+  memberSelectAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  memberSelectAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  memberSelectAvatarInitials: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  memberSelectName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  memberSelectCode: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  memberSelectDept: {
+    fontSize: 12,
+    color: '#2563EB',
+    marginTop: 2,
+  },
+  createGroupFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+  },
+  createGroupSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+  },
+  createGroupSubmitBtnDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  createGroupSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
