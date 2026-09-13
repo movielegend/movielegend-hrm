@@ -356,7 +356,6 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             setSelectedProjectId((prev) => (prev && loadedProjects.some((p) => p.id === prev) ? prev : loadedProjects[0]?.id || ''));
           }
         }
-      }
     } catch (e) {
       console.error('Failed to load leveling data:', e);
     } finally {
