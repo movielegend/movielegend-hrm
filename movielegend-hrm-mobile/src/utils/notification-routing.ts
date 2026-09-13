@@ -86,16 +86,34 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const notifType = notification.type || '';
   const metaType = stringMeta(notification.metadata, 'type') || '';
 
-  // 1. Leveling & Level Projects Routing
+  // 1. Documents & Department Files Routing (Priority over generic words)
+  const documentId = stringMeta(notification.metadata, 'documentId');
+  if (
+    documentId ||
+    stringMeta(notification.metadata, 'screen') === 'DocumentList' ||
+    notification.type.startsWith('DOCUMENT_') ||
+    t.includes('tài liệu') ||
+    b.includes('tài liệu')
+  ) {
+    if (user?.roles.includes('ADMIN')) return '/admin/documents';
+    if (user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT')) return '/hr/documents';
+    if (user?.roles.includes('LEADER')) return '/leader/documents';
+    return '/employee/documents';
+  }
+
+  // 2. Leveling & Level Projects Routing
   if (
     notifType.startsWith('LEVEL_') ||
     metaType.startsWith('LEVEL_') ||
-    t.includes('dự án') ||
+    t.includes('dự án cấp bậc') ||
+    t.includes('dự án level') ||
     t.includes('cấp bậc') ||
     t.includes('việc con') ||
     t.includes('thăng cấp') ||
-    t.includes('level') ||
-    b.includes('dự án') ||
+    t.includes('lên cấp') ||
+    t.includes('xét cấp bậc') ||
+    b.includes('dự án cấp bậc') ||
+    b.includes('dự án level') ||
     b.includes('việc con') ||
     b.includes('cấp bậc') ||
     b.includes('thăng cấp')
@@ -105,7 +123,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     return '/employee/level-projects';
   }
 
-  // 2. Bonus Vault & Points Routing
+  // 3. Bonus Vault & Points Routing
   if (
     notifType.startsWith('VAULT_') ||
     metaType.startsWith('VAULT_') ||
@@ -166,33 +184,20 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type === 'SYSTEM' && contractId) {
     return `${base}/contracts/${contractId}`;
   }
-
-  const documentId = stringMeta(notification.metadata, 'documentId');
-  if (
-    documentId ||
-    stringMeta(notification.metadata, 'screen') === 'DocumentList' ||
-    notification.type.startsWith('DOCUMENT_') ||
-    t.includes('tài liệu')
-  ) {
-    if (user?.roles.includes('ADMIN')) return '/admin/documents';
-    if (user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT')) return '/hr/documents';
-    if (user?.roles.includes('LEADER')) return '/leader/documents';
-    return '/employee/documents';
-  }
   
   return null;
 }
 
 export function getNotificationIcon(type: string, title?: string): any {
   const t = (title || '').toLowerCase();
-  if (t.includes('dự án') || t.includes('cấp bậc') || t.includes('việc con') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return 'trophy-award';
+  if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || t.includes('tài liệu')) return 'file-document-outline';
+  if (t.includes('dự án cấp bậc') || t.includes('cấp bậc') || t.includes('việc con') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return 'trophy-award';
   if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('rút tiền') || t.includes('rút ví') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return 'wallet-giftcard';
   if (type.startsWith('TASK_')) return 'clipboard-check-outline';
   if (type.startsWith('ASSET_INCIDENT_')) return 'alert-circle-outline';
   if (type.startsWith('ASSET_')) return 'desktop-mac';
   if (type.startsWith('MATERIAL_ISSUE_') || type.startsWith('STOCK_')) return 'package-variant-closed';
   if (type.startsWith('PAYROLL_') || type.startsWith('PAYSLIP_')) return 'cash-multiple';
-  if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || title?.toLowerCase().includes('tài liệu')) return 'file-document-outline';
   if (type.startsWith('CHAT_')) return 'chat-processing-outline';
   if (type.startsWith('VIOLATION_')) return 'gavel';
   if (type.startsWith('NEWSFEED_')) return 'newspaper-variant-outline';
@@ -206,7 +211,8 @@ export function getNotificationIcon(type: string, title?: string): any {
 
 export function getNotificationColor(type: string, title?: string): string {
   const t = (title || '').toLowerCase();
-  if (t.includes('dự án') || t.includes('cấp bậc') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return '#0F766E';
+  if (type.startsWith('DOCUMENT_') || t.includes('tài liệu')) return colors.primary;
+  if (t.includes('dự án cấp bậc') || t.includes('cấp bậc') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return '#0F766E';
   if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return '#D97706';
   if (type.startsWith('TASK_')) return colors.primary;
   if (type.startsWith('ASSET_INCIDENT_')) return colors.danger;
@@ -218,7 +224,6 @@ export function getNotificationColor(type: string, title?: string): string {
   if (type.includes('REJECTED') || type.includes('FAILED') || t.includes('từ chối') || t.includes('sửa lại')) return colors.danger;
   if (type.includes('APPROVED') || type.includes('CONFIRMED') || t.includes('thành công') || t.includes('đã duyệt')) return colors.success;
   if (type === 'SYSTEM' && (title === 'Phân ca mới' || title === 'Phân ca làm việc mới')) return colors.primary;
-  if (type.startsWith('DOCUMENT_') || title?.toLowerCase().includes('tài liệu')) return colors.primary;
   
   return colors.muted;
 }
