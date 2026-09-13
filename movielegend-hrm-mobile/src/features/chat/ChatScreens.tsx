@@ -195,7 +195,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
   const groupItems = Array.isArray(groups.data) ? groups.data : [];
 
   const departmentsQuery = usePublicDepartments({ limit: 100 });
-  const employeesQuery = useScopedEmployees({ limit: 200 });
+  const employeesQuery = useScopedEmployees({ limit: 100 });
 
   // Admin Role Detection (Global Admin, Region Admin 1, Region Admin 2)
   const isGlobalAdmin = Boolean(
@@ -296,7 +296,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
   const candidateEmployees = useMemo(() => {
     const raw = Array.isArray(employeesQuery.data)
       ? employeesQuery.data
-      : (employeesQuery.data?.items ?? []);
+      : (employeesQuery.data?.items ?? (employeesQuery.data as any)?.data ?? []);
 
     return raw.filter((e: any) => e.id && e.id !== user?.id);
   }, [employeesQuery.data, user?.id]);
