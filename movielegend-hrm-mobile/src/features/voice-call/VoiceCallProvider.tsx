@@ -342,13 +342,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     setIsSpeaker(prev => {
       const newVal = !prev;
       try {
-        if (Platform.OS === 'android') {
-          const { Audio } = require('expo-av');
-          Audio.setAudioModeAsync({
-            playThroughEarpieceAndroid: !newVal
-          }).catch(console.warn);
-        } else if (AudioSession) {
-          // AudioSession API for switching output on iOS
+        if (AudioSession) {
           AudioSession.showAudioRoutePicker?.();
         }
       } catch (e) {

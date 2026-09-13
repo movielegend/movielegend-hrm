@@ -28,43 +28,6 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
   const [sound, setSound] = useState<any | null>(null);
 
   useEffect(() => {
-    let currentSound: any = null;
-    let isMounted = true;
-
-    async function playRingtone() {
-      try {
-        const ExpoAv = require('expo-av');
-        const AudioModule = ExpoAv?.Audio;
-        if (!AudioModule) return;
-
-        await AudioModule.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-
-        const { sound: newSound } = await AudioModule.Sound.createAsync(
-          require('../../../assets/sounds/ringtone.wav'),
-          { isLooping: true }
-        );
-        
-        if (isMounted) {
-          currentSound = newSound;
-          setSound(newSound);
-          await newSound.setVolumeAsync(1.0);
-          await newSound.playAsync();
-        } else {
-          // If unmounted before loading finished
-          await newSound.unloadAsync();
-        }
-      } catch (error) {
-        console.warn('Ringtone unavailable in current runtime:', error);
-      }
-    }
-
-    playRingtone();
-
     // Vibrate pattern for incoming call
     const vibrationPattern = [0, 800, 400, 800];
     Vibration.vibrate(vibrationPattern, true);

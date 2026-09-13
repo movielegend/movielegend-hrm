@@ -10,15 +10,6 @@ import { uploadFile } from '../../api/uploads.api';
 
 let SafeVideoComponent: any = null;
 let ResizeModeEnum: any = { CONTAIN: 'contain' };
-try {
-  const av = require('expo-av');
-  SafeVideoComponent = av?.Video;
-  if (av?.ResizeMode) {
-    ResizeModeEnum = av.ResizeMode;
-  }
-} catch (e) {
-  console.warn('expo-av Video component unavailable in current runtime');
-}
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
