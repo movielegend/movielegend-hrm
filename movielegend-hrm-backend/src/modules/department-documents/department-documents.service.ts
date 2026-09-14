@@ -18,6 +18,17 @@ export class DepartmentDocumentsService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
+  private isHR(actor: AuthenticatedUser): boolean {
+    return actor.roles?.some((r) => ['HR', 'HUMAN_RESOURCE', 'HR_ADMIN'].includes(r.toUpperCase())) ?? false;
+  }
+
+  private isLeader(actor: AuthenticatedUser, deptLeaderId?: string | null): boolean {
+    if (actor.roles?.some((r) => ['LEADER', 'MANAGER', 'TRUONG_PHONG', 'DEPARTMENT_HEAD'].includes(r.toUpperCase()))) return true;
+    if (actor.scopes?.some((s) => s.role === 'LEADER')) return true;
+    if (deptLeaderId && deptLeaderId === actor.userId) return true;
+    return false;
+  }
+
   /** Lấy danh sách ID phòng ban mà user trực thuộc */
   private async getUserDepartmentIds(actor: AuthenticatedUser): Promise<string[]> {
     const members = await this.prisma.departmentMember.findMany({
@@ -32,6 +43,13 @@ export class DepartmentDocumentsService {
         ids.add(s.scopeId);
       }
     });
+
+    // Thêm các phòng ban mà user là leaderUserId
+    const ledDepts = await this.prisma.department.findMany({
+      where: { leaderUserId: actor.userId, deletedAt: null },
+      select: { id: true },
+    });
+    ledDepts.forEach((d) => ids.add(d.id));
 
     return Array.from(ids);
   }
@@ -123,9 +141,9 @@ export class DepartmentDocumentsService {
     let dept: any = null;
 
     if (!dto.departmentId) {
-      // Chỉ Super Admin mới được đăng tài liệu toàn công ty
-      if (!this.scope.isGlobalAdmin(actor)) {
-        throw forbidden('GLOBAL_DOCUMENT_REQUIRES_SUPER_ADMIN', 'Chỉ Admin tổng mới có quyền đăng tài liệu toàn công ty');
+      // Super Admin và HR mới được đăng tài liệu toàn công ty
+      if (!this.scope.isGlobalAdmin(actor) && !this.isHR(actor)) {
+        throw forbidden('GLOBAL_DOCUMENT_REQUIRES_SUPER_ADMIN', 'Chỉ Admin tổng hoặc Nhân sự (HR) mới có quyền đăng tài liệu toàn công ty');
       }
       const firstCompany = await this.prisma.company.findFirst({ where: { deletedAt: null }, select: { id: true } });
       if (!firstCompany) throw notFound('COMPANY_NOT_FOUND', 'Không tìm thấy công ty');
@@ -139,22 +157,22 @@ export class DepartmentDocumentsService {
       companyId = dept.companyId;
 
       // Kiểm tra quyền đăng theo phòng ban
-      if (this.scope.isGlobalAdmin(actor)) {
-        // Super Admin có quyền đăng cho bất kỳ phòng ban nào
+      if (this.scope.isGlobalAdmin(actor) || this.isHR(actor)) {
+        // Super Admin và HR có quyền đăng cho bất kỳ phòng ban nào
       } else if (this.scope.isRegionAdmin(actor)) {
         // Admin Miền chỉ được đăng cho các phòng ban trong miền mình
         const canAccess = await this.scope.canAccessDepartmentAsync(actor, dto.departmentId);
         if (!canAccess) {
           throw forbidden('REGION_SCOPE_FORBIDDEN', 'Bạn chỉ có quyền đăng tài liệu cho các phòng ban thuộc miền của mình');
         }
-      } else if (actor.roles.includes('LEADER')) {
+      } else if (this.isLeader(actor, dept.leaderUserId)) {
         // Leader chỉ được đăng cho phòng ban mình phụ trách
         const userDeptIds = await this.getUserDepartmentIds(actor);
         if (!userDeptIds.includes(dto.departmentId) && dept.leaderUserId !== actor.userId) {
           throw forbidden('LEADER_SCOPE_FORBIDDEN', 'Bạn chỉ có quyền đăng tài liệu cho phòng ban của mình');
         }
       } else {
-        // Nhân viên thường, HR, Kế toán không có quyền đăng tài liệu phòng ban nếu không phải Leader/Admin
+        // Nhân viên thường, Kế toán không có quyền đăng tài liệu phòng ban nếu không phải Leader/Admin/HR
         throw forbidden('DOCUMENT_CREATE_FORBIDDEN', 'Bạn không có quyền tải lên tài liệu cho phòng ban này');
       }
     }
@@ -192,13 +210,13 @@ export class DepartmentDocumentsService {
           companyId,
           departmentId: dto.departmentId || null,
           title: dto.title.trim(),
-          description: dto.description?.trim(),
+          description: dto.description?.trim() || null,
           category: dto.category || 'GENERAL',
           fileName: dto.fileName,
           fileUrl: dto.fileUrl,
-          storageKey: dto.storageKey,
-          mimeType: dto.mimeType,
-          fileSize: dto.fileSize,
+          storageKey: dto.storageKey || null,
+          mimeType: dto.mimeType || null,
+          fileSize: dto.fileSize || null,
           uploadedById: actor.userId,
         },
         include: this.documentInclude(),
@@ -228,7 +246,6 @@ export class DepartmentDocumentsService {
     return formatted;
   }
 
-
   /** Lấy danh sách tài liệu theo đúng Scope phân quyền */
   async findAll(query: QueryDepartmentDocumentDto, actor: AuthenticatedUser) {
     const where: Prisma.DepartmentDocumentWhereInput = {
@@ -236,8 +253,8 @@ export class DepartmentDocumentsService {
     };
 
     // 1. Phân quyền xem (Scoping)
-    if (this.scope.isGlobalAdmin(actor)) {
-      // Super Admin: xem được hết (toàn bộ các phòng ban + toàn công ty)
+    if (this.scope.isGlobalAdmin(actor) || this.isHR(actor)) {
+      // Super Admin & HR: xem được hết (toàn bộ các phòng ban + toàn công ty)
       if (query.departmentId) {
         where.departmentId = query.departmentId;
       }
@@ -256,7 +273,7 @@ export class DepartmentDocumentsService {
         ];
       }
     } else {
-      // Leader, Nhân viên (Employee), HR, Kế toán (Accountant):
+      // Leader, Nhân viên (Employee), Kế toán (Accountant):
       // ĐÚNG YÊU CẦU: CHỈ XEM ĐƯỢC PHÒNG MÌNH (+ tài liệu toàn công ty)
       const userDeptIds = await this.getUserDepartmentIds(actor);
       if (query.departmentId) {
@@ -325,7 +342,7 @@ export class DepartmentDocumentsService {
 
     // Kiểm tra quyền xem
     if (doc.departmentId) {
-      if (this.scope.isGlobalAdmin(actor)) {
+      if (this.scope.isGlobalAdmin(actor) || this.isHR(actor)) {
         // OK
       } else if (this.scope.isRegionAdmin(actor)) {
         const canAccess = await this.scope.canAccessDepartmentAsync(actor, doc.departmentId);
@@ -349,20 +366,20 @@ export class DepartmentDocumentsService {
     if (!doc) throw notFound('DOCUMENT_NOT_FOUND', 'Tài liệu không tồn tại');
 
     // Quyền xóa:
-    // - Super Admin: xóa được hết
+    // - Super Admin & HR: xóa được hết
     // - Region Admin: xóa được tài liệu trong miền mình
     // - Leader: xóa được tài liệu trong phòng mình hoặc do mình tải lên
     // - Người tạo: xóa được tài liệu do chính mình tải lên
-    if (this.scope.isGlobalAdmin(actor)) {
+    if (this.scope.isGlobalAdmin(actor) || this.isHR(actor)) {
       // OK
     } else if (this.scope.isRegionAdmin(actor)) {
       if (doc.departmentId) {
         const canAccess = await this.scope.canAccessDepartmentAsync(actor, doc.departmentId);
         if (!canAccess) throw forbidden('REGION_SCOPE_FORBIDDEN', 'Không có quyền xóa tài liệu ngoài miền');
       } else {
-        throw forbidden('GLOBAL_DOC_DELETE_FORBIDDEN', 'Chỉ Super Admin mới có quyền xóa tài liệu toàn công ty');
+        throw forbidden('GLOBAL_DOC_DELETE_FORBIDDEN', 'Chỉ Super Admin hoặc HR mới có quyền xóa tài liệu toàn công ty');
       }
-    } else if (actor.roles.includes('LEADER')) {
+    } else if (this.isLeader(actor)) {
       const userDeptIds = await this.getUserDepartmentIds(actor);
       const isMyDept = doc.departmentId && userDeptIds.includes(doc.departmentId);
       const isUploader = doc.uploadedById === actor.userId;
