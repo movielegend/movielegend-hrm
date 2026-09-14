@@ -6,8 +6,8 @@ export function useChatGroups() {
   return useQuery({
     queryKey: chatKeys.groups(),
     queryFn: () => fetchMyChatGroups(),
-    staleTime: 1000 * 60 * 2,
-    refetchOnWindowFocus: false,
+    staleTime: 1000 * 5,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -15,8 +15,8 @@ export function useAllChatGroups() {
   return useQuery({
     queryKey: chatKeys.allGroups(),
     queryFn: () => fetchAllChatGroups(),
-    staleTime: 1000 * 60 * 2,
-    refetchOnWindowFocus: false,
+    staleTime: 1000 * 5,
+    refetchOnWindowFocus: true,
   });
 }
 

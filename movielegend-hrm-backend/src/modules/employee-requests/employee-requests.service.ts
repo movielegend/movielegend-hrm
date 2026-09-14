@@ -280,6 +280,20 @@ export class EmployeeRequestsService {
     const [items, total] = await Promise.all([
       this.prisma.employeeRequest.findMany({
         where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
