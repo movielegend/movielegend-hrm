@@ -182,52 +182,37 @@ export class ChatService {
     const isAdmin = message.sender?.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
     const senderName = isAdmin ? 'Admin' : (message.sender?.profile?.fullName ?? message.sender.userCode);
 
-    // Cập nhật thời gian hoạt động của nhóm chat để tự động nhảy lên đầu
-    await this.prisma.chatGroup.update({
-      where: { id: groupId },
-      data: { updatedAt: new Date() }
-    }).catch((err) => console.error('[ChatService] Failed to update chatGroup updatedAt:', err));
-
-    // Cập nhật lastReadAt cho người gửi để người gửi luôn có 0 unread
-    await this.prisma.chatGroupMember.upsert({
-      where: { groupId_userId: { groupId, userId } },
-      create: { groupId, userId, lastReadAt: new Date() },
-      update: { lastReadAt: new Date() }
-    }).catch((err) => console.error('[ChatService] Failed to update sender lastReadAt:', err));
-
-    // Phát tín hiệu qua WebSocket tới phòng chat cụ thể và toàn công ty
+    // 1. Phát tín hiệu qua WebSocket ngay lập tức (0ms latency)
     this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
     this.realtime.emitToRoom('company', 'chat:group_updated', { groupId, latestMessage: message });
 
-    // Phát tín hiệu trực tiếp tới từng thành viên
-    if (group.type === 'DEPARTMENT' && group.departmentId) {
-      const deptMembers = await this.prisma.departmentMember.findMany({
-        where: { departmentId: group.departmentId, leftAt: null },
-        select: { userId: true }
-      });
-      for (const dm of deptMembers) {
-        if (dm.userId !== userId) {
-          this.realtime.emitToUser(dm.userId, 'chat:message', message);
-        }
-      }
-    } else if (group.members && group.members.length > 0) {
-      for (const m of group.members) {
-        if (m.userId !== userId) {
-          this.realtime.emitToUser(m.userId, 'chat:message', message);
-        }
-      }
-    }
-
-    // Xử lý tạo thông báo (Notification) ngầm non-blocking trong background
+    // 2. Chạy ngầm các tác vụ DB phụ và thông báo (Non-blocking async background)
     setImmediate(async () => {
       try {
-        if (group.departmentId) {
-          const members = await this.prisma.departmentMember.findMany({
+        await Promise.all([
+          this.prisma.chatGroup.update({
+            where: { id: groupId },
+            data: { updatedAt: new Date() }
+          }).catch(() => {}),
+          this.prisma.chatGroupMember.upsert({
+            where: { groupId_userId: { groupId, userId } },
+            create: { groupId, userId, lastReadAt: new Date() },
+            update: { lastReadAt: new Date() }
+          }).catch(() => {})
+        ]);
+
+        if (group.type === 'DEPARTMENT' && group.departmentId) {
+          const deptMembers = await this.prisma.departmentMember.findMany({
             where: { departmentId: group.departmentId, leftAt: null },
             select: { userId: true }
           });
+          for (const dm of deptMembers) {
+            if (dm.userId !== userId) {
+              this.realtime.emitToUser(dm.userId, 'chat:message', message);
+            }
+          }
 
-          const notifyMembers = members.filter(m => m.userId !== userId);
+          const notifyMembers = deptMembers.filter(m => m.userId !== userId);
           if (notifyMembers.length > 0) {
             await this.prisma.$transaction(async (tx) => {
               const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
@@ -252,7 +237,9 @@ export class ChatService {
             where: { groupId }
           });
           for (const m of members) {
-            this.realtime.emitToUser(m.userId, 'chat:message', message);
+            if (m.userId !== userId) {
+              this.realtime.emitToUser(m.userId, 'chat:message', message);
+            }
           }
 
           const otherMembers = members.filter(m => m.userId !== userId);
@@ -279,7 +266,7 @@ export class ChatService {
           }
         }
       } catch (err) {
-        console.error('[ChatService] Background notification error:', err);
+        console.error('[ChatService] Background update/notification error:', err);
       }
     });
 
@@ -289,51 +276,35 @@ export class ChatService {
   private async getUnreadCounts(groupIds: string[], userId: string): Promise<Record<string, number>> {
     if (!groupIds || groupIds.length === 0) return {};
 
-    const members = await this.prisma.chatGroupMember.findMany({
-      where: {
-        groupId: { in: groupIds },
-        userId
-      },
-      select: {
-        groupId: true,
-        lastReadAt: true,
-        joinedAt: true,
-        clearedAt: true
-      }
-    });
-
-    const memberMap = new Map<string, { lastReadAt: Date | null; joinedAt: Date; clearedAt: Date | null }>();
-    for (const m of members) {
-      memberMap.set(m.groupId, { lastReadAt: m.lastReadAt, joinedAt: m.joinedAt, clearedAt: m.clearedAt });
+    const unreadCounts: Record<string, number> = {};
+    for (const gid of groupIds) {
+      unreadCounts[gid] = 0;
     }
 
-    const unreadCounts: Record<string, number> = {};
+    try {
+      const results: Array<{ groupId: string; count: number | bigint | string }> = await this.prisma.$queryRaw`
+        SELECT 
+          cm."groupId"::text as "groupId",
+          COUNT(cm.id)::int as "count"
+        FROM chat_messages cm
+        LEFT JOIN chat_group_members cgm 
+          ON cgm."groupId" = cm."groupId" AND cgm."userId" = ${userId}::uuid
+        WHERE cm."groupId" = ANY(${groupIds}::uuid[])
+          AND cm."senderId" != ${userId}::uuid
+          AND (
+            (cgm."lastReadAt" IS NOT NULL AND cm."createdAt" > cgm."lastReadAt")
+            OR
+            (cgm."lastReadAt" IS NULL AND (cgm."clearedAt" IS NULL OR cm."createdAt" > cgm."clearedAt"))
+          )
+        GROUP BY cm."groupId"
+      `;
 
-    await Promise.all(
-      groupIds.map(async (groupId) => {
-        const mem = memberMap.get(groupId);
-        let cutoffTime: Date | undefined;
-        if (mem?.lastReadAt) {
-          cutoffTime = mem.lastReadAt;
-        } else if (mem?.clearedAt) {
-          cutoffTime = mem.clearedAt;
-        }
-
-        const whereCondition: any = {
-          groupId,
-          senderId: { not: userId }
-        };
-        if (cutoffTime) {
-          whereCondition.createdAt = { gt: cutoffTime };
-        }
-
-        const count = await this.prisma.chatMessage.count({
-          where: whereCondition
-        });
-
-        unreadCounts[groupId] = count;
-      })
-    );
+      for (const row of results) {
+        unreadCounts[row.groupId] = Number(row.count) || 0;
+      }
+    } catch (err) {
+      console.error('[ChatService] getUnreadCounts queryRaw error:', err);
+    }
 
     return unreadCounts;
   }
@@ -369,39 +340,37 @@ export class ChatService {
     }
 
     const groupIds = groups.map(g => g.id);
-    const unreadCountByGroup = await this.getUnreadCounts(groupIds, userId);
-
-    // 1. Batch fetch latest messages for all groups
-    const latestMessages = await this.prisma.chatMessage.findMany({
-      where: { groupId: { in: groupIds } },
-      orderBy: [{ groupId: 'asc' }, { createdAt: 'desc' }],
-      distinct: ['groupId'],
-      include: { sender: { select: { profile: { select: { fullName: true } } } } }
-    });
-    const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
-
-    // 2. Batch fetch direct group other members
     const directGroupIds = groups.filter(g => g.type === 'DIRECT').map(g => g.id);
-    const directMembers = await this.prisma.chatGroupMember.findMany({
-      where: { groupId: { in: directGroupIds }, userId: { not: userId } },
-      include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
-    });
-    const directMemberMap = Object.fromEntries(directMembers.map(m => [m.groupId, m]));
-
-    // 3. Batch fetch department members for department groups
     const deptIds = groups.filter(g => g.type === 'DEPARTMENT' && g.departmentId).map(g => g.departmentId!);
-    const deptMembers = deptIds.length > 0 ? await this.prisma.departmentMember.findMany({
-      where: { departmentId: { in: deptIds }, leftAt: null },
-      include: {
-        user: {
-          select: {
-            id: true,
-            userCode: true,
-            profile: { select: { fullName: true, avatarUrl: true } }
+
+    const [unreadCountByGroup, latestMessages, directMembers, deptMembers] = await Promise.all([
+      this.getUnreadCounts(groupIds, userId),
+      groupIds.length > 0 ? this.prisma.chatMessage.findMany({
+        where: { groupId: { in: groupIds } },
+        orderBy: [{ groupId: 'asc' }, { createdAt: 'desc' }],
+        distinct: ['groupId'],
+        include: { sender: { select: { profile: { select: { fullName: true } } } } }
+      }) : [],
+      directGroupIds.length > 0 ? this.prisma.chatGroupMember.findMany({
+        where: { groupId: { in: directGroupIds }, userId: { not: userId } },
+        include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
+      }) : [],
+      deptIds.length > 0 ? this.prisma.departmentMember.findMany({
+        where: { departmentId: { in: deptIds }, leftAt: null },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } }
+            }
           }
         }
-      }
-    }) : [];
+      }) : []
+    ]);
+
+    const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
+    const directMemberMap = Object.fromEntries(directMembers.map(m => [m.groupId, m]));
     const deptMemberMap: Record<string, any[]> = {};
     for (const dm of deptMembers) {
       if (!deptMemberMap[dm.departmentId]) {
@@ -628,14 +597,12 @@ export class ChatService {
     }
 
     const groupIds = groups.map(g => g.id);
-    const unreadCountByGroup = await this.getUnreadCounts(groupIds, actor.userId);
-
-    const resultGroups = [];
-    for (const group of groups) {
-      // Lấy tin nhắn mới nhất cho mỗi nhóm
-      const latestMessage = await this.prisma.chatMessage.findFirst({
-        where: { groupId: group.id },
-        orderBy: { createdAt: 'desc' },
+    const [unreadCountByGroup, latestMessages] = await Promise.all([
+      this.getUnreadCounts(groupIds, actor.userId),
+      groupIds.length > 0 ? this.prisma.chatMessage.findMany({
+        where: { groupId: { in: groupIds } },
+        orderBy: [{ groupId: 'asc' }, { createdAt: 'desc' }],
+        distinct: ['groupId'],
         include: {
           sender: {
             select: {
@@ -645,7 +612,13 @@ export class ChatService {
             }
           }
         }
-      });
+      }) : []
+    ]);
+    const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
+
+    const resultGroups = [];
+    for (const group of groups) {
+      const latestMessage = latestMessageMap[group.id];
 
       let finalName = group.name;
       let otherUserId: string | undefined;

@@ -119,15 +119,37 @@ export function SocketProvider({ children }: PropsWithChildren) {
           }
         }
       });
+      const updateGroupDataOptimistic = (groupId: string, latestMsg?: any) => {
+        const updateList = (old: any) => {
+          if (!Array.isArray(old)) return old;
+          const isMine = latestMsg?.senderId === user?.id || latestMsg?.sender?.id === user?.id;
+          return old.map((g: any) => {
+            if (g.id === groupId) {
+              return {
+                ...g,
+                updatedAt: latestMsg?.createdAt || new Date().toISOString(),
+                latestMessage: latestMsg || g.latestMessage,
+                unreadCount: isMine ? (g.unreadCount || 0) : ((g.unreadCount || 0) + 1),
+              };
+            }
+            return g;
+          });
+        };
+        queryClient.setQueryData(chatKeys.groups(), updateList);
+        queryClient.setQueryData(chatKeys.allGroups(), updateList);
+      };
+
       socket.on('chat:group_updated', (data: any) => {
-        void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
-        void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
         if (data?.groupId) {
+          updateGroupDataOptimistic(data.groupId, data.latestMessage);
           void queryClient.invalidateQueries({ queryKey: chatKeys.messages(data.groupId) });
         }
+        void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+        void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
       });
       socket.on('chat:message', (message: any) => {
         if (message?.groupId && message?.id) {
+          updateGroupDataOptimistic(message.groupId, message);
           queryClient.setQueryData(chatKeys.messages(message.groupId), (old: any) => {
             if (!old) return { items: [message], pagination: {} };
             const updateList = (list: any[]) => {
