@@ -186,9 +186,28 @@ export class ChatService {
     const isAdmin = message.sender?.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
     const senderName = isAdmin ? 'Admin' : (message.sender?.profile?.fullName ?? message.sender.userCode);
 
-    // Phát tín hiệu qua WebSocket duy nhất tới phòng chat và các thành viên
+    // Cập nhật thời gian hoạt động của nhóm chat để tự động nhảy lên đầu
+    await this.prisma.chatGroup.update({
+      where: { id: groupId },
+      data: { updatedAt: new Date() }
+    }).catch((err) => console.error('[ChatService] Failed to update chatGroup updatedAt:', err));
+
+    // Phát tín hiệu qua WebSocket tới phòng chat cụ thể và toàn công ty
     this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
-    if (group.members && group.members.length > 0) {
+    this.realtime.emitToRoom('company', 'chat:group_updated', { groupId, latestMessage: message });
+
+    // Phát tín hiệu trực tiếp tới từng thành viên
+    if (group.type === 'DEPARTMENT' && group.departmentId) {
+      const deptMembers = await this.prisma.departmentMember.findMany({
+        where: { departmentId: group.departmentId, leftAt: null },
+        select: { userId: true }
+      });
+      for (const dm of deptMembers) {
+        if (dm.userId !== userId) {
+          this.realtime.emitToUser(dm.userId, 'chat:message', message);
+        }
+      }
+    } else if (group.members && group.members.length > 0) {
       for (const m of group.members) {
         if (m.userId !== userId) {
           this.realtime.emitToUser(m.userId, 'chat:message', message);
@@ -569,16 +588,45 @@ export class ChatService {
       });
     }
 
+    // Fetch unread chat notifications for actor
+    const unreadChatNotifications = await this.prisma.notificationTarget.findMany({
+      where: {
+        userId: actor.userId,
+        readAt: null,
+        notification: { type: 'CHAT_MESSAGE' }
+      },
+      include: { notification: { select: { metadata: true } } }
+    });
+
+    const unreadCountByGroup: Record<string, number> = {};
+    for (const target of unreadChatNotifications) {
+      const metadata = target.notification.metadata as any;
+      if (metadata && metadata.groupId) {
+        const groupId = metadata.groupId;
+        unreadCountByGroup[groupId] = (unreadCountByGroup[groupId] || 0) + 1;
+      }
+    }
+
     const resultGroups = [];
     for (const group of groups) {
       // Lấy tin nhắn mới nhất cho mỗi nhóm
       const latestMessage = await this.prisma.chatMessage.findFirst({
         where: { groupId: group.id },
         orderBy: { createdAt: 'desc' },
-        include: { sender: { select: { profile: { select: { fullName: true } } } } }
+        include: {
+          sender: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } }
+            }
+          }
+        }
       });
 
       let finalName = group.name;
+      let otherUserId: string | undefined;
+      let otherUserAvatar: string | undefined;
       let members = (group as any).members;
 
       if (group.type === 'DEPARTMENT' && group.departmentId) {
@@ -586,11 +634,12 @@ export class ChatService {
       }
 
       if (group.type === 'DIRECT' && group.members?.length === 2) {
-        const u1 = group.members[0].user;
-        const name1 = u1?.profile?.fullName || u1?.userCode || 'Người dùng';
-        const u2 = group.members[1].user;
-        const name2 = u2?.profile?.fullName || u2?.userCode || 'Người dùng';
-        finalName = `${name1} - ${name2}`;
+        const otherMember = group.members.find((m: any) => m.userId !== actor.userId) || group.members[0];
+        if (otherMember?.user) {
+          finalName = otherMember.user.profile?.fullName || otherMember.user.userCode || 'Người dùng';
+          otherUserId = otherMember.userId;
+          otherUserAvatar = otherMember.user.profile?.avatarUrl ?? undefined;
+        }
       } else if (group.type === 'DEPARTMENT' && group.department?.name) {
         finalName = group.department.name;
       } else if (group.type === 'TASK' && group.task?.title) {
@@ -601,7 +650,10 @@ export class ChatService {
         ...group,
         members,
         name: finalName,
+        otherUserId,
+        otherUserAvatar,
         latestMessage,
+        unreadCount: unreadCountByGroup[group.id] || 0
       });
     }
 

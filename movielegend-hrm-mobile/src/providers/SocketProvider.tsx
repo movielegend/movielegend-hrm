@@ -90,6 +90,13 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('notification.created', (payload?: any) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
+        if (payload?.type === 'CHAT_MESSAGE' || payload?.metadata?.groupId) {
+          void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+          if (payload?.metadata?.groupId) {
+            void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.metadata.groupId) });
+          }
+        }
         if (payload && payload.title && Platform.OS !== 'web' && Notifications?.scheduleNotificationAsync) {
           try {
             Notifications.scheduleNotificationAsync({
@@ -110,6 +117,13 @@ export function SocketProvider({ children }: PropsWithChildren) {
           } catch (e) {
             // Ignore notification error in dev/Expo Go
           }
+        }
+      });
+      socket.on('chat:group_updated', (data: any) => {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+        void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+        if (data?.groupId) {
+          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(data.groupId) });
         }
       });
       socket.on('chat:message', (message: any) => {
