@@ -1152,14 +1152,29 @@ export class AdminService {
         );
       }
 
-      if (dto.points > maxWithdrawable) {
+      // Check reached milestone count to determine if user is in Phase 1 or Phase 2+
+      let maxReachedCount = 0;
+      for (const pkg of vault.packages || []) {
+        const milestones = pkg.milestones || [];
+        const reached = milestones.filter((m: any) => new Date(m.unlockDate) <= now);
+        if (reached.length > maxReachedCount) maxReachedCount = reached.length;
+      }
+      if (legacyMilestones.length > 0) {
+        const reachedLegacy = legacyMilestones.filter((m: any) => new Date(m.unlockDate) <= now && m.pointsToUnlock > 0);
+        if (reachedLegacy.length > maxReachedCount) maxReachedCount = reachedLegacy.length;
+      }
+
+      const isFirstPhase = maxReachedCount <= 1;
+      const pointsToWithdraw = isFirstPhase ? maxWithdrawable : (dto.points || maxWithdrawable);
+
+      if (pointsToWithdraw > maxWithdrawable) {
         throw badRequest(
           'EXCEEDS_MAX_WITHDRAWABLE',
-          `Số điểm yêu cầu rút (${dto.points.toLocaleString('vi-VN')} điểm) vượt quá hạn mức tối đa cho phép của đợt này (${maxWithdrawable.toLocaleString('vi-VN')} điểm). Lưu ý: Ở Đợt 1 chỉ được rút hạn mức Đợt 1; Từ Đợt 2 được rút linh hoạt nhưng phải bảo lưu mốc cuối cùng để tất toán cuối niên độ.`,
+          `Số điểm yêu cầu rút (${pointsToWithdraw.toLocaleString('vi-VN')} điểm) vượt quá hạn mức tối đa cho phép của đợt này (${maxWithdrawable.toLocaleString('vi-VN')} điểm). Lưu ý: Ở Đợt 1 chỉ được rút toàn bộ hạn mức Đợt 1; Từ Đợt 2 được rút linh hoạt nhưng phải bảo lưu mốc cuối cùng để tất toán cuối niên độ.`,
         );
       }
 
-      let remainingToDeduct = dto.points;
+      let remainingToDeduct = pointsToWithdraw;
       let deductedInstant = 0;
 
       // 1. Deduct from Instant Bonus Points
@@ -1332,12 +1347,12 @@ export class AdminService {
       }
 
       // 4. Create Withdrawal Request
-      const totalCash = dto.points * cashValuePerPoint;
+      const totalCash = pointsToWithdraw * cashValuePerPoint;
       const employeeName = user.profile?.fullName || user.userCode;
       const request = await tx.rewardWithdrawalRequest.create({
         data: {
           userId,
-          pointsWithdrawn: dto.points,
+          pointsWithdrawn: pointsToWithdraw,
           cashAmount: totalCash,
           bankName: dto.bankName || 'Quy đổi ngoài (Nội bộ)',
           bankAccountNumber: dto.bankAccountNumber || 'N/A',
@@ -1376,7 +1391,7 @@ export class AdminService {
         const adminNotif = await this.notifications.createForUsers(tx as any, adminIds, {
           type: 'SYSTEM' as NotificationType,
           title: 'Yêu cầu rút Ví Thưởng mới',
-          body: `Nhân viên ${employeeName} vừa gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ)${dto.note ? ` (Ghi chú: ${dto.note})` : ''}. Vui lòng phê duyệt.`,
+          body: `Nhân viên ${employeeName} vừa gửi yêu cầu rút ${pointsToWithdraw.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ)${dto.note ? ` (Ghi chú: ${dto.note})` : ''}. Vui lòng phê duyệt.`,
         });
         if (adminNotif) this.notifications.emitCreated(adminNotif);
       }
@@ -1385,14 +1400,14 @@ export class AdminService {
       const notif = await this.notifications.createForUsers(tx as any, [userId], {
         type: 'SYSTEM' as NotificationType,
         title: 'Yêu cầu rút điểm Ví Tết đã được gửi',
-        body: `Bạn đã gửi yêu cầu rút ${dto.points.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}. Yêu cầu đang được chuyển đến Ban Giám Đốc để phê duyệt.`,
+        body: `Bạn đã gửi yêu cầu rút ${pointsToWithdraw.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}. Yêu cầu đang được chuyển đến Ban Giám Đốc để phê duyệt.`,
       });
       if (notif) this.notifications.emitCreated(notif);
 
       this.realtimeEvents.emitToRoom('company', 'vault:withdrawal_created', {
         requestId: request.id,
         userId,
-        pointsWithdrawn: dto.points,
+        pointsWithdrawn: pointsToWithdraw,
         cashAmount: totalCash,
       });
 

@@ -229,17 +229,38 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
     };
   }, [packages, legacyMilestones, legacyQuarterSteps, now, stats.totalGrantedPoints, cashValuePerPoint, currentYear]);
 
+  // Check reached milestones count to determine if user is in Phase 1 (Đợt 1) or Phase 2+ (Từ đợt 2 trở đi)
+  const isFirstPhase = useMemo(() => {
+    let maxReached = 0;
+    if (packages && packages.length > 0) {
+      for (const pkg of packages) {
+        const reached = (pkg.milestones || []).filter((m: any) => new Date(m.unlockDate) <= now);
+        if (reached.length > maxReached) maxReached = reached.length;
+      }
+    }
+    if (legacyMilestones && legacyMilestones.length > 0) {
+      const reachedLegacy = legacyMilestones.filter((m: any) => new Date(m.unlockDate) <= now && m.pointsToUnlock > 0);
+      if (reachedLegacy.length > maxReached) maxReached = reachedLegacy.length;
+    }
+    return maxReached <= 1;
+  }, [packages, legacyMilestones, now]);
+
   const openWithdrawModal = () => {
-    // Default withdraw amount to unlocked points if > 0, otherwise max withdrawable
-    const defaultPts = stats.unlockedPoints > 0 ? stats.unlockedPoints : stats.maxWithdrawable;
-    setWithdrawPointsInput(defaultPts.toString());
+    if (isFirstPhase) {
+      setWithdrawPointsInput(stats.maxWithdrawable.toString());
+    } else {
+      const defaultPts = stats.unlockedPoints > 0 ? stats.unlockedPoints : stats.maxWithdrawable;
+      setWithdrawPointsInput(defaultPts.toString());
+    }
     setWithdrawNote('');
     setModalVisible(true);
   };
 
-  const pointsToWithdraw = parseInt(withdrawPointsInput, 10) || 0;
+  const pointsToWithdraw = isFirstPhase
+    ? stats.maxWithdrawable
+    : (parseInt(withdrawPointsInput, 10) || 0);
   const cashToWithdraw = pointsToWithdraw * cashValuePerPoint;
-  const isAdvanceWithdrawal = pointsToWithdraw > stats.unlockedPoints;
+  const isAdvanceWithdrawal = !isFirstPhase && pointsToWithdraw > stats.unlockedPoints;
   const advancePoints = Math.max(0, pointsToWithdraw - stats.unlockedPoints);
   const advanceCash = advancePoints * cashValuePerPoint;
 
@@ -1348,42 +1369,72 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
-              {/* Point Input */}
-              <Text style={styles.inputLabel}>Số điểm muốn quy đổi (Tối đa {maxWithdrawable.toLocaleString('vi-VN')} điểm):</Text>
-              <View style={styles.pointsInputRow}>
-                <TextInput
-                  style={styles.pointsTextInput}
-                  value={withdrawPointsInput}
-                  onChangeText={(v) => setWithdrawPointsInput(v.replace(/[^0-9]/g, ''))}
-                  placeholder="Nhập số điểm..."
-                  keyboardType="numeric"
-                />
-                <TouchableOpacity
-                  style={styles.maxBtn}
-                  onPress={() => setWithdrawPointsInput(maxWithdrawable.toString())}
-                >
-                  <Text style={styles.maxBtnText}>Tất cả</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Quick Percentage Buttons */}
-              <View style={styles.quickPercentRow}>
-                {[25, 50, 75, 100].map((pct) => {
-                  const calculatedPoints = Math.floor((maxWithdrawable * pct) / 100);
-                  const isSelected = pointsToWithdraw === calculatedPoints && calculatedPoints > 0;
-                  return (
-                    <TouchableOpacity
-                      key={pct}
-                      style={[styles.quickPercentBtn, isSelected && styles.quickPercentBtnActive]}
-                      onPress={() => setWithdrawPointsInput(calculatedPoints.toString())}
-                    >
-                      <Text style={[styles.quickPercentText, isSelected && styles.quickPercentTextActive]}>
-                        {pct === 100 ? '100% (Tối đa)' : `${pct}%`}
+              {isFirstPhase ? (
+                <View style={{ marginBottom: 16 }}>
+                  {/* Phase 1 Fixed Notice Banner */}
+                  <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <MaterialCommunityIcons name="information" size={24} color="#2563EB" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E40AF' }}>Quy định rút điểm Đợt 1</Text>
+                      <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2, lineHeight: 17 }}>
+                        Ở Đợt 1, hệ thống tự động quy đổi toàn bộ 100% hạn mức mở khóa đợt 1 ({maxWithdrawable.toLocaleString('vi-VN')} điểm). Bạn không cần chỉnh sửa số điểm.
                       </Text>
+                    </View>
+                  </View>
+
+                  {/* Phase 1 Fixed Amount Display Card */}
+                  <View style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View>
+                      <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '500' }}>Số điểm rút Đợt 1 (100%):</Text>
+                      <Text style={{ fontSize: 22, fontWeight: '800', color: '#D97706', marginTop: 2 }}>
+                        {maxWithdrawable.toLocaleString('vi-VN')} điểm
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#B45309' }}>Rút toàn bộ</Text>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  {/* Point Input for Phase 2+ */}
+                  <Text style={styles.inputLabel}>Số điểm muốn quy đổi (Tối đa {maxWithdrawable.toLocaleString('vi-VN')} điểm):</Text>
+                  <View style={styles.pointsInputRow}>
+                    <TextInput
+                      style={styles.pointsTextInput}
+                      value={withdrawPointsInput}
+                      onChangeText={(v) => setWithdrawPointsInput(v.replace(/[^0-9]/g, ''))}
+                      placeholder="Nhập số điểm..."
+                      keyboardType="numeric"
+                    />
+                    <TouchableOpacity
+                      style={styles.maxBtn}
+                      onPress={() => setWithdrawPointsInput(maxWithdrawable.toString())}
+                    >
+                      <Text style={styles.maxBtnText}>Tất cả</Text>
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
+                  </View>
+
+                  {/* Quick Percentage Buttons */}
+                  <View style={styles.quickPercentRow}>
+                    {[25, 50, 75, 100].map((pct) => {
+                      const calculatedPoints = Math.floor((maxWithdrawable * pct) / 100);
+                      const isSelected = pointsToWithdraw === calculatedPoints && calculatedPoints > 0;
+                      return (
+                        <TouchableOpacity
+                          key={pct}
+                          style={[styles.quickPercentBtn, isSelected && styles.quickPercentBtnActive]}
+                          onPress={() => setWithdrawPointsInput(calculatedPoints.toString())}
+                        >
+                          <Text style={[styles.quickPercentText, isSelected && styles.quickPercentTextActive]}>
+                            {pct === 100 ? '100% (Tối đa)' : `${pct}%`}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
 
               {/* Conversion Preview Box */}
               <View style={styles.conversionBox}>
