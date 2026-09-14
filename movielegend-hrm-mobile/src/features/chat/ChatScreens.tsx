@@ -192,7 +192,18 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
   const markAsRead = useMarkGroupAsRead();
   const createCustomChatMutation = useCreateCustomChat();
   const groups = scope === 'all' ? allGroups : myGroups;
-  const groupItems = Array.isArray(groups.data) ? groups.data : [];
+  const groupItems = useMemo(() => {
+    const raw = Array.isArray(groups.data) ? groups.data : [];
+    return [...raw].sort((a: any, b: any) => {
+      const timeA = a.latestMessage?.createdAt
+        ? new Date(a.latestMessage.createdAt).getTime()
+        : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+      const timeB = b.latestMessage?.createdAt
+        ? new Date(b.latestMessage.createdAt).getTime()
+        : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+      return timeB - timeA;
+    });
+  }, [groups.data]);
 
   const departmentsQuery = usePublicDepartments({ limit: 100 });
   const employeesQuery = useScopedEmployees({ limit: 100 });
@@ -572,14 +583,14 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
                   <View style={styles.groupInfo}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={[styles.groupName, { flex: 1 }]} numberOfLines={1}>{groupName}</Text>
+                      <Text style={[styles.groupName, { flex: 1 }, unreadCount > 0 && { fontWeight: '700', color: '#111827' }]} numberOfLines={1}>{groupName}</Text>
                       {unreadCount > 0 && (
                         <View style={{ backgroundColor: '#EF4444', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginLeft: 8 }}>
-                          <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>{unreadCount}</Text>
+                          <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.groupMeta, unreadCount > 0 && { color: '#111827', fontWeight: '500' }]} numberOfLines={1}>
+                    <Text style={[styles.groupMeta, unreadCount > 0 ? { color: '#1F2937', fontWeight: '700' } : { color: colors.muted, fontWeight: '400' }]} numberOfLines={1}>
                       {lastMsgText}
                     </Text>
                   </View>
