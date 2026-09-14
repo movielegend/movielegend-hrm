@@ -318,10 +318,10 @@ export class ChatService {
       select: { departmentId: true, department: { select: { name: true } } }
     });
 
-    const groups = [];
+    const rawGroups = [];
     for (const m of memberships) {
       const group = await this.getGroupForDepartment(m.departmentId);
-      groups.push(group);
+      rawGroups.push(group);
     }
 
     // Get ad-hoc chat groups (e.g., tasks) where user is a member
@@ -338,8 +338,17 @@ export class ChatService {
       }
     });
     for (const m of customMemberships) {
-      groups.push(m.group);
+      rawGroups.push(m.group);
     }
+
+    // Lọc bỏ mọi nhóm trùng ID (Deduplicate)
+    const uniqueGroupsMap = new Map<string, any>();
+    for (const g of rawGroups) {
+      if (g?.id && !uniqueGroupsMap.has(g.id)) {
+        uniqueGroupsMap.set(g.id, g);
+      }
+    }
+    const groups = Array.from(uniqueGroupsMap.values());
 
     const groupIds = groups.map(g => g.id);
     const directGroupIds = groups.filter(g => g.type === 'DIRECT').map(g => g.id);

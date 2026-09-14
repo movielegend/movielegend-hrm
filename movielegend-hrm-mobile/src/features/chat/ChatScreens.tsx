@@ -194,7 +194,13 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
   const groups = scope === 'all' ? allGroups : myGroups;
   const groupItems = useMemo(() => {
     const raw = Array.isArray(groups.data) ? groups.data : [];
-    return [...raw].sort((a: any, b: any) => {
+    const uniqueMap = new Map<string, any>();
+    for (const item of raw) {
+      if (item?.id && !uniqueMap.has(item.id)) {
+        uniqueMap.set(item.id, item);
+      }
+    }
+    return Array.from(uniqueMap.values()).sort((a: any, b: any) => {
       const timeA = a.latestMessage?.createdAt
         ? new Date(a.latestMessage.createdAt).getTime()
         : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
