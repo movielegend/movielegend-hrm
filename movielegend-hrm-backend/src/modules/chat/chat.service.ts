@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -282,6 +283,7 @@ export class ChatService {
     }
 
     try {
+      const formattedGroupIds = Prisma.join(groupIds.map(id => Prisma.sql`${id}::uuid`));
       const results: Array<{ groupId: string; count: number | bigint | string }> = await this.prisma.$queryRaw`
         SELECT 
           cm."groupId"::text as "groupId",
@@ -289,7 +291,7 @@ export class ChatService {
         FROM chat_messages cm
         LEFT JOIN chat_group_members cgm 
           ON cgm."groupId" = cm."groupId" AND cgm."userId" = ${userId}::uuid
-        WHERE cm."groupId" = ANY(${groupIds}::uuid[])
+        WHERE cm."groupId" IN (${formattedGroupIds})
           AND cm."senderId" != ${userId}::uuid
           AND (
             (cgm."lastReadAt" IS NOT NULL AND cm."createdAt" > cgm."lastReadAt")
