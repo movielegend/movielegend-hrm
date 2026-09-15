@@ -2,21 +2,21 @@ import React from 'react';
 import { View, Text, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 
 export const LEVEL_COLORS: Record<number, string> = {
-  1: '#9E9E9E', // Thực tập (Xám tro)
-  2: '#2196F3', // Chính thức (Xanh dương)
-  3: '#00BCD4', // Senior (Xanh ngọc)
-  4: '#4CAF50', // Key Member (Xanh lá)
-  5: '#FF9800', // Team Leader (Cam)
-  6: '#E91E63', // Manager (Hồng đậm)
-  7: '#9C27B0', // Director (Tím hoàng gia)
-  8: '#D4AF37', // Executive (Vàng Gold)
-  9: '#059669', // Master (Xanh lục bảo)
-  10: '#DC2626', // Grandmaster (Đỏ Ruby)
-  11: '#7C3AED', // Legend (Tím Neon)
-  12: '#2563EB', // Champion (Lam đậm)
-  13: '#F59E0B', // Mythic (Hổ phách)
-  14: '#06B6D4', // Immortal (Băng ngọc)
-  15: '#E11D48', // Supreme (Hồng ngọc)
+  1: '#64748B', // Thực tập (Slate nhã nhặn)
+  2: '#475569', // Chính thức (Slate Navy)
+  3: '#2563EB', // Senior / Middle (Royal Blue)
+  4: '#1D4ED8', // Key Member (Deep Cobalt)
+  5: '#4338CA', // Team Leader (Deep Indigo)
+  6: '#1E293B', // Manager (Executive Navy)
+  7: '#0F172A', // Director (Deep Charcoal)
+  8: '#B45309', // Executive (Warm Bronze Gold)
+  9: '#059669', // Master (Forest Emerald)
+  10: '#991B1B', // Grandmaster (Deep Wine Red)
+  11: '#6B21A8', // Legend (Deep Royal Violet)
+  12: '#1E40AF', // Champion (Midnight Blue)
+  13: '#92400E', // Mythic (Deep Amber)
+  14: '#0E7490', // Immortal (Deep Cyan Navy)
+  15: '#881337', // Supreme (Deep Crimson)
 };
 
 export const LEVEL_DEFAULT_NAMES: Record<number, string> = {

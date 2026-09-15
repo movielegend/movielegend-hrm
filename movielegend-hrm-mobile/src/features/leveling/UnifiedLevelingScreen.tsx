@@ -409,7 +409,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             setAdminProjects((prev) => {
               const filtered = prev.filter((p) => p.id !== projectId);
               if (selectedProjectId === projectId) {
-                setSelectedProjectId(filtered.length > 0 ? filtered[0].id : '');
+                setSelectedProjectId(filtered.length > 0 ? (filtered[0]?.id || '') : '');
               }
               return filtered;
             });
@@ -460,6 +460,15 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       ),
     );
     setNewSubTaskInput('');
+  };
+
+  const handleStartEditSubTask = (index: number, text: string) => {
+    setEditingSubTaskIdx(index);
+    setEditingSubTaskText(text);
+  };
+
+  const handleSaveEditSubTask = (projectId: string, index: number) => {
+    handleEditSubTask(projectId, index, editingSubTaskText);
   };
 
   const handleEditSubTask = (projectId: string, index: number, newText: string) => {
@@ -758,7 +767,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                 source={{ uri: getAbsoluteImageUrl(progressData.avatarUrl)! }}
                 style={[
                   styles.avatarImage,
-                  { borderColor: progressData.currentLevel.colorHex || '#2196F3' },
+                  { borderColor: '#2563EB' },
                 ]}
               />
             ) : (
@@ -766,15 +775,15 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                 style={[
                   styles.avatarFallback,
                   {
-                    borderColor: progressData.currentLevel.colorHex || '#2196F3',
-                    backgroundColor: `${progressData.currentLevel.colorHex || '#2196F3'}25`,
+                    borderColor: '#2563EB',
+                    backgroundColor: '#EFF6FF',
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.avatarFallbackText,
-                    { color: progressData.currentLevel.colorHex || '#2196F3' },
+                    { color: '#2563EB' },
                   ]}
                 >
                   {(progressData.fullName || 'ML').trim().charAt(0).toUpperCase()}
@@ -784,7 +793,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             <View
               style={[
                 styles.levelBadgeMini,
-                { backgroundColor: progressData.currentLevel.colorHex || '#2196F3' },
+                { backgroundColor: '#2563EB' },
               ]}
             >
               <Text style={styles.levelBadgeMiniText}>{progressData.currentLevel.levelNumber}</Text>
@@ -1049,120 +1058,13 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                 />
               )}
 
-              {/* Nhiệm Vụ Cấp Bậc / Việc Con Được Leader Giao */}
-              <View style={styles.assignedTasksSection}>
-                <View style={styles.assignedTasksHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={styles.assignedTasksIconBox}>
-                      <Ionicons name="clipboard-outline" size={18} color="#0F766E" />
-                    </View>
-                    <View>
-                      <Text style={styles.assignedTasksHeaderTitle}>Công Việc Được Leader Giao</Text>
-                      <Text style={styles.assignedTasksHeaderSub}>
-                        {myAssignedTasks.length > 0
-                          ? `${myAssignedTasks.filter((i) => i.subTask.status === 'LEADER_APPROVED').length}/${myAssignedTasks.length} việc đã hoàn thành`
-                          : 'Dự án & đầu mục công việc cấp bậc'}
-                      </Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.assignedTasksViewAllBtn}
-                    onPress={() =>
-                      router.push(
-                        (isLeader ? '/leader/level-projects' : '/employee/level-projects') as any
-                      )
-                    }
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.assignedTasksViewAllText}>Chi tiết</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#0F766E" />
-                  </TouchableOpacity>
-                </View>
-
-                {myAssignedTasks.length === 0 ? (
-                  <View style={styles.emptyAssignedTasksBox}>
-                    <Ionicons name="folder-open-outline" size={36} color="#94A3B8" />
-                    <Text style={styles.emptyAssignedTasksTitle}>Chưa có công việc nào được giao</Text>
-                    <Text style={styles.emptyAssignedTasksSub}>
-                      {isLeader
-                        ? 'Khi bạn tự nhận việc trong dự án hoặc được phân công việc con, danh sách nhiệm vụ của bạn sẽ hiển thị tại đây.'
-                        : 'Khi Trưởng nhóm (Leader) phân công các đầu mục việc trong dự án cho bạn, danh sách nhiệm vụ và phần thưởng sẽ hiển thị tại đây.'}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.assignedTasksList}>
-                    {myAssignedTasks.map((item) => {
-                      const { project, subTask } = item;
-                      const isApproved = subTask.status === 'LEADER_APPROVED';
-                      const isSubmitted = subTask.status === 'SUBMITTED';
-
-                      return (
-                        <TouchableOpacity
-                          key={subTask.id}
-                          style={[styles.assignedTaskRow, isSubmitted && styles.assignedTaskRowSubmitted]}
-                          onPress={() =>
-                            router.push(
-                              (isLeader ? '/leader/level-projects' : '/employee/level-projects') as any
-                            )
-                          }
-                          activeOpacity={0.7}
-                        >
-                          <View
-                            style={[
-                              styles.assignedTaskIndexCircle,
-                              isApproved && { backgroundColor: '#ECFDF5', borderColor: '#059669' },
-                              isSubmitted && { backgroundColor: '#FEF3C7', borderColor: '#D97706' },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.assignedTaskIndexText,
-                                isApproved && { color: '#059669', fontWeight: 'bold' },
-                                isSubmitted && { color: '#B45309', fontWeight: 'bold' },
-                              ]}
-                            >
-                              {isApproved ? '✓' : subTask.orderNumber}
-                            </Text>
-                          </View>
-
-                          <View style={{ flex: 1, marginRight: 8 }}>
-                            <Text
-                              style={[styles.assignedTaskTitle, isApproved && styles.assignedTaskTitleDone]}
-                              numberOfLines={1}
-                            >
-                              {subTask.title}
-                            </Text>
-                            <Text style={styles.assignedTaskSubText} numberOfLines={1}>
-                              {project.projectName || project.levelName} • {subTask.targetKpi || 'Nghiệm thu Vòng 1'}
-                            </Text>
-                          </View>
-
-                          <View>
-                            {isApproved ? (
-                              <View style={styles.tagApproved}>
-                                <Text style={styles.tagApprovedText}>Đã duyệt</Text>
-                              </View>
-                            ) : isSubmitted ? (
-                              <View style={styles.tagPending}>
-                                <Text style={styles.tagPendingText}>Chờ duyệt</Text>
-                              </View>
-                            ) : (
-                              <View style={styles.tagSubmitAction}>
-                                <Text style={styles.tagSubmitActionText}>Nộp báo cáo</Text>
-                              </View>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-
               {/* Interactive 8 Levels Roadmap */}
               <View style={styles.roadmapCard}>
                 <View style={styles.roadmapHeaderRow}>
-                  <Text style={styles.roadmapTitle}>Hệ Thống 8 Cấp Bậc ({activeDeptName})</Text>
+                  <View>
+                    <Text style={styles.roadmapTitle}>Hệ Thống 8 Cấp Bậc</Text>
+                    <Text style={styles.roadmapSubtitle}>Lộ trình phát triển sự nghiệp tại {activeDeptName}</Text>
+                  </View>
                   {isAdmin && (
                     <TouchableOpacity
                       style={styles.quickEditBtn}
@@ -1176,16 +1078,17 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
                 <View style={styles.roadmapList}>
                   {deptLevelConfigs.map((lvl) => {
-                    const color = LEVEL_COLORS[lvl.levelNumber] || '#2196F3';
-                    const isPassed = (progressData?.currentLevel?.levelNumber || 1) >= lvl.levelNumber;
-                    const isCurrent = (progressData?.currentLevel?.levelNumber || 1) === lvl.levelNumber;
+                    const currentLevelNum = progressData?.currentLevel?.levelNumber || 1;
+                    const isPassed = currentLevelNum > lvl.levelNumber;
+                    const isCurrent = currentLevelNum === lvl.levelNumber;
+                    const isNextTarget = currentLevelNum + 1 === lvl.levelNumber;
 
                     return (
                       <TouchableOpacity
                         key={lvl.levelNumber}
                         style={[
                           styles.roadmapStepRow,
-                          isCurrent && { backgroundColor: `${color}08`, borderRadius: 12, padding: 6 },
+                          isCurrent && styles.roadmapStepRowCurrent,
                         ]}
                         onPress={() => {
                           if (isAdmin) {
@@ -1193,43 +1096,71 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                           } else {
                             Alert.alert(
                               `Level ${lvl.levelNumber}: ${lvl.displayName}`,
-                              `Yêu cầu thâm niên tối thiểu: ${lvl.minTenureMonths} tháng\nĐịnh mức ca làm: ${lvl.targetShiftsCount} ca\nMàu nhận diện: ${color}`,
+                              `Yêu cầu thâm niên tối thiểu: ${lvl.minTenureMonths} tháng\nĐịnh mức ca làm: ${lvl.targetShiftsCount} ca`,
                             );
                           }
                         }}
+                        activeOpacity={0.7}
                       >
                         <View style={styles.roadmapStepLeft}>
                           <View
                             style={[
                               styles.roadmapCircle,
-                              { borderColor: color },
-                              isPassed && { backgroundColor: color },
+                              isPassed && styles.roadmapCirclePassed,
+                              isCurrent && styles.roadmapCircleCurrent,
+                              isNextTarget && styles.roadmapCircleTarget,
                             ]}
                           >
                             <Text
                               style={[
                                 styles.roadmapCircleText,
-                                { color: isPassed ? '#FFF' : color },
+                                isPassed && styles.roadmapCircleTextPassed,
+                                isCurrent && styles.roadmapCircleTextCurrent,
+                                isNextTarget && styles.roadmapCircleTextTarget,
                               ]}
                             >
                               {lvl.levelNumber}
                             </Text>
                           </View>
-                          {lvl.levelNumber < 8 && <View style={styles.roadmapLine} />}
+                          {lvl.levelNumber < 8 && (
+                            <View
+                              style={[
+                                styles.roadmapLine,
+                                isPassed && styles.roadmapLinePassed,
+                              ]}
+                            />
+                          )}
                         </View>
 
                         <View style={styles.roadmapStepContent}>
                           <View style={styles.roadmapStepHeader}>
-                            <Text style={[styles.roadmapStepName, { color }]}>
+                            <Text
+                              style={[
+                                styles.roadmapStepName,
+                                isPassed && styles.roadmapStepNamePassed,
+                                isCurrent && styles.roadmapStepNameCurrent,
+                                isNextTarget && styles.roadmapStepNameTarget,
+                              ]}
+                            >
                               Level {lvl.levelNumber} - {lvl.displayName}
                             </Text>
                             {isCurrent && (
-                              <View style={[styles.currentTag, { backgroundColor: `${color}20` }]}>
-                                <Text style={[styles.currentTagText, { color }]}>Cấp của bạn</Text>
+                              <View style={styles.currentTag}>
+                                <Text style={styles.currentTagText}>Cấp của bạn</Text>
+                              </View>
+                            )}
+                            {isNextTarget && (
+                              <View style={styles.targetTag}>
+                                <Text style={styles.targetTagText}>Mục tiêu</Text>
                               </View>
                             )}
                           </View>
-                          <Text style={styles.roadmapStepDesc}>
+                          <Text
+                            style={[
+                              styles.roadmapStepDesc,
+                              isCurrent && styles.roadmapStepDescCurrent,
+                            ]}
+                          >
                             {lvl.levelNumber === 1 && 'Học việc / Thử việc, làm quen quy trình nội bộ'}
                             {lvl.levelNumber === 2 && 'Chính thức, độc lập tác chiến, đầy đủ phúc lợi'}
                             {lvl.levelNumber === 3 && 'Thâm niên ≥ 6 tháng, thành thạo 100% chuyên môn'}
@@ -1330,10 +1261,10 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
               {leaderSubTab === 'project_submissions' && (
                 <View style={styles.projectSubmissionsContainer}>
                   {submittedDeptProjects.length === 0 ? (
-                    <View style={styles.emptyContainer}>
+                    <View style={styles.emptyProjectContainer}>
                       <Ionicons name="folder-open-outline" size={48} color="#94A3B8" />
-                      <Text style={styles.emptyTitle}>Chưa có dự án nào được giao</Text>
-                      <Text style={styles.emptySubtitle}>
+                      <Text style={styles.emptyProjectTitle}>Chưa có dự án nào được giao</Text>
+                      <Text style={styles.emptyProjectSubtitle}>
                         Vui lòng vào tab "Cấu Hình Dự Án" để giao dự án và các đầu việc con cho phòng {activeDeptName}.
                       </Text>
                     </View>
@@ -2392,14 +2323,14 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         onClose={() => setSelectedProjectForReview(null)}
         onApprove={async (lvlNum, feedback) => {
           await adminApproveProject(lvlNum, feedback);
-          setSelectedProjectForReview((prev) =>
+          setSelectedProjectForReview((prev: any) =>
             prev && prev.levelNumber === lvlNum
               ? {
                   ...prev,
                   status: 'ADMIN_APPROVED',
                   adminFeedback: feedback,
                   adminApprovedAt: new Date().toISOString(),
-                  subTasks: prev.subTasks.map((st) => ({
+                  subTasks: prev.subTasks.map((st: any) => ({
                     ...st,
                     status: 'ADMIN_APPROVED',
                   })),
@@ -2410,13 +2341,16 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         }}
         onReject={async (lvlNum, feedback) => {
           await adminRejectProject(lvlNum, feedback);
-          setSelectedProjectForReview((prev) =>
+          setSelectedProjectForReview((prev: any) =>
             prev && prev.levelNumber === lvlNum
               ? {
                   ...prev,
-                  status: 'IN_PROGRESS',
+                  status: 'ADMIN_REJECTED',
                   adminFeedback: feedback,
-                  submittedToAdminAt: undefined,
+                  subTasks: prev.subTasks.map((st: any) => ({
+                    ...st,
+                    status: 'ADMIN_REJECTED',
+                  })),
                 }
               : null,
           );
@@ -2672,12 +2606,17 @@ const styles = StyleSheet.create({
   },
   roadmapCard: {
     backgroundColor: '#FFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   roadmapHeaderRow: {
     flexDirection: 'row',
@@ -2687,8 +2626,13 @@ const styles = StyleSheet.create({
   },
   roadmapTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
+  },
+  roadmapSubtitle: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
   },
   quickEditBtn: {
     flexDirection: 'row',
@@ -2709,7 +2653,18 @@ const styles = StyleSheet.create({
   },
   roadmapStepRow: {
     flexDirection: 'row',
-    minHeight: 56,
+    minHeight: 58,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  roadmapStepRowCurrent: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginVertical: 2,
   },
   roadmapStepLeft: {
     alignItems: 'center',
@@ -2720,15 +2675,39 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFF',
     zIndex: 2,
   },
+  roadmapCirclePassed: {
+    borderColor: '#334155',
+    backgroundColor: '#334155',
+  },
+  roadmapCircleCurrent: {
+    borderColor: '#2563EB',
+    backgroundColor: '#2563EB',
+  },
+  roadmapCircleTarget: {
+    borderColor: '#2563EB',
+    borderWidth: 2,
+    backgroundColor: '#FFF',
+  },
   roadmapCircleText: {
     fontSize: 12,
     fontWeight: '800',
+    color: '#94A3B8',
+  },
+  roadmapCircleTextPassed: {
+    color: '#FFF',
+  },
+  roadmapCircleTextCurrent: {
+    color: '#FFF',
+  },
+  roadmapCircleTextTarget: {
+    color: '#2563EB',
   },
   roadmapLine: {
     flex: 1,
@@ -2736,9 +2715,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E8F0',
     marginVertical: 2,
   },
+  roadmapLinePassed: {
+    backgroundColor: '#94A3B8',
+  },
   roadmapStepContent: {
     flex: 1,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   roadmapStepHeader: {
     flexDirection: 'row',
@@ -2747,22 +2729,55 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   roadmapStepName: {
-    fontSize: 14,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  roadmapStepNamePassed: {
+    color: '#334155',
+    fontWeight: '700',
+  },
+  roadmapStepNameCurrent: {
+    color: '#1D4ED8',
+    fontWeight: '800',
+  },
+  roadmapStepNameTarget: {
+    color: '#0F172A',
     fontWeight: '700',
   },
   currentTag: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
   currentTagText: {
     fontSize: 10,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  targetTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  targetTagText: {
+    fontSize: 9.5,
     fontWeight: '700',
+    color: '#2563EB',
   },
   roadmapStepDesc: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 11.5,
+    color: '#94A3B8',
     lineHeight: 16,
+  },
+  roadmapStepDescCurrent: {
+    color: '#475569',
   },
   leaderContainer: {
     paddingHorizontal: 16,
@@ -3797,17 +3812,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  emptySubTasksNotice: {
-    flex: 1,
-    fontSize: 12,
-    color: '#64748B',
-    fontStyle: 'italic',
-  },
-  addSubTaskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   addSubTaskInput: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -3818,20 +3822,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 13,
     color: '#0F172A',
-  },
-  addSubTaskBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563EB',
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  addSubTaskBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
   },
 
   /* Completed Projects History Styles */
