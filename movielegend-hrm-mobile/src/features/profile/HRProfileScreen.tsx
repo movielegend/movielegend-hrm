@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 140,
   },
   headerBg: {
     position: 'absolute',

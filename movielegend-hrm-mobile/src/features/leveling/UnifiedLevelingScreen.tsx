@@ -738,9 +738,9 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           <View style={styles.adminSummaryLeft}>
             <View style={styles.adminIconWrapper}>
               <Ionicons
-                name={currentMode === 'config_only' ? 'construct' : 'shield-checkmark'}
-                size={24}
-                color="#EAB308"
+                name={currentMode === 'config_only' ? 'options-outline' : 'shield-checkmark-outline'}
+                size={22}
+                color="#3B82F6"
               />
             </View>
             <View style={{ flex: 1 }}>
@@ -1653,15 +1653,17 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
                     {isLevelOne ? (
                       <View style={styles.configLevelOneBox}>
+                        <Ionicons name="information-circle-outline" size={15} color="#059669" />
                         <Text style={styles.configLevelOneText}>
-                          🌱 Cấp bậc khởi đầu (Thực tập) - Không áp dụng phần thưởng thăng cấp.
+                          Cấp bậc khởi đầu (Thực tập) • Không áp dụng thưởng thăng cấp
                         </Text>
                       </View>
                     ) : (
                       <View style={styles.configRewardBox}>
                         <View style={styles.configRewardHeader}>
+                          <Ionicons name="gift-outline" size={14} color="#2563EB" />
                           <Text style={styles.configRewardHeaderTitle}>
-                            🎁 CẤU HÌNH PHẦN THƯỞNG ĐẠT LEVEL {lvl.levelNumber}
+                            CẤU HÌNH PHẦN THƯỞNG ĐẠT LEVEL {lvl.levelNumber}
                           </Text>
                         </View>
 
@@ -1675,13 +1677,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             ]}
                             onPress={() => handleConfigRewardTypeChange(lvl.levelNumber, 'CASH')}
                           >
+                            <Ionicons
+                              name="cash-outline"
+                              size={13}
+                              color={lvl.rewardType === 'CASH' ? '#1D4ED8' : '#64748B'}
+                            />
                             <Text
                               style={[
                                 styles.configRewardPillText,
                                 lvl.rewardType === 'CASH' && styles.configRewardPillTextActive,
                               ]}
                             >
-                              💵 Tiền mặt
+                              Tiền mặt
                             </Text>
                           </TouchableOpacity>
 
@@ -1692,13 +1699,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             ]}
                             onPress={() => handleConfigRewardTypeChange(lvl.levelNumber, 'PHYSICAL_ITEM')}
                           >
+                            <Ionicons
+                              name="cube-outline"
+                              size={13}
+                              color={lvl.rewardType === 'PHYSICAL_ITEM' ? '#1D4ED8' : '#64748B'}
+                            />
                             <Text
                               style={[
                                 styles.configRewardPillText,
                                 lvl.rewardType === 'PHYSICAL_ITEM' && styles.configRewardPillTextActive,
                               ]}
                             >
-                              🎁 Hiện vật
+                              Hiện vật
                             </Text>
                           </TouchableOpacity>
 
@@ -1709,13 +1721,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             ]}
                             onPress={() => handleConfigRewardTypeChange(lvl.levelNumber, 'HYBRID')}
                           >
+                            <Ionicons
+                              name="layers-outline"
+                              size={13}
+                              color={(lvl.rewardType === 'HYBRID' || !lvl.rewardType) ? '#1D4ED8' : '#64748B'}
+                            />
                             <Text
                               style={[
                                 styles.configRewardPillText,
                                 (lvl.rewardType === 'HYBRID' || !lvl.rewardType) && styles.configRewardPillTextActive,
                               ]}
                             >
-                              ✨ Kết hợp
+                              Kết hợp
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -1738,9 +1755,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                               }
                             />
                             {Boolean(lvl.promotionBonusAmount && lvl.promotionBonusAmount > 0) && (
-                              <Text style={styles.configCashPreview}>
-                                💰 Thưởng: {lvl.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ
-                              </Text>
+                              <View style={styles.previewCashRow}>
+                                <Ionicons name="pricetag-outline" size={12} color="#059669" />
+                                <Text style={styles.configCashPreview}>
+                                  Định mức thưởng: {lvl.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ
+                                </Text>
+                              </View>
                             )}
                           </View>
                         )}
@@ -1778,9 +1798,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                             }
                           />
                           {Boolean(lvl.allowanceAmount && lvl.allowanceAmount > 0) && (
-                            <Text style={styles.configAllowancePreview}>
-                              💼 +{lvl.allowanceAmount?.toLocaleString('vi-VN')} VNĐ/tháng
-                            </Text>
+                            <View style={styles.previewAllowanceRow}>
+                              <Ionicons name="wallet-outline" size={12} color="#0D9488" />
+                              <Text style={styles.configAllowancePreview}>
+                                Phụ cấp: +{lvl.allowanceAmount?.toLocaleString('vi-VN')} VNĐ/tháng
+                              </Text>
+                            </View>
                           )}
                         </View>
 
@@ -2083,9 +2106,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
                         {/* Reward Config SubBox */}
                         <View style={styles.configRewardBox}>
-                          <Text style={styles.configRewardHeaderTitle}>
-                            🎁 CẤU HÌNH PHẦN THƯỞNG DỰ ÁN
-                          </Text>
+                          <View style={styles.configRewardHeader}>
+                            <Ionicons name="gift-outline" size={14} color="#2563EB" />
+                            <Text style={styles.configRewardHeaderTitle}>
+                              CẤU HÌNH PHẦN THƯỞNG DỰ ÁN
+                            </Text>
+                          </View>
 
                           <Text style={styles.configFieldLabel}>Hình Thức Thưởng Dự Án:</Text>
                           <View style={styles.configRewardPillRow}>
@@ -2096,13 +2122,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                               ]}
                               onPress={() => handleUpdateProjectRewardType(currentProj.id, 'CASH')}
                             >
+                              <Ionicons
+                                name="cash-outline"
+                                size={13}
+                                color={currentProj.rewardType === 'CASH' ? '#1D4ED8' : '#64748B'}
+                              />
                               <Text
                                 style={[
                                   styles.configRewardPillText,
                                   currentProj.rewardType === 'CASH' && styles.configRewardPillTextActive,
                                 ]}
                               >
-                                💵 Tiền mặt
+                                Tiền mặt
                               </Text>
                             </TouchableOpacity>
 
@@ -2113,13 +2144,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                               ]}
                               onPress={() => handleUpdateProjectRewardType(currentProj.id, 'PHYSICAL_ITEM')}
                             >
+                              <Ionicons
+                                name="cube-outline"
+                                size={13}
+                                color={currentProj.rewardType === 'PHYSICAL_ITEM' ? '#1D4ED8' : '#64748B'}
+                              />
                               <Text
                                 style={[
                                   styles.configRewardPillText,
                                   currentProj.rewardType === 'PHYSICAL_ITEM' && styles.configRewardPillTextActive,
                                 ]}
                               >
-                                🎁 Hiện vật
+                                Hiện vật
                               </Text>
                             </TouchableOpacity>
 
@@ -2130,13 +2166,18 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                               ]}
                               onPress={() => handleUpdateProjectRewardType(currentProj.id, 'HYBRID')}
                             >
+                              <Ionicons
+                                name="layers-outline"
+                                size={13}
+                                color={(currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) ? '#1D4ED8' : '#64748B'}
+                              />
                               <Text
                                 style={[
                                   styles.configRewardPillText,
                                   (currentProj.rewardType === 'HYBRID' || !currentProj.rewardType) && styles.configRewardPillTextActive,
                                 ]}
                               >
-                                ✨ Kết hợp
+                                Kết hợp
                               </Text>
                             </TouchableOpacity>
                           </View>
@@ -2159,9 +2200,12 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                                 }
                               />
                               {Boolean(currentProj.promotionBonusAmount && currentProj.promotionBonusAmount > 0) && (
-                                <Text style={styles.configCashPreview}>
-                                  💰 Thưởng: {currentProj.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ (Chia theo hệ số Level thành viên)
-                                </Text>
+                                <View style={styles.previewCashRow}>
+                                  <Ionicons name="pricetag-outline" size={12} color="#059669" />
+                                  <Text style={styles.configCashPreview}>
+                                    Định mức thưởng: {currentProj.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ (Chia theo hệ số Level thành viên)
+                                  </Text>
+                                </View>
                               )}
                             </View>
                           )}
@@ -2403,11 +2447,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(234, 179, 8, 0.3)',
+    borderColor: 'rgba(37, 99, 235, 0.25)',
   },
   adminCardTitle: {
     fontSize: 15,
@@ -3013,19 +3057,22 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     fontSize: 14,
     color: '#0F172A',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   configFieldLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: '#475569',
     marginTop: 6,
     marginBottom: 4,
   },
   configLevelOneBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 8,
     backgroundColor: '#ECFDF5',
     padding: 10,
@@ -3036,7 +3083,8 @@ const styles = StyleSheet.create({
   configLevelOneText: {
     fontSize: 12,
     color: '#047857',
-    fontStyle: 'italic',
+    fontWeight: '500',
+    flex: 1,
   },
   configRewardBox: {
     marginTop: 10,
@@ -3047,16 +3095,19 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   configRewardHeader: {
-    marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
     paddingBottom: 6,
   },
   configRewardHeaderTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#1E40AF',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   configRewardPillRow: {
     flexDirection: 'row',
@@ -3065,7 +3116,8 @@ const styles = StyleSheet.create({
   },
   configRewardPill: {
     flex: 1,
-    paddingVertical: 7,
+    flexDirection: 'row',
+    paddingVertical: 8,
     paddingHorizontal: 6,
     borderRadius: 8,
     borderWidth: 1,
@@ -3073,13 +3125,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
   },
   configRewardPillActive: {
     backgroundColor: '#EFF6FF',
     borderColor: '#2563EB',
   },
   configRewardPillText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -3087,17 +3140,27 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     fontWeight: '700',
   },
+  previewCashRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
   configCashPreview: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#059669',
-    marginTop: 3,
+  },
+  previewAllowanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
   },
   configAllowancePreview: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#0D9488',
-    marginTop: 3,
   },
   addLevelBtn: {
     flexDirection: 'row',

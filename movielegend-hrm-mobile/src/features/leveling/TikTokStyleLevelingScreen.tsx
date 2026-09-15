@@ -2347,6 +2347,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
+  projectLevelTagBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
   tierRewardCard: {
     backgroundColor: '#FFFBEB',
     borderWidth: 1,

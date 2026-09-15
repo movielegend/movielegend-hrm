@@ -8,6 +8,7 @@ import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role
 import { colors } from '../../../src/theme/colors';
 
 import { useUnreadNotificationCount } from '../../../src/hooks/useNotifications';
+import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
 
 export default function AdminTabsLayout() {
   const insets = useSafeAreaInsets();
@@ -19,27 +20,9 @@ export default function AdminTabsLayout() {
   
   return (
     <Tabs
+      tabBar={(props) => <MagicTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#111827', // Dark Navy from mockup
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarStyle: {
-          borderTopWidth: 0,
-          backgroundColor: '#fff',
-          height: 60 + insets.bottom,
-          paddingBottom: Math.max(Platform.OS === 'android' ? 5 : 20, insets.bottom),
-          paddingTop: 5,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-          marginTop: 4,
-        }
       }}
     >
       <Tabs.Screen

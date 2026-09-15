@@ -38,6 +38,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   });
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<ProjectGrantPackage | null>(null);
+  const [packageDetailModalVisible, setPackageDetailModalVisible] = useState(false);
   const [withdrawPointsInput, setWithdrawPointsInput] = useState('');
   const [bankName, setBankName] = useState('Techcombank');
   const [accountNumber, setAccountNumber] = useState('');
@@ -89,6 +91,33 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   const packages: ProjectGrantPackage[] = vault?.packages || [];
   const legacyMilestones: VestingMilestone[] = vault?.milestones || [];
   const transactions: VaultTransaction[] = vault?.transactions || [];
+
+  // Helper to filter and sort transactions of a specific project grant package (newest to oldest)
+  const getPackageTransactions = (pkg: ProjectGrantPackage, allTransactions: VaultTransaction[]): VaultTransaction[] => {
+    if (!allTransactions || allTransactions.length === 0) return [];
+    const pkgTitle = pkg.title.trim().toLowerCase();
+    const filtered = allTransactions.filter((tx) => {
+      const qTarget = (tx.quarterTarget || '').toLowerCase();
+      const note = (tx.note || '').toLowerCase();
+      // 1. Direct quarterTarget match
+      if (qTarget.includes(pkgTitle)) {
+        if (tx.type === 'GRANT_PROJECT_VESTING' || tx.type === 'GRANT_PROJECT_INSTANT') {
+          return tx.points === pkg.totalPoints;
+        }
+        return true;
+      }
+      // 2. Note contains package title
+      if (note.includes(`"${pkgTitle}"`) || note.includes(pkgTitle)) {
+        if (tx.type === 'GRANT_PROJECT_VESTING' || tx.type === 'GRANT_PROJECT_INSTANT') {
+          return tx.points === pkg.totalPoints;
+        }
+        return true;
+      }
+      return false;
+    });
+    // Sắp xếp theo mới nhất rồi cũ dần (newest to oldest)
+    return [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  };
 
   const now = currentTime;
   const currentYear = currentTime.getFullYear();
@@ -319,7 +348,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.vipHeroHeader}>
           <View style={styles.vipHeroTitleGroup}>
             <View style={styles.vipHeroIconBadge}>
-              <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#D97706" />
+              <Ionicons name="wallet-outline" size={18} color="#2563EB" />
             </View>
             <View>
               <Text style={styles.vipHeroTitle}>Ví Thưởng Tích Lũy {currentYear}</Text>
@@ -327,8 +356,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             </View>
           </View>
           <View style={styles.vipBadgeChip}>
-            <MaterialCommunityIcons name="crown" size={13} color="#B45309" />
-            <Text style={styles.vipBadgeChipText}>VIP {currentYear}</Text>
+            <Ionicons name="shield-checkmark-outline" size={12} color="#0F172A" />
+            <Text style={styles.vipBadgeChipText}>QUỸ TÍCH LŨY {currentYear}</Text>
           </View>
         </View>
 
@@ -341,7 +370,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           </View>
           <View style={styles.vipPillRow}>
             <View style={styles.vipPointPill}>
-              <MaterialCommunityIcons name="cash-multiple" size={13} color="#065F46" />
+              <Ionicons name="cash-outline" size={13} color="#059669" />
               <Text style={styles.vipPointPillText}>
                 Tương đương: {remainingCash.toLocaleString('vi-VN')} VNĐ
               </Text>
@@ -378,19 +407,19 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           </View>
         </View>
 
-        {/* Primary CTA Withdraw Button: Chỉ mở khi đã đến kỳ hạn mở khóa */}
+        {/* Primary CTA Withdraw Button */}
         {maxWithdrawable > 0 ? (
           <TouchableOpacity
             style={styles.vipWithdrawActionBtn}
             onPress={openWithdrawModal}
             activeOpacity={0.85}
           >
-            <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#FFFFFF" />
+            <Ionicons name="arrow-up-circle-outline" size={18} color="#FFFFFF" />
             <Text style={styles.vipWithdrawActionText}>YÊU CẦU QUY ĐỔI / RÚT ĐIỂM</Text>
           </TouchableOpacity>
         ) : (
           <View style={[styles.vipWithdrawActionBtn, styles.vipWithdrawActionBtnDisabled]}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" />
+            <Ionicons name="lock-closed-outline" size={16} color="#94A3B8" />
             <Text style={styles.vipWithdrawActionTextDisabled}>
               CHƯA ĐẾN HẠN RÚT ĐIỂM
             </Text>
@@ -399,125 +428,19 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
         {/* Advance Note Footer */}
         <View style={styles.vipFooterNote}>
-          <MaterialCommunityIcons name="shield-check-outline" size={14} color="#92400E" />
+          <Ionicons name="information-circle-outline" size={15} color="#64748B" />
           <Text style={styles.vipFooterNoteText}>
             Quy định: Đợt nào mở rút đợt đó. Thời hạn rút trong vòng 15 ngày kể từ ngày mở; nếu sau 15 ngày không rút, số điểm sẽ tự động được dồn chia đều cho các đợt còn lại.
           </Text>
         </View>
       </View>
 
-      {/* Vạch Thời Gian & Đếm Ngược Đến Hạn Mở Rút */}
-      {nextMilestoneInfo ? (
-        <View style={styles.countdownCard}>
-          {/* Header Row */}
-          <View style={styles.countdownHeaderRow}>
-            <View style={styles.countdownHeaderLeft}>
-              <View style={styles.countdownIconCircle}>
-                <MaterialCommunityIcons name="timer-sand" size={20} color="#D97706" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.countdownCardTitle}>Đếm Ngược Đến Đợt Rút Tiếp Theo</Text>
-                <Text style={styles.countdownCardSubtitle} numberOfLines={1}>
-                  {nextMilestoneInfo.packageTitle ? `${nextMilestoneInfo.packageTitle} • ` : ''}{nextMilestoneInfo.title}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.countdownTargetPill}>
-              <MaterialCommunityIcons name="calendar-clock" size={13} color="#B45309" />
-              <Text style={styles.countdownTargetPillText}>{nextMilestoneInfo.unlockDateFormatted}</Text>
-            </View>
-          </View>
-
-          {/* Realtime Countdown Ticker Boxes */}
-          <View style={styles.countdownBoxesRow}>
-            <View style={styles.countdownBox}>
-              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.days).padStart(2, '0')}</Text>
-              <Text style={styles.countdownBoxLabel}>NGÀY</Text>
-            </View>
-            <Text style={styles.countdownColon}>:</Text>
-            <View style={styles.countdownBox}>
-              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.hours).padStart(2, '0')}</Text>
-              <Text style={styles.countdownBoxLabel}>GIỜ</Text>
-            </View>
-            <Text style={styles.countdownColon}>:</Text>
-            <View style={styles.countdownBox}>
-              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.minutes).padStart(2, '0')}</Text>
-              <Text style={styles.countdownBoxLabel}>PHÚT</Text>
-            </View>
-            <Text style={styles.countdownColon}>:</Text>
-            <View style={styles.countdownBox}>
-              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.seconds).padStart(2, '0')}</Text>
-              <Text style={styles.countdownBoxLabel}>GIÂY</Text>
-            </View>
-          </View>
-
-          {/* Vạch Thời Gian Tiến Trình Chu Kỳ (Timeline Progress Bar) */}
-          <View style={styles.timelineProgressSection}>
-            <View style={styles.timelineDateHeaderRow}>
-              <View style={styles.timelineDateCol}>
-                <Text style={styles.timelineDateLabel}>Bắt đầu chu kỳ</Text>
-                <Text style={styles.timelineDateValue}>{nextMilestoneInfo.startDateFormatted}</Text>
-              </View>
-              <View style={styles.timelinePercentBadge}>
-                <Text style={styles.timelinePercentText}>Tiến độ: {Math.round(nextMilestoneInfo.progressPercent)}%</Text>
-              </View>
-              <View style={[styles.timelineDateCol, { alignItems: 'flex-end' }]}>
-                <Text style={styles.timelineDateLabel}>Hạn mở khóa</Text>
-                <Text style={styles.timelineDateValueGold}>{nextMilestoneInfo.unlockDateFormatted}</Text>
-              </View>
-            </View>
-
-            {/* Vạch thời gian */}
-            <View style={styles.timelineTrack}>
-              <View
-                style={[
-                  styles.timelineFill,
-                  { width: `${Math.min(100, Math.max(3, nextMilestoneInfo.progressPercent))}%` },
-                ]}
-              />
-              <View
-                style={[
-                  styles.timelinePointerPin,
-                  { left: `${Math.min(96, Math.max(2, nextMilestoneInfo.progressPercent))}%` },
-                ]}
-              >
-                <View style={styles.timelinePointerDot} />
-              </View>
-            </View>
-
-            <View style={styles.timelineFooterRow}>
-              <Text style={styles.timelineFooterLeft}>
-                <MaterialCommunityIcons name="lightning-bolt" size={13} color="#059669" />
-                {' '}Dự kiến mở khóa: <Text style={styles.timelineFooterBold}>+{nextMilestoneInfo.cashAmount.toLocaleString('vi-VN')} VNĐ</Text> ({nextMilestoneInfo.points.toLocaleString('vi-VN')} điểm)
-              </Text>
-            </View>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.countdownAllUnlockedCard}>
-          <View style={styles.allUnlockedLeft}>
-            <View style={styles.allUnlockedIconCircle}>
-              <MaterialCommunityIcons name="check-decagram" size={24} color="#059669" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.allUnlockedTitle}>Đã Đến Hạn Tất Cả Các Đợt Rút</Text>
-              <Text style={styles.allUnlockedSubtitle}>
-                Toàn bộ quỹ thưởng đã hoàn tất mở khóa theo chu kỳ. Bạn có thể gửi yêu cầu tất toán bất kỳ lúc nào!
-              </Text>
-            </View>
-          </View>
-          <View style={styles.allUnlockedTrack}>
-            <View style={styles.allUnlockedFill} />
-          </View>
-        </View>
-      )}
-
       {/* Render Separate Cards for Each ProjectGrantPackage */}
       {packages.length > 0 && (
         <View style={styles.packageListContainer}>
           <View style={styles.packageListHeader}>
-            <MaterialCommunityIcons name="briefcase-outline" size={18} color="#92400E" />
-            <Text style={styles.packageListTitle}>Danh Sách Các Gói Thưởng Đang Tham Gia ({packages.length}):</Text>
+            <Ionicons name="briefcase-outline" size={16} color="#0F172A" />
+            <Text style={styles.packageListTitle}>Danh Sách Các Gói Thưởng Đang Tham Gia ({packages.length})</Text>
           </View>
 
           {packages.map((pkg, pIdx) => {
@@ -611,11 +534,18 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             return (
               <View key={pkg.id || pIdx} style={styles.packageCard}>
                 {/* Package Card Header */}
-                <View style={styles.packageCardHeader}>
+                <TouchableOpacity
+                  style={styles.packageCardHeader}
+                  onPress={() => {
+                    setSelectedPackage(pkg);
+                    setPackageDetailModalVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                       <View style={styles.pkgIconBadge}>
-                        <MaterialCommunityIcons name="gift" size={16} color="#B45309" />
+                        <Ionicons name="gift-outline" size={15} color="#2563EB" />
                       </View>
                       <Text style={styles.packageCardTitle} numberOfLines={1}>
                         {pkg.title}
@@ -633,7 +563,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                       ~{pkgTotalCash.toLocaleString('vi-VN')} VNĐ
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* --- HORIZONTAL TRACKER (EXACT DESIGN MATCH) --- */}
                 <View style={styles.horizontalTrackerCard}>
@@ -641,8 +571,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                     <View style={styles.scrollHintRow}>
                       <Text style={styles.scrollHintText}>Lộ trình {milestones.length} đợt</Text>
                       <View style={styles.scrollHintBadge}>
-                        <MaterialCommunityIcons name="gesture-swipe-horizontal" size={13} color="#D97706" />
-                        <Text style={styles.scrollHintBadgeText}>Vuốt ngang xem thêm</Text>
+                        <Ionicons name="swap-horizontal-outline" size={13} color="#64748B" />
+                        <Text style={styles.scrollHintBadgeText}>Vuốt ngang</Text>
                       </View>
                     </View>
                   )}
@@ -653,199 +583,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.horizontalTrackerScrollContent}
                     >
-                      <View style={{ width: milestones.length * nodeWidth }}>
-                        {/* Top Icons & Connecting Progress Lines Track */}
-                        <View style={[styles.horizontalTrackRow, { width: milestones.length * nodeWidth, paddingHorizontal: (nodeWidth - 32) / 2 }]}>
-                          {milestones.map((m, mIdx) => {
-                            const unlockDate = new Date(m.unlockDate);
-                            const isPassed = unlockDate <= now;
-                            const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
-                            const isUnlockedAvailable = isPassed && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0;
-                            const isCurrentUpcoming = mIdx === firstLockedIdx;
-
-                            const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
-                            const iconColor = isFullyWithdrawn
-                              ? '#DC2626'
-                              : isUnlockedAvailable || isCurrentUpcoming
-                              ? '#EE4D2D'
-                              : '#CBD5E1';
-
-                            const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
-                            const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
-
-                            let lineType: 'full' | 'half' | 'none' = 'none';
-                            const nextM = milestones[mIdx + 1];
-                            if (nextM) {
-                              const nextUnlockDate = new Date(nextM.unlockDate);
-                              const nextPassed = nextUnlockDate <= now;
-                              const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
-
-                              if (nextPassed || nextFullyWithdrawn) {
-                                lineType = 'full';
-                              } else if (isPassed || isFullyWithdrawn) {
-                                lineType = 'half';
-                              } else {
-                                lineType = 'none';
-                              }
-                            }
-
-                            return (
-                              <React.Fragment key={m.id || mIdx}>
-                                <View style={styles.trackNodeWrapper}>
-                                  <MaterialCommunityIcons name={iconName} size={24} color={iconColor} />
-                                  <View style={styles.trackCaretSlot}>
-                                    {showCaret && <MaterialCommunityIcons name="chevron-down" size={14} color={caretColor} />}
-                                  </View>
-                                </View>
-
-                                {mIdx < milestones.length - 1 && (
-                                  <View style={[styles.trackLineWrapper, { width: nodeWidth - 32, flex: 0, marginHorizontal: 0 }]}>
-                                    {lineType === 'full' ? (
-                                      <View style={[styles.trackLine, styles.trackLineFull]} />
-                                    ) : lineType === 'half' ? (
-                                      <View style={styles.trackLineHalfContainer}>
-                                        <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
-                                        <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
-                                      </View>
-                                    ) : (
-                                      <View style={[styles.trackLine, styles.trackLineInactive]} />
-                                    )}
-                                  </View>
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                        </View>
-
-                        {/* Node Labels Row */}
-                        <View style={[styles.trackLabelsRow, { width: milestones.length * nodeWidth }]}>
-                          {milestones.map((m, mIdx) => {
-                            const unlockDate = new Date(m.unlockDate);
-                            const isPassed = unlockDate <= now;
-                            const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
-                            const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
-                            const isUnlockedAvailable = isPassed && remaining > 0;
-                            const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
-
-                            const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
-
-                            return (
-                              <View key={m.id || mIdx} style={[styles.trackLabelCol, { width: nodeWidth, flex: 0, paddingHorizontal: 3 }]}>
-                                <Text
-                                  style={[
-                                    styles.trackNodeTitle,
-                                    isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
-                                    isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
-                                  ]}
-                                  numberOfLines={1}
-                                >
-                                  {m.title || `Đợt ${mIdx + 1}`}
-                                </Text>
-                                <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
-
-                                <View
-                                  style={[
-                                    styles.trackNodePill,
-                                    isFullyWithdrawn && styles.trackPillWithdrawn,
-                                    isUnlockedAvailable && styles.trackPillUnlocked,
-                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillUpcoming,
-                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillLocked,
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.trackNodePillText,
-                                      isFullyWithdrawn && styles.trackPillTextWithdrawn,
-                                      isUnlockedAvailable && styles.trackPillTextUnlocked,
-                                      !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillTextUpcoming,
-                                      !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillTextLocked,
-                                    ]}
-                                    numberOfLines={1}
-                                  >
-                                    {isFullyWithdrawn
-                                      ? (m.withdrawnPoints > 0 ? `Đã rút` : `Dồn đợt sau`)
-                                      : isPartiallyWithdrawn
-                                      ? `Còn ${formatCompactPoints(remaining)}`
-                                      : isUnlockedAvailable
-                                      ? `Mở (+${formatCompactPoints(m.pointsToUnlock)})`
-                                      : mIdx === firstLockedIdx
-                                      ? `⏳ Đếm (${formatCompactPoints(m.pointsToUnlock)})`
-                                      : `${formatCompactPoints(m.pointsToUnlock)}`}
-                                  </Text>
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    </ScrollView>
-                  ) : (
-                    <>
-                      {/* Top Icons & Connecting Progress Lines Track */}
-                      <View style={styles.horizontalTrackRow}>
-                        {milestones.map((m, mIdx) => {
-                          const unlockDate = new Date(m.unlockDate);
-                          const isPassed = unlockDate <= now;
-                          const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
-                          const isUnlockedAvailable = isPassed && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0;
-                          const isCurrentUpcoming = mIdx === firstLockedIdx;
-
-                          const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
-                          const iconColor = isFullyWithdrawn
-                            ? '#DC2626'
-                            : isUnlockedAvailable || isCurrentUpcoming
-                            ? '#EE4D2D'
-                            : '#CBD5E1';
-
-                          const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
-                          const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
-
-                          let lineType: 'full' | 'half' | 'none' = 'none';
-                          const nextM = milestones[mIdx + 1];
-                          if (nextM) {
-                            const nextUnlockDate = new Date(nextM.unlockDate);
-                            const nextPassed = nextUnlockDate <= now;
-                            const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
-
-                            if (nextPassed || nextFullyWithdrawn) {
-                              lineType = 'full';
-                            } else if (isPassed || isFullyWithdrawn) {
-                              lineType = 'half';
-                            } else {
-                              lineType = 'none';
-                            }
-                          }
-
-                          return (
-                            <React.Fragment key={m.id || mIdx}>
-                              <View style={styles.trackNodeWrapper}>
-                                <MaterialCommunityIcons name={iconName} size={26} color={iconColor} />
-                                <View style={styles.trackCaretSlot}>
-                                  {showCaret && <MaterialCommunityIcons name="chevron-down" size={15} color={caretColor} />}
-                                </View>
-                              </View>
-
-                              {mIdx < milestones.length - 1 && (
-                                <View style={styles.trackLineWrapper}>
-                                  {lineType === 'full' ? (
-                                    <View style={[styles.trackLine, styles.trackLineFull]} />
-                                  ) : lineType === 'half' ? (
-                                    <View style={styles.trackLineHalfContainer}>
-                                      <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
-                                      <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
-                                    </View>
-                                  ) : (
-                                    <View style={[styles.trackLine, styles.trackLineInactive]} />
-                                  )}
-                                </View>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </View>
-
-                      {/* Node Labels Row */}
-                      <View style={styles.trackLabelsRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                         {milestones.map((m, mIdx) => {
                           const unlockDate = new Date(m.unlockDate);
                           const isPassed = unlockDate <= now;
@@ -853,30 +591,82 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                           const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
                           const isUnlockedAvailable = isPassed && remaining > 0;
                           const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
+                          const isCurrentUpcoming = mIdx === firstLockedIdx;
+
+                          const isLeftActive = isPassed || isFullyWithdrawn || isCurrentUpcoming;
+                          const isRightActive = isPassed || isFullyWithdrawn;
 
                           const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
 
                           return (
-                            <View key={m.id || mIdx} style={styles.trackLabelCol}>
-                              <Text
-                                style={[
-                                  styles.trackNodeTitle,
-                                  isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
-                                  isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {m.title || `Đợt ${mIdx + 1}`}
-                              </Text>
+                            <View key={m.id || mIdx} style={{ width: 84, alignItems: 'center' }}>
+                              {/* Step Node with continuous connector line */}
+                              <View style={{ width: '100%', height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                {mIdx > 0 && (
+                                  <View
+                                    style={{
+                                      position: 'absolute',
+                                      left: 0,
+                                      right: '50%',
+                                      top: '50%',
+                                      marginTop: -1.5,
+                                      height: 3,
+                                      backgroundColor: isLeftActive ? '#2563EB' : '#E2E8F0',
+                                    }}
+                                  />
+                                )}
+                                {mIdx < milestones.length - 1 && (
+                                  <View
+                                    style={{
+                                      position: 'absolute',
+                                      left: '50%',
+                                      right: 0,
+                                      top: '50%',
+                                      marginTop: -1.5,
+                                      height: 3,
+                                      backgroundColor: isRightActive ? '#2563EB' : '#E2E8F0',
+                                    }}
+                                  />
+                                )}
+                                <View
+                                  style={[
+                                    styles.stepperDotNode,
+                                    isFullyWithdrawn && styles.stepperDotWithdrawn,
+                                    isUnlockedAvailable && styles.stepperDotUnlocked,
+                                    isCurrentUpcoming && styles.stepperDotUpcoming,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && !isCurrentUpcoming && styles.stepperDotLocked,
+                                  ]}
+                                >
+                                  {isFullyWithdrawn ? (
+                                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                                  ) : isUnlockedAvailable ? (
+                                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>
+                                      {mIdx + 1}
+                                    </Text>
+                                  ) : (
+                                    <Text
+                                      style={[
+                                        styles.stepperDotNum,
+                                        isCurrentUpcoming && styles.stepperDotNumUpcoming,
+                                      ]}
+                                    >
+                                      {mIdx + 1}
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+
+                              {/* Date */}
                               <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
 
+                              {/* Status Pill */}
                               <View
                                 style={[
                                   styles.trackNodePill,
                                   isFullyWithdrawn && styles.trackPillWithdrawn,
                                   isUnlockedAvailable && styles.trackPillUnlocked,
-                                  !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillUpcoming,
-                                  !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillLocked,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && isCurrentUpcoming && styles.trackPillUpcoming,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && !isCurrentUpcoming && styles.trackPillLocked,
                                 ]}
                               >
                                 <Text
@@ -884,19 +674,17 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                                     styles.trackNodePillText,
                                     isFullyWithdrawn && styles.trackPillTextWithdrawn,
                                     isUnlockedAvailable && styles.trackPillTextUnlocked,
-                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillTextUpcoming,
-                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillTextLocked,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && isCurrentUpcoming && styles.trackPillTextUpcoming,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && !isCurrentUpcoming && styles.trackPillTextLocked,
                                   ]}
                                   numberOfLines={1}
                                 >
                                   {isFullyWithdrawn
-                                    ? (m.withdrawnPoints > 0 ? `Đã rút` : `Dồn đợt sau`)
+                                    ? (m.withdrawnPoints > 0 ? 'Đã rút' : 'Đã dồn')
                                     : isPartiallyWithdrawn
                                     ? `Còn ${formatCompactPoints(remaining)}`
                                     : isUnlockedAvailable
-                                    ? `Mở (+${formatCompactPoints(m.pointsToUnlock)})`
-                                    : mIdx === firstLockedIdx
-                                    ? `⏳ Đếm (${formatCompactPoints(m.pointsToUnlock)})`
+                                    ? `+${formatCompactPoints(m.pointsToUnlock)}`
                                     : `${formatCompactPoints(m.pointsToUnlock)}`}
                                 </Text>
                               </View>
@@ -904,7 +692,117 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                           );
                         })}
                       </View>
-                    </>
+                    </ScrollView>
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 4 }}>
+                      {milestones.map((m, mIdx) => {
+                        const unlockDate = new Date(m.unlockDate);
+                        const isPassed = unlockDate <= now;
+                        const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                        const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                        const isUnlockedAvailable = isPassed && remaining > 0;
+                        const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
+                        const isCurrentUpcoming = mIdx === firstLockedIdx;
+
+                        const isLeftActive = isPassed || isFullyWithdrawn || isCurrentUpcoming;
+                        const isRightActive = isPassed || isFullyWithdrawn;
+
+                        const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                        return (
+                          <View key={m.id || mIdx} style={{ flex: 1, alignItems: 'center' }}>
+                            {/* Step Node with continuous connector line */}
+                            <View style={{ width: '100%', height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                              {mIdx > 0 && (
+                                <View
+                                  style={{
+                                    position: 'absolute',
+                                    left: 0,
+                                    right: '50%',
+                                    top: '50%',
+                                    marginTop: -1.5,
+                                    height: 3,
+                                    backgroundColor: isLeftActive ? '#2563EB' : '#E2E8F0',
+                                  }}
+                                />
+                              )}
+                              {mIdx < milestones.length - 1 && (
+                                <View
+                                  style={{
+                                    position: 'absolute',
+                                    left: '50%',
+                                    right: 0,
+                                    top: '50%',
+                                    marginTop: -1.5,
+                                    height: 3,
+                                    backgroundColor: isRightActive ? '#2563EB' : '#E2E8F0',
+                                  }}
+                                />
+                              )}
+                              <View
+                                style={[
+                                  styles.stepperDotNode,
+                                  isFullyWithdrawn && styles.stepperDotWithdrawn,
+                                  isUnlockedAvailable && styles.stepperDotUnlocked,
+                                  isCurrentUpcoming && styles.stepperDotUpcoming,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && !isCurrentUpcoming && styles.stepperDotLocked,
+                                ]}
+                              >
+                                {isFullyWithdrawn ? (
+                                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                                ) : isUnlockedAvailable ? (
+                                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>
+                                    {mIdx + 1}
+                                  </Text>
+                                ) : (
+                                  <Text
+                                    style={[
+                                      styles.stepperDotNum,
+                                      isCurrentUpcoming && styles.stepperDotNumUpcoming,
+                                    ]}
+                                  >
+                                    {mIdx + 1}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+
+                            {/* Date */}
+                            <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
+
+                            {/* Status Pill */}
+                            <View
+                              style={[
+                                styles.trackNodePill,
+                                isFullyWithdrawn && styles.trackPillWithdrawn,
+                                isUnlockedAvailable && styles.trackPillUnlocked,
+                                !isFullyWithdrawn && !isUnlockedAvailable && isCurrentUpcoming && styles.trackPillUpcoming,
+                                !isFullyWithdrawn && !isUnlockedAvailable && !isCurrentUpcoming && styles.trackPillLocked,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.trackNodePillText,
+                                  isFullyWithdrawn && styles.trackPillTextWithdrawn,
+                                  isUnlockedAvailable && styles.trackPillTextUnlocked,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && isCurrentUpcoming && styles.trackPillTextUpcoming,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && !isCurrentUpcoming && styles.trackPillTextLocked,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {isFullyWithdrawn
+                                  ? (m.withdrawnPoints > 0 ? 'Đã rút' : 'Đã dồn')
+                                  : isPartiallyWithdrawn
+                                  ? `Còn ${formatCompactPoints(remaining)}`
+                                  : isUnlockedAvailable
+                                  ? `+${formatCompactPoints(m.pointsToUnlock)}`
+                                  : `${formatCompactPoints(m.pointsToUnlock)}`}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
                   )}
                 </View>
 
@@ -932,57 +830,37 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                   </View>
                 </View>
 
-                {/* Package Dedicated Countdown / Status */}
-                {pkgCountdownData ? (
-                  <View style={styles.pkgCountdownSection}>
-                    <View style={styles.pkgCountdownHeaderRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                        <MaterialCommunityIcons name="timer-sand" size={16} color="#D97706" />
-                        <Text style={styles.pkgCountdownTitleText} numberOfLines={1}>
-                          Đếm ngược mở đợt: <Text style={{ fontWeight: '800', color: '#B45309' }}>{pkgCountdownData.title}</Text>
-                        </Text>
-                      </View>
-                      <View style={styles.pkgCountdownTargetBadge}>
-                        <MaterialCommunityIcons name="calendar-clock" size={12} color="#92400E" />
-                        <Text style={styles.pkgCountdownTargetText}>{pkgCountdownData.targetDateFormatted}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.pkgCountdownTickerRow}>
-                      <View style={styles.pkgCountdownMiniBox}>
-                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.days).padStart(2, '0')}</Text>
-                        <Text style={styles.pkgCountdownMiniLabel}>NGÀY</Text>
-                      </View>
-                      <Text style={styles.pkgCountdownColon}>:</Text>
-                      <View style={styles.pkgCountdownMiniBox}>
-                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.hours).padStart(2, '0')}</Text>
-                        <Text style={styles.pkgCountdownMiniLabel}>GIỜ</Text>
-                      </View>
-                      <Text style={styles.pkgCountdownColon}>:</Text>
-                      <View style={styles.pkgCountdownMiniBox}>
-                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.minutes).padStart(2, '0')}</Text>
-                        <Text style={styles.pkgCountdownMiniLabel}>PHÚT</Text>
-                      </View>
-                      <Text style={styles.pkgCountdownColon}>:</Text>
-                      <View style={styles.pkgCountdownMiniBox}>
-                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.seconds).padStart(2, '0')}</Text>
-                        <Text style={styles.pkgCountdownMiniLabel}>GIÂY</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.pkgCountdownFooterRow}>
-                      <Text style={styles.pkgCountdownFooterLeft}>
-                        Dự kiến mở khóa: <Text style={styles.pkgExpectedPointsText}>+{pkgCountdownData.points.toLocaleString('vi-VN')} đ</Text>
-                        <Text style={styles.pkgExpectedCashText}> (~{pkgCountdownData.cashAmount.toLocaleString('vi-VN')} VNĐ)</Text>
+                {/* Package Status & Action Footer (Replaces redundant chunky countdown ticker) */}
+                <View style={styles.pkgActionFooter}>
+                  {pkgCountdownData ? (
+                    <View style={styles.pkgNextMilestoneRow}>
+                      <Ionicons name="time-outline" size={14} color="#2563EB" />
+                      <Text style={styles.pkgNextMilestoneText} numberOfLines={1}>
+                        Đợt tới: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{pkgCountdownData.title}</Text> ({pkgCountdownData.targetDateFormatted}) • <Text style={{ color: '#2563EB', fontWeight: '700' }}>+{pkgCountdownData.points.toLocaleString('vi-VN')} đ</Text>
                       </Text>
                     </View>
-                  </View>
-                ) : (
-                  <View style={styles.pkgCompletedSection}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color="#059669" />
-                    <Text style={styles.pkgCompletedText}>Gói thưởng đã hoàn tất mở khóa tất cả các đợt</Text>
-                  </View>
-                )}
+                  ) : (
+                    <View style={styles.pkgNextMilestoneRow}>
+                      <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                      <Text style={[styles.pkgNextMilestoneText, { color: '#059669', fontWeight: '600' }]}>
+                        Đã hoàn tất mở khóa tất cả các đợt
+                      </Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.pkgDetailBtn}
+                    onPress={() => {
+                      setSelectedPackage(pkg);
+                      setPackageDetailModalVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="receipt-outline" size={14} color="#2563EB" />
+                    <Text style={styles.pkgDetailBtnText}>Chi Tiết & Lịch Sử GD</Text>
+                    <Ionicons name="chevron-forward" size={13} color="#2563EB" />
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })}
@@ -1152,12 +1030,12 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
               : '#DC2626';
 
             const statusLabel = isPaid
-              ? '✅ Đã chuyển tiền thành công'
+              ? 'Đã chuyển tiền thành công'
               : isPendingAcc
-              ? '💼 Chờ Kế toán chi tiền'
+              ? 'Chờ Kế toán chi tiền'
               : isPendingAdmin
-              ? '⏳ Chờ Admin duyệt quy đổi'
-              : '❌ Đã từ chối (Hoàn điểm)';
+              ? 'Chờ Admin duyệt quy đổi'
+              : 'Đã từ chối (Hoàn điểm)';
 
             return (
               <View key={req.id} style={[styles.withdrawalReqCard, { borderColor: statusBorder }]}>
@@ -1182,17 +1060,8 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                   <View style={styles.horizontalTrackRow}>
                     {/* Step 1: Created */}
                     <View style={styles.trackNodeWrapper}>
-                      <MaterialCommunityIcons
-                        name="file-document-edit"
-                        size={22}
-                        color={isRejected ? '#DC2626' : '#EE4D2D'}
-                      />
-                      <View style={styles.trackCaretSlot}>
-                        <MaterialCommunityIcons
-                          name="chevron-down"
-                          size={13}
-                          color={isRejected ? '#DC2626' : '#EE4D2D'}
-                        />
+                      <View style={[styles.stepperDotNode, styles.stepperDotWithdrawn, { width: 22, height: 22, borderRadius: 11 }]}>
+                        <Ionicons name="checkmark" size={13} color="#FFFFFF" />
                       </View>
                     </View>
 
@@ -1214,28 +1083,23 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
                     {/* Step 2: Admin Approval */}
                     <View style={styles.trackNodeWrapper}>
-                      <MaterialCommunityIcons
-                        name="account-check"
-                        size={22}
-                        color={
-                          isRejected
-                            ? '#DC2626'
-                            : isPaid || isPendingAcc
-                            ? '#EE4D2D'
-                            : isPendingAdmin
-                            ? '#EE4D2D'
-                            : '#CBD5E1'
-                        }
-                      />
-                      <View style={styles.trackCaretSlot}>
-                        {(isPaid || isPendingAcc || isPendingAdmin || isRejected) && (
-                          <MaterialCommunityIcons
-                            name="chevron-down"
-                            size={13}
-                            color={isRejected ? '#DC2626' : '#EE4D2D'}
-                          />
-                        )}
-                      </View>
+                      {isRejected ? (
+                        <View style={[styles.stepperDotNode, { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FEE2E2', borderColor: '#DC2626' }]}>
+                          <Ionicons name="close" size={13} color="#DC2626" />
+                        </View>
+                      ) : isPaid || isPendingAcc ? (
+                        <View style={[styles.stepperDotNode, styles.stepperDotWithdrawn, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                        </View>
+                      ) : isPendingAdmin ? (
+                        <View style={[styles.stepperDotNode, styles.stepperDotUpcoming, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Text style={[styles.stepperDotNum, styles.stepperDotNumUpcoming, { fontSize: 10 }]}>2</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.stepperDotNode, styles.stepperDotLocked, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Text style={[styles.stepperDotNum, { fontSize: 10 }]}>2</Text>
+                        </View>
+                      )}
                     </View>
 
                     {/* Line 2 -> 3 */}
@@ -1254,20 +1118,19 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
                     {/* Step 3: Accountant Payout */}
                     <View style={styles.trackNodeWrapper}>
-                      <MaterialCommunityIcons
-                        name="bank-transfer"
-                        size={22}
-                        color={isPaid ? '#EE4D2D' : isPendingAcc ? '#EE4D2D' : '#CBD5E1'}
-                      />
-                      <View style={styles.trackCaretSlot}>
-                        {(isPaid || isPendingAcc) && (
-                          <MaterialCommunityIcons
-                            name="chevron-down"
-                            size={13}
-                            color="#EE4D2D"
-                          />
-                        )}
-                      </View>
+                      {isPaid ? (
+                        <View style={[styles.stepperDotNode, styles.stepperDotWithdrawn, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                        </View>
+                      ) : isPendingAcc ? (
+                        <View style={[styles.stepperDotNode, styles.stepperDotUpcoming, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Text style={[styles.stepperDotNum, styles.stepperDotNumUpcoming, { fontSize: 10 }]}>3</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.stepperDotNode, styles.stepperDotLocked, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Text style={[styles.stepperDotNum, { fontSize: 10 }]}>3</Text>
+                        </View>
+                      )}
                     </View>
 
                     {/* Line 3 -> 4 */}
@@ -1281,20 +1144,15 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
                     {/* Step 4: Finished */}
                     <View style={styles.trackNodeWrapper}>
-                      <MaterialCommunityIcons
-                        name="check-decagram"
-                        size={22}
-                        color={isPaid ? '#059669' : '#CBD5E1'}
-                      />
-                      <View style={styles.trackCaretSlot}>
-                        {isPaid && (
-                          <MaterialCommunityIcons
-                            name="chevron-down"
-                            size={13}
-                            color="#059669"
-                          />
-                        )}
-                      </View>
+                      {isPaid ? (
+                        <View style={[styles.stepperDotNode, styles.stepperDotWithdrawn, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                        </View>
+                      ) : (
+                        <View style={[styles.stepperDotNode, styles.stepperDotLocked, { width: 22, height: 22, borderRadius: 11 }]}>
+                          <Text style={[styles.stepperDotNum, { fontSize: 10 }]}>4</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
 
@@ -1304,10 +1162,10 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                       <Text style={[styles.trackNodeTitle, { fontSize: 9.5 }]}>Gửi đơn</Text>
                     </View>
                     <View style={styles.trackLabelCol}>
-                      <Text style={[styles.trackNodeTitle, (isPendingAdmin || isPendingAcc || isPaid) && { color: '#EE4D2D' }, { fontSize: 9.5 }]}>Duyệt</Text>
+                      <Text style={[styles.trackNodeTitle, (isPendingAdmin || isPendingAcc || isPaid) && { color: '#2563EB' }, { fontSize: 9.5 }]}>Duyệt</Text>
                     </View>
                     <View style={styles.trackLabelCol}>
-                      <Text style={[styles.trackNodeTitle, (isPendingAcc || isPaid) && { color: '#EE4D2D' }, { fontSize: 9.5 }]}>Chi tiền</Text>
+                      <Text style={[styles.trackNodeTitle, (isPendingAcc || isPaid) && { color: '#2563EB' }, { fontSize: 9.5 }]}>Chi tiền</Text>
                     </View>
                     <View style={styles.trackLabelCol}>
                       <Text style={[styles.trackNodeTitle, isPaid && { color: '#059669' }, { fontSize: 9.5 }]}>Đã nhận</Text>
@@ -1358,66 +1216,326 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         </View>
       )}
 
-      {/* Recent Transactions Ledger */}
-      {transactions.length > 0 && (
-        <View style={styles.txContainer}>
-          <Text style={styles.txTitle}>Lịch sử biến động điểm gần đây:</Text>
-          {transactions.slice(0, 5).map((tx) => {
-            const isPositive = tx.points > 0;
-            return (
-              <View key={tx.id} style={styles.txRow}>
-                <View
-                  style={[
-                    styles.txIconBadge,
-                    { backgroundColor: isPositive ? '#ECFDF5' : '#FEF2F2' },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={
-                      tx.type === 'GRANT_PROJECT_INSTANT'
-                        ? 'lightning-bolt'
-                        : tx.type === 'WITHDRAW_ADVANCE'
-                        ? 'arrow-up-bold-box-outline'
-                        : tx.type === 'REFUND_WITHDRAWAL'
-                        ? 'cash-refund'
-                        : isPositive
-                        ? 'plus'
-                        : 'minus'
-                    }
-                    size={16}
-                    color={isPositive ? '#059669' : '#DC2626'}
-                  />
+      {/* Modal Chi Tiết Gói Thưởng & Lịch Sử Giao Dịch Của Riêng Dự Án */}
+      {selectedPackage && (
+        <Modal
+          visible={packageDetailModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setPackageDetailModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.pkgDetailModalContent}>
+              <View style={styles.bottomSheetHandle} />
+              {/* Modal Header */}
+              <View style={styles.pkgDetailModalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <View style={styles.pkgDetailHeaderBadge}>
+                    <Ionicons name="gift-outline" size={20} color="#2563EB" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalTitle} numberOfLines={1}>
+                      {selectedPackage.title}
+                    </Text>
+                    <Text style={styles.modalSubtitle}>Chi tiết lộ trình & Lịch sử giao dịch</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.txNote} numberOfLines={1}>
-                    {tx.note || (isPositive ? 'Thưởng điểm' : 'Rút tiền thưởng')}
-                  </Text>
-                  <Text style={styles.txDate}>
-                    {new Date(tx.createdAt).toLocaleDateString('vi-VN')} •{' '}
-                    {tx.type === 'WITHDRAW_ADVANCE'
-                      ? 'Rút ứng trước'
-                      : tx.type === 'GRANT_PROJECT_INSTANT'
-                      ? 'Thưởng nóng'
-                      : tx.type === 'GRANT_PROJECT_VESTING'
-                      ? 'Thưởng tích lũy'
-                      : tx.type === 'REFUND_WITHDRAWAL'
-                      ? 'Hoàn điểm'
-                      : 'Thưởng năm'}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.txPoints,
-                    { color: isPositive ? '#059669' : '#DC2626' },
-                  ]}
+                <TouchableOpacity
+                  onPress={() => setPackageDetailModalVisible(false)}
+                  style={styles.modalCloseBtn}
+                  activeOpacity={0.7}
                 >
-                  {isPositive ? '+' : ''}
-                  {tx.points.toLocaleString('vi-VN')} đ
-                </Text>
+                  <Ionicons name="close" size={20} color="#64748B" />
+                </TouchableOpacity>
               </View>
-            );
-          })}
-        </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.pkgDetailScroll}>
+                {(() => {
+                  const milestones = selectedPackage.milestones || [];
+                  const pkgTotalCash = selectedPackage.totalPoints * cashValuePerPoint;
+                  const pkgWithdrawnPoints = milestones.reduce((s, m) => s + (m.withdrawnPoints || 0), 0);
+                  const pkgWithdrawnCash = pkgWithdrawnPoints * cashValuePerPoint;
+
+                  let pkgUnlockedPoints = 0;
+                  let pkgLockedPoints = 0;
+                  milestones.forEach((m) => {
+                    const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                    if (remaining > 0) {
+                      if (new Date(m.unlockDate) <= now) {
+                        pkgUnlockedPoints += remaining;
+                      } else {
+                        pkgLockedPoints += remaining;
+                      }
+                    }
+                  });
+
+                  const pkgTransactions = getPackageTransactions(selectedPackage, transactions);
+
+                  const startD = selectedPackage.startDate ? new Date(selectedPackage.startDate) : null;
+                  const startFormatted = startD
+                    ? `${startD.getDate().toString().padStart(2, '0')}/${(startD.getMonth() + 1).toString().padStart(2, '0')}/${startD.getFullYear()}`
+                    : 'Theo quy định';
+
+                  return (
+                    <View style={{ gap: 12 }}>
+                      {/* Package Overview Card */}
+                      <View style={styles.pkgModalHeroCard}>
+                        <View style={styles.pkgModalHeroTop}>
+                          <View>
+                            <Text style={styles.pkgModalHeroLabel}>TỔNG ĐIỂM GÓI THƯỞNG</Text>
+                            <Text style={styles.pkgModalHeroAmount}>
+                              {selectedPackage.totalPoints.toLocaleString('vi-VN')}{' '}
+                              <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>điểm</Text>
+                            </Text>
+                            <Text style={styles.pkgModalHeroCash}>
+                              ~{pkgTotalCash.toLocaleString('vi-VN')} VNĐ
+                            </Text>
+                          </View>
+                          <View style={styles.pkgModalHeroBadge}>
+                            <Text style={styles.pkgModalHeroBadgeText}>
+                              {selectedPackage.durationMonths} tháng • {milestones.length} đợt
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.pkgModalHeroDivider} />
+
+                        {/* 3 Metric Columns */}
+                        <View style={styles.pkgModalMetricsRow}>
+                          <View style={styles.pkgModalMetricItem}>
+                            <Text style={styles.pkgModalMetricLabel}>Đã rút</Text>
+                            <Text style={styles.pkgModalMetricValueSlate}>
+                              {pkgWithdrawnPoints.toLocaleString('vi-VN')} đ
+                            </Text>
+                            <Text style={styles.pkgModalMetricSub}>
+                              ~{pkgWithdrawnCash.toLocaleString('vi-VN')} đ
+                            </Text>
+                          </View>
+
+                          <View style={styles.pkgModalMetricDivider} />
+
+                          <View style={styles.pkgModalMetricItem}>
+                            <Text style={styles.pkgModalMetricLabel}>Khả dụng</Text>
+                            <Text style={styles.pkgModalMetricValueBlue}>
+                              {pkgUnlockedPoints.toLocaleString('vi-VN')} đ
+                            </Text>
+                            <Text style={styles.pkgModalMetricSub}>
+                              ~{(pkgUnlockedPoints * cashValuePerPoint).toLocaleString('vi-VN')} đ
+                            </Text>
+                          </View>
+
+                          <View style={styles.pkgModalMetricDivider} />
+
+                          <View style={styles.pkgModalMetricItem}>
+                            <Text style={styles.pkgModalMetricLabel}>Đang khóa</Text>
+                            <Text style={styles.pkgModalMetricValueMuted}>
+                              {pkgLockedPoints.toLocaleString('vi-VN')} đ
+                            </Text>
+                            <Text style={styles.pkgModalMetricSub}>
+                              ~{(pkgLockedPoints * cashValuePerPoint).toLocaleString('vi-VN')} đ
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.pkgModalHeroFooter}>
+                          <Text style={styles.pkgModalHeroFooterText}>
+                            Bắt đầu: {startFormatted} • Chu kỳ: {selectedPackage.intervalMonths} tháng/đợt
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Milestones Schedule */}
+                      <View style={styles.pkgDetailSection}>
+                        <View style={styles.pkgDetailSectionHeader}>
+                          <Ionicons name="git-commit-outline" size={16} color="#2563EB" />
+                          <Text style={styles.pkgDetailSectionTitle}>
+                            Lộ Trình Các Đợt Mở Khóa ({milestones.length} đợt)
+                          </Text>
+                        </View>
+
+                        <View style={styles.pkgMilestonesContainer}>
+                          {milestones.map((m, mIdx) => {
+                            const unlockDate = new Date(m.unlockDate);
+                            const isPassed = unlockDate <= now;
+                            const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                            const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                            const isUnlockedAvailable = isPassed && remaining > 0;
+                            const isExpiredDồn = isPassed && m.withdrawnPoints === 0 && !isUnlockedAvailable;
+
+                            const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}/${unlockDate.getFullYear()}`;
+
+                            return (
+                              <View
+                                key={m.id || mIdx}
+                                style={[
+                                  styles.pkgMilestoneCardRow,
+                                  isUnlockedAvailable && styles.pkgMilestoneCardUnlocked,
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    styles.pkgMilestoneIndexCircle,
+                                    isUnlockedAvailable && { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
+                                    isFullyWithdrawn && { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.pkgMilestoneIndexText,
+                                      isUnlockedAvailable && { color: '#2563EB' },
+                                      isFullyWithdrawn && { color: '#64748B' },
+                                    ]}
+                                  >
+                                    {mIdx + 1}
+                                  </Text>
+                                </View>
+
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.pkgMilestoneRowTitle} numberOfLines={1}>
+                                    {m.title || `Đợt ${mIdx + 1}`}
+                                  </Text>
+                                  <Text style={styles.pkgMilestoneRowDate}>Mở khóa: {dateFormatted}</Text>
+                                </View>
+
+                                <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                                  <Text
+                                    style={[
+                                      styles.pkgMilestoneRowPoints,
+                                      isUnlockedAvailable && { color: '#2563EB' },
+                                      isFullyWithdrawn && { color: '#64748B' },
+                                    ]}
+                                  >
+                                    +{m.pointsToUnlock.toLocaleString('vi-VN')} đ
+                                  </Text>
+
+                                  <View
+                                    style={[
+                                      styles.pkgMilestoneBadge,
+                                      isFullyWithdrawn
+                                        ? styles.pkgBadgeWithdrawn
+                                        : isUnlockedAvailable
+                                        ? styles.pkgBadgeUnlocked
+                                        : isExpiredDồn
+                                        ? styles.pkgBadgeExpired
+                                        : styles.pkgBadgeLocked,
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.pkgMilestoneBadgeText,
+                                        isFullyWithdrawn
+                                          ? styles.pkgBadgeTextWithdrawn
+                                          : isUnlockedAvailable
+                                          ? styles.pkgBadgeTextUnlocked
+                                          : isExpiredDồn
+                                          ? styles.pkgBadgeTextExpired
+                                          : styles.pkgBadgeTextLocked,
+                                      ]}
+                                    >
+                                      {isFullyWithdrawn
+                                        ? 'Đã rút'
+                                        : isUnlockedAvailable
+                                        ? 'Khả dụng'
+                                        : isExpiredDồn
+                                        ? 'Hết hạn 15 ngày • Đã dồn'
+                                        : 'Chưa mở'}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      {/* Package-Specific Transaction History (Sorted newest to oldest) */}
+                      <View style={styles.pkgDetailSection}>
+                        <View style={styles.pkgDetailSectionHeader}>
+                          <Ionicons name="time-outline" size={16} color="#2563EB" />
+                          <Text style={styles.pkgDetailSectionTitle}>
+                            Lịch Sử Biến Động Điểm Của Dự Án ({pkgTransactions.length})
+                          </Text>
+                        </View>
+
+                        {pkgTransactions.length > 0 ? (
+                          <View style={styles.pkgTxListContainer}>
+                            {pkgTransactions.map((tx) => {
+                              const isPositive = tx.points > 0;
+                              const txDate = new Date(tx.createdAt);
+                              const dateFormatted = `${txDate.getDate().toString().padStart(2, '0')}/${(txDate.getMonth() + 1).toString().padStart(2, '0')}/${txDate.getFullYear()} ${txDate.getHours().toString().padStart(2, '0')}:${txDate.getMinutes().toString().padStart(2, '0')}`;
+
+                              return (
+                                <View key={tx.id} style={styles.pkgTxRow}>
+                                  <View
+                                    style={[
+                                      styles.pkgTxIconCircle,
+                                      { backgroundColor: isPositive ? '#EFF6FF' : '#FEF2F2' },
+                                    ]}
+                                  >
+                                    <Ionicons
+                                      name={
+                                        tx.type === 'GRANT_PROJECT_INSTANT'
+                                          ? 'flash-outline'
+                                          : tx.type === 'WITHDRAW_ADVANCE'
+                                          ? 'arrow-up-outline'
+                                          : tx.type === 'REFUND_WITHDRAWAL'
+                                          ? 'refresh-outline'
+                                          : isPositive
+                                          ? 'add'
+                                          : 'remove'
+                                      }
+                                      size={15}
+                                      color={isPositive ? '#2563EB' : '#EF4444'}
+                                    />
+                                  </View>
+
+                                  <View style={{ flex: 1, paddingRight: 6 }}>
+                                    <Text style={styles.pkgTxNote} numberOfLines={2}>
+                                      {tx.note || (isPositive ? 'Thưởng tích lũy' : 'Rút điểm')}
+                                    </Text>
+                                    <Text style={styles.pkgTxDate}>{dateFormatted}</Text>
+                                  </View>
+
+                                  <Text
+                                    style={[
+                                      styles.pkgTxPoints,
+                                      { color: isPositive ? '#059669' : '#EF4444' },
+                                    ]}
+                                  >
+                                    {isPositive ? '+' : ''}
+                                    {tx.points.toLocaleString('vi-VN')} đ
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        ) : (
+                          <View style={styles.pkgTxEmptyBox}>
+                            <Ionicons name="document-text-outline" size={24} color="#94A3B8" />
+                            <Text style={styles.pkgTxEmptyText}>
+                              Chưa có biến động điểm nào được ghi nhận cho dự án này.
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })()}
+              </ScrollView>
+
+              {/* Close Footer */}
+              <View style={styles.pkgModalFooter}>
+                <TouchableOpacity
+                  style={styles.pkgModalCloseBtn}
+                  onPress={() => setPackageDetailModalVisible(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.pkgModalCloseBtnText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
 
       {/* Modal Withdrawal Form */}
@@ -1427,25 +1545,29 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
+            <View style={styles.bottomSheetHandle} />
             <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={styles.modalHeaderBadge}>
-                  <Ionicons name="cash-outline" size={20} color="#D97706" />
+                  <Ionicons name="wallet-outline" size={20} color="#2563EB" />
                 </View>
-                <Text style={styles.modalTitle}>Yêu Cầu Quy Đổi & Rút Điểm</Text>
+                <View>
+                  <Text style={styles.modalTitle}>Yêu Cầu Quy Đổi & Rút Điểm</Text>
+                  <Text style={styles.modalSubtitle}>Tất toán đợt thưởng đã mở khóa</Text>
+                </View>
               </View>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={20} color="#6B7280" />
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
               <View style={{ marginBottom: 16 }}>
                 {/* Fixed Notice Banner */}
-                <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <MaterialCommunityIcons name="information" size={24} color="#2563EB" />
+                <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#DBEAFE', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="information-circle" size={22} color="#2563EB" />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E40AF' }}>Quy định rút điểm: Đợt nào rút đợt đó</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E40AF' }}>Quy định rút điểm: Đợt nào rút đợt đó</Text>
                     <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2, lineHeight: 17 }}>
                       Hệ thống tự động quy đổi toàn bộ 100% hạn mức của các đợt đã đến hạn mở khóa ({maxWithdrawable.toLocaleString('vi-VN')} điểm).
                     </Text>
@@ -1453,15 +1575,15 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                 </View>
 
                 {/* Fixed Amount Display Card */}
-                <View style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
-                    <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '500' }}>Tổng điểm rút đợt này (100%):</Text>
-                    <Text style={{ fontSize: 22, fontWeight: '800', color: '#D97706', marginTop: 2 }}>
+                    <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '600' }}>Tổng điểm rút đợt này (100%):</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '900', color: '#2563EB', marginTop: 2 }}>
                       {maxWithdrawable.toLocaleString('vi-VN')} điểm
                     </Text>
                   </View>
-                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#B45309' }}>Rút toàn bộ</Text>
+                  <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#BFDBFE' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#1D4ED8' }}>Rút toàn bộ</Text>
                   </View>
                 </View>
               </View>
@@ -1574,13 +1696,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: '#FDE68A',
-    shadowColor: '#D97706',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   vipHeroHeader: {
     flexDirection: 'row',
@@ -1598,51 +1720,51 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   vipHeroTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#92400E',
+    color: '#0F172A',
   },
   vipHeroSubtitle: {
     fontSize: 11,
-    color: '#78350F',
+    color: '#64748B',
     marginTop: 1,
   },
   vipBadgeChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
   vipBadgeChipText: {
-    color: '#B45309',
+    color: '#334155',
     fontSize: 10,
     fontWeight: '800',
   },
   vipBalanceCenterpiece: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#E2E8F0',
   },
   vipBalanceLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#065F46',
+    color: '#64748B',
     letterSpacing: 0.8,
     marginBottom: 4,
   },
@@ -1655,13 +1777,13 @@ const styles = StyleSheet.create({
   vipAmountNumber: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#047857',
+    color: '#0F172A',
     letterSpacing: -0.5,
   },
   vipCurrency: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#065F46',
+    color: '#64748B',
   },
   vipPillRow: {
     flexDirection: 'row',
@@ -1674,31 +1796,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   vipPointPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#065F46',
+    color: '#1D4ED8',
   },
   vipInstantPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   vipInstantPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#2563EB',
   },
   vipMetricsGrid: {
     flexDirection: 'row',
@@ -1707,7 +1831,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
   vipMetricCol: {
     flex: 1,
@@ -1723,7 +1847,7 @@ const styles = StyleSheet.create({
   vipMetricValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1E293B',
+    color: '#0F172A',
   },
   vipMetricSub: {
     fontSize: 10,
@@ -1733,21 +1857,21 @@ const styles = StyleSheet.create({
   vipMetricValueOrange: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#EA580C',
+    color: '#475569',
   },
   vipMetricSubOrange: {
     fontSize: 10,
-    color: '#C2410C',
+    color: '#94A3B8',
     marginTop: 1,
   },
   vipMetricValueGold: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#D97706',
+    color: '#2563EB',
   },
   vipMetricSubGold: {
     fontSize: 10,
-    color: '#B45309',
+    color: '#1D4ED8',
     marginTop: 1,
   },
   vipMetricDivider: {
@@ -1760,18 +1884,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#059669',
+    backgroundColor: '#2563EB',
     paddingVertical: 13,
     borderRadius: 12,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 2,
   },
   vipWithdrawActionBtnDisabled: {
     backgroundColor: '#F1F5F9',
-    borderColor: '#CBD5E1',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
     shadowOpacity: 0,
     elevation: 0,
@@ -1792,17 +1916,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: '#E2E8F0',
   },
   vipFooterNoteText: {
     fontSize: 11,
-    color: '#92400E',
+    color: '#64748B',
     flex: 1,
     lineHeight: 16,
   },
@@ -1957,7 +2081,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   badgeLocked: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#F1F5F9',
   },
   stepperPointBadgeText: {
     fontSize: 10,
@@ -1970,7 +2094,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   badgeTextLocked: {
-    color: '#B45309',
+    color: '#64748B',
   },
   milestoneMiniSummary: {
     flexDirection: 'row',
@@ -2000,7 +2124,7 @@ const styles = StyleSheet.create({
   miniSummaryValLocked: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#D97706',
+    color: '#475569',
   },
   miniSummaryDivider: {
     width: 1,
@@ -2013,11 +2137,11 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    shadowColor: '#D97706',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
   withdrawalHistoryHeader: {
@@ -2168,22 +2292,35 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'flex-end',
+    padding: 0,
+    margin: 0,
   },
   modalContent: {
     width: '100%',
-    maxWidth: 420,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    maxHeight: '92%',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  bottomSheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2195,9 +2332,11 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   modalTitle: {
     fontSize: 15,
@@ -2264,8 +2403,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   quickPercentBtnActive: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#D97706',
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
   },
   quickPercentText: {
     fontSize: 11,
@@ -2273,7 +2412,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   quickPercentTextActive: {
-    color: '#B45309',
+    color: '#2563EB',
     fontWeight: '800',
   },
   conversionBox: {
@@ -2329,44 +2468,44 @@ const styles = StyleSheet.create({
   advanceWarningBox: {
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#EFF6FF',
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
     marginBottom: 8,
   },
   advanceWarningTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#1E40AF',
     marginBottom: 2,
   },
   advanceWarningDesc: {
     fontSize: 10,
-    color: '#B45309',
+    color: '#3B82F6',
     lineHeight: 14,
   },
   directPayoutNoticeBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#EFF6FF',
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
     marginVertical: 10,
   },
   directPayoutTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#1E40AF',
     marginBottom: 2,
   },
   directPayoutDesc: {
     fontSize: 11,
-    color: '#B45309',
+    color: '#3B82F6',
     lineHeight: 15,
   },
   input: {
@@ -2405,7 +2544,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 12,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: '#E2E8F0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -2416,17 +2555,17 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
   disabledTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#0F172A',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -2439,31 +2578,31 @@ const styles = StyleSheet.create({
   },
   disabledHint: {
     fontSize: 12,
-    color: '#B45309',
+    color: '#64748B',
     textAlign: 'center',
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#F8FAFC',
     padding: 10,
     borderRadius: 8,
     lineHeight: 18,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: '#E2E8F0',
   },
   refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   refreshBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#92400E',
+    color: '#2563EB',
   },
   packageListContainer: {
     marginTop: 10,
@@ -2485,12 +2624,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#FDE68A',
-    shadowColor: '#D97706',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
   packageCardHeader: {
@@ -2499,7 +2638,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#FEF3C7',
+    borderBottomColor: '#F1F5F9',
     marginBottom: 10,
     gap: 8,
   },
@@ -2507,9 +2646,11 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   packageCardTitle: {
     fontSize: 14,
@@ -2523,22 +2664,22 @@ const styles = StyleSheet.create({
   },
   packageTotalBadge: {
     alignItems: 'flex-end',
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
   packageTotalPoints: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#B45309',
+    color: '#0F172A',
   },
   packageTotalCash: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#78350F',
+    color: '#2563EB',
   },
   pkgMilestoneList: {
     gap: 6,
@@ -2565,8 +2706,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pkgMilestoneRowLocked: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
   },
   milestoneLeftInfo: {
@@ -2623,9 +2764,9 @@ const styles = StyleSheet.create({
     borderColor: '#86EFAC',
   },
   pillLocked: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
   milestoneStatusPillText: {
     fontSize: 10,
@@ -2638,7 +2779,7 @@ const styles = StyleSheet.create({
     color: '#15803D',
   },
   pillTextLocked: {
-    color: '#92400E',
+    color: '#64748B',
   },
   packageBottomSummary: {
     flexDirection: 'row',
@@ -2646,8 +2787,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#FEF3C7',
-    backgroundColor: '#FFFDF5',
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
     borderRadius: 8,
     paddingVertical: 6,
   },
@@ -2671,12 +2812,12 @@ const styles = StyleSheet.create({
   pkgSummaryValLocked: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#D97706',
+    color: '#475569',
   },
   pkgSummaryDivider: {
     width: 1,
     height: 20,
-    backgroundColor: '#FDE68A',
+    backgroundColor: '#E2E8F0',
   },
   scrollHintRow: {
     flexDirection: 'row',
@@ -2688,13 +2829,13 @@ const styles = StyleSheet.create({
   scrollHintText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#2563EB',
   },
   scrollHintBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 10,
@@ -2702,20 +2843,20 @@ const styles = StyleSheet.create({
   scrollHintBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#B45309',
+    color: '#2563EB',
   },
   horizontalTrackerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 4,
     marginVertical: 10,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
   horizontalTrackerScrollContent: {
-    paddingHorizontal: 4,
-    paddingBottom: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   horizontalTrackRow: {
     flexDirection: 'row',
@@ -2727,6 +2868,40 @@ const styles = StyleSheet.create({
   trackNodeWrapper: {
     alignItems: 'center',
     width: 32,
+  },
+  stepperDotNode: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    zIndex: 2,
+  },
+  stepperDotWithdrawn: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  stepperDotUnlocked: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  stepperDotUpcoming: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+  },
+  stepperDotLocked: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
+  },
+  stepperDotNum: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94A3B8',
+  },
+  stepperDotNumUpcoming: {
+    color: '#2563EB',
   },
   trackCaretSlot: {
     height: 14,
@@ -2744,7 +2919,7 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   trackLineFull: {
-    backgroundColor: '#EE4D2D',
+    backgroundColor: '#2563EB',
   },
   trackLineInactive: {
     backgroundColor: '#E2E8F0',
@@ -2760,7 +2935,7 @@ const styles = StyleSheet.create({
     height: 4.5,
   },
   trackLineHalfActive: {
-    backgroundColor: '#EE4D2D',
+    backgroundColor: '#2563EB',
   },
   trackLineHalfInactive: {
     backgroundColor: '#E2E8F0',
@@ -2783,28 +2958,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   trackNodeDate: {
-    fontSize: 10.5,
-    fontWeight: '500',
-    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+    marginTop: 6,
     marginBottom: 4,
+    textAlign: 'center',
   },
   trackNodePill: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 64,
+    minWidth: 58,
   },
   trackPillWithdrawn: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: '#E2E8F0',
   },
   trackPillUnlocked: {
-    backgroundColor: '#FFF1F2',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: '#BFDBFE',
   },
   trackPillLocked: {
     backgroundColor: '#F8FAFC',
@@ -2812,23 +2989,23 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   trackPillUpcoming: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   trackNodePillText: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '700',
     textAlign: 'center',
   },
   trackPillTextWithdrawn: {
-    color: '#DC2626',
+    color: '#64748B',
   },
   trackPillTextUnlocked: {
-    color: '#EE4D2D',
+    color: '#1D4ED8',
   },
   trackPillTextUpcoming: {
-    color: '#B45309',
+    color: '#2563EB',
   },
   trackPillTextLocked: {
     color: '#64748B',
@@ -2848,12 +3025,12 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
-    shadowColor: '#D97706',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   countdownHeaderRow: {
     flexDirection: 'row',
@@ -2870,12 +3047,12 @@ const styles = StyleSheet.create({
   countdownIconCircle: {
     width: 38,
     height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   countdownCardTitle: {
     fontSize: 14,
@@ -2883,7 +3060,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   countdownCardSubtitle: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#64748B',
     fontWeight: '500',
     marginTop: 1,
@@ -2892,30 +3069,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
   countdownTargetPillText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#92400E',
+    fontWeight: '700',
+    color: '#334155',
   },
   countdownBoxesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#F8FAFC',
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: '#E2E8F0',
   },
   countdownBox: {
     alignItems: 'center',
@@ -2925,17 +3102,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     minWidth: 54,
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    shadowColor: '#D97706',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
     elevation: 1,
   },
   countdownBoxNum: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#B45309',
+    color: '#0F172A',
     fontVariant: ['tabular-nums'],
   },
   countdownBoxLabel: {
@@ -2948,7 +3125,7 @@ const styles = StyleSheet.create({
   countdownColon: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#D97706',
+    color: '#94A3B8',
     marginTop: -8,
   },
   timelineProgressSection: {
@@ -2956,7 +3133,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
   timelineDateHeaderRow: {
     flexDirection: 'row',
@@ -2981,7 +3158,7 @@ const styles = StyleSheet.create({
   timelineDateValueGold: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#D97706',
+    color: '#2563EB',
   },
   timelinePercentBadge: {
     backgroundColor: '#EFF6FF',
@@ -3006,7 +3183,7 @@ const styles = StyleSheet.create({
   },
   timelineFill: {
     height: '100%',
-    backgroundColor: '#D97706',
+    backgroundColor: '#2563EB',
     borderRadius: 4,
   },
   timelinePointerPin: {
@@ -3016,9 +3193,9 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     borderWidth: 2,
-    borderColor: '#D97706',
+    borderColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3026,7 +3203,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D97706',
+    backgroundColor: '#2563EB',
   },
   timelineFooterRow: {
     flexDirection: 'row',
@@ -3039,12 +3216,12 @@ const styles = StyleSheet.create({
   },
   timelineFooterLeft: {
     fontSize: 11,
-    color: '#334155',
+    color: '#475569',
     fontWeight: '500',
   },
   timelineFooterBold: {
     fontWeight: '800',
-    color: '#059669',
+    color: '#0F172A',
   },
   countdownAllUnlockedCard: {
     backgroundColor: '#FFFFFF',
@@ -3052,11 +3229,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#D1FAE5',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
   allUnlockedLeft: {
@@ -3068,17 +3245,17 @@ const styles = StyleSheet.create({
   allUnlockedIconCircle: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#DBEAFE',
   },
   allUnlockedTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#065F46',
+    color: '#0F172A',
   },
   allUnlockedSubtitle: {
     fontSize: 11,
@@ -3088,127 +3265,367 @@ const styles = StyleSheet.create({
   },
   allUnlockedTrack: {
     height: 6,
-    backgroundColor: '#A7F3D0',
+    backgroundColor: '#E2E8F0',
     borderRadius: 3,
     overflow: 'hidden',
   },
   allUnlockedFill: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#059669',
+    backgroundColor: '#2563EB',
   },
-  pkgCountdownSection: {
+  // Package Card Action & Status
+  pkgActionFooter: {
     marginTop: 10,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-  },
-  pkgCountdownHeaderRow: {
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: 8,
   },
-  pkgCountdownTitleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78350F',
+  pkgNextMilestoneRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
-  pkgCountdownTargetBadge: {
+  pkgNextMilestoneText: {
+    fontSize: 11,
+    color: '#64748B',
+    flex: 1,
+  },
+  pkgDetailBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  pkgDetailBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  // Package Detail Modal
+  pkgDetailModalContent: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    maxHeight: '92%',
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  pkgDetailModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  pkgDetailHeaderBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  modalSubtitle: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  pkgDetailScroll: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 16,
+  },
+  pkgModalHeroCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pkgModalHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  pkgModalHeroLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  pkgModalHeroAmount: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  pkgModalHeroCash: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#2563EB',
+    marginTop: 1,
+  },
+  pkgModalHeroBadge: {
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
-  pkgCountdownTargetText: {
-    fontSize: 10,
+  pkgModalHeroBadgeText: {
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#1D4ED8',
   },
-  pkgCountdownTickerRow: {
+  pkgModalHeroDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 10,
+  },
+  pkgModalMetricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginVertical: 4,
+    justifyContent: 'space-between',
   },
-  pkgCountdownMiniBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+  pkgModalMetricItem: {
+    flex: 1,
     alignItems: 'center',
-    minWidth: 44,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    shadowColor: '#D97706',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  pkgCountdownMiniNum: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#B45309',
-    fontVariant: ['tabular-nums'],
+  pkgModalMetricLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  pkgCountdownMiniLabel: {
-    fontSize: 8,
+  pkgModalMetricValueSlate: {
+    fontSize: 13,
     fontWeight: '800',
+    color: '#475569',
+  },
+  pkgModalMetricValueBlue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  pkgModalMetricValueMuted: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  pkgModalMetricSub: {
+    fontSize: 9.5,
     color: '#94A3B8',
     marginTop: 1,
-    letterSpacing: 0.5,
   },
-  pkgCountdownColon: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#D97706',
-    marginTop: -4,
+  pkgModalMetricDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
   },
-  pkgCountdownFooterRow: {
-    marginTop: 6,
-    paddingTop: 6,
+  pkgModalHeroFooter: {
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#FEF3C7',
+    borderTopColor: '#E2E8F0',
     alignItems: 'center',
   },
-  pkgCountdownFooterLeft: {
+  pkgModalHeroFooterText: {
     fontSize: 11,
-    color: '#78350F',
+    color: '#64748B',
     fontWeight: '500',
   },
-  pkgExpectedPointsText: {
-    fontWeight: '800',
-    color: '#059669',
+  pkgDetailSection: {
+    marginTop: 14,
   },
-  pkgExpectedCashText: {
-    fontWeight: '700',
-    color: '#059669',
-  },
-  pkgCompletedSection: {
-    marginTop: 10,
+  pkgDetailSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
+    marginBottom: 8,
   },
-  pkgCompletedText: {
-    fontSize: 11,
+  pkgDetailSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  pkgMilestonesContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  pkgMilestoneCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    gap: 10,
+  },
+  pkgMilestoneCardUnlocked: {
+    backgroundColor: '#F8FAFC',
+  },
+  pkgMilestoneIndexCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pkgMilestoneIndexText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  pkgMilestoneRowTitle: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#065F46',
+    color: '#0F172A',
+  },
+  pkgMilestoneRowDate: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  pkgMilestoneRowPoints: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  pkgMilestoneBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  pkgMilestoneBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+  },
+  pkgBadgeWithdrawn: {
+    backgroundColor: '#F1F5F9',
+  },
+  pkgBadgeTextWithdrawn: {
+    color: '#64748B',
+  },
+  pkgBadgeUnlocked: {
+    backgroundColor: '#EFF6FF',
+  },
+  pkgBadgeTextUnlocked: {
+    color: '#2563EB',
+  },
+  pkgBadgeExpired: {
+    backgroundColor: '#FEF2F2',
+  },
+  pkgBadgeTextExpired: {
+    color: '#EF4444',
+  },
+  pkgBadgeLocked: {
+    backgroundColor: '#F8FAFC',
+  },
+  pkgBadgeTextLocked: {
+    color: '#94A3B8',
+  },
+  pkgTxListContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  pkgTxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    gap: 10,
+  },
+  pkgTxIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pkgTxNote: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  pkgTxDate: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  pkgTxPoints: {
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  pkgTxEmptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  pkgTxEmptyText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  pkgModalFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  pkgModalCloseBtn: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pkgModalCloseBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#475569',
   },
 });

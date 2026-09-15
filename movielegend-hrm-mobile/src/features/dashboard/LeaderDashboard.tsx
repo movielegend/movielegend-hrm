@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -320,7 +320,7 @@ export function LeaderDashboard() {
             <View style={styles.vaultAppleHeaderRow}>
               <View style={styles.vaultAppleLeft}>
                 <View style={styles.vaultAppleIconCircle}>
-                  <MaterialCommunityIcons name="gift" size={22} color="#D97706" />
+                  <Ionicons name="wallet-outline" size={20} color="#2563EB" />
                 </View>
                 <View style={styles.vaultAppleTitleBlock}>
                   <View style={styles.vaultAppleBadgeRow}>
@@ -328,7 +328,7 @@ export function LeaderDashboard() {
                       Ví Thưởng Tích Lũy
                     </Text>
                     <View style={styles.vaultAppleVipBadge}>
-                      <Text style={styles.vaultAppleVipBadgeText}>VIP</Text>
+                      <Text style={styles.vaultAppleVipBadgeText}>Đặc quyền</Text>
                     </View>
                   </View>
                   <Text style={styles.vaultAppleSubtitle}>
@@ -340,7 +340,7 @@ export function LeaderDashboard() {
 
               <View style={styles.vaultAppleActionBtn}>
                 <Text style={styles.vaultAppleActionText}>Mở ví</Text>
-                <MaterialCommunityIcons name="chevron-right" size={14} color="#92400E" />
+                <Ionicons name="chevron-forward" size={14} color="#2563EB" />
               </View>
             </View>
 
@@ -353,17 +353,17 @@ export function LeaderDashboard() {
                       styles.vaultAppleProgressFill,
                       {
                         width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
-                        backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706',
+                        backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB',
                       },
                     ]}
                   />
                 </View>
                 <View style={styles.vaultAppleProgressFooter}>
                   <View style={styles.vaultAppleProgressFooterLeft}>
-                    <MaterialCommunityIcons
-                      name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
-                      size={13}
-                      color={vaultMilestone.isAllUnlocked ? '#059669' : '#D97706'}
+                    <Ionicons
+                      name={vaultMilestone.isAllUnlocked ? 'checkmark-circle-outline' : 'time-outline'}
+                      size={14}
+                      color={vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB'}
                     />
                     <Text style={styles.vaultAppleProgressFooterText}>
                       {vaultMilestone.isAllUnlocked
@@ -374,7 +374,7 @@ export function LeaderDashboard() {
                   <Text
                     style={[
                       styles.vaultAppleProgressFooterPercent,
-                      { color: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706' },
+                      { color: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB' },
                     ]}
                   >
                     {vaultMilestone.isAllUnlocked
@@ -1156,10 +1156,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: spacing.xl,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
-    shadowColor: '#D97706',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
@@ -1178,11 +1178,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   vaultAppleTitleBlock: {
     flex: 1,
@@ -1200,13 +1200,15 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   vaultAppleVipBadge: {
-    backgroundColor: '#D97706',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   vaultAppleVipBadgeText: {
-    color: '#FFFFFF',
+    color: '#2563EB',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1224,28 +1226,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
     marginLeft: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   vaultAppleActionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#2563EB',
   },
   vaultAppleProgressContainer: {
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#FEF3C7',
+    borderTopColor: '#F1F5F9',
   },
   vaultAppleProgressTrack: {
     height: 6,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F1F5F9',
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 6,
@@ -1267,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   vaultAppleProgressFooterText: {
     fontSize: 11,
-    color: '#92400E',
+    color: '#475569',
     fontWeight: '500',
   },
   vaultAppleProgressFooterPercent: {

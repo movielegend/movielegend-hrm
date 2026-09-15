@@ -68,7 +68,7 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
 
   const handleApprove = () => {
     Alert.alert(
-      'Phê Duyệt Nghiệm Thu Dự Án 🏆',
+      'Phê Duyệt Nghiệm Thu Dự Án',
       `Xác nhận phê duyệt hoàn tất Dự án Level ${project.levelNumber} (${project.projectName}) cho phòng ${departmentName || project.departmentName}? Toàn bộ thành viên tham gia sẽ được ghi nhận hoàn thành dự án thăng cấp.`,
       [
         { text: 'Hủy', style: 'cancel' },
@@ -102,7 +102,7 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
     }
 
     Alert.alert(
-      'Yêu Cầu Bổ Sung / Sửa Lại ⚠️',
+      'Yêu Cầu Bổ Sung / Sửa Lại',
       `Bạn có chắc chắn muốn trả lại Dự án Level ${project.levelNumber} cho phòng ${departmentName || project.departmentName} để bổ sung/sửa lại?`,
       [
         { text: 'Hủy', style: 'cancel' },
@@ -294,7 +294,7 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
                   <View style={styles.cardHeader}>
                     <Ionicons name="checkmark-done-circle" size={22} color="#059669" />
                     <Text style={[styles.cardTitle, { color: '#065F46', fontSize: 15 }]}>
-                      Dự Án Đã Nghiệm Thu Hoàn Tất 🏆
+                      Dự Án Đã Nghiệm Thu Hoàn Tất
                     </Text>
                   </View>
                   <Text style={styles.approvedNoticeSub}>
