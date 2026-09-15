@@ -34,7 +34,7 @@ export class EmployeesController {
     return this.adminService.withdrawVaultPoints(dto, actor.userId);
   }
 
-  @AnyPermissions('employee.read', 'task.assign_any', 'task.assign_department')
+  @AnyPermissions('employee.read', 'task.assign_any', 'task.assign_department', 'leave.request', 'employee.request.approve')
   @Get('scoped')
   scoped(@CurrentUser() actor: AuthenticatedUser, @Query() query: ScopedEmployeeQueryDto) {
     return this.employeesService.scoped(actor, query);

@@ -171,6 +171,20 @@ export function LeaderApprovalScreen() {
   const isFinancial = request.type === 'ADVANCE' || request.type === 'EXPENSE' || request.type === 'PURCHASE';
   const amount = Number(request.amount || 0);
 
+  const formatDateStr = (dateVal?: string | Date | null) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatTimeStr = (dateVal?: string | Date | null) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  };
+
   const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
     ? (request.attachmentMetadata as Record<string, any>)
     : {};
@@ -316,6 +330,181 @@ export function LeaderApprovalScreen() {
               <Text style={styles.reasonLabel}>Nội dung chi tiết:</Text>
               <Text style={styles.reasonText}>{request.content}</Text>
             </View>
+
+            {/* 1. Chi tiết thông tin Đơn Nghỉ Phép (LEAVE) */}
+            {request.type === 'LEAVE' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="calendar-clock" size={18} color="#10B981" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#047857', marginBottom: 0 }]}>
+                    THÔNG TIN NGHỈ PHÉP
+                  </Text>
+                </View>
+
+                {meta.leaveType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Loại nghỉ:</Text>
+                    <Text style={styles.metaValueBold}>{meta.leaveType}</Text>
+                  </View>
+                ) : null}
+
+                {meta.leaveDurationType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Hình thức:</Text>
+                    <Text style={styles.metaValueBold}>{meta.leaveDurationType}</Text>
+                  </View>
+                ) : null}
+
+                {/* Thời gian nghỉ */}
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Thời gian nghỉ:</Text>
+                  <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>
+                    {meta.leaveDurationType === 'Nhiều ngày' && meta.toDate
+                      ? `Từ ${formatDateStr(meta.fromDate)} đến ${formatDateStr(meta.toDate)}`
+                      : formatDateStr(meta.fromDate)}
+                    {meta.startTime && meta.endTime
+                      ? ` (${formatTimeStr(meta.startTime)} - ${formatTimeStr(meta.endTime)})`
+                      : ''}
+                  </Text>
+                </View>
+
+                {meta.handoverEmployee ? (
+                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
+                    <Text style={styles.metaLabel}>Người bàn giao:</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="account-check-outline" size={16} color="#059669" style={{ marginRight: 4 }} />
+                      <Text style={[styles.metaValueBold, { color: '#059669' }]}>
+                        {meta.handoverEmployee}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 2. Chi tiết thông tin Giải trình công (ATTENDANCE_ADJUSTMENT) */}
+            {request.type === 'ATTENDANCE_ADJUSTMENT' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="clock-edit-outline" size={18} color="#3B82F6" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#1D4ED8', marginBottom: 0 }]}>
+                    THÔNG TIN GIẢI TRÌNH CÔNG
+                  </Text>
+                </View>
+
+                {meta.explanationType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Loại giải trình:</Text>
+                    <Text style={styles.metaValueBold}>{meta.explanationType}</Text>
+                  </View>
+                ) : null}
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày cần giải trình:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.startTime || meta.endTime) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#1D4ED8' }]}>
+                      {meta.startTime ? `Vào: ${formatTimeStr(meta.startTime)}` : ''}
+                      {meta.startTime && meta.endTime ? ' | ' : ''}
+                      {meta.endTime ? `Ra: ${formatTimeStr(meta.endTime)}` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 3. Chi tiết Đi muộn / Về sớm */}
+            {(request.type === 'LATE_ARRIVAL' || request.type === 'EARLY_LEAVE') && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons 
+                    name={request.type === 'LATE_ARRIVAL' ? 'clock-in' : 'clock-out'} 
+                    size={18} 
+                    color={request.type === 'LATE_ARRIVAL' ? '#F59E0B' : '#EF4444'} 
+                    style={{ marginRight: 6 }} 
+                  />
+                  <Text style={[styles.metaCardTitle, { color: request.type === 'LATE_ARRIVAL' ? '#B45309' : '#B91C1C', marginBottom: 0 }]}>
+                    {request.type === 'LATE_ARRIVAL' ? 'THÔNG TIN ĐI MUỘN' : 'THÔNG TIN VỀ SỚM'}
+                  </Text>
+                </View>
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày áp dụng:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {request.type === 'LATE_ARRIVAL' && meta.startTime ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ đến thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#F59E0B' }]}>{formatTimeStr(meta.startTime)}</Text>
+                  </View>
+                ) : null}
+
+                {request.type === 'EARLY_LEAVE' && meta.endTime ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ về thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#EF4444' }]}>{formatTimeStr(meta.endTime)}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 4. Chi tiết Làm thêm giờ (OVERTIME) */}
+            {request.type === 'OVERTIME' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="briefcase-clock" size={18} color="#8B5CF6" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#6D28D9', marginBottom: 0 }]}>
+                    THÔNG TIN LÀM THÊM GIỜ (OT)
+                  </Text>
+                </View>
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày làm thêm:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.startTime || meta.endTime) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Khung giờ OT:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#8B5CF6' }]}>
+                      {formatTimeStr(meta.startTime)} - {formatTimeStr(meta.endTime)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
 
             {/* Thông tin tài khoản ngân hàng */}
             {meta.bankInfo && (
@@ -766,5 +955,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  metaCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  metaCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  metaLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  metaValueBold: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });

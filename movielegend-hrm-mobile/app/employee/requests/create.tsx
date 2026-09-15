@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
 import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -31,6 +31,17 @@ const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typ
   { type: 'EXPENSE', label: 'Thanh toán', icon: 'receipt', color: '#F97316' },
   { type: 'OTHER', label: 'Khác', icon: 'file-document', color: '#6B7280' },
 ];
+
+function normalizeSearchText(str?: string | null): string {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
 
 export default function CreateRequestScreen() {
   const { showAlert } = useAppAlert();
@@ -69,6 +80,8 @@ export default function CreateRequestScreen() {
   const [isFullScreenPhoto, setIsFullScreenPhoto] = useState(false);
   const [apiShifts, setApiShifts] = useState<Shift[]>([]);
   const [apiEmployees, setApiEmployees] = useState<EmployeeUser[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
   const leaveDurationTypes = ["1/4 ngày", "1/2 ngày", "3/4 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
   const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
@@ -84,18 +97,42 @@ export default function CreateRequestScreen() {
   const isLateOrEarly = selectedType === 'LATE_ARRIVAL' || selectedType === 'EARLY_LEAVE';
   const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE' || selectedType === 'PURCHASE';
 
+  const userDeptId = user?.department?.id || (user as any)?.departmentId;
+  const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
+
+  const fetchEmployeesList = useCallback(async () => {
+    try {
+      setIsLoadingEmployees(true);
+      const currentDeptId = user?.department?.id || (user as any)?.departmentId;
+      const res = await getScopedEmployees({
+        page: 1,
+        limit: 100,
+        ...(currentDeptId ? { departmentId: currentDeptId } : {}),
+      });
+      const rawList = res?.items || (Array.isArray(res) ? res : []);
+      // BẮT BUỘC: Chỉ lấy đúng nhân sự thuộc phòng ban của người tạo đơn
+      const validList = rawList.filter((e: any) => {
+        if (!currentDeptId) return true;
+        const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
+        return empDeptId === currentDeptId;
+      });
+      setApiEmployees(validList);
+    } catch (err) {
+      console.log('Error fetching scoped employees:', err);
+      setApiEmployees([]);
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  }, [user?.id, user?.department?.id, (user as any)?.departmentId]);
+
   React.useEffect(() => {
     if (isLateOrEarly || isExplanation || isOvertime) {
       getShifts()
         .then(setApiShifts)
         .catch(err => console.log('Error fetching shifts', err));
     }
-    if ((isLeave || isExplanation) && apiEmployees.length === 0) {
-      getScopedEmployees({ page: 1, limit: 50 })
-        .then(res => setApiEmployees(res.items || []))
-        .catch(err => console.log('Error fetching employees', err));
-    }
-  }, [isLateOrEarly, isLeave, isExplanation, isOvertime]);
+    void fetchEmployeesList();
+  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList]);
 
 
 
@@ -284,7 +321,10 @@ export default function CreateRequestScreen() {
         ...(explanationType ? { explanationType } : {}),
         ...(leaveType ? { leaveType } : {}),
         ...(leaveDurationType ? { leaveDurationType } : {}),
-        ...(handoverEmployee ? { handoverEmployee: handoverEmployee.fullName, handoverUserId: handoverEmployee.id } : {}),
+        ...(handoverEmployee ? {
+          handoverEmployee: handoverEmployee.fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự',
+          handoverUserId: handoverEmployee.id
+        } : {}),
       };
 
       await createEmployeeRequest({
@@ -777,12 +817,18 @@ export default function CreateRequestScreen() {
                 ) : null}
 
                 {/* Chọn người bàn giao */}
-                <Pressable style={styles.rowInput} onPress={() => setShowEmployeeModal(true)}>
+                <Pressable
+                  style={styles.rowInput}
+                  onPress={() => {
+                    setShowEmployeeModal(true);
+                    void fetchEmployeesList();
+                  }}
+                >
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-tie-outline" size={20} color="#000" />
                   </View>
                   <Text style={[handoverEmployee ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                    {handoverEmployee ? handoverEmployee.fullName : 'Chọn người bàn giao'}
+                    {handoverEmployee ? (handoverEmployee.fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự') : 'Chọn người bàn giao'}
                   </Text>
                   <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
                 </Pressable>
@@ -1138,28 +1184,150 @@ export default function CreateRequestScreen() {
         <View style={styles.fullScreenModalOverlay}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
-              <Pressable onPress={() => setShowEmployeeModal(false)} style={{ padding: 8, marginRight: 8 }}>
+              <Pressable onPress={() => { setShowEmployeeModal(false); setEmployeeSearchQuery(''); }} style={{ padding: 8, marginRight: 8 }}>
                 <MaterialCommunityIcons name="close" size={24} color="#111827" />
               </Pressable>
-              <Text style={styles.fullScreenModalTitle}>{isExplanation ? 'Người duyệt' : 'Người bàn giao'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fullScreenModalTitle}>{isExplanation ? 'Người duyệt' : 'Người bàn giao'}</Text>
+                {userDeptName ? (
+                  <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600', marginTop: 1 }}>
+                    Phòng ban: {userDeptName}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable
+                onPress={() => void fetchEmployeesList()}
+                style={{ padding: 8 }}
+                disabled={isLoadingEmployees}
+              >
+                <MaterialCommunityIcons
+                  name="reload"
+                  size={22}
+                  color={isLoadingEmployees ? '#9CA3AF' : '#10B981'}
+                />
+              </Pressable>
             </View>
-            {apiEmployees.length === 0 ? (
-              <Text style={{ textAlign: 'center', padding: 20, color: '#9CA3AF' }}>Đang tải danh sách nhân sự...</Text>
-            ) : (
-              <FlatList
-                data={apiEmployees}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={styles.fullScreenModalItem} 
-                    onPress={() => { setHandoverEmployee(item); setShowEmployeeModal(false); }}
-                  >
-                    <Text style={styles.fullScreenModalItemText}>{item.fullName}</Text>
-                    <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>{item.email}</Text>
-                  </TouchableOpacity>
-                )}
+
+            {/* Search Box */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F3F4F6',
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+              marginHorizontal: 16,
+              marginBottom: 12,
+            }}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <TextInput
+                style={{ flex: 1, fontSize: 14, color: '#111827' }}
+                placeholder="Tìm nhân sự cùng phòng (tên, mã NV)..."
+                placeholderTextColor="#9CA3AF"
+                value={employeeSearchQuery}
+                onChangeText={setEmployeeSearchQuery}
+                clearButtonMode="while-editing"
               />
-            )}
+              {employeeSearchQuery ? (
+                <Pressable onPress={() => setEmployeeSearchQuery('')}>
+                  <MaterialCommunityIcons name="close-circle" size={18} color="#9CA3AF" />
+                </Pressable>
+              ) : null}
+            </View>
+
+            {isLoadingEmployees ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#10B981" />
+                <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14 }}>Đang tải danh sách nhân sự...</Text>
+              </View>
+            ) : (() => {
+              const cleanQ = normalizeSearchText(employeeSearchQuery);
+              const filteredList = apiEmployees.filter((item: any) => {
+                if (!cleanQ) return true;
+                const name = normalizeSearchText(item.fullName || item.profile?.fullName || '');
+                const code = normalizeSearchText(item.userCode || '');
+                const dept = normalizeSearchText(item.department?.name || '');
+                const pos = normalizeSearchText(item.position?.name || '');
+                return name.includes(cleanQ) || code.includes(cleanQ) || dept.includes(cleanQ) || pos.includes(cleanQ);
+              });
+
+              if (filteredList.length === 0) {
+                return (
+                  <View style={{ paddingVertical: 40, alignItems: 'center', paddingHorizontal: 20 }}>
+                    <MaterialCommunityIcons name="account-search-outline" size={48} color="#9CA3AF" />
+                    <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14, textAlign: 'center' }}>
+                      {apiEmployees.length === 0
+                        ? userDeptName
+                          ? `Không có nhân sự nào khác trong phòng ban "${userDeptName}".`
+                          : 'Chưa có dữ liệu nhân sự phù hợp.'
+                        : 'Không tìm thấy nhân sự phù hợp với từ khóa.'}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => void fetchEmployeesList()}
+                      style={{
+                        marginTop: 16,
+                        backgroundColor: '#F3F4F6',
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: '#E5E7EB',
+                      }}
+                    >
+                      <Text style={{ color: '#374151', fontWeight: '600', fontSize: 13 }}>Tải lại danh sách</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+
+              return (
+                <FlatList
+                  data={filteredList}
+                  keyExtractor={(item) => item.id}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }: { item: any }) => {
+                    const isMe = item.id === user?.id;
+                    const rawName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
+                    const dispName = isMe ? `${rawName} (Bạn)` : rawName;
+                    const deptName = item.department?.name;
+                    const posName = item.position?.name;
+                    const subtitle = [item.userCode, deptName, posName].filter(Boolean).join(' • ');
+
+                    return (
+                      <TouchableOpacity
+                        style={[styles.fullScreenModalItem, { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }]}
+                        onPress={() => {
+                          setHandoverEmployee(item);
+                          setShowEmployeeModal(false);
+                          setEmployeeSearchQuery('');
+                        }}
+                      >
+                        <View style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: '#10B98115',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 12,
+                        }}>
+                          <Text style={{ fontSize: 16, fontWeight: '700', color: '#10B981' }}>
+                            {dispName.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.fullScreenModalItemText, { fontSize: 15, fontWeight: '600' }]}>{dispName}</Text>
+                          {subtitle ? (
+                            <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>{subtitle}</Text>
+                          ) : null}
+                        </View>
+                        <MaterialCommunityIcons name="chevron-right" size={20} color="#D1D5DB" />
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              );
+            })()}
           </View>
         </View>
       </Modal>
