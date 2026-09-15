@@ -8,12 +8,13 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import Svg, { Path, Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 
-const WAVE_WIDTH = 110;
-const WAVE_HEIGHT = 12;
+const AURA_WIDTH = 52;
+const AURA_HEIGHT = 38;
+const TOP_PILL_WIDTH = 24;
 
 export const MagicTabBar = React.memo(function MagicTabBar({
   state,
@@ -27,20 +28,30 @@ export const MagicTabBar = React.memo(function MagicTabBar({
   const numTabs = state.routes.length;
   const tabWidth = containerWidth > 0 && numTabs > 0 ? containerWidth / numTabs : 0;
 
-  // Tính tọa độ X cho vòm sóng và hào quang xanh trượt ngang
-  const initialX = tabWidth > 0 ? tabWidth * state.index + (tabWidth - WAVE_WIDTH) / 2 : 0;
+  // Tọa độ X ban đầu cho con trượt hào quang và vạch chỉ báo
+  const initialAuraX = tabWidth > 0 ? tabWidth * state.index + (tabWidth - AURA_WIDTH) / 2 : 0;
+  const initialPillX = tabWidth > 0 ? tabWidth * state.index + (tabWidth - TOP_PILL_WIDTH) / 2 : 0;
 
-  const translateX = useRef(new Animated.Value(initialX)).current;
+  const auraTranslateX = useRef(new Animated.Value(initialAuraX)).current;
+  const pillTranslateX = useRef(new Animated.Value(initialPillX)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Lắng nghe chuyển tab để chạy animation lò xo 60fps Native Driver
   useEffect(() => {
     if (tabWidth > 0) {
-      const targetX = tabWidth * state.index + (tabWidth - WAVE_WIDTH) / 2;
+      const targetAuraX = tabWidth * state.index + (tabWidth - AURA_WIDTH) / 2;
+      const targetPillX = tabWidth * state.index + (tabWidth - TOP_PILL_WIDTH) / 2;
 
       Animated.parallel([
-        Animated.spring(translateX, {
-          toValue: targetX,
+        Animated.spring(auraTranslateX, {
+          toValue: targetAuraX,
+          damping: 16,
+          mass: 0.7,
+          stiffness: 150,
+          useNativeDriver: true,
+        }),
+        Animated.spring(pillTranslateX, {
+          toValue: targetPillX,
           damping: 16,
           mass: 0.7,
           stiffness: 150,
@@ -80,59 +91,53 @@ export const MagicTabBar = React.memo(function MagicTabBar({
         }
       }}
     >
-      {/* Vòm sóng lượn cong mềm mại (Gentle Wave Crown) trượt ngang ở đỉnh navbar */}
+      {/* Vạch chỉ báo mảnh 2.5px ở mép đỉnh trượt đồng bộ với tab active */}
       {tabWidth > 0 && (
         <Animated.View
           style={[
-            styles.waveCrownWrapper,
+            styles.topPillIndicator,
             {
-              transform: [{ translateX }],
+              transform: [{ translateX: pillTranslateX }],
             },
           ]}
           pointerEvents="none"
-        >
-          <Svg width={WAVE_WIDTH} height={WAVE_HEIGHT + 2} viewBox={`0 0 ${WAVE_WIDTH} ${WAVE_HEIGHT + 2}`}>
-            {/* Thân vòm sóng trắng lượn cong cực êm (độ nhô nhẹ 8px) */}
-            <Path
-              d="M 0 10 C 28 10, 38 1, 55 1 C 72 1, 82 10, 110 10 L 110 14 L 0 14 Z"
-              fill="#FFFFFF"
-            />
-            {/* Đường viền hairline siêu mảnh ở đỉnh vòm */}
-            <Path
-              d="M 0 10 C 28 10, 38 1, 55 1 C 72 1, 82 10, 110 10"
-              fill="none"
-              stroke="#E2E8F0"
-              strokeWidth="1.2"
-            />
-          </Svg>
-        </Animated.View>
+        />
       )}
 
-      {/* Vầng hào quang xanh chuyển sắc (Ambient Aura Glow) trượt theo tab active */}
+      {/* Vầng hào quang xanh chuyển sắc (Ambient Aura Glow) nằm gọn gàng sau icon active */}
       {tabWidth > 0 && (
         <Animated.View
           style={[
             styles.auraGlowWrapper,
             {
-              left: (WAVE_WIDTH - 48) / 2,
               transform: [
-                { translateX },
+                { translateX: auraTranslateX },
                 { scale: scaleAnim },
               ],
             },
           ]}
           pointerEvents="none"
         >
-          <Svg width="48" height="48" viewBox="0 0 48 48">
-            <Defs>
-              <RadialGradient id="auraGradient" cx="50%" cy="50%" rx="50%" ry="50%">
-                <Stop offset="0%" stopColor="#2563EB" stopOpacity="0.22" />
-                <Stop offset="45%" stopColor="#93C5FD" stopOpacity="0.12" />
-                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-              </RadialGradient>
-            </Defs>
-            <Circle cx="24" cy="24" r="23" fill="url(#auraGradient)" />
-          </Svg>
+          <View style={styles.auraPod}>
+            <Svg width={AURA_WIDTH} height={AURA_HEIGHT} viewBox={`0 0 ${AURA_WIDTH} ${AURA_HEIGHT}`}>
+              <Defs>
+                <RadialGradient id="auraGradient" cx="50%" cy="45%" rx="50%" ry="50%">
+                  <Stop offset="0%" stopColor="#2563EB" stopOpacity="0.20" />
+                  <Stop offset="50%" stopColor="#93C5FD" stopOpacity="0.10" />
+                  <Stop offset="100%" stopColor="#EFF6FF" stopOpacity="0.0" />
+                </RadialGradient>
+              </Defs>
+              <Rect
+                x="1"
+                y="1"
+                width={AURA_WIDTH - 2}
+                height={AURA_HEIGHT - 2}
+                rx="18"
+                ry="18"
+                fill="url(#auraGradient)"
+              />
+            </Svg>
+          </View>
         </Animated.View>
       )}
 
@@ -183,7 +188,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
                     ? options.tabBarIcon({
                         color: isFocused ? '#2563EB' : '#94A3B8',
                         focused: isFocused,
-                        size: 25,
+                        size: 24,
                       })
                     : null}
 
@@ -197,7 +202,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
                   )}
                 </View>
 
-                {/* Hàng chữ: Cả 5 tab nằm trên cùng 1 trục ngang, rộng rãi không bị gò ép */}
+                {/* Hàng chữ: Cả 5 tab nằm trên cùng 1 trục ngang, rộng rãi không bao giờ tràn mép */}
                 <Text
                   numberOfLines={1}
                   style={[
@@ -223,8 +228,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     paddingTop: 8,
@@ -236,21 +241,32 @@ const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 999,
   },
-  // Vòm sóng siêu êm ở đỉnh mép navbar
-  waveCrownWrapper: {
+  // Vạch chỉ báo mảnh 2.5px ở mép đỉnh
+  topPillIndicator: {
     position: 'absolute',
-    top: -9,
-    width: WAVE_WIDTH,
-    height: WAVE_HEIGHT + 2,
-    zIndex: 10,
+    top: -1,
+    width: TOP_PILL_WIDTH,
+    height: 2.5,
+    borderRadius: 1.5,
+    backgroundColor: '#2563EB',
+    zIndex: 20,
   },
   // Vầng hào quang xanh chuyển sắc sau icon active
   auraGlowWrapper: {
     position: 'absolute',
-    top: 0,
-    width: 48,
-    height: 48,
+    top: 5,
+    width: AURA_WIDTH,
+    height: AURA_HEIGHT,
     zIndex: 5,
+  },
+  auraPod: {
+    width: AURA_WIDTH,
+    height: AURA_HEIGHT,
+    borderRadius: 19,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    overflow: 'hidden',
   },
   tabsRow: {
     flexDirection: 'row',
@@ -260,7 +276,7 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    height: 50,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -296,7 +312,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     textAlign: 'center',
     letterSpacing: 0.1,
   },
