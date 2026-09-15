@@ -246,35 +246,17 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
   }, [packages, legacyMilestones, now]);
 
   const openWithdrawModal = () => {
-    if (isFirstPhase) {
-      setWithdrawPointsInput(stats.maxWithdrawable.toString());
-    } else {
-      const defaultPts = stats.unlockedPoints > 0 ? stats.unlockedPoints : stats.maxWithdrawable;
-      setWithdrawPointsInput(defaultPts.toString());
-    }
+    setWithdrawPointsInput(stats.maxWithdrawable.toString());
     setWithdrawNote('');
     setModalVisible(true);
   };
 
-  const pointsToWithdraw = isFirstPhase
-    ? stats.maxWithdrawable
-    : (parseInt(withdrawPointsInput, 10) || 0);
+  const pointsToWithdraw = stats.maxWithdrawable;
   const cashToWithdraw = pointsToWithdraw * cashValuePerPoint;
-  const isAdvanceWithdrawal = !isFirstPhase && pointsToWithdraw > stats.unlockedPoints;
-  const advancePoints = Math.max(0, pointsToWithdraw - stats.unlockedPoints);
-  const advanceCash = advancePoints * cashValuePerPoint;
 
   const handleWithdrawSubmit = async () => {
     if (pointsToWithdraw <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số điểm muốn rút lớn hơn 0!');
-      return;
-    }
-
-    if (pointsToWithdraw > stats.maxWithdrawable) {
-      Alert.alert(
-        'Vượt quá hạn mức',
-        `Số điểm rút (${pointsToWithdraw.toLocaleString('vi-VN')} đ) vượt quá tổng hạn mức có thể rút (${stats.maxWithdrawable.toLocaleString('vi-VN')} đ).`
-      );
+      Alert.alert('Chưa đến hạn', 'Hiện tại chưa có đợt thưởng nào đến hạn mở khóa để rút!');
       return;
     }
 
@@ -290,9 +272,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
       Alert.alert(
         'Gửi Yêu Cầu Rút Điểm Thành Công! 💸',
-        isAdvanceWithdrawal
-          ? `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm, bao gồm ứng trước ${advancePoints.toLocaleString('vi-VN')} điểm từ các đợt tương lai). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
-          : `Đã gửi yêu cầu rút ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
+        `Đã gửi yêu cầu rút toàn bộ ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
       );
     } catch (err: any) {
       Alert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
@@ -1369,72 +1349,31 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
-              {isFirstPhase ? (
-                <View style={{ marginBottom: 16 }}>
-                  {/* Phase 1 Fixed Notice Banner */}
-                  <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <MaterialCommunityIcons name="information" size={24} color="#2563EB" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E40AF' }}>Quy định rút điểm Đợt 1</Text>
-                      <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2, lineHeight: 17 }}>
-                        Ở Đợt 1, hệ thống tự động quy đổi toàn bộ 100% hạn mức mở khóa đợt 1 ({maxWithdrawable.toLocaleString('vi-VN')} điểm). Bạn không cần chỉnh sửa số điểm.
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Phase 1 Fixed Amount Display Card */}
-                  <View style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View>
-                      <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '500' }}>Số điểm rút Đợt 1 (100%):</Text>
-                      <Text style={{ fontSize: 22, fontWeight: '800', color: '#D97706', marginTop: 2 }}>
-                        {maxWithdrawable.toLocaleString('vi-VN')} điểm
-                      </Text>
-                    </View>
-                    <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#B45309' }}>Rút toàn bộ</Text>
-                    </View>
+              <View style={{ marginBottom: 16 }}>
+                {/* Fixed Notice Banner */}
+                <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <MaterialCommunityIcons name="information" size={24} color="#2563EB" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E40AF' }}>Quy định rút điểm: Đợt nào rút đợt đó</Text>
+                    <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2, lineHeight: 17 }}>
+                      Hệ thống tự động quy đổi toàn bộ 100% hạn mức của các đợt đã đến hạn mở khóa ({maxWithdrawable.toLocaleString('vi-VN')} điểm).
+                    </Text>
                   </View>
                 </View>
-              ) : (
-                <>
-                  {/* Point Input for Phase 2+ */}
-                  <Text style={styles.inputLabel}>Số điểm muốn quy đổi (Tối đa {maxWithdrawable.toLocaleString('vi-VN')} điểm):</Text>
-                  <View style={styles.pointsInputRow}>
-                    <TextInput
-                      style={styles.pointsTextInput}
-                      value={withdrawPointsInput}
-                      onChangeText={(v) => setWithdrawPointsInput(v.replace(/[^0-9]/g, ''))}
-                      placeholder="Nhập số điểm..."
-                      keyboardType="numeric"
-                    />
-                    <TouchableOpacity
-                      style={styles.maxBtn}
-                      onPress={() => setWithdrawPointsInput(maxWithdrawable.toString())}
-                    >
-                      <Text style={styles.maxBtnText}>Tất cả</Text>
-                    </TouchableOpacity>
-                  </View>
 
-                  {/* Quick Percentage Buttons */}
-                  <View style={styles.quickPercentRow}>
-                    {[25, 50, 75, 100].map((pct) => {
-                      const calculatedPoints = Math.floor((maxWithdrawable * pct) / 100);
-                      const isSelected = pointsToWithdraw === calculatedPoints && calculatedPoints > 0;
-                      return (
-                        <TouchableOpacity
-                          key={pct}
-                          style={[styles.quickPercentBtn, isSelected && styles.quickPercentBtnActive]}
-                          onPress={() => setWithdrawPointsInput(calculatedPoints.toString())}
-                        >
-                          <Text style={[styles.quickPercentText, isSelected && styles.quickPercentTextActive]}>
-                            {pct === 100 ? '100% (Tối đa)' : `${pct}%`}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                {/* Fixed Amount Display Card */}
+                <View style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '500' }}>Tổng điểm rút đợt này (100%):</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: '#D97706', marginTop: 2 }}>
+                      {maxWithdrawable.toLocaleString('vi-VN')} điểm
+                    </Text>
                   </View>
-                </>
-              )}
+                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#B45309' }}>Rút toàn bộ</Text>
+                  </View>
+                </View>
+              </View>
 
               {/* Conversion Preview Box */}
               <View style={styles.conversionBox}>
@@ -1467,19 +1406,12 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                   </View>
                   {packages.map((pkg, idx) => {
                     const milestones = pkg.milestones || [];
-                    const reachedCount = milestones.filter((m: any) => new Date(m.unlockDate) <= now).length;
                     let pkgWithdrawable = 0;
-                    if (reachedCount === 1) {
-                      pkgWithdrawable = Math.max(0, (milestones[0]?.pointsToUnlock || 0) - (milestones[0]?.withdrawnPoints || 0));
-                    } else if (reachedCount >= 2 && reachedCount < milestones.length) {
-                      for (let i = 0; i < milestones.length - 1; i++) {
-                        pkgWithdrawable += Math.max(0, (milestones[i].pointsToUnlock || 0) - (milestones[i].withdrawnPoints || 0));
-                      }
-                    } else if (reachedCount >= milestones.length) {
-                      for (const m of milestones) {
+                    milestones.forEach((m) => {
+                      if (new Date(m.unlockDate) <= now && !m.isWithdrawn) {
                         pkgWithdrawable += Math.max(0, (m.pointsToUnlock || 0) - (m.withdrawnPoints || 0));
                       }
-                    }
+                    });
                     return (
                       <View key={pkg.id || idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4, borderTopWidth: idx > 0 ? 1 : 0, borderTopColor: '#F1F5F9' }}>
                         <Text style={{ fontSize: 12, color: '#475569', flex: 1, marginRight: 8 }} numberOfLines={1}>• {pkg.title}</Text>
@@ -1489,19 +1421,6 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                       </View>
                     );
                   })}
-                </View>
-              )}
-
-              {/* Reverse Waterfall Advance Warning */}
-              {isAdvanceWithdrawal && (
-                <View style={styles.advanceWarningBox}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#B45309" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.advanceWarningTitle}>Ứng trước từ Quý tương lai</Text>
-                    <Text style={styles.advanceWarningDesc}>
-                      Bạn đang rút vượt mức khả dụng {advancePoints.toLocaleString('vi-VN')} điểm (~{advanceCash.toLocaleString('vi-VN')} VNĐ). Hệ thống sẽ tự động khấu trừ ưu tiên từ Quý 4 (31/12) về trước.
-                    </Text>
-                  </View>
                 </View>
               )}
 

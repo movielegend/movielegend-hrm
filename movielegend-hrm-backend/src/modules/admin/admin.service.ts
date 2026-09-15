@@ -1091,56 +1091,21 @@ export class AdminService {
       const cashValuePerPoint = Number(vault.cashValuePerPoint || 1000);
       const now = new Date();
 
-      // Calculate total available points across packages and legacy milestones based on milestone policy:
-      // - If reachedCount === 0 (Chưa đến đợt 1): Không được rút từ gói (max = 0)
-      // - If reachedCount === 1 (Đang ở đợt 1): Chỉ được rút tối đa phần chưa rút của đợt 1
-      // - If reachedCount >= 2 && reachedCount < milestones.length (Từ đợt 2 trở đi): Được rút nhiều hơn (bao gồm ứng trước), nhưng BẢO LƯU mốc cuối cùng (Đợt 4/Tết)
-      // - If reachedCount === milestones.length (Đã đến đợt cuối): Được tất toán 100%
+      // Calculate total available points across packages and legacy milestones:
+      // "Đợt nào rút đợt đó" — Chỉ rút chính xác các đợt ĐÃ ĐẾN HẠN (unlockDate <= now), không cho ứng trước các đợt tương lai.
       let packageAvailablePoints = 0;
       for (const pkg of vault.packages || []) {
-        const milestones = pkg.milestones || [];
-        if (milestones.length === 0) continue;
-        const reachedMilestones = milestones.filter((m: any) => new Date(m.unlockDate) <= now);
-        const reachedCount = reachedMilestones.length;
-
-        if (reachedCount === 0) {
-          // Chưa đến hạn đợt 1
-          continue;
-        } else if (reachedCount === 1) {
-          // Đang ở đợt 1: chỉ rút số điểm còn lại của đợt 1
-          const m1 = milestones[0];
-          packageAvailablePoints += Math.max(0, (m1.pointsToUnlock || 0) - (m1.withdrawnPoints || 0));
-        } else if (reachedCount >= 2 && reachedCount < milestones.length) {
-          // Từ đợt 2: cho phép rút vượt đợt 2 và ứng trước, NHƯNG giữ lại đợt cuối cùng
-          for (let i = 0; i < milestones.length - 1; i++) {
-            const m = milestones[i];
-            packageAvailablePoints += Math.max(0, (m.pointsToUnlock || 0) - (m.withdrawnPoints || 0));
-          }
-        } else {
-          // Đã đến hạn đợt cuối: tất toán 100%
-          for (const m of milestones) {
+        for (const m of pkg.milestones || []) {
+          if (new Date(m.unlockDate) <= now && !m.isWithdrawn) {
             packageAvailablePoints += Math.max(0, (m.pointsToUnlock || 0) - (m.withdrawnPoints || 0));
           }
         }
       }
 
       let legacyMilestonePoints = 0;
-      const legacyMilestones = vault.milestones || [];
-      if (legacyMilestones.length > 0) {
-        const reachedLegacy = legacyMilestones.filter((m: any) => new Date(m.unlockDate) <= now && m.pointsToUnlock > 0);
-        const reachedLegacyCount = reachedLegacy.length;
-
-        if (reachedLegacyCount === 1) {
-          const q1 = legacyMilestones.find((m: any) => m.quarter === 1 && !m.isWithdrawn);
-          legacyMilestonePoints += q1 ? q1.pointsToUnlock : 0;
-        } else if (reachedLegacyCount >= 2 && reachedLegacyCount < legacyMilestones.length) {
-          legacyMilestonePoints += legacyMilestones
-            .filter((m: any) => m.quarter < 4 && !m.isWithdrawn)
-            .reduce((s: number, m: any) => s + (m.pointsToUnlock || 0), 0);
-        } else if (reachedLegacyCount >= legacyMilestones.length) {
-          legacyMilestonePoints += legacyMilestones
-            .filter((m: any) => !m.isWithdrawn)
-            .reduce((s: number, m: any) => s + (m.pointsToUnlock || 0), 0);
+      for (const m of vault.milestones || []) {
+        if (new Date(m.unlockDate) <= now && !m.isWithdrawn) {
+          legacyMilestonePoints += (m.pointsToUnlock || 0);
         }
       }
 
@@ -1149,24 +1114,12 @@ export class AdminService {
       if (maxWithdrawable <= 0) {
         throw badRequest(
           'VAULT_NOT_YET_DUE',
-          'Chưa đến thời hạn mở khóa rút tiền của đợt thưởng đầu tiên.',
+          'Hiện tại chưa có đợt thưởng nào đến hạn mở khóa để rút.',
         );
       }
 
-      // Check reached milestone count to determine if user is in Phase 1 or Phase 2+
-      let maxReachedCount = 0;
-      for (const pkg of vault.packages || []) {
-        const milestones = pkg.milestones || [];
-        const reached = milestones.filter((m: any) => new Date(m.unlockDate) <= now);
-        if (reached.length > maxReachedCount) maxReachedCount = reached.length;
-      }
-      if (legacyMilestones.length > 0) {
-        const reachedLegacy = legacyMilestones.filter((m: any) => new Date(m.unlockDate) <= now && m.pointsToUnlock > 0);
-        if (reachedLegacy.length > maxReachedCount) maxReachedCount = reachedLegacy.length;
-      }
-
-      const isFirstPhase = maxReachedCount <= 1;
-      const pointsToWithdraw = isFirstPhase ? maxWithdrawable : (dto.points || maxWithdrawable);
+      // Đợt nào rút đợt đó: Rút toàn bộ số điểm khả dụng của các đợt đã mở khóa
+      const pointsToWithdraw = maxWithdrawable;
 
       if (pointsToWithdraw > maxWithdrawable) {
         throw badRequest(
@@ -1923,56 +1876,8 @@ export class AdminService {
     const remainingCash = remainingPoints * cashValuePerPoint;
     const unlockedCash = unlockedPoints * cashValuePerPoint;
 
-    // Calculate maxWithdrawable based on milestone policy:
-    let totalPackageWithdrawable = 0;
-    (vault.packages || []).forEach((pkg) => {
-      const milestones = pkg.milestones || [];
-      if (milestones.length === 0) return;
-      const reachedMilestones = milestones.filter((m: any) => new Date(m.unlockDate) <= now);
-      const reachedCount = reachedMilestones.length;
-
-      if (reachedCount === 0) {
-        // Chưa đến hạn đợt 1 -> chưa được rút từ gói
-        return;
-      } else if (reachedCount === 1) {
-        // Đang ở đợt 1 -> chỉ rút số điểm còn lại của đợt 1
-        const m1 = milestones[0];
-        totalPackageWithdrawable += Math.max(0, (m1.pointsToUnlock || 0) - (m1.withdrawnPoints || 0));
-      } else if (reachedCount >= 2 && reachedCount < milestones.length) {
-        // Từ đợt 2 -> được rút linh hoạt nhưng bảo lưu mốc cuối cùng
-        for (let i = 0; i < milestones.length - 1; i++) {
-          const m = milestones[i];
-          totalPackageWithdrawable += Math.max(0, (m.pointsToUnlock || 0) - (m.withdrawnPoints || 0));
-        }
-      } else {
-        // Đã đến hạn đợt cuối -> được tất toán 100%
-        for (const m of milestones) {
-          totalPackageWithdrawable += Math.max(0, (m.pointsToUnlock || 0) - (m.withdrawnPoints || 0));
-        }
-      }
-    });
-
-    let legacyWithdrawable = 0;
-    const legacyMilestones = vault.milestones || [];
-    if (legacyMilestones.length > 0) {
-      const reachedLegacy = legacyMilestones.filter((m: any) => new Date(m.unlockDate) <= now && m.pointsToUnlock > 0);
-      const reachedLegacyCount = reachedLegacy.length;
-
-      if (reachedLegacyCount === 1) {
-        const q1 = legacyMilestones.find((m: any) => m.quarter === 1 && !m.isWithdrawn);
-        legacyWithdrawable += q1 ? q1.pointsToUnlock : 0;
-      } else if (reachedLegacyCount >= 2 && reachedLegacyCount < legacyMilestones.length) {
-        legacyWithdrawable += legacyMilestones
-          .filter((m: any) => m.quarter < 4 && !m.isWithdrawn)
-          .reduce((s: number, m: any) => s + (m.pointsToUnlock || 0), 0);
-      } else if (reachedLegacyCount >= legacyMilestones.length) {
-        legacyWithdrawable += legacyMilestones
-          .filter((m: any) => !m.isWithdrawn)
-          .reduce((s: number, m: any) => s + (m.pointsToUnlock || 0), 0);
-      }
-    }
-
-    const maxWithdrawable = instantBonusPoints + totalPackageWithdrawable + legacyWithdrawable;
+    // "Đợt nào rút đợt đó": Hạn mức rút đúng bằng tổng điểm khả dụng của các đợt đã mở khóa
+    const maxWithdrawable = unlockedPoints;
     const maxWithdrawableCash = maxWithdrawable * cashValuePerPoint;
 
     return {
