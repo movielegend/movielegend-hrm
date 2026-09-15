@@ -99,9 +99,8 @@ export default function CreateRequestScreen() {
         ...(currentDeptId ? { departmentId: currentDeptId } : {}),
       });
       const rawList = res?.items || (Array.isArray(res) ? res : []);
-      // Lọc bỏ chính mình và CHỈ giữ lại nhân sự thuộc CÙNG PHÒNG BAN với người tạo đơn
+      // CHỈ giữ lại nhân sự thuộc CÙNG PHÒNG BAN với người tạo đơn
       const validList = rawList.filter((e: any) => {
-        if (e.id === user?.id) return false;
         if (currentDeptId) {
           const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
           if (empDeptId && empDeptId !== currentDeptId) return false;
@@ -810,7 +809,13 @@ export default function CreateRequestScreen() {
                 ) : null}
 
                 {/* Chọn người bàn giao */}
-                <Pressable style={styles.rowInput} onPress={() => setShowEmployeeModal(true)}>
+                <Pressable
+                  style={styles.rowInput}
+                  onPress={() => {
+                    setShowEmployeeModal(true);
+                    void fetchEmployeesList();
+                  }}
+                >
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-tie-outline" size={20} color="#000" />
                   </View>
@@ -1261,7 +1266,9 @@ export default function CreateRequestScreen() {
                   keyExtractor={(item) => item.id}
                   keyboardShouldPersistTaps="handled"
                   renderItem={({ item }: { item: any }) => {
-                    const dispName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
+                    const isMe = item.id === user?.id;
+                    const rawName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
+                    const dispName = isMe ? `${rawName} (Bạn)` : rawName;
                     const deptName = item.department?.name;
                     const posName = item.position?.name;
                     const subtitle = [item.userCode, deptName, posName].filter(Boolean).join(' • ');
