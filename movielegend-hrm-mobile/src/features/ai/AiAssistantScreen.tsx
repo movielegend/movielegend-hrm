@@ -199,7 +199,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
 
         <View style={styles.headerCenter}>
           <View style={styles.headerTitleRow}>
-            <MaterialCommunityIcons name="sparkles" size={16} color="#60A5FA" />
+            <MaterialCommunityIcons name="creation" size={16} color="#60A5FA" />
             <Text style={styles.headerTitle}>MovieLegend AI</Text>
           </View>
           <Text style={styles.headerSubtitle}>Trợ lý thông minh toàn năng</Text>
@@ -211,7 +211,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
           disabled={messages.length === 0}
           hitSlop={10}
         >
-          <MaterialCommunityIcons name="chat-plus-outline" size={22} color="#FFFFFF" />
+          <MaterialCommunityIcons name="message-plus-outline" size={22} color="#FFFFFF" />
         </Pressable>
       </View>
 
@@ -270,7 +270,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
               >
                 {msg.sender === 'ai' && (
                   <View style={styles.aiAvatarSmall}>
-                    <MaterialCommunityIcons name="sparkles" size={14} color="#2563EB" />
+                    <MaterialCommunityIcons name="creation" size={14} color="#2563EB" />
                   </View>
                 )}
 
@@ -308,7 +308,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
           {loading && (
             <View style={[styles.bubbleWrapper, styles.bubbleAi]}>
               <View style={styles.aiAvatarSmall}>
-                <MaterialCommunityIcons name="sparkles" size={14} color="#2563EB" />
+                <MaterialCommunityIcons name="creation" size={14} color="#2563EB" />
               </View>
               <View style={[styles.bubble, styles.bubbleAiBg, styles.loadingBubble]}>
                 <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 8 }} />

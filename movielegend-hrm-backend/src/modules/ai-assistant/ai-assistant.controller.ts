@@ -24,13 +24,12 @@ export class AiAssistantController {
   async ask(@Body() dto: AskChatbotDto) {
     const prompt = dto?.prompt;
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-      return { success: false, message: 'Vui lòng nhập câu hỏi.' };
+      return { reply: 'Vui lòng nhập câu hỏi.' };
     }
 
     const reply = await this.aiAssistantService.ask(prompt.trim(), dto?.history);
 
     return {
-      success: true,
       reply,
     };
   }
