@@ -8,6 +8,7 @@ import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role
 import { colors } from '../../../src/theme/colors';
 
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../../src/hooks/useNotifications';
+import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
 
 export default function EmployeeLayout() {
   const insets = useSafeAreaInsets();
@@ -20,27 +21,9 @@ export default function EmployeeLayout() {
   
   return (
     <Tabs
+      tabBar={(props) => <MagicTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#111827',
-        tabBarInactiveTintColor: '#6B7280',
-        tabBarStyle: {
-          borderTopWidth: 0,
-          backgroundColor: '#fff',
-          height: 60 + insets.bottom,
-          paddingBottom: Math.max(Platform.OS === 'android' ? 5 : 20, insets.bottom),
-          paddingTop: 5,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-          marginTop: 4,
-        }
       }}
     >
       <Tabs.Screen
