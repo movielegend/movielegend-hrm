@@ -305,6 +305,14 @@ export function AdminDashboard() {
         </View>
 
       </ScrollView>
+
+      {/* Floating AI Chat Button */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => router.push('/admin/ai-chat' as any)}
+      >
+        <MaterialCommunityIcons name="robot-outline" size={28} color="#fff" />
+      </Pressable>
     </Screen>
   );
 }
@@ -821,5 +829,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
     paddingBottom: 16,
-  }
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
 });
