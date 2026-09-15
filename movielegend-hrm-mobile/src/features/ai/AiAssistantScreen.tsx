@@ -201,8 +201,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
-      {/* Lark-style Watermark */}
-      <ChatWatermark fullName={userName} opacity={0.06} angle={-22} />
+      {/* Lark-style Watermark moved to body */}
 
       {/* Header Top Bar */}
       <View style={styles.header}>
@@ -229,6 +228,8 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
       </View>
 
       <View style={styles.body}>
+        <ChatWatermark customName={userName} opacity={0.06} />
+        
         {/* Warning Banner */}
         <View style={styles.warningBanner}>
           <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#DC2626" />
