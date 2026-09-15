@@ -421,7 +421,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.vipFooterNote}>
           <MaterialCommunityIcons name="shield-check-outline" size={14} color="#92400E" />
           <Text style={styles.vipFooterNoteText}>
-            Hệ thống khấu trừ theo thứ tự (FIFO): Dự án mở trước rút trước, hỗ trợ rút ứng trước từ các đợt sau.
+            Hệ thống khấu trừ theo thứ tự (FIFO): Gói thưởng mở trước rút trước, hỗ trợ rút ứng trước từ các đợt sau.
           </Text>
         </View>
       </View>
@@ -537,7 +537,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.packageListContainer}>
           <View style={styles.packageListHeader}>
             <MaterialCommunityIcons name="briefcase-outline" size={18} color="#92400E" />
-            <Text style={styles.packageListTitle}>Các Gói Thưởng Dự Án Đang Tham Gia ({packages.length}):</Text>
+            <Text style={styles.packageListTitle}>Danh Sách Các Gói Thưởng Đang Tham Gia ({packages.length}):</Text>
           </View>
 
           {packages.map((pkg, pIdx) => {
@@ -1457,6 +1457,40 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                   </Text>
                 </View>
               </View>
+
+              {/* Multi-Package Breakdown if 2+ packages */}
+              {packages.length > 1 && (
+                <View style={{ backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 12, marginTop: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <MaterialCommunityIcons name="format-list-checks" size={16} color="#475569" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155' }}>Nguồn khả dụng theo từng gói ({packages.length} gói):</Text>
+                  </View>
+                  {packages.map((pkg, idx) => {
+                    const milestones = pkg.milestones || [];
+                    const reachedCount = milestones.filter((m: any) => new Date(m.unlockDate) <= now).length;
+                    let pkgWithdrawable = 0;
+                    if (reachedCount === 1) {
+                      pkgWithdrawable = Math.max(0, (milestones[0]?.pointsToUnlock || 0) - (milestones[0]?.withdrawnPoints || 0));
+                    } else if (reachedCount >= 2 && reachedCount < milestones.length) {
+                      for (let i = 0; i < milestones.length - 1; i++) {
+                        pkgWithdrawable += Math.max(0, (milestones[i].pointsToUnlock || 0) - (milestones[i].withdrawnPoints || 0));
+                      }
+                    } else if (reachedCount >= milestones.length) {
+                      for (const m of milestones) {
+                        pkgWithdrawable += Math.max(0, (m.pointsToUnlock || 0) - (m.withdrawnPoints || 0));
+                      }
+                    }
+                    return (
+                      <View key={pkg.id || idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4, borderTopWidth: idx > 0 ? 1 : 0, borderTopColor: '#F1F5F9' }}>
+                        <Text style={{ fontSize: 12, color: '#475569', flex: 1, marginRight: 8 }} numberOfLines={1}>• {pkg.title}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#D97706' }}>
+                          {pkgWithdrawable.toLocaleString('vi-VN')} đ
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
 
               {/* Reverse Waterfall Advance Warning */}
               {isAdvanceWithdrawal && (

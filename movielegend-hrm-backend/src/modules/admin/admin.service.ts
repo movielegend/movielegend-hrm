@@ -604,9 +604,9 @@ export class AdminService {
     const grantType = dto.grantType || GrantVaultType.ANNUAL;
     const note = dto.note || (
       grantType === GrantVaultType.PROJECT_INSTANT
-        ? 'Thưởng nóng dự án'
+        ? 'Thưởng nóng'
         : grantType === GrantVaultType.PROJECT_VESTING
-        ? 'Thưởng dự án cộng dồn quý'
+        ? 'Gói thưởng tích lũy quý'
         : 'Cấp điểm Ví Tết đầu năm'
     );
 
@@ -809,15 +809,15 @@ export class AdminService {
       const totalCashFormatted = (points * cashValuePerPoint).toLocaleString('vi-VN');
       const title =
         grantType === GrantVaultType.PROJECT_INSTANT
-          ? 'Thưởng nóng Dự án'
+          ? 'Thưởng nóng'
           : grantType === GrantVaultType.PROJECT_VESTING
-          ? 'Thưởng dự án Tích lũy'
+          ? 'Gói thưởng Tích lũy'
           : 'Trao thưởng Đặc quyền Ví Tết';
       const body =
         grantType === GrantVaultType.PROJECT_INSTANT
           ? `Bạn vừa được thưởng nóng ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ) từ "${note}". Số điểm này có thể rút ngay về ngân hàng!`
           : grantType === GrantVaultType.PROJECT_VESTING
-          ? `Bạn vừa được thưởng dự án ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ) từ "${note}", phân bổ đều vào các quý còn lại trong năm!`
+          ? `Bạn vừa được trao gói thưởng ${points.toLocaleString('vi-VN')} điểm (~${totalCashFormatted} VNĐ) từ "${note}", phân bổ đều vào các quý còn lại trong năm!`
           : `Ban Giám Đốc vừa trao tặng bạn ${points.toLocaleString('vi-VN')} điểm thưởng Ví Tết (~${totalCashFormatted} VNĐ)!`;
 
       const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
@@ -1193,7 +1193,7 @@ export class AdminService {
             points: -deductedInstant,
             cashAmount: deductedInstant * cashValuePerPoint,
             quarterTarget: 'INSTANT',
-            note: dto.note || 'Rút điểm thưởng nóng dự án',
+            note: dto.note || 'Rút điểm thưởng nóng',
           },
         });
       }

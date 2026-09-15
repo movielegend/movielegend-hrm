@@ -88,7 +88,7 @@ export class GrantProjectPackageDto {
   @IsUUID()
   userId!: string;
 
-  @ApiProperty({ description: 'Tên gói thưởng / dự án' })
+  @ApiProperty({ description: 'Tên gói thưởng / khoản thưởng' })
   @IsString()
   title!: string;
 
@@ -146,7 +146,7 @@ export class BulkGrantProjectPackageDto {
   @IsOptional()
   userIds?: string[];
 
-  @ApiProperty({ description: 'Tên gói thưởng / dự án' })
+  @ApiProperty({ description: 'Tên gói thưởng / khoản thưởng' })
   @IsString()
   title!: string;
 
