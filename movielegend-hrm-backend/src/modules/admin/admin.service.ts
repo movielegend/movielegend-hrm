@@ -454,6 +454,7 @@ export class AdminService {
           email: dto.email,
           accountStatus: dto.accountStatus,
           isActive: dto.isActive,
+          isRewardVaultEnabled: dto.isRewardVaultEnabled !== undefined ? dto.isRewardVaultEnabled : undefined,
           profile: dto.fullName || dto.positionId || dto.joinDate !== undefined
             ? {
                 update: {
