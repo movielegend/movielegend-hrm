@@ -21,20 +21,12 @@ export default function EmployeeLayout() {
   
   return (
     <Tabs
+      initialRouteName="index"
       tabBar={(props) => <MagicTabBar {...props} />}
       screenOptions={{
         headerShown: false,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Trang chủ',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="news"
         options={{
@@ -51,6 +43,15 @@ export default function EmployeeLayout() {
           tabBarBadge: unreadChat > 0 ? (unreadChat > 99 ? '99+' : unreadChat) : undefined,
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Trang chủ',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
           ),
         }}
       />
