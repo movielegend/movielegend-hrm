@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  SafeAreaView,
   Modal,
   TextInput,
   StatusBar,
@@ -14,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/AuthProvider';
@@ -25,6 +25,7 @@ import {
 import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 
 export const EmployeeLevelProjectScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const empDeptId = (user as any)?.departmentId || user?.department?.id;
   const empDeptName = user?.department?.name || (user as any)?.departmentName;
@@ -120,7 +121,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={styles.topSafeArea}>
+      <SafeAreaView edges={['top']} style={styles.topSafeArea}>
         <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
 
         {/* Top Header with Deep Teal Background */}
@@ -132,7 +133,10 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
       </SafeAreaView>
 
       <View style={styles.bodyWrapper}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={[styles.scroll, { paddingBottom: 40 + Math.max(insets.bottom, 24) }]} 
+          showsVerticalScrollIndicator={false}
+        >
         {/* Simple Progress Header */}
         <View style={styles.summaryBox}>
           <View style={styles.summaryTopRow}>

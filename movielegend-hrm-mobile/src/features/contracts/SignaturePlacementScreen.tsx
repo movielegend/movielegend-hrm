@@ -484,7 +484,7 @@ export function SignaturePlacementScreen() {
         </View>
       )}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <PrimaryButton onPress={handleSaveAll} loading={updateMapping.isPending} style={styles.saveBtn}>Lưu cấu hình</PrimaryButton>
       </View>
 

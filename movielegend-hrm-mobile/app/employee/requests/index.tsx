@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Refre
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
@@ -25,6 +25,7 @@ const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: k
 
 export default function RequestsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus | 'ALL'>('ALL');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
 
@@ -156,7 +157,7 @@ export default function RequestsScreen() {
         </ScrollView>
       ) : (
         <ScrollView 
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: 100 + Math.max(insets.bottom, 24) }]}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
         >
           {requests.map((item: EmployeeRequest) => {
@@ -196,7 +197,10 @@ export default function RequestsScreen() {
       )}
 
       {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => router.push('/employee/requests/create')}>
+      <Pressable 
+        style={[styles.fab, { bottom: insets.bottom > 0 ? insets.bottom + 16 : spacing.xxl }]} 
+        onPress={() => router.push('/employee/requests/create')}
+      >
         <MaterialCommunityIcons name="plus" size={32} color="#fff" />
       </Pressable>
     </View>

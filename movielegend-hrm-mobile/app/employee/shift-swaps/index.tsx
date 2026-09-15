@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { shadows } from '../../../src/theme/shadows';
@@ -12,6 +12,7 @@ import { useAuth } from '../../../src/providers/AuthProvider';
 
 export default function ShiftSwapsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
@@ -101,7 +102,7 @@ export default function ShiftSwapsScreen() {
       ) : (
         <ScrollView 
           style={{ flex: 1 }} 
-          contentContainerStyle={{ padding: spacing.lg }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 + Math.max(insets.bottom, 24) }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
         >
           {filteredSwaps.length === 0 ? (
@@ -178,7 +179,10 @@ export default function ShiftSwapsScreen() {
       )}
 
       {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => router.push('/employee/shift-swaps/create')}>
+      <Pressable 
+        style={[styles.fab, { bottom: insets.bottom > 0 ? insets.bottom + 16 : spacing.xxl }]} 
+        onPress={() => router.push('/employee/shift-swaps/create')}
+      >
         <MaterialCommunityIcons name="plus" size={32} color="#fff" />
       </Pressable>
     </View>

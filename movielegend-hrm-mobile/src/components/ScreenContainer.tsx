@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -19,6 +20,7 @@ interface ScreenContainerProps extends PropsWithChildren {
 }
 
 export function ScreenContainer({ children, style, refreshControl, disableGlobalRefresh }: ScreenContainerProps) {
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -29,6 +31,7 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
   }, [queryClient]);
 
   const defaultRefreshControl = <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />;
+  const bottomPadding = Math.max(insets.bottom, 20) + spacing.xl;
 
   return (
     <KeyboardAvoidingView
@@ -37,7 +40,7 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <ScrollView
-        contentContainerStyle={[styles.content, style]}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }, style]}
         refreshControl={disableGlobalRefresh ? undefined : (refreshControl || defaultRefreshControl)}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={true}

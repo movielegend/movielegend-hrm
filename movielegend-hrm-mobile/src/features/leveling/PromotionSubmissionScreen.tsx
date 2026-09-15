@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TextInput,
   TouchableOpacity,
@@ -15,6 +14,7 @@ import {
   Platform,
   Modal,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,6 +24,7 @@ import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 
 export const PromotionSubmissionScreen: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     fromLevelNumber?: string;
     fromLevelName?: string;
@@ -161,7 +162,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Top Navbar */}
@@ -354,7 +355,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
             />
           </View>
 
-          <View style={{ height: 100 }} />
+          <View style={{ height: 100 + Math.max(insets.bottom, 24) }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -367,7 +368,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
           onRequestClose={() => setPreviewImageIndex(null)}
         >
           <View style={styles.lightboxOverlay}>
-            <SafeAreaView style={styles.lightboxSafeArea}>
+            <SafeAreaView style={styles.lightboxSafeArea} edges={['top', 'bottom']}>
               {/* Lightbox Top Bar */}
               <View style={styles.lightboxHeader}>
                 <TouchableOpacity
@@ -436,7 +437,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
       )}
 
       {/* Bottom Sticky Action Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
         <TouchableOpacity style={styles.btnCancel} onPress={() => router.back()} disabled={isSubmitting}>
           <Text style={styles.btnCancelText}>Quay lại</Text>
         </TouchableOpacity>

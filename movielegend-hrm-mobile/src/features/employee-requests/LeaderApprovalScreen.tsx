@@ -3,7 +3,7 @@ import { useAppAlert } from '../../contexts/AlertContext';
 import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { spacing } from '../../theme/spacing';
@@ -19,6 +19,7 @@ type RequestType = 'LEAVE' | 'ATTENDANCE_ADJUSTMENT' | 'LATE_ARRIVAL' | 'EARLY_L
 
 export function LeaderApprovalScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user: currentUser } = useAuth();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -272,7 +273,7 @@ export function LeaderApprovalScreen() {
 
       <ScrollView 
         ref={scrollViewRef}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + Math.max(insets.bottom, 24) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
@@ -405,7 +406,7 @@ export function LeaderApprovalScreen() {
       {/* 4. Action Area */}
       {request.status === 'PENDING' ? (
         canActOnCurrentStage ? (
-          <View style={[styles.footerAction, shadows.sm]}>
+          <View style={[styles.footerAction, shadows.sm, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
             {/* Cho phép kế toán tải lên ủy nhiệm chi khi giải ngân */}
             {stage === 'PENDING_DISBURSEMENT' && (
               <View style={{ marginBottom: 12 }}>
@@ -477,7 +478,7 @@ export function LeaderApprovalScreen() {
             </View>
           </View>
         ) : (
-          <View style={[styles.footerAction, shadows.sm, { paddingVertical: 18, paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#F0F9FF', borderTopWidth: 1, borderTopColor: '#BAE6FD' }]}>
+          <View style={[styles.footerAction, shadows.sm, { paddingVertical: 18, paddingBottom: Math.max(insets.bottom, 18), paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#F0F9FF', borderTopWidth: 1, borderTopColor: '#BAE6FD' }]}>
             <MaterialCommunityIcons name="clock-time-four-outline" size={24} color="#0284C7" style={{ marginBottom: 6 }} />
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#0369A1', textAlign: 'center', marginBottom: 4 }}>
               {waitingStageDescription || 'Đang chờ cấp có thẩm quyền xử lý'}
@@ -488,7 +489,7 @@ export function LeaderApprovalScreen() {
           </View>
         )
       ) : (
-        <View style={[styles.footerAction, shadows.sm, { paddingVertical: 24, alignItems: 'center' }]}>
+        <View style={[styles.footerAction, shadows.sm, { paddingVertical: 24, paddingBottom: Math.max(insets.bottom, 24), alignItems: 'center' }]}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: request.status === 'APPROVED' ? '#10B981' : '#EF4444' }}>
             Đơn từ đã được {request.status === 'APPROVED' ? (meta.disbursementProofUrl || stage === 'DISBURSED' ? 'Giải ngân thành công' : 'Phê duyệt') : 'Từ chối'}
           </Text>
