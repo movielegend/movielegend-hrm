@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import * as SecureStore from 'expo-secure-store';
@@ -31,6 +31,7 @@ const SUBMITTED_KEY = 'LEADER_ROUND1_SUBMITTED_USERS';
 const ADMIN_REVIEWS_KEY = 'ADMIN_PENDING_ROUND1_REVIEWS';
 
 export const LeaderReviewScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { getSocket } = useSocketStatus();
   const leaderDeptId = (user as any)?.departmentId || user?.department?.id;
@@ -182,8 +183,8 @@ export const LeaderReviewScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + Math.max(insets.bottom, 24) }]}>
         {/* Header */}
         <View style={styles.header}>
           <Ionicons name="clipboard-sharp" size={26} color="#2563EB" />

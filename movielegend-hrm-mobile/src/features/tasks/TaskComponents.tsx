@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ActionDatePicker } from './TaskScreens';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { Modal, Pressable, SafeAreaView, StyleSheet, Text, View, Linking, Platform, Image, ScrollView } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, Linking, Platform, Image, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -367,7 +368,7 @@ export function AttachmentList({
 
     {/* Modal xem Ảnh trực tiếp trong App */}
     <Modal visible={!!imagePreviewUri} animationType="slide" onRequestClose={() => setImagePreviewUri(null)}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }} edges={['top', 'bottom']}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#1a1a1a', gap: 8 }}>
           <Pressable
             onPress={() => setImagePreviewUri(null)}

@@ -6,9 +6,9 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { UserLevelProgressData } from '../../api/leveling.api';
 import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
@@ -26,6 +26,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   progress,
   onOpenSubmitModal,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!progress) return null;
 
   const nextLevel = progress.nextLevel;
@@ -54,7 +55,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.container}>
-        <SafeAreaView style={styles.topSafeArea}>
+        <SafeAreaView style={styles.topSafeArea} edges={['top']}>
           <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
           {/* Header */}
@@ -278,7 +279,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
         </ScrollView>
 
         {/* FULL-WIDTH BOTTOM ACTION BAR */}
-        <SafeAreaView style={[styles.bottomBar, { backgroundColor: isEligibleToPromote ? '#059669' : '#0F172A' }]}>
+        <SafeAreaView edges={['bottom']} style={[styles.bottomBar, { backgroundColor: isEligibleToPromote ? '#059669' : '#0F172A' }]}>
           {isEligibleToPromote ? (
             <TouchableOpacity
               style={styles.fullBottomActionBtn}

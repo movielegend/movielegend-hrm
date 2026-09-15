@@ -4,12 +4,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
@@ -242,7 +242,7 @@ export function DocumentDetailModal({
               )}
             </View>
           </View>
-          <SafeAreaView />
+          <SafeAreaView edges={['bottom']} />
         </View>
       </View>
     </Modal>

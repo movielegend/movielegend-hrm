@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   RefreshControl,
@@ -14,6 +13,7 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
@@ -47,6 +47,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   mode = 'full',
 }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string; subTab?: string; departmentId?: string; mode?: string }>();
   const { user } = useAuth();
 
@@ -702,7 +703,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const pendingCount = promotionRequests.filter((r) => r.status === 'PENDING').length;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Header */}
@@ -1020,6 +1021,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       ) : (
         <ScrollView
           style={styles.content}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 60 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         >
@@ -2363,7 +2365,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             </View>
           )}
 
-          <View style={{ height: 50 }} />
+          <View style={{ height: Math.max(insets.bottom, 24) + 40 }} />
         </ScrollView>
       )}
 

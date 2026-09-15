@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TextInput,
   TouchableOpacity,
@@ -16,6 +15,7 @@ import {
   Modal,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { levelingApi, LevelPromotionRequestItem } from '../../api/leveling.api';
@@ -24,6 +24,7 @@ import { getAbsoluteImageUrl } from '../../utils/image';
 
 export const PromotionReviewScreen: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     requestId?: string;
     fromLevelNumber?: string;
@@ -111,7 +112,7 @@ export const PromotionReviewScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -130,7 +131,7 @@ export const PromotionReviewScreen: React.FC = () => {
 
   if (!request) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -164,7 +165,7 @@ export const PromotionReviewScreen: React.FC = () => {
   const evidenceImages = request.evidenceImages || [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Top Navbar */}
@@ -378,7 +379,7 @@ export const PromotionReviewScreen: React.FC = () => {
             />
           </View>
 
-          <View style={{ height: 120 }} />
+          <View style={{ height: 100 + Math.max(insets.bottom, 24) }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -391,7 +392,7 @@ export const PromotionReviewScreen: React.FC = () => {
           onRequestClose={() => setPreviewImageIndex(null)}
         >
           <View style={styles.lightboxOverlay}>
-            <SafeAreaView style={styles.lightboxSafeArea}>
+            <SafeAreaView style={styles.lightboxSafeArea} edges={['top', 'bottom']}>
               {/* Lightbox Top Bar */}
               <View style={styles.lightboxHeader}>
                 <TouchableOpacity
@@ -447,7 +448,7 @@ export const PromotionReviewScreen: React.FC = () => {
       )}
 
       {/* Bottom Sticky Action Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity
           style={[styles.actionBtn, styles.rejectBtn]}
           onPress={() => handleAction('REJECTED')}

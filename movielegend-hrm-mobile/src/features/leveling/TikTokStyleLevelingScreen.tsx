@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Modal,
   Pressable,
@@ -15,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -330,6 +330,7 @@ export const getMetalTheme = (level: number): MetalTheme => {
 
 export const TikTokStyleLevelingScreen: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
   // Load level stored or approved from Backend API & SecureStore
@@ -747,10 +748,10 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
-      <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollBody} contentContainerStyle={{ paddingBottom: 60 + Math.max(insets.bottom, 24) }} showsVerticalScrollIndicator={false}>
         {/* ===================================================================== */}
         {/* 1. VIP MEMBERSHIP CARD                                                */}
         {/* ===================================================================== */}
@@ -1424,7 +1425,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       {/* ===================================================================== */}
       <Modal visible={activeReportTask !== null} animationType="slide" transparent={false} onRequestClose={() => setActiveReportTask(null)}>
         <View style={styles.reportModalContainer}>
-          <SafeAreaView style={styles.reportTopSafeArea}>
+          <SafeAreaView style={styles.reportTopSafeArea} edges={['top']}>
             <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
             <View style={styles.reportModalHeader}>
               <View style={{ flex: 1 }}>
