@@ -7,7 +7,7 @@ interface ChatWatermarkProps {
   opacity?: number;
 }
 
-export function ChatWatermark({ customName, opacity = 0.065 }: ChatWatermarkProps) {
+export function ChatWatermark({ customName, opacity = 0.12 }: ChatWatermarkProps) {
   const { user } = useAuth();
   const { width, height } = Dimensions.get('window');
 
@@ -17,12 +17,12 @@ export function ChatWatermark({ customName, opacity = 0.065 }: ChatWatermarkProp
     const rawName = (user as any)?.profile?.fullName || (user as any)?.fullName || (user as any)?.name;
     if (rawName && rawName.trim()) return rawName.trim();
     if (user?.roles?.includes('ADMIN') || (user as any)?.role === 'ADMIN') return 'Admin';
-    return user?.userCode || 'Người dùng';
+    return user?.userCode || 'MovieLegend';
   }, [user, customName]);
 
   // Tính số lượng hàng và cột phủ kín màn hình thiết bị
-  const rows = Math.ceil(height / 130) + 1;
-  const cols = Math.ceil(width / 160) + 1;
+  const rows = Math.ceil(height / 120) + 2;
+  const cols = Math.ceil(width / 150) + 2;
 
   return (
     <View style={styles.overlay} pointerEvents="none">
@@ -48,8 +48,13 @@ export function ChatWatermark({ customName, opacity = 0.065 }: ChatWatermarkProp
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+    elevation: 10,
   },
   grid: {
     flex: 1,
@@ -59,18 +64,18 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 24,
+    marginVertical: 20,
   },
   cell: {
     transform: [{ rotate: '-25deg' }],
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
   text: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#000000',
+    color: '#334155',
     letterSpacing: 0.5,
   },
 });

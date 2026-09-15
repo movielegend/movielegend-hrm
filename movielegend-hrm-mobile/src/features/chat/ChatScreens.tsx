@@ -1248,9 +1248,6 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         enabled={Platform.OS === 'ios' ? true : isKeyboardVisible}
       >
         <View style={styles.chatContainer}>
-          {/* Watermark in chìm họ tên người dùng theo phong cách Lark */}
-          <ChatWatermark />
-
           {/* Header */}
           <View style={styles.chatHeader}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
@@ -1737,6 +1734,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <MaterialCommunityIcons name={isUploading || sendMessage.isPending ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>
           </View>
+
+          {/* Watermark in chìm họ tên người dùng theo phong cách Lark */}
+          <ChatWatermark />
         </View>
 
         {/* Image Viewer Modal with Close & Download Buttons */}
