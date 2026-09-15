@@ -49,6 +49,11 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  const hasReworkRequest = Boolean(activeItem?.subTask.leaderFeedback) && activeItem?.subTask.status !== 'LEADER_APPROVED';
+  const isLeaderApproved = activeItem?.subTask.status === 'LEADER_APPROVED';
+  const isSubmittedWaitingLeader = activeItem?.subTask.status === 'SUBMITTED' && !hasReworkRequest;
+  const isEditable = !isLeaderApproved && !isSubmittedWaitingLeader;
+
   const handleOpenDetail = (item: {
     project: LevelDepartmentProject;
     subTask: BulletSubTask;
@@ -324,16 +329,29 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 
 
               {/* Approved Status Banner */}
-              {activeItem?.subTask.status === 'LEADER_APPROVED' && (
+              {isLeaderApproved && (
                 <View style={styles.approvedBanner}>
                   <Text style={styles.approvedBannerText}>
-                    Leader đã duyệt Vòng 1. Kết quả đang chờ Ban Giám Đốc / Admin xét duyệt nâng cấp bậc tại kỳ họp cuối tháng.
+                    ✓ Leader đã duyệt Vòng 1. Dự án đang chờ Ban Giám Đốc / Admin xác nhận hoàn thành chính thức.
+                  </Text>
+                </View>
+              )}
+
+              {/* Waiting Leader Review Lock Banner */}
+              {isSubmittedWaitingLeader && (
+                <View style={styles.submittedLockBanner}>
+                  <View style={styles.submittedLockHeader}>
+                    <Ionicons name="lock-closed" size={16} color="#D97706" />
+                    <Text style={styles.submittedLockTitle}>Đang Chờ Leader Duyệt (Đã Khóa Chỉnh Sửa)</Text>
+                  </View>
+                  <Text style={styles.submittedLockText}>
+                    Báo cáo và minh chứng của bạn đã được gửi tới Leader. Trong thời gian chờ Leader thẩm định, bạn không thể chỉnh sửa nội dung hoặc thay đổi ảnh đính kèm.
                   </Text>
                 </View>
               )}
 
               {/* Leader Feedback / Rework Notice */}
-              {Boolean(activeItem?.subTask.leaderFeedback) && activeItem?.subTask.status !== 'LEADER_APPROVED' && (
+              {hasReworkRequest && (
                 <View style={styles.leaderFeedbackBox}>
                   <View style={styles.leaderFeedbackHeader}>
                     <Ionicons name="chatbubble-ellipses" size={16} color="#DC2626" />
@@ -341,7 +359,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                   </View>
                   <Text style={styles.leaderFeedbackText}>"{activeItem?.subTask.leaderFeedback}"</Text>
                   <Text style={styles.leaderFeedbackGuide}>
-                    Vui lòng điều chỉnh lại báo cáo, hình ảnh hoặc link tài liệu bên dưới rồi bấm "Cập Nhật Báo Cáo" để gửi lại Leader.
+                    Vui lòng điều chỉnh lại báo cáo, hình ảnh hoặc link tài liệu bên dưới rồi bấm "CẬP NHẬT & NỘP LẠI CHO LEADER".
                   </Text>
                 </View>
               )}
@@ -354,12 +372,12 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                 </Text>
 
                 <TextInput
-                  style={styles.formTextArea}
+                  style={[styles.formTextArea, !isEditable && styles.formInputDisabled]}
                   placeholder="Nhập nội dung báo cáo kết quả thực hiện..."
                   placeholderTextColor="#94A3B8"
                   value={resultText}
                   onChangeText={setResultText}
-                  editable={activeItem?.subTask.status !== 'LEADER_APPROVED'}
+                  editable={isEditable}
                   multiline
                 />
               </View>
@@ -374,19 +392,19 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                 {/* Link Input */}
                 <Text style={styles.inputLabel}>Link tài liệu / Báo cáo (Google Drive / Sheet):</Text>
                 <TextInput
-                  style={styles.formTextInput}
+                  style={[styles.formTextInput, !isEditable && styles.formInputDisabled]}
                   placeholder="https://drive.google.com/..."
                   placeholderTextColor="#94A3B8"
                   value={evidenceLink}
                   onChangeText={setEvidenceLink}
-                  editable={activeItem?.subTask.status !== 'LEADER_APPROVED'}
+                  editable={isEditable}
                   autoCapitalize="none"
                 />
 
                 {/* Photos Attachment */}
                 <View style={styles.photoSectionHeader}>
                   <Text style={styles.inputLabel}>Ảnh chụp minh chứng thực tế ({selectedImages.length}):</Text>
-                  {activeItem?.subTask.status !== 'LEADER_APPROVED' && (
+                  {isEditable && (
                     <TouchableOpacity style={styles.addPhotoBtn} onPress={handlePickImage} activeOpacity={0.8}>
                       <Text style={styles.addPhotoBtnText}>+ Thêm ảnh từ thư viện</Text>
                     </TouchableOpacity>
@@ -400,7 +418,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                         <TouchableOpacity onPress={() => setPreviewImage(imgUri)} activeOpacity={0.8}>
                           <Image source={{ uri: imgUri }} style={styles.thumbnailImage} />
                         </TouchableOpacity>
-                        {activeItem?.subTask.status !== 'LEADER_APPROVED' && (
+                        {isEditable && (
                           <TouchableOpacity
                             style={styles.removePhotoBtn}
                             onPress={() => handleRemoveImage(idx)}
@@ -417,19 +435,29 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
               </View>
 
               {/* Submit Action Button */}
-              {activeItem?.subTask.status !== 'LEADER_APPROVED' && (
-                <View style={styles.submitButtonBox}>
+              <View style={styles.submitButtonBox}>
+                {isEditable ? (
                   <TouchableOpacity
                     style={styles.submitMainBtn}
                     onPress={handleConfirmSubmit}
                     activeOpacity={0.85}
                   >
                     <Text style={styles.submitMainBtnText}>
-                      {activeItem?.subTask.status === 'SUBMITTED' ? 'CẬP NHẬT BÁO CÁO & MINH CHỨNG' : 'NỘP BÁO CÁO & MINH CHỨNG'}
+                      {hasReworkRequest ? 'CẬP NHẬT & NỘP LẠI CHO LEADER' : 'NỘP BÁO CÁO & MINH CHỨNG'}
                     </Text>
                   </TouchableOpacity>
-                </View>
-              )}
+                ) : isSubmittedWaitingLeader ? (
+                  <View style={styles.lockedStatusBtn}>
+                    <Ionicons name="lock-closed" size={16} color="#92400E" />
+                    <Text style={styles.lockedStatusBtnText}>ĐÃ NỘP - ĐANG CHỜ LEADER DUYỆT</Text>
+                  </View>
+                ) : (
+                  <View style={styles.approvedStatusBtn}>
+                    <Ionicons name="checkmark-circle" size={18} color="#065F46" />
+                    <Text style={styles.approvedStatusBtnText}>LEADER ĐÃ DUYỆT VÒNG 1</Text>
+                  </View>
+                )}
+              </View>
             </ScrollView>
           </KeyboardAvoidingView>
         </View>
@@ -947,5 +975,66 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#7F1D1D',
     lineHeight: 16,
+  },
+  formInputDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    color: '#64748B',
+  },
+  submittedLockBanner: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+  },
+  submittedLockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  submittedLockTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  submittedLockText: {
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  lockedStatusBtn: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingVertical: 14,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  lockedStatusBtnText: {
+    color: '#92400E',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  approvedStatusBtn: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingVertical: 14,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  approvedStatusBtnText: {
+    color: '#065F46',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
 });

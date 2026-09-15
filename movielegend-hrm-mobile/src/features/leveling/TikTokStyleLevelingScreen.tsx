@@ -1470,11 +1470,12 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                   Nhập tóm tắt công việc đã làm, số liệu cụ thể và ghi chú kết quả
                 </Text>
                 <TextInput
-                  style={styles.reportTextArea}
+                  style={[styles.reportTextArea, (activeReportTask?.subTask.status === 'SUBMITTED' || activeReportTask?.subTask.status === 'LEADER_APPROVED') && { backgroundColor: '#F1F5F9', color: '#64748B' }]}
                   placeholder="Nhập nội dung báo cáo kết quả thực hiện..."
                   placeholderTextColor="#94A3B8"
                   value={reportNote}
                   onChangeText={setReportNote}
+                  editable={activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED'}
                   multiline
                 />
               </View>
@@ -1486,11 +1487,12 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                   Dán đường link Google Drive, Dashboard, Video hoặc tài liệu tổng hợp
                 </Text>
                 <TextInput
-                  style={styles.reportInput}
+                  style={[styles.reportInput, (activeReportTask?.subTask.status === 'SUBMITTED' || activeReportTask?.subTask.status === 'LEADER_APPROVED') && { backgroundColor: '#F1F5F9', color: '#64748B' }]}
                   placeholder="https://drive.google.com/..."
                   placeholderTextColor="#94A3B8"
                   value={evidenceUrl}
                   onChangeText={setEvidenceUrl}
+                  editable={activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED'}
                   autoCapitalize="none"
                 />
               </View>
@@ -1499,13 +1501,15 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
               <View style={styles.reportSectionBlock}>
                 <View style={styles.imagePickHeaderRow}>
                   <Text style={styles.reportSectionTitle}>3. Hình Ảnh Minh Chứng Đính Kèm</Text>
-                  <TouchableOpacity
-                    style={styles.pickImageBtn}
-                    onPress={handlePickImages}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.pickImageBtnText}>+ Thêm ảnh</Text>
-                  </TouchableOpacity>
+                  {activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED' && (
+                    <TouchableOpacity
+                      style={styles.pickImageBtn}
+                      onPress={handlePickImages}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.pickImageBtnText}>+ Thêm ảnh</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <Text style={styles.reportSectionSub}>
                   Chụp hoặc tải ảnh màn hình kết quả, biên bản nghiệm thu (tối đa nhiều ảnh)
@@ -1518,36 +1522,54 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                         <TouchableOpacity onPress={() => setPreviewImage(imgUri)} activeOpacity={0.8}>
                           <Image source={{ uri: imgUri }} style={styles.imageThumbnail} resizeMode="cover" />
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.removeImageBtn}
-                          onPress={() => handleRemoveImage(idx)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.removeImageBtnText}>✕</Text>
-                        </TouchableOpacity>
+                        {activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED' && (
+                          <TouchableOpacity
+                            style={styles.removeImageBtn}
+                            onPress={() => handleRemoveImage(idx)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.removeImageBtnText}>✕</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     ))}
                   </View>
                 ) : (
-                  <TouchableOpacity
-                    style={styles.emptyImageBox}
-                    onPress={handlePickImages}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.emptyImageText}>+ Bấm vào đây để chọn ảnh từ thư viện</Text>
-                  </TouchableOpacity>
+                  activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED' ? (
+                    <TouchableOpacity
+                      style={styles.emptyImageBox}
+                      onPress={handlePickImages}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.emptyImageText}>+ Bấm vào đây để chọn ảnh từ thư viện</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={{ fontSize: 13, color: '#94A3B8', fontStyle: 'italic', marginTop: 4 }}>
+                      Chưa có ảnh minh chứng nào được thêm.
+                    </Text>
+                  )
                 )}
               </View>
 
               {/* Action Button */}
               <View style={styles.reportActionFooter}>
-                <TouchableOpacity
-                  style={styles.submitReportMainBtn}
-                  onPress={handleSubmitReport}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.submitReportMainBtnText}>XÁC NHẬN NỘP BÁO CÁO & MINH CHỨNG</Text>
-                </TouchableOpacity>
+                {activeReportTask?.subTask.status === 'LEADER_APPROVED' ? (
+                  <View style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', paddingVertical: 14, borderRadius: 10, alignItems: 'center' }}>
+                    <Text style={{ color: '#065F46', fontSize: 13, fontWeight: 'bold' }}>✓ LEADER ĐÃ DUYỆT VÒNG 1</Text>
+                  </View>
+                ) : activeReportTask?.subTask.status === 'SUBMITTED' ? (
+                  <View style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A', paddingVertical: 14, borderRadius: 10, alignItems: 'center' }}>
+                    <Text style={{ color: '#92400E', fontSize: 13, fontWeight: 'bold' }}>🔒 ĐÃ NỘP - ĐANG CHỜ LEADER DUYỆT (ĐÃ KHÓA)</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.submitReportMainBtn}
+                    onPress={handleSubmitReport}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.submitReportMainBtnText}>XÁC NHẬN NỘP BÁO CÁO & MINH CHỨNG</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </ScrollView>
           </KeyboardAvoidingView>
