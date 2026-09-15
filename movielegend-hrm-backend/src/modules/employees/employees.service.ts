@@ -94,7 +94,7 @@ export class EmployeesService {
               },
             },
           }
-        : allowedDeptIds !== null
+        : allowedDeptIds !== null && allowedDeptIds.length > 0
         ? {
             departmentLinks: {
               some: {
