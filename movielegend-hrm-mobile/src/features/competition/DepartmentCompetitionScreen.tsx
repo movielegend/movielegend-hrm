@@ -5,8 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
+  SafeAreaView} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export interface DepartmentMemberContribution {

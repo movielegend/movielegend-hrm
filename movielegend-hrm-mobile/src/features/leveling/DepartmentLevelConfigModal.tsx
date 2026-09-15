@@ -8,9 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { levelingApi, DepartmentLevelItem } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
@@ -68,7 +66,7 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
         );
       }
     } catch (err: any) {
-      Alert.alert('Lỗi tải cấu hình', err?.message || 'Không thể tải cấu hình phòng ban');
+      CustomAlert.alert('Lỗi tải cấu hình', err?.message || 'Không thể tải cấu hình phòng ban');
     } finally {
       setIsLoading(false);
     }
@@ -132,11 +130,11 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
           motivationQuote: c.motivationQuote || '',
         })),
       );
-      Alert.alert('Thành công', `Đã lưu cấu hình danh xưng & phần thưởng cấp bậc cho phòng ${departmentName}!`);
+      CustomAlert.alert('Thành công', `Đã lưu cấu hình danh xưng & phần thưởng cấp bậc cho phòng ${departmentName}!`);
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSaving(false);
     }

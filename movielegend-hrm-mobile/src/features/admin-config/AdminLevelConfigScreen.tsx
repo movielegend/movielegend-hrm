@@ -4,14 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   SafeAreaView,
   Modal,
   ScrollView,
   TextInput,
   StatusBar,
-  ActivityIndicator,
-} from 'react-native';
+  ActivityIndicator} from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useSocketStatus } from '../../providers/SocketProvider';
@@ -191,22 +189,22 @@ export const AdminLevelConfigScreen: React.FC = () => {
   // Add New Year
   const handleAddNewYear = () => {
     if (!canConfigure) {
-      Alert.alert('Không có quyền', 'Bạn không có quyền thêm năm cấu hình Level.');
+      CustomAlert.alert('Không có quyền', 'Bạn không có quyền thêm năm cấu hình Level.');
       return;
     }
     const nextYear = Math.max(...availableYears) + 1;
     setAvailableYears((prev) => [...prev, nextYear]);
     setSelectedYear(nextYear);
-    Alert.alert('Thành Công', `Đã khởi tạo Năm Cấu Hình Level mới: ${nextYear}!`);
+    CustomAlert.alert('Thành Công', `Đã khởi tạo Năm Cấu Hình Level mới: ${nextYear}!`);
   };
 
   // Delete Level
   const handleDeleteLevel = (levelId: string, levelNumber: number) => {
     if (!canConfigure) {
-      Alert.alert('Không có quyền', 'Bạn không có quyền xóa Level.');
+      CustomAlert.alert('Không có quyền', 'Bạn không có quyền xóa Level.');
       return;
     }
-    Alert.alert(
+    CustomAlert.alert(
       'Xác nhận xóa Level',
       `Bạn có chắc chắn muốn xóa Level ${levelNumber} của Năm ${selectedYear} không?`,
       [
@@ -229,7 +227,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
   // Dynamic Add New Level
   const handleAddNewLevel = () => {
     if (!canConfigure) {
-      Alert.alert('Không có quyền', 'Bạn không có quyền thêm Level.');
+      CustomAlert.alert('Không có quyền', 'Bạn không có quyền thêm Level.');
       return;
     }
     const nextLevelNum = activeLevels.length + 1;
@@ -256,7 +254,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
       return { ...prev, [currentConfigKey]: updatedList };
     });
 
-    Alert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} cho Năm ${selectedYear} - Phòng ${activeDept.name}!`);
+    CustomAlert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} cho Năm ${selectedYear} - Phòng ${activeDept.name}!`);
   };
 
   const handleUpdateLevelProjectName = (levelNumber: number, newProjectName: string) => {
@@ -324,7 +322,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
   const handleSaveModalItem = () => {
     if (!editingItem) return;
     if (!canConfigure) {
-      Alert.alert('Không có quyền', 'Bạn không có quyền lưu cấu hình Level.');
+      CustomAlert.alert('Không có quyền', 'Bạn không có quyền lưu cấu hình Level.');
       return;
     }
     setDeptLevelConfigs((prev) => {
@@ -332,13 +330,13 @@ export const AdminLevelConfigScreen: React.FC = () => {
       const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
       return { ...prev, [currentConfigKey]: updatedList };
     });
-    Alert.alert('Thành Công', `Đã lưu quà thưởng cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
+    CustomAlert.alert('Thành Công', `Đã lưu quà thưởng cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
     setEditingItem(null);
   };
 
   const handleSaveAllAndSync = async () => {
     if (!canConfigure) {
-      Alert.alert('Không có quyền', 'Bạn không có quyền lưu và đồng bộ cấu hình Level.');
+      CustomAlert.alert('Không có quyền', 'Bạn không có quyền lưu và đồng bộ cấu hình Level.');
       return;
     }
     try {
@@ -359,13 +357,13 @@ export const AdminLevelConfigScreen: React.FC = () => {
         });
       }
 
-      Alert.alert(
+      CustomAlert.alert(
         'Đã Lưu & Đồng Bộ Thành Công!',
         `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name} (Năm ${selectedYear}). Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
         [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
       );
     } catch {
-      Alert.alert(
+      CustomAlert.alert(
         'Thành Công',
         `Đã lưu và phát lệnh đồng bộ cho phòng ban ${activeDept.name}.`
       );
@@ -374,10 +372,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
 
   const handleResetAllData = () => {
     if (!canConfigure) {
-      Alert.alert('Không có quyền', 'Bạn không có quyền xóa sạch dữ liệu.');
+      CustomAlert.alert('Không có quyền', 'Bạn không có quyền xóa sạch dữ liệu.');
       return;
     }
-    Alert.alert(
+    CustomAlert.alert(
       'XÁC NHẬN XÓA SẠCH DỮ LIỆU TEST',
       'Bạn có chắc chắn muốn xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án, Việc con & Duyệt thi đua để test lại từ đầu không?',
       [
@@ -432,10 +430,10 @@ export const AdminLevelConfigScreen: React.FC = () => {
               }
 
               setDeptLevelConfigs({});
-              Alert.alert('Thành Công', 'Đã xóa sạch dữ liệu! Bạn có thể bắt đầu test lại từ đầu.');
+              CustomAlert.alert('Thành Công', 'Đã xóa sạch dữ liệu! Bạn có thể bắt đầu test lại từ đầu.');
             } catch {
               setDeptLevelConfigs({});
-              Alert.alert('Thành Công', 'Đã xóa sạch dữ liệu local và sẵn sàng test lại!');
+              CustomAlert.alert('Thành Công', 'Đã xóa sạch dữ liệu local và sẵn sàng test lại!');
             }
           },
         },

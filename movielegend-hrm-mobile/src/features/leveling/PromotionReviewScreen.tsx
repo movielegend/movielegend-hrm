@@ -9,12 +9,10 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Modal,
-  RefreshControl,
-} from 'react-native';
+  RefreshControl} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -53,7 +51,7 @@ export const PromotionReviewScreen: React.FC = () => {
         setLeaderNote(data.leaderNote);
       }
     } catch (err: any) {
-      Alert.alert('Lỗi tải dữ liệu', err?.response?.data?.message || err?.message || 'Không thể tải chi tiết đề xuất');
+      CustomAlert.alert('Lỗi tải dữ liệu', err?.response?.data?.message || err?.message || 'Không thể tải chi tiết đề xuất');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -73,12 +71,12 @@ export const PromotionReviewScreen: React.FC = () => {
     if (!requestId) return;
 
     if (status === 'REJECTED' && !leaderNote.trim()) {
-      Alert.alert('Ghi chú bắt buộc', 'Vui lòng nhập lý do từ chối để nhân viên biết điểm cần cải thiện.');
+      CustomAlert.alert('Ghi chú bắt buộc', 'Vui lòng nhập lý do từ chối để nhân viên biết điểm cần cải thiện.');
       return;
     }
 
     if (status === 'SUPPLEMENT_REQUESTED' && !leaderNote.trim()) {
-      Alert.alert('Ghi chú bắt buộc', 'Vui lòng nhập nội dung cần nhân viên bổ sung thêm.');
+      CustomAlert.alert('Ghi chú bắt buộc', 'Vui lòng nhập nội dung cần nhân viên bổ sung thêm.');
       return;
     }
 
@@ -97,14 +95,14 @@ export const PromotionReviewScreen: React.FC = () => {
           ? `Đã gửi yêu cầu bổ sung bằng chứng tới ${empName}.`
           : `Đã từ chối đề xuất thăng cấp của ${empName}.`;
 
-      Alert.alert('Thành công', msg, [
+      CustomAlert.alert('Thành công', msg, [
         {
           text: 'Đồng ý',
           onPress: () => router.back(),
         },
       ]);
     } catch (err: any) {
-      Alert.alert('Lỗi xử lý', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi xử lý', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSubmitting(false);
     }

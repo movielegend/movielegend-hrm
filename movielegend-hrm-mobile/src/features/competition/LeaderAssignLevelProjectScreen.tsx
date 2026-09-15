@@ -5,14 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Modal,
   TextInput,
   StatusBar,
   Image,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -218,7 +216,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   // Handle Leader accepts project from Admin
   const handleAcceptProject = () => {
     acceptProject(selectedLevelNumber);
-    Alert.alert('Thành Công', `Đã tiếp nhận dự án ${currentProject?.levelName}.`);
+    CustomAlert.alert('Thành Công', `Đã tiếp nhận dự án ${currentProject?.levelName}.`);
   };
 
   // Open modal for a task
@@ -244,7 +242,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
         setLeaderSelfImages((prev) => [...prev, ...newUris]);
       }
     } catch {
-      Alert.alert('Thông báo', 'Không thể mở thư viện ảnh');
+      CustomAlert.alert('Thông báo', 'Không thể mở thư viện ảnh');
     }
   };
 
@@ -256,7 +254,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const handleLeaderSubmitReport = () => {
     if (!activeSubTask || !currentProject) return;
     if (!leaderSelfReportText.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập nội dung báo cáo kết quả thực hiện');
+      CustomAlert.alert('Lỗi', 'Vui lòng nhập nội dung báo cáo kết quả thực hiện');
       return;
     }
 
@@ -281,7 +279,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
         : null
     );
 
-    Alert.alert('Thành Công', 'Đã nộp báo cáo kết quả thực hiện cho đầu mục công việc này.');
+    CustomAlert.alert('Thành Công', 'Đã nộp báo cáo kết quả thực hiện cho đầu mục công việc này.');
   };
 
   // Handle assigning member to a specific subtask
@@ -295,7 +293,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       prev ? { ...prev, assignedToUserId: member.id, assignedToUserName: assignName, status: 'ASSIGNED' } : null
     );
     setSearchMemberQuery('');
-    Alert.alert('Thành Công', `Đã giao việc cho ${assignName}.`);
+    CustomAlert.alert('Thành Công', `Đã giao việc cho ${assignName}.`);
   };
 
   // Handle approving subtask (Vòng 1 - Chưa nâng cấp bậc trực tiếp)
@@ -304,7 +302,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     setActiveSubTask((prev) =>
       prev ? { ...prev, status: 'LEADER_APPROVED', leaderApprovedAt: new Date().toISOString(), leaderFeedback: leaderFeedbackText.trim() || undefined } : null
     );
-    Alert.alert(
+    CustomAlert.alert(
       'Duyệt Vòng 1 Thành Công',
       'Đã duyệt Vòng 1 đầu mục công việc. Kết quả được lưu vào hồ sơ để Ban Giám Đốc / Admin xét duyệt nâng cấp bậc tại cuộc họp cuối tháng.'
     );
@@ -313,7 +311,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   // Handle rejecting / requesting rework
   const handleRejectSubTask = (subTaskId: string) => {
     if (!leaderFeedbackText.trim()) {
-      Alert.alert('Yêu cầu lý do', 'Vui lòng nhập ghi chú / lý do cần sửa lại để nhân sự biết điểm cần hoàn thiện.');
+      CustomAlert.alert('Yêu cầu lý do', 'Vui lòng nhập ghi chú / lý do cần sửa lại để nhân sự biết điểm cần hoàn thiện.');
       return;
     }
 
@@ -321,13 +319,13 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     setActiveSubTask((prev) =>
       prev ? { ...prev, status: 'ASSIGNED', leaderFeedback: leaderFeedbackText.trim() } : null
     );
-    Alert.alert('Đã gửi phản hồi', 'Đã chuyển trạng thái việc con về Đang làm để nhân sự cập nhật lại báo cáo.');
+    CustomAlert.alert('Đã gửi phản hồi', 'Đã chuyển trạng thái việc con về Đang làm để nhân sự cập nhật lại báo cáo.');
   };
 
   // Handle approving access request for next level project
   const handleApproveAccessRequest = async (reqId: string, empName: string, lvlName: string) => {
     await reviewProjectAccess(reqId, 'APPROVED', undefined, currentLeaderName);
-    Alert.alert(
+    CustomAlert.alert(
       'Đã Phê Duyệt',
       `Đã cho phép nhân sự ${empName} thực hiện dự án ${lvlName}. Nhân sự hiện đã có thể nhận việc con và nộp báo cáo!`
     );
@@ -335,7 +333,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 
   // Handle rejecting access request
   const handleRejectAccessRequest = async (reqId: string, empName: string, lvlName: string) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Từ Chối Yêu Cầu',
       `Bạn có chắc chắn muốn từ chối yêu cầu xin làm dự án ${lvlName} của ${empName}?`,
       [
@@ -350,7 +348,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
               'Trưởng nhóm chưa phê duyệt làm dự án vượt cấp tại thời điểm này.',
               currentLeaderName
             );
-            Alert.alert('Đã Từ Chối', `Đã từ chối yêu cầu của ${empName}.`);
+            CustomAlert.alert('Đã Từ Chối', `Đã từ chối yêu cầu của ${empName}.`);
           },
         },
       ]
@@ -360,13 +358,13 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   // Handle submitting project to Admin
   const handleSubmitProjectToAdmin = async () => {
     if (!adminReportText.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả nghiệm thu');
+      CustomAlert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả nghiệm thu');
       return;
     }
 
     await submitProjectToAdmin(selectedLevelNumber, adminReportText.trim(), adminReportUrl.trim() || undefined);
     setSubmitAdminModalVisible(false);
-    Alert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.levelName} lên Ban Giám Đốc.`);
+    CustomAlert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.levelName} lên Ban Giám Đốc.`);
   };
 
   const subTasks = currentProject?.subTasks || [];

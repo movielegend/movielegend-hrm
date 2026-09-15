@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
   Keyboard,
-} from 'react-native';
+  Platform} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';

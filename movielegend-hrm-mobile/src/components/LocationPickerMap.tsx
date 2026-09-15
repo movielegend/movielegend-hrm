@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, Alert, Pressable, Text, TextInput, Keyboard, ActivityIndicator } from 'react-native';
+import {View, StyleSheet, Dimensions, Pressable, Text, TextInput, Keyboard, ActivityIndicator} from 'react-native';
 import MapView, { Marker } from '../lib/Maps';
 import type { Region } from '../lib/Maps';
 
@@ -45,7 +45,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
       setLoading(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Lỗi', 'Cần cấp quyền vị trí để lấy tọa độ hiện tại');
+        CustomAlert.alert('Lỗi', 'Cần cấp quyền vị trí để lấy tọa độ hiện tại');
         return;
       }
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
@@ -60,7 +60,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
       });
       handleSelectCoordinate(coord);
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể lấy tọa độ hiện tại');
+      CustomAlert.alert('Lỗi', 'Không thể lấy tọa độ hiện tại');
     } finally {
       setLoading(false);
     }
@@ -83,11 +83,11 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
         });
         handleSelectCoordinate({ latitude, longitude });
       } else {
-        Alert.alert('Không tìm thấy', 'Không tìm thấy địa điểm này. Vui lòng thử từ khóa cụ thể hơn.');
+        CustomAlert.alert('Không tìm thấy', 'Không tìm thấy địa điểm này. Vui lòng thử từ khóa cụ thể hơn.');
       }
     } catch (e) {
       console.warn(e);
-      Alert.alert('Lỗi', 'Không thể tìm kiếm địa điểm');
+      CustomAlert.alert('Lỗi', 'Không thể tìm kiếm địa điểm');
     } finally {
       setSearching(false);
     }

@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -9,8 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery } from '@tanstack/react-query';
@@ -124,7 +122,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
         setTitle(cleanName);
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể chọn file');
+      CustomAlert.alert('Lỗi', err.message || 'Không thể chọn file');
     }
   };
 
@@ -139,15 +137,15 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
 
   const handleSubmit = async () => {
     if (!selectedFile) {
-      Alert.alert('Thiếu tệp', 'Vui lòng chọn file tài liệu cần tải lên');
+      CustomAlert.alert('Thiếu tệp', 'Vui lòng chọn file tài liệu cần tải lên');
       return;
     }
     if (!title.trim()) {
-      Alert.alert('Thiếu tiêu đề', 'Vui lòng nhập tên tài liệu');
+      CustomAlert.alert('Thiếu tiêu đề', 'Vui lòng nhập tên tài liệu');
       return;
     }
     if (!isGlobalAdmin && (!selectedDeptId || selectedDeptId === '__ALL__')) {
-      Alert.alert(
+      CustomAlert.alert(
         'Chưa chọn phòng ban',
         'Vui lòng chọn phòng ban cụ thể trong danh sách áp dụng. Chỉ Admin tổng mới có quyền đăng tài liệu cho toàn công ty.'
       );
@@ -193,7 +191,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
         err.response?.data?.error?.message ||
         err.message ||
         'Không thể lưu tài liệu. Vui lòng thử lại.';
-      Alert.alert('Lỗi tải lên', errorMsg);
+      CustomAlert.alert('Lỗi tải lên', errorMsg);
     } finally {
       setIsUploading(false);
     }

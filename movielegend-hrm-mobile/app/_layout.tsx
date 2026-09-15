@@ -118,10 +118,12 @@ import { VoiceCallProvider } from '../src/features/voice-call/VoiceCallProvider'
 import { UserGuideManager } from '../src/components/UserGuideManager';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { AlertProvider } from '../src/contexts/AlertContext';
+import { CustomAlertProvider } from '../src/components/CustomAlert';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
+      <CustomAlertProvider />
       <PaperProvider>
         <QueryProvider>
           <AlertProvider>

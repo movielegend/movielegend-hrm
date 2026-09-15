@@ -10,8 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
-} from 'react-native';
+  TouchableOpacity} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCreateEmployeeRequest } from '../hooks/useEmployeeRequests';
 import { useAuth } from '../providers/AuthProvider';

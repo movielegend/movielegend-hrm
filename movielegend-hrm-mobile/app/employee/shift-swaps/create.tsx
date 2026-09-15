@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, Alert, ActivityIndicator, Modal, FlatList } from 'react-native';
+import {StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, Modal, FlatList} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -57,7 +57,7 @@ export default function CreateShiftSwapScreen() {
   const mutation = useMutation({
     mutationFn: createShiftSwapRequest,
     onSuccess: () => {
-      Alert.alert('Thành công', 'Đơn xin đổi ca đã được gửi thành công.', [
+      CustomAlert.alert('Thành công', 'Đơn xin đổi ca đã được gửi thành công.', [
         { text: 'OK', onPress: () => {
           queryClient.invalidateQueries({ queryKey: ['shift-swaps-me'] });
           router.back();
@@ -65,13 +65,13 @@ export default function CreateShiftSwapScreen() {
       ]);
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err?.message || 'Có lỗi xảy ra khi tạo đơn đổi ca');
+      CustomAlert.alert('Lỗi', err?.message || 'Có lỗi xảy ra khi tạo đơn đổi ca');
     }
   });
 
   const handleSubmit = () => {
     if (!fromAssignmentId || !targetUserId || !toAssignmentId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn đầy đủ các thông tin: ca của bạn, người muốn đổi và ca của họ.');
+      CustomAlert.alert('Lỗi', 'Vui lòng chọn đầy đủ các thông tin: ca của bạn, người muốn đổi và ca của họ.');
       return;
     }
     mutation.mutate({

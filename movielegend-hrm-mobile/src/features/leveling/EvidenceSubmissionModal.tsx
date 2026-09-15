@@ -9,9 +9,7 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../api/uploads.api';
@@ -50,7 +48,7 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
   const handlePickImage = async () => {
     try {
       if (selectedImages.length >= 6) {
-        Alert.alert('Giới hạn', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
+        CustomAlert.alert('Giới hạn', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
         return;
       }
 
@@ -75,7 +73,7 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
         }
       }
     } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err?.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
+      CustomAlert.alert('Lỗi tải ảnh', err?.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
     } finally {
       setIsUploadingImage(false);
     }
@@ -84,13 +82,13 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
   const handleTakePhoto = async () => {
     try {
       if (selectedImages.length >= 6) {
-        Alert.alert('Giới hạn', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
+        CustomAlert.alert('Giới hạn', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
         return;
       }
 
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập Camera để chụp ảnh');
+        CustomAlert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập Camera để chụp ảnh');
         return;
       }
 
@@ -114,7 +112,7 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
         }
       }
     } catch (err: any) {
-      Alert.alert('Lỗi chụp ảnh', err?.message || 'Không thể chụp ảnh. Vui lòng thử lại.');
+      CustomAlert.alert('Lỗi chụp ảnh', err?.message || 'Không thể chụp ảnh. Vui lòng thử lại.');
     } finally {
       setIsUploadingImage(false);
     }
@@ -126,7 +124,7 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
 
   const handleSubmit = async () => {
     if (!note.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tóm tắt thành tích và kết quả công việc');
+      CustomAlert.alert('Thiếu thông tin', 'Vui lòng nhập tóm tắt thành tích và kết quả công việc');
       return;
     }
 
@@ -140,13 +138,13 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
         departmentId,
       });
 
-      Alert.alert('Thành công', 'Đề xuất thăng cấp đã được gửi tới Leader bộ phận để xét duyệt!');
+      CustomAlert.alert('Thành công', 'Đề xuất thăng cấp đã được gửi tới Leader bộ phận để xét duyệt!');
       setNote('');
       setSelectedImages([]);
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Lỗi gửi đề xuất', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi gửi đề xuất', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSubmitting(false);
     }

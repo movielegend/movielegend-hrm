@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -10,8 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -102,7 +100,7 @@ export function MonthlyTimesheetScreen() {
         setCompanyTimesheet(data.items || []);
       }
     } catch (err: any) {
-      Alert.alert('Thông báo', err.message || 'Không thể tải dữ liệu bảng công');
+      CustomAlert.alert('Thông báo', err.message || 'Không thể tải dữ liệu bảng công');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -153,10 +151,10 @@ export function MonthlyTimesheetScreen() {
         year: selectedYear,
         imageUrl: uploaded.fileUrl || (uploaded as any).url,
       });
-      Alert.alert('Thành công', `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`);
+      CustomAlert.alert('Thành công', `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`);
       fetchTimesheet();
     } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh bảng công');
+      CustomAlert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh bảng công');
     } finally {
       setUploadingUserId(null);
     }
@@ -165,7 +163,7 @@ export function MonthlyTimesheetScreen() {
   const handleUploadUserTimesheetImage = (targetUserId?: string, targetUserName?: string) => {
     const isPersonal = !targetUserId || targetUserId === user?.id;
     const title = isPersonal ? 'Bảng công của bạn' : `Bảng công: ${targetUserName || 'Nhân sự'}`;
-    Alert.alert(
+    CustomAlert.alert(
       title,
       'Chọn phương thức tải ảnh chốt bảng công:',
       [
@@ -174,7 +172,7 @@ export function MonthlyTimesheetScreen() {
           onPress: async () => {
             const perm = await ImagePicker.requestCameraPermissionsAsync();
             if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
+              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
               return;
             }
             const result = await ImagePicker.launchCameraAsync({
@@ -191,7 +189,7 @@ export function MonthlyTimesheetScreen() {
           onPress: async () => {
             const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
               return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({

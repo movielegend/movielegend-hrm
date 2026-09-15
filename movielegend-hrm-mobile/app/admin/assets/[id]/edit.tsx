@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, ActivityIndicator} from 'react-native';
 import { normalizeApiError } from '../../../../src/utils/api-error';
 import { PageHeader } from '../../../../src/components/PageHeader';
 import { Screen } from '../../../../src/components/Screen';
@@ -87,7 +87,7 @@ export default function AssetEditScreen() {
       }
     } catch (error: any) {
       setIsUploading(false);
-      Alert.alert('Lỗi tải ảnh', error.message || 'Không thể tải ảnh lên');
+      CustomAlert.alert('Lỗi tải ảnh', error.message || 'Không thể tải ảnh lên');
     }
   };
 
@@ -104,7 +104,7 @@ export default function AssetEditScreen() {
         await uploadSelectedImage(result.assets[0].uri);
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh');
+      CustomAlert.alert('Lỗi', 'Không thể mở thư viện ảnh');
     }
   };
 
@@ -121,12 +121,12 @@ export default function AssetEditScreen() {
         await uploadSelectedImage(result.assets[0].uri);
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể mở Camera');
+      CustomAlert.alert('Lỗi', 'Không thể mở Camera');
     }
   };
 
   const handleSelectImage = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Ảnh thiết bị',
       'Bạn muốn chọn ảnh từ đâu?',
       [
@@ -157,12 +157,12 @@ export default function AssetEditScreen() {
           imageUrl: imageUrls.length > 0 ? imageUrls.join(',') : '',
         }
       });
-      Alert.alert('Thành công', 'Đã lưu thay đổi thiết bị');
+      CustomAlert.alert('Thành công', 'Đã lưu thay đổi thiết bị');
       router.back();
     } catch (e) {
       console.error(e);
       const normalized = normalizeApiError(e);
-      Alert.alert('Lỗi', normalized.message);
+      CustomAlert.alert('Lỗi', normalized.message);
     }
   }
 

@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator } from 'react-native';
+import {RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
@@ -278,7 +278,7 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
     if (asset.isError) {
       const err = asset.error as any;
       if (err?.response?.data?.code === 'ASSET_FORBIDDEN' || err?.response?.status === 403 || err?.message?.includes('403')) {
-        Alert.alert('Không có quyền', 'Vật tư bị thu hồi', [
+        CustomAlert.alert('Không có quyền', 'Vật tư bị thu hồi', [
           { text: 'OK', onPress: () => router.replace(`/${area}/assets` as never) }
         ]);
       }
@@ -549,7 +549,7 @@ export function AssetCreateScreen() {
   };
 
   const handleSelectImage = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Ảnh thiết bị',
       'Bạn muốn chọn ảnh từ đâu?',
       [

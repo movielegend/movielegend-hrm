@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -70,13 +68,13 @@ export function ImportTimesheetModal({ visible, onClose, month, year, onSuccess 
     try {
       await exportTimesheetTemplate(month, year);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải file mẫu');
+      CustomAlert.alert('Lỗi', err.message || 'Không thể tải file mẫu');
     }
   };
 
   const handleSubmit = async () => {
     if (parsedItems.length === 0) {
-      Alert.alert('Thông báo', 'Vui lòng chọn file Excel có dữ liệu chấm công');
+      CustomAlert.alert('Thông báo', 'Vui lòng chọn file Excel có dữ liệu chấm công');
       return;
     }
 
@@ -88,7 +86,7 @@ export function ImportTimesheetModal({ visible, onClose, month, year, onSuccess 
         items: parsedItems,
       });
 
-      Alert.alert('Thành công', res.message || `Đã import bảng công tháng ${month}/${year} thành công!`, [
+      CustomAlert.alert('Thành công', res.message || `Đã import bảng công tháng ${month}/${year} thành công!`, [
         {
           text: 'Đồng ý',
           onPress: () => {
@@ -99,7 +97,7 @@ export function ImportTimesheetModal({ visible, onClose, month, year, onSuccess 
         },
       ]);
     } catch (err: any) {
-      Alert.alert('Lỗi Import', err.message || 'Đã có lỗi xảy ra khi import bảng công');
+      CustomAlert.alert('Lỗi Import', err.message || 'Đã có lỗi xảy ra khi import bảng công');
     } finally {
       setIsSubmitting(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, TextInput, ScrollView } from 'react-native';
+import {View, Text, StyleSheet, Pressable, ActivityIndicator, Modal, TextInput, ScrollView} from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -50,7 +50,7 @@ export function SignaturePlacementScreen() {
       const url = resolveFileUrl(pdfUrl);
       try {
         if (!url) {
-          Alert.alert('Lỗi', 'Không tìm thấy đường dẫn PDF');
+          CustomAlert.alert('Lỗi', 'Không tìm thấy đường dẫn PDF');
           return;
         }
         let finalUrl = url.replace('http://', 'https://');
@@ -59,7 +59,7 @@ export function SignaturePlacementScreen() {
         const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
         webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64, fields: fieldsRef.current }));
       } catch (e: any) {
-        Alert.alert('Lỗi', 'Không thể tải file PDF');
+        CustomAlert.alert('Lỗi', 'Không thể tải file PDF');
         setIsLoading(false);
       }
     }
@@ -371,9 +371,9 @@ export function SignaturePlacementScreen() {
         return rest;
       });
       await updateMapping.mutateAsync({ mappingConfig: cleanFields });
-      Alert.alert('Thành công', 'Đã lưu cấu hình hợp đồng', [{ text: 'OK', onPress: () => router.back() }]);
+      CustomAlert.alert('Thành công', 'Đã lưu cấu hình hợp đồng', [{ text: 'OK', onPress: () => router.back() }]);
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi', error?.message || 'Có lỗi xảy ra');
     }
   };
 

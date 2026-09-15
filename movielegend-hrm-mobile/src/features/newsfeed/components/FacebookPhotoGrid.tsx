@@ -10,8 +10,7 @@ import {
   ScrollView,
   Dimensions,
   NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+  NativeScrollEvent} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ImageView from '../../../components/ImageViewer/ImageViewer';
 

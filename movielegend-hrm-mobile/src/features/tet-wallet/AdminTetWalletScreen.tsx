@@ -11,15 +11,13 @@ import {
   Platform,
   UIManager,
   Switch,
-  Alert,
   Modal,
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
   PanResponder,
   Dimensions,
-  BackHandler,
-} from 'react-native';
+  BackHandler} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -218,7 +216,7 @@ export function AdminTetWalletScreen() {
         setSelectedEmployee((prev) => (prev ? { ...prev, isRewardVaultEnabled: nextState } : null));
       }
     } catch (err: any) {
-      Alert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Điểm Thưởng lúc này.');
+      CustomAlert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Điểm Thưởng lúc này.');
     } finally {
       setTogglingEmpId(null);
     }
@@ -230,11 +228,11 @@ export function AdminTetWalletScreen() {
     const targets = deptMembers.filter((e) => Boolean(e.isRewardVaultEnabled) !== enable);
 
     if (targets.length === 0) {
-      Alert.alert('Thông báo', `Tất cả nhân viên trong phòng ${dept.name} đã ${enable ? 'được cấp quyền' : 'ở trạng thái chưa cấp quyền'}.`);
+      CustomAlert.alert('Thông báo', `Tất cả nhân viên trong phòng ${dept.name} đã ${enable ? 'được cấp quyền' : 'ở trạng thái chưa cấp quyền'}.`);
       return;
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       enable ? 'Cấp quyền toàn bộ phòng ban' : 'Thu hồi quyền toàn bộ',
       `Bạn có chắc chắn muốn ${enable ? 'CẤP QUYỀN' : 'THU HỒI QUYỀN'} Ví Điểm Thưởng cho ${targets.length} nhân sự thuộc phòng "${dept.name}"?`,
       [
@@ -248,9 +246,9 @@ export function AdminTetWalletScreen() {
                 targets.map((t) => apiUpdateEmployee(t.id, { isRewardVaultEnabled: enable }))
               );
               await queryClient.invalidateQueries({ queryKey: ['employees'] });
-              Alert.alert('Thành công', `Đã cập nhật quyền Ví Điểm Thưởng cho toàn bộ phòng ${dept.name}.`);
+              CustomAlert.alert('Thành công', `Đã cập nhật quyền Ví Điểm Thưởng cho toàn bộ phòng ${dept.name}.`);
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.message || 'Không thể cập nhật đồng loạt.');
+              CustomAlert.alert('Lỗi', err?.message || 'Không thể cập nhật đồng loạt.');
             }
           },
         },
@@ -1007,7 +1005,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 60,
+    paddingBottom: 140,
     backgroundColor: '#F8FAFC',
   },
   headerIconBox: {

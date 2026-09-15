@@ -10,9 +10,7 @@ import {
   RefreshControl,
   Image,
   TextInput,
-  Alert,
-  Dimensions,
-} from 'react-native';
+  Dimensions} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -397,7 +395,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   };
 
   const handleDeleteProject = (projectId: string) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Xác nhận xóa dự án',
       'Bạn có chắc chắn muốn xóa dự án này khỏi phòng ban không?',
       [
@@ -448,7 +446,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
   const handleAddSubTask = (projectId: string) => {
     if (!newSubTaskInput.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập nội dung đầu việc con!');
+      CustomAlert.alert('Thông báo', 'Vui lòng nhập nội dung đầu việc con!');
       return;
     }
     const cleanText = newSubTaskInput.replace(/^[•\-\*]\s*/, '').trim();
@@ -489,7 +487,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   };
 
   const handleDeleteSubTask = (projectId: string, index: number) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Xác nhận xóa việc con',
       'Bạn có chắc chắn muốn xóa việc con này khỏi dự án không?',
       [
@@ -570,14 +568,14 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         levels: convertedLevels,
       });
 
-      Alert.alert(
+      CustomAlert.alert(
         'Thành Công',
         `Đã lưu toàn bộ Dự án & Việc con phòng ban ${activeDeptName}! Dữ liệu đã chuyển về cho Leader để giao các đầu việc cho nhân sự.`,
       );
       await fetchProjects();
       await loadData();
     } catch (err: any) {
-      Alert.alert('Lỗi lưu dự án', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi lưu dự án', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSavingProject(false);
     }
@@ -659,10 +657,10 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
   const handleRemoveLevel = (levelNumber: number) => {
     if (levelNumber <= 1) {
-      Alert.alert('Không thể xóa', 'Hệ thống cần tối thiểu Level 1.');
+      CustomAlert.alert('Không thể xóa', 'Hệ thống cần tối thiểu Level 1.');
       return;
     }
-    Alert.alert(
+    CustomAlert.alert(
       'Xác nhận xóa',
       `Bạn có chắc chắn muốn xóa cấu hình Level ${levelNumber} khỏi phòng ban này?`,
       [
@@ -697,13 +695,13 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           motivationQuote: c.motivationQuote || '',
         })),
       );
-      Alert.alert(
+      CustomAlert.alert(
         'Thành công',
         `Đã lưu cấu hình danh xưng & phần thưởng cấp bậc cho phòng ${activeDeptName}!`,
       );
       loadData();
     } catch (err: any) {
-      Alert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSavingConfig(false);
     }
@@ -1094,7 +1092,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                           if (isAdmin) {
                             setActiveTab('config');
                           } else {
-                            Alert.alert(
+                            CustomAlert.alert(
                               `Level ${lvl.levelNumber}: ${lvl.displayName}`,
                               `Yêu cầu thâm niên tối thiểu: ${lvl.minTenureMonths} tháng\nĐịnh mức ca làm: ${lvl.targetShiftsCount} ca`,
                             );

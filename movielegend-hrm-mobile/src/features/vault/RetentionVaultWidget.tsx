@@ -6,12 +6,10 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Alert,
   ScrollView,
   ActivityIndicator,
   Platform,
-  KeyboardAvoidingView,
-} from 'react-native';
+  KeyboardAvoidingView} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
@@ -285,7 +283,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
   const handleWithdrawSubmit = async () => {
     if (pointsToWithdraw <= 0) {
-      Alert.alert('Chưa đến hạn', 'Hiện tại chưa có đợt thưởng nào đến hạn mở khóa để rút!');
+      CustomAlert.alert('Chưa đến hạn', 'Hiện tại chưa có đợt thưởng nào đến hạn mở khóa để rút!');
       return;
     }
 
@@ -299,12 +297,12 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
       await queryClient.invalidateQueries({ queryKey: ['my-vault'] });
       setModalVisible(false);
 
-      Alert.alert(
+      CustomAlert.alert(
         'Gửi Yêu Cầu Rút Điểm Thành Công! 💸',
         `Đã gửi yêu cầu rút toàn bộ ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
       );
     } catch (err: any) {
-      Alert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
+      CustomAlert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
     } finally {
       setIsSubmitting(false);
     }

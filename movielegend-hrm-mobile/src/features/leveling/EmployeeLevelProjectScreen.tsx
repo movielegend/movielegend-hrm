@@ -5,14 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Modal,
   TextInput,
   StatusBar,
   Image,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -130,7 +128,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
         setSelectedImages((prev) => [...prev, ...newUris]);
       }
     } catch {
-      Alert.alert('Thông báo', 'Không thể mở thư viện ảnh');
+      CustomAlert.alert('Thông báo', 'Không thể mở thư viện ảnh');
     }
   };
 
@@ -141,11 +139,11 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
   const handleConfirmSubmit = () => {
     if (!activeItem) return;
     if (isActiveProjectLocked) {
-      Alert.alert('Thông báo', 'Dự án đã đóng băng hoặc đã được Firm nghiệm thu, không thể nộp thêm báo cáo.');
+      CustomAlert.alert('Thông báo', 'Dự án đã đóng băng hoặc đã được Firm nghiệm thu, không thể nộp thêm báo cáo.');
       return;
     }
     if (!resultText.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả thực hiện');
+      CustomAlert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả thực hiện');
       return;
     }
 
@@ -158,7 +156,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
     );
 
     setActiveItem(null);
-    Alert.alert('Thành Công', 'Đã nộp báo cáo và minh chứng cho Leader duyệt Vòng 1.');
+    CustomAlert.alert('Thành Công', 'Đã nộp báo cáo và minh chứng cho Leader duyệt Vòng 1.');
   };
 
   // Priority ranking function:

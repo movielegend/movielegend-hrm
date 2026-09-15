@@ -6,8 +6,7 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
-} from 'react-native';
+  StatusBar} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { UserLevelProgressData } from '../../api/leveling.api';

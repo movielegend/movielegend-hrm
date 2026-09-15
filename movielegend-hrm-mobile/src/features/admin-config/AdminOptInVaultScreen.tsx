@@ -7,10 +7,8 @@ import {
   TouchableOpacity,
   Switch,
   TextInput,
-  Alert,
   SafeAreaView,
-  Modal,
-} from 'react-native';
+  Modal} from 'react-native';
 import { useEmployees } from '../../hooks/useEmployees';
 
 export interface UserOptInVaultItem {
@@ -47,7 +45,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     setUsers((prev) =>
       prev.map((u) => (u.id === id ? { ...u, isRewardVaultEnabled: !currentValue } : u))
     );
-    Alert.alert(
+    CustomAlert.alert(
       'Cập Nhật Cấp Quyền Ví Điểm',
       `Đã ${!currentValue ? 'BẬT đặc quyền Ví Điểm Thưởng' : 'TẮT Ví Điểm Thưởng'} cho nhân sự!`
     );
@@ -59,7 +57,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     setUsers((prev) =>
       prev.map((u) => (u.id === grantingUser.id ? { ...u, grantedPoints: pts, isRewardVaultEnabled: true } : u))
     );
-    Alert.alert(
+    CustomAlert.alert(
       'Cấp Quỹ Thưởng Thành Công!',
       `Đã cấp Quỹ Thưởng Đồng Hành ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) mở khóa 25%/Quý cho ${grantingUser.name}.`,
       [{ text: 'Đóng', onPress: () => setGrantingUser(null) }]

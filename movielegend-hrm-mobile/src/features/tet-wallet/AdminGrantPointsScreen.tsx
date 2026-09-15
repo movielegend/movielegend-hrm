@@ -10,14 +10,12 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Modal,
   BackHandler,
   PanResponder,
   Animated,
   Dimensions,
-  Easing,
-} from 'react-native';
+  Easing} from 'react-native';
 import { Stack } from 'expo-router';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -260,7 +258,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const handleConfirmGrant = async () => {
     const pts = parseInt(customPointsInput, 10);
     if (isNaN(pts) || pts <= 0) {
-      Alert.alert('Số điểm không hợp lệ', 'Vui lòng nhập số điểm lớn hơn 0.');
+      CustomAlert.alert('Số điểm không hợp lệ', 'Vui lòng nhập số điểm lớn hơn 0.');
       return;
     }
     const title = grantTitle.trim() || `Thưởng Cuối Năm ${currentYear}`;
@@ -280,7 +278,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           intervalMonths,
           note: grantNote.trim() || undefined,
         });
-        Alert.alert(
+        CustomAlert.alert(
           'Trao điểm thưởng thành công 🎉',
           `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) thưởng cuối năm chia thành ${calculatedMilestones.length} đợt trong ${durationMonths} tháng cho ${target.employee.profile?.fullName || target.employee.userCode}.`,
           [{ text: 'Hoàn tất', onPress: () => { onSuccess ? onSuccess() : onBack(); } }]
@@ -297,7 +295,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           intervalMonths,
           note: grantNote.trim() || undefined,
         });
-        Alert.alert(
+        CustomAlert.alert(
           'Trao điểm thưởng thành công 🎉',
           `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ/nhân sự) thưởng cuối năm cho toàn bộ phòng ban "${target.department.name}".`,
           [{ text: 'Hoàn tất', onPress: () => { onSuccess ? onSuccess() : onBack(); } }]
@@ -306,7 +304,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 
       await queryClient.invalidateQueries({ queryKey: ['employees'] });
     } catch (err: any) {
-      Alert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
+      CustomAlert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
     } finally {
       setIsSubmitting(false);
     }

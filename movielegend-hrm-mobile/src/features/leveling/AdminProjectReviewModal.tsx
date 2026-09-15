@@ -9,10 +9,8 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Dimensions,
-  Linking,
-} from 'react-native';
+  Linking} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LevelDepartmentProject, BulletSubTask } from './levelProjectsStore';
 import { LEVEL_COLORS, LevelNameBadge } from '../../components/common/LevelNameBadge';
@@ -59,15 +57,15 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
       if (supported) {
         await Linking.openURL(target);
       } else {
-        Alert.alert('Không thể mở liên kết', `Địa chỉ: ${url}`);
+        CustomAlert.alert('Không thể mở liên kết', `Địa chỉ: ${url}`);
       }
     } catch {
-      Alert.alert('Lỗi', 'Không thể mở đường dẫn này.');
+      CustomAlert.alert('Lỗi', 'Không thể mở đường dẫn này.');
     }
   };
 
   const handleApprove = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Phê Duyệt Nghiệm Thu Dự Án',
       `Xác nhận phê duyệt hoàn tất Dự án Level ${project.levelNumber} (${project.projectName}) cho phòng ${departmentName || project.departmentName}? Toàn bộ thành viên tham gia sẽ được ghi nhận hoàn thành dự án thăng cấp.`,
       [
@@ -79,10 +77,10 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
             try {
               setIsSubmitting(true);
               await onApprove(project.levelNumber, adminFeedback.trim());
-              Alert.alert('Thành Công', `Đã phê duyệt nghiệm thu dự án Level ${project.levelNumber}!`);
+              CustomAlert.alert('Thành Công', `Đã phê duyệt nghiệm thu dự án Level ${project.levelNumber}!`);
               onClose();
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.message || 'Không thể phê duyệt dự án.');
+              CustomAlert.alert('Lỗi', err?.message || 'Không thể phê duyệt dự án.');
             } finally {
               setIsSubmitting(false);
             }
@@ -94,14 +92,14 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
 
   const handleReject = () => {
     if (!adminFeedback.trim()) {
-      Alert.alert(
+      CustomAlert.alert(
         'Yêu cầu phản hồi',
         'Vui lòng nhập lý do hoặc nội dung chỉ đạo cần bổ sung/sửa lại để Leader và các thành viên nắm rõ.',
       );
       return;
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'Yêu Cầu Bổ Sung / Sửa Lại',
       `Bạn có chắc chắn muốn trả lại Dự án Level ${project.levelNumber} cho phòng ${departmentName || project.departmentName} để bổ sung/sửa lại?`,
       [
@@ -113,10 +111,10 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
             try {
               setIsSubmitting(true);
               await onReject(project.levelNumber, adminFeedback.trim());
-              Alert.alert('Đã Gửi', 'Đã chuyển trạng thái dự án về yêu cầu chỉnh sửa.');
+              CustomAlert.alert('Đã Gửi', 'Đã chuyển trạng thái dự án về yêu cầu chỉnh sửa.');
               onClose();
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu chỉnh sửa.');
+              CustomAlert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu chỉnh sửa.');
             } finally {
               setIsSubmitting(false);
             }

@@ -10,8 +10,7 @@ import {
   Linking,
   Image,
   Modal,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ContractScannerModal } from "./ContractScannerModal";
 import { ContractSignatureModal } from "./ContractSignatureModal";

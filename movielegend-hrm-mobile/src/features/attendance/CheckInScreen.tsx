@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import {StyleSheet, Text, View, Pressable, ActivityIndicator, Modal, ScrollView} from 'react-native';
 import { AttendanceCamera } from './AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -88,7 +88,7 @@ export function CheckInScreen() {
 
   const handleConfirm = async () => {
     if (locationError || !location) {
-      Alert.alert('Lỗi', locationError || 'Đang lấy vị trí, vui lòng chờ...');
+      CustomAlert.alert('Lỗi', locationError || 'Đang lấy vị trí, vui lòng chờ...');
       return;
     }
 
@@ -103,7 +103,7 @@ export function CheckInScreen() {
         });
 
         if (!authResult.success) {
-          Alert.alert('Xác thực thất bại', 'Bạn cần xác thực sinh trắc học hoặc mật khẩu điện thoại để tiếp tục.');
+          CustomAlert.alert('Xác thực thất bại', 'Bạn cần xác thực sinh trắc học hoặc mật khẩu điện thoại để tiếp tục.');
           return;
         }
       }
@@ -141,12 +141,12 @@ export function CheckInScreen() {
       };
 
       await checkIn(payload);
-      Alert.alert('Thành công', 'Vào ca thành công!', [
+      CustomAlert.alert('Thành công', 'Vào ca thành công!', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
       const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
-      Alert.alert('Lỗi chấm công', msg);
+      CustomAlert.alert('Lỗi chấm công', msg);
     } finally {
       setLoading(false);
       setCameraVisible(false);

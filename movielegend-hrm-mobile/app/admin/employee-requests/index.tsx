@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,10 +46,10 @@ export default function LeaderRequestsScreen() {
     mutationFn: approveEmployeeRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
-      Alert.alert('Thành công', 'Đã duyệt yêu cầu.');
+      CustomAlert.alert('Thành công', 'Đã duyệt yêu cầu.');
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
+      CustomAlert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
     }
   });
 
@@ -57,10 +57,10 @@ export default function LeaderRequestsScreen() {
     mutationFn: rejectEmployeeRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
-      Alert.alert('Thành công', 'Đã từ chối yêu cầu.');
+      CustomAlert.alert('Thành công', 'Đã từ chối yêu cầu.');
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
+      CustomAlert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
     }
   });
 

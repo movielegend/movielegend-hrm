@@ -9,10 +9,8 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Dimensions,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LevelPromotionRequestItem, levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LevelNameBadge } from '../../components/common/LevelNameBadge';
@@ -56,12 +54,12 @@ export const LeaderPromotionReviewModal: React.FC<LeaderPromotionReviewModalProp
           ? 'Đã gửi yêu cầu bổ sung bằng chứng tới nhân viên.'
           : 'Đã từ chối đề xuất thăng cấp.';
 
-      Alert.alert('Thành công', msg);
+      CustomAlert.alert('Thành công', msg);
       setLeaderNote('');
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Lỗi xử lý', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi xử lý', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSubmitting(false);
     }

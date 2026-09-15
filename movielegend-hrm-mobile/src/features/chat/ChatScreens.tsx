@@ -17,8 +17,7 @@ import {
   ActivityIndicator,
   Modal,
   Keyboard,
-  RefreshControl,
-} from 'react-native';
+  RefreshControl} from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';

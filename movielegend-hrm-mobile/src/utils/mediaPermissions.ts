@@ -1,4 +1,4 @@
-import { Alert, Linking } from 'react-native';
+import {Linking} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 type AlertButton = {
@@ -45,7 +45,7 @@ export async function requestCameraPermissionWithFallback(
     if (showAlertFn) {
       showAlertFn(title, message, buttons);
     } else {
-      Alert.alert(title, message, buttons);
+      CustomAlert.alert(title, message, buttons);
     }
     return false;
   } catch (error) {
@@ -90,7 +90,7 @@ export async function requestMediaLibraryPermissionWithFallback(
     if (showAlertFn) {
       showAlertFn(title, message, buttons);
     } else {
-      Alert.alert(title, message, buttons);
+      CustomAlert.alert(title, message, buttons);
     }
     return false;
   } catch (error) {

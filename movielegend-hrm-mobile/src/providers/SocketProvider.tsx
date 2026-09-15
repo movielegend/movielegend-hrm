@@ -1,5 +1,5 @@
 import { PropsWithChildren, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus, Platform, Alert } from 'react-native';
+import {AppState, type AppStateStatus, Platform} from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
@@ -360,7 +360,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
       });
 
       socket.on('auth:force_logout', (payload: any) => {
-        Alert.alert('Đăng xuất', 'Tài khoản của bạn vừa đăng nhập ở thiết bị khác.');
+        CustomAlert.alert('Đăng xuất', 'Tài khoản của bạn vừa đăng nhập ở thiết bị khác.');
         logout();
       });
 

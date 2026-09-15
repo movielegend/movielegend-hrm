@@ -13,8 +13,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { Screen } from '../../components/Screen';
@@ -469,4 +468,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#4B5563',
   },
-});
+});

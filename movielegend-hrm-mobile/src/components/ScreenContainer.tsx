@@ -6,8 +6,7 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   ScrollView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';

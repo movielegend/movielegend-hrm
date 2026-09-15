@@ -6,8 +6,7 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';

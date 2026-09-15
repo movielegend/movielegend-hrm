@@ -5,11 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   SafeAreaView,
   StatusBar,
-  ActivityIndicator,
-} from 'react-native';
+  ActivityIndicator} from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useLevelProjects } from '../leveling/levelProjectsStore';
@@ -206,7 +204,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       });
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'CHỐT PHÊ DUYỆT THĂNG CẤP NHÂN VIÊN!',
       `Đã duyệt thăng cấp cho Nhân viên: ${item.userName}\n\n• Cấp bậc mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x\n\nLevel của nhân viên đã được cập nhật Real-time!`,
       [{ text: 'Đóng' }]
@@ -243,7 +241,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       });
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'CHỐT PHÊ DUYỆT THĂNG CẤP LEADER / QUẢN LÝ!',
       `Đã duyệt thăng cấp quản trị cho Leader: ${item.userName}\n\n• Vị trí Level mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x\n\nLevel của Leader đã được cập nhật Real-time!`,
       [{ text: 'Đóng' }]
@@ -251,7 +249,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
   };
 
   const handleRejectItem = (item: AdminReviewItem) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Yêu Cầu Bổ Sung Dự Án Level',
       `Nhân sự ${item.userName} chưa đạt 100% tiến độ việc con. Đã gửi thông báo yêu cầu hoàn thiện trước khi chốt duyệt lại!`,
       [{ text: 'Đóng' }]

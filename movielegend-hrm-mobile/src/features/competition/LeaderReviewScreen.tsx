@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
-  Alert,
-} from 'react-native';
+  TextInput} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -135,11 +133,11 @@ export const LeaderReviewScreen: React.FC = () => {
 
   const handleSubmitReviews = () => {
     if (reviews.length === 0) {
-      Alert.alert('Thông báo', 'Không có nhân sự nào cần duyệt Vòng 1.');
+      CustomAlert.alert('Thông báo', 'Không có nhân sự nào cần duyệt Vòng 1.');
       return;
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'Xác Nhận Gửi Duyệt Vòng 1',
       `Bạn có chắc chắn muốn gửi kết quả đánh giá thi đua Vòng 1 của ${reviews.length} nhân sự lên Admin phê duyệt cuối tháng?`,
       [
@@ -169,12 +167,12 @@ export const LeaderReviewScreen: React.FC = () => {
                 });
               }
 
-              Alert.alert(
+              CustomAlert.alert(
                 'Thành Công',
                 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin thành công! Danh sách đã được gạch bỏ khỏi trang duyệt Vòng 1 của Leader.'
               );
             } catch {
-              Alert.alert('Thành Công', 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin!');
+              CustomAlert.alert('Thành Công', 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin!');
             }
           },
         },

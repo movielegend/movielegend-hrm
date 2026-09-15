@@ -6,13 +6,11 @@ import {
   Pressable,
   ScrollView,
   Image,
-  Alert,
   Modal,
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
@@ -123,7 +121,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
         visibilityTime: 2000,
       });
     } catch {
-      Alert.alert('Sao chép', text);
+      CustomAlert.alert('Sao chép', text);
     }
   };
 
@@ -153,7 +151,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi phê duyệt', err?.response?.data?.message || err?.message || 'Không thể phê duyệt lúc này.');
+      CustomAlert.alert('Lỗi phê duyệt', err?.response?.data?.message || err?.message || 'Không thể phê duyệt lúc này.');
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +184,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi xác nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận lúc này.');
+      CustomAlert.alert('Lỗi xác nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận lúc này.');
     } finally {
       setIsSubmitting(false);
     }
@@ -201,7 +199,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
   const handleRejectSubmit = async () => {
     if (!selectedTicket) return;
     if (!rejectReason.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập lý do từ chối để nhân viên nắm rõ.');
+      CustomAlert.alert('Thiếu thông tin', 'Vui lòng nhập lý do từ chối để nhân viên nắm rõ.');
       return;
     }
 
@@ -222,7 +220,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc này.');
+      CustomAlert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc này.');
     } finally {
       setIsSubmitting(false);
     }
