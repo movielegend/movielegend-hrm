@@ -43,6 +43,7 @@ import { useSocketStatus } from '../../providers/SocketProvider';
 import { useVoiceCall } from '../voice-call/VoiceCallProvider';
 import * as Clipboard from 'expo-clipboard';
 import { downloadAndSaveImage } from '../../utils/file-download';
+import { ChatWatermark } from '../../components/ChatWatermark';
 
 // ── Helpers ──
 
@@ -1733,6 +1734,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <MaterialCommunityIcons name={isUploading || sendMessage.isPending ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>
           </View>
+
+          {/* Watermark in chìm họ tên người dùng theo phong cách Lark */}
+          <ChatWatermark />
         </View>
 
         {/* Image Viewer Modal with Close & Download Buttons */}
@@ -2193,6 +2197,8 @@ const styles = StyleSheet.create({
   // Chat room
   chatContainer: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
+    position: 'relative',
   },
   chatHeader: {
     flexDirection: 'row',
@@ -2227,7 +2233,7 @@ const styles = StyleSheet.create({
 
   messageList: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'transparent',
   },
   messageListContent: {
     padding: spacing.md,
