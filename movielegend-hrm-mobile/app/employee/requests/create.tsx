@@ -110,28 +110,16 @@ export default function CreateRequestScreen() {
         ...(currentDeptId ? { departmentId: currentDeptId } : {}),
       });
       const rawList = res?.items || (Array.isArray(res) ? res : []);
-      let validList = rawList;
-      if (currentDeptId) {
-        const filtered = rawList.filter((e: any) => {
-          const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
-          if (empDeptId && empDeptId !== currentDeptId) return false;
-          return true;
-        });
-        if (filtered.length > 0) {
-          validList = filtered;
-        }
-      }
+      // BẮT BUỘC: Chỉ lấy đúng nhân sự thuộc phòng ban của người tạo đơn
+      const validList = rawList.filter((e: any) => {
+        if (!currentDeptId) return true;
+        const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
+        return empDeptId === currentDeptId;
+      });
       setApiEmployees(validList);
     } catch (err) {
       console.log('Error fetching scoped employees:', err);
-      // Fallback without departmentId if scoped error occurs
-      try {
-        const fallbackRes = await getScopedEmployees({ page: 1, limit: 100 });
-        const fallbackList = fallbackRes?.items || (Array.isArray(fallbackRes) ? fallbackRes : []);
-        setApiEmployees(fallbackList);
-      } catch (fallbackErr) {
-        console.log('Fallback fetch error:', fallbackErr);
-      }
+      setApiEmployees([]);
     } finally {
       setIsLoadingEmployees(false);
     }
