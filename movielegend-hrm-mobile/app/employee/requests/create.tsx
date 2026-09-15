@@ -86,20 +86,35 @@ export default function CreateRequestScreen() {
   const isLateOrEarly = selectedType === 'LATE_ARRIVAL' || selectedType === 'EARLY_LEAVE';
   const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE' || selectedType === 'PURCHASE';
 
+  const userDeptId = user?.department?.id || (user as any)?.departmentId;
+  const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
+
   const fetchEmployeesList = useCallback(async () => {
     try {
       setIsLoadingEmployees(true);
-      const res = await getScopedEmployees({ page: 1, limit: 100 });
+      const currentDeptId = user?.department?.id || (user as any)?.departmentId;
+      const res = await getScopedEmployees({
+        page: 1,
+        limit: 100,
+        ...(currentDeptId ? { departmentId: currentDeptId } : {}),
+      });
       const rawList = res?.items || (Array.isArray(res) ? res : []);
-      // Lọc bỏ chính mình khỏi danh sách người bàn giao
-      const validList = rawList.filter((e: any) => e.id !== user?.id);
+      // Lọc bỏ chính mình và CHỈ giữ lại nhân sự thuộc CÙNG PHÒNG BAN với người tạo đơn
+      const validList = rawList.filter((e: any) => {
+        if (e.id === user?.id) return false;
+        if (currentDeptId) {
+          const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
+          if (empDeptId && empDeptId !== currentDeptId) return false;
+        }
+        return true;
+      });
       setApiEmployees(validList);
     } catch (err) {
       console.log('Error fetching scoped employees:', err);
     } finally {
       setIsLoadingEmployees(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.department?.id, (user as any)?.departmentId]);
 
   React.useEffect(() => {
     if (isLateOrEarly || isExplanation || isOvertime) {
@@ -1159,7 +1174,14 @@ export default function CreateRequestScreen() {
               <Pressable onPress={() => { setShowEmployeeModal(false); setEmployeeSearchQuery(''); }} style={{ padding: 8, marginRight: 8 }}>
                 <MaterialCommunityIcons name="close" size={24} color="#111827" />
               </Pressable>
-              <Text style={styles.fullScreenModalTitle}>{isExplanation ? 'Người duyệt' : 'Người bàn giao'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fullScreenModalTitle}>{isExplanation ? 'Người duyệt' : 'Người bàn giao'}</Text>
+                {userDeptName ? (
+                  <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600', marginTop: 1 }}>
+                    Phòng ban: {userDeptName}
+                  </Text>
+                ) : null}
+              </View>
             </View>
 
             {/* Search Box */}
@@ -1176,7 +1198,7 @@ export default function CreateRequestScreen() {
               <MaterialCommunityIcons name="magnify" size={20} color="#6B7280" style={{ marginRight: 8 }} />
               <TextInput
                 style={{ flex: 1, fontSize: 14, color: '#111827' }}
-                placeholder="Tìm nhân sự theo tên, mã NV, phòng ban..."
+                placeholder="Tìm nhân sự cùng phòng (tên, mã NV)..."
                 placeholderTextColor="#9CA3AF"
                 value={employeeSearchQuery}
                 onChangeText={setEmployeeSearchQuery}
@@ -1210,7 +1232,9 @@ export default function CreateRequestScreen() {
                     <MaterialCommunityIcons name="account-search-outline" size={48} color="#9CA3AF" />
                     <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14, textAlign: 'center' }}>
                       {apiEmployees.length === 0
-                        ? 'Chưa có dữ liệu nhân sự phù hợp.'
+                        ? userDeptName
+                          ? `Không có nhân sự nào khác trong phòng ban "${userDeptName}".`
+                          : 'Chưa có dữ liệu nhân sự phù hợp.'
                         : 'Không tìm thấy nhân sự phù hợp với từ khóa.'}
                     </Text>
                     <TouchableOpacity
