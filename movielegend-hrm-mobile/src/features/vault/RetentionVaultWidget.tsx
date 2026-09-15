@@ -401,7 +401,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
         <View style={styles.vipFooterNote}>
           <MaterialCommunityIcons name="shield-check-outline" size={14} color="#92400E" />
           <Text style={styles.vipFooterNoteText}>
-            Hệ thống khấu trừ theo thứ tự (FIFO): Gói thưởng mở trước rút trước, hỗ trợ rút ứng trước từ các đợt sau.
+            Quy định: Đợt nào mở rút đợt đó. Thời hạn rút trong vòng 15 ngày kể từ ngày mở; nếu sau 15 ngày không rút, số điểm sẽ tự động được dồn chia đều cho các đợt còn lại.
           </Text>
         </View>
       </View>
@@ -763,7 +763,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                                     numberOfLines={1}
                                   >
                                     {isFullyWithdrawn
-                                      ? `Đã rút`
+                                      ? (m.withdrawnPoints > 0 ? `Đã rút` : `Dồn đợt sau`)
                                       : isPartiallyWithdrawn
                                       ? `Còn ${formatCompactPoints(remaining)}`
                                       : isUnlockedAvailable
@@ -890,7 +890,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                                   numberOfLines={1}
                                 >
                                   {isFullyWithdrawn
-                                    ? `Đã rút`
+                                    ? (m.withdrawnPoints > 0 ? `Đã rút` : `Dồn đợt sau`)
                                     : isPartiallyWithdrawn
                                     ? `Còn ${formatCompactPoints(remaining)}`
                                     : isUnlockedAvailable

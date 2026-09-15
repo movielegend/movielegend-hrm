@@ -1072,8 +1072,17 @@ export class AdminService {
         throw badRequest('VAULT_DISABLED', 'Tính năng Ví Tết chưa được kích hoạt cho tài khoản này');
       }
 
-      const vault = await tx.talentRetentionVault.findFirst({
+      const existingVault = await tx.talentRetentionVault.findFirst({
         where: { userId, year: currentYear },
+        select: { id: true },
+      });
+      if (!existingVault) throw notFound('VAULT_NOT_FOUND', 'Chưa tìm thấy ví thưởng của năm hiện tại');
+
+      // Tự động kiểm tra và phân bổ lại các đợt quá hạn 15 ngày
+      await this.rebalanceExpiredMilestones(existingVault.id, tx);
+
+      const vault = await tx.talentRetentionVault.findFirst({
+        where: { id: existingVault.id },
         include: {
           packages: {
             where: { status: 'ACTIVE' },
@@ -1772,6 +1781,161 @@ export class AdminService {
     });
   }
 
+  /**
+   * Tự động kiểm tra và phân bổ lại số điểm của các đợt thưởng quá hạn 15 ngày không rút.
+   * Quy tắc: Nếu sau 15 ngày kể từ ngày mở khóa (unlockDate + 15 ngày) mà chưa rút hết,
+   * số điểm còn lại sẽ được chia đều cho tất cả các đợt còn lại trong gói đó / niên độ đó.
+   */
+  async rebalanceExpiredMilestones(vaultId?: string, tx?: any) {
+    const prismaClient = tx || this.prisma;
+    const now = new Date();
+    const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+
+    const whereClause: any = vaultId ? { id: vaultId } : { status: 'ACTIVE' };
+    const vaults = await prismaClient.talentRetentionVault.findMany({
+      where: whereClause,
+      include: {
+        packages: {
+          where: { status: 'ACTIVE' },
+          include: {
+            milestones: {
+              orderBy: { milestoneIndex: 'asc' },
+            },
+          },
+        },
+        milestones: {
+          orderBy: { quarter: 'asc' },
+        },
+      },
+    });
+
+    for (const vault of vaults) {
+      const cashValuePerPoint = Number(vault.cashValuePerPoint || 1000);
+
+      // 1. Phân bổ lại các đợt của ProjectGrantPackages
+      for (const pkg of vault.packages || []) {
+        const milestones = pkg.milestones || [];
+        for (let i = 0; i < milestones.length; i++) {
+          const currentM = milestones[i];
+          const unlockTime = new Date(currentM.unlockDate).getTime();
+          const expiryTime = unlockTime + FIFTEEN_DAYS_MS;
+          const unwithdrawn = Math.max(0, currentM.pointsToUnlock - (currentM.withdrawnPoints || 0));
+
+          // Quá hạn 15 ngày và vẫn còn điểm chưa rút
+          if (now.getTime() > expiryTime && unwithdrawn > 0) {
+            const futureMilestones = milestones.slice(i + 1);
+            if (futureMilestones.length > 0) {
+              const k = futureMilestones.length;
+              const pointsPerM = Math.floor(unwithdrawn / k);
+              const remainder = unwithdrawn % k;
+
+              // Cộng dồn chia đều cho các đợt tương lai
+              for (let j = 0; j < futureMilestones.length; j++) {
+                const futM = futureMilestones[j];
+                const added = pointsPerM + (j === futureMilestones.length - 1 ? remainder : 0);
+                const newPoints = futM.pointsToUnlock + added;
+                const newCash = newPoints * cashValuePerPoint;
+
+                await prismaClient.grantMilestone.update({
+                  where: { id: futM.id },
+                  data: {
+                    pointsToUnlock: newPoints,
+                    cashAmount: newCash,
+                  },
+                });
+                futM.pointsToUnlock = newPoints;
+                futM.cashAmount = newCash as any;
+              }
+
+              // Khóa / kết thúc đợt quá hạn
+              await prismaClient.grantMilestone.update({
+                where: { id: currentM.id },
+                data: {
+                  pointsToUnlock: currentM.withdrawnPoints || 0,
+                  cashAmount: (currentM.withdrawnPoints || 0) * cashValuePerPoint,
+                  isWithdrawn: true,
+                },
+              });
+              currentM.pointsToUnlock = currentM.withdrawnPoints || 0;
+              currentM.isWithdrawn = true;
+
+              // Ghi log giao dịch nhật ký ví
+              await prismaClient.vaultTransaction.create({
+                data: {
+                  vaultId: vault.id,
+                  userId: vault.userId,
+                  type: 'GRANT_PROJECT_VESTING',
+                  points: 0,
+                  cashAmount: 0,
+                  quarterTarget: `PKG_${pkg.id.slice(0, 8)}`,
+                  note: `[HẾT HẠN 15 NGÀY] Đợt ${currentM.milestoneIndex} (${currentM.title}) quá hạn 15 ngày không rút (${unwithdrawn.toLocaleString('vi-VN')} điểm). Đã tự động phân bổ đều cho ${k} đợt còn lại của gói "${pkg.title}".`,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // 2. Phân bổ lại các đợt theo Quý (Legacy VestingMilestone)
+      const legacyMilestones = vault.milestones || [];
+      for (let i = 0; i < legacyMilestones.length; i++) {
+        const currentQ = legacyMilestones[i];
+        const unlockTime = new Date(currentQ.unlockDate).getTime();
+        const expiryTime = unlockTime + FIFTEEN_DAYS_MS;
+        const unwithdrawn = currentQ.pointsToUnlock;
+
+        if (now.getTime() > expiryTime && !currentQ.isWithdrawn && unwithdrawn > 0) {
+          const futureQuarters = legacyMilestones.filter((q: any, idx: number) => idx > i && !q.isWithdrawn);
+          if (futureQuarters.length > 0) {
+            const k = futureQuarters.length;
+            const pointsPerQ = Math.floor(unwithdrawn / k);
+            const remainder = unwithdrawn % k;
+
+            for (let j = 0; j < futureQuarters.length; j++) {
+              const futQ = futureQuarters[j];
+              const added = pointsPerQ + (j === futureQuarters.length - 1 ? remainder : 0);
+              const newPoints = futQ.pointsToUnlock + added;
+              const newCash = newPoints * cashValuePerPoint;
+
+              await prismaClient.vestingMilestone.update({
+                where: { id: futQ.id },
+                data: {
+                  pointsToUnlock: newPoints,
+                  cashAmount: newCash,
+                },
+              });
+              futQ.pointsToUnlock = newPoints;
+              futQ.cashAmount = newCash as any;
+            }
+
+            await prismaClient.vestingMilestone.update({
+              where: { id: currentQ.id },
+              data: {
+                pointsToUnlock: 0,
+                cashAmount: 0,
+                isWithdrawn: true,
+              },
+            });
+            currentQ.pointsToUnlock = 0;
+            currentQ.isWithdrawn = true;
+
+            await prismaClient.vaultTransaction.create({
+              data: {
+                vaultId: vault.id,
+                userId: vault.userId,
+                type: 'GRANT_ANNUAL',
+                points: 0,
+                cashAmount: 0,
+                quarterTarget: `Q${currentQ.quarter}`,
+                note: `[HẾT HẠN 15 NGÀY] Quý ${currentQ.quarter} quá hạn 15 ngày không rút (${unwithdrawn.toLocaleString('vi-VN')} điểm). Đã tự động chia đều cho ${k} quý còn lại trong năm.`,
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+
   async getMyVault(userId: string) {
     const currentYear = new Date().getFullYear();
     const user = await this.prisma.user.findUnique({
@@ -1779,6 +1943,15 @@ export class AdminService {
       select: { id: true, userCode: true, isRewardVaultEnabled: true },
     });
     if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy người dùng');
+
+    // Tự động kiểm tra và phân bổ lại số điểm quá hạn 15 ngày trước khi trả về dữ liệu
+    const userVault = await this.prisma.talentRetentionVault.findFirst({
+      where: { userId, year: currentYear },
+      select: { id: true },
+    });
+    if (userVault) {
+      await this.rebalanceExpiredMilestones(userVault.id);
+    }
 
     const [vault, withdrawalRequests] = await Promise.all([
       this.prisma.talentRetentionVault.findFirst({
