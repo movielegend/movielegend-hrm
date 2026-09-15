@@ -287,14 +287,14 @@ export function EmployeeDashboardScreen() {
                   onPress={() => router.push('/employee/vault' as any)}
                 >
                   <View style={styles.hubRow}>
-                    <View style={[styles.hubIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                      <MaterialCommunityIcons name="gift" size={20} color="#D97706" />
+                    <View style={[styles.hubIconCircle, { backgroundColor: '#F1F5F9' }]}>
+                      <MaterialCommunityIcons name="wallet-outline" size={20} color="#1E293B" />
                     </View>
                     <View style={styles.hubInfoBlock}>
                       <View style={styles.hubTitleRow}>
                         <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
-                        <View style={styles.vaultVipBadge}>
-                          <Text style={styles.vaultVipBadgeText}>VIP</Text>
+                        <View style={styles.vaultBadge}>
+                          <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
                         </View>
                       </View>
                       <Text style={styles.hubSubtitle}>
@@ -303,20 +303,20 @@ export function EmployeeDashboardScreen() {
                       </Text>
                     </View>
                     <View style={styles.vaultActionBtn}>
-                      <Text style={styles.vaultActionText}>Mở ví</Text>
-                      <MaterialCommunityIcons name="chevron-right" size={14} color="#92400E" />
+                      <Text style={styles.vaultActionText}>Chi tiết</Text>
+                      <MaterialCommunityIcons name="chevron-right" size={14} color="#475569" />
                     </View>
                   </View>
 
                   {vaultMilestone ? (
                     <>
-                      <View style={[styles.hubProgressTrack, { backgroundColor: '#FEF3C7' }]}>
+                      <View style={styles.hubProgressTrack}>
                         <View
                           style={[
                             styles.hubProgressFill,
                             {
                               width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
-                              backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706',
+                              backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB',
                             },
                           ]}
                         />
@@ -326,7 +326,7 @@ export function EmployeeDashboardScreen() {
                           <MaterialCommunityIcons
                             name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
                             size={12}
-                            color={vaultMilestone.isAllUnlocked ? '#059669' : '#D97706'}
+                            color={vaultMilestone.isAllUnlocked ? '#059669' : '#64748B'}
                           />
                           <Text style={styles.vaultCountdownLabel}>
                             {vaultMilestone.isAllUnlocked
@@ -908,43 +908,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     marginVertical: 12,
   },
-  vaultVipBadge: {
-    backgroundColor: '#D97706',
+  vaultBadge: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
   },
-  vaultVipBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  vaultBadgeText: {
+    color: '#475569',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   vaultActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
   vaultActionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#334155',
   },
   vaultCountdownLabel: {
     fontSize: 11,
-    color: '#92400E',
+    color: '#64748B',
     fontWeight: '500',
   },
   vaultCountdownTime: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#D97706',
+    color: '#0F172A',
   },
 
   // 4 Cột Tiện ích
