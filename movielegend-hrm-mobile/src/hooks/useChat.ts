@@ -79,6 +79,35 @@ export function useSendMessage(groupId: string) {
         return { items: [optimisticMsg], pagination: {} };
       });
 
+      const updateGroupListOptimistic = (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const updated = old.map((g: any) => {
+          if (g.id === groupId) {
+            return {
+              ...g,
+              updatedAt: optimisticMsg.createdAt,
+              latestMessage: optimisticMsg,
+            };
+          }
+          return g;
+        });
+        return [...updated].sort((a: any, b: any) => {
+          const timeA = Math.max(
+            a.latestMessage?.createdAt ? new Date(a.latestMessage.createdAt).getTime() : 0,
+            a.updatedAt ? new Date(a.updatedAt).getTime() : 0,
+            a.createdAt ? new Date(a.createdAt).getTime() : 0
+          );
+          const timeB = Math.max(
+            b.latestMessage?.createdAt ? new Date(b.latestMessage.createdAt).getTime() : 0,
+            b.updatedAt ? new Date(b.updatedAt).getTime() : 0,
+            b.createdAt ? new Date(b.createdAt).getTime() : 0
+          );
+          return timeB - timeA;
+        });
+      };
+      queryClient.setQueryData(chatKeys.groups(), updateGroupListOptimistic);
+      queryClient.setQueryData(chatKeys.allGroups(), updateGroupListOptimistic);
+
       return { previousMessages, tempId };
     },
     onError: (_err, _payload, context: any) => {
@@ -109,6 +138,35 @@ export function useSendMessage(groupId: string) {
         if (Array.isArray(old)) return updateList(old);
         return { items: [serverMsg], pagination: {} };
       });
+
+      const updateGroupListSuccess = (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const updated = old.map((g: any) => {
+          if (g.id === groupId) {
+            return {
+              ...g,
+              updatedAt: serverMsg?.createdAt || new Date().toISOString(),
+              latestMessage: serverMsg,
+            };
+          }
+          return g;
+        });
+        return [...updated].sort((a: any, b: any) => {
+          const timeA = Math.max(
+            a.latestMessage?.createdAt ? new Date(a.latestMessage.createdAt).getTime() : 0,
+            a.updatedAt ? new Date(a.updatedAt).getTime() : 0,
+            a.createdAt ? new Date(a.createdAt).getTime() : 0
+          );
+          const timeB = Math.max(
+            b.latestMessage?.createdAt ? new Date(b.latestMessage.createdAt).getTime() : 0,
+            b.updatedAt ? new Date(b.updatedAt).getTime() : 0,
+            b.createdAt ? new Date(b.createdAt).getTime() : 0
+          );
+          return timeB - timeA;
+        });
+      };
+      queryClient.setQueryData(chatKeys.groups(), updateGroupListSuccess);
+      queryClient.setQueryData(chatKeys.allGroups(), updateGroupListSuccess);
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });

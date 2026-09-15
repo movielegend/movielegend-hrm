@@ -123,7 +123,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
         const updateList = (old: any) => {
           if (!Array.isArray(old)) return old;
           const isMine = latestMsg?.senderId === user?.id || latestMsg?.sender?.id === user?.id;
-          return old.map((g: any) => {
+          const updated = old.map((g: any) => {
             if (g.id === groupId) {
               return {
                 ...g,
@@ -133,6 +133,20 @@ export function SocketProvider({ children }: PropsWithChildren) {
               };
             }
             return g;
+          });
+
+          return [...updated].sort((a: any, b: any) => {
+            const timeA = Math.max(
+              a.latestMessage?.createdAt ? new Date(a.latestMessage.createdAt).getTime() : 0,
+              a.updatedAt ? new Date(a.updatedAt).getTime() : 0,
+              a.createdAt ? new Date(a.createdAt).getTime() : 0
+            );
+            const timeB = Math.max(
+              b.latestMessage?.createdAt ? new Date(b.latestMessage.createdAt).getTime() : 0,
+              b.updatedAt ? new Date(b.updatedAt).getTime() : 0,
+              b.createdAt ? new Date(b.createdAt).getTime() : 0
+            );
+            return timeB - timeA;
           });
         };
         queryClient.setQueryData(chatKeys.groups(), updateList);

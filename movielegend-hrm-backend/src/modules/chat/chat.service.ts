@@ -183,24 +183,24 @@ export class ChatService {
     const isAdmin = message.sender?.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
     const senderName = isAdmin ? 'Admin' : (message.sender?.profile?.fullName ?? message.sender.userCode);
 
-    // 1. Phát tín hiệu qua WebSocket ngay lập tức (0ms latency)
+    // 1. Cập nhật thời gian hoạt động của nhóm chat ngay lập tức đồng bộ
+    await this.prisma.chatGroup.update({
+      where: { id: groupId },
+      data: { updatedAt: new Date() }
+    }).catch(() => {});
+
+    // 2. Phát tín hiệu qua WebSocket ngay lập tức (0ms latency)
     this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
     this.realtime.emitToRoom('company', 'chat:group_updated', { groupId, latestMessage: message });
 
-    // 2. Chạy ngầm các tác vụ DB phụ và thông báo (Non-blocking async background)
+    // 3. Chạy ngầm các tác vụ DB phụ và thông báo (Non-blocking async background)
     setImmediate(async () => {
       try {
-        await Promise.all([
-          this.prisma.chatGroup.update({
-            where: { id: groupId },
-            data: { updatedAt: new Date() }
-          }).catch(() => {}),
-          this.prisma.chatGroupMember.upsert({
-            where: { groupId_userId: { groupId, userId } },
-            create: { groupId, userId, lastReadAt: new Date() },
-            update: { lastReadAt: new Date() }
-          }).catch(() => {})
-        ]);
+        await this.prisma.chatGroupMember.upsert({
+          where: { groupId_userId: { groupId, userId } },
+          create: { groupId, userId, lastReadAt: new Date() },
+          update: { lastReadAt: new Date() }
+        }).catch(() => {});
 
         if (group.type === 'DEPARTMENT' && group.departmentId) {
           const deptMembers = await this.prisma.departmentMember.findMany({
@@ -425,6 +425,20 @@ export class ChatService {
         unreadCount: unreadCountByGroup[group.id] || 0
       });
     }
+
+    resultGroups.sort((a, b) => {
+      const timeA = Math.max(
+        a.latestMessage?.createdAt ? new Date(a.latestMessage.createdAt).getTime() : 0,
+        a.updatedAt ? new Date(a.updatedAt).getTime() : 0,
+        a.createdAt ? new Date(a.createdAt).getTime() : 0
+      );
+      const timeB = Math.max(
+        b.latestMessage?.createdAt ? new Date(b.latestMessage.createdAt).getTime() : 0,
+        b.updatedAt ? new Date(b.updatedAt).getTime() : 0,
+        b.createdAt ? new Date(b.createdAt).getTime() : 0
+      );
+      return timeB - timeA;
+    });
 
     return resultGroups;
   }
@@ -663,6 +677,20 @@ export class ChatService {
         unreadCount: unreadCountByGroup[group.id] || 0
       });
     }
+
+    resultGroups.sort((a, b) => {
+      const timeA = Math.max(
+        a.latestMessage?.createdAt ? new Date(a.latestMessage.createdAt).getTime() : 0,
+        a.updatedAt ? new Date(a.updatedAt).getTime() : 0,
+        a.createdAt ? new Date(a.createdAt).getTime() : 0
+      );
+      const timeB = Math.max(
+        b.latestMessage?.createdAt ? new Date(b.latestMessage.createdAt).getTime() : 0,
+        b.updatedAt ? new Date(b.updatedAt).getTime() : 0,
+        b.createdAt ? new Date(b.createdAt).getTime() : 0
+      );
+      return timeB - timeA;
+    });
 
     return resultGroups;
   }
