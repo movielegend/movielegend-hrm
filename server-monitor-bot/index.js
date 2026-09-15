@@ -202,7 +202,7 @@ function getPm2ProcessInfo() {
 
 function checkHttpHealth() {
   return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`, { timeout: 4000 }, (res) => {
+    const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/health`, { timeout: 4000 }, (res) => {
       resolve(res.statusCode >= 200 && res.statusCode < 400);
     });
 
