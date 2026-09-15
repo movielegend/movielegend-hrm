@@ -32,6 +32,17 @@ const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typ
   { type: 'OTHER', label: 'Khác', icon: 'file-document', color: '#6B7280' },
 ];
 
+function normalizeSearchText(str?: string | null): string {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
+
 export default function CreateRequestScreen() {
   const { showAlert } = useAppAlert();
   const router = useRouter();
@@ -99,17 +110,28 @@ export default function CreateRequestScreen() {
         ...(currentDeptId ? { departmentId: currentDeptId } : {}),
       });
       const rawList = res?.items || (Array.isArray(res) ? res : []);
-      // CHỈ giữ lại nhân sự thuộc CÙNG PHÒNG BAN với người tạo đơn
-      const validList = rawList.filter((e: any) => {
-        if (currentDeptId) {
+      let validList = rawList;
+      if (currentDeptId) {
+        const filtered = rawList.filter((e: any) => {
           const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
           if (empDeptId && empDeptId !== currentDeptId) return false;
+          return true;
+        });
+        if (filtered.length > 0) {
+          validList = filtered;
         }
-        return true;
-      });
+      }
       setApiEmployees(validList);
     } catch (err) {
       console.log('Error fetching scoped employees:', err);
+      // Fallback without departmentId if scoped error occurs
+      try {
+        const fallbackRes = await getScopedEmployees({ page: 1, limit: 100 });
+        const fallbackList = fallbackRes?.items || (Array.isArray(fallbackRes) ? fallbackRes : []);
+        setApiEmployees(fallbackList);
+      } catch (fallbackErr) {
+        console.log('Fallback fetch error:', fallbackErr);
+      }
     } finally {
       setIsLoadingEmployees(false);
     }
@@ -121,10 +143,8 @@ export default function CreateRequestScreen() {
         .then(setApiShifts)
         .catch(err => console.log('Error fetching shifts', err));
     }
-    if ((isLeave || isExplanation) && apiEmployees.length === 0) {
-      void fetchEmployeesList();
-    }
-  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList, apiEmployees.length]);
+    void fetchEmployeesList();
+  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList]);
 
 
 
@@ -1187,6 +1207,17 @@ export default function CreateRequestScreen() {
                   </Text>
                 ) : null}
               </View>
+              <Pressable
+                onPress={() => void fetchEmployeesList()}
+                style={{ padding: 8 }}
+                disabled={isLoadingEmployees}
+              >
+                <MaterialCommunityIcons
+                  name="reload"
+                  size={22}
+                  color={isLoadingEmployees ? '#9CA3AF' : '#10B981'}
+                />
+              </Pressable>
             </View>
 
             {/* Search Box */}
@@ -1222,13 +1253,14 @@ export default function CreateRequestScreen() {
                 <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14 }}>Đang tải danh sách nhân sự...</Text>
               </View>
             ) : (() => {
-              const q = employeeSearchQuery.toLowerCase().trim();
+              const cleanQ = normalizeSearchText(employeeSearchQuery);
               const filteredList = apiEmployees.filter((item: any) => {
-                const name = (item.fullName || item.profile?.fullName || '').toLowerCase();
-                const code = (item.userCode || '').toLowerCase();
-                const dept = (item.department?.name || '').toLowerCase();
-                const pos = (item.position?.name || '').toLowerCase();
-                return !q || name.includes(q) || code.includes(q) || dept.includes(q) || pos.includes(q);
+                if (!cleanQ) return true;
+                const name = normalizeSearchText(item.fullName || item.profile?.fullName || '');
+                const code = normalizeSearchText(item.userCode || '');
+                const dept = normalizeSearchText(item.department?.name || '');
+                const pos = normalizeSearchText(item.position?.name || '');
+                return name.includes(cleanQ) || code.includes(cleanQ) || dept.includes(cleanQ) || pos.includes(cleanQ);
               });
 
               if (filteredList.length === 0) {
