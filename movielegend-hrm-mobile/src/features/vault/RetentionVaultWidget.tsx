@@ -552,6 +552,45 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
             // Determine active/unlocked milestone indices
             const firstLockedIdx = milestones.findIndex((m) => new Date(m.unlockDate) > now && (m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0);
 
+            // Compute dedicated countdown data for this specific package
+            const pkgNextLockedMilestone = milestones.find(
+              (m) => new Date(m.unlockDate) > now && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0
+            );
+
+            let pkgCountdownData: {
+              title: string;
+              targetDateFormatted: string;
+              days: number;
+              hours: number;
+              minutes: number;
+              seconds: number;
+              points: number;
+              cashAmount: number;
+            } | null = null;
+
+            if (pkgNextLockedMilestone) {
+              const pkgTargetDate = new Date(pkgNextLockedMilestone.unlockDate);
+              const pkgDiffMs = Math.max(0, pkgTargetDate.getTime() - now.getTime());
+              const pkgDays = Math.floor(pkgDiffMs / (1000 * 60 * 60 * 24));
+              const pkgHours = Math.floor((pkgDiffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+              const pkgMinutes = Math.floor((pkgDiffMs % (1000 * 60 * 60)) / (1000 * 60));
+              const pkgSeconds = Math.floor((pkgDiffMs % (1000 * 60)) / 1000);
+              const pkgRemainingPoints = Math.max(0, pkgNextLockedMilestone.pointsToUnlock - (pkgNextLockedMilestone.withdrawnPoints || 0));
+              const pkgRemainingCash = pkgRemainingPoints * cashValuePerPoint;
+              const pkgTargetDateFormatted = `${pkgTargetDate.getDate().toString().padStart(2, '0')}/${(pkgTargetDate.getMonth() + 1).toString().padStart(2, '0')}/${pkgTargetDate.getFullYear()}`;
+
+              pkgCountdownData = {
+                title: pkgNextLockedMilestone.title || `Đợt ${milestones.indexOf(pkgNextLockedMilestone) + 1}`,
+                targetDateFormatted: pkgTargetDateFormatted,
+                days: pkgDays,
+                hours: pkgHours,
+                minutes: pkgMinutes,
+                seconds: pkgSeconds,
+                points: pkgRemainingPoints,
+                cashAmount: pkgRemainingCash,
+              };
+            }
+
             // Format compact points helper
             const formatCompactPoints = (pts: number) => {
               if (!pts || pts <= 0) return '0 đ';
@@ -892,6 +931,58 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
                     </Text>
                   </View>
                 </View>
+
+                {/* Package Dedicated Countdown / Status */}
+                {pkgCountdownData ? (
+                  <View style={styles.pkgCountdownSection}>
+                    <View style={styles.pkgCountdownHeaderRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <MaterialCommunityIcons name="timer-sand" size={16} color="#D97706" />
+                        <Text style={styles.pkgCountdownTitleText} numberOfLines={1}>
+                          Đếm ngược mở đợt: <Text style={{ fontWeight: '800', color: '#B45309' }}>{pkgCountdownData.title}</Text>
+                        </Text>
+                      </View>
+                      <View style={styles.pkgCountdownTargetBadge}>
+                        <MaterialCommunityIcons name="calendar-clock" size={12} color="#92400E" />
+                        <Text style={styles.pkgCountdownTargetText}>{pkgCountdownData.targetDateFormatted}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.pkgCountdownTickerRow}>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.days).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>NGÀY</Text>
+                      </View>
+                      <Text style={styles.pkgCountdownColon}>:</Text>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.hours).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>GIỜ</Text>
+                      </View>
+                      <Text style={styles.pkgCountdownColon}>:</Text>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.minutes).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>PHÚT</Text>
+                      </View>
+                      <Text style={styles.pkgCountdownColon}>:</Text>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.seconds).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>GIÂY</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.pkgCountdownFooterRow}>
+                      <Text style={styles.pkgCountdownFooterLeft}>
+                        Dự kiến mở khóa: <Text style={styles.pkgExpectedPointsText}>+{pkgCountdownData.points.toLocaleString('vi-VN')} đ</Text>
+                        <Text style={styles.pkgExpectedCashText}> (~{pkgCountdownData.cashAmount.toLocaleString('vi-VN')} VNĐ)</Text>
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.pkgCompletedSection}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#059669" />
+                    <Text style={styles.pkgCompletedText}>Gói thưởng đã hoàn tất mở khóa tất cả các đợt</Text>
+                  </View>
+                )}
               </View>
             );
           })}
@@ -3005,5 +3096,119 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#059669',
+  },
+  pkgCountdownSection: {
+    marginTop: 10,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  pkgCountdownHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  pkgCountdownTitleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  pkgCountdownTargetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pkgCountdownTargetText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  pkgCountdownTickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginVertical: 4,
+  },
+  pkgCountdownMiniBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    minWidth: 44,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  pkgCountdownMiniNum: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#B45309',
+    fontVariant: ['tabular-nums'],
+  },
+  pkgCountdownMiniLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#94A3B8',
+    marginTop: 1,
+    letterSpacing: 0.5,
+  },
+  pkgCountdownColon: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#D97706',
+    marginTop: -4,
+  },
+  pkgCountdownFooterRow: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+    alignItems: 'center',
+  },
+  pkgCountdownFooterLeft: {
+    fontSize: 11,
+    color: '#78350F',
+    fontWeight: '500',
+  },
+  pkgExpectedPointsText: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  pkgExpectedCashText: {
+    fontWeight: '700',
+    color: '#059669',
+  },
+  pkgCompletedSection: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  pkgCompletedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
   },
 });
