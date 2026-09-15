@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  Pressable, 
+  ScrollView, 
+  TextInput, 
+  KeyboardAvoidingView, 
+  Platform,
+  Keyboard,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { AiPrivacyModal } from '../../components/AiPrivacyModal';
 
@@ -22,10 +33,21 @@ interface AiAssistantScreenProps {
 export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   
   // Dynamic role determination
-  const currentRole = role || (user?.role as any) || 'EMPLOYEE';
-  const privacyKey = `ai_privacy_accepted_${currentRole.toLowerCase()}`;
+  const currentRole = role || (user?.roles?.[0] as any) || (user as any)?.role || 'EMPLOYEE';
+  const privacyKey = `ai_privacy_accepted_${String(currentRole).toLowerCase()}`;
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
@@ -96,6 +118,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar style="light" />
       {/* Header Top Bar */}
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
@@ -107,64 +130,71 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
         </View>
       </View>
 
-      {/* Warning Banner */}
-      <View style={styles.warningBanner}>
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#DC2626" />
-        <Text style={styles.warningText}>AI có thể sai sót. Ưu tiên tra cứu tài liệu quy định nội bộ chính thức.</Text>
-      </View>
+      <View style={styles.body}>
+        {/* Warning Banner */}
+        <View style={styles.warningBanner}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#DC2626" />
+          <Text style={styles.warningText}>AI có thể sai sót. Ưu tiên tra cứu tài liệu quy định nội bộ chính thức.</Text>
+        </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* Main Content Area */}
-        <ScrollView contentContainerStyle={styles.chatContent} showsVerticalScrollIndicator={false}>
-          {messages.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="sparkles" size={56} color="#D1D5DB" style={{ marginBottom: 12 }} />
-              <Text style={styles.emptyTitle}>Tôi có thể giúp gì cho bạn?</Text>
-              <Text style={styles.emptySubtitle}>Đặt câu hỏi về quy định, ngày phép, bảng lương hoặc thủ tục làm việc.</Text>
-            </View>
-          ) : (
-            messages.map((msg) => (
-              <View key={msg.id} style={[styles.bubbleWrapper, msg.sender === 'user' ? styles.bubbleUser : styles.bubbleAi]}>
-                {msg.sender === 'ai' && (
-                  <View style={styles.aiAvatarSmall}>
-                    <MaterialCommunityIcons name="robot" size={14} color="#2563EB" />
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {/* Main Content Area */}
+          <ScrollView contentContainerStyle={styles.chatContent} showsVerticalScrollIndicator={false}>
+            {messages.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="creation-outline" size={56} color="#D1D5DB" style={{ marginBottom: 12 }} />
+                <Text style={styles.emptyTitle}>Tôi có thể giúp gì cho bạn?</Text>
+                <Text style={styles.emptySubtitle}>Đặt câu hỏi về quy định, ngày phép, bảng lương hoặc thủ tục làm việc.</Text>
+              </View>
+            ) : (
+              messages.map((msg) => (
+                <View key={msg.id} style={[styles.bubbleWrapper, msg.sender === 'user' ? styles.bubbleUser : styles.bubbleAi]}>
+                  {msg.sender === 'ai' && (
+                    <View style={styles.aiAvatarSmall}>
+                      <MaterialCommunityIcons name="robot" size={14} color="#2563EB" />
+                    </View>
+                  )}
+                  <View style={[styles.bubble, msg.sender === 'user' ? styles.bubbleUserBg : styles.bubbleAiBg]}>
+                    <Text style={[styles.messageText, msg.sender === 'user' ? styles.textUser : styles.textAi]}>{msg.text}</Text>
+                    <Text style={[styles.timeText, msg.sender === 'user' ? styles.timeUser : styles.timeAi]}>{msg.time}</Text>
                   </View>
-                )}
-                <View style={[styles.bubble, msg.sender === 'user' ? styles.bubbleUserBg : styles.bubbleAiBg]}>
-                  <Text style={[styles.messageText, msg.sender === 'user' ? styles.textUser : styles.textAi]}>{msg.text}</Text>
-                  <Text style={[styles.timeText, msg.sender === 'user' ? styles.timeUser : styles.timeAi]}>{msg.time}</Text>
+                </View>
+              ))
+            )}
+
+            {loading && (
+              <View style={[styles.bubbleWrapper, styles.bubbleAi]}>
+                <View style={styles.aiAvatarSmall}>
+                  <MaterialCommunityIcons name="robot" size={14} color="#0D7C85" />
+                </View>
+                <View style={[styles.bubble, styles.bubbleAiBg]}>
+                  <Text style={{ fontSize: 13, color: '#6B7280', fontStyle: 'italic' }}>AI đang suy nghĩ...</Text>
                 </View>
               </View>
-            ))
-          )}
+            )}
+          </ScrollView>
 
-          {loading && (
-            <View style={[styles.bubbleWrapper, styles.bubbleAi]}>
-              <View style={styles.aiAvatarSmall}>
-                <MaterialCommunityIcons name="robot" size={14} color="#0D7C85" />
-              </View>
-              <View style={[styles.bubble, styles.bubbleAiBg]}>
-                <Text style={{ fontSize: 13, color: '#6B7280', fontStyle: 'italic' }}>AI đang suy nghĩ...</Text>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Input Bar */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Hỏi trợ lý ảo HRM..."
-            placeholderTextColor="#9CA3AF"
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={handleSend}
-          />
-          <Pressable style={[styles.sendBtn, !input.trim() && styles.sendBtnDisabled]} onPress={handleSend} disabled={!input.trim() || loading}>
-            <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+          {/* Input Bar */}
+          <View 
+            style={[
+              styles.inputContainer,
+              { paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom, 12) }
+            ]}
+          >
+            <TextInput
+              style={styles.input}
+              placeholder="Hỏi trợ lý ảo HRM..."
+              placeholderTextColor="#9CA3AF"
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={handleSend}
+            />
+            <Pressable style={[styles.sendBtn, !input.trim() && styles.sendBtnDisabled]} onPress={handleSend} disabled={!input.trim() || loading}>
+              <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
 
       {/* Privacy Consent Modal */}
       <AiPrivacyModal
@@ -179,6 +209,10 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: '#111827',
+  },
+  body: {
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
