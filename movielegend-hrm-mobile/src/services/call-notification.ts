@@ -13,37 +13,40 @@ const CALL_NOTIFICATION_ID = 'incoming_voice_call';
  */
 export async function setupCallNotificationChannel() {
   if (!Notifications) return;
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('incoming_calls_v4', {
-      name: 'Cuộc gọi đến',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 500, 200, 500, 200, 500],
-      lightColor: '#22c55e',
-      sound: 'ringtone.wav',
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true,
-      enableLights: true,
-      enableVibrate: true,
-    });
-  }
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('incoming_calls_v4', {
+        name: 'Cuộc gọi đến',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 500, 200, 500, 200, 500],
+        lightColor: '#22c55e',
+        sound: 'ringtone.wav',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        enableLights: true,
+        enableVibrate: true,
+      });
+    }
 
-  await Notifications.setNotificationCategoryAsync('VOICE_CALL_INCOMING', [
-    {
-      identifier: 'ACCEPT',
-      buttonTitle: 'Nghe',
-      options: {
-        opensAppToForeground: true,
+    await Notifications.setNotificationCategoryAsync('VOICE_CALL_INCOMING', [
+      {
+        identifier: 'ACCEPT',
+        buttonTitle: 'Nghe',
+        options: {
+          opensAppToForeground: true,
+        },
       },
-    },
-    {
-      identifier: 'REJECT',
-      buttonTitle: 'Từ chối',
-      options: {
-        isDestructive: true,
-        opensAppToForeground: true,
+      {
+        identifier: 'REJECT',
+        buttonTitle: 'Từ chối',
+        options: {
+          isDestructive: true,
+          opensAppToForeground: true,
+        },
       },
-    },
-  ]);
+    ]);
+  } catch (e) {
+    console.warn('[CallNotification] Failed to setup notification channel/category:', e);
+  }
 }
 
 /**

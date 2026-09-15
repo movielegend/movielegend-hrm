@@ -11,6 +11,7 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
+import { Avatar } from '../../components/Avatar';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useApproveLeaveRequest, useCreateLeaveRequest, useLeaveRequests, useLeaveTypes, useRejectLeaveRequest } from '../../hooks/useLeave';
 import { useQueryClient } from '@tanstack/react-query';
@@ -322,13 +323,12 @@ export function AdminLeaveApprovalScreen() {
 function LeaveRequestCard({ request }: { request: LeaveRequest }) {
   const user = (request as any).user;
   const name = user?.profile?.fullName || user?.userCode || 'Nhân viên';
-  const avatar = user?.profile?.avatarUrl || 'https://via.placeholder.com/150';
 
   return (
     <View style={{ gap: 12 }}>
       {user && (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <Image source={{ uri: avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+          <Avatar name={name} uri={user?.profile?.avatarUrl} size={40} />
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#0B3B61' }}>{name}</Text>
             <Text style={{ fontSize: 12, color: '#98A0A8', marginTop: 2 }}>{user?.userCode}</Text>

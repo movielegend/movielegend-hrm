@@ -3,21 +3,28 @@ import { useAppAlert } from '../../contexts/AlertContext';
 import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest } from '../../hooks/useEmployeeRequests';
+import { useAuth } from '../../providers/AuthProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { ActivityIndicator } from 'react-native';
+import { uploadFile } from '../../api/uploads.api';
 
 // Mock types
 type RequestType = 'LEAVE' | 'ATTENDANCE_ADJUSTMENT' | 'LATE_ARRIVAL' | 'EARLY_LEAVE' | 'OVERTIME' | 'ADVANCE' | 'EXPENSE' | 'PURCHASE';
 
 export function LeaderApprovalScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user: currentUser } = useAuth();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [disbursementProofUri, setDisbursementProofUri] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const { data: request, isLoading, isError } = useEmployeeRequestById(id);
@@ -44,27 +51,68 @@ export function LeaderApprovalScreen() {
 
   const { showAlert } = useAppAlert();
 
-  const handleApprove = () => {
-    approveMutation.mutate(id, {
+  const handlePickDisbursementProof = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setDisbursementProofUri(result.assets[0].uri);
+    }
+  };
+
+  const handleApprove = async () => {
+    let proofUrl = undefined;
+    if (disbursementProofUri) {
+      try {
+        setIsUploadingProof(true);
+        const res = await uploadFile({
+          uri: disbursementProofUri,
+          name: `disbursement_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'EMPLOYEE_DOCUMENT'
+        });
+        proofUrl = res.fileUrl;
+      } catch (err) {
+        console.log('Proof upload error', err);
+        showAlert('Lỗi', 'Không thể tải ảnh chứng từ giải ngân lên.');
+        setIsUploadingProof(false);
+        return;
+      } finally {
+        setIsUploadingProof(false);
+      }
+    }
+
+    approveMutation.mutate({
+      id,
+      payload: {
+        note: comment.trim() || undefined,
+        disbursementProofUrl: proofUrl,
+      }
+    }, {
       onSuccess: () => {
-        showAlert('Thành công', 'Đã phê duyệt đơn từ!');
+        showAlert('Thành công', 'Đã xử lý phê duyệt đơn từ thành công!');
         router.back();
       },
       onError: (err: any) => {
-        showAlert('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra');
+        showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra');
       }
     });
   };
 
   const handleReject = () => {
-    // We could pass comment here if API supported it, currently it doesn't
-    rejectMutation.mutate(id, {
+    rejectMutation.mutate({
+      id,
+      payload: {
+        reason: comment.trim() || 'Không đáp ứng điều kiện duyệt',
+      }
+    }, {
       onSuccess: () => {
-        showAlert('Đã từ chối', 'Đơn từ đã bị từ chối.');
+        showAlert('Đã từ chối', 'Đơn từ đã được cập nhật từ chối.');
         router.back();
       },
       onError: (err: any) => {
-        showAlert('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra');
+        showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra');
       }
     });
   };
@@ -94,12 +142,130 @@ export function LeaderApprovalScreen() {
     );
   }
 
+  const getStageLabelVi = (stageStr?: string, action?: string) => {
+    if (action === 'DISBURSED' || stageStr === 'DISBURSED') return 'Kế toán giải ngân';
+    if (action === 'REJECTED' || stageStr === 'REJECTED') return 'Từ chối';
+    switch (stageStr) {
+      case 'PENDING_LEADER':
+      case 'LEADER':
+        return 'Trưởng bộ phận duyệt';
+      case 'PENDING_HR':
+      case 'HR':
+        return 'HR đối chứng & duyệt';
+      case 'PENDING_ADMIN':
+      case 'ADMIN':
+        return 'Ban Giám Đốc duyệt';
+      case 'PENDING_DISBURSEMENT':
+      case 'ACCOUNTANT':
+        return 'Kế toán giải ngân';
+      default:
+        return 'Cấp duyệt';
+    }
+  };
+
   const config = getTypeConfig(request.type);
-  const userName = request.user?.profile?.fullName || request.user?.email || 'Unknown';
+  const userName = request.user?.profile?.fullName || request.user?.email || 'Nhân viên';
   const userDept = request.department?.name || 'Không rõ phòng ban';
   const userPos = request.user?.profile?.position?.name || 'Nhân viên';
-  const avatarUrl = request.user?.profile?.avatarUrl || 'https://i.pravatar.cc/150?img=11';
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
+  const isFinancial = request.type === 'ADVANCE' || request.type === 'EXPENSE' || request.type === 'PURCHASE';
+  const amount = Number(request.amount || 0);
+
+  const formatDateStr = (dateVal?: string | Date | null) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatTimeStr = (dateVal?: string | Date | null) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+    ? (request.attachmentMetadata as Record<string, any>)
+    : {};
+  const stage = meta.stage || 'PENDING';
+  const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
+
+  const isAdmin = currentUser?.roles?.includes('ADMIN');
+  const isHr = currentUser?.roles?.includes('HR') ||
+    currentUser?.department?.name?.toLowerCase().includes('nhân sự') ||
+    currentUser?.department?.code?.toUpperCase() === 'HR';
+  const isAccountant = currentUser?.roles?.includes('ACCOUNTANT') ||
+    currentUser?.department?.name?.toLowerCase().includes('kế toán') ||
+    currentUser?.department?.name?.toLowerCase().includes('tài chính') ||
+    ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(currentUser?.department?.code?.toUpperCase() || '');
+  const isDeptLeader = request.department?.leaderUserId === currentUser?.id ||
+    (currentUser?.roles?.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === request.department?.id));
+
+  // Determine if current user can perform an approval/reject action at the current stage
+  let canActOnCurrentStage = false;
+  let waitingStageDescription = '';
+
+  if (request.status !== 'PENDING') {
+    canActOnCurrentStage = false;
+  } else if (!isFinancial) {
+    if (isAdmin || isHr || isDeptLeader) {
+      canActOnCurrentStage = true;
+    } else {
+      waitingStageDescription = 'Đang chờ Trưởng bộ phận hoặc Quản trị viên phê duyệt.';
+    }
+  } else {
+    // Financial workflow
+    if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
+      if (isDeptLeader || isAdmin || isHr) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = `Đang chờ Trưởng bộ phận (${userDept}) duyệt sơ bộ.`;
+      }
+    } else if (stage === 'PENDING_HR') {
+      if (isHr || isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Trưởng bộ phận đã duyệt. Đang chờ HR đối chứng hồ sơ.';
+      }
+    } else if (stage === 'PENDING_ADMIN') {
+      if (isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'HR đã đối chứng hồ sơ. Đang chờ Ban Giám Đốc phê duyệt hạn mức.';
+      }
+    } else if (stage === 'PENDING_DISBURSEMENT') {
+      if (isAccountant || isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Đơn đã được duyệt. Đang chờ Kế toán thực hiện giải ngân.';
+      }
+    }
+  }
+
+  // Determine role-based action text
+  let approveButtonLabel = 'Phê duyệt';
+  let approveSubtext = '';
+  if (isFinancial) {
+    if (stage === 'PENDING_DISBURSEMENT') {
+      approveButtonLabel = 'Xác nhận Giải ngân';
+      approveSubtext = 'Kế toán giải ngân & đóng đơn';
+    } else if (stage === 'PENDING_ADMIN') {
+      approveButtonLabel = 'Duyệt chuyển Kế toán';
+      approveSubtext = 'Ban Giám Đốc duyệt hạn mức > 5M';
+    } else if (stage === 'PENDING_HR') {
+      if (amount > 5000000) {
+        approveButtonLabel = 'Đối chứng & Chuyển Admin';
+        approveSubtext = 'Xác nhận đủ điều kiện, chuyển Ban Giám Đốc';
+      } else {
+        approveButtonLabel = 'Duyệt chuyển Kế toán';
+        approveSubtext = 'Leader HR duyệt hạn mức ≤ 5M';
+      }
+    } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
+      approveButtonLabel = 'Duyệt chuyển HR';
+      approveSubtext = 'Trưởng BP đồng ý, chuyển HR đối chứng';
+    }
+  }
 
   return (
     <KeyboardAvoidingView 
@@ -112,7 +278,7 @@ export function LeaderApprovalScreen() {
           <Pressable onPress={() => router.back()} style={styles.iconBtn}>
             <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
           </Pressable>
-          <View>
+          <View style={{ paddingVertical: 4 }}>
             <Text style={styles.headerTitle}>Phê duyệt Đơn từ</Text>
             <Text style={styles.headerSubtitle}>Xem xét và quyết định</Text>
           </View>
@@ -121,7 +287,7 @@ export function LeaderApprovalScreen() {
 
       <ScrollView 
         ref={scrollViewRef}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + Math.max(insets.bottom, 24) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
@@ -164,14 +330,226 @@ export function LeaderApprovalScreen() {
               <Text style={styles.reasonLabel}>Nội dung chi tiết:</Text>
               <Text style={styles.reasonText}>{request.content}</Text>
             </View>
+
+            {/* 1. Chi tiết thông tin Đơn Nghỉ Phép (LEAVE) */}
+            {request.type === 'LEAVE' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="calendar-clock" size={18} color="#10B981" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#047857', marginBottom: 0 }]}>
+                    THÔNG TIN NGHỈ PHÉP
+                  </Text>
+                </View>
+
+                {meta.leaveType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Loại nghỉ:</Text>
+                    <Text style={styles.metaValueBold}>{meta.leaveType}</Text>
+                  </View>
+                ) : null}
+
+                {meta.leaveDurationType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Hình thức:</Text>
+                    <Text style={styles.metaValueBold}>{meta.leaveDurationType}</Text>
+                  </View>
+                ) : null}
+
+                {/* Thời gian nghỉ */}
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Thời gian nghỉ:</Text>
+                  <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>
+                    {meta.leaveDurationType === 'Nhiều ngày' && meta.toDate
+                      ? `Từ ${formatDateStr(meta.fromDate)} đến ${formatDateStr(meta.toDate)}`
+                      : formatDateStr(meta.fromDate)}
+                    {meta.startTime && meta.endTime
+                      ? ` (${formatTimeStr(meta.startTime)} - ${formatTimeStr(meta.endTime)})`
+                      : ''}
+                  </Text>
+                </View>
+
+                {meta.handoverEmployee ? (
+                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
+                    <Text style={styles.metaLabel}>Người bàn giao:</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="account-check-outline" size={16} color="#059669" style={{ marginRight: 4 }} />
+                      <Text style={[styles.metaValueBold, { color: '#059669' }]}>
+                        {meta.handoverEmployee}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 2. Chi tiết thông tin Giải trình công (ATTENDANCE_ADJUSTMENT) */}
+            {request.type === 'ATTENDANCE_ADJUSTMENT' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="clock-edit-outline" size={18} color="#3B82F6" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#1D4ED8', marginBottom: 0 }]}>
+                    THÔNG TIN GIẢI TRÌNH CÔNG
+                  </Text>
+                </View>
+
+                {meta.explanationType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Loại giải trình:</Text>
+                    <Text style={styles.metaValueBold}>{meta.explanationType}</Text>
+                  </View>
+                ) : null}
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày cần giải trình:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.startTime || meta.endTime) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#1D4ED8' }]}>
+                      {meta.startTime ? `Vào: ${formatTimeStr(meta.startTime)}` : ''}
+                      {meta.startTime && meta.endTime ? ' | ' : ''}
+                      {meta.endTime ? `Ra: ${formatTimeStr(meta.endTime)}` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 3. Chi tiết Đi muộn / Về sớm */}
+            {(request.type === 'LATE_ARRIVAL' || request.type === 'EARLY_LEAVE') && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons 
+                    name={request.type === 'LATE_ARRIVAL' ? 'clock-in' : 'clock-out'} 
+                    size={18} 
+                    color={request.type === 'LATE_ARRIVAL' ? '#F59E0B' : '#EF4444'} 
+                    style={{ marginRight: 6 }} 
+                  />
+                  <Text style={[styles.metaCardTitle, { color: request.type === 'LATE_ARRIVAL' ? '#B45309' : '#B91C1C', marginBottom: 0 }]}>
+                    {request.type === 'LATE_ARRIVAL' ? 'THÔNG TIN ĐI MUỘN' : 'THÔNG TIN VỀ SỚM'}
+                  </Text>
+                </View>
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày áp dụng:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {request.type === 'LATE_ARRIVAL' && meta.startTime ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ đến thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#F59E0B' }]}>{formatTimeStr(meta.startTime)}</Text>
+                  </View>
+                ) : null}
+
+                {request.type === 'EARLY_LEAVE' && meta.endTime ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ về thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#EF4444' }]}>{formatTimeStr(meta.endTime)}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 4. Chi tiết Làm thêm giờ (OVERTIME) */}
+            {request.type === 'OVERTIME' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="briefcase-clock" size={18} color="#8B5CF6" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#6D28D9', marginBottom: 0 }]}>
+                    THÔNG TIN LÀM THÊM GIỜ (OT)
+                  </Text>
+                </View>
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày làm thêm:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.startTime || meta.endTime) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Khung giờ OT:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#8B5CF6' }]}>
+                      {formatTimeStr(meta.startTime)} - {formatTimeStr(meta.endTime)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* Thông tin tài khoản ngân hàng */}
+            {meta.bankInfo && (
+              <View style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 10, marginBottom: 16, borderWidth: 1, borderColor: '#BAE6FD' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1', marginBottom: 6 }}>
+                  THÔNG TIN TÀI KHOẢN NHẬN TIỀN CỦA NHÂN VIÊN
+                </Text>
+                {meta.bankInfo.bankName ? (
+                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
+                    Ngân hàng: <Text style={{ fontWeight: '600' }}>{meta.bankInfo.bankName}</Text>
+                  </Text>
+                ) : null}
+                {meta.bankInfo.accountNumber ? (
+                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
+                    Số tài khoản: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{meta.bankInfo.accountNumber}</Text>
+                  </Text>
+                ) : null}
+                {meta.bankInfo.accountHolder ? (
+                  <Text style={{ fontSize: 13, color: '#334155' }}>
+                    Chủ tài khoản: <Text style={{ fontWeight: '600' }}>{meta.bankInfo.accountHolder}</Text>
+                  </Text>
+                ) : null}
+              </View>
+            )}
             
-            {request.attachmentMetadata?.image && (
-              <View style={{ marginTop: 16 }}>
-                <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 8, fontWeight: '500' }}>Ảnh minh chứng đính kèm:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(request.attachmentMetadata.image)}>
+            {meta.image && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 8, fontWeight: '600' }}>Ảnh chứng từ / hóa đơn kèm theo:</Text>
+                <TouchableOpacity onPress={() => setSelectedImage(meta.image)}>
                   <Image 
-                    source={{ uri: request.attachmentMetadata.image }} 
-                    style={{ width: '100%', height: 250, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6' }} 
+                    source={{ uri: meta.image }} 
+                    style={{ width: '100%', height: 220, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' }} 
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {meta.disbursementProofUrl && (
+              <View style={{ marginTop: 12, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0' }}>
+                <Text style={{ fontSize: 13, color: '#15803D', marginBottom: 8, fontWeight: '700' }}>Biên lai giải ngân đã đính kèm:</Text>
+                <TouchableOpacity onPress={() => setSelectedImage(meta.disbursementProofUrl)}>
+                  <Image 
+                    source={{ uri: meta.disbursementProofUrl }} 
+                    style={{ width: '100%', height: 220, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0' }} 
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
@@ -179,52 +557,130 @@ export function LeaderApprovalScreen() {
             )}
           </View>
         </View>
+
+        {/* 3. Tiến độ phê duyệt qua các cấp */}
+        {approvalSteps.length > 0 && (
+          <View style={[styles.detailCard, { marginTop: 16 }]}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#4B5563', marginBottom: 12 }}>
+              LỊCH SỬ DUYỆT CỦA CÁC BỘ PHẬN
+            </Text>
+            {approvalSteps.map((step: any, idx: number) => {
+              const isRejected = step.action === 'REJECTED';
+              const isDisbursed = step.action === 'DISBURSED';
+              return (
+                <View key={idx} style={{ flexDirection: 'row', marginBottom: 12, alignItems: 'flex-start' }}>
+                  <MaterialCommunityIcons 
+                    name={isRejected ? "close-circle" : "check-circle"} 
+                    size={20} 
+                    color={isRejected ? "#EF4444" : "#10B981"} 
+                    style={{ marginRight: 8, marginTop: 2 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>
+                      {step.actorName || 'Cấp duyệt'} • <Text style={{ color: '#2563EB', fontWeight: '600' }}>{getStageLabelVi(step.stage, step.action)}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280' }}>
+                      {step.at ? new Date(step.at).toLocaleString('vi-VN') : ''}
+                    </Text>
+                    {step.note ? <Text style={{ fontSize: 13, color: '#374151', marginTop: 2 }}>Ghi chú: {step.note}</Text> : null}
+                    {step.reason ? <Text style={{ fontSize: 13, color: '#EF4444', marginTop: 2 }}>Lý do từ chối: {step.reason}</Text> : null}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
-      {/* 3. Action Area */}
+      {/* 4. Action Area */}
       {request.status === 'PENDING' ? (
-      <View style={[styles.footerAction, shadows.sm]}>
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Nhập ghi chú / lý do từ chối (nếu có)..."
-          placeholderTextColor="#9CA3AF"
-          multiline
-          value={comment}
-          onChangeText={setComment}
-          textAlignVertical="top"
-          onFocus={() => {
-            setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-          }}
-        />
-        <View style={styles.actionRow}>
-          <Pressable 
-            style={[styles.rejectBtn, (rejectMutation.isPending || approveMutation.isPending) && { opacity: 0.5 }]} 
-            onPress={handleReject}
-            disabled={rejectMutation.isPending || approveMutation.isPending}
-          >
-            {rejectMutation.isPending ? <ActivityIndicator color="#111827" /> : (
-              <>
-                <Text style={styles.rejectBtnText}>Từ chối</Text>
-              </>
+        canActOnCurrentStage ? (
+          <View style={[styles.footerAction, shadows.sm, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+            {/* Cho phép kế toán tải lên ủy nhiệm chi khi giải ngân */}
+            {stage === 'PENDING_DISBURSEMENT' && (
+              <View style={{ marginBottom: 12 }}>
+                <Pressable 
+                  onPress={handlePickDisbursementProof}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#EFF6FF',
+                    borderWidth: 1,
+                    borderColor: '#93C5FD',
+                    borderRadius: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  <MaterialCommunityIcons name="file-upload-outline" size={20} color="#2563EB" />
+                  <Text style={{ marginLeft: 6, color: '#2563EB', fontWeight: '600', fontSize: 13 }}>
+                    {disbursementProofUri ? 'Đã chọn ảnh ủy nhiệm chi (Bấm để đổi)' : 'Tải lên ảnh Ủy nhiệm chi / Biên lai giải ngân'}
+                  </Text>
+                </Pressable>
+                {disbursementProofUri && (
+                  <View style={{ marginTop: 8, alignItems: 'center' }}>
+                    <Image source={{ uri: disbursementProofUri }} style={{ width: 120, height: 80, borderRadius: 6 }} />
+                  </View>
+                )}
+              </View>
             )}
-          </Pressable>
-          <Pressable 
-            style={[styles.approveBtn, (approveMutation.isPending || rejectMutation.isPending) && { opacity: 0.5 }]} 
-            onPress={handleApprove}
-            disabled={approveMutation.isPending || rejectMutation.isPending}
-          >
-            {approveMutation.isPending ? <ActivityIndicator color="#fff" /> : (
-              <>
-                <Text style={styles.approveBtnText}>Phê duyệt</Text>
-              </>
-            )}
-          </Pressable>
-        </View>
-      </View>
+
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Nhập ghi chú / ý kiến / lý do (nếu có)..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              value={comment}
+              onChangeText={setComment}
+              textAlignVertical="top"
+              onFocus={() => {
+                setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+              }}
+            />
+            <View style={styles.actionRow}>
+              <Pressable 
+                style={[styles.rejectBtn, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                onPress={handleReject}
+                disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
+              >
+                {rejectMutation.isPending ? <ActivityIndicator color="#111827" /> : (
+                  <Text style={styles.rejectBtnText}>Từ chối</Text>
+                )}
+              </Pressable>
+              <Pressable 
+                style={[styles.approveBtn, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                onPress={handleApprove}
+                disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+              >
+                {approveMutation.isPending || isUploadingProof ? <ActivityIndicator color="#fff" /> : (
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={styles.approveBtnText}>{approveButtonLabel}</Text>
+                    {approveSubtext ? (
+                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                        {approveSubtext}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.footerAction, shadows.sm, { paddingVertical: 18, paddingBottom: Math.max(insets.bottom, 18), paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#F0F9FF', borderTopWidth: 1, borderTopColor: '#BAE6FD' }]}>
+            <MaterialCommunityIcons name="clock-time-four-outline" size={24} color="#0284C7" style={{ marginBottom: 6 }} />
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#0369A1', textAlign: 'center', marginBottom: 4 }}>
+              {waitingStageDescription || 'Đang chờ cấp có thẩm quyền xử lý'}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#64748B', textAlign: 'center' }}>
+              Bạn không cần thực hiện thao tác ở giai đoạn này.
+            </Text>
+          </View>
+        )
       ) : (
-        <View style={[styles.footerAction, shadows.sm, { paddingVertical: 24, alignItems: 'center' }]}>
+        <View style={[styles.footerAction, shadows.sm, { paddingVertical: 24, paddingBottom: Math.max(insets.bottom, 24), alignItems: 'center' }]}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: request.status === 'APPROVED' ? '#10B981' : '#EF4444' }}>
-            Đơn từ đã được {request.status === 'APPROVED' ? 'Phê duyệt' : 'Từ chối'}
+            Đơn từ đã được {request.status === 'APPROVED' ? (meta.disbursementProofUrl || stage === 'DISBURSED' ? 'Giải ngân thành công' : 'Phê duyệt') : 'Từ chối'}
           </Text>
         </View>
       )}
@@ -499,5 +955,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  metaCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  metaCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  metaLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  metaValueBold: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });

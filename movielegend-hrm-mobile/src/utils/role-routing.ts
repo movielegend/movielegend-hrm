@@ -5,7 +5,7 @@ export type AppRoute = '/admin' | '/hr' | '/leader' | '/employee' | '/warehouse-
 export const roleRoutePriority: Array<{ role: UserRole; route: AppRoute }> = [
   { role: 'ADMIN', route: '/admin' },
   { role: 'HR', route: '/hr' },
-  { role: 'ACCOUNTANT', route: '/admin' },
+  { role: 'ACCOUNTANT', route: '/hr' },
   { role: 'WAREHOUSE_MANAGER', route: '/warehouse-manager' },
   { role: 'LEADER', route: '/leader' },
   { role: 'EMPLOYEE', route: '/employee' },
@@ -23,8 +23,13 @@ export function canAccessRoleRoute(user: AuthUser | null, route: AppRoute): bool
   // Allow ADMIN to access any route
   if (user.roles.includes('ADMIN')) return true;
   
-  // Cho phép Quản lý (LEADER) được phép truy cập vào các màn hình của Nhân viên (EMPLOYEE)
-  if (user.roles.includes('LEADER') && route === '/employee') return true;
+  // Cho phép Nhân sự (HR) và Kế toán (ACCOUNTANT) có thẩm quyền quản trị & nghiệp vụ được phép truy cập các màn hình HR, Leader, Employee, Admin
+  if (user.roles.includes('HR') || user.roles.includes('ACCOUNTANT')) {
+    if (route === '/hr' || route === '/leader' || route === '/employee' || route === '/warehouse-manager' || route === '/admin') return true;
+  }
+
+  // Cho phép Quản lý (LEADER) được phép truy cập vào các màn hình của Quản lý (LEADER) và Nhân viên (EMPLOYEE)
+  if (user.roles.includes('LEADER') && (route === '/employee' || route === '/leader')) return true;
   
   return getHomeRouteForUser(user) === route;
 }

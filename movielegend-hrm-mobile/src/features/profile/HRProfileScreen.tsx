@@ -11,6 +11,7 @@ import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { EditProfileModal } from '../employees/components/EditProfileModal';
 import { ChangePasswordModal } from '../employees/components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
+import { formatSeniority } from '../../utils/seniority';
 
 export function HRProfileScreen() {
   const router = useRouter();
@@ -71,11 +72,45 @@ export function HRProfileScreen() {
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Phòng Hành chính Nhân sự'} />
             <InfoRow 
+              icon="calendar-clock" 
+              label="Thâm niên" 
+              value={formatSeniority(user?.joinDate || (user as any)?.createdAt)} 
+              valueColor="#059669"
+            />
+            <InfoRow 
+              icon="calendar-account" 
+              label="Ngày vào làm" 
+              value={(user?.joinDate || (user as any)?.createdAt) ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} 
+            />
+            <InfoRow 
               icon="face-recognition" 
               label="Dữ liệu khuôn mặt" 
               value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
               valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
               onPress={() => router.push('/employee/update-face' as any)}
+              isLast
+            />
+          </View>
+        </View>
+
+        {/* Tiện ích cá nhân */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
+          <View style={styles.infoCard}>
+            <ActionRow 
+              icon="calendar-clock" 
+              title="Bảng công" 
+              onPress={() => router.push('/hr/timesheet' as any)} 
+            />
+            <ActionRow 
+              icon="cash-multiple" 
+              title="Phiếu lương" 
+              onPress={() => router.push('/hr/payslip' as any)} 
+            />
+            <ActionRow 
+              icon="laptop" 
+              title="Tài sản của tôi" 
+              onPress={() => router.push('/hr/assets' as any)} 
               isLast
             />
           </View>
@@ -104,6 +139,11 @@ export function HRProfileScreen() {
               icon="text-box-check-outline" 
               title="Quản lý Hợp đồng lao động" 
               onPress={() => router.push('/hr/contracts' as any)} 
+            />
+            <ActionRow 
+              icon="folder-text-outline" 
+              title="Tài liệu nội bộ" 
+              onPress={() => router.push('/hr/documents' as any)} 
             />
             <ActionRow 
               icon="laptop" 

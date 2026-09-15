@@ -41,7 +41,7 @@ export function AssetDepartmentListScreen() {
         <PageHeader
           title="Vật tư"
           subtitle="Chọn phòng ban làm việc"
-          onBack={() => router.back()}
+          showBack={false}
           right={
             <Pressable style={styles.historyBtn}>
               <MaterialCommunityIcons name="history" size={22} color="#111827" />

@@ -1,24 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { RoleScopeType } from '@prisma/client';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 
 @Injectable()
 export class ApprovalPolicyService {
-  canApproveDepartment(user: AuthenticatedUser, departmentId: string): boolean {
-    if (user.roles.includes('ADMIN')) return true;
-    if (!user.permissions.includes('employee.approve')) return false;
-    return user.scopes.some(
-      (scope) =>
-        scope.role === 'LEADER' &&
-        scope.scopeType === RoleScopeType.DEPARTMENT &&
-        scope.scopeId === departmentId,
-    );
+  constructor(private readonly scopes: DepartmentScopeService) {}
+
+  async canApproveDepartment(user: AuthenticatedUser, departmentId: string): Promise<boolean> {
+    if (!user.permissions.includes('employee.approve') && !user.roles.includes('ADMIN')) return false;
+    
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(user);
+    if (visibleDepts === null) return true;
+    return visibleDepts.includes(departmentId);
   }
 
-  visibleDepartmentIds(user: AuthenticatedUser): string[] | null {
-    if (user.roles.includes('ADMIN')) return null;
-    return user.scopes
-      .filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
-      .map((scope) => scope.scopeId as string);
+  async visibleDepartmentIds(user: AuthenticatedUser): Promise<string[] | null> {
+    return this.scopes.getVisibleDepartmentIds(user);
   }
 }

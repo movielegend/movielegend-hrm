@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   SafeAreaView,
   Modal,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useEmployees } from '../../hooks/useEmployees';
 
 export interface UserOptInVaultItem {
   id: string;
@@ -22,15 +22,26 @@ export interface UserOptInVaultItem {
 }
 
 export const AdminOptInVaultScreen: React.FC = () => {
-  const [users, setUsers] = useState<UserOptInVaultItem[]>([
-    { id: 'usr-1', name: 'Nguyễn Văn A', department: 'Livestream HCM', isRewardVaultEnabled: true, grantedPoints: 50000 },
-    { id: 'usr-2', name: 'Trần Thị B', department: 'Livestream Hà Nội', isRewardVaultEnabled: true, grantedPoints: 30000 },
-    { id: 'usr-3', name: 'Lê Văn C', department: 'Kho & Tài sản', isRewardVaultEnabled: false, grantedPoints: 0 },
-    { id: 'usr-4', name: 'Phạm Thị D', department: 'Nhân sự HR', isRewardVaultEnabled: false, grantedPoints: 0 },
-  ]);
+  const { data: realEmpData, isLoading } = useEmployees({ limit: 100 });
+  const realEmpList = (realEmpData as any)?.data || (realEmpData as any)?.items || (Array.isArray(realEmpData) ? realEmpData : []);
 
+  const [users, setUsers] = useState<UserOptInVaultItem[]>([]);
   const [grantingUser, setGrantingUser] = useState<UserOptInVaultItem | null>(null);
   const [pointsToGrant, setPointsToGrant] = useState('50000');
+
+  useEffect(() => {
+    if (realEmpList.length > 0) {
+      setUsers(
+        realEmpList.map((emp: any) => ({
+          id: emp.id || emp._id,
+          name: emp.fullName || emp.userCode || 'Nhân viên',
+          department: emp.department?.name || 'Văn phòng',
+          isRewardVaultEnabled: Boolean(emp.isRewardVaultEnabled),
+          grantedPoints: emp.grantedPoints || 0,
+        }))
+      );
+    }
+  }, [realEmpData]);
 
   const handleToggleVault = (id: string, currentValue: boolean) => {
     setUsers((prev) =>
@@ -38,7 +49,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     );
     Alert.alert(
       'Cập Nhật Cấp Quyền Ví Điểm',
-      `Đã ${!currentValue ? 'BẬT đặc quyền Ví Điểm Thưởng Tết' : 'TẮT Ví Điểm Thưởng'} cho nhân sự!`
+      `Đã ${!currentValue ? 'BẬT đặc quyền Ví Điểm Thưởng' : 'TẮT Ví Điểm Thưởng'} cho nhân sự!`
     );
   };
 
@@ -50,7 +61,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     );
     Alert.alert(
       'Cấp Quỹ Thưởng Thành Công!',
-      `Đã cấp Quỹ Thưởng Giữ Chân ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) mở khóa 25%/Quý cho ${grantingUser.name}.`,
+      `Đã cấp Quỹ Thưởng Đồng Hành ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) mở khóa 25%/Quý cho ${grantingUser.name}.`,
       [{ text: 'Đóng', onPress: () => setGrantingUser(null) }]
     );
   };
@@ -58,18 +69,19 @@ export const AdminOptInVaultScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
-          <Ionicons name="gift-sharp" size={26} color="#059669" />
-          <View>
-            <Text style={styles.title}>Bật/Tắt Ví Thưởng Tết Cá Nhân</Text>
-            <Text style={styles.sub}>Đặc quyền Opt-in dành riêng cho Nhân sự Cốt cán</Text>
-          </View>
+        
+        {/* Executive Header Card */}
+        <View style={styles.executiveHeaderCard}>
+          <Text style={styles.title}>Quản Lý Cấp Quyền Ví Thưởng</Text>
+          <Text style={styles.sub}>Kích hoạt tính năng Opt-in & Cấp Quỹ Thưởng Đồng Hành & Cống Hiến</Text>
         </View>
+
+        <Text style={styles.sectionHeaderTitle}>DANH SÁCH NHÂN SỰ CỐT CÁN:</Text>
 
         {users.map((u) => (
           <View key={u.id} style={styles.userCard}>
             <View style={styles.userHeaderRow}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.userName}>{u.name}</Text>
                 <Text style={styles.userDept}>{u.department}</Text>
               </View>
@@ -79,27 +91,24 @@ export const AdminOptInVaultScreen: React.FC = () => {
                 <Switch
                   value={u.isRewardVaultEnabled}
                   onValueChange={() => handleToggleVault(u.id, u.isRewardVaultEnabled)}
-                  trackColor={{ false: '#D1D5DB', true: '#A7F3D0' }}
-                  thumbColor={u.isRewardVaultEnabled ? '#059669' : '#9CA3AF'}
+                  trackColor={{ false: '#CBD5E1', true: '#A7F3D0' }}
+                  thumbColor={u.isRewardVaultEnabled ? '#059669' : '#64748B'}
                 />
               </View>
             </View>
 
             {u.isRewardVaultEnabled ? (
               <View style={styles.vaultActiveBox}>
-                <Ionicons name="checkmark-circle" size={16} color="#059669" />
                 <Text style={styles.vaultActiveText}>
                   Quỹ thưởng năm: <Text style={{ fontWeight: 'bold' }}>{u.grantedPoints.toLocaleString('vi-VN')} điểm</Text> ({(u.grantedPoints * 1000).toLocaleString('vi-VN')} VNĐ)
                 </Text>
                 <TouchableOpacity style={styles.grantBtn} onPress={() => { setGrantingUser(u); setPointsToGrant(String(u.grantedPoints || 50000)); }}>
-                  <Ionicons name="add-circle-outline" size={14} color="#059669" />
                   <Text style={styles.grantBtnText}>Điều chỉnh Quỹ</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.vaultDisabledBox}>
-                <Ionicons name="lock-closed" size={14} color="#6B7280" />
-                <Text style={styles.vaultDisabledText}>Chưa bật đặc quyền Ví Điểm Tết</Text>
+                <Text style={styles.vaultDisabledText}>Chưa bật đặc quyền Ví Điểm Thưởng</Text>
                 <TouchableOpacity style={styles.enableBtn} onPress={() => { setGrantingUser(u); setPointsToGrant('50000'); }}>
                   <Text style={styles.enableBtnText}>Bật & Cấp Quỹ</Text>
                 </TouchableOpacity>
@@ -107,6 +116,8 @@ export const AdminOptInVaultScreen: React.FC = () => {
             )}
           </View>
         ))}
+
+        <View style={{ height: 30 }} />
       </ScrollView>
 
       {/* Grant Points Modal */}
@@ -114,15 +125,15 @@ export const AdminOptInVaultScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cấp Quỹ Thưởng Giữ Chân</Text>
+              <Text style={styles.modalTitle}>Cấp Quỹ Thưởng Đồng Hành & Cống Hiến</Text>
               <TouchableOpacity onPress={() => setGrantingUser(null)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Text style={{ fontSize: 18, color: '#64748B', fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
             {grantingUser && (
               <View>
-                <Text style={styles.modalSub}>Nhân sự: <Text style={{ fontWeight: 'bold', color: '#111827' }}>{grantingUser.name}</Text></Text>
+                <Text style={styles.modalSub}>Nhân sự: <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{grantingUser.name}</Text></Text>
 
                 <Text style={styles.inputLabel}>Số điểm thưởng năm được cấp:</Text>
                 <TextInput
@@ -153,49 +164,66 @@ export const AdminOptInVaultScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC',
   },
   scroll: {
     padding: 16,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  executiveHeaderCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
   },
-  title: {
-    fontSize: 17,
+  executiveBadgeTitle: {
+    fontSize: 10,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#94A3B8',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   sub: {
     fontSize: 12,
-    color: '#059669',
-    fontWeight: '600',
+    color: '#CBD5E1',
+    lineHeight: 16,
+  },
+  sectionHeaderTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginTop: 4,
+    marginBottom: 10,
   },
   userCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     marginBottom: 12,
   },
   userHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   userName: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#0F172A',
   },
   userDept: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#64748B',
+    marginTop: 1,
   },
   toggleGroup: {
     flexDirection: 'row',
@@ -204,17 +232,17 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     fontSize: 11,
-    color: '#4B5563',
+    color: '#475569',
+    fontWeight: '500',
   },
   vaultActiveBox: {
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
     borderColor: '#A7F3D0',
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   vaultActiveText: {
     fontSize: 12,
@@ -222,12 +250,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   grantBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#059669',
@@ -238,22 +263,21 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
   vaultDisabledBox: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   vaultDisabledText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#64748B',
     flex: 1,
   },
   enableBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     backgroundColor: '#059669',
   },
   enableBtnText: {
@@ -263,13 +287,13 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
   },
   modalHeader: {
@@ -281,31 +305,31 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#0F172A',
   },
   modalSub: {
     fontSize: 13,
-    color: '#4B5563',
+    color: '#475569',
     marginBottom: 12,
   },
   inputLabel: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#374151',
+    color: '#334155',
     marginTop: 8,
     marginBottom: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
   },
   cashPreviewText: {
     fontSize: 13,
-    color: '#374151',
+    color: '#334155',
     marginTop: 8,
   },
   vestingNotice: {
@@ -316,8 +340,8 @@ const styles = StyleSheet.create({
   },
   submitGrantBtn: {
     backgroundColor: '#059669',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
   },

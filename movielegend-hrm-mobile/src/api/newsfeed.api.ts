@@ -38,14 +38,19 @@ export interface NewsfeedComment {
   id: string;
   postId: string;
   authorId: string;
+  parentId?: string | null;
   content: string;
+  reactions?: Record<string, string>;
   createdAt: string;
   author?: {
     id: string;
+    userCode?: string;
     profile?: {
       fullName: string;
+      avatarUrl?: string | null;
     };
   };
+  replies?: NewsfeedComment[];
 }
 
 export async function fetchNewsfeed(params?: { departmentId?: string; page?: number; limit?: number }) {
@@ -85,8 +90,16 @@ export async function likePost(postId: string) {
   return unwrapData(response);
 }
 
-export async function commentPost(postId: string, content: string) {
-  const response = await apiClient.post<ApiResponse<NewsfeedComment>>(`/newsfeed/${postId}/comments`, { content });
+export async function commentPost(postId: string, content: string, parentId?: string) {
+  const response = await apiClient.post<ApiResponse<NewsfeedComment>>(`/newsfeed/${postId}/comments`, { content, parentId });
+  return unwrapData(response);
+}
+
+export async function reactComment(postId: string, commentId: string, emoji: string) {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; reactions: Record<string, string> }>>(
+    `/newsfeed/${postId}/comments/${commentId}/react`,
+    { emoji },
+  );
   return unwrapData(response);
 }
 

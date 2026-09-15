@@ -1,16 +1,24 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
+import { getVaultWithdrawalRequests } from '../../api/employees.api';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ContourHeroPattern } from './components/ContourHeroPattern';
+
+const { width } = Dimensions.get('window');
+const GRID_ITEM_WIDTH = Math.floor((width - 32 - 12 * 2) / 3);
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -30,8 +38,8 @@ export function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data: unreadData } = useUnreadNotificationCount();
-  const unreadCount = unreadData?.count || 0;
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
 
   const { data: feedbackData, isLoading: isLoadingFeedbacks } = useFeedbacksForManagement({ limit: 5, status: 'SEND' });
 
@@ -43,8 +51,25 @@ export function AdminDashboard() {
     }
   });
 
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress', user?.id],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+    enabled: Boolean(user?.id),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || (user as any)?.level || 8;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#D4AF37';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || 'Ban Điều Hành';
+
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
+
+  const { data: withdrawalData } = useQuery({
+    queryKey: ['admin-pending-withdrawals-count'],
+    queryFn: () => getVaultWithdrawalRequests({ limit: 1 }),
+    staleTime: 1000 * 30,
+  });
+  const pendingAdminCount = withdrawalData?.meta?.pendingAdminCount || 0;
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -79,133 +104,184 @@ export function AdminDashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfoWrapper}>
-            <View style={styles.avatar}>
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-              )}
-            </View>
+            <Pressable
+              style={styles.avatarWrapper}
+              onPress={() => router.push('/admin/levels' as any)}
+            >
+              <View style={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </View>
+              {/* Level Rank Badge on Avatar */}
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+              </View>
+            </Pressable>
+
             <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>Xin chào 👋</Text>
-              <Text style={styles.userName}>{user?.fullName || 'Admin'}</Text>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <Pressable
+                  style={[
+                    styles.levelPill,
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
+                  ]}
+                  onPress={() => router.push('/admin/levels' as any)}
+                >
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'Admin'}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/admin/notifications')}>
+          <View style={styles.headerRight}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
+              {unreadNotifications > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
                   </Text>
                 </View>
               )}
             </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat')}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#111827" />
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat' as any)}>
+              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
+              {unreadChat > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadChat > 99 ? '99+' : unreadChat}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
 
-        {/* Checked In Card with decorative background */}
+        {/* Hero Card - Admin (Vân địa hình & Bóng đổ) */}
         <Pressable
           style={styles.heroButton}
           onPress={() => router.navigate('/admin/attendance')}
         >
-          {/* Decorative topographic wood grain background asset */}
-          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: appleTheme.radiusCard, overflow: 'hidden' }}>
-            <Image
-              source={require('../../../assets/topographic-contour-admin-v2.png')}
-              style={styles.heroTopographicBg}
-              resizeMode="cover"
-            />
-          </View>
+          <View style={styles.heroCardInner}>
+            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
+            <ContourHeroPattern variant="red" />
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, zIndex: 1 }}>
-            <View style={{ backgroundColor: appleTheme.blueAccent, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-              <MaterialCommunityIcons name="check" size={16} color="#FFF" />
+            {/* Top Status Header */}
+            <View style={styles.heroHeaderRow}>
+              <MaterialCommunityIcons name="shield-check" size={18} color="#E11D48" />
+              <Text style={styles.heroStatusText}>Quản trị hệ thống</Text>
             </View>
-            <Text style={styles.heroTitle}>Đã chấm công</Text>
-          </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 20, zIndex: 1 }}>
-            <LiveClock style={styles.heroSubtitle} />
-          </View>
+            {/* Main Clock */}
+            <View style={styles.heroTimeWrapper}>
+              <LiveClock style={styles.heroTimeText} />
+            </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 1 }}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color={appleTheme.textSecondary} />
-            <Text style={{ color: appleTheme.textSecondary, fontSize: 13 }}>Văn phòng Hà Nội</Text>
+            {/* Bottom Row */}
+            <View style={styles.heroFooterRow}>
+              <View style={styles.locationWrapper}>
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
+                <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+              </View>
+            </View>
           </View>
         </Pressable>
 
-        {/* Thao tác nhanh */}
-        <Text style={styles.sectionTitleFolder}>Thao tác nhanh</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 16 }}
-          style={{ marginHorizontal: -16 }}
-        >
-          <GridCard
-            title="Cấu hình Level"
-            icon="crown-outline"
-            onPress={() => router.navigate('/admin/levels' as any)}
-          />
-          <GridCard
-            title="Quyền Ví Tết"
-            icon="gift-outline"
-            onPress={() => router.navigate('/admin/vault-permissions' as any)}
-          />
-          <GridCard
-            title="Chốt Level"
-            icon="shield-check-outline"
-            onPress={() => router.navigate('/admin/competition/review' as any)}
-          />
-          <GridCard
-            title="Chấm công"
-            icon="clock-outline"
-            onPress={() => router.navigate('/admin/attendance')}
-          />
-          <GridCard
-            title="Duyệt đơn"
-            icon="calendar-outline"
-            onPress={() => router.navigate('/leader/approvals')}
-          />
-          <GridCard
-            title="Công việc"
-            icon="calendar-check-outline"
-            onPress={() => router.navigate('/admin/tasks')}
-          />
-          <GridCard
-            title="Quản lý"
-            icon="wallet-outline"
-            onPress={() => router.navigate('/admin/branches')}
-          />
-          <GridCard
-            title="Góp ý"
-            icon="message-alert-outline"
-            onPress={() => router.navigate('/admin/feedbacks')}
-          />
-        </ScrollView>
+        {/* Tiện ích (Leader-style layout with vibrant colors) */}
+        <View style={[styles.section, styles.utilitySection]}>
+          <Text style={styles.sectionTitle}>Tiện ích</Text>
+          <View style={styles.gridContainer}>
+            <GridItem
+              icon="crown-outline"
+              title="Cấu hình Level"
+              color="#D97706"
+              onPress={() => router.push('/admin/levels' as any)}
+            />
+            <GridItem
+              icon="shield-check-outline"
+              title="Duyệt Level"
+              color="#4F46E5"
+              onPress={() => router.push('/admin/competition/review' as any)}
+            />
+            <GridItem
+              icon="gift-outline"
+              title="Ví Thưởng"
+              color="#059669"
+              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'VÍ'}
+              badgeColor={pendingAdminCount > 0 ? '#EF4444' : '#D97706'}
+              onPress={() => router.push('/admin/tet-wallet' as any)}
+            />
+            <GridItem
+              icon="clipboard-check-outline"
+              title="Duyệt đơn"
+              color="#EA580C"
+              onPress={() => router.push('/leader/approvals')}
+            />
+            <GridItem
+              icon="swap-horizontal"
+              title="Chấm công"
+              color="#2563EB"
+              onPress={() => router.push('/admin/attendance')}
+            />
+            <GridItem
+              icon="briefcase-outline"
+              title="Công việc"
+              color="#0284C7"
+              onPress={() => router.push('/admin/tasks')}
+            />
+            <GridItem
+              icon="domain"
+              title="Cơ cấu PB"
+              color="#7C3AED"
+              onPress={() => router.push('/admin/branches')}
+            />
+            <GridItem
+              icon="file-document-outline"
+              title="Hợp đồng"
+              color="#0D9488"
+              onPress={() => router.push('/admin/contracts')}
+            />
+            <GridItem
+              icon="folder-text-outline"
+              title="Tài liệu"
+              color="#2563EB"
+              onPress={() => router.push('/admin/documents' as any)}
+            />
+            <GridItem
+              icon="message-draw"
+              title="Góp ý"
+              color="#E11D48"
+              onPress={() => router.push('/admin/feedbacks')}
+            />
+          </View>
+        </View>
 
         {/* Tổng quan hôm nay */}
-        <Text style={[styles.sectionTitleFolder, { marginTop: 16 }]}>Tổng quan hôm nay</Text>
-        <View style={styles.summaryGrid}>
-          <SummaryCard
-            label="Chấm công"
-            value={attStats?.totalUsers && attStats.totalUsers > 0 ? `${Math.round(((attStats?.present || 0) / attStats.totalUsers) * 100)}%` : '0%'}
-          />
-          <SummaryCard
-            label="Công việc"
-            value={dashboardData?.tasks?.totalActive?.toString() || '0'}
-          />
+        <View style={styles.statsSection}>
+          <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Tổng quan hôm nay</Text>
+          <View style={styles.summaryGrid}>
+            <SummaryCard
+              label="Chấm công"
+              value={attStats?.totalUsers && attStats.totalUsers > 0 ? `${Math.round(((attStats?.present || 0) / attStats.totalUsers) * 100)}%` : '0%'}
+            />
+            <SummaryCard
+              label="Công việc"
+              value={dashboardData?.tasks?.totalActive?.toString() || '0'}
+            />
+          </View>
         </View>
 
         {/* Góp ý mới nhất */}
         <View style={[styles.sectionHeader, { marginTop: 16 }]}>
-          <Text style={styles.sectionTitleFolder}>Góp ý mới nhất</Text>
+          <Text style={styles.sectionTitle}>Góp ý mới nhất</Text>
           <Pressable onPress={() => router.navigate('/admin/feedbacks')}>
             <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500' }}>Xem tất cả</Text>
           </Pressable>
@@ -242,13 +318,24 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
   );
 }
 
-function GridCard({ title, icon, onPress }: any) {
+function GridItem({ icon, title, onPress, color, badge, badgeColor }: any) {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.cardIconBg}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+    <Pressable
+      style={({ pressed }) => [
+        styles.gridItem,
+        pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.gridIconContainer}>
+        <MaterialCommunityIcons name={icon} size={30} color={color || '#111827'} />
+        {badge && (
+          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.cardTitle}>{title}</Text>
+      <Text style={styles.gridTitle} numberOfLines={2}>{title}</Text>
     </Pressable>
   );
 }
@@ -277,7 +364,8 @@ function TimelineItem({ icon, time, title, subtitle, isLast = false, color = '#1
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: 120,
     backgroundColor: '#FAFAFA',
     minHeight: '100%',
@@ -285,14 +373,20 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 24,
-    marginTop: 16,
+    marginTop: 4,
   },
   userInfoWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
+  },
+  avatarWrapper: {
+    position: 'relative',
   },
   avatar: {
     width: 56,
@@ -302,21 +396,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4B5563',
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+    paddingHorizontal: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  avatarLevelBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
   },
   userInfo: {
     justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+    flexWrap: 'wrap',
+  },
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
   },
   userName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: appleTheme.textPrimary,
   },
@@ -324,6 +458,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: appleTheme.hint,
     fontWeight: '500',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
     width: 44,
@@ -335,6 +475,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   notificationBadge: {
     position: 'absolute',
@@ -355,7 +500,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  notificationDot: {
+  badgeDot: {
     position: 'absolute',
     top: 10,
     right: 12,
@@ -363,93 +508,256 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
   },
-  heroButton: {
-    backgroundColor: appleTheme.card,
-    borderRadius: appleTheme.radiusCard,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: '#8a99af',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 3,
-    position: 'relative',
-    overflow: 'hidden',
+  levelAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.05)',
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
-
-  heroTopographicBg: {
-    position: 'absolute',
-    right: -10,
-    bottom: -10,
-    top: -10,
-    width: '65%',
-    height: '120%',
-    opacity: 0.85,
+  levelAppleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  heroTitle: {
-    color: '#0A2540',
+  levelAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  levelAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  levelAppleTitleBlock: {
+    flex: 1,
+  },
+  levelAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelAppleTitle: {
     fontSize: 15,
     fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
   },
-  heroSubtitle: {
-    color: appleTheme.textPrimary,
-    fontSize: 36,
+  levelApplePillTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  levelApplePillTagText: {
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: -1,
+    letterSpacing: 0.3,
+  },
+  levelAppleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  levelAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  levelAppleActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  levelAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  levelAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  levelAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  levelAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  levelAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  levelAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  heroButton: {
+    borderRadius: 24,
+    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  heroCardInner: {
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+    minHeight: 148,
+    justifyContent: 'space-between',
+  },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    zIndex: 2,
+  },
+  heroStatusText: {
+    color: '#9F1239',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  heroTimeWrapper: {
+    marginVertical: 4,
+    zIndex: 2,
+  },
+  heroTimeText: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -1.5,
+  },
+  heroFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  locationWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  locationText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  section: {
+    marginBottom: 20,
+  },
+  utilitySection: {
+    marginBottom: -8,
+  },
+  statsSection: {
+    marginTop: 0,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  sectionTitleFolder: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 17,
     fontWeight: '800',
-    color: appleTheme.textPrimary,
-    marginBottom: 12,
+    color: '#111827',
+    marginBottom: 10,
   },
-  grid: {
+  gridContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  card: {
-    width: 85,
-    backgroundColor: appleTheme.card,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+  gridItem: {
+    width: GRID_ITEM_WIDTH,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 12,
     alignItems: 'center',
-    shadowColor: '#8a99af',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+    aspectRatio: 1,
   },
-  cardIconBg: {
+  gridIconContainer: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 6,
+    position: 'relative',
   },
-  cardTitle: {
+  gridTitle: {
     fontSize: 11,
-    fontWeight: '500',
-    color: appleTheme.textSecondary,
+    fontWeight: '600',
+    color: '#1E293B',
     textAlign: 'center',
+    lineHeight: 14,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   summaryGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 0,
   },
   summaryCard: {
     width: '48%',

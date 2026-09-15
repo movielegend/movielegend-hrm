@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { AdminService } from './admin.service';
@@ -11,9 +12,20 @@ import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 
+import {
+  GrantVaultPointsDto,
+  BulkGrantVaultPointsDto,
+  GrantProjectPackageDto,
+  BulkGrantProjectPackageDto,
+  AdminApproveWithdrawalDto,
+  AccountantConfirmWithdrawalDto,
+  RejectWithdrawalDto,
+  WithdrawalQueryDto,
+} from './dto/grant-vault-points.dto';
+
 @ApiTags('Users')
 @ApiBearerAuth()
-@Roles('ADMIN', 'LEADER')
+@Roles('ADMIN', 'LEADER', 'ACCOUNTANT')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -44,14 +56,14 @@ export class AdminController {
 
   @Permissions('user.read')
   @Get('users')
-  findUsers(@Query() query: UserQueryDto) {
-    return this.adminService.findUsers(query);
+  findUsers(@Query() query: UserQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.findUsers(query, actor);
   }
 
   @Permissions('user.read')
   @Get('users/:id')
-  findUser(@Param('id') id: string) {
-    return this.adminService.findUser(id);
+  findUser(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.findUser(id, actor);
   }
 
   @Permissions('user.manage')
@@ -60,15 +72,75 @@ export class AdminController {
     return this.adminService.createUser(dto, actor);
   }
 
-  @Permissions('user.update')
+  @AnyPermissions('user.update', 'department.update', 'employee.update')
   @Patch('users/:id')
-  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.adminService.updateUser(id, dto);
+  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.updateUser(id, dto, actor);
   }
 
   @Permissions('user.manage')
   @Delete('users/:id')
   deleteUser(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.deleteUser(id, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/grant')
+  grantVaultPoints(@Body() dto: GrantVaultPointsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.grantVaultPoints(dto, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/bulk-grant')
+  bulkGrantVaultPoints(@Body() dto: BulkGrantVaultPointsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.bulkGrantVaultPoints(dto, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/grant-package')
+  grantProjectPackage(@Body() dto: GrantProjectPackageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.grantProjectPackage(dto, actor);
+  }
+
+  @Permissions('user.manage')
+  @Post('talent-vault/bulk-grant-package')
+  bulkGrantProjectPackage(@Body() dto: BulkGrantProjectPackageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.bulkGrantProjectPackage(dto, actor);
+  }
+
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @Get('vault/withdrawals')
+  getVaultWithdrawalRequests(@Query() query: WithdrawalQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.getVaultWithdrawalRequests(query, actor);
+  }
+
+  @Roles('ADMIN')
+  @Post('vault/withdrawals/:id/admin-approve')
+  adminApproveWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: AdminApproveWithdrawalDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.adminService.adminApproveWithdrawal(id, dto, actor);
+  }
+
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @Post('vault/withdrawals/:id/accountant-confirm')
+  accountantConfirmWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: AccountantConfirmWithdrawalDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.adminService.accountantConfirmWithdrawal(id, dto, actor);
+  }
+
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @Post('vault/withdrawals/:id/reject')
+  rejectWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: RejectWithdrawalDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.adminService.rejectWithdrawal(id, dto, actor);
   }
 }

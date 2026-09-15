@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { CacheModule } from '@nestjs/cache-manager';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import appConfig from './config/app.config';
@@ -19,6 +20,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { BranchesModule } from './modules/branches/branches.module';
+import { RegionsModule } from './modules/regions/regions.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { CrossDepartmentModule } from './modules/cross-department/cross-department.module';
 import { CompensationModule } from './modules/compensation/compensation.module';
@@ -62,6 +64,9 @@ import { AiAssistantModule } from './modules/ai-assistant/ai-assistant.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { ShiftSwapsModule } from './modules/shift-swaps/shift-swaps.module';
 import { VoiceCallModule } from './modules/voice-call/voice-call.module';
+import { CompetitionModule } from './modules/competition/competition.module';
+import { LevelingModule } from './modules/leveling/leveling.module';
+import { DepartmentDocumentsModule } from './modules/department-documents/department-documents.module';
 
 @Module({
   imports: [
@@ -83,6 +88,9 @@ import { VoiceCallModule } from './modules/voice-call/voice-call.module';
                 res.set('Access-Control-Allow-Origin', '*');
                 res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
                 res.set('Access-Control-Allow-Headers', '*');
+                if (typeof res.removeHeader === 'function') {
+                  res.removeHeader('X-Frame-Options');
+                }
               },
             },
           },
@@ -90,6 +98,7 @@ import { VoiceCallModule } from './modules/voice-call/voice-call.module';
       },
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    CacheModule.register({ isGlobal: true, ttl: 300_000 }),
     ScheduleModule.forRoot(),
     DatabaseModule,
     StorageModule,
@@ -105,6 +114,7 @@ import { VoiceCallModule } from './modules/voice-call/voice-call.module';
     FaceModule,
     AdminModule,
     Phase2PolicyModule,
+    RegionsModule,
     BranchesModule,
     ShiftsModule,
     ShiftAssignmentsModule,
@@ -142,6 +152,9 @@ import { VoiceCallModule } from './modules/voice-call/voice-call.module';
     AiAssistantModule,
     FeedbackModule,
     VoiceCallModule,
+    CompetitionModule,
+    LevelingModule,
+    DepartmentDocumentsModule,
   ],
   providers: [
     {

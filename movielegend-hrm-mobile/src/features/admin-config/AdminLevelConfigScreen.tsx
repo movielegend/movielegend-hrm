@@ -1,16 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   SafeAreaView,
   Modal,
+  ScrollView,
+  TextInput,
+  StatusBar,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
+import { useDepartments } from '../../hooks/useDepartments';
+import { useSocketStatus } from '../../providers/SocketProvider';
+import { levelingApi } from '../../api/leveling.api';
+import { apiClient } from '../../api/client';
+
+import { useAuth } from '../../providers/AuthProvider';
+import { AdminDeptOverviewPage, DepartmentSummaryItem } from './pages/AdminDeptOverviewPage';
+import { AdminLevelRewardsPage } from './pages/AdminLevelRewardsPage';
+import { AdminLevelProjectsPage } from './pages/AdminLevelProjectsPage';
+
+export interface LevelStageProject {
+  projectName: string;
+  subTaskBullets: string[];
+}
 
 export interface AdminLevelItem {
   id: string;
@@ -18,389 +34,863 @@ export interface AdminLevelItem {
   levelName: string;
   colorHex: string;
   rewardType: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID';
-  promotionBonusAmount: number; // e.g. 8000000 (VNĐ)
-  physicalItemName: string; // e.g. "Laptop MacBook Air M3"
-  retentionFloorGmv: number; // e.g. 250 (tr)
-  promotionCeilingGmv: number; // e.g. 820 (tr)
-  retentionMultiplier: number; // e.g. 1.6
+  promotionBonusAmount: number;
+  physicalItemName: string;
+  physicalItems?: string[];
+  retentionFloorGmv: number;
+  promotionCeilingGmv: number;
+  retentionMultiplier: number;
+  allowanceAmount?: number;
+  perks?: string[];
+  motivationQuote?: string;
+  project: LevelStageProject;
 }
 
 export const AdminLevelConfigScreen: React.FC = () => {
-  const [levels, setLevels] = useState<AdminLevelItem[]>([
-    {
-      id: 'lvl-1',
-      levelNumber: 1,
-      levelName: 'Thực tập / Thử việc',
-      colorHex: '#9CA3AF',
-      rewardType: 'CASH',
-      promotionBonusAmount: 0,
-      physicalItemName: 'Voucher Sinh nhật 200k',
-      retentionFloorGmv: 0,
-      promotionCeilingGmv: 50,
-      retentionMultiplier: 1.0,
-    },
-    {
-      id: 'lvl-2',
-      levelNumber: 2,
-      levelName: 'Chính thức',
-      colorHex: '#2563EB',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 1000000,
-      physicalItemName: 'Kỷ niệm chương chính thức',
-      retentionFloorGmv: 30,
-      promotionCeilingGmv: 150,
-      retentionMultiplier: 1.1,
-    },
-    {
-      id: 'lvl-3',
-      levelNumber: 3,
-      levelName: 'Senior Specialist',
-      colorHex: '#0D9488',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 3000000,
-      physicalItemName: 'Tai nghe Bluetooth Chống ồn',
-      retentionFloorGmv: 80,
-      promotionCeilingGmv: 300,
-      retentionMultiplier: 1.25,
-    },
-    {
-      id: 'lvl-4',
-      levelNumber: 4,
-      levelName: 'Key Member',
-      colorHex: '#9333EA',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 5000000,
-      physicalItemName: 'Máy tính bảng iPad Air / Màn 4K',
-      retentionFloorGmv: 150,
-      promotionCeilingGmv: 500,
-      retentionMultiplier: 1.4,
-    },
-    {
-      id: 'lvl-5',
-      levelNumber: 5,
-      levelName: 'Team Leader',
-      colorHex: '#EA580C',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 8000000,
-      physicalItemName: '💻 LAPTOP MACBOOK AIR M3',
-      retentionFloorGmv: 250,
-      promotionCeilingGmv: 820,
-      retentionMultiplier: 1.6,
-    },
-    {
-      id: 'lvl-6',
-      levelNumber: 6,
-      levelName: 'Manager Bộ Phận',
-      colorHex: '#DC2626',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 15000000,
-      physicalItemName: '💻 LAPTOP MACBOOK PRO M-SERIES + iPhone',
-      retentionFloorGmv: 500,
-      promotionCeilingGmv: 1500,
-      retentionMultiplier: 2.0,
-    },
-    {
-      id: 'lvl-7',
-      levelNumber: 7,
-      levelName: 'Director Giám Đốc',
-      colorHex: '#D97706',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 30000000,
-      physicalItemName: '💻 MACBOOK PRO MAX + 1 CÂY VÀNG 9999',
-      retentionFloorGmv: 1000,
-      promotionCeilingGmv: 3000,
-      retentionMultiplier: 2.5,
-    },
-    {
-      id: 'lvl-8',
-      levelNumber: 8,
-      levelName: 'Executive Ban Điều Hành',
-      colorHex: '#7C2D12',
-      rewardType: 'HYBRID',
-      promotionBonusAmount: 50000000,
-      physicalItemName: '🚗 XE CÔNG VỤ + CỔ PHẦN ESOP DOANH NGHIỆP',
-      retentionFloorGmv: 2000,
-      promotionCeilingGmv: 5000,
-      retentionMultiplier: 3.0,
-    },
-  ]);
+  const { user } = useAuth();
+  const isAdmin = Boolean(
+    user?.roles?.includes('ADMIN') ||
+    user?.roles?.some?.((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin')
+  );
+  // Cả Super Admin và Admin Miền đều có toàn quyền cấu hình Level cho các phòng ban thuộc phạm vi quản lý của mình
+  const canConfigure = isAdmin;
+  const { data: realDeptData, isLoading } = useDepartments({ limit: 100 });
+  const { getSocket } = useSocketStatus();
 
+  const realDeptList = (realDeptData as any)?.data || (realDeptData as any)?.items || (Array.isArray(realDeptData) ? realDeptData : []);
+  const departments: Array<{ id: string; name: string }> = realDeptList.map((d: any) => ({ id: d.id || d._id, name: d.name || 'Phòng ban' }));
+
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [availableYears, setAvailableYears] = useState<number[]>([2025, 2026, 2027]);
+
+  useEffect(() => {
+    if (departments.length > 0 && (!selectedDeptId || !departments.some((d: any) => d.id === selectedDeptId))) {
+      const firstId = departments[0]?.id;
+      if (firstId) setSelectedDeptId(firstId);
+    }
+  }, [departments, selectedDeptId]);
+
+  // Default 12 Levels Config representing 12 Months of the Year (Clean Template)
+  const createDefault12Levels = (deptName: string, year: number): AdminLevelItem[] => {
+    const colors = [
+      '#64748B', '#2563EB', '#0D9488', '#7C3AED', '#EA580C', '#DC2626',
+      '#D97706', '#881337', '#4F46E5', '#059669', '#0284C7', '#9333EA',
+    ];
+
+    return Array.from({ length: 12 }, (_, i) => {
+      const lvlNum = i + 1;
+      return {
+        id: `lvl-${year}-${lvlNum}`,
+        levelNumber: lvlNum,
+        levelName: `Level ${lvlNum}`,
+        colorHex: colors[i % colors.length] ?? '#2563EB',
+        rewardType: 'HYBRID',
+        promotionBonusAmount: 0,
+        physicalItemName: '',
+        retentionFloorGmv: 0,
+        promotionCeilingGmv: 0,
+        retentionMultiplier: 1.0,
+        project: {
+          projectName: '',
+          subTaskBullets: [],
+        },
+      };
+    });
+  };
+
+  const [deptLevelConfigs, setDeptLevelConfigs] = useState<Record<string, AdminLevelItem[]>>({});
   const [editingItem, setEditingItem] = useState<AdminLevelItem | null>(null);
 
-  const handleSaveItem = () => {
-    if (!editingItem) return;
-    setLevels((prev) =>
-      prev.map((item) => (item.id === editingItem.id ? editingItem : item))
+  const activeDept = departments.find((d) => d.id === selectedDeptId) || departments[0] || { id: 'default', name: 'Phòng Ban' };
+  const currentConfigKey = `${selectedDeptId}_${selectedYear}`;
+  const activeLevels = deptLevelConfigs[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+
+  // Load existing department config from Backend
+  useEffect(() => {
+    if (!selectedDeptId) return;
+    let isMounted = true;
+    void levelingApi
+      .getAdminDepartmentConfig(selectedDeptId, selectedYear, activeDept.name)
+      .then((data) => {
+        if (isMounted) {
+          if (Array.isArray(data) && data.length > 0) {
+            setDeptLevelConfigs((prev) => ({
+              ...prev,
+              [currentConfigKey]: data,
+            }));
+          } else {
+            setDeptLevelConfigs((prev) => ({
+              ...prev,
+              [currentConfigKey]: createDefault12Levels(activeDept.name, selectedYear),
+            }));
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDeptId, selectedYear, activeDept.name, currentConfigKey]);
+
+  // Real-time Socket.io Sync Listener
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.emit('level:join_config_room', { departmentId: selectedDeptId, year: selectedYear });
+
+    const handleLevelConfigUpdated = (payload: any) => {
+      if (payload && payload.departmentId && payload.levels) {
+        const key = payload.year ? `${payload.departmentId}_${payload.year}` : payload.departmentId;
+        setDeptLevelConfigs((prev) => ({
+          ...prev,
+          [key]: payload.levels,
+        }));
+      }
+    };
+
+    const handleDataReset = () => {
+      setDeptLevelConfigs({});
+    };
+
+    socket.on('level:config:updated', handleLevelConfigUpdated);
+    socket.on('level:updated', handleLevelConfigUpdated);
+    socket.on('level:data_reset', handleDataReset);
+
+    return () => {
+      socket.off('level:config:updated', handleLevelConfigUpdated);
+      socket.off('level:updated', handleLevelConfigUpdated);
+      socket.off('level:data_reset', handleDataReset);
+    };
+  }, [selectedDeptId, selectedYear, getSocket]);
+
+  const syncConfigToBackend = (updatedList: AdminLevelItem[]) => {
+    void levelingApi
+      .saveAdminDepartmentConfig({
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        year: selectedYear,
+        levels: updatedList,
+      })
+      .catch(() => {});
+
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('level:config:update', {
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        year: selectedYear,
+        levels: updatedList,
+      });
+    }
+  };
+
+  // Add New Year
+  const handleAddNewYear = () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền thêm năm cấu hình Level.');
+      return;
+    }
+    const nextYear = Math.max(...availableYears) + 1;
+    setAvailableYears((prev) => [...prev, nextYear]);
+    setSelectedYear(nextYear);
+    Alert.alert('Thành Công', `Đã khởi tạo Năm Cấu Hình Level mới: ${nextYear}!`);
+  };
+
+  // Delete Level
+  const handleDeleteLevel = (levelId: string, levelNumber: number) => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền xóa Level.');
+      return;
+    }
+    Alert.alert(
+      'Xác nhận xóa Level',
+      `Bạn có chắc chắn muốn xóa Level ${levelNumber} của Năm ${selectedYear} không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa Level',
+          style: 'destructive',
+          onPress: () => {
+            setDeptLevelConfigs((prev) => {
+              const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+              const updatedList = currentList.filter((l) => l.id !== levelId);
+              return { ...prev, [currentConfigKey]: updatedList };
+            });
+          },
+        },
+      ]
     );
-    Alert.alert('Thành Công', `Đã lưu cấu hình cho ${editingItem.levelName}!`);
+  };
+
+  // Dynamic Add New Level
+  const handleAddNewLevel = () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền thêm Level.');
+      return;
+    }
+    const nextLevelNum = activeLevels.length + 1;
+    const newLevelItem: AdminLevelItem = {
+      id: `lvl-${selectedYear}-${Date.now()}`,
+      levelNumber: nextLevelNum,
+      levelName: `Level ${nextLevelNum}`,
+      colorHex: '#0F172A',
+      rewardType: 'HYBRID',
+      promotionBonusAmount: 0,
+      physicalItemName: '',
+      retentionFloorGmv: 0,
+      promotionCeilingGmv: 0,
+      retentionMultiplier: 1.0,
+      project: {
+        projectName: '',
+        subTaskBullets: [],
+      },
+    };
+
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+      const updatedList = [...currentList, newLevelItem];
+      return { ...prev, [currentConfigKey]: updatedList };
+    });
+
+    Alert.alert('Thành Công', `Đã khởi tạo thêm Level ${nextLevelNum} cho Năm ${selectedYear} - Phòng ${activeDept.name}!`);
+  };
+
+  const handleUpdateLevelProjectName = (levelNumber: number, newProjectName: string) => {
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+      const updatedList = currentList.map((item) =>
+        item.levelNumber === levelNumber
+          ? { ...item, project: { ...item.project, projectName: newProjectName } }
+          : item
+      );
+      return { ...prev, [currentConfigKey]: updatedList };
+    });
+  };
+
+  const handleAddSubTaskToLevel = (levelNumber: number, bulletText: string) => {
+    const formattedBullet = bulletText.startsWith('•') ? bulletText : `• ${bulletText}`;
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+      const updatedList = currentList.map((item) => {
+        if (item.levelNumber === levelNumber) {
+          return {
+            ...item,
+            project: {
+              ...item.project,
+              subTaskBullets: [...(item.project.subTaskBullets || []), formattedBullet],
+            },
+          };
+        }
+        return item;
+      });
+      return { ...prev, [currentConfigKey]: updatedList };
+    });
+  };
+
+  const handleEditSubTaskInLevel = (levelNumber: number, bulletIndex: number, newBulletText: string) => {
+    const formattedBullet = newBulletText.startsWith('•') ? newBulletText : `• ${newBulletText}`;
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+      const updatedList = currentList.map((item) => {
+        if (item.levelNumber === levelNumber) {
+          const updatedBullets = [...(item.project.subTaskBullets || [])];
+          updatedBullets[bulletIndex] = formattedBullet;
+          return { ...item, project: { ...item.project, subTaskBullets: updatedBullets } };
+        }
+        return item;
+      });
+      return { ...prev, [currentConfigKey]: updatedList };
+    });
+  };
+
+  const handleDeleteSubTaskInLevel = (levelNumber: number, bulletIndex: number) => {
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+      const updatedList = currentList.map((item) => {
+        if (item.levelNumber === levelNumber) {
+          const updatedBullets = (item.project.subTaskBullets || []).filter((_, idx) => idx !== bulletIndex);
+          return { ...item, project: { ...item.project, subTaskBullets: updatedBullets } };
+        }
+        return item;
+      });
+      return { ...prev, [currentConfigKey]: updatedList };
+    });
+  };
+
+  const handleSaveModalItem = () => {
+    if (!editingItem) return;
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền lưu cấu hình Level.');
+      return;
+    }
+    setDeptLevelConfigs((prev) => {
+      const currentList = prev[currentConfigKey] || createDefault12Levels(activeDept.name, selectedYear);
+      const updatedList = currentList.map((item) => (item.id === editingItem.id ? editingItem : item));
+      return { ...prev, [currentConfigKey]: updatedList };
+    });
+    Alert.alert('Thành Công', `Đã lưu quà thưởng cho ${editingItem.levelName} - Phòng ${activeDept.name}!`);
     setEditingItem(null);
   };
 
+  const handleSaveAllAndSync = async () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền lưu và đồng bộ cấu hình Level.');
+      return;
+    }
+    try {
+      await levelingApi.saveAdminDepartmentConfig({
+        departmentId: selectedDeptId,
+        departmentName: activeDept.name,
+        year: selectedYear,
+        levels: activeLevels,
+      });
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('level:config:update', {
+          departmentId: selectedDeptId,
+          departmentName: activeDept.name,
+          year: selectedYear,
+          levels: activeLevels,
+        });
+      }
+
+      Alert.alert(
+        'Đã Lưu & Đồng Bộ Thành Công!',
+        `Đã lưu toàn bộ Cấu hình Level, Quà thưởng & Dự án cho phòng ban ${activeDept.name} (Năm ${selectedYear}). Dữ liệu đã đồng bộ Real-time tới Leader và Nhân viên!`,
+        [{ text: 'Về Trang Chủ Admin', onPress: () => setActiveStep(1) }]
+      );
+    } catch {
+      Alert.alert(
+        'Thành Công',
+        `Đã lưu và phát lệnh đồng bộ cho phòng ban ${activeDept.name}.`
+      );
+    }
+  };
+
+  const handleResetAllData = () => {
+    if (!canConfigure) {
+      Alert.alert('Không có quyền', 'Bạn không có quyền xóa sạch dữ liệu.');
+      return;
+    }
+    Alert.alert(
+      'XÁC NHẬN XÓA SẠCH DỮ LIỆU TEST',
+      'Bạn có chắc chắn muốn xóa sạch toàn bộ dữ liệu cấu hình Level, Dự án, Việc con & Duyệt thi đua để test lại từ đầu không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa Sạch Dữ Liệu Test',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // 1. Reset backend config via existing /admin/config endpoint
+              await levelingApi.saveAdminDepartmentConfig({
+                departmentId: selectedDeptId || 'dept-1',
+                departmentName: activeDept.name || 'Phòng ban',
+                year: selectedYear || 2026,
+                levels: [],
+              }).catch(() => {});
+
+              // 2. Reset backend via reset-data if available
+              await apiClient.post('/leveling/admin/reset-data').catch(() => {});
+
+              // 3. Delete all approved user level keys in SecureStore
+              const existingIdsRaw = await SecureStore.getItemAsync('ALL_APPROVED_USER_IDS').catch(() => null);
+              if (existingIdsRaw) {
+                try {
+                  const ids = JSON.parse(existingIdsRaw);
+                  if (Array.isArray(ids)) {
+                    for (const uid of ids) {
+                      await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${uid}`).catch(() => {});
+                    }
+                  }
+                } catch {}
+              }
+
+              // Also clear current user approved level key
+              if (user?.id) {
+                await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+              }
+
+              await SecureStore.deleteItemAsync('ALL_APPROVED_USER_IDS').catch(() => {});
+              await SecureStore.deleteItemAsync('LEADER_ROUND1_SUBMITTED_USERS').catch(() => {});
+              await SecureStore.deleteItemAsync('ADMIN_PENDING_ROUND1_REVIEWS').catch(() => {});
+              await SecureStore.deleteItemAsync('ML_LEVEL_DEPARTMENT_PROJECTS_V6').catch(() => {});
+
+              // Save global data reset timestamp
+              const resetTime = Date.now();
+              await SecureStore.setItemAsync('LAST_DATA_RESET_TIMESTAMP', String(resetTime)).catch(() => {});
+
+              // 4. Broadcast socket reset event
+              const socket = getSocket();
+              if (socket) {
+                socket.emit('level:data_reset', { resetAt: resetTime });
+              }
+
+              setDeptLevelConfigs({});
+              Alert.alert('Thành Công', 'Đã xóa sạch dữ liệu! Bạn có thể bắt đầu test lại từ đầu.');
+            } catch {
+              setDeptLevelConfigs({});
+              Alert.alert('Thành Công', 'Đã xóa sạch dữ liệu local và sẵn sàng test lại!');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Build Department Summaries for Page 1
+  const deptSummaries: DepartmentSummaryItem[] = departments.map((d) => {
+    const key = `${d.id}_${selectedYear}`;
+    const list = deptLevelConfigs[key] || createDefault12Levels(d.name, selectedYear);
+    const topItem = list.find((l) => l.levelNumber === 12) || list[list.length - 1];
+    return {
+      id: d.id,
+      name: d.name,
+      totalLevels: list.length,
+      topRewardName: topItem && topItem.physicalItemName ? topItem.physicalItemName : 'Chưa cấu hình',
+    };
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
-          <Ionicons name="settings-sharp" size={26} color="#D97706" />
-          <View>
-            <Text style={styles.title}>Cấu Hình Cấp Bậc & Thưởng Hiện Vật</Text>
-            <Text style={styles.sub}>Quản lý danh mục 8 Level, MacBook/iPad & 2 Ngưỡng</Text>
+    <View style={styles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
+
+      {/* Top Header Safe Area (Navy Blue #1E293B) */}
+      <SafeAreaView style={styles.headerSafeArea}>
+        {/* Executive Header Card */}
+        <View style={styles.executiveHeaderCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Quản Lý Cấu Hình Level 3 Bước Khoa Học</Text>
+              {!canConfigure && (
+                <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                  (Chế độ xem - Bạn không có quyền cấu hình)
+                </Text>
+              )}
+            </View>
+            {canConfigure && (
+              <TouchableOpacity
+                style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                onPress={handleResetAllData}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>🗑 XÓA DATA TEST</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {levels.map((lvl) => (
-          <View key={lvl.id} style={styles.levelCard}>
-            <View style={styles.cardHeaderRow}>
-              <View style={styles.levelTitleGroup}>
-                <View style={[styles.colorBadge, { backgroundColor: lvl.colorHex }]}>
-                  <Text style={styles.colorBadgeText}>L{lvl.levelNumber}</Text>
-                </View>
-                <Text style={styles.levelName}>{lvl.levelName}</Text>
-              </View>
+        {/* 3-Step Progress Stepper Navigation Bar */}
+        <View style={styles.stepperContainer}>
+          <TouchableOpacity
+            style={[styles.stepTab, activeStep === 1 && styles.stepTabActive]}
+            onPress={() => setActiveStep(1)}
+          >
+            <Text style={[styles.stepNumber, activeStep === 1 && styles.stepNumberActive]}>1</Text>
+            <Text style={[styles.stepTitle, activeStep === 1 && styles.stepTitleActive]}>Phòng Ban</Text>
+          </TouchableOpacity>
 
-              <TouchableOpacity style={styles.editBtn} onPress={() => setEditingItem({ ...lvl })}>
-                <Ionicons name="create-outline" size={18} color="#2563EB" />
-                <Text style={styles.editBtnText}>Chỉnh sửa</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.stepDivider} />
 
-            {/* Reward Box */}
-            <View style={styles.rewardBox}>
-              <Ionicons name="gift" size={18} color="#D97706" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rewardTitle}>Quà Hiện Vật: <Text style={{ color: '#B45309', fontWeight: 'bold' }}>{lvl.physicalItemName}</Text></Text>
-                <Text style={styles.rewardBonus}>Thưởng nóng: {lvl.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ</Text>
-              </View>
-            </View>
+          <TouchableOpacity
+            style={[styles.stepTab, activeStep === 2 && styles.stepTabActive]}
+            onPress={() => setActiveStep(2)}
+          >
+            <Text style={[styles.stepNumber, activeStep === 2 && styles.stepNumberActive]}>2</Text>
+            <Text style={[styles.stepTitle, activeStep === 2 && styles.stepTitleActive]}>Quà Thưởng</Text>
+          </TouchableOpacity>
 
-            {/* 2 Thresholds */}
-            <View style={styles.thresholdGrid}>
-              <View style={[styles.thresholdItem, styles.floorBox]}>
-                <Text style={styles.floorLabel}>🔻 Mốc Duy Trì Cấp (Đỏ)</Text>
-                <Text style={styles.floorValue}>{lvl.retentionFloorGmv} Tr VNĐ</Text>
-              </View>
+          <View style={styles.stepDivider} />
 
-              <View style={[styles.thresholdItem, styles.ceilingBox]}>
-                <Text style={styles.ceilingLabel}>🚀 Mốc Nâng Cấp (Xanh)</Text>
-                <Text style={styles.ceilingValue}>{lvl.promotionCeilingGmv} Tr VNĐ</Text>
-              </View>
-            </View>
+          <TouchableOpacity
+            style={[styles.stepTab, activeStep === 3 && styles.stepTabActive]}
+            onPress={() => setActiveStep(3)}
+          >
+            <Text style={[styles.stepNumber, activeStep === 3 && styles.stepNumberActive]}>3</Text>
+            <Text style={[styles.stepTitle, activeStep === 3 && styles.stepTitleActive]}>Giao Dự Án</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
-            <Text style={styles.multiplierText}>
-              • Hệ số tích điểm Ví Tết: <Text style={{ fontWeight: 'bold', color: '#111827' }}>{lvl.retentionMultiplier}x</Text>
-            </Text>
+      {/* Page Content Switcher & Bottom Container (Clean White #F8FAFC) */}
+      <View style={styles.pageBodyContainer}>
+        {isLoading && departments.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text style={styles.loadingText}>Đang tải danh sách phòng ban thật từ Database Postgres...</Text>
           </View>
-        ))}
-      </ScrollView>
+        ) : (
+          <>
+            {activeStep === 1 && (
+              <AdminDeptOverviewPage
+                departments={deptSummaries}
+                selectedDeptId={selectedDeptId}
+                onSelectDepartment={(id) => setSelectedDeptId(id)}
+                onNextToRewards={() => setActiveStep(2)}
+              />
+            )}
+
+            {activeStep === 2 && (
+              <AdminLevelRewardsPage
+                departmentName={activeDept.name}
+                levels={activeLevels}
+                selectedYear={selectedYear}
+                availableYears={availableYears}
+                isGlobalAdmin={canConfigure}
+                onSelectYear={setSelectedYear}
+                onAddNewYear={handleAddNewYear}
+                onEditLevelReward={(lvl) => setEditingItem({ ...lvl })}
+                onDeleteLevel={handleDeleteLevel}
+                onAddNewLevel={handleAddNewLevel}
+                onNextToProjects={() => setActiveStep(3)}
+              />
+            )}
+
+            {activeStep === 3 && (
+              <AdminLevelProjectsPage
+                departmentName={activeDept.name}
+                levels={activeLevels}
+                selectedYear={selectedYear}
+                availableYears={availableYears}
+                isGlobalAdmin={canConfigure}
+                onSelectYear={setSelectedYear}
+                onUpdateLevelProjectName={handleUpdateLevelProjectName}
+                onAddSubTaskToLevel={handleAddSubTaskToLevel}
+                onEditSubTaskInLevel={handleEditSubTaskInLevel}
+                onDeleteSubTaskInLevel={handleDeleteSubTaskInLevel}
+                onSaveAllAndSync={handleSaveAllAndSync}
+              />
+            )}
+          </>
+        )}
+      </View>
 
       {/* Edit Level Modal */}
       <Modal visible={editingItem !== null} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chỉnh Sửa Level {editingItem?.levelNumber}</Text>
+              <Text style={styles.modalTitle}>Chỉnh Sửa {editingItem?.levelName} - Phòng {activeDept.name}</Text>
               <TouchableOpacity onPress={() => setEditingItem(null)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Text style={{ fontSize: 18, color: '#6B7280', fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
             {editingItem && (
-              <ScrollView style={{ maxHeight: 400 }}>
+              <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
                 <Text style={styles.inputLabel}>Tên Cấp Bậc:</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.modalInput}
                   value={editingItem.levelName}
                   onChangeText={(text) => setEditingItem({ ...editingItem, levelName: text })}
                 />
 
-                <Text style={styles.inputLabel}>Quà Hiện Vật (MacBook, iPad, Vàng...):</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editingItem.physicalItemName}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, physicalItemName: text })}
-                />
+                <Text style={styles.inputLabel}>Hình Thức Phần Thưởng:</Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.rewardTypeOption,
+                      editingItem.rewardType === 'CASH' && styles.rewardTypeOptionActive,
+                    ]}
+                    onPress={() => setEditingItem({ ...editingItem, rewardType: 'CASH' })}
+                  >
+                    <Text
+                      style={[
+                        styles.rewardTypeOptionText,
+                        editingItem.rewardType === 'CASH' && styles.rewardTypeOptionTextActive,
+                      ]}
+                    >
+                      💵 Tiền mặt
+                    </Text>
+                  </TouchableOpacity>
 
-                <Text style={styles.inputLabel}>Thưởng Tiền Mặt (VNĐ):</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={String(editingItem.promotionBonusAmount)}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, promotionBonusAmount: Number(text) || 0 })}
-                />
+                  <TouchableOpacity
+                    style={[
+                      styles.rewardTypeOption,
+                      editingItem.rewardType === 'PHYSICAL_ITEM' && styles.rewardTypeOptionActive,
+                    ]}
+                    onPress={() => setEditingItem({ ...editingItem, rewardType: 'PHYSICAL_ITEM' })}
+                  >
+                    <Text
+                      style={[
+                        styles.rewardTypeOptionText,
+                        editingItem.rewardType === 'PHYSICAL_ITEM' && styles.rewardTypeOptionTextActive,
+                      ]}
+                    >
+                      🎁 Hiện vật
+                    </Text>
+                  </TouchableOpacity>
 
-                <Text style={styles.inputLabel}>🔻 Mốc Duy Trì Cấp (Tr VNĐ):</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={String(editingItem.retentionFloorGmv)}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, retentionFloorGmv: Number(text) || 0 })}
-                />
+                  <TouchableOpacity
+                    style={[
+                      styles.rewardTypeOption,
+                      editingItem.rewardType === 'HYBRID' && styles.rewardTypeOptionActive,
+                    ]}
+                    onPress={() => setEditingItem({ ...editingItem, rewardType: 'HYBRID' })}
+                  >
+                    <Text
+                      style={[
+                        styles.rewardTypeOptionText,
+                        editingItem.rewardType === 'HYBRID' && styles.rewardTypeOptionTextActive,
+                      ]}
+                    >
+                      ✨ Cả hai (Kết hợp)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-                <Text style={styles.inputLabel}>🚀 Mốc Nâng Cấp Mới (Tr VNĐ):</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={String(editingItem.promotionCeilingGmv)}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, promotionCeilingGmv: Number(text) || 0 })}
-                />
+                {(editingItem.rewardType === 'CASH' || editingItem.rewardType === 'HYBRID') && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={styles.inputLabel}>Tổng Quỹ Thưởng Tiền Mặt (VNĐ):</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      keyboardType="number-pad"
+                      placeholder="VD: 20000000"
+                      placeholderTextColor="#94A3B8"
+                      value={editingItem.promotionBonusAmount > 0 ? String(editingItem.promotionBonusAmount) : ''}
+                      onChangeText={(text) =>
+                        setEditingItem({
+                          ...editingItem,
+                          promotionBonusAmount: Number(text.replace(/[^0-9]/g, '')) || 0,
+                        })
+                      }
+                    />
+                    {editingItem.promotionBonusAmount > 0 && (
+                      <Text style={styles.moneyPreviewText}>
+                        💰 {editingItem.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ (Tự động chia theo Hệ số Level của nhân viên tham gia)
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {(editingItem.rewardType === 'PHYSICAL_ITEM' || editingItem.rewardType === 'HYBRID') && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={styles.inputLabel}>
+                      Quà Hiện Vật (Nhập 1 hoặc nhiều món, ngăn cách bằng dấu phẩy):
+                    </Text>
+                    <TextInput
+                      style={[styles.modalInput, { minHeight: 60, textAlignVertical: 'top' }]}
+                      placeholder="VD: 1 Chuyến dã ngoại, 3 Tai nghe Sony, 1 Cúp vinh danh"
+                      placeholderTextColor="#94A3B8"
+                      multiline
+                      value={editingItem.physicalItemName}
+                      onChangeText={(text) => {
+                        const items = text.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+                        setEditingItem({
+                          ...editingItem,
+                          physicalItemName: text,
+                          physicalItems: items,
+                        });
+                      }}
+                    />
+                    <Text style={styles.itemNoteText}>
+                      📦 Quà hiện vật sẽ được lưu trữ và hiển thị chung cho toàn đội tham gia.
+                    </Text>
+                  </View>
+                )}
+
+                {/* PHỤ LỤC QUYỀN LỢI & ĐẶC QUYỀN THĂNG CẤP */}
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Hệ Số Ví Điểm Thưởng Tết:</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="numeric"
+                    placeholder="VD: 1.5"
+                    placeholderTextColor="#94A3B8"
+                    value={String(editingItem.retentionMultiplier || 1.0)}
+                    onChangeText={(text) =>
+                      setEditingItem({
+                        ...editingItem,
+                        retentionMultiplier: Number(text) || 1.0,
+                      })
+                    }
+                  />
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Phụ Cấp Chuyên Môn / Chức Danh (VNĐ/tháng):</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="number-pad"
+                    placeholder="VD: 1000000"
+                    placeholderTextColor="#94A3B8"
+                    value={editingItem.allowanceAmount ? String(editingItem.allowanceAmount) : ''}
+                    onChangeText={(text) =>
+                      setEditingItem({
+                        ...editingItem,
+                        allowanceAmount: Number(text.replace(/[^0-9]/g, '')) || 0,
+                      })
+                    }
+                  />
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>
+                    Danh Sách Quyền Lợi & Đặc Quyền Mở Khóa (Mỗi quyền lợi 1 dòng):
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, { minHeight: 70, textAlignVertical: 'top' }]}
+                    placeholder="VD:&#10;• Ký HĐLĐ chính thức&#10;• Ưu tiên chọn ca làm&#10;• Mở khóa nhận việc con dự án"
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    value={
+                      Array.isArray(editingItem.perks)
+                        ? editingItem.perks.join('\n')
+                        : ''
+                    }
+                    onChangeText={(text) => {
+                      const list = text
+                        .split('\n')
+                        .map((s) => s.replace(/^[•\-\*]\s*/, '').trim())
+                        .filter(Boolean);
+                      setEditingItem({
+                        ...editingItem,
+                        perks: list,
+                      });
+                    }}
+                  />
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Thông Điệp Động Lực Thăng Cấp (Phụ lục):</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="VD: Nỗ lực hôm nay là nền tảng cho sự nghiệp ngày mai!"
+                    placeholderTextColor="#94A3B8"
+                    value={editingItem.motivationQuote || ''}
+                    onChangeText={(text) =>
+                      setEditingItem({
+                        ...editingItem,
+                        motivationQuote: text,
+                      })
+                    }
+                  />
+                </View>
+
+                <View style={styles.rewardGuideBox}>
+                  <Text style={styles.rewardGuideText}>
+                    💡 <Text style={{ fontWeight: 'bold' }}>Phụ lục quyền lợi:</Text> Toàn bộ phần thưởng, phụ cấp, hệ số và đặc quyền cấu hình tại đây sẽ tự động hiển thị trong Phụ Lục Quyền Lợi Level Tiếp Theo của nhân sự để tạo động lực thăng cấp.
+                  </Text>
+                </View>
               </ScrollView>
             )}
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveItem}>
-              <Text style={styles.saveBtnText}>LƯU CẤU HÌNH LEVEL</Text>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveModalItem}>
+              <Text style={styles.saveBtnText}>LƯU QUÀ THƯỞNG PHÒNG {activeDept.name.toUpperCase()}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  rootContainer: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC',
   },
-  scroll: {
-    padding: 16,
+  headerSafeArea: {
+    backgroundColor: '#1E293B',
   },
-  header: {
-    flexDirection: 'row',
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
+    padding: 24,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  pageBodyContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  executiveHeaderCard: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  executiveBadgeTitle: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#94A3B8',
+    letterSpacing: 1.2,
   },
   title: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#FFFFFF',
   },
-  sub: {
-    fontSize: 12,
-    color: '#D97706',
-    fontWeight: '600',
-  },
-  levelCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 12,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  levelTitleGroup: {
+  stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
   },
-  colorBadge: {
-    paddingHorizontal: 8,
+  stepTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
-  colorBadgeText: {
+  stepTabActive: {
+    backgroundColor: '#334155',
+  },
+  stepNumber: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#475569',
+    color: '#CBD5E1',
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: 'bold',
+    lineHeight: 20,
+  },
+  stepNumberActive: {
+    backgroundColor: '#2563EB',
+    color: '#FFFFFF',
+  },
+  stepTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  stepTitleActive: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 12,
   },
-  levelName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: '#EFF6FF',
-  },
-  editBtnText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#2563EB',
-  },
-  rewardBox: {
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    padding: 10,
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  rewardTitle: {
-    fontSize: 12,
-    color: '#92400E',
-  },
-  rewardBonus: {
-    fontSize: 11,
-    color: '#B45309',
-    marginTop: 2,
-  },
-  thresholdGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  thresholdItem: {
+  stepDivider: {
     flex: 1,
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  floorBox: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
-  },
-  ceilingBox: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  floorLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#DC2626',
-  },
-  floorValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#991B1B',
-    marginTop: 2,
-  },
-  ceilingLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#059669',
-  },
-  ceilingValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#065F46',
-    marginTop: 2,
-  },
-  multiplierText: {
-    fontSize: 11,
-    color: '#6B7280',
+    height: 1,
+    backgroundColor: '#475569',
+    marginHorizontal: 4,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
   },
   modalHeader: {
@@ -412,27 +902,80 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#0F172A',
   },
   inputLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#334155',
     marginTop: 8,
     marginBottom: 4,
   },
-  input: {
+  modalInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     fontSize: 13,
+    backgroundColor: '#FFFFFF',
+    color: '#0F172A',
+  },
+  rewardTypeOption: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rewardTypeOptionActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+  },
+  rewardTypeOptionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  rewardTypeOptionTextActive: {
+    color: '#1D4ED8',
+    fontWeight: 'bold',
+  },
+  moneyPreviewText: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  itemNoteText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  rewardGuideBox: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+  },
+  rewardGuideText: {
+    fontSize: 11,
+    color: '#166534',
+    lineHeight: 16,
   },
   saveBtn: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#1E40AF',
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 16,
   },

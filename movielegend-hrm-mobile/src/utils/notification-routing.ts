@@ -67,7 +67,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type.startsWith('CHAT_') && groupId) return `${base}/chat/${groupId}`;
   if (notification.type.startsWith('VIOLATION_') && violationId) return `${base}/violations/${violationId}`;
   if (notification.type.startsWith('NEWSFEED_POST_') && postId) {
-    if (notification.type === 'NEWSFEED_POST_PENDING') {
+    if ((notification.type as string) === 'NEWSFEED_POST_PENDING') {
       const pendingBase = (base === '/admin' || base === '/hr') ? base : '/leader';
       return `${pendingBase}/newsfeed/pending/${postId}`;
     }
@@ -78,17 +78,108 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     const targetBase = base === '/warehouse-manager' ? '/employee' : base;
     return `${targetBase}/newsfeed/${postId}`;
   }
-  if (notification.type === 'SYSTEM') {
-    const t = notification.title?.toLowerCase() || '';
-    if (t.includes('phân ca mới') || t.includes('phân ca làm việc mới')) {
-      return `${base}/schedule`;
+
+  const t = (notification.title || '').toLowerCase();
+  const b = (notification.body || '').toLowerCase();
+  const text = `${t} ${b}`;
+
+  const notifType = notification.type || '';
+  const metaType = stringMeta(notification.metadata, 'type') || '';
+
+  // 1. Documents & Department Files Routing (Priority over generic words)
+  const documentId = stringMeta(notification.metadata, 'documentId');
+  if (
+    documentId ||
+    stringMeta(notification.metadata, 'screen') === 'DocumentList' ||
+    notification.type.startsWith('DOCUMENT_') ||
+    t.includes('tài liệu') ||
+    b.includes('tài liệu')
+  ) {
+    if (user?.roles.includes('ADMIN')) return '/admin/documents';
+    if (user?.roles.includes('HR') || user?.roles.includes('ACCOUNTANT')) return '/hr/documents';
+    if (user?.roles.includes('LEADER')) return '/leader/documents';
+    return '/employee/documents';
+  }
+
+  // 2. Leveling & Level Projects Routing
+  if (
+    notifType.startsWith('LEVEL_') ||
+    metaType.startsWith('LEVEL_') ||
+    t.includes('dự án cấp bậc') ||
+    t.includes('dự án level') ||
+    t.includes('cấp bậc') ||
+    t.includes('việc con') ||
+    t.includes('thăng cấp') ||
+    t.includes('lên cấp') ||
+    t.includes('xét cấp bậc') ||
+    b.includes('dự án cấp bậc') ||
+    b.includes('dự án level') ||
+    b.includes('việc con') ||
+    b.includes('cấp bậc') ||
+    b.includes('thăng cấp')
+  ) {
+    if (base === '/admin') return '/admin/levels';
+    if (base === '/leader') return '/leader/level-projects';
+    return '/employee/level-projects';
+  }
+
+  // 3. Bonus Vault & Points Routing
+  if (
+    notifType.startsWith('VAULT_') ||
+    metaType.startsWith('VAULT_') ||
+    text.includes('ví thưởng') ||
+    text.includes('điểm thưởng') ||
+    text.includes('thưởng cuối năm') ||
+    text.includes('rút ví') ||
+    text.includes('rút điểm') ||
+    text.includes('thưởng tết') ||
+    text.includes('lệnh chi tiền') ||
+    text.includes('chi trả') ||
+    text.includes('tất toán') ||
+    text.includes('yêu cầu rút') ||
+    text.includes('trao gói thưởng') ||
+    text.includes('trao điểm thưởng')
+  ) {
+    if (base === '/admin') {
+      return '/admin/tet-wallet?tab=WITHDRAWALS';
     }
-    if (t.includes('check in') || t.includes('check out') || t.includes('chấm công') || t.includes('giờ làm việc') || t.includes('ca làm việc')) {
-      return `${base}/attendance/check-in`;
+    if (base === '/leader') {
+      const userDept = (user?.department?.name || '').toLowerCase();
+      if (userDept.includes('kế toán') || userDept.includes('tài chính') || user?.roles?.includes('ACCOUNTANT')) {
+        return '/leader/disbursement';
+      }
+      return '/leader/vault';
     }
-    if ((t.includes('công việc') || t.includes('nhiệm vụ') || t.includes('task')) && taskId) {
-      return `${base}/tasks/${taskId}`;
-    }
+    return `${base}/vault`;
+  }
+
+  if (
+    notification.type === 'PAYSLIP_AVAILABLE' ||
+    notification.type === 'PAYROLL_APPROVED' ||
+    stringMeta(notification.metadata, 'screen') === 'EmployeePayslip' ||
+    stringMeta(notification.metadata, 'type') === 'PAYSLIP_OFFICIAL_IMAGE' ||
+    t.includes('phiếu lương')
+  ) {
+    return `${base}/payslip`;
+  }
+
+  if (
+    stringMeta(notification.metadata, 'screen') === 'MonthlyTimesheet' ||
+    stringMeta(notification.metadata, 'type') === 'TIMESHEET_OFFICIAL_IMAGE' ||
+    t.includes('bảng chấm công') ||
+    t.includes('bảng công')
+  ) {
+    return `${base}/timesheet`;
+  }
+
+  if (notification.type === 'SYSTEM' && (t.includes('phân ca mới') || t.includes('phân ca làm việc mới'))) {
+    return `${base}/schedule`;
+  }
+  if (notification.type === 'SYSTEM' && (t.includes('check in') || t.includes('check out') || t.includes('chấm công') || t.includes('giờ làm việc') || t.includes('ca làm việc'))) {
+    return `${base}/attendance/check-in`;
+  }
+  if (notification.type === 'SYSTEM' && (t.includes('công việc') || t.includes('nhiệm vụ') || t.includes('task')) && taskId) {
+    return `${base}/tasks/${taskId}`;
   }
   if (notification.type === 'SYSTEM' && contractId) {
     return `${base}/contracts/${contractId}`;
@@ -98,12 +189,15 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
 }
 
 export function getNotificationIcon(type: string, title?: string): any {
+  const t = (title || '').toLowerCase();
+  if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || t.includes('tài liệu')) return 'file-document-outline';
+  if (t.includes('dự án cấp bậc') || t.includes('cấp bậc') || t.includes('việc con') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return 'trophy-award';
+  if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('rút tiền') || t.includes('rút ví') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return 'wallet-giftcard';
   if (type.startsWith('TASK_')) return 'clipboard-check-outline';
   if (type.startsWith('ASSET_INCIDENT_')) return 'alert-circle-outline';
   if (type.startsWith('ASSET_')) return 'desktop-mac';
   if (type.startsWith('MATERIAL_ISSUE_') || type.startsWith('STOCK_')) return 'package-variant-closed';
   if (type.startsWith('PAYROLL_') || type.startsWith('PAYSLIP_')) return 'cash-multiple';
-  if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_')) return 'file-document-outline';
   if (type.startsWith('CHAT_')) return 'chat-processing-outline';
   if (type.startsWith('VIOLATION_')) return 'gavel';
   if (type.startsWith('NEWSFEED_')) return 'newspaper-variant-outline';
@@ -116,6 +210,10 @@ export function getNotificationIcon(type: string, title?: string): any {
 }
 
 export function getNotificationColor(type: string, title?: string): string {
+  const t = (title || '').toLowerCase();
+  if (type.startsWith('DOCUMENT_') || t.includes('tài liệu')) return colors.primary;
+  if (t.includes('dự án cấp bậc') || t.includes('cấp bậc') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return '#0F766E';
+  if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return '#D97706';
   if (type.startsWith('TASK_')) return colors.primary;
   if (type.startsWith('ASSET_INCIDENT_')) return colors.danger;
   if (type.startsWith('ASSET_')) return colors.warning;
@@ -123,9 +221,10 @@ export function getNotificationColor(type: string, title?: string): string {
   if (type.startsWith('PAYROLL_')) return colors.success;
   if (type === 'ACCOUNT_APPROVAL_REQUESTED') return colors.warning;
   if (type === 'NEWSFEED_POST_PENDING') return colors.warning;
-  if (type.includes('REJECTED') || type.includes('FAILED')) return colors.danger;
-  if (type.includes('APPROVED') || type.includes('CONFIRMED')) return colors.success;
+  if (type.includes('REJECTED') || type.includes('FAILED') || t.includes('từ chối') || t.includes('sửa lại')) return colors.danger;
+  if (type.includes('APPROVED') || type.includes('CONFIRMED') || t.includes('thành công') || t.includes('đã duyệt')) return colors.success;
   if (type === 'SYSTEM' && (title === 'Phân ca mới' || title === 'Phân ca làm việc mới')) return colors.primary;
   
-  return colors.textLight;
+  return colors.muted;
 }
+

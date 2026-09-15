@@ -41,6 +41,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
       client.data.roles = payload.roles ?? [];
       client.data.scopes = payload.scopes ?? [];
       client.join(`user:${payload.sub}`);
+      client.join('company');
       for (const scope of payload.scopes ?? []) {
         if (scope.scopeId) client.join(`department:${scope.scopeId}`);
       }
@@ -79,6 +80,30 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
     if (!departmentId) return { ok: false, code: 'DEPARTMENT_ID_OR_GROUP_ID_REQUIRED' };
     // TODO: Verify if user belongs to this department before joining
     client.join(`department:${departmentId}`);
+    return { ok: true };
+  }
+
+  @SubscribeMessage('level:join_config_room')
+  handleLevelJoinConfigRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { departmentId?: string; year?: number },
+  ) {
+    if (payload?.departmentId) {
+      client.join(`department:${payload.departmentId}`);
+    }
+    client.join('level:config_room');
+    return { ok: true };
+  }
+
+  @SubscribeMessage('level:config:update')
+  handleLevelConfigUpdate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { departmentId: string; year: number; levels: any[] },
+  ) {
+    if (!payload?.departmentId) return { ok: false, code: 'DEPARTMENT_ID_REQUIRED' };
+    this.server.to(`department:${payload.departmentId}`).emit('level:config:updated', payload);
+    this.server.to('level:config_room').emit('level:config:updated', payload);
+    this.server.emit('level:config:updated', payload);
     return { ok: true };
   }
 

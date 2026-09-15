@@ -39,7 +39,8 @@ export function isOverdue(dueAt?: string | null, status?: TaskStatus | TaskAssig
   return dueDate.getTime() < now.getTime();
 }
 
-export function taskDeadlineLabel(dueAt?: string | null, now = new Date()): string {
+export function taskDeadlineLabel(dueAt?: string | null, now = new Date(), status?: TaskStatus | TaskAssignmentStatus): string {
+  if (status === 'COMPLETED' || status === 'CANCELLED') return '';
   const dueDate = toDate(dueAt);
   if (!dueDate) return 'Không có hạn chót';
   const diffMs = dueDate.getTime() - now.getTime();

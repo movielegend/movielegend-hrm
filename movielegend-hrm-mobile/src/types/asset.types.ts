@@ -11,7 +11,7 @@ export type AssetStatus =
   | 'DISPOSED'
   | 'TRANSFER_PENDING';
 
-export type AssetConditionStatus = 'BROKEN' | 'PENDING' | 'OK';
+export type AssetConditionStatus = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
 
 export type AssetMaintenanceStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 

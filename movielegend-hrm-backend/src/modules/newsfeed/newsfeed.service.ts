@@ -4,12 +4,16 @@ import { CreateNewsfeedPostDto, CreateCommentDto, ApprovePostDto } from './dto/n
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { RealtimeEventsService } from '../realtime/realtime-events.service';
 
 @Injectable()
 export class NewsfeedService {
   constructor(
     private prisma: PrismaService,
-    private notificationsService: NotificationsService
+    private notificationsService: NotificationsService,
+    private scope: DepartmentScopeService,
+    private realtimeEvents: RealtimeEventsService,
   ) {}
 
   async createPost(user: AuthenticatedUser, dto: CreateNewsfeedPostDto) {
@@ -120,7 +124,8 @@ export class NewsfeedService {
   }
 
   async getPendingPosts(user: AuthenticatedUser, departmentId?: string) {
-    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN') || user.roles.includes('HR');
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(user);
+    const isGlobalAdmin = user.roles.includes('ADMIN') && visibleDepts === null;
     
     // If not admin, they can only see pending posts for departments they lead
     const leaderDepartments = await this.prisma.department.findMany({
@@ -129,14 +134,29 @@ export class NewsfeedService {
     });
     
     const leaderDepIds = leaderDepartments.map(d => d.id);
-    if (!isAdmin && leaderDepIds.length === 0) {
+    
+    // Admin có quyền duyệt: Global Admin duyệt tất cả, Regional Admin duyệt trong phạm vi.
+    // Leader duyệt trong phạm vi leaderDepIds.
+    let allowedDepts = new Set<string>();
+    
+    if (visibleDepts !== null) {
+      visibleDepts.forEach(d => allowedDepts.add(d));
+      leaderDepIds.forEach(d => allowedDepts.add(d));
+    }
+    
+    if (visibleDepts !== null) {
+      visibleDepts.forEach(d => allowedDepts.add(d));
+      leaderDepIds.forEach(d => allowedDepts.add(d));
+    }
+    
+    if (!isGlobalAdmin && allowedDepts.size === 0) {
       throw new ForbiddenException('Bạn không có quyền duyệt bài viết');
     }
 
-    let depFilter: any = isAdmin ? undefined : { in: leaderDepIds };
+    let depFilter: any = isGlobalAdmin ? undefined : { in: Array.from(allowedDepts) };
     if (departmentId) {
-       if (!isAdmin && !leaderDepIds.includes(departmentId)) {
-         throw new ForbiddenException('Bạn không phải là leader của phòng ban này');
+       if (!isGlobalAdmin && !allowedDepts.has(departmentId as string)) {
+         throw new ForbiddenException('Bạn không có quyền duyệt bài viết của phòng ban này');
        }
        depFilter = departmentId;
     }
@@ -163,14 +183,25 @@ export class NewsfeedService {
       throw new ForbiddenException(`Bài viết đã được ${post.status === 'APPROVED' ? 'duyệt' : 'từ chối'} trước đó`);
     }
 
-    const isAdmin = user.permissions.includes('admin') || user.roles.includes('ADMIN') || user.roles.includes('SYSTEM_ADMIN');
-    if (!isAdmin) {
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(user);
+    const isGlobalAdmin = user.roles.includes('ADMIN') && visibleDepts === null;
+
+    if (!isGlobalAdmin) {
       if (!post.departmentId) {
-        throw new ForbiddenException('Chỉ admin mới được duyệt bài viết toàn công ty');
+        throw new ForbiddenException('Chỉ admin toàn cầu mới được duyệt bài viết toàn công ty');
       }
-      const department = await this.prisma.department.findUnique({ where: { id: post.departmentId } });
-      if (!department || department.leaderUserId !== user.userId) {
-        throw new ForbiddenException('Chỉ leader của phòng ban mới được duyệt bài viết này');
+      
+      const leaderDepartments = await this.prisma.department.findMany({
+        where: { leaderUserId: user.userId },
+        select: { id: true }
+      });
+      
+      const leaderDepIds = leaderDepartments.map(d => d.id);
+      const isLeader = leaderDepIds.includes(post.departmentId);
+      const isRegionalAdmin = visibleDepts && visibleDepts.includes(post.departmentId);
+      
+      if (!isLeader && !isRegionalAdmin) {
+        throw new ForbiddenException('Chỉ leader hoặc quản trị viên vùng tương ứng mới được duyệt bài viết này');
       }
     }
 
@@ -229,10 +260,17 @@ export class NewsfeedService {
       include: {
         author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
         comments: {
+          where: { parentId: null },
           include: {
-            author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+            author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
+            replies: {
+              include: {
+                author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+              },
+              orderBy: { createdAt: 'asc' }
+            }
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'asc' }
         },
         likes: { 
           include: { 
@@ -250,38 +288,52 @@ export class NewsfeedService {
     const existing = await this.prisma.postLike.findUnique({
       where: { postId_userId: { postId, userId } }
     });
+    
+    let liked = false;
     if (existing) {
       await this.prisma.postLike.delete({ where: { id: existing.id } });
-      return { liked: false };
+      liked = false;
+    } else {
+      await this.prisma.postLike.create({ data: { postId, userId } });
+      liked = true;
     }
-    await this.prisma.postLike.create({ data: { postId, userId } });
 
-    // Notify the author
-    const post = await this.prisma.newsfeedPost.findUnique({
-      where: { id: postId },
-      select: { authorId: true, title: true }
-    });
-    const liker = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { profile: true, roles: { include: { role: true } } }
-    });
-    
-    if (post && post.authorId !== userId && liker) {
-      const isAdmin = liker.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
-      const likerName = isAdmin ? 'Admin' : (liker.profile?.fullName || liker.userCode || 'Người dùng');
+    // Phát tín hiệu Realtime tức thì cho toàn bộ người dùng đang online (0ms latency)
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:like_updated', { postId, userId, liked });
 
-      const notifPayload = await this.prisma.$transaction(async (tx) => {
-        return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: 'SYSTEM' as any,
-          title: 'Có người vừa thả tim bài viết của bạn',
-          body: `${likerName} đã thích bài viết của bạn.`,
-          metadata: { postId, action: 'LIKE' }
+    // Xử lý gửi thông báo ngầm (background non-blocking)
+    setImmediate(async () => {
+      try {
+        if (!liked) return;
+        const post = await this.prisma.newsfeedPost.findUnique({
+          where: { id: postId },
+          select: { authorId: true, title: true }
         });
-      });
-      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
-    }
+        const liker = await this.prisma.user.findUnique({
+          where: { id: userId },
+          include: { profile: true, roles: { include: { role: true } } }
+        });
+        
+        if (post && post.authorId !== userId && liker) {
+          const isAdmin = liker.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+          const likerName = isAdmin ? 'Admin' : (liker.profile?.fullName || liker.userCode || 'Người dùng');
 
-    return { liked: true };
+          const notifPayload = await this.prisma.$transaction(async (tx) => {
+            return this.notificationsService.createForUsers(tx, [post.authorId], {
+              type: 'SYSTEM' as any,
+              title: 'Có người vừa thả tim bài viết của bạn',
+              body: `${likerName} đã thích bài viết của bạn.`,
+              metadata: { postId, action: 'LIKE' }
+            });
+          });
+          if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+        }
+      } catch (err) {
+        console.error('[NewsfeedService] Background like notification error:', err);
+      }
+    });
+
+    return { liked };
   }
 
   async addComment(userId: string, postId: string, dto: CreateCommentDto) {
@@ -289,34 +341,87 @@ export class NewsfeedService {
       data: {
         postId,
         authorId: userId,
-        content: dto.content
+        content: dto.content,
+        parentId: dto.parentId || null
       },
       include: {
-        author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+        author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
+        replies: {
+          include: {
+            author: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+          }
+        }
       }
     });
 
-    const post = await this.prisma.newsfeedPost.findUnique({
-      where: { id: postId },
-      select: { authorId: true }
-    });
-    
-    if (post && post.authorId !== userId && comment.author) {
-      const isAdmin = comment.author.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
-      const commenterName = isAdmin ? 'Admin' : (comment.author.profile?.fullName || comment.author.userCode || 'Người dùng');
+    // Phát tín hiệu Realtime tức thì cho toàn bộ người dùng
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:comment_added', { postId, comment, parentId: dto.parentId });
 
-      const notifPayload = await this.prisma.$transaction(async (tx) => {
-        return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: 'SYSTEM' as any,
-          title: 'Bình luận mới về bài viết của bạn',
-          body: `${commenterName} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
-          metadata: { postId, action: 'COMMENT' }
+    // Xử lý gửi thông báo ngầm
+    setImmediate(async () => {
+      try {
+        const post = await this.prisma.newsfeedPost.findUnique({
+          where: { id: postId },
+          select: { authorId: true }
         });
-      });
-      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
-    }
+        
+        if (post && post.authorId !== userId && comment.author) {
+          const isAdmin = comment.author.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
+          const commenterName = isAdmin ? 'Admin' : (comment.author.profile?.fullName || comment.author.userCode || 'Người dùng');
+
+          const notifPayload = await this.prisma.$transaction(async (tx) => {
+            return this.notificationsService.createForUsers(tx, [post.authorId], {
+              type: 'SYSTEM' as any,
+              title: 'Bình luận mới về bài viết của bạn',
+              body: `${commenterName} đã bình luận: "${dto.content.substring(0, 50)}${dto.content.length > 50 ? '...' : ''}"`,
+              metadata: { postId, action: 'COMMENT' }
+            });
+          });
+          if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+        }
+      } catch (err) {
+        console.error('[NewsfeedService] Background comment notification error:', err);
+      }
+    });
 
     return comment;
+  }
+
+  async reactComment(userId: string, postId: string, commentId: string, emoji: string) {
+    const comment = await this.prisma.postComment.findUnique({
+      where: { id: commentId },
+      select: { id: true, postId: true, reactions: true, authorId: true }
+    });
+    if (!comment) throw new NotFoundException('Bình luận không tồn tại');
+
+    let currentReactions = (comment.reactions as Record<string, string>) || {};
+    if (typeof currentReactions !== 'object' || currentReactions === null) {
+      currentReactions = {};
+    } else {
+      currentReactions = { ...currentReactions };
+    }
+
+    if (currentReactions[userId] === emoji) {
+      delete currentReactions[userId];
+    } else {
+      currentReactions[userId] = emoji;
+    }
+
+    await this.prisma.postComment.update({
+      where: { id: commentId },
+      data: {
+        reactions: currentReactions
+      }
+    });
+
+    // Realtime emit
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:comment_reacted', {
+      postId,
+      commentId,
+      reactions: currentReactions
+    });
+
+    return { success: true, reactions: currentReactions };
   }
 
   async deletePost(id: string, currentUser?: AuthenticatedUser) {
@@ -325,16 +430,25 @@ export class NewsfeedService {
 
     const deletedPost = await this.prisma.newsfeedPost.delete({ where: { id } });
 
+    // Phát tín hiệu xóa bài Realtime
+    this.realtimeEvents.emitToRoom('company', 'newsfeed:post_deleted', { postId: id });
+
     if (currentUser && post.authorId !== currentUser.userId) {
-      const notifPayload = await this.prisma.$transaction(async (tx) => {
-        return this.notificationsService.createForUsers(tx, [post.authorId], {
-          type: 'SYSTEM' as any,
-          title: 'Bài đăng bị thu hồi',
-          body: `Bài đăng "${post.title || (post.content && post.content.length > 30 ? post.content.substring(0, 30) + '...' : post.content) || 'của bạn'}" đã bị quản trị viên thu hồi.`,
-          metadata: { postId: post.id, action: 'DELETE' }
-        });
+      setImmediate(async () => {
+        try {
+          const notifPayload = await this.prisma.$transaction(async (tx) => {
+            return this.notificationsService.createForUsers(tx, [post.authorId], {
+              type: 'SYSTEM' as any,
+              title: 'Bài đăng bị thu hồi',
+              body: `Bài đăng "${post.title || (post.content && post.content.length > 30 ? post.content.substring(0, 30) + '...' : post.content) || 'của bạn'}" đã bị quản trị viên thu hồi.`,
+              metadata: { postId: post.id, action: 'DELETE' }
+            });
+          });
+          if (notifPayload) this.notificationsService.emitCreated(notifPayload);
+        } catch (err) {
+          console.error('[NewsfeedService] Background delete notification error:', err);
+        }
       });
-      if (notifPayload) this.notificationsService.emitCreated(notifPayload);
     }
 
     return deletedPost;

@@ -14,6 +14,7 @@ import type { DashboardRole } from '../../api/dashboard.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { apiClient } from '../../api/client';
+import { formatSeniority } from '../../utils/seniority';
 
 export function MyProfileScreen() {
   const router = useRouter();
@@ -65,6 +66,17 @@ export function MyProfileScreen() {
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
+            <InfoRow 
+              icon="calendar-clock" 
+              label="Thâm niên" 
+              value={formatSeniority(user?.joinDate || (user as any)?.createdAt)} 
+              valueColor="#059669"
+            />
+            <InfoRow 
+              icon="calendar-account" 
+              label="Ngày vào làm" 
+              value={(user?.joinDate || (user as any)?.createdAt) ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} 
+            />
             <InfoRow
               icon="face-recognition"
               label="Dữ liệu khuôn mặt"
@@ -73,10 +85,16 @@ export function MyProfileScreen() {
               onPress={() => router.push('/employee/update-face' as any)}
             />
             <InfoRow
-              icon="file-document-outline"
-              label="Cẩm nang PDF"
+              icon="information-outline"
+              label="Hướng dẫn sử dụng"
               value="Xem chi tiết"
               onPress={showGuideManual}
+            />
+            <InfoRow
+              icon="folder-text-outline"
+              label="Tài liệu nội bộ"
+              value="Xem tài liệu"
+              onPress={() => router.push('/employee/documents' as any)}
             />
             <InfoRow
               icon="account-remove-outline"

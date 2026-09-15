@@ -23,7 +23,7 @@ export class ApprovalsService {
   ) {}
 
   async findAll(actor: AuthenticatedUser, query: ApprovalQueryDto) {
-    const visibleDepartmentIds = this.policy.visibleDepartmentIds(actor);
+    const visibleDepartmentIds = await this.policy.visibleDepartmentIds(actor);
     const requestedDepartmentFilter = this.buildDepartmentFilter(query.departmentId, visibleDepartmentIds);
     const where: Prisma.UserApprovalRequestWhereInput = {
       ...(query.status ? { status: query.status } : {}),
@@ -85,15 +85,17 @@ export class ApprovalsService {
   approve(id: string, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
       const request = await this.findPendingRequest(tx, id);
-      if (!this.policy.canApproveDepartment(actor, request.requestedDepartmentId)) {
+      const canApprove = await this.policy.canApproveDepartment(actor, request.requestedDepartmentId);
+      if (!canApprove) {
         throw forbidden('APPROVAL_SCOPE_DENIED', 'Bạn không có quyền duyệt phòng ban này');
       }
+      const now = new Date();
       await tx.userApprovalRequest.update({
         where: { id },
         data: {
           status: ApprovalStatus.APPROVED,
           decidedByUserId: actor.userId,
-          decidedAt: new Date(),
+          decidedAt: now,
         },
       });
       await tx.user.update({
@@ -102,6 +104,19 @@ export class ApprovalsService {
           approvalStatus: ApprovalStatus.APPROVED,
           accountStatus: AccountStatus.ACTIVE,
           isActive: true,
+        },
+      });
+      // Nếu nhân viên đã nhập ngày vào làm lúc đăng ký thì giữ nguyên, nếu chưa có thì tự động tính từ thời điểm duyệt
+      const existingProfile = await tx.employeeProfile.findUnique({
+        where: { userId: request.userId },
+        select: { joinDate: true },
+      });
+      const finalJoinDate = existingProfile?.joinDate ?? now;
+
+      await tx.employeeProfile.updateMany({
+        where: { userId: request.userId },
+        data: {
+          joinDate: finalJoinDate,
         },
       });
       await tx.departmentMember.upsert({
@@ -115,8 +130,9 @@ export class ApprovalsService {
           departmentId: request.requestedDepartmentId,
           userId: request.userId,
           isPrimary: true,
+          joinedAt: finalJoinDate,
         },
-        update: { leftAt: null, isPrimary: true },
+        update: { leftAt: null, isPrimary: true, joinedAt: finalJoinDate },
       });
 
       const employeeRole = await tx.role.findUnique({ where: { code: 'EMPLOYEE' } });
@@ -181,7 +197,8 @@ export class ApprovalsService {
   reject(id: string, dto: RejectDto, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
       const request = await this.findPendingRequest(tx, id);
-      if (!this.policy.canApproveDepartment(actor, request.requestedDepartmentId)) {
+      const canApprove = await this.policy.canApproveDepartment(actor, request.requestedDepartmentId);
+      if (!canApprove) {
         throw forbidden('APPROVAL_SCOPE_DENIED', 'Bạn không có quyền từ chối phòng ban này');
       }
       // 1. Cập nhật trạng thái Yêu cầu duyệt sang REJECTED

@@ -37,4 +37,14 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isRewardVaultEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  joinDate?: string;
 }

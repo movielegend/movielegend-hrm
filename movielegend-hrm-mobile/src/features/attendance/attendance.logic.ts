@@ -1,6 +1,6 @@
 import type { AttendanceRecord, AttendanceUiState } from '../../types/attendance.types';
 import type { ShiftAssignment } from '../../types/shift.types';
-import { businessDateToday, formatDate } from '../../utils/date-time';
+import { businessDateToday, formatDate, toIsoDate } from '../../utils/date-time';
 
 export interface CurrentAttendanceSnapshot {
   record?: AttendanceRecord | null;
@@ -33,7 +33,7 @@ export function deriveDashboardAttendanceState(today: unknown): CurrentAttendanc
 }
 
 export function findTodayShift(assignments: ShiftAssignment[], today: string = businessDateToday()): ShiftAssignment | null {
-  return assignments.find((assignment) => formatDate(assignment.workDate) === today) ?? null;
+  return assignments.find((assignment) => toIsoDate(assignment.workDate) === today) ?? null;
 }
 
 const attendanceErrorMessages: Record<string, string> = {

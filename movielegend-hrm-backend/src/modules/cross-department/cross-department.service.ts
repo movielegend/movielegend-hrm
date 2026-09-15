@@ -97,11 +97,10 @@ export class CrossDepartmentService {
       targetDepartment: { select: { id: true, code: true, name: true } },
     };
 
-    const isPowerUser = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
+    const isGlobalAdmin = actor.roles.includes('HR') || (actor.roles.includes('ADMIN') && (await this.scope.getVisibleDepartmentIds(actor)) === null);
 
-    if (isPowerUser) {
+    if (isGlobalAdmin) {
       if (type === 'incoming') {
-        // Yêu cầu đến: Phòng ban đính kèm hoặc phòng nhận trùng với phòng của user, HOẶC đơn gửi TỚI phòng ban mà người dùng đang xem
         return this.prisma.crossDepartmentRequest.findMany({ 
           where: { 
             OR: [
@@ -115,7 +114,6 @@ export class CrossDepartmentService {
         });
       }
       if (type === 'outgoing') {
-        // Yêu cầu đã gửi: Do chính user tạo HOẶC do phòng ban của user gửi đi
         return this.prisma.crossDepartmentRequest.findMany({ 
           where: { 
             OR: [
@@ -130,10 +128,10 @@ export class CrossDepartmentService {
       return this.prisma.crossDepartmentRequest.findMany({ include: includeClause, orderBy: { createdAt: 'desc' } });
     }
 
-    const isLeader = actor.roles.includes('LEADER') || actor.scopes.some(s => s.role === 'LEADER');
+    const isLeaderOrRegionalAdmin = actor.roles.includes('ADMIN') || actor.roles.includes('LEADER') || actor.scopes.some(s => s.role === 'LEADER');
 
-    if (isLeader) {
-      const visibleFromScopes = this.scope.visibleDepartmentIds(actor) ?? [];
+    if (isLeaderOrRegionalAdmin) {
+      const visibleFromScopes = await this.scope.getVisibleDepartmentIds(actor) ?? [];
       const memberDeptIds = await this.getUserDepartmentIds(actor.userId);
       const visible = Array.from(new Set([...visibleFromScopes, ...memberDeptIds]));
 
@@ -211,7 +209,7 @@ export class CrossDepartmentService {
       },
     });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (!this.canView(request, actor)) {
+    if (!(await this.canView(request, actor))) {
       throw forbidden('CROSS_DEPARTMENT_REQUEST_FORBIDDEN', 'Cannot access cross-department request');
     }
     return {
@@ -259,8 +257,8 @@ export class CrossDepartmentService {
   async assignTarget(id: string, dto: import('./dto/cross-department.dto').AssignTargetDto, actor: AuthenticatedUser) {
     const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (!actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
-      this.scope.assertDepartmentAccess(actor, request.targetDepartmentId);
+    if (!actor.roles.includes('HR')) {
+      await this.scope.assertDepartmentAccessAsync(actor, request.targetDepartmentId);
     }
     if (request.status !== CrossDepartmentRequestStatus.TARGET_ACCEPTED && request.status !== CrossDepartmentRequestStatus.SOURCE_APPROVED) {
       throw badRequest('INVALID_CROSS_DEPARTMENT_STATUS', `Request cannot be assigned in status ${request.status}`);
@@ -361,8 +359,8 @@ export class CrossDepartmentService {
   async completeTask(id: string, dto: import('./dto/cross-department.dto').CompleteTaskDto, actor: AuthenticatedUser) {
     const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (!actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
-      this.scope.assertDepartmentAccess(actor, request.sourceDepartmentId);
+    if (!actor.roles.includes('HR')) {
+      await this.scope.assertDepartmentAccessAsync(actor, request.sourceDepartmentId);
     }
     if (request.status !== CrossDepartmentRequestStatus.SUBMITTED_FOR_REVIEW) {
       throw badRequest('INVALID_CROSS_DEPARTMENT_STATUS', `Request must be SUBMITTED_FOR_REVIEW`);
@@ -417,8 +415,8 @@ export class CrossDepartmentService {
       }
     });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (!actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
-      this.scope.assertDepartmentAccess(actor, side === 'source' ? request.sourceDepartmentId : request.targetDepartmentId);
+    if (!actor.roles.includes('HR')) {
+      await this.scope.assertDepartmentAccessAsync(actor, side === 'source' ? request.sourceDepartmentId : request.targetDepartmentId);
     }
     if (request.status !== expected) throw badRequest('INVALID_CROSS_DEPARTMENT_STATUS', `Request must be ${expected}`);
 
@@ -475,13 +473,14 @@ export class CrossDepartmentService {
     return payload.updated;
   }
 
-  private canView(
+  private async canView(
     request: { createdByUserId: string; assignedToUserId?: string | null; sourceDepartmentId: string; targetDepartmentId: string },
     actor: AuthenticatedUser,
-  ): boolean {
-    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.permissions.includes('cross_department.read_all')) return true;
+  ): Promise<boolean> {
+    if (actor.roles.includes('HR') || actor.permissions.includes('cross_department.read_all')) return true;
     if (request.createdByUserId === actor.userId || request.assignedToUserId === actor.userId) return true;
-    const visible = this.scope.visibleDepartmentIds(actor) ?? [];
+    const visible = await this.scope.getVisibleDepartmentIds(actor) ?? [];
+    if (actor.roles.includes('ADMIN') && visible.length === 0) return true; // Global Admin
     return visible.includes(request.sourceDepartmentId) || visible.includes(request.targetDepartmentId);
   }
 }

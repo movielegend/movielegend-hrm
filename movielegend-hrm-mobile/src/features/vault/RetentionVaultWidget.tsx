@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,399 +8,3207 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../providers/AuthProvider';
+import { getMyVault, withdrawVaultPoints } from '../../api/employees.api';
+import type {
+  MyVaultResponse,
+  VestingMilestone,
+  ProjectGrantPackage,
+  GrantMilestone,
+  VaultTransaction,
+} from '../../types/employee.types';
 
 export interface RetentionVaultWidgetProps {
-  isVaultEnabled: boolean;
-  totalGrantedPoints?: number;
-  unlockedPoints?: number;
-  lockedPoints?: number;
-  cashValuePerPoint?: number;
-  onRequestWithdrawal?: (amount: number, bankName: string, bankAccount: string, accountName: string) => void;
+  isVaultEnabled?: boolean;
 }
 
-export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = ({
-  isVaultEnabled,
-  totalGrantedPoints = 50000,
-  unlockedPoints = 12500,
-  lockedPoints = 37500,
-  cashValuePerPoint = 1000,
-  onRequestWithdrawal,
-}) => {
+export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { data, isLoading, refetch } = useQuery<MyVaultResponse>({
+    queryKey: ['my-vault', user?.id],
+    queryFn: getMyVault,
+    enabled: Boolean(user?.id),
+  });
+
   const [modalVisible, setModalVisible] = useState(false);
+  const [withdrawPointsInput, setWithdrawPointsInput] = useState('');
   const [bankName, setBankName] = useState('Techcombank');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [withdrawNote, setWithdrawNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isVaultEnabled) {
-    return null; // Opt-in Feature: Hidden if disabled for current user
-  }
+  const [currentTime, setCurrentTime] = useState(() => new Date());
 
-  const unlockedCash = unlockedPoints * cashValuePerPoint;
-  const lockedCash = lockedPoints * cashValuePerPoint;
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const handleWithdrawSubmit = () => {
-    if (!accountNumber.trim() || !accountName.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ Số tài khoản và Tên chủ tài khoản!');
+  const vault = data?.vault;
+  const stats = data?.stats || {
+    totalGrantedPoints: 0,
+    totalGrantedCash: 0,
+    instantBonusPoints: 0,
+    unlockedQuarterPoints: 0,
+    lockedQuarterPoints: 0,
+    unlockedPoints: 0,
+    unlockedCash: 0,
+    totalWithdrawnPoints: 0,
+    totalWithdrawnCash: 0,
+    remainingPoints: 0,
+    remainingCash: 0,
+    maxWithdrawable: 0,
+    maxWithdrawableCash: 0,
+    cashValuePerPoint: 1000,
+  };
+
+  const cashValuePerPoint = stats.cashValuePerPoint || 1000;
+  const totalGrantedPoints = stats.totalGrantedPoints || 0;
+  const totalGrantedCash = stats.totalGrantedCash ?? (totalGrantedPoints * cashValuePerPoint);
+  const instantBonusPoints = stats.instantBonusPoints || 0;
+  const instantCash = instantBonusPoints * cashValuePerPoint;
+  const unlockedPoints = stats.unlockedPoints || 0;
+  const unlockedCash = stats.unlockedCash ?? (unlockedPoints * cashValuePerPoint);
+  const totalWithdrawnPoints = stats.totalWithdrawnPoints ?? 0;
+  const totalWithdrawnCash = stats.totalWithdrawnCash ?? (totalWithdrawnPoints * cashValuePerPoint);
+  const remainingPoints = stats.remainingPoints ?? Math.max(0, totalGrantedPoints - totalWithdrawnPoints);
+  const remainingCash = stats.remainingCash ?? (remainingPoints * cashValuePerPoint);
+  const maxWithdrawable = stats.maxWithdrawable || 0;
+  const maxWithdrawableCash = stats.maxWithdrawableCash ?? (maxWithdrawable * cashValuePerPoint);
+
+  const packages: ProjectGrantPackage[] = vault?.packages || [];
+  const legacyMilestones: VestingMilestone[] = vault?.milestones || [];
+  const transactions: VaultTransaction[] = vault?.transactions || [];
+
+  const now = currentTime;
+  const currentYear = currentTime.getFullYear();
+  const currentQuarterNum = Math.min(4, Math.floor(currentTime.getMonth() / 3) + 1);
+
+  const qMeta = [
+    { q: 1, label: 'Quý 1', dateLabel: '31/03', unlockDate: new Date(currentYear, 2, 31), icon: 'handshake' },
+    { q: 2, label: 'Quý 2', dateLabel: '30/06', unlockDate: new Date(currentYear, 5, 30), icon: 'trending-up' },
+    { q: 3, label: 'Quý 3', dateLabel: '30/09', unlockDate: new Date(currentYear, 8, 30), icon: 'trophy-award' },
+    { q: 4, label: 'Quý 4 (Tết)', dateLabel: '31/12', unlockDate: new Date(currentYear, 11, 31), icon: 'gift' },
+  ];
+
+  const legacyQuarterSteps = useMemo(() => {
+    return qMeta.map((qm) => {
+      const found = legacyMilestones.find((m) => m.quarter === qm.q);
+      const unlockDate = found ? new Date(found.unlockDate) : qm.unlockDate;
+      const isPastOrToday = unlockDate <= now;
+      const points = found ? found.pointsToUnlock : Math.floor(stats.totalGrantedPoints / 4);
+      const cash = Number(found?.cashAmount || points * cashValuePerPoint);
+      const isWithdrawn = found ? Boolean(found.isWithdrawn) : false;
+      const isCurrentActive = qm.q === currentQuarterNum;
+
+      return {
+        quarter: qm.q,
+        label: qm.label,
+        dateLabel: qm.dateLabel,
+        unlockDate,
+        points,
+        cash,
+        isWithdrawn,
+        isUnlocked: isPastOrToday && !isWithdrawn && points > 0,
+        isLocked: !isPastOrToday && !isWithdrawn,
+        isPastOrToday,
+        isCurrentActive,
+        icon: qm.icon,
+      };
+    });
+  }, [legacyMilestones, now, stats.totalGrantedPoints, cashValuePerPoint, currentQuarterNum, currentYear]);
+
+  // Compute next upcoming locked milestone for the countdown timeline
+  const nextMilestoneInfo = useMemo(() => {
+    interface UpcomingItem {
+      packageTitle?: string;
+      title: string;
+      points: number;
+      cashAmount: number;
+      unlockDate: Date;
+      cycleStartDate: Date;
+    }
+
+    const upcomingList: UpcomingItem[] = [];
+
+    if (packages.length > 0) {
+      packages.forEach((pkg) => {
+        const milestones = pkg.milestones || [];
+        milestones.forEach((m, mIdx) => {
+          const unlockDate = new Date(m.unlockDate);
+          const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+          if (unlockDate > now && remaining > 0) {
+            let cycleStartDate: Date;
+            const prevMilestone = mIdx > 0 ? milestones[mIdx - 1] : undefined;
+            if (prevMilestone) {
+              cycleStartDate = new Date(prevMilestone.unlockDate);
+            } else if (pkg.startDate) {
+              cycleStartDate = new Date(pkg.startDate);
+            } else {
+              cycleStartDate = new Date(unlockDate.getTime() - (pkg.intervalMonths || 3) * 30 * 24 * 3600 * 1000);
+            }
+
+            upcomingList.push({
+              packageTitle: pkg.title,
+              title: m.title || `Đợt ${mIdx + 1}`,
+              points: remaining,
+              cashAmount: remaining * cashValuePerPoint,
+              unlockDate,
+              cycleStartDate,
+            });
+          }
+        });
+      });
+    } else if (legacyMilestones.length > 0 || stats.totalGrantedPoints > 0) {
+      legacyQuarterSteps.forEach((step) => {
+        if (step.unlockDate > now && !step.isWithdrawn) {
+          const qStartMonth = (step.quarter - 1) * 3;
+          const cycleStartDate = new Date(currentYear, qStartMonth, 1);
+          upcomingList.push({
+            packageTitle: `Quỹ Thưởng Năm ${currentYear}`,
+            title: step.label,
+            points: step.points,
+            cashAmount: step.cash,
+            unlockDate: step.unlockDate,
+            cycleStartDate,
+          });
+        }
+      });
+    }
+
+    if (upcomingList.length === 0) {
+      return null;
+    }
+
+    // Sort by earliest unlockDate
+    upcomingList.sort((a, b) => a.unlockDate.getTime() - b.unlockDate.getTime());
+    const nearest = upcomingList[0];
+    if (!nearest) {
+      return null;
+    }
+
+    const diffMs = Math.max(0, nearest.unlockDate.getTime() - now.getTime());
+    const totalDurationMs = Math.max(1000, nearest.unlockDate.getTime() - nearest.cycleStartDate.getTime());
+    const elapsedMs = Math.max(0, now.getTime() - nearest.cycleStartDate.getTime());
+    const progressPercent = Math.min(100, Math.max(0, (elapsedMs / totalDurationMs) * 100));
+
+    const totalSec = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const startD = nearest.cycleStartDate;
+    const endD = nearest.unlockDate;
+
+    return {
+      packageTitle: nearest.packageTitle,
+      title: nearest.title,
+      points: nearest.points,
+      cashAmount: nearest.cashAmount,
+      unlockDate: nearest.unlockDate,
+      cycleStartDate: nearest.cycleStartDate,
+      days,
+      hours,
+      minutes,
+      seconds,
+      progressPercent,
+      startDateFormatted: `${pad(startD.getDate())}/${pad(startD.getMonth() + 1)}/${startD.getFullYear()}`,
+      unlockDateFormatted: `${pad(endD.getDate())}/${pad(endD.getMonth() + 1)}/${endD.getFullYear()}`,
+    };
+  }, [packages, legacyMilestones, legacyQuarterSteps, now, stats.totalGrantedPoints, cashValuePerPoint, currentYear]);
+
+  // Check reached milestones count to determine if user is in Phase 1 (Đợt 1) or Phase 2+ (Từ đợt 2 trở đi)
+  const isFirstPhase = useMemo(() => {
+    let maxReached = 0;
+    if (packages && packages.length > 0) {
+      for (const pkg of packages) {
+        const reached = (pkg.milestones || []).filter((m: any) => new Date(m.unlockDate) <= now);
+        if (reached.length > maxReached) maxReached = reached.length;
+      }
+    }
+    if (legacyMilestones && legacyMilestones.length > 0) {
+      const reachedLegacy = legacyMilestones.filter((m: any) => new Date(m.unlockDate) <= now && m.pointsToUnlock > 0);
+      if (reachedLegacy.length > maxReached) maxReached = reachedLegacy.length;
+    }
+    return maxReached <= 1;
+  }, [packages, legacyMilestones, now]);
+
+  const openWithdrawModal = () => {
+    setWithdrawPointsInput(stats.maxWithdrawable.toString());
+    setWithdrawNote('');
+    setModalVisible(true);
+  };
+
+  const pointsToWithdraw = stats.maxWithdrawable;
+  const cashToWithdraw = pointsToWithdraw * cashValuePerPoint;
+
+  const handleWithdrawSubmit = async () => {
+    if (pointsToWithdraw <= 0) {
+      Alert.alert('Chưa đến hạn', 'Hiện tại chưa có đợt thưởng nào đến hạn mở khóa để rút!');
       return;
     }
-    if (onRequestWithdrawal) {
-      onRequestWithdrawal(unlockedCash, bankName, accountNumber, accountName);
+
+    try {
+      setIsSubmitting(true);
+      await withdrawVaultPoints({
+        points: pointsToWithdraw,
+        note: withdrawNote.trim() || undefined,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['my-vault'] });
+      setModalVisible(false);
+
+      Alert.alert(
+        'Gửi Yêu Cầu Rút Điểm Thành Công! 💸',
+        `Đã gửi yêu cầu rút toàn bộ ${cashToWithdraw.toLocaleString('vi-VN')} VNĐ (${pointsToWithdraw.toLocaleString('vi-VN')} điểm). Admin & Kế toán sẽ phê duyệt và quy đổi thanh toán cho bạn sớm nhất!`
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi rút tiền', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu rút tiền lúc này.');
+    } finally {
+      setIsSubmitting(false);
     }
-    Alert.alert(
-      'Gửi Yêu Cầu Rút Tiền Thành Công!',
-      `Yêu cầu rút ${unlockedCash.toLocaleString('vi-VN')} VNĐ đã được gửi cho Kế toán phê duyệt.`,
-      [{ text: 'Đóng', onPress: () => setModalVisible(false) }]
-    );
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color="#D97706" />
+        <Text style={styles.loadingText}>Đang tải dữ liệu Ví Thưởng...</Text>
+      </View>
+    );
+  }
+
+  if (!data?.isVaultEnabled) {
+    return (
+      <View style={styles.disabledCard}>
+        <View style={styles.disabledIconContainer}>
+          <MaterialCommunityIcons name="lock-alert-outline" size={48} color="#D97706" />
+        </View>
+        <Text style={styles.disabledTitle}>Ví Điểm Thưởng Chưa Được Kích Hoạt</Text>
+        <Text style={styles.disabledDescription}>
+          Tính năng Ví Điểm Thưởng là đặc quyền dành riêng cho nhân sự được phê duyệt. Tài khoản của bạn hiện chưa được mở quyền này.
+        </Text>
+        <Text style={styles.disabledHint}>
+          Vui lòng liên hệ Quản trị viên / Ban Giám Đốc để được kích hoạt và phân bổ quỹ thưởng.
+        </Text>
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => refetch()} activeOpacity={0.8}>
+          <Ionicons name="reload" size={16} color="#B45309" />
+          <Text style={styles.refreshBtnText}>Kiểm tra lại trạng thái</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.cardContainer}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerTitleGroup}>
-          <Ionicons name="gift-sharp" size={24} color="#D97706" />
-          <Text style={styles.cardTitle}>Ví Thưởng Giữ Chân Nhân Tài</Text>
-        </View>
-        <View style={styles.badgeOptIn}>
-          <Text style={styles.badgeOptInText}>Đặc Quyền Cốt Cán</Text>
-        </View>
-      </View>
-
-      <Text style={styles.subSubtitle}>
-        Tổng Quỹ Thưởng Năm: <Text style={styles.boldText}>{totalGrantedPoints.toLocaleString('vi-VN')} điểm</Text> ({(totalGrantedPoints * cashValuePerPoint).toLocaleString('vi-VN')} VNĐ)
-      </Text>
-
-      {/* Balance Summary */}
-      <View style={styles.balanceGrid}>
-        {/* Unlocked */}
-        <View style={[styles.balanceBox, styles.unlockedBox]}>
-          <View style={styles.boxHeaderRow}>
-            <Ionicons name="lock-open-outline" size={18} color="#059669" />
-            <Text style={styles.boxLabelUnlocked}>Đã Mở Khóa (Khả Dụng)</Text>
+      {/* VIP Premium Fintech Hero Card */}
+      <View style={styles.vipHeroCard}>
+        {/* Card Header */}
+        <View style={styles.vipHeroHeader}>
+          <View style={styles.vipHeroTitleGroup}>
+            <View style={styles.vipHeroIconBadge}>
+              <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#D97706" />
+            </View>
+            <View>
+              <Text style={styles.vipHeroTitle}>Ví Thưởng Tích Lũy {currentYear}</Text>
+              <Text style={styles.vipHeroSubtitle}>Quỹ Thưởng Đồng Hành & Cống Hiến {currentYear}</Text>
+            </View>
           </View>
-          <Text style={styles.unlockedAmountText}>
-            {unlockedCash.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
-          </Text>
-          <Text style={styles.unlockedPointSub}>{unlockedPoints.toLocaleString('vi-VN')} điểm</Text>
-          
+          <View style={styles.vipBadgeChip}>
+            <MaterialCommunityIcons name="crown" size={13} color="#B45309" />
+            <Text style={styles.vipBadgeChipText}>VIP {currentYear}</Text>
+          </View>
+        </View>
+
+        {/* Main Available Balance Centerpiece: SỐ ĐIỂM CÒN LẠI TRONG VÍ */}
+        <View style={styles.vipBalanceCenterpiece}>
+          <Text style={styles.vipBalanceLabel}>SỐ ĐIỂM CÒN LẠI TRONG VÍ</Text>
+          <View style={styles.vipAmountRow}>
+            <Text style={styles.vipAmountNumber}>{remainingPoints.toLocaleString('vi-VN')}</Text>
+            <Text style={styles.vipCurrency}>điểm</Text>
+          </View>
+          <View style={styles.vipPillRow}>
+            <View style={styles.vipPointPill}>
+              <MaterialCommunityIcons name="cash-multiple" size={13} color="#065F46" />
+              <Text style={styles.vipPointPillText}>
+                Tương đương: {remainingCash.toLocaleString('vi-VN')} VNĐ
+              </Text>
+            </View>
+            {instantBonusPoints > 0 && (
+              <View style={styles.vipInstantPill}>
+                <MaterialCommunityIcons name="lightning-bolt" size={12} color="#D97706" />
+                <Text style={styles.vipInstantPillText}>
+                  Gồm {instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Sub-metrics: 3 Equal Columns */}
+        <View style={styles.vipMetricsGrid}>
+          <View style={styles.vipMetricCol}>
+            <Text style={styles.vipMetricLabel}>Tổng Tích Lũy</Text>
+            <Text style={styles.vipMetricValue}>{totalGrantedPoints.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSub}>~{totalGrantedCash.toLocaleString('vi-VN')} đ</Text>
+          </View>
+          <View style={styles.vipMetricDivider} />
+          <View style={styles.vipMetricCol}>
+            <Text style={styles.vipMetricLabel}>Đã Rút / Quy Đổi</Text>
+            <Text style={styles.vipMetricValueOrange}>{totalWithdrawnPoints.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSubOrange}>~{totalWithdrawnCash.toLocaleString('vi-VN')} đ</Text>
+          </View>
+          <View style={styles.vipMetricDivider} />
+          <View style={styles.vipMetricCol}>
+            <Text style={styles.vipMetricLabel}>Khả Dụng Rút</Text>
+            <Text style={styles.vipMetricValueGold}>{unlockedPoints.toLocaleString('vi-VN')} đ</Text>
+            <Text style={styles.vipMetricSubGold}>~{unlockedCash.toLocaleString('vi-VN')} đ</Text>
+          </View>
+        </View>
+
+        {/* Primary CTA Withdraw Button: Chỉ mở khi đã đến kỳ hạn mở khóa */}
+        {maxWithdrawable > 0 ? (
           <TouchableOpacity
-            style={styles.withdrawBtn}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.8}
+            style={styles.vipWithdrawActionBtn}
+            onPress={openWithdrawModal}
+            activeOpacity={0.85}
           >
-            <Ionicons name="cash-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.withdrawBtnText}>Rút Tiền Về Ngân Hàng</Text>
+            <MaterialCommunityIcons name="wallet-giftcard" size={20} color="#FFFFFF" />
+            <Text style={styles.vipWithdrawActionText}>YÊU CẦU QUY ĐỔI / RÚT ĐIỂM</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Locked */}
-        <View style={[styles.balanceBox, styles.lockedBox]}>
-          <View style={styles.boxHeaderRow}>
-            <Ionicons name="lock-closed-outline" size={18} color="#D97706" />
-            <Text style={styles.boxLabelLocked}>Đang Khóa (Vesting)</Text>
+        ) : (
+          <View style={[styles.vipWithdrawActionBtn, styles.vipWithdrawActionBtnDisabled]}>
+            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" />
+            <Text style={styles.vipWithdrawActionTextDisabled}>
+              CHƯA ĐẾN HẠN RÚT ĐIỂM
+            </Text>
           </View>
-          <Text style={styles.lockedAmountText}>
-            {lockedCash.toLocaleString('vi-VN')} <Text style={styles.currencyUnit}>VNĐ</Text>
+        )}
+
+        {/* Advance Note Footer */}
+        <View style={styles.vipFooterNote}>
+          <MaterialCommunityIcons name="shield-check-outline" size={14} color="#92400E" />
+          <Text style={styles.vipFooterNoteText}>
+            Quy định: Đợt nào mở rút đợt đó. Thời hạn rút trong vòng 15 ngày kể từ ngày mở; nếu sau 15 ngày không rút, số điểm sẽ tự động được dồn chia đều cho các đợt còn lại.
           </Text>
-          <Text style={styles.lockedPointSub}>{lockedPoints.toLocaleString('vi-VN')} điểm</Text>
-          <Text style={styles.vestingNote}>Mở khóa 25%/Quý vào cuối Q2, Q3, Q4</Text>
         </View>
       </View>
 
-      {/* Vesting Milestone Timeline */}
-      <View style={styles.milestoneContainer}>
-        <Text style={styles.milestoneTitle}>Lịch Mở Khóa Thưởng Theo Quý (25%/Quý):</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.milestoneScroll}>
-          <View style={[styles.milestoneItem, styles.milestonePassed]}>
-            <Text style={styles.milestoneQuarter}>Quý 1 (31/03)</Text>
-            <Ionicons name="checkmark-circle" size={20} color="#059669" />
-            <Text style={styles.milestoneStatus}>Đã mở khóa 25%</Text>
+      {/* Vạch Thời Gian & Đếm Ngược Đến Hạn Mở Rút */}
+      {nextMilestoneInfo ? (
+        <View style={styles.countdownCard}>
+          {/* Header Row */}
+          <View style={styles.countdownHeaderRow}>
+            <View style={styles.countdownHeaderLeft}>
+              <View style={styles.countdownIconCircle}>
+                <MaterialCommunityIcons name="timer-sand" size={20} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.countdownCardTitle}>Đếm Ngược Đến Đợt Rút Tiếp Theo</Text>
+                <Text style={styles.countdownCardSubtitle} numberOfLines={1}>
+                  {nextMilestoneInfo.packageTitle ? `${nextMilestoneInfo.packageTitle} • ` : ''}{nextMilestoneInfo.title}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.countdownTargetPill}>
+              <MaterialCommunityIcons name="calendar-clock" size={13} color="#B45309" />
+              <Text style={styles.countdownTargetPillText}>{nextMilestoneInfo.unlockDateFormatted}</Text>
+            </View>
           </View>
-          <View style={styles.milestoneItem}>
-            <Text style={styles.milestoneQuarter}>Quý 2 (30/06)</Text>
-            <Ionicons name="time-outline" size={20} color="#D97706" />
-            <Text style={styles.milestoneStatus}>Chờ mở 12.5tr</Text>
+
+          {/* Realtime Countdown Ticker Boxes */}
+          <View style={styles.countdownBoxesRow}>
+            <View style={styles.countdownBox}>
+              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.days).padStart(2, '0')}</Text>
+              <Text style={styles.countdownBoxLabel}>NGÀY</Text>
+            </View>
+            <Text style={styles.countdownColon}>:</Text>
+            <View style={styles.countdownBox}>
+              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.hours).padStart(2, '0')}</Text>
+              <Text style={styles.countdownBoxLabel}>GIỜ</Text>
+            </View>
+            <Text style={styles.countdownColon}>:</Text>
+            <View style={styles.countdownBox}>
+              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.minutes).padStart(2, '0')}</Text>
+              <Text style={styles.countdownBoxLabel}>PHÚT</Text>
+            </View>
+            <Text style={styles.countdownColon}>:</Text>
+            <View style={styles.countdownBox}>
+              <Text style={styles.countdownBoxNum}>{String(nextMilestoneInfo.seconds).padStart(2, '0')}</Text>
+              <Text style={styles.countdownBoxLabel}>GIÂY</Text>
+            </View>
           </View>
-          <View style={styles.milestoneItem}>
-            <Text style={styles.milestoneQuarter}>Quý 3 (30/09)</Text>
-            <Ionicons name="time-outline" size={20} color="#D97706" />
-            <Text style={styles.milestoneStatus}>Chờ mở 12.5tr</Text>
+
+          {/* Vạch Thời Gian Tiến Trình Chu Kỳ (Timeline Progress Bar) */}
+          <View style={styles.timelineProgressSection}>
+            <View style={styles.timelineDateHeaderRow}>
+              <View style={styles.timelineDateCol}>
+                <Text style={styles.timelineDateLabel}>Bắt đầu chu kỳ</Text>
+                <Text style={styles.timelineDateValue}>{nextMilestoneInfo.startDateFormatted}</Text>
+              </View>
+              <View style={styles.timelinePercentBadge}>
+                <Text style={styles.timelinePercentText}>Tiến độ: {Math.round(nextMilestoneInfo.progressPercent)}%</Text>
+              </View>
+              <View style={[styles.timelineDateCol, { alignItems: 'flex-end' }]}>
+                <Text style={styles.timelineDateLabel}>Hạn mở khóa</Text>
+                <Text style={styles.timelineDateValueGold}>{nextMilestoneInfo.unlockDateFormatted}</Text>
+              </View>
+            </View>
+
+            {/* Vạch thời gian */}
+            <View style={styles.timelineTrack}>
+              <View
+                style={[
+                  styles.timelineFill,
+                  { width: `${Math.min(100, Math.max(3, nextMilestoneInfo.progressPercent))}%` },
+                ]}
+              />
+              <View
+                style={[
+                  styles.timelinePointerPin,
+                  { left: `${Math.min(96, Math.max(2, nextMilestoneInfo.progressPercent))}%` },
+                ]}
+              >
+                <View style={styles.timelinePointerDot} />
+              </View>
+            </View>
+
+            <View style={styles.timelineFooterRow}>
+              <Text style={styles.timelineFooterLeft}>
+                <MaterialCommunityIcons name="lightning-bolt" size={13} color="#059669" />
+                {' '}Dự kiến mở khóa: <Text style={styles.timelineFooterBold}>+{nextMilestoneInfo.cashAmount.toLocaleString('vi-VN')} VNĐ</Text> ({nextMilestoneInfo.points.toLocaleString('vi-VN')} điểm)
+              </Text>
+            </View>
           </View>
-          <View style={styles.milestoneItem}>
-            <Text style={styles.milestoneQuarter}>Quý 4 (31/12)</Text>
-            <Ionicons name="time-outline" size={20} color="#D97706" />
-            <Text style={styles.milestoneStatus}>Chờ mở 12.5tr</Text>
+        </View>
+      ) : (
+        <View style={styles.countdownAllUnlockedCard}>
+          <View style={styles.allUnlockedLeft}>
+            <View style={styles.allUnlockedIconCircle}>
+              <MaterialCommunityIcons name="check-decagram" size={24} color="#059669" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.allUnlockedTitle}>Đã Đến Hạn Tất Cả Các Đợt Rút</Text>
+              <Text style={styles.allUnlockedSubtitle}>
+                Toàn bộ quỹ thưởng đã hoàn tất mở khóa theo chu kỳ. Bạn có thể gửi yêu cầu tất toán bất kỳ lúc nào!
+              </Text>
+            </View>
           </View>
-        </ScrollView>
-      </View>
+          <View style={styles.allUnlockedTrack}>
+            <View style={styles.allUnlockedFill} />
+          </View>
+        </View>
+      )}
+
+      {/* Render Separate Cards for Each ProjectGrantPackage */}
+      {packages.length > 0 && (
+        <View style={styles.packageListContainer}>
+          <View style={styles.packageListHeader}>
+            <MaterialCommunityIcons name="briefcase-outline" size={18} color="#92400E" />
+            <Text style={styles.packageListTitle}>Danh Sách Các Gói Thưởng Đang Tham Gia ({packages.length}):</Text>
+          </View>
+
+          {packages.map((pkg, pIdx) => {
+            const milestones = pkg.milestones || [];
+            const pkgTotalCash = pkg.totalPoints * cashValuePerPoint;
+            const pkgWithdrawnPoints = milestones.reduce((s, m) => s + (m.withdrawnPoints || 0), 0);
+            const pkgWithdrawnCash = pkgWithdrawnPoints * cashValuePerPoint;
+
+            let pkgUnlockedPoints = 0;
+            let pkgLockedPoints = 0;
+            milestones.forEach((m) => {
+              const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+              if (remaining > 0) {
+                if (new Date(m.unlockDate) <= now) {
+                  pkgUnlockedPoints += remaining;
+                } else {
+                  pkgLockedPoints += remaining;
+                }
+              }
+            });
+
+            // Milestone default reward growth icons
+            const defaultIcons = [
+              'handshake',
+              'trending-up',
+              'star-circle',
+              'trophy-award',
+              'crown',
+              'gift-open',
+            ];
+
+            // Determine active/unlocked milestone indices
+            const firstLockedIdx = milestones.findIndex((m) => new Date(m.unlockDate) > now && (m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0);
+
+            // Compute dedicated countdown data for this specific package
+            const pkgNextLockedMilestone = milestones.find(
+              (m) => new Date(m.unlockDate) > now && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0
+            );
+
+            let pkgCountdownData: {
+              title: string;
+              targetDateFormatted: string;
+              days: number;
+              hours: number;
+              minutes: number;
+              seconds: number;
+              points: number;
+              cashAmount: number;
+            } | null = null;
+
+            if (pkgNextLockedMilestone) {
+              const pkgTargetDate = new Date(pkgNextLockedMilestone.unlockDate);
+              const pkgDiffMs = Math.max(0, pkgTargetDate.getTime() - now.getTime());
+              const pkgDays = Math.floor(pkgDiffMs / (1000 * 60 * 60 * 24));
+              const pkgHours = Math.floor((pkgDiffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+              const pkgMinutes = Math.floor((pkgDiffMs % (1000 * 60 * 60)) / (1000 * 60));
+              const pkgSeconds = Math.floor((pkgDiffMs % (1000 * 60)) / 1000);
+              const pkgRemainingPoints = Math.max(0, pkgNextLockedMilestone.pointsToUnlock - (pkgNextLockedMilestone.withdrawnPoints || 0));
+              const pkgRemainingCash = pkgRemainingPoints * cashValuePerPoint;
+              const pkgTargetDateFormatted = `${pkgTargetDate.getDate().toString().padStart(2, '0')}/${(pkgTargetDate.getMonth() + 1).toString().padStart(2, '0')}/${pkgTargetDate.getFullYear()}`;
+
+              pkgCountdownData = {
+                title: pkgNextLockedMilestone.title || `Đợt ${milestones.indexOf(pkgNextLockedMilestone) + 1}`,
+                targetDateFormatted: pkgTargetDateFormatted,
+                days: pkgDays,
+                hours: pkgHours,
+                minutes: pkgMinutes,
+                seconds: pkgSeconds,
+                points: pkgRemainingPoints,
+                cashAmount: pkgRemainingCash,
+              };
+            }
+
+            // Format compact points helper
+            const formatCompactPoints = (pts: number) => {
+              if (!pts || pts <= 0) return '0 đ';
+              if (pts >= 1_000_000) {
+                const val = (pts / 1_000_000).toFixed(pts % 1_000_000 === 0 ? 0 : 1);
+                return `${val}M đ`;
+              }
+              if (pts >= 1_000) {
+                const val = (pts / 1_000).toFixed(pts % 1_000 === 0 ? 0 : 0);
+                return `${val}k đ`;
+              }
+              return `${pts.toLocaleString('vi-VN')} đ`;
+            };
+
+            const isScrollable = milestones.length > 4;
+            const nodeWidth = 96;
+
+            return (
+              <View key={pkg.id || pIdx} style={styles.packageCard}>
+                {/* Package Card Header */}
+                <View style={styles.packageCardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <View style={styles.pkgIconBadge}>
+                        <MaterialCommunityIcons name="gift" size={16} color="#B45309" />
+                      </View>
+                      <Text style={styles.packageCardTitle} numberOfLines={1}>
+                        {pkg.title}
+                      </Text>
+                    </View>
+                    <Text style={styles.packageCardMeta}>
+                      Thời hạn: {pkg.durationMonths} tháng • Chu kỳ: {pkg.intervalMonths} tháng/đợt ({milestones.length} đợt)
+                    </Text>
+                  </View>
+                  <View style={styles.packageTotalBadge}>
+                    <Text style={styles.packageTotalPoints}>
+                      {pkg.totalPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                    <Text style={styles.packageTotalCash}>
+                      ~{pkgTotalCash.toLocaleString('vi-VN')} VNĐ
+                    </Text>
+                  </View>
+                </View>
+
+                {/* --- HORIZONTAL TRACKER (EXACT DESIGN MATCH) --- */}
+                <View style={styles.horizontalTrackerCard}>
+                  {isScrollable && (
+                    <View style={styles.scrollHintRow}>
+                      <Text style={styles.scrollHintText}>Lộ trình {milestones.length} đợt</Text>
+                      <View style={styles.scrollHintBadge}>
+                        <MaterialCommunityIcons name="gesture-swipe-horizontal" size={13} color="#D97706" />
+                        <Text style={styles.scrollHintBadgeText}>Vuốt ngang xem thêm</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {isScrollable ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.horizontalTrackerScrollContent}
+                    >
+                      <View style={{ width: milestones.length * nodeWidth }}>
+                        {/* Top Icons & Connecting Progress Lines Track */}
+                        <View style={[styles.horizontalTrackRow, { width: milestones.length * nodeWidth, paddingHorizontal: (nodeWidth - 32) / 2 }]}>
+                          {milestones.map((m, mIdx) => {
+                            const unlockDate = new Date(m.unlockDate);
+                            const isPassed = unlockDate <= now;
+                            const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                            const isUnlockedAvailable = isPassed && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0;
+                            const isCurrentUpcoming = mIdx === firstLockedIdx;
+
+                            const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
+                            const iconColor = isFullyWithdrawn
+                              ? '#DC2626'
+                              : isUnlockedAvailable || isCurrentUpcoming
+                              ? '#EE4D2D'
+                              : '#CBD5E1';
+
+                            const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
+                            const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
+
+                            let lineType: 'full' | 'half' | 'none' = 'none';
+                            const nextM = milestones[mIdx + 1];
+                            if (nextM) {
+                              const nextUnlockDate = new Date(nextM.unlockDate);
+                              const nextPassed = nextUnlockDate <= now;
+                              const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
+
+                              if (nextPassed || nextFullyWithdrawn) {
+                                lineType = 'full';
+                              } else if (isPassed || isFullyWithdrawn) {
+                                lineType = 'half';
+                              } else {
+                                lineType = 'none';
+                              }
+                            }
+
+                            return (
+                              <React.Fragment key={m.id || mIdx}>
+                                <View style={styles.trackNodeWrapper}>
+                                  <MaterialCommunityIcons name={iconName} size={24} color={iconColor} />
+                                  <View style={styles.trackCaretSlot}>
+                                    {showCaret && <MaterialCommunityIcons name="chevron-down" size={14} color={caretColor} />}
+                                  </View>
+                                </View>
+
+                                {mIdx < milestones.length - 1 && (
+                                  <View style={[styles.trackLineWrapper, { width: nodeWidth - 32, flex: 0, marginHorizontal: 0 }]}>
+                                    {lineType === 'full' ? (
+                                      <View style={[styles.trackLine, styles.trackLineFull]} />
+                                    ) : lineType === 'half' ? (
+                                      <View style={styles.trackLineHalfContainer}>
+                                        <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                                        <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                                      </View>
+                                    ) : (
+                                      <View style={[styles.trackLine, styles.trackLineInactive]} />
+                                    )}
+                                  </View>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </View>
+
+                        {/* Node Labels Row */}
+                        <View style={[styles.trackLabelsRow, { width: milestones.length * nodeWidth }]}>
+                          {milestones.map((m, mIdx) => {
+                            const unlockDate = new Date(m.unlockDate);
+                            const isPassed = unlockDate <= now;
+                            const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                            const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                            const isUnlockedAvailable = isPassed && remaining > 0;
+                            const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
+
+                            const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                            return (
+                              <View key={m.id || mIdx} style={[styles.trackLabelCol, { width: nodeWidth, flex: 0, paddingHorizontal: 3 }]}>
+                                <Text
+                                  style={[
+                                    styles.trackNodeTitle,
+                                    isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
+                                    isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {m.title || `Đợt ${mIdx + 1}`}
+                                </Text>
+                                <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
+
+                                <View
+                                  style={[
+                                    styles.trackNodePill,
+                                    isFullyWithdrawn && styles.trackPillWithdrawn,
+                                    isUnlockedAvailable && styles.trackPillUnlocked,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillUpcoming,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillLocked,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.trackNodePillText,
+                                      isFullyWithdrawn && styles.trackPillTextWithdrawn,
+                                      isUnlockedAvailable && styles.trackPillTextUnlocked,
+                                      !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillTextUpcoming,
+                                      !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillTextLocked,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {isFullyWithdrawn
+                                      ? (m.withdrawnPoints > 0 ? `Đã rút` : `Dồn đợt sau`)
+                                      : isPartiallyWithdrawn
+                                      ? `Còn ${formatCompactPoints(remaining)}`
+                                      : isUnlockedAvailable
+                                      ? `Mở (+${formatCompactPoints(m.pointsToUnlock)})`
+                                      : mIdx === firstLockedIdx
+                                      ? `⏳ Đếm (${formatCompactPoints(m.pointsToUnlock)})`
+                                      : `${formatCompactPoints(m.pointsToUnlock)}`}
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </ScrollView>
+                  ) : (
+                    <>
+                      {/* Top Icons & Connecting Progress Lines Track */}
+                      <View style={styles.horizontalTrackRow}>
+                        {milestones.map((m, mIdx) => {
+                          const unlockDate = new Date(m.unlockDate);
+                          const isPassed = unlockDate <= now;
+                          const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                          const isUnlockedAvailable = isPassed && Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0)) > 0;
+                          const isCurrentUpcoming = mIdx === firstLockedIdx;
+
+                          const iconName = defaultIcons[mIdx % defaultIcons.length] as any;
+                          const iconColor = isFullyWithdrawn
+                            ? '#DC2626'
+                            : isUnlockedAvailable || isCurrentUpcoming
+                            ? '#EE4D2D'
+                            : '#CBD5E1';
+
+                          const showCaret = isFullyWithdrawn || isUnlockedAvailable || isCurrentUpcoming;
+                          const caretColor = isFullyWithdrawn ? '#DC2626' : '#EE4D2D';
+
+                          let lineType: 'full' | 'half' | 'none' = 'none';
+                          const nextM = milestones[mIdx + 1];
+                          if (nextM) {
+                            const nextUnlockDate = new Date(nextM.unlockDate);
+                            const nextPassed = nextUnlockDate <= now;
+                            const nextFullyWithdrawn = Boolean(nextM.isWithdrawn) || ((nextM.withdrawnPoints || 0) >= nextM.pointsToUnlock && nextM.pointsToUnlock > 0);
+
+                            if (nextPassed || nextFullyWithdrawn) {
+                              lineType = 'full';
+                            } else if (isPassed || isFullyWithdrawn) {
+                              lineType = 'half';
+                            } else {
+                              lineType = 'none';
+                            }
+                          }
+
+                          return (
+                            <React.Fragment key={m.id || mIdx}>
+                              <View style={styles.trackNodeWrapper}>
+                                <MaterialCommunityIcons name={iconName} size={26} color={iconColor} />
+                                <View style={styles.trackCaretSlot}>
+                                  {showCaret && <MaterialCommunityIcons name="chevron-down" size={15} color={caretColor} />}
+                                </View>
+                              </View>
+
+                              {mIdx < milestones.length - 1 && (
+                                <View style={styles.trackLineWrapper}>
+                                  {lineType === 'full' ? (
+                                    <View style={[styles.trackLine, styles.trackLineFull]} />
+                                  ) : lineType === 'half' ? (
+                                    <View style={styles.trackLineHalfContainer}>
+                                      <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                                      <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                                    </View>
+                                  ) : (
+                                    <View style={[styles.trackLine, styles.trackLineInactive]} />
+                                  )}
+                                </View>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </View>
+
+                      {/* Node Labels Row */}
+                      <View style={styles.trackLabelsRow}>
+                        {milestones.map((m, mIdx) => {
+                          const unlockDate = new Date(m.unlockDate);
+                          const isPassed = unlockDate <= now;
+                          const remaining = Math.max(0, m.pointsToUnlock - (m.withdrawnPoints || 0));
+                          const isFullyWithdrawn = m.isWithdrawn || (m.withdrawnPoints >= m.pointsToUnlock && m.pointsToUnlock > 0);
+                          const isUnlockedAvailable = isPassed && remaining > 0;
+                          const isPartiallyWithdrawn = (m.withdrawnPoints || 0) > 0 && remaining > 0;
+
+                          const dateFormatted = `${unlockDate.getDate().toString().padStart(2, '0')}/${(unlockDate.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                          return (
+                            <View key={m.id || mIdx} style={styles.trackLabelCol}>
+                              <Text
+                                style={[
+                                  styles.trackNodeTitle,
+                                  isFullyWithdrawn && { color: '#DC2626', fontWeight: '800' },
+                                  isUnlockedAvailable && { color: '#EE4D2D', fontWeight: '800' },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {m.title || `Đợt ${mIdx + 1}`}
+                              </Text>
+                              <Text style={styles.trackNodeDate}>{dateFormatted}</Text>
+
+                              <View
+                                style={[
+                                  styles.trackNodePill,
+                                  isFullyWithdrawn && styles.trackPillWithdrawn,
+                                  isUnlockedAvailable && styles.trackPillUnlocked,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillUpcoming,
+                                  !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillLocked,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.trackNodePillText,
+                                    isFullyWithdrawn && styles.trackPillTextWithdrawn,
+                                    isUnlockedAvailable && styles.trackPillTextUnlocked,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx === firstLockedIdx && styles.trackPillTextUpcoming,
+                                    !isFullyWithdrawn && !isUnlockedAvailable && mIdx !== firstLockedIdx && styles.trackPillTextLocked,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {isFullyWithdrawn
+                                    ? (m.withdrawnPoints > 0 ? `Đã rút` : `Dồn đợt sau`)
+                                    : isPartiallyWithdrawn
+                                    ? `Còn ${formatCompactPoints(remaining)}`
+                                    : isUnlockedAvailable
+                                    ? `Mở (+${formatCompactPoints(m.pointsToUnlock)})`
+                                    : mIdx === firstLockedIdx
+                                    ? `⏳ Đếm (${formatCompactPoints(m.pointsToUnlock)})`
+                                    : `${formatCompactPoints(m.pointsToUnlock)}`}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+                </View>
+
+                {/* Package Bottom Summary */}
+                <View style={styles.packageBottomSummary}>
+                  <View style={styles.pkgSummaryItem}>
+                    <Text style={styles.pkgSummaryLabel}>Đã rút:</Text>
+                    <Text style={styles.pkgSummaryValWithdrawn}>
+                      {pkgWithdrawnPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                  </View>
+                  <View style={styles.pkgSummaryDivider} />
+                  <View style={styles.pkgSummaryItem}>
+                    <Text style={styles.pkgSummaryLabel}>Khả dụng:</Text>
+                    <Text style={styles.pkgSummaryValUnlocked}>
+                      {pkgUnlockedPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                  </View>
+                  <View style={styles.pkgSummaryDivider} />
+                  <View style={styles.pkgSummaryItem}>
+                    <Text style={styles.pkgSummaryLabel}>Đang khóa:</Text>
+                    <Text style={styles.pkgSummaryValLocked}>
+                      {pkgLockedPoints.toLocaleString('vi-VN')} đ
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Package Dedicated Countdown / Status */}
+                {pkgCountdownData ? (
+                  <View style={styles.pkgCountdownSection}>
+                    <View style={styles.pkgCountdownHeaderRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <MaterialCommunityIcons name="timer-sand" size={16} color="#D97706" />
+                        <Text style={styles.pkgCountdownTitleText} numberOfLines={1}>
+                          Đếm ngược mở đợt: <Text style={{ fontWeight: '800', color: '#B45309' }}>{pkgCountdownData.title}</Text>
+                        </Text>
+                      </View>
+                      <View style={styles.pkgCountdownTargetBadge}>
+                        <MaterialCommunityIcons name="calendar-clock" size={12} color="#92400E" />
+                        <Text style={styles.pkgCountdownTargetText}>{pkgCountdownData.targetDateFormatted}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.pkgCountdownTickerRow}>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.days).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>NGÀY</Text>
+                      </View>
+                      <Text style={styles.pkgCountdownColon}>:</Text>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.hours).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>GIỜ</Text>
+                      </View>
+                      <Text style={styles.pkgCountdownColon}>:</Text>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.minutes).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>PHÚT</Text>
+                      </View>
+                      <Text style={styles.pkgCountdownColon}>:</Text>
+                      <View style={styles.pkgCountdownMiniBox}>
+                        <Text style={styles.pkgCountdownMiniNum}>{String(pkgCountdownData.seconds).padStart(2, '0')}</Text>
+                        <Text style={styles.pkgCountdownMiniLabel}>GIÂY</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.pkgCountdownFooterRow}>
+                      <Text style={styles.pkgCountdownFooterLeft}>
+                        Dự kiến mở khóa: <Text style={styles.pkgExpectedPointsText}>+{pkgCountdownData.points.toLocaleString('vi-VN')} đ</Text>
+                        <Text style={styles.pkgExpectedCashText}> (~{pkgCountdownData.cashAmount.toLocaleString('vi-VN')} VNĐ)</Text>
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.pkgCompletedSection}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#059669" />
+                    <Text style={styles.pkgCompletedText}>Gói thưởng đã hoàn tất mở khóa tất cả các đợt</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Graceful Fallback: Legacy Vesting Stepper if no Project Packages */}
+      {packages.length === 0 && legacyMilestones.length > 0 && (
+        <View style={styles.shopeeTrackerCard}>
+          <View style={styles.shopeeHeaderRow}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={styles.shopeeEstTime}>Lộ trình Ví Điểm Thưởng Năm {currentYear}</Text>
+              <Text style={styles.shopeeMainStatus}>Phân bổ 4 Quý Theo Chu Kỳ</Text>
+            </View>
+            <View style={styles.shopeeAvatarCircle}>
+              <MaterialCommunityIcons name="wallet-giftcard" size={28} color="#EE4D2D" />
+            </View>
+          </View>
+
+          {/* Stepper Horizontal Progress Bar */}
+          <View style={styles.horizontalTrackRow}>
+            {legacyQuarterSteps.map((step, sIdx) => {
+              const defaultIcons = ['handshake', 'trending-up', 'star-circle', 'crown'];
+              const iconName = (step.icon || defaultIcons[sIdx % defaultIcons.length]) as any;
+
+              const isWithdrawn = step.isWithdrawn;
+              const isUnlocked = step.isUnlocked || step.isPastOrToday;
+              const isCurrent = step.isCurrentActive;
+
+              const iconColor = isWithdrawn
+                ? '#DC2626'
+                : isUnlocked || isCurrent
+                ? '#EE4D2D'
+                : '#CBD5E1';
+
+              const showCaret = isWithdrawn || isUnlocked || isCurrent;
+              const caretColor = isWithdrawn ? '#DC2626' : '#EE4D2D';
+
+              let lineType: 'full' | 'half' | 'none' = 'none';
+              if (sIdx < legacyQuarterSteps.length - 1 && legacyQuarterSteps[sIdx + 1]) {
+                const nextStep = legacyQuarterSteps[sIdx + 1];
+                if (nextStep?.isPastOrToday || nextStep?.isWithdrawn) {
+                  lineType = 'full';
+                } else if (step.isPastOrToday || step.isWithdrawn) {
+                  lineType = 'half';
+                } else {
+                  lineType = 'none';
+                }
+              }
+
+              return (
+                <React.Fragment key={step.quarter}>
+                  <View style={styles.trackNodeWrapper}>
+                    <MaterialCommunityIcons
+                      name={iconName}
+                      size={26}
+                      color={iconColor}
+                    />
+                    <View style={styles.trackCaretSlot}>
+                      {showCaret && (
+                        <MaterialCommunityIcons
+                          name="chevron-down"
+                          size={15}
+                          color={caretColor}
+                        />
+                      )}
+                    </View>
+                  </View>
+
+                  {sIdx < legacyQuarterSteps.length - 1 && (
+                    <View style={styles.trackLineWrapper}>
+                      {lineType === 'full' ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : lineType === 'half' ? (
+                        <View style={styles.trackLineHalfContainer}>
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                        </View>
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </View>
+
+          {/* Stepper Labels */}
+          <View style={styles.trackLabelsRow}>
+            {legacyQuarterSteps.map((step) => (
+              <View key={step.quarter} style={styles.trackLabelCol}>
+                <Text
+                  style={[
+                    styles.trackNodeTitle,
+                    step.isWithdrawn && { color: '#DC2626', fontWeight: '800' },
+                    step.isPastOrToday && { color: '#EE4D2D', fontWeight: '800' },
+                  ]}
+                >
+                  {step.label}
+                </Text>
+                <Text style={styles.trackNodeDate}>{step.dateLabel}</Text>
+                <View
+                  style={[
+                    styles.trackNodePill,
+                    step.isWithdrawn && styles.trackPillWithdrawn,
+                    step.isUnlocked && styles.trackPillUnlocked,
+                    step.isLocked && styles.trackPillLocked,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.trackNodePillText,
+                      step.isWithdrawn && styles.trackPillTextWithdrawn,
+                      step.isUnlocked && styles.trackPillTextUnlocked,
+                      step.isLocked && styles.trackPillTextLocked,
+                    ]}
+                  >
+                    {step.isWithdrawn
+                      ? 'Đã rút'
+                      : step.isUnlocked
+                      ? `${step.points.toLocaleString('vi-VN')} đ`
+                      : 'Chưa mở'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Withdrawal Requests History */}
+      {data?.withdrawalRequests && data.withdrawalRequests.length > 0 && (
+        <View style={styles.withdrawalHistoryContainer}>
+          <View style={styles.withdrawalHistoryHeader}>
+            <MaterialCommunityIcons name="clipboard-text-clock-outline" size={18} color="#92400E" />
+            <Text style={styles.withdrawalHistoryTitle}>Lịch Sử Rút & Quy Đổi Điểm Thưởng</Text>
+          </View>
+          {data.withdrawalRequests.map((req) => {
+            const isPendingAdmin = req.status === 'PENDING_ADMIN';
+            const isPendingAcc = req.status === 'PENDING_ACCOUNTANT';
+            const isPaid = req.status === 'PAID';
+            const isRejected = req.status === 'REJECTED';
+
+            const statusBg = isPaid
+              ? '#ECFDF5'
+              : isPendingAcc
+              ? '#EFF6FF'
+              : isPendingAdmin
+              ? '#FFFBEB'
+              : '#FEF2F2';
+
+            const statusBorder = isPaid
+              ? '#A7F3D0'
+              : isPendingAcc
+              ? '#BFDBFE'
+              : isPendingAdmin
+              ? '#FDE68A'
+              : '#FECACA';
+
+            const statusColor = isPaid
+              ? '#059669'
+              : isPendingAcc
+              ? '#2563EB'
+              : isPendingAdmin
+              ? '#D97706'
+              : '#DC2626';
+
+            const statusLabel = isPaid
+              ? '✅ Đã chuyển tiền thành công'
+              : isPendingAcc
+              ? '💼 Chờ Kế toán chi tiền'
+              : isPendingAdmin
+              ? '⏳ Chờ Admin duyệt quy đổi'
+              : '❌ Đã từ chối (Hoàn điểm)';
+
+            return (
+              <View key={req.id} style={[styles.withdrawalReqCard, { borderColor: statusBorder }]}>
+                <View style={styles.withdrawalReqTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.withdrawalReqAmount}>
+                      {req.cashAmount.toLocaleString('vi-VN')} VNĐ
+                    </Text>
+                    <Text style={styles.withdrawalReqPoints}>
+                      Quy đổi: {req.pointsWithdrawn.toLocaleString('vi-VN')} điểm
+                    </Text>
+                  </View>
+                  <View style={[styles.withdrawalStatusBadge, { backgroundColor: statusBg, borderColor: statusBorder }]}>
+                    <Text style={[styles.withdrawalStatusText, { color: statusColor }]}>
+                      {statusLabel}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 4-Step Withdrawal Approval & Payout Pipeline Tracker */}
+                <View style={styles.reqDeliveryTrackerWrapper}>
+                  <View style={styles.horizontalTrackRow}>
+                    {/* Step 1: Created */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="file-document-edit"
+                        size={22}
+                        color={isRejected ? '#DC2626' : '#EE4D2D'}
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        <MaterialCommunityIcons
+                          name="chevron-down"
+                          size={13}
+                          color={isRejected ? '#DC2626' : '#EE4D2D'}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Line 1 -> 2 */}
+                    <View style={styles.trackLineWrapper}>
+                      {isPaid || isPendingAcc ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : isPendingAdmin ? (
+                        <View style={styles.trackLineHalfContainer}>
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                        </View>
+                      ) : isRejected ? (
+                        <View style={[styles.trackLine, { backgroundColor: '#FECDD3' }]} />
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+
+                    {/* Step 2: Admin Approval */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="account-check"
+                        size={22}
+                        color={
+                          isRejected
+                            ? '#DC2626'
+                            : isPaid || isPendingAcc
+                            ? '#EE4D2D'
+                            : isPendingAdmin
+                            ? '#EE4D2D'
+                            : '#CBD5E1'
+                        }
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        {(isPaid || isPendingAcc || isPendingAdmin || isRejected) && (
+                          <MaterialCommunityIcons
+                            name="chevron-down"
+                            size={13}
+                            color={isRejected ? '#DC2626' : '#EE4D2D'}
+                          />
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Line 2 -> 3 */}
+                    <View style={styles.trackLineWrapper}>
+                      {isPaid ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : isPendingAcc ? (
+                        <View style={styles.trackLineHalfContainer}>
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfActive]} />
+                          <View style={[styles.trackLineHalf, styles.trackLineHalfInactive]} />
+                        </View>
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+
+                    {/* Step 3: Accountant Payout */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="bank-transfer"
+                        size={22}
+                        color={isPaid ? '#EE4D2D' : isPendingAcc ? '#EE4D2D' : '#CBD5E1'}
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        {(isPaid || isPendingAcc) && (
+                          <MaterialCommunityIcons
+                            name="chevron-down"
+                            size={13}
+                            color="#EE4D2D"
+                          />
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Line 3 -> 4 */}
+                    <View style={styles.trackLineWrapper}>
+                      {isPaid ? (
+                        <View style={[styles.trackLine, styles.trackLineFull]} />
+                      ) : (
+                        <View style={[styles.trackLine, styles.trackLineInactive]} />
+                      )}
+                    </View>
+
+                    {/* Step 4: Finished */}
+                    <View style={styles.trackNodeWrapper}>
+                      <MaterialCommunityIcons
+                        name="check-decagram"
+                        size={22}
+                        color={isPaid ? '#059669' : '#CBD5E1'}
+                      />
+                      <View style={styles.trackCaretSlot}>
+                        {isPaid && (
+                          <MaterialCommunityIcons
+                            name="chevron-down"
+                            size={13}
+                            color="#059669"
+                          />
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Step Labels */}
+                  <View style={styles.trackLabelsRow}>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, { fontSize: 9.5 }]}>Gửi đơn</Text>
+                    </View>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, (isPendingAdmin || isPendingAcc || isPaid) && { color: '#EE4D2D' }, { fontSize: 9.5 }]}>Duyệt</Text>
+                    </View>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, (isPendingAcc || isPaid) && { color: '#EE4D2D' }, { fontSize: 9.5 }]}>Chi tiền</Text>
+                    </View>
+                    <View style={styles.trackLabelCol}>
+                      <Text style={[styles.trackNodeTitle, isPaid && { color: '#059669' }, { fontSize: 9.5 }]}>Đã nhận</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Timestamp & Notes */}
+                <View style={styles.withdrawalFooterRow}>
+                  <Text style={styles.withdrawalDateText}>
+                    {new Date(req.createdAt).toLocaleDateString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                  {req.note ? (
+                    <Text style={styles.withdrawalNoteText} numberOfLines={1}>
+                      • {req.note}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Additional audit notes for Paid or Rejected */}
+                {isPaid && req.transactionReference && (
+                  <View style={styles.withdrawalAuditBoxSuccess}>
+                    <MaterialCommunityIcons name="check-decagram" size={14} color="#059669" />
+                    <Text style={styles.withdrawalAuditTextSuccess}>
+                      Mã GD / UNC: <Text style={{ fontWeight: '700' }}>{req.transactionReference}</Text>
+                      {req.accountantNote ? ` (${req.accountantNote})` : ''}
+                    </Text>
+                  </View>
+                )}
+
+                {isRejected && req.rejectReason && (
+                  <View style={styles.withdrawalAuditBoxReject}>
+                    <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
+                    <Text style={styles.withdrawalAuditTextReject}>
+                      Lý do: <Text style={{ fontWeight: '600' }}>{req.rejectReason}</Text>
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Recent Transactions Ledger */}
+      {transactions.length > 0 && (
+        <View style={styles.txContainer}>
+          <Text style={styles.txTitle}>Lịch sử biến động điểm gần đây:</Text>
+          {transactions.slice(0, 5).map((tx) => {
+            const isPositive = tx.points > 0;
+            return (
+              <View key={tx.id} style={styles.txRow}>
+                <View
+                  style={[
+                    styles.txIconBadge,
+                    { backgroundColor: isPositive ? '#ECFDF5' : '#FEF2F2' },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={
+                      tx.type === 'GRANT_PROJECT_INSTANT'
+                        ? 'lightning-bolt'
+                        : tx.type === 'WITHDRAW_ADVANCE'
+                        ? 'arrow-up-bold-box-outline'
+                        : tx.type === 'REFUND_WITHDRAWAL'
+                        ? 'cash-refund'
+                        : isPositive
+                        ? 'plus'
+                        : 'minus'
+                    }
+                    size={16}
+                    color={isPositive ? '#059669' : '#DC2626'}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.txNote} numberOfLines={1}>
+                    {tx.note || (isPositive ? 'Thưởng điểm' : 'Rút tiền thưởng')}
+                  </Text>
+                  <Text style={styles.txDate}>
+                    {new Date(tx.createdAt).toLocaleDateString('vi-VN')} •{' '}
+                    {tx.type === 'WITHDRAW_ADVANCE'
+                      ? 'Rút ứng trước'
+                      : tx.type === 'GRANT_PROJECT_INSTANT'
+                      ? 'Thưởng nóng'
+                      : tx.type === 'GRANT_PROJECT_VESTING'
+                      ? 'Thưởng tích lũy'
+                      : tx.type === 'REFUND_WITHDRAWAL'
+                      ? 'Hoàn điểm'
+                      : 'Thưởng năm'}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.txPoints,
+                    { color: isPositive ? '#059669' : '#DC2626' },
+                  ]}
+                >
+                  {isPositive ? '+' : ''}
+                  {tx.points.toLocaleString('vi-VN')} đ
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Modal Withdrawal Form */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Yêu Cầu Rút Tiền Thưởng</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.modalHeaderBadge}>
+                  <Ionicons name="cash-outline" size={20} color="#D97706" />
+                </View>
+                <Text style={styles.modalTitle}>Yêu Cầu Quy Đổi & Rút Điểm</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalSub}>
-              Số tiền khả dụng rút: <Text style={{ color: '#059669', fontWeight: 'bold' }}>{unlockedCash.toLocaleString('vi-VN')} VNĐ</Text>
-            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+              <View style={{ marginBottom: 16 }}>
+                {/* Fixed Notice Banner */}
+                <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <MaterialCommunityIcons name="information" size={24} color="#2563EB" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E40AF' }}>Quy định rút điểm: Đợt nào rút đợt đó</Text>
+                    <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2, lineHeight: 17 }}>
+                      Hệ thống tự động quy đổi toàn bộ 100% hạn mức của các đợt đã đến hạn mở khóa ({maxWithdrawable.toLocaleString('vi-VN')} điểm).
+                    </Text>
+                  </View>
+                </View>
 
-            <Text style={styles.inputLabel}>Ngân hàng thụ hưởng:</Text>
-            <TextInput
-              style={styles.input}
-              value={bankName}
-              onChangeText={setBankName}
-              placeholder="Nhập tên ngân hàng (TCB, VCB...)"
-            />
+                {/* Fixed Amount Display Card */}
+                <View style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 13, color: '#6B7280', fontWeight: '500' }}>Tổng điểm rút đợt này (100%):</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: '#D97706', marginTop: 2 }}>
+                      {maxWithdrawable.toLocaleString('vi-VN')} điểm
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#B45309' }}>Rút toàn bộ</Text>
+                  </View>
+                </View>
+              </View>
 
-            <Text style={styles.inputLabel}>Số tài khoản ngân hàng:</Text>
-            <TextInput
-              style={styles.input}
-              value={accountNumber}
-              onChangeText={setAccountNumber}
-              placeholder="Nhập số tài khoản..."
-              keyboardType="number-pad"
-            />
+              {/* Conversion Preview Box */}
+              <View style={styles.conversionBox}>
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionLabel}>Tỷ giá quy đổi:</Text>
+                  <Text style={styles.conversionRateText}>1 điểm = 1.000 VNĐ</Text>
+                </View>
+                <View style={styles.conversionDivider} />
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionFormula}>Thành tiền thực nhận:</Text>
+                  <Text style={styles.conversionTotal}>
+                    +{cashToWithdraw.toLocaleString('vi-VN')} VNĐ
+                  </Text>
+                </View>
+                <View style={styles.conversionDivider} />
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionRemainingLabel}>Điểm còn lại sau rút:</Text>
+                  <Text style={styles.conversionRemainingValue}>
+                    {Math.max(0, remainingPoints - pointsToWithdraw).toLocaleString('vi-VN')} điểm (~{Math.max(0, (remainingPoints - pointsToWithdraw) * cashValuePerPoint).toLocaleString('vi-VN')} đ)
+                  </Text>
+                </View>
+              </View>
 
-            <Text style={styles.inputLabel}>Tên chủ tài khoản (In hoa):</Text>
-            <TextInput
-              style={styles.input}
-              value={accountName}
-              onChangeText={setAccountName}
-              placeholder="NGUYEN VAN A"
-              autoCapitalize="characters"
-            />
+              {/* Multi-Package Breakdown if 2+ packages */}
+              {packages.length > 1 && (
+                <View style={{ backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 12, marginTop: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <MaterialCommunityIcons name="format-list-checks" size={16} color="#475569" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155' }}>Nguồn khả dụng theo từng gói ({packages.length} gói):</Text>
+                  </View>
+                  {packages.map((pkg, idx) => {
+                    const milestones = pkg.milestones || [];
+                    let pkgWithdrawable = 0;
+                    milestones.forEach((m) => {
+                      if (new Date(m.unlockDate) <= now && !m.isWithdrawn) {
+                        pkgWithdrawable += Math.max(0, (m.pointsToUnlock || 0) - (m.withdrawnPoints || 0));
+                      }
+                    });
+                    return (
+                      <View key={pkg.id || idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4, borderTopWidth: idx > 0 ? 1 : 0, borderTopColor: '#F1F5F9' }}>
+                        <Text style={{ fontSize: 12, color: '#475569', flex: 1, marginRight: 8 }} numberOfLines={1}>• {pkg.title}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#D97706' }}>
+                          {pkgWithdrawable.toLocaleString('vi-VN')} đ
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
 
-            <TouchableOpacity style={styles.submitWithdrawBtn} onPress={handleWithdrawSubmit}>
-              <Text style={styles.submitWithdrawText}>XÁC NHẬN RÚT {unlockedCash.toLocaleString('vi-VN')} VNĐ</Text>
+              {/* Direct Internal Payout Notice */}
+              <View style={styles.directPayoutNoticeBox}>
+                <MaterialCommunityIcons name="shield-check-outline" size={22} color="#059669" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.directPayoutTitle, { color: '#065F46' }]}>Quy trình phê duyệt & chi trả:</Text>
+                  <Text style={styles.directPayoutDesc}>
+                    Sau khi bạn gửi yêu cầu, Admin sẽ phê duyệt xác nhận quy đổi. Tiếp theo bộ phận Kế toán sẽ thực hiện chi trả tiền mặt/chuyển khoản cho bạn.
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.inputLabel}>Ghi chú (Tùy chọn):</Text>
+              <TextInput
+                style={styles.input}
+                value={withdrawNote}
+                onChangeText={setWithdrawNote}
+                placeholder="VD: Đề xuất nhận thưởng tích lũy..."
+              />
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.submitWithdrawBtn, isSubmitting && { opacity: 0.7 }]}
+              onPress={handleWithdrawSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitWithdrawText}>
+                  XÁC NHẬN GỬI YÊU CẦU ({cashToWithdraw.toLocaleString('vi-VN')} VNĐ)
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+  },
   cardContainer: {
+    marginVertical: 4,
+  },
+  vipHeroCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  vipHeroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  vipHeroTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  vipHeroIconBadge: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vipHeroTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  vipHeroSubtitle: {
+    fontSize: 11,
+    color: '#78350F',
+    marginTop: 1,
+  },
+  vipBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vipBadgeChipText: {
+    color: '#B45309',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  vipBalanceCenterpiece: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 16,
     padding: 16,
+    alignItems: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  vipBalanceLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  vipAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginBottom: 8,
+  },
+  vipAmountNumber: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#047857',
+    letterSpacing: -0.5,
+  },
+  vipCurrency: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  vipPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  vipPointPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  vipPointPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  vipInstantPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vipInstantPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  vipMetricsGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  vipMetricCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  vipMetricLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  vipMetricValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  vipMetricSub: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  vipMetricValueOrange: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#EA580C',
+  },
+  vipMetricSubOrange: {
+    fontSize: 10,
+    color: '#C2410C',
+    marginTop: 1,
+  },
+  vipMetricValueGold: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  vipMetricSubGold: {
+    fontSize: 10,
+    color: '#B45309',
+    marginTop: 1,
+  },
+  vipMetricDivider: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 8,
+  },
+  vipWithdrawActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#059669',
+    paddingVertical: 13,
+    borderRadius: 12,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  vipWithdrawActionBtnDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+    borderWidth: 1,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  vipWithdrawActionText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  vipWithdrawActionTextDisabled: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.2,
+  },
+  vipFooterNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  vipFooterNoteText: {
+    fontSize: 11,
+    color: '#92400E',
+    flex: 1,
+    lineHeight: 16,
+  },
+  shopeeTrackerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    shadowColor: '#EE4D2D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  shopeeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  shopeeEstTime: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  shopeeMainStatus: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  shopeeAvatarCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FECDD3',
+  },
+  stepperContainer: {
+    marginBottom: 8,
+  },
+  stepperIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  milestoneNodeCol: {
+    alignItems: 'center',
+    width: 38,
+  },
+  milestoneIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneIconActive: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1.5,
+    borderColor: '#FDA4AF',
+  },
+  milestoneIconWithdrawn: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  milestoneIconInactive: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  checkedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pointerSlot: {
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepperLineWrapper: {
+    flex: 1,
+    height: 3.5,
+    marginBottom: 18,
+    marginHorizontal: 2,
+  },
+  stepperLine: {
+    height: 3.5,
+    borderRadius: 2,
+  },
+  stepperLineFull: {
+    backgroundColor: '#EE4D2D',
+  },
+  stepperLineInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  stepperLineHalfWrapper: {
+    flexDirection: 'row',
+    height: 3.5,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  stepperLineHalf: {
+    flex: 1,
+    height: 3.5,
+  },
+  stepperLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stepperLabelCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  stepperQuarterTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4B5563',
+    marginBottom: 2,
+  },
+  stepperQuarterTitleActive: {
+    color: '#EE4D2D',
+  },
+  stepperDateText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  stepperPointBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeUnlocked: {
+    backgroundColor: '#ECFDF5',
+  },
+  badgeWithdrawn: {
+    backgroundColor: '#F1F5F9',
+  },
+  badgeLocked: {
+    backgroundColor: '#FFFBEB',
+  },
+  stepperPointBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  badgeTextUnlocked: {
+    color: '#059669',
+  },
+  badgeTextWithdrawn: {
+    color: '#64748B',
+  },
+  badgeTextLocked: {
+    color: '#B45309',
+  },
+  milestoneMiniSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  miniSummaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  miniSummaryLabel: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  miniSummaryValUnlocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  miniSummaryValLocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  miniSummaryDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: '#E2E8F0',
+  },
+  withdrawalHistoryContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  withdrawalHistoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  withdrawalHistoryTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.2,
+  },
+  withdrawalReqCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  withdrawalReqTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  withdrawalReqAmount: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  withdrawalReqPoints: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  withdrawalStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  withdrawalStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  withdrawalBankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 6,
+  },
+  withdrawalBankText: {
+    fontSize: 11,
+    color: '#475569',
+    flex: 1,
+  },
+  withdrawalFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  withdrawalDateText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  withdrawalNoteText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontStyle: 'italic',
+    flex: 1,
+  },
+  withdrawalAuditBoxSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    padding: 6,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  withdrawalAuditTextSuccess: {
+    fontSize: 10,
+    color: '#065F46',
+    flex: 1,
+  },
+  withdrawalAuditBoxReject: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    padding: 6,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  withdrawalAuditTextReject: {
+    fontSize: 10,
+    color: '#991B1B',
+    flex: 1,
+  },
+  txContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  txTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  txIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  txNote: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  txDate: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+  txPoints: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalHeaderBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  pointsInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 6,
+  },
+  pointsTextInput: {
+    flex: 1,
+    height: 42,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  maxBtn: {
+    backgroundColor: '#E0E7FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  maxBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  quickPercentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  quickPercentBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  quickPercentBtnActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#D97706',
+  },
+  quickPercentText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  quickPercentTextActive: {
+    color: '#B45309',
+    fontWeight: '800',
+  },
+  conversionBox: {
+    backgroundColor: '#ECFDF5',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 10,
+  },
+  conversionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  conversionDivider: {
+    height: 1,
+    backgroundColor: '#A7F3D0',
+    marginVertical: 6,
+    opacity: 0.6,
+  },
+  conversionLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  conversionRateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  conversionFormula: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  conversionTotal: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#059669',
+  },
+  conversionRemainingLabel: {
+    fontSize: 11,
+    color: '#047857',
+    fontWeight: '500',
+  },
+  conversionRemainingValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  advanceWarningBox: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 8,
+  },
+  advanceWarningTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  advanceWarningDesc: {
+    fontSize: 10,
+    color: '#B45309',
+    lineHeight: 14,
+  },
+  directPayoutNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFBEB',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
     marginVertical: 10,
+  },
+  directPayoutTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  directPayoutDesc: {
+    fontSize: 11,
+    color: '#B45309',
+    lineHeight: 15,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    fontSize: 13,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 4,
+    color: '#0F172A',
+  },
+  submitWithdrawBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  submitWithdrawText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  disabledCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 12,
     borderWidth: 1,
     borderColor: '#FEF3C7',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  disabledIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFBEB',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
-  headerTitleGroup: {
+  disabledTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  disabledDescription: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  disabledHint: {
+    fontSize: 12,
+    color: '#B45309',
+    textAlign: 'center',
+    backgroundColor: '#FFFBEB',
+    padding: 10,
+    borderRadius: 8,
+    lineHeight: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  refreshBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#92400E',
   },
-  badgeOptIn: {
+  packageListContainer: {
+    marginTop: 10,
+    marginBottom: 16,
+    gap: 12,
+  },
+  packageListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  packageListTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  packageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  packageCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FEF3C7',
+    marginBottom: 10,
+    gap: 8,
+  },
+  pkgIconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  packageCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  packageCardMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  packageTotalBadge: {
+    alignItems: 'flex-end',
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  packageTotalPoints: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  packageTotalCash: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  pkgMilestoneList: {
+    gap: 6,
+    marginBottom: 10,
+  },
+  pkgMilestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pkgMilestoneRowWithdrawn: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECDD3',
+    borderWidth: 1.5,
+  },
+  pkgMilestoneRowUnlocked: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+    borderWidth: 1.5,
+  },
+  pkgMilestoneRowLocked: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+  },
+  milestoneLeftInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  milestoneRightInfo: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  pkgMilestoneTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  pkgMilestoneDate: {
+    fontSize: 10,
+    color: '#64748B',
+    marginLeft: 23,
+  },
+  pkgMilestonePoints: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  pkgMilestonePointsWithdrawn: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  pkgMilestonePointsUnlocked: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  pkgMilestonePointsDeducted: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  milestoneStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pillWithdrawn: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  pillUnlocked: {
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  pillLocked: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  milestoneStatusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  pillTextWithdrawn: {
+    color: '#DC2626',
+  },
+  pillTextUnlocked: {
+    color: '#15803D',
+  },
+  pillTextLocked: {
+    color: '#92400E',
+  },
+  packageBottomSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+    backgroundColor: '#FFFDF5',
+    borderRadius: 8,
+    paddingVertical: 6,
+  },
+  pkgSummaryItem: {
+    alignItems: 'center',
+  },
+  pkgSummaryLabel: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+  pkgSummaryValWithdrawn: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  pkgSummaryValUnlocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  pkgSummaryValLocked: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  pkgSummaryDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#FDE68A',
+  },
+  scrollHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  scrollHintText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  scrollHintBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  scrollHintBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  horizontalTrackerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  horizontalTrackerScrollContent: {
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+  },
+  horizontalTrackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  trackNodeWrapper: {
+    alignItems: 'center',
+    width: 32,
+  },
+  trackCaretSlot: {
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trackLineWrapper: {
+    flex: 1,
+    height: 4.5,
+    marginBottom: 14,
+    marginHorizontal: 4,
+  },
+  trackLine: {
+    height: 4.5,
+    borderRadius: 2.5,
+  },
+  trackLineFull: {
+    backgroundColor: '#EE4D2D',
+  },
+  trackLineInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  trackLineHalfContainer: {
+    flexDirection: 'row',
+    height: 4.5,
+    borderRadius: 2.5,
+    overflow: 'hidden',
+  },
+  trackLineHalf: {
+    flex: 1,
+    height: 4.5,
+  },
+  trackLineHalfActive: {
+    backgroundColor: '#EE4D2D',
+  },
+  trackLineHalfInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  trackLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  trackLabelCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  trackNodeTitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  trackNodeDate: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  trackNodePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
+  },
+  trackPillWithdrawn: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  trackPillUnlocked: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  trackPillLocked: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  trackPillUpcoming: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  trackNodePillText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  trackPillTextWithdrawn: {
+    color: '#DC2626',
+  },
+  trackPillTextUnlocked: {
+    color: '#EE4D2D',
+  },
+  trackPillTextUpcoming: {
+    color: '#B45309',
+  },
+  trackPillTextLocked: {
+    color: '#64748B',
+  },
+  reqDeliveryTrackerWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  countdownCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  countdownHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  countdownHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  countdownIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  countdownCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  countdownCardSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  countdownTargetPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
-  },
-  badgeOptInText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#B45309',
-  },
-  subSubtitle: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginTop: 6,
-    marginBottom: 12,
-  },
-  boldText: {
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  balanceGrid: {
-    gap: 10,
-  },
-  balanceBox: {
-    padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-  },
-  unlockedBox: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  lockedBox: {
-    backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',
   },
-  boxHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  boxLabelUnlocked: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#047857',
-  },
-  boxLabelLocked: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#B45309',
-  },
-  unlockedAmountText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#059669',
-    marginTop: 4,
-  },
-  lockedAmountText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#D97706',
-    marginTop: 4,
-  },
-  currencyUnit: {
-    fontSize: 14,
-    fontWeight: 'normal',
-  },
-  unlockedPointSub: {
-    fontSize: 12,
-    color: '#059669',
-    marginTop: 2,
-  },
-  lockedPointSub: {
-    fontSize: 12,
-    color: '#D97706',
-    marginTop: 2,
-  },
-  withdrawBtn: {
-    backgroundColor: '#059669',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 6,
-    marginTop: 10,
-  },
-  withdrawBtnText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  vestingNote: {
+  countdownTargetPillText: {
     fontSize: 11,
+    fontWeight: '800',
     color: '#92400E',
-    fontStyle: 'italic',
-    marginTop: 6,
   },
-  milestoneContainer: {
-    marginTop: 14,
-  },
-  milestoneTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  milestoneScroll: {
+  countdownBoxesRow: {
     flexDirection: 'row',
-  },
-  milestoneItem: {
-    backgroundColor: '#F3F4F6',
-    padding: 10,
-    borderRadius: 8,
-    marginRight: 8,
     alignItems: 'center',
-    minWidth: 110,
-  },
-  milestonePassed: {
-    backgroundColor: '#D1FAE5',
-  },
-  milestoneQuarter: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  milestoneStatus: {
-    fontSize: 10,
-    color: '#4B5563',
-    marginTop: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    padding: 20,
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
   },
-  modalContent: {
+  countdownBox: {
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    minWidth: 54,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  modalHeader: {
+  countdownBoxNum: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#B45309',
+    fontVariant: ['tabular-nums'],
+  },
+  countdownBoxLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94A3B8',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  countdownColon: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#D97706',
+    marginTop: -8,
+  },
+  timelineProgressSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  timelineDateHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2937',
+  timelineDateCol: {
+    flex: 1,
   },
-  modalSub: {
-    fontSize: 13,
-    color: '#4B5563',
-    marginBottom: 16,
+  timelineDateLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginTop: 8,
-    marginBottom: 4,
+  timelineDateValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
+  timelineDateValueGold: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  timelinePercentBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
-  submitWithdrawBtn: {
-    backgroundColor: '#059669',
-    paddingVertical: 12,
-    borderRadius: 8,
+  timelinePercentText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  timelineTrack: {
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'visible',
+    position: 'relative',
+    marginVertical: 6,
+  },
+  timelineFill: {
+    height: '100%',
+    backgroundColor: '#D97706',
+    borderRadius: 4,
+  },
+  timelinePointerPin: {
+    position: 'absolute',
+    top: -3,
+    marginLeft: -7,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 2,
+    borderColor: '#D97706',
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
   },
-  submitWithdrawText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+  timelinePointerDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D97706',
+  },
+  timelineFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  timelineFooterLeft: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  timelineFooterBold: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  countdownAllUnlockedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  allUnlockedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+  },
+  allUnlockedIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  allUnlockedTitle: {
     fontSize: 14,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  allUnlockedSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  allUnlockedTrack: {
+    height: 6,
+    backgroundColor: '#A7F3D0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  allUnlockedFill: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#059669',
+  },
+  pkgCountdownSection: {
+    marginTop: 10,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  pkgCountdownHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  pkgCountdownTitleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  pkgCountdownTargetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pkgCountdownTargetText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  pkgCountdownTickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginVertical: 4,
+  },
+  pkgCountdownMiniBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    minWidth: 44,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  pkgCountdownMiniNum: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#B45309',
+    fontVariant: ['tabular-nums'],
+  },
+  pkgCountdownMiniLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#94A3B8',
+    marginTop: 1,
+    letterSpacing: 0.5,
+  },
+  pkgCountdownColon: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#D97706',
+    marginTop: -4,
+  },
+  pkgCountdownFooterRow: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+    alignItems: 'center',
+  },
+  pkgCountdownFooterLeft: {
+    fontSize: 11,
+    color: '#78350F',
+    fontWeight: '500',
+  },
+  pkgExpectedPointsText: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  pkgExpectedCashText: {
+    fontWeight: '700',
+    color: '#059669',
+  },
+  pkgCompletedSection: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  pkgCompletedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
   },
 });

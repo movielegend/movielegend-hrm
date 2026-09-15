@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   overlayContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'space-between',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 40,

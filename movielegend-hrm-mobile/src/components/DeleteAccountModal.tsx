@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   backdropPress: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   keyboardContainer: {
     width: '100%',

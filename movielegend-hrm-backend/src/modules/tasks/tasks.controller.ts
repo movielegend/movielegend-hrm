@@ -97,6 +97,12 @@ export class TasksController {
   requestExtension(@Param('id') id: string, @Body() dto: CreateTaskExtensionRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.requestExtension(id, dto, actor);
   }
+
+  @Post(':id/complete')
+  @AnyPermissions('task.assign_any', 'task.assign_department', 'task.review_department', 'task.review_all')
+  complete(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.tasks.completeTask(id, actor);
+  }
 }
 
 @ApiTags('Task Assignments')

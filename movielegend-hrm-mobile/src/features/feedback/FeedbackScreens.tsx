@@ -22,6 +22,7 @@ import { uploadFile } from '../../api/uploads.api';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiUrl } from '../../constants/env';
 import { useAppAlert } from '../../contexts/AlertContext';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 
 // --- My Feedback List Screen ---
 export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: string }) {
@@ -125,6 +126,7 @@ export function CreateFeedbackScreen() {
   const mutation = useCreateFeedback();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   const { control, handleSubmit, formState: { errors } } = useForm<CreateFeedbackForm>({
     resolver: zodResolver(createFeedbackSchema),
@@ -239,10 +241,12 @@ export function CreateFeedbackScreen() {
           <Text style={styles.label}>Ảnh đính kèm (Tùy chọn)</Text>
           {imageUri ? (
             <View style={{ position: 'relative', alignSelf: 'flex-start', marginTop: 8 }}>
-              <Image source={{ uri: imageUri }} style={{ width: 100, height: 100, borderRadius: 8 }} />
+              <Pressable onPress={() => setViewerVisible(true)} style={{ borderRadius: 8, overflow: 'hidden' }}>
+                <Image source={{ uri: imageUri }} style={{ width: 100, height: 100, borderRadius: 8 }} />
+              </Pressable>
               <Pressable
                 onPress={() => setImageUri(null)}
-                style={{ position: 'absolute', top: -8, right: -8, backgroundColor: '#FFF', borderRadius: 12, padding: 2 }}
+                style={{ position: 'absolute', top: -8, right: -8, backgroundColor: '#FFF', borderRadius: 12, padding: 2, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 }}
               >
                 <Ionicons name="close-circle" size={24} color={colors.danger} />
               </Pressable>
@@ -264,6 +268,15 @@ export function CreateFeedbackScreen() {
           </PrimaryButton>
         </View>
       </ScrollView>
+
+      {imageUri ? (
+        <ImageView
+          images={[{ uri: imageUri }]}
+          imageIndex={0}
+          visible={viewerVisible}
+          onRequestClose={() => setViewerVisible(false)}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -273,6 +286,7 @@ export function CreateFeedbackScreen() {
 export function FeedbackDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: feedback, isLoading, isError } = useFeedbackDetail(id);
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   if (isLoading) {
     return (
@@ -294,6 +308,12 @@ export function FeedbackDetailScreen() {
     hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
   });
 
+  const fullImageUrl = feedback.img
+    ? feedback.img.startsWith('http')
+      ? feedback.img
+      : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}`
+    : null;
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -309,17 +329,15 @@ export function FeedbackDetailScreen() {
           <Text style={styles.label}>Nội dung:</Text>
           <Text style={styles.detailContent}>{feedback.content}</Text>
 
-          {feedback.img && (
+          {fullImageUrl && (
             <View style={{ marginTop: 12 }}>
               <Text style={styles.label}>Ảnh đính kèm:</Text>
-              <Image 
-                source={{ 
-                  uri: feedback.img.startsWith('http') 
-                    ? feedback.img 
-                    : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}` 
-                }} 
-                style={{ width: '100%', height: 220, borderRadius: 12, marginTop: 6, resizeMode: 'cover' }} 
-              />
+              <Pressable onPress={() => setViewerVisible(true)} style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
+                <Image 
+                  source={{ uri: fullImageUrl }} 
+                  style={{ width: '100%', height: 220, borderRadius: 12, resizeMode: 'cover' }} 
+                />
+              </Pressable>
             </View>
           )}
 
@@ -338,6 +356,15 @@ export function FeedbackDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {fullImageUrl && (
+        <ImageView
+          images={[{ uri: fullImageUrl }]}
+          imageIndex={0}
+          visible={viewerVisible}
+          onRequestClose={() => setViewerVisible(false)}
+        />
+      )}
     </Screen>
   );
 }

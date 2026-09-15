@@ -10,6 +10,7 @@ const defaultValues: RegistrationFormValues = {
   idCardNumber: '',
   dateOfBirth: '',
   gender: undefined,
+  joinDate: '',
   requestedDepartmentId: '',
   faceImages: [],
 };

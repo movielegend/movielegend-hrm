@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
 import type { Feedback } from '../../../types/feedback.types';
 import { FeedbackStatusBadge } from './FeedbackStatusBadge';
-import { formatDate } from '../../../utils/date.utils'; // Assuming this exists, if not we'll use native Date
 
 interface Props {
   feedback: Feedback;
@@ -39,7 +38,7 @@ export function FeedbackCard({ feedback, onPress, isAdmin }: Props) {
         <Text style={styles.date}>{dateStr}</Text>
         {isAdmin && (
           <Text style={styles.sender}>
-            {feedback.isAnonymous ? 'Ẩn danh' : feedback.senderDisplayName || 'Không rõ'}
+            {feedback.isAnonymous ? 'Ẩn danh' : (feedback.senderDisplayName || feedback.sender?.fullName || feedback.sender?.userCode || 'Không rõ')}
           </Text>
         )}
       </View>

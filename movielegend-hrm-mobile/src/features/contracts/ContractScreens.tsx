@@ -396,6 +396,7 @@ export function ContractListScreen() {
         <PageHeader
           title="Hợp đồng"
           subtitle="Quản lý hợp đồng lao động"
+          showBack={false}
           right={
             <View style={styles.headerActions}>
               <Pressable
@@ -1706,7 +1707,9 @@ export function LeaderContractListScreen() {
 
   return (
     <Screen>
-      <PageHeader title="Quản lý hợp đồng" />
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs }}>
+        <PageHeader title="Quản lý hợp đồng" />
+      </View>
 
       <View
         style={{

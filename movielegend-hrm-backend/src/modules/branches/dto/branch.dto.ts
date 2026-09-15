@@ -11,6 +11,11 @@ export class CreateBranchDto {
   @IsString()
   name!: string;
 
+  @ApiPropertyOptional({ description: 'ID vùng miền trực thuộc (Region ID)' })
+  @IsOptional()
+  @IsString()
+  regionId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -43,6 +48,11 @@ export class CreateBranchDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isHeadquarters?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

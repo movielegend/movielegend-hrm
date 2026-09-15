@@ -6,8 +6,10 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
 
+import { Phase2PolicyModule } from '../phase2-policy/phase2-policy.module';
+
 @Module({
-  imports: [DatabaseModule, RealtimeModule, NotificationsModule, StorageModule],
+  imports: [DatabaseModule, RealtimeModule, NotificationsModule, StorageModule, Phase2PolicyModule],
   controllers: [ChatController],
   providers: [ChatService],
   exports: [ChatService]

@@ -12,7 +12,7 @@ import { useUnreadNotificationCount } from '../../../src/hooks/useNotifications'
 export default function LeaderTabsLayout() {
   const insets = useSafeAreaInsets();
   const { isLoading, user } = useAuth();
-  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
 
   if (isLoading) return <LoadingState />;
   if (!canAccessRoleRoute(user, '/leader')) return <Redirect href={getHomeRouteForUser(user)} />;
@@ -73,7 +73,7 @@ export default function LeaderTabsLayout() {
         name="notifications"
         options={{
           title: 'Thông báo',
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadge: unreadNotifications > 0 ? (unreadNotifications > 99 ? '99+' : unreadNotifications) : undefined,
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} size={24} color={color} />
           ),

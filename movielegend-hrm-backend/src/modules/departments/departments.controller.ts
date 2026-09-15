@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateDepartmentDto, UpdateDepartmentDto } from './dto/department.dto';
 import { DepartmentsService } from './departments.service';
 
@@ -20,13 +21,13 @@ export class DepartmentsController {
   @Public()
   @Get('public')
   findPublic(@Query('search') search?: string) {
-    return this.departmentsService.findAll(search);
+    return this.departmentsService.findAll(search, undefined, true);
   }
 
   @Permissions('department.read')
   @Get()
-  findAll(@Query('search') search?: string) {
-    return this.departmentsService.findAll(search);
+  findAll(@Query() query: any, @CurrentUser() user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    return this.departmentsService.findAll(query.search, user, query.all === 'true');
   }
 
   @Permissions('department.read')

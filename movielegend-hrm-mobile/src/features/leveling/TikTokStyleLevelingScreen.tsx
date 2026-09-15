@@ -1,621 +1,3161 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
+  Modal,
+  Pressable,
+  TextInput,
+  Image,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../../providers/AuthProvider';
+import { useSocketStatus } from '../../providers/SocketProvider';
+import {
+  useLevelProjects,
+  BulletSubTask,
+  LevelDepartmentProject,
+  isProjectConfigured,
+  LevelProjectPermissionRequest,
+} from './levelProjectsStore';
+import { useLevelGmv } from './levelGmvStore';
+import { levelingApi, UserLevelProgressData } from '../../api/leveling.api';
+import { NextLevelPerksAppendixModal } from './NextLevelPerksAppendixModal';
 
 export interface LevelPerkItem {
   id: string;
-  iconName: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
   title: string;
+  subtitle: string;
 }
 
 export interface LevelTierConfig {
   levelNumber: number;
   levelName: string;
   titleName: string;
-  badgeColor: string;
+  nextTierTitle: string;
+  isCurrent: boolean;
   isUnlocked: boolean;
+  // Progress to next level
+  overallProgressPercent: number;
+  progressSummaryText: string;
+  // Metric 1: GMV / Sales
+  currentGmv: number;
+  promotionCeilingGmv: number;
+  retentionFloorGmv: number;
+  gmvUnit: string;
+  gmvPercent: number;
+  // Metric 2: SLA & Discipline
+  shiftCompletedText: string;
+  slaPercentText: string;
+  isSlaAchieved: boolean;
+  disciplineScoreText: string;
+  isDisciplineAchieved: boolean;
+  // Metric 3: Project & Mentorship
+  projectTitle: string;
+  projectSub: string;
+  projectProgressText: string;
+  isProjectCompleted: boolean;
+  // Perks & Rewards
   perks: LevelPerkItem[];
-  retentionFloorGmv: number; // e.g. 250 (tr)
-  promotionCeilingGmv: number; // e.g. 820 (tr)
-  currentGmv: number; // e.g. 520 (tr)
+  // Review Cycle
+  reviewDateText: string;
 }
 
+// Helper to style each perk category with luxury theme
+export const getPerkTheme = (title: string) => {
+  const upper = title.toUpperCase();
+  if (
+    upper.includes('MACBOOK') ||
+    upper.includes('IPAD') ||
+    upper.includes('TAI NGHE') ||
+    upper.includes('XE Ô TÔ') ||
+    upper.includes('VÀNG') ||
+    upper.includes('HIỆN VẬT') ||
+    upper.includes('KỶ NIỆM') ||
+    upper.includes('CHỨNG NHẬN')
+  ) {
+    return {
+      icon: 'gift' as const,
+      iconBg: '#FEF3C7',
+      iconColor: '#D97706',
+      badgeText: 'QUÀ HIỆN VẬT',
+      badgeBg: '#FFFBEB',
+      badgeColor: '#B45309',
+    };
+  }
+  if (
+    upper.includes('THƯỞNG NÓNG') ||
+    upper.includes('PHỤ CẤP') ||
+    upper.includes('TIỀN') ||
+    upper.includes('VOUCHER')
+  ) {
+    return {
+      icon: 'cash' as const,
+      iconBg: '#DCFCE7',
+      iconColor: '#16A34A',
+      badgeText: 'THƯỞNG TIỀN MẶT',
+      badgeBg: '#F0FDF4',
+      badgeColor: '#15803D',
+    };
+  }
+  if (upper.includes('VÍ TẾT') || upper.includes('HỆ SỐ')) {
+    return {
+      icon: 'sparkles' as const,
+      iconBg: '#F3E8FF',
+      iconColor: '#9333EA',
+      badgeText: 'THƯỞNG TẾT',
+      badgeBg: '#FAF5FF',
+      badgeColor: '#7E22CE',
+    };
+  }
+  return {
+    icon: 'shield-checkmark' as const,
+    iconBg: '#E0F2FE',
+    iconColor: '#0284C7',
+    badgeText: 'ĐẶC QUYỀN VIP',
+    badgeBg: '#F0F9FF',
+    badgeColor: '#0369A1',
+  };
+};
+
+// Helper to calculate dynamic month-end review date
+const getNextReviewDateString = (monthOffset = 0) => {
+  const now = new Date();
+  const targetDate = new Date(now.getFullYear(), now.getMonth() + 1 + monthOffset, 0);
+  const diffDays = Math.max(0, Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+  const formattedDate = `${String(targetDate.getDate()).padStart(2, '0')}.${String(targetDate.getMonth() + 1).padStart(2, '0')}.${targetDate.getFullYear()}`;
+  if (monthOffset === 0) {
+    return `Kỳ xét duyệt: ${formattedDate} (Còn ${diffDays} ngày)`;
+  }
+  return `Kỳ kế tiếp: ${formattedDate}`;
+};
+
+export interface MetalTheme {
+  name: string;
+  badgeName: string;
+  bgDark: string;
+  bgSecondary: string;
+  borderColor: string;
+  accentColor: string;
+  tagBg: string;
+  tagTextColor: string;
+  cardBannerBg: string;
+  cardBannerBorder: string;
+  iconName: keyof typeof Ionicons.glyphMap;
+}
+
+export const getMetalTheme = (level: number): MetalTheme => {
+  switch (level) {
+    case 1:
+      return {
+        name: 'Sắt',
+        badgeName: 'Hạng Sắt',
+        bgDark: '#1E232A',
+        bgSecondary: '#2E3440',
+        borderColor: '#475569',
+        accentColor: '#94A3B8',
+        tagBg: '#F1F5F9',
+        tagTextColor: '#475569',
+        cardBannerBg: '#F8FAFC',
+        cardBannerBorder: '#64748B',
+        iconName: 'hardware-chip-outline',
+      };
+    case 2:
+      return {
+        name: 'Đồng',
+        badgeName: 'Hạng Đồng',
+        bgDark: '#2E1A11',
+        bgSecondary: '#4A2A1B',
+        borderColor: '#92400E',
+        accentColor: '#F59E0B',
+        tagBg: '#FFF7ED',
+        tagTextColor: '#C2410C',
+        cardBannerBg: '#FFFBFA',
+        cardBannerBorder: '#EA580C',
+        iconName: 'shield-outline',
+      };
+    case 3:
+      return {
+        name: 'Bạc',
+        badgeName: 'Hạng Bạc',
+        bgDark: '#1E293B',
+        bgSecondary: '#334155',
+        borderColor: '#94A3B8',
+        accentColor: '#38BDF8',
+        tagBg: '#F0F9FF',
+        tagTextColor: '#0284C7',
+        cardBannerBg: '#F8FAFC',
+        cardBannerBorder: '#0284C7',
+        iconName: 'ribbon-outline',
+      };
+    case 4:
+      return {
+        name: 'Vàng',
+        badgeName: 'Hạng Vàng',
+        bgDark: '#3A2807',
+        bgSecondary: '#593E0A',
+        borderColor: '#D97706',
+        accentColor: '#FBBF24',
+        tagBg: '#FEF3C7',
+        tagTextColor: '#B45309',
+        cardBannerBg: '#FFFDF5',
+        cardBannerBorder: '#D97706',
+        iconName: 'trophy-outline',
+      };
+    case 5:
+      return {
+        name: 'Bạch Kim',
+        badgeName: 'Hạng Bạch Kim',
+        bgDark: '#0F172A',
+        bgSecondary: '#1E293B',
+        borderColor: '#38BDF8',
+        accentColor: '#38BDF8',
+        tagBg: '#F0F9FF',
+        tagTextColor: '#0369A1',
+        cardBannerBg: '#F0F9FF',
+        cardBannerBorder: '#0284C7',
+        iconName: 'medal-outline',
+      };
+    case 6:
+      return {
+        name: 'Kim Cương',
+        badgeName: 'Hạng Kim Cương',
+        bgDark: '#064E3B',
+        bgSecondary: '#065F46',
+        borderColor: '#10B981',
+        accentColor: '#34D399',
+        tagBg: '#ECFDF5',
+        tagTextColor: '#047857',
+        cardBannerBg: '#F0FDF4',
+        cardBannerBorder: '#10B981',
+        iconName: 'diamond-outline',
+      };
+    case 7:
+      return {
+        name: 'Titan',
+        badgeName: 'Hạng Titan',
+        bgDark: '#3B0764',
+        bgSecondary: '#581C87',
+        borderColor: '#A855F7',
+        accentColor: '#C084FC',
+        tagBg: '#F3E8FF',
+        tagTextColor: '#7E22CE',
+        cardBannerBg: '#FAF5FF',
+        cardBannerBorder: '#9333EA',
+        iconName: 'sparkles-outline',
+      };
+    case 8:
+      return {
+        name: 'Ngọc Bích',
+        badgeName: 'Hạng Ngọc Bích',
+        bgDark: '#064E3B',
+        bgSecondary: '#047857',
+        borderColor: '#059669',
+        accentColor: '#10B981',
+        tagBg: '#ECFDF5',
+        tagTextColor: '#047857',
+        cardBannerBg: '#F0FDF4',
+        cardBannerBorder: '#059669',
+        iconName: 'planet-outline',
+      };
+    case 9:
+      return {
+        name: 'Hồng Ngọc',
+        badgeName: 'Hạng Hồng Ngọc',
+        bgDark: '#4C0519',
+        bgSecondary: '#881337',
+        borderColor: '#E11D48',
+        accentColor: '#FB7185',
+        tagBg: '#FFE4E6',
+        tagTextColor: '#BE123C',
+        cardBannerBg: '#FFF1F2',
+        cardBannerBorder: '#E11D48',
+        iconName: 'heart-circle-outline',
+      };
+    case 10:
+      return {
+        name: 'Tinh Thể',
+        badgeName: 'Hạng Tinh Thể',
+        bgDark: '#1E1B4B',
+        bgSecondary: '#312E81',
+        borderColor: '#6366F1',
+        accentColor: '#818CF8',
+        tagBg: '#EEF2FF',
+        tagTextColor: '#4338CA',
+        cardBannerBg: '#EEF2FF',
+        cardBannerBorder: '#6366F1',
+        iconName: 'prism-outline',
+      };
+    case 11:
+      return {
+        name: 'Nguyệt Thạch',
+        badgeName: 'Hạng Nguyệt Thạch',
+        bgDark: '#0C4A6E',
+        bgSecondary: '#0369A1',
+        borderColor: '#0EA5E9',
+        accentColor: '#38BDF8',
+        tagBg: '#E0F2FE',
+        tagTextColor: '#0369A1',
+        cardBannerBg: '#F0F9FF',
+        cardBannerBorder: '#0EA5E9',
+        iconName: 'moon-outline',
+      };
+    case 12:
+    default:
+      return {
+        name: 'Huyền Thoại',
+        badgeName: 'Hạng Huyền Thoại',
+        bgDark: '#18181B',
+        bgSecondary: '#27272A',
+        borderColor: '#F59E0B',
+        accentColor: '#FBBF24',
+        tagBg: '#FEF3C7',
+        tagTextColor: '#92400E',
+        cardBannerBg: '#FFFDF5',
+        cardBannerBorder: '#F59E0B',
+        iconName: 'trophy-outline',
+      };
+  }
+};
+
 export const TikTokStyleLevelingScreen: React.FC = () => {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const [selectedLevel, setSelectedLevel] = useState<number>(5); // Default to current Level 5
 
-  const levels: LevelTierConfig[] = [
-    {
-      levelNumber: 1,
-      levelName: 'Cấp 1',
-      titleName: 'Thực Tập Sinh',
-      badgeColor: '#9CA3AF',
-      isUnlocked: true,
-      perks: [
-        { id: 'p1', iconName: 'ticket', iconColor: '#EF4444', title: 'Voucher Sinh nhật 200k' },
-        { id: 'p2', iconName: 'car', iconColor: '#3B82F6', title: 'Phụ cấp gửi xe 100%' },
-      ],
-      retentionFloorGmv: 0,
-      promotionCeilingGmv: 50,
-      currentGmv: 50,
-    },
-    {
-      levelNumber: 2,
-      levelName: 'Cấp 2',
-      titleName: 'Chính Thức',
-      badgeColor: '#2563EB',
-      isUnlocked: true,
-      perks: [
-        { id: 'p3', iconName: 'cash', iconColor: '#10B981', title: 'Thưởng 1.000.000đ tiền mặt' },
-        { id: 'p4', iconName: 'shield-checkmark', iconColor: '#6366F1', title: 'Bảo hiểm Y tế / Tai nạn' },
-      ],
-      retentionFloorGmv: 30,
-      promotionCeilingGmv: 150,
-      currentGmv: 150,
-    },
-    {
-      levelNumber: 3,
-      levelName: 'Cấp 3',
-      titleName: 'Senior Specialist',
-      badgeColor: '#0D9488',
-      isUnlocked: true,
-      perks: [
-        { id: 'p5', iconName: 'headset', iconColor: '#EC4899', title: 'Tai nghe Bluetooth Chống ồn' },
-        { id: 'p6', iconName: 'school', iconColor: '#8B5CF6', title: 'Ngân sách Đào tạo 2tr/năm' },
-      ],
-      retentionFloorGmv: 80,
-      promotionCeilingGmv: 300,
-      currentGmv: 300,
-    },
-    {
-      levelNumber: 4,
-      levelName: 'Cấp 4',
-      titleName: 'Key Member',
-      badgeColor: '#9333EA',
-      isUnlocked: true,
-      perks: [
-        { id: 'p7', iconName: 'tablet-landscape', iconColor: '#3B82F6', title: 'Thưởng Máy tính bảng iPad' },
-        { id: 'p8', iconName: 'heart', iconColor: '#EF4444', title: 'BH Sức khỏe Cá nhân cao cấp' },
-      ],
-      retentionFloorGmv: 150,
-      promotionCeilingGmv: 500,
-      currentGmv: 500,
-    },
-    {
-      levelNumber: 5,
-      levelName: 'Cấp 5',
-      titleName: 'Team Leader',
-      badgeColor: '#EA580C',
-      isUnlocked: true,
-      perks: [
-        { id: 'p9', iconName: 'laptop', iconColor: '#F59E0B', title: 'THƯỞNG LAPTOP MACBOOK AIR M3' },
-        { id: 'p10', iconName: 'briefcase', iconColor: '#10B981', title: 'Phụ cấp Leader 2.000.000đ/tháng' },
-        { id: 'p11', iconName: 'people', iconColor: '#8B5CF6', title: 'Quỹ Teambuilding 5.000.000đ/quý' },
-        { id: 'p12', iconName: 'gift', iconColor: '#EC4899', title: 'Hệ số Ví Điểm Thưởng Tết 1.6x' },
-      ],
-      retentionFloorGmv: 250,
-      promotionCeilingGmv: 820,
-      currentGmv: 520,
-    },
-    {
-      levelNumber: 6,
-      levelName: 'Cấp 6',
-      titleName: 'Manager Bộ Phận',
-      badgeColor: '#DC2626',
-      isUnlocked: false,
-      perks: [
-        { id: 'p13', iconName: 'laptop-outline', iconColor: '#DC2626', title: 'THƯỞNG MACBOOK PRO M-SERIES + iPhone' },
-        { id: 'p14', iconName: 'ribbon', iconColor: '#D97706', title: 'Phụ cấp Quản lý 5.000.000đ/tháng' },
-      ],
-      retentionFloorGmv: 500,
-      promotionCeilingGmv: 1500,
-      currentGmv: 0,
-    },
-    {
-      levelNumber: 7,
-      levelName: 'Cấp 7',
-      titleName: 'Director Giám Đốc',
-      badgeColor: '#D97706',
-      isUnlocked: false,
-      perks: [
-        { id: 'p15', iconName: 'diamond', iconColor: '#D97706', title: 'THƯỞNG MACBOOK PRO MAX + 1 CÂY VÀNG 9999' },
-        { id: 'p16', iconName: 'airplane', iconColor: '#2563EB', title: 'Du lịch 5 sao + Cổ phần ESOP' },
-      ],
-      retentionFloorGmv: 1000,
-      promotionCeilingGmv: 3000,
-      currentGmv: 0,
-    },
-    {
-      levelNumber: 8,
-      levelName: 'Cấp 8',
-      titleName: 'Executive Ban Điều Hành',
-      badgeColor: '#7C2D12',
-      isUnlocked: false,
-      perks: [
-        { id: 'p17', iconName: 'car-sport', iconColor: '#7C2D12', title: 'XE CÔNG VỤ + GÓI CỔ PHẦN ESOP DOANH NGHIỆP' },
-      ],
-      retentionFloorGmv: 2000,
-      promotionCeilingGmv: 5000,
-      currentGmv: 0,
-    },
-  ];
+  // Load level stored or approved from Backend API & SecureStore
+  const [approvedLevelNumber, setApprovedLevelNumber] = useState<number | null>(null);
 
-  const currentTier = levels.find((l) => l.levelNumber === selectedLevel) || levels[4];
-  const progressPercent = Math.min(
-    100,
-    Math.max(0, (currentTier.currentGmv / currentTier.promotionCeilingGmv) * 100)
-  );
+  useEffect(() => {
+    if (!user?.id) return;
+    let isMounted = true;
+    void (async () => {
+      try {
+        // Fetch real level from Backend API first
+        const backendRes = await levelingApi.getUserLevel(user.id).catch(() => null);
+        if (isMounted && backendRes && typeof backendRes.levelNumber === 'number') {
+          const lvl = backendRes.levelNumber;
+          setApprovedLevelNumber(lvl > 1 ? lvl : null);
+          setSelectedLevel(lvl);
+          if (lvl === 1) {
+            await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+            await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => {});
+          } else {
+            await SecureStore.setItemAsync(`USER_APPROVED_LEVEL_${user.id}`, String(lvl)).catch(() => {});
+          }
+          return;
+        }
+
+        const resetTimeStr = await SecureStore.getItemAsync('LAST_DATA_RESET_TIMESTAMP').catch(() => null);
+        const approvalTimeStr = await SecureStore.getItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => null);
+        const resetTime = resetTimeStr ? parseInt(resetTimeStr, 10) : 0;
+        const approvalTime = approvalTimeStr ? parseInt(approvalTimeStr, 10) : 0;
+
+        if (resetTime > 0 && approvalTime < resetTime) {
+          // Data was reset after approval => Clear approved level!
+          await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+          await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => {});
+          if (isMounted) {
+            setApprovedLevelNumber(null);
+            setSelectedLevel(1);
+          }
+          return;
+        }
+
+        const val = await SecureStore.getItemAsync(`USER_APPROVED_LEVEL_${user.id}`);
+        if (isMounted && val) {
+          const num = parseInt(val, 10);
+          if (!isNaN(num)) {
+            setApprovedLevelNumber(num);
+            setSelectedLevel(num);
+          }
+        }
+      } catch {}
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  // Dynamic Level Calculation
+  const isLeader = Boolean(user?.roles?.includes('LEADER'));
+  const userDisplayName = user?.fullName || (isLeader ? 'Trưởng Nhóm' : 'Nhân Viên');
+  const currentUserLevelNumber = approvedLevelNumber || (user as any)?.levelNumber || (user as any)?.currentLevel || 1;
+
+  // Hook into Level Projects & GMV store with logged-in user department
+  const userDeptId = user?.department?.id;
+  const userDeptName = user?.department?.name;
+
+  const {
+    getProjectByLevel,
+    getAssignedSubTasksForUser,
+    submitSubTask,
+    setProjects,
+    fetchProjects,
+    hasProjectAccess,
+    getAccessRequest,
+    requestProjectAccess,
+  } = useLevelProjects(userDeptId, userDeptName);
+  const { getGmvByLevel, updateGmv } = useLevelGmv();
+
+  const { getSocket } = useSocketStatus();
+
+  // Real-time synchronization when Admin approves promotion or updates config
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    if (userDeptId) {
+      socket.emit('level:join_config_room', { departmentId: userDeptId });
+    }
+
+    const handleConfigUpdated = (payload: any) => {
+      if (
+        payload &&
+        (!payload.departmentId ||
+          payload.departmentId === userDeptId ||
+          payload.departmentName === userDeptName)
+      ) {
+        if (payload.projects && Array.isArray(payload.projects)) {
+          setProjects(payload.projects);
+        } else {
+          void fetchProjects();
+        }
+      }
+    };
+
+    const handleUserPromoted = (payload: any) => {
+      if (payload && (payload.userId === user?.id || !payload.userId)) {
+        if (payload.targetLevelNumber) {
+          setApprovedLevelNumber(payload.targetLevelNumber);
+          setSelectedLevel(payload.targetLevelNumber);
+          Alert.alert(
+            'CHÚC MỪNG BẠN ĐÃ ĐƯỢC THĂNG CẤP!',
+            `Admin đã chốt phê duyệt thăng cấp cho bạn lên ${payload.targetLevelName || `Level ${payload.targetLevelNumber}`}!`
+          );
+        }
+      }
+    };
+
+    const handleDataReset = async () => {
+      if (user?.id) {
+        await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_${user.id}`).catch(() => {});
+        await SecureStore.deleteItemAsync(`USER_APPROVED_LEVEL_TIME_${user.id}`).catch(() => {});
+      }
+      setApprovedLevelNumber(null);
+      setSelectedLevel(1);
+    };
+
+    socket.on('level:config:updated', handleConfigUpdated);
+    socket.on('level:user_promoted', handleUserPromoted);
+    socket.on('level:data_reset', handleDataReset);
+    return () => {
+      socket.off('level:config:updated', handleConfigUpdated);
+      socket.off('level:user_promoted', handleUserPromoted);
+      socket.off('level:data_reset', handleDataReset);
+    };
+  }, [getSocket, userDeptId, userDeptName, setProjects, fetchProjects, user?.id]);
+
+  const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
+  const [appendixModalVisible, setAppendixModalVisible] = useState(false);
+
+  useEffect(() => {
+    void levelingApi
+      .getMyLevelProgress()
+      .then((data) => {
+        if (data) setProgressData(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const [selectedLevel, setSelectedLevel] = useState<number>(currentUserLevelNumber);
+  // Base definition templates for Staff (1 -> 12)
+  const staffLevelDefs = Array.from({ length: 12 }, (_, i) => {
+    const lvl = i + 1;
+    return {
+      levelNumber: lvl,
+      levelName: `Level ${lvl}`,
+      titleName: `Cấp Bậc Level ${lvl}`,
+      nextTierTitle: lvl < 12 ? `Level ${lvl + 1}` : 'Cấp Tối Đa',
+      shiftCompletedText: 'Chỉ tiêu: Theo phân công phòng ban',
+      slaPercentText: 'Yêu cầu SLA ca trực ≥ 90%',
+      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 85đ',
+      projectTitle: `Dự Án Level ${lvl}`,
+      projectSub: 'Chưa giao việc con nào',
+      perks: [] as LevelPerkItem[],
+    };
+  });
+
+  // Base definition templates for Leader (1 -> 12)
+  const leaderLevelDefs = Array.from({ length: 12 }, (_, i) => {
+    const lvl = i + 1;
+    return {
+      levelNumber: lvl,
+      levelName: `Level ${lvl}`,
+      titleName: `Quản Trị Level ${lvl}`,
+      nextTierTitle: lvl < 12 ? `Level ${lvl + 1}` : 'Cấp Tối Đa',
+      shiftCompletedText: 'Chỉ tiêu: Điều phối ca trực',
+      slaPercentText: 'Yêu cầu SLA ca trực ≥ 90%',
+      disciplineScoreText: 'Chuyên cần yêu cầu ≥ 85đ',
+      projectTitle: `Dự Án Level ${lvl}`,
+      projectSub: 'Chưa giao việc con nào',
+      perks: [] as LevelPerkItem[],
+    };
+  });
+
+  // Dynamic mapper to inject real GMV & dynamic review dates
+  const buildLevelTierList = (defs: Array<{
+    levelNumber: number;
+    levelName: string;
+    titleName: string;
+    nextTierTitle: string;
+    shiftCompletedText: string;
+    slaPercentText: string;
+    disciplineScoreText: string;
+    projectTitle: string;
+    projectSub: string;
+    perks: LevelPerkItem[];
+  }>): LevelTierConfig[] => {
+    return defs.map((def) => {
+      const gmvItem = getGmvByLevel(def.levelNumber);
+      const curGmv = gmvItem?.currentGmv || 0;
+      const ceilGmv = gmvItem?.promotionCeilingGmv || 50;
+      const flrGmv = gmvItem?.retentionFloorGmv || 0;
+      const unit = gmvItem?.gmvUnit || 'Tr VNĐ';
+      const gPercent = ceilGmv > 0 ? Math.min(100, Math.round((curGmv / ceilGmv) * 100)) : 0;
+      const isCur = def.levelNumber === currentUserLevelNumber;
+      const isUnl = def.levelNumber <= currentUserLevelNumber;
+      const isPast = def.levelNumber < currentUserLevelNumber;
+
+      const project = getProjectByLevel(def.levelNumber);
+      const totalTasks = project?.subTasks?.length || 0;
+      const doneTasks = project?.subTasks?.filter((t) => t.status === 'LEADER_APPROVED').length || 0;
+      const isProjCompleted = isPast || (totalTasks > 0 && doneTasks === totalTasks);
+
+      let overallProgressPercent = 0;
+      let progressSummaryText = '';
+      let reviewDateText = '';
+
+      if (isPast) {
+        overallProgressPercent = 100;
+        progressSummaryText = `Đã hoàn thành xuất sắc cấp độ ${def.levelName}.`;
+        reviewDateText = 'Đã xét duyệt';
+      } else if (isCur) {
+        overallProgressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 100;
+        progressSummaryText =
+          totalTasks > 0
+            ? (doneTasks === totalTasks
+                ? 'Đã hoàn thành toàn bộ việc con của dự án cấp bậc.'
+                : `Tiến độ dự án cấp bậc: ${doneTasks}/${totalTasks} việc con đã được duyệt.`)
+            : 'Đang trong tiến trình thực hiện cấp bậc hiện tại.';
+        reviewDateText = getNextReviewDateString(0);
+      } else {
+        overallProgressPercent = 0;
+        progressSummaryText = `Mục tiêu thăng cấp: Hoàn thành dự án và tiêu chuẩn cấp ${def.levelName}`;
+        reviewDateText = getNextReviewDateString(def.levelNumber - currentUserLevelNumber);
+      }
+
+
+      return {
+        ...def,
+        projectTitle: project?.projectName || def.projectTitle,
+        projectSub:
+          project?.subTasks && project.subTasks.length > 0
+            ? `Dự án gồm ${project.subTasks.length} việc con (${project.departmentName || userDeptName || 'Phòng ban'})`
+            : def.projectSub,
+        isCurrent: isCur,
+        isUnlocked: isUnl,
+        overallProgressPercent,
+        progressSummaryText,
+        currentGmv: curGmv,
+        promotionCeilingGmv: ceilGmv,
+        retentionFloorGmv: flrGmv,
+        gmvUnit: unit,
+        gmvPercent: gPercent,
+        isSlaAchieved: isUnl,
+        isDisciplineAchieved: isUnl,
+        projectProgressText: isPast
+          ? 'Đã hoàn thành 100%'
+          : isCur
+          ? `Tiến độ: ${doneTasks}/${totalTasks} việc con`
+          : 'Chưa mở khóa',
+        isProjectCompleted: isProjCompleted,
+        reviewDateText,
+      };
+    });
+  };
+
+  const staffLevels = buildLevelTierList(staffLevelDefs);
+  const leaderLevels = buildLevelTierList(leaderLevelDefs);
+
+  // Lộ trình chỉ thuộc về người dùng đang đăng nhập
+  const myLevelList = isLeader ? leaderLevels : staffLevels;
+
+  // Tasks assigned to current user (Leader/Employee) across projects
+  const assignedItems = getAssignedSubTasksForUser(user?.id, user?.fullName);
+
+  // GMV editing state for Leader
+  const [editGmvModalVisible, setEditGmvModalVisible] = useState(false);
+  const [inputCurrentGmv, setInputCurrentGmv] = useState('');
+  const [inputCeilingGmv, setInputCeilingGmv] = useState('');
+  const [inputFloorGmv, setInputFloorGmv] = useState('');
+
+  // Selected subtask modal for reporting
+  const [activeReportTask, setActiveReportTask] = useState<{
+    project: LevelDepartmentProject;
+    subTask: BulletSubTask;
+  } | null>(null);
+
+  const [reportNote, setReportNote] = useState('');
+  const [evidenceUrl, setEvidenceUrl] = useState('');
+  const [evidenceImages, setEvidenceImages] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const handleOpenReportModal = (item: { project: LevelDepartmentProject; subTask: BulletSubTask }) => {
+    setActiveReportTask(item);
+    setReportNote(item.subTask.submissionNote || '');
+    setEvidenceUrl(item.subTask.evidenceUrl || '');
+    setEvidenceImages(item.subTask.evidenceImages || []);
+  };
+
+  const handlePickImages = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets) {
+        const newUris = result.assets.map((a) => a.uri);
+        setEvidenceImages((prev) => [...prev, ...newUris]);
+      }
+    } catch {
+      Alert.alert('Thông báo', 'Không thể mở thư viện ảnh');
+    }
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setEvidenceImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSubmitReport = () => {
+    if (!activeReportTask) return;
+    if (!reportNote.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả thực hiện.');
+      return;
+    }
+
+    submitSubTask(
+      activeReportTask.project.levelNumber,
+      activeReportTask.subTask.id,
+      reportNote.trim(),
+      evidenceUrl.trim() || undefined,
+      evidenceImages
+    );
+
+    setActiveReportTask(null);
+    Alert.alert('Thành Công', 'Đã nộp báo cáo kết quả và minh chứng.');
+  };
+
+  // Modals
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [allLevelsModalVisible, setAllLevelsModalVisible] = useState(false);
+  const [requestAccessModalVisible, setRequestAccessModalVisible] = useState(false);
+  const [requestReasonText, setRequestReasonText] = useState('');
+  const [isSubmittingAccessRequest, setIsSubmittingAccessRequest] = useState(false);
+
+  const selectedTier: LevelTierConfig = myLevelList.find((l) => l.levelNumber === selectedLevel) ?? myLevelList[0]!;
+  const currentActiveTier: LevelTierConfig = myLevelList.find((l) => l.isCurrent) ?? myLevelList[0]!;
+
+  const currentProjectForTier = getProjectByLevel(selectedTier.levelNumber);
+  const isTierConfigured = isProjectConfigured(currentProjectForTier);
+  const hasAccessToProject = hasProjectAccess(selectedTier.levelNumber, user?.id, currentUserLevelNumber);
+  const userAccessRequest = user?.id ? getAccessRequest(selectedTier.levelNumber, user.id) : undefined;
+
+  const handleSendAccessRequest = async () => {
+    if (!user?.id) {
+      Alert.alert('Lỗi', 'Vui lòng đăng nhập để gửi yêu cầu.');
+      return;
+    }
+    setIsSubmittingAccessRequest(true);
+    try {
+      await requestProjectAccess({
+        userId: user.id,
+        userName: userDisplayName,
+        userCode: (user as any)?.userCode || user?.email,
+        departmentId: userDeptId,
+        departmentName: userDeptName,
+        levelNumber: selectedTier.levelNumber,
+        levelName: selectedTier.levelName,
+        projectName: currentProjectForTier?.projectName || selectedTier.projectTitle,
+        userCurrentLevel: currentUserLevelNumber,
+        reason: requestReasonText.trim(),
+      });
+      setRequestAccessModalVisible(false);
+      setRequestReasonText('');
+      Alert.alert(
+        'Đã Gửi Yêu Cầu Xin Làm Dự Án',
+        `Yêu cầu làm dự án ${selectedTier.levelName} đã được gửi tới Trưởng nhóm (Leader). Khi Leader phê duyệt, bạn sẽ được phép nhận việc con và nộp báo cáo!`
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu lúc này.');
+    } finally {
+      setIsSubmittingAccessRequest(false);
+    }
+  };
+
+  const myTasksForThisLevel = assignedItems.filter((item) => item.project.levelNumber === selectedTier.levelNumber);
+
+  // Dynamic GMV values from real-time store
+  const tierGmv = getGmvByLevel(selectedTier.levelNumber);
+  const currentGmv = tierGmv.currentGmv;
+  const ceilingGmv = tierGmv.promotionCeilingGmv;
+  const floorGmv = tierGmv.retentionFloorGmv;
+  const gmvUnit = tierGmv.gmvUnit || 'Tr VNĐ';
+  const gmvPercent = ceilingGmv > 0 ? Math.min(100, Math.round((currentGmv / ceilingGmv) * 100)) : 0;
+
+  const handleOpenEditGmvModal = () => {
+    setInputCurrentGmv(String(currentGmv));
+    setInputCeilingGmv(String(ceilingGmv));
+    setInputFloorGmv(String(floorGmv));
+    setEditGmvModalVisible(true);
+  };
+
+  const handleSaveGmv = () => {
+    const cur = parseFloat(inputCurrentGmv) || 0;
+    const ceil = parseFloat(inputCeilingGmv) || 0;
+    const flr = parseFloat(inputFloorGmv) || 0;
+
+    if (ceil <= 0) {
+      Alert.alert('Lỗi', 'Mục tiêu nâng cấp (GMV) phải lớn hơn 0.');
+      return;
+    }
+
+    updateGmv(selectedTier.levelNumber, cur, ceil, flr, userDisplayName);
+    setEditGmvModalVisible(false);
+    Alert.alert('Thành Công', `Đã cập nhật doanh số ${selectedTier.levelName} thành công và đồng bộ realtime!`);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
-      {/* Header Level Navigation Carousel (TikTok Style Header) */}
-      <View style={styles.darkHeader}>
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.topTitle}>Cấp Của Bạn</Text>
-          <TouchableOpacity style={styles.helpBtn}>
-            <Ionicons name="help-circle-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+      <ScrollView style={styles.scrollBody} contentContainerStyle={{ paddingBottom: 60 + Math.max(insets.bottom, 24) }} showsVerticalScrollIndicator={false}>
+        {/* ===================================================================== */}
+        {/* 1. VIP MEMBERSHIP CARD                                                */}
+        {/* ===================================================================== */}
+        {(() => {
+          const currentMetal = getMetalTheme(currentActiveTier.levelNumber);
+          return (
+            <View style={styles.cardSection}>
+              <View style={[
+                styles.vipCardContainer, 
+                { backgroundColor: currentMetal.bgDark, borderColor: currentMetal.borderColor }
+              ]}>
+                {/* Top row: Back button, Level Name, Metal Badge, User Name, and Perks Link */}
+                <View style={styles.vipCardTop}>
+                  <View style={styles.vipCardHeaderLeft}>
+                    <View style={styles.rankTitleRow}>
+                      <Text style={styles.vipRankTitle}>{currentActiveTier.levelName}</Text>
+                    </View>
+                    <Text style={styles.vipUserName}>{userDisplayName}</Text>
+                  </View>
 
-        {/* Level Selector Carousel Pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.levelCarousel}>
-          {levels.map((lvl) => (
-            <TouchableOpacity
-              key={lvl.levelNumber}
-              style={[
-                styles.levelPill,
-                selectedLevel === lvl.levelNumber && styles.levelPillActive,
-              ]}
-              onPress={() => setSelectedLevel(lvl.levelNumber)}
-            >
-              <Text
-                style={[
-                  styles.levelPillText,
-                  selectedLevel === lvl.levelNumber && styles.levelPillTextActive,
-                ]}
-              >
-                {!lvl.isUnlocked ? `🔒 Cấp ${lvl.levelNumber}` : `Cấp ${lvl.levelNumber}`}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* 3D Rank Badge & Title Header */}
-        <View style={styles.badgeSection}>
-          <View style={styles.badgeTextGroup}>
-            <View style={styles.rankBadgeTag}>
-              <Ionicons name="sparkles" size={12} color="#F59E0B" />
-              <Text style={styles.rankBadgeTagText}>{currentTier.titleName}</Text>
-            </View>
-            <Text style={styles.levelBigTitle}>{currentTier.levelName}</Text>
-          </View>
-
-          {/* 3D Crown Icon */}
-          <View style={[styles.crownIconContainer, { backgroundColor: currentTier.badgeColor + '33' }]}>
-            <Ionicons name="trophy" size={56} color={currentTier.badgeColor} />
-          </View>
-        </View>
-
-        {/* Perks Grid in Current Level */}
-        <View style={styles.perksSection}>
-          <Text style={styles.perksTitle}>Lợi ích ở cấp này &rsaquo;</Text>
-          <View style={styles.perksGrid}>
-            {currentTier.perks.map((perk) => (
-              <View key={perk.id} style={styles.perkItem}>
-                <View style={styles.perkIconBox}>
-                  <Ionicons name={perk.iconName} size={24} color={perk.iconColor} />
+                  <TouchableOpacity
+                    style={styles.tierBenefitsBtn}
+                    onPress={() => setAllLevelsModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.tierBenefitsBtnText}>Ưu đãi mỗi Level</Text>
+                    <Ionicons name="chevron-forward" size={13} color="#E2E8F0" />
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.perkText} numberOfLines={2}>
-                  {perk.title}
+
+                {/* Inner Floating White Card */}
+                <View style={styles.whiteFloatingCard}>
+                  <View style={styles.upgradeNoticeHeaderRow}>
+                    <View style={[styles.upgradeNoticePill, { backgroundColor: currentMetal.tagBg }]}>
+                      <Ionicons name="trending-up" size={14} color={currentMetal.tagTextColor} />
+                      <Text style={[styles.upgradeHeaderNoticeText, { color: currentMetal.tagTextColor }]}>
+                        Mục tiêu thăng cấp lên {currentActiveTier.nextTierTitle}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Tên Dự Án Ở Giữa Card */}
+                  <View style={[
+                    styles.cardProjectBanner, 
+                    { backgroundColor: currentMetal.cardBannerBg, borderLeftColor: currentMetal.cardBannerBorder }
+                  ]}>
+                    <View style={styles.cardProjectTagRow}>
+                      <Text style={[styles.cardProjectTagText, { color: currentMetal.cardBannerBorder }]}>
+                        DỰ ÁN {currentActiveTier.levelName.toUpperCase()}
+                      </Text>
+                      <View style={[styles.cardProjectStatusBadge, { backgroundColor: currentMetal.tagBg }]}>
+                        <Text style={[styles.cardProjectStatusBadgeText, { color: currentMetal.tagTextColor }]}>
+                          Đang thực hiện
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.cardProjectMainTitle}>
+                      {currentActiveTier.projectTitle}
+                    </Text>
+                    <Text style={styles.cardProjectSubText}>
+                      • {currentActiveTier.projectSub}
+                    </Text>
+                  </View>
+
+                  {/* Card Footer: Date & Details link */}
+                  <View style={styles.cardFooterRow}>
+                    <View style={styles.cardFooterDateRow}>
+                      <Ionicons name="calendar-outline" size={14} color="#64748B" />
+                      <Text style={styles.cardFooterDate}>
+                        Kỳ xét duyệt: 30.09.2026 (Còn 28 ngày)
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.cardFooterDetailLink}
+                      onPress={() => setInfoModalVisible(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.cardFooterDetailText, { color: currentMetal.cardBannerBorder }]}>Chi Tiết</Text>
+                      <Ionicons name="chevron-forward" size={14} color={currentMetal.cardBannerBorder} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+
+        {/* ===================================================================== */}
+        {/* 2. LEVEL MILESTONES (Thanh nấc thang chọn xem các cấp trong lộ trình)  */}
+        {/* ===================================================================== */}
+        <View style={styles.stepperSection}>
+          <Text style={styles.sectionHeaderTitle}>Lộ Trình Cấp Bậc</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stepperScroll}>
+            {myLevelList.map((tier) => {
+              const isSelected = selectedLevel === tier.levelNumber;
+              const isCurrent = tier.isCurrent;
+
+              return (
+                <TouchableOpacity
+                  key={tier.levelNumber}
+                  style={[
+                    styles.stepChip,
+                    isSelected && styles.stepChipSelected,
+                    isCurrent && !isSelected && styles.stepChipCurrent,
+                  ]}
+                  onPress={() => setSelectedLevel(tier.levelNumber)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.stepChipTop}>
+                    <Text
+                      style={[
+                        styles.stepChipLevelText,
+                        isSelected && styles.stepChipTextSelected,
+                        isCurrent && !isSelected && styles.stepChipTextCurrent,
+                      ]}
+                    >
+                      {tier.levelName}
+                    </Text>
+                    {isCurrent && (
+                      <View style={[styles.currentDot, isSelected && { backgroundColor: '#38BDF8' }]} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* ===================================================================== */}
+        {/* 3. ĐẶC QUYỀN & QUÀ THƯỞNG Ở CẤP ĐỘ NÀY                                 */}
+        {/* ===================================================================== */}
+        <View style={styles.perksSection}>
+          <View style={styles.perksHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.perksHeaderTitleRow}>
+                <Ionicons name="gift-outline" size={17} color="#D97706" />
+                <Text style={styles.sectionHeaderTitle}>
+                  Đặc Quyền & Quà Thưởng • {selectedTier.levelName}
                 </Text>
               </View>
-            ))}
-          </View>
-        </View>
-      </View>
-
-      {/* White Body Content Section */}
-      <ScrollView style={styles.whiteBody} showsVerticalScrollIndicator={false}>
-        {/* Monthly Challenge Banner */}
-        <View style={styles.challengeCardHeader}>
-          <View style={styles.challengeHeaderRow}>
-            <View style={styles.challengeTitleGroup}>
-              <Ionicons name="gift-sharp" size={18} color="#FFFFFF" />
-              <Text style={styles.challengeTitle}>Thử thách Tháng 9</Text>
-            </View>
-            <View style={styles.timerTag}>
-              <Ionicons name="time-outline" size={14} color="#FFFFFF" />
-              <Text style={styles.timerText}>Còn 28 ngày</Text>
-            </View>
-          </View>
-
-          <Text style={styles.challengeSubTitle}>Hoàn thành tất cả nhiệm vụ để lên cấp!</Text>
-        </View>
-
-        {/* Quest 1: Dual Threshold GMV / KPI Progress Bar */}
-        <View style={styles.questCard}>
-          <View style={styles.questHeaderRow}>
-            <Text style={styles.questBadgeTitle}>Nhiệm vụ 1</Text>
-            <Ionicons name="information-circle-outline" size={18} color="#9CA3AF" />
-          </View>
-
-          <Text style={styles.questMainGoal}>
-            Kiếm được <Text style={styles.boldGoalText}>{currentTier.promotionCeilingGmv}Tr VNĐ</Text> Doanh số / KPI
-          </Text>
-
-          {/* Dual Threshold Progress Bar (Safety Floor vs Target Ceiling) */}
-          <View style={styles.progressBarWrapper}>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-            </View>
-
-            {/* Retention Safety Floor Marker */}
-            <View
-              style={[
-                styles.retentionFloorMarker,
-                { left: `${(currentTier.retentionFloorGmv / currentTier.promotionCeilingGmv) * 100}%` },
-              ]}
-            >
-              <Ionicons name="flame" size={12} color="#DC2626" />
-              <Text style={styles.retentionFloorText}>
-                Tối thiểu <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>{currentTier.retentionFloorGmv}Trđ</Text> để duy trì cấp
+              <Text style={styles.sectionSubHeaderTitle}>
+                Đãi ngộ danh dự & quà tặng thăng cấp
               </Text>
             </View>
+
+            <View style={styles.perkCountBadge}>
+              <Text style={styles.perkCountBadgeText}>{selectedTier.perks.length} Đãi ngộ</Text>
+            </View>
           </View>
 
-          <View style={styles.progressScoreRow}>
-            <Text style={styles.currentScoreText}>{currentTier.currentGmv}Tr VNĐ</Text>
-            <Text style={styles.targetScoreText}>/ {currentTier.promotionCeilingGmv}Tr VNĐ</Text>
-          </View>
+          {selectedTier.perks.length > 0 ? (
+            /* Luxury Modern Perks Grid (2 Columns) */
+            <View style={styles.perksGridTwoCol}>
+              {selectedTier.perks.map((perk, index) => {
+                const theme = getPerkTheme(perk.title);
+                return (
+                  <View key={perk.id} style={styles.perkModernCard}>
+                    {/* Card Top: Category Tag + Icon */}
+                    <View style={styles.perkModernCardTop}>
+                      <View style={[styles.perkIconRoundBox, { backgroundColor: theme.iconBg }]}>
+                        <Ionicons name={theme.icon} size={16} color={theme.iconColor} />
+                      </View>
+                      <View style={[styles.perkCategoryBadge, { backgroundColor: theme.badgeBg }]}>
+                        <Text style={[styles.perkCategoryBadgeText, { color: theme.badgeColor }]}>
+                          {theme.badgeText}
+                        </Text>
+                      </View>
+                    </View>
 
-          {/* Action Recommendations */}
-          <Text style={styles.recommendSectionTitle}>Cách tăng GMV & KPI trong tháng:</Text>
-          <View style={styles.recommendGrid}>
-            <TouchableOpacity style={styles.recommendCard}>
-              <Ionicons name="rocket-outline" size={24} color="#2563EB" />
-              <View style={styles.recommendInfo}>
-                <Text style={styles.recommendTitle}>Nhận thêm Task Ưu Tiên</Text>
-                <Text style={styles.recommendSub}>Cộng thêm 50-150 điểm thưởng Task</Text>
+                    {/* Card Main: Bold Title & Subtitle */}
+                    <Text style={styles.perkModernTitle} numberOfLines={2}>
+                      {perk.title}
+                    </Text>
+                    <Text style={styles.perkModernSubtitle} numberOfLines={2}>
+                      {perk.subtitle}
+                    </Text>
+
+                    {/* Card Bottom: Order Index & Unlocked Icon */}
+                    <View style={styles.perkModernFooter}>
+                      <View style={styles.perkNumberPill}>
+                        <Text style={styles.perkNumberPillText}>Đặc quyền #{index + 1}</Text>
+                      </View>
+                      {selectedTier.isUnlocked ? (
+                        <View style={styles.perkUnlockedBadge}>
+                          <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
+                        </View>
+                      ) : (
+                        <View style={styles.perkLockedBadge}>
+                          <Ionicons name="lock-closed" size={12} color="#94A3B8" />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.unconfiguredPerksCard}>
+              <View style={styles.unconfiguredIconBox}>
+                <Ionicons name="gift-outline" size={24} color="#D97706" />
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.recommendCard}>
-              <Ionicons name="ribbon-outline" size={24} color="#D97706" />
-              <View style={styles.recommendInfo}>
-                <Text style={styles.recommendTitle}>Quy Trình Xét Nâng Level</Text>
-                <Text style={styles.recommendSub}>Xem tiêu chuẩn duyệt cuối tháng</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.unconfiguredCardTitle}>Chưa được cấu hình</Text>
+                <Text style={styles.unconfiguredCardSubtitle}>
+                  Quản trị viên (Admin) chưa thiết lập danh sách phần thưởng thăng cấp và đặc quyền cho {selectedTier.levelName}.
+                </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-            </TouchableOpacity>
-          </View>
+            </View>
+          )}
         </View>
 
-        {/* Quest 2 & 3: SLA Task & Discipline Check-in */}
-        <View style={styles.questCard}>
-          <Text style={styles.questBadgeTitle}>Nhiệm vụ 2 & 3</Text>
-
-          <View style={styles.subQuestRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#059669" />
-            <View style={styles.subQuestInfo}>
-              <Text style={styles.subQuestTitle}>Tỷ lệ hoàn thành Task đúng hạn &ge; 90%</Text>
-              <Text style={styles.subQuestCurrent}>Hiện tại: 96% (Đạt yêu cầu ✅)</Text>
-            </View>
+        {/* ===================================================================== */}
+        {/* 4. TIÊU CHUẨN XÉT DUYỆT (ĐIỀU KIỆN CẦN & ĐỦ CỦA CẤP ĐANG CHỌN)        */}
+        {/* ===================================================================== */}
+        <View style={styles.criteriaSection}>
+          <View style={styles.criteriaHeaderRow}>
+            <Text style={styles.sectionHeaderTitle}>
+              Điều Kiện Xét Duyệt • {selectedTier.levelName}
+            </Text>
+            {selectedTier.isCurrent ? (
+              <View style={styles.statusBadgeActive}>
+                <Text style={styles.statusBadgeActiveText}>Cấp hiện tại</Text>
+              </View>
+            ) : selectedTier.isUnlocked ? (
+              <View style={styles.statusBadgePassed}>
+                <Text style={styles.statusBadgePassedText}>Đã đạt</Text>
+              </View>
+            ) : (
+              <View style={styles.statusBadgeLocked}>
+                <Text style={styles.statusBadgeLockedText}>Mục tiêu tiếp theo</Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.subQuestRow}>
-            <Ionicons name="checkmark-circle" size={20} color="#059669" />
-            <View style={styles.subQuestInfo}>
-              <Text style={styles.subQuestTitle}>Điểm Chăm chỉ / Check-in đúng giờ &ge; 90đ</Text>
-              <Text style={styles.subQuestCurrent}>Hiện tại: 95đ (Đạt yêu cầu ✅)</Text>
+          {/* TRƯỜNG HỢP 1: ADMIN CHƯA CẤU HÌNH DỰ ÁN CHO LEVEL TIẾP THEO */}
+          {!isTierConfigured ? (
+            <View style={styles.unconfiguredProjectCard}>
+              <View style={styles.unconfiguredProjectIconCircle}>
+                <Ionicons name="construct-outline" size={30} color="#D97706" />
+              </View>
+              <Text style={styles.unconfiguredProjectTitle}>Chưa Được Cấu Hình</Text>
+              <Text style={styles.unconfiguredProjectDesc}>
+                Dự án cấp bậc và danh mục công việc của {selectedTier.levelName} chưa được Quản trị viên (Admin) thiết lập.
+              </Text>
+              <View style={styles.unconfiguredProjectNoticeBox}>
+                <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                <Text style={styles.unconfiguredProjectNoticeText}>
+                  Khi Admin hoàn tất cấu hình dự án và phần thưởng, thông tin chi tiết và việc con sẽ hiển thị tại đây.
+                </Text>
+              </View>
             </View>
-          </View>
+          ) : !hasAccessToProject ? (
+            /* TRƯỜNG HỢP 2: LEVEL CAO HƠN CẦN XIN PHÉP LEADER ĐỂ LÀM DỰ ÁN */
+            <View style={styles.accessControlContainer}>
+              {userAccessRequest?.status === 'PENDING' ? (
+                <View style={styles.accessPendingCard}>
+                  <View style={styles.accessCardHeaderRow}>
+                    <Ionicons name="hourglass-outline" size={22} color="#D97706" />
+                    <Text style={styles.accessPendingTitle}>Yêu Cầu Đang Chờ Leader Duyệt</Text>
+                  </View>
+                  <Text style={styles.accessPendingDesc}>
+                    Bạn đã gửi yêu cầu xin làm dự án của <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{selectedTier.levelName}</Text> vào lúc {userAccessRequest.requestedAt}.
+                  </Text>
+                  {Boolean(userAccessRequest.reason) && (
+                    <View style={styles.accessReasonBox}>
+                      <Text style={styles.accessReasonLabel}>Lý do bạn gửi:</Text>
+                      <Text style={styles.accessReasonText}>"{userAccessRequest.reason}"</Text>
+                    </View>
+                  )}
+                  <View style={styles.accessPendingNoticeRow}>
+                    <Ionicons name="time-outline" size={15} color="#D97706" />
+                    <Text style={styles.accessPendingNoticeText}>
+                      Vui lòng chờ Trưởng nhóm (Leader) phê duyệt để có thể nhận việc con và nộp báo cáo.
+                    </Text>
+                  </View>
+                </View>
+              ) : userAccessRequest?.status === 'REJECTED' ? (
+                <View style={styles.accessRejectedCard}>
+                  <View style={styles.accessCardHeaderRow}>
+                    <Ionicons name="close-circle-outline" size={22} color="#DC2626" />
+                    <Text style={styles.accessRejectedTitle}>Leader Chưa Chấp Thuận Yêu Cầu</Text>
+                  </View>
+                  <Text style={styles.accessRejectedDesc}>
+                    Trưởng nhóm chưa phê duyệt yêu cầu làm dự án {selectedTier.levelName} của bạn.
+                  </Text>
+                  {Boolean(userAccessRequest.leaderFeedback) && (
+                    <View style={styles.accessFeedbackBox}>
+                      <Text style={styles.accessFeedbackLabel}>Phản hồi từ Leader:</Text>
+                      <Text style={styles.accessFeedbackText}>"{userAccessRequest.leaderFeedback}"</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.requestAccessBtn}
+                    onPress={() => setRequestAccessModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.requestAccessBtnText}>GỬI LẠI YÊU CẦU XIN LÀM DỰ ÁN</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.accessLockedCard}>
+                  <View style={styles.accessCardHeaderRow}>
+                    <Ionicons name="lock-closed" size={22} color="#0F766E" />
+                    <Text style={styles.accessLockedTitle}>Cần Leader Duyệt Để Làm Dự Án Vượt Cấp</Text>
+                  </View>
+                  <Text style={styles.accessLockedDesc}>
+                    Bạn hiện chưa đạt cấp {selectedTier.levelName}. Nếu muốn thực hiện dự án ở cấp độ này, bạn cần gửi yêu cầu để Trưởng nhóm (Leader) phê duyệt trước khi được nhận việc con.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.requestAccessBtn}
+                    onPress={() => setRequestAccessModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.requestAccessBtnText}>XIN PHÉP LÀM DỰ ÁN NÀY</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ) : (
+            /* TRƯỜNG HỢP 3: CÓ QUYỀN LÀM DỰ ÁN (CẤP HIỆN TẠI HOẶC ĐÃ ĐƯỢC LEADER DUYỆT) */
+            <View style={styles.criteriaCard}>
+              {selectedTier.levelNumber > currentUserLevelNumber && (
+                <View style={styles.accessApprovedBanner}>
+                  <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+                  <Text style={styles.accessApprovedBannerText}>
+                    Đã được Leader phê duyệt làm dự án vượt cấp ({userAccessRequest?.reviewedAt || 'Đã duyệt'})
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.criteriaCardTop}>
+                <View style={styles.criteriaInfoCol}>
+                  <Text style={styles.criteriaMainTitle}>Dự Án & Việc Con Cấp Bậc</Text>
+                  <Text style={styles.criteriaTargetText}>
+                    {currentProjectForTier?.projectName || selectedTier.projectTitle}
+                  </Text>
+                </View>
+                {currentProjectForTier && (
+                  <View style={styles.projectLevelTagBadge}>
+                    <Text style={styles.projectLevelTagBadgeText}>{currentProjectForTier.levelName}</Text>
+                  </View>
+                )}
+              </View>
+
+              {currentProjectForTier?.rewardItem ? (
+                <View style={styles.tierRewardCard}>
+                  <View style={styles.tierRewardHeaderRow}>
+                    <Ionicons name="gift-outline" size={14} color="#B45309" />
+                    <Text style={styles.tierRewardTitle}>Phần thưởng Level & Dự án:</Text>
+                  </View>
+                  <Text style={styles.tierRewardContentText}>
+                    {currentProjectForTier.rewardItem}
+                  </Text>
+                  <Text style={styles.tierRewardNoteText}>
+                    (Tiền mặt tự động phân bổ theo Hệ số Level của cá nhân khi tham gia việc con; Hiện vật lưu giữ chung cho cả đội)
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.projectDescText}>
+                  • {selectedTier.projectSub}
+                </Text>
+              )}
+
+              {/* NEXT LEVEL PERKS & MOTIVATION APPENDIX LINK */}
+              <TouchableOpacity
+                style={styles.openAppendixBtn}
+                onPress={() => setAppendixModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <Ionicons name="document-text-outline" size={16} color="#1E40AF" />
+                  <Text style={styles.openAppendixBtnText} numberOfLines={1}>
+                    Xem Phụ Lục Quyền Lợi & Động Lực Thăng Cấp
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color="#1E40AF" />
+              </TouchableOpacity>
+
+              {/* DANH SÁCH VIỆC CON GIAO CHO CÁ NHÂN TẠI LEVEL NÀY */}
+              <View style={styles.assignedTasksBlock}>
+                <View style={styles.assignedTasksHeaderRow}>
+                  <Text style={styles.assignedTasksHeaderTitle}>
+                    Việc con được giao cho bạn ({myTasksForThisLevel.length}):
+                  </Text>
+                  {isLeader && (
+                    <TouchableOpacity
+                      style={styles.openProjectManageLink}
+                      onPress={() => router.push('/leader/level-projects' as any)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.openProjectManageLinkText}>Quản lý & Giao việc</Text>
+                      <Ionicons name="chevron-forward" size={12} color="#0F766E" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {myTasksForThisLevel.length > 0 ? (
+                  <View style={styles.assignedTasksList}>
+                    {myTasksForThisLevel.map(({ project, subTask }) => {
+                      const isApproved = subTask.status === 'LEADER_APPROVED';
+                      const isSubmitted = subTask.status === 'SUBMITTED';
+
+                      return (
+                        <View key={subTask.id} style={styles.assignedTaskCard}>
+                          <View style={styles.assignedTaskCardTop}>
+                            <View style={styles.assignedTaskOrderBox}>
+                              <Text style={styles.assignedTaskOrderText}>#{subTask.orderNumber}</Text>
+                            </View>
+                            <View style={{ flex: 1, paddingRight: 8 }}>
+                              <Text style={styles.assignedTaskTitle}>{subTask.title}</Text>
+                              {subTask.targetKpi ? (
+                                <Text style={styles.assignedTaskKpi}>Chỉ tiêu: {subTask.targetKpi}</Text>
+                              ) : null}
+                            </View>
+                            <View>
+                              {isApproved ? (
+                                <View style={styles.statusBadgeApproved}>
+                                  <Text style={styles.statusBadgeApprovedText}>Đã duyệt</Text>
+                                </View>
+                              ) : isSubmitted ? (
+                                <View style={styles.statusBadgeSubmitted}>
+                                  <Text style={styles.statusBadgeSubmittedText}>Chờ duyệt</Text>
+                                </View>
+                              ) : (
+                                <View style={styles.statusBadgePending}>
+                                  <Text style={styles.statusBadgePendingText}>Đang làm</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Hiển thị tóm tắt báo cáo & minh chứng nếu đã nộp */}
+                          {(isSubmitted || isApproved) && subTask.submissionNote ? (
+                            <View style={styles.submittedPreviewBox}>
+                              <Text style={styles.submittedPreviewLabel}>Báo cáo đã nộp:</Text>
+                              <Text style={styles.submittedPreviewNote} numberOfLines={2}>
+                                {subTask.submissionNote}
+                              </Text>
+                              {Boolean(subTask.evidenceUrl) && (
+                                <Text style={styles.submittedPreviewLink} numberOfLines={1}>
+                                  Link: {subTask.evidenceUrl}
+                                </Text>
+                              )}
+                              {(subTask.evidenceImages?.length ?? 0) > 0 && (
+                                <Text style={styles.submittedPreviewImagesCount}>
+                                  [Đã đính kèm {subTask.evidenceImages?.length} ảnh minh chứng]
+                                </Text>
+                              )}
+                            </View>
+                          ) : null}
+
+                          {/* Nút Báo Cáo / Cập Nhật Minh Chứng */}
+                          {!isApproved && (
+                            <TouchableOpacity
+                              style={[
+                                styles.reportActionBtn,
+                                isSubmitted && styles.reportActionBtnSecondary,
+                              ]}
+                              onPress={() => handleOpenReportModal({ project, subTask })}
+                              activeOpacity={0.8}
+                            >
+                              <Text
+                                style={[
+                                  styles.reportActionBtnText,
+                                  isSubmitted && styles.reportActionBtnTextSecondary,
+                                ]}
+                              >
+                                {isSubmitted ? 'SỬA BÁO CÁO & MINH CHỨNG' : 'VIẾT BÁO CÁO & NỘP MINH CHỨNG'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.emptyAssignedBox}>
+                    <Text style={styles.emptyAssignedTitle}>
+                      Chưa có việc con nào ở {selectedTier.levelName} được giao cho bạn
+                    </Text>
+                    <Text style={styles.emptyAssignedDesc}>
+                      {isLeader
+                        ? 'Bạn có thể tự nhận việc con trong màn hình quản lý dự án để trực tiếp thực hiện và nộp kết quả nghiệm thu.'
+                        : 'Khi Leader phân công việc con cho bạn ở cấp độ này, bạn sẽ nhận được thông báo và có thể nộp báo cáo tại đây.'}
+                    </Text>
+                    {isLeader && (
+                      <TouchableOpacity
+                        style={styles.goToAssignBtn}
+                        onPress={() => router.push('/leader/level-projects' as any)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.goToAssignBtnText}>VÀO TỰ NHẬN / PHÂN CÔNG VIỆC CON</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ===================================================================== */}
+      {/* MODAL 1: Bảng So Sánh Quyền Lợi & Tiêu Chuẩn Toàn Bộ Các Level         */}
+      {/* ===================================================================== */}
+      <Modal visible={allLevelsModalVisible} transparent animationType="slide" onRequestClose={() => setAllLevelsModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setAllLevelsModalVisible(false)}>
+          <Pressable style={styles.fullModalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalHeaderTitle}>Lộ Trình Toàn Bộ Các Level</Text>
+                <Text style={styles.modalHeaderSubtitle}>
+                  So sánh tiêu chuẩn, dự án & quyền lợi từng cấp độ
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setAllLevelsModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+              {myLevelList.map((tier) => {
+                const tierGmvConf = getGmvByLevel(tier.levelNumber);
+                return (
+                  <View key={tier.levelNumber} style={styles.roadmapItemCard}>
+                    <View style={styles.roadmapItemHeader}>
+                      <View style={styles.roadmapBadge}>
+                        <Text style={styles.roadmapBadgeText}>{tier.levelName}</Text>
+                      </View>
+                      <Text style={styles.roadmapTitleText}>{tier.projectTitle}</Text>
+                    </View>
+
+                    <View style={styles.roadmapPerkSummary}>
+                      {tier.perks.map((p) => (
+                        <View key={p.id} style={styles.roadmapPerkItem}>
+                          <Text style={styles.roadmapPerkBullet}>•</Text>
+                          <Text style={styles.roadmapPerkText}>{p.title}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.modalConfirmBtn} onPress={() => setAllLevelsModalVisible(false)}>
+              <Text style={styles.modalConfirmBtnText}>Đóng Bảng Tra Cứu</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ===================================================================== */}
+      {/* MODAL 2: Quy Trình Xét Duyệt Cấp Bậc Cuối Tháng                      */}
+      {/* ===================================================================== */}
+      <Modal visible={infoModalVisible} transparent animationType="fade" onRequestClose={() => setInfoModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setInfoModalVisible(false)}>
+          <Pressable style={styles.infoModalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalHeaderTitle}>Quy Trình Xét Nâng Cấp</Text>
+                <Text style={styles.modalHeaderSubtitle}>Hệ thống xét duyệt minh bạch & định kỳ</Text>
+              </View>
+              <TouchableOpacity onPress={() => setInfoModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.infoDescriptionText}>
+              Tại MovieLegend, <Text style={styles.boldText}>Cấp bậc (Level)</Text> là hệ thống đãi ngộ và công nhận năng lực cống hiến thực tế (không phải chức vụ quản lý).
+            </Text>
+
+            <View style={styles.infoStepBox}>
+              <Text style={styles.infoStepTitle}>Vòng 1 • Đánh giá cuối tháng (Leader rà soát)</Text>
+              <Text style={styles.infoStepDesc}>
+                Kiểm tra đối soát số liệu Doanh số thực tế, tỷ lệ SLA ca trực và kết quả hoàn thành dự án/việc con trong kỳ.
+              </Text>
+            </View>
+
+            <View style={styles.infoStepBox}>
+              <Text style={styles.infoStepTitle}>Vòng 2 • Phê duyệt chốt thăng cấp (Admin duyệt)</Text>
+              <Text style={styles.infoStepDesc}>
+                Ban Điều Hành kích hoạt thăng cấp chính thức, trao thưởng quà tặng hiện vật và áp dụng Hệ số thưởng Tết mới.
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.modalConfirmBtn} onPress={() => setInfoModalVisible(false)}>
+              <Text style={styles.modalConfirmBtnText}>Tôi Đã Hiểu</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ===================================================================== */}
+      {/* MODAL: XIN PHÉP THỰC HIỆN DỰ ÁN VƯỢT CẤP (GỬI LEADER DUYỆT)          */}
+      {/* ===================================================================== */}
+      <Modal
+        visible={requestAccessModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRequestAccessModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setRequestAccessModalVisible(false)}
+        >
+          <Pressable style={styles.requestAccessModalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalHeaderTitle}>Xin Phép Làm Dự Án Vượt Cấp</Text>
+                <Text style={styles.modalHeaderSubtitle}>
+                  {selectedTier.levelName} • {currentProjectForTier?.projectName || selectedTier.projectTitle}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setRequestAccessModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.requestModalInfoBox}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#0F766E" />
+              <Text style={styles.requestModalInfoText}>
+                Bạn đang ở <Text style={{ fontWeight: 'bold' }}>{myLevelList.find((l) => l.levelNumber === currentUserLevelNumber)?.levelName || `Level ${currentUserLevelNumber}`}</Text>. Để nhận việc con của <Text style={{ fontWeight: 'bold' }}>{selectedTier.levelName}</Text>, yêu cầu của bạn sẽ được gửi tới Trưởng nhóm để duyệt.
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.requestModalInputLabel}>Lý do / Nguyện vọng thực hiện dự án:</Text>
+              <TextInput
+                style={styles.requestModalTextInput}
+                placeholder="Nhập lý do hoặc năng lực cam kết để Leader xét duyệt..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={4}
+                value={requestReasonText}
+                onChangeText={setRequestReasonText}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.requestModalBtnRow}>
+              <TouchableOpacity
+                style={styles.requestModalCancelBtn}
+                onPress={() => setRequestAccessModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.requestModalCancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.requestModalSubmitBtn}
+                onPress={handleSendAccessRequest}
+                disabled={isSubmittingAccessRequest}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="paper-plane" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.requestModalSubmitBtnText}>
+                  {isSubmittingAccessRequest ? 'Đang gửi...' : 'Gửi Yêu Cầu Cho Leader'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ===================================================================== */}
+      {/* MODAL 3: BÁO CÁO & ĐÍNH KÈM MINH CHỨNG VIỆC CON DỰ ÁN CẤP BẬC        */}
+      {/* ===================================================================== */}
+      <Modal visible={activeReportTask !== null} animationType="slide" transparent={false} onRequestClose={() => setActiveReportTask(null)}>
+        <View style={styles.reportModalContainer}>
+          <SafeAreaView style={styles.reportTopSafeArea} edges={['top']}>
+            <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
+            <View style={styles.reportModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reportModalLevelTag}>
+                  Việc con #{activeReportTask?.subTask.orderNumber} • {activeReportTask?.project.levelName}
+                </Text>
+                <Text style={styles.reportModalTitle}>{activeReportTask?.subTask.title}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setActiveReportTask(null)} style={styles.reportModalCloseBtn}>
+                <Text style={styles.reportModalCloseBtnText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              style={styles.reportModalBody}
+              contentContainerStyle={{ paddingBottom: 150 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              keyboardDismissMode="interactive"
+            >
+              {/* KPI Requirements Banner */}
+              {activeReportTask?.subTask.targetKpi ? (
+                <View style={styles.reportKpiCard}>
+                  <Text style={styles.reportKpiLabel}>Chỉ tiêu KPI yêu cầu:</Text>
+                  <Text style={styles.reportKpiValue}>{activeReportTask.subTask.targetKpi}</Text>
+                  {activeReportTask.subTask.description ? (
+                    <Text style={styles.reportKpiDesc}>{activeReportTask.subTask.description}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* PHẦN 1: BÁO CÁO KẾT QUẢ THỰC HIỆN */}
+              <View style={styles.reportSectionBlock}>
+                <Text style={styles.reportSectionTitle}>1. Báo Cáo Kết Quả Thực Hiện</Text>
+                <Text style={styles.reportSectionSub}>
+                  Nhập tóm tắt công việc đã làm, số liệu cụ thể và ghi chú kết quả
+                </Text>
+                <TextInput
+                  style={[styles.reportTextArea, (activeReportTask?.subTask.status === 'SUBMITTED' || activeReportTask?.subTask.status === 'LEADER_APPROVED') && { backgroundColor: '#F1F5F9', color: '#64748B' }]}
+                  placeholder="Nhập nội dung báo cáo kết quả thực hiện..."
+                  placeholderTextColor="#94A3B8"
+                  value={reportNote}
+                  onChangeText={setReportNote}
+                  editable={activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED'}
+                  multiline
+                />
+              </View>
+
+              {/* PHẦN 2: LINK TÀI LIỆU / GOOGLE DRIVE */}
+              <View style={styles.reportSectionBlock}>
+                <Text style={styles.reportSectionTitle}>2. Link Báo Cáo & File Số Liệu (Drive / Báo cáo)</Text>
+                <Text style={styles.reportSectionSub}>
+                  Dán đường link Google Drive, Dashboard, Video hoặc tài liệu tổng hợp
+                </Text>
+                <TextInput
+                  style={[styles.reportInput, (activeReportTask?.subTask.status === 'SUBMITTED' || activeReportTask?.subTask.status === 'LEADER_APPROVED') && { backgroundColor: '#F1F5F9', color: '#64748B' }]}
+                  placeholder="https://drive.google.com/..."
+                  placeholderTextColor="#94A3B8"
+                  value={evidenceUrl}
+                  onChangeText={setEvidenceUrl}
+                  editable={activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED'}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* PHẦN 3: HÌNH ẢNH MINH CHỨNG */}
+              <View style={styles.reportSectionBlock}>
+                <View style={styles.imagePickHeaderRow}>
+                  <Text style={styles.reportSectionTitle}>3. Hình Ảnh Minh Chứng Đính Kèm</Text>
+                  {activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED' && (
+                    <TouchableOpacity
+                      style={styles.pickImageBtn}
+                      onPress={handlePickImages}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.pickImageBtnText}>+ Thêm ảnh</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={styles.reportSectionSub}>
+                  Chụp hoặc tải ảnh màn hình kết quả, biên bản nghiệm thu (tối đa nhiều ảnh)
+                </Text>
+
+                {evidenceImages.length > 0 ? (
+                  <View style={styles.imageGrid}>
+                    {evidenceImages.map((imgUri, idx) => (
+                      <View key={idx} style={styles.imageThumbWrapper}>
+                        <TouchableOpacity onPress={() => setPreviewImage(imgUri)} activeOpacity={0.8}>
+                          <Image source={{ uri: imgUri }} style={styles.imageThumbnail} resizeMode="cover" />
+                        </TouchableOpacity>
+                        {activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED' && (
+                          <TouchableOpacity
+                            style={styles.removeImageBtn}
+                            onPress={() => handleRemoveImage(idx)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.removeImageBtnText}>✕</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  activeReportTask?.subTask.status !== 'SUBMITTED' && activeReportTask?.subTask.status !== 'LEADER_APPROVED' ? (
+                    <TouchableOpacity
+                      style={styles.emptyImageBox}
+                      onPress={handlePickImages}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.emptyImageText}>+ Bấm vào đây để chọn ảnh từ thư viện</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={{ fontSize: 13, color: '#94A3B8', fontStyle: 'italic', marginTop: 4 }}>
+                      Chưa có ảnh minh chứng nào được thêm.
+                    </Text>
+                  )
+                )}
+              </View>
+
+              {/* Action Button */}
+              <View style={styles.reportActionFooter}>
+                {activeReportTask?.subTask.status === 'LEADER_APPROVED' ? (
+                  <View style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', paddingVertical: 14, borderRadius: 10, alignItems: 'center' }}>
+                    <Text style={{ color: '#065F46', fontSize: 13, fontWeight: 'bold' }}>✓ LEADER ĐÃ DUYỆT VÒNG 1</Text>
+                  </View>
+                ) : activeReportTask?.subTask.status === 'SUBMITTED' ? (
+                  <View style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A', paddingVertical: 14, borderRadius: 10, alignItems: 'center' }}>
+                    <Text style={{ color: '#92400E', fontSize: 13, fontWeight: 'bold' }}>🔒 ĐÃ NỘP - ĐANG CHỜ LEADER DUYỆT (ĐÃ KHÓA)</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.submitReportMainBtn}
+                    onPress={handleSubmitReport}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.submitReportMainBtnText}>XÁC NHẬN NỘP BÁO CÁO & MINH CHỨNG</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* FULL IMAGE PREVIEW MODAL */}
+      <Modal visible={previewImage !== null} animationType="fade" transparent onRequestClose={() => setPreviewImage(null)}>
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity onPress={() => setPreviewImage(null)} style={styles.previewCloseBtn}>
+            <Text style={styles.previewCloseBtnText}>Đóng xem ảnh</Text>
+          </TouchableOpacity>
+          {previewImage ? (
+            <Image source={{ uri: previewImage }} style={styles.fullPreviewImage} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
+
+      {/* NEXT LEVEL PERKS APPENDIX MODAL */}
+      <NextLevelPerksAppendixModal
+        visible={appendixModalVisible}
+        onClose={() => setAppendixModalVisible(false)}
+        progress={progressData}
+      />
+
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#111827',
-  },
-  darkHeader: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
-  topBar: {
+  openAppendixBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  topTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  helpBtn: {
-    padding: 4,
-  },
-  levelCarousel: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  levelPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#1F2937',
-    marginRight: 8,
-  },
-  levelPillActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  levelPillText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#9CA3AF',
-  },
-  levelPillTextActive: {
-    color: '#111827',
-  },
-  badgeSection: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 8,
   },
-  badgeTextGroup: {
+  openAppendixBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  safeArea: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
   },
-  rankBadgeTag: {
+
+  cardBackBtn: {
+    padding: 2,
+    marginRight: 6,
+    borderRadius: 8,
+  },
+  rankTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  metalBadgePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#374151',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 6,
-  },
-  rankBadgeTagText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#F59E0B',
-  },
-  levelBigTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  crownIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  perksSection: {
-    marginTop: 4,
-  },
-  perksTitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#D1D5DB',
-    marginBottom: 10,
-  },
-  perksGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  perkItem: {
-    alignItems: 'center',
-    width: '22%',
-  },
-  perkIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1F2937',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  perkText: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 13,
-  },
-  whiteBody: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-  },
-  challengeCardHeader: {
-    backgroundColor: '#3730A3',
     borderRadius: 12,
-    padding: 14,
+    borderWidth: 1,
+  },
+  metalBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  scrollBody: {
+    flex: 1,
+  },
+
+  /* ============================================================ */
+  /* 1. VIP MEMBERSHIP CARD                                       */
+  /* ============================================================ */
+  cardSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  vipCardContainer: {
+    backgroundColor: '#1E232A',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: '#475569',
+  },
+  vipCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 14,
   },
-  challengeHeaderRow: {
+  vipCardHeaderLeft: {
+    flex: 1,
+  },
+  vipRankTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1.2,
+  },
+  vipUserName: {
+    fontSize: 13,
+    color: '#E2E8F0',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  tierBenefitsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  tierBenefitsBtnText: {
+    fontSize: 11,
+    color: '#F1F5F9',
+    fontWeight: '600',
+  },
+
+  /* Inner White Floating Card */
+  whiteFloatingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  upgradeNoticeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  upgradeNoticePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  upgradeHeaderNoticeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+
+  /* Tên Dự Án Ở Giữa Card */
+  cardProjectBanner: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3.5,
+    borderLeftColor: '#2563EB',
+  },
+  cardProjectTagRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  challengeTitleGroup: {
+  cardProjectTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#2563EB',
+    letterSpacing: 0.5,
+  },
+  cardProjectStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  cardProjectStatusBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+  },
+  cardProjectMainTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 19,
+  },
+  cardProjectSubText: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  cardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  cardFooterDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  cardFooterDate: {
+    fontSize: 10.5,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  cardFooterDetailLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  cardFooterDetailText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  /* ============================================================ */
+  /* 2. LEVEL STEPPER SECTION                                     */
+  /* ============================================================ */
+  stepperSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 10,
+    letterSpacing: 0.2,
+  },
+  stepperScroll: {
+    flexDirection: 'row',
+  },
+  stepChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  stepChipSelected: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  stepChipCurrent: {
+    borderColor: '#3B82F6',
+    backgroundColor: '#EFF6FF',
+  },
+  stepChipTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stepChipLevelText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  stepChipTextSelected: {
+    color: '#FFFFFF',
+  },
+  stepChipTextCurrent: {
+    color: '#2563EB',
+  },
+  currentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#2563EB',
+  },
+  stepChipSubText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  stepChipSubSelected: {
+    color: '#94A3B8',
+  },
+
+  /* ============================================================ */
+  /* 3. CRITERIA SECTION (3 TIÊU CHUẨN XÉT DUYỆT)                 */
+  /* ============================================================ */
+  criteriaSection: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  criteriaHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statusBadgeActive: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusBadgeActiveText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  statusBadgePassed: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusBadgePassedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  statusBadgeLocked: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusBadgeLockedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  criteriaCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  criteriaCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  criteriaInfoCol: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  criteriaMainTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  criteriaTargetText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  criteriaPercentBox: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  criteriaPercentText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  criteriaStatusPill: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  criteriaStatusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  criteriaBarTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  criteriaBarFill: {
+    height: '100%',
+    backgroundColor: '#2563EB',
+    borderRadius: 3,
+  },
+  criteriaScoreRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  criteriaCurrentScore: {
+    fontSize: 11,
+    color: '#475569',
+  },
+  criteriaTargetScore: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  retentionFloorBox: {
+    backgroundColor: '#F0FDF4',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+  },
+  retentionFloorText: {
+    fontSize: 11,
+    color: '#15803D',
+  },
+  criteriaSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 3,
+  },
+  criteriaSubBullet: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: 'bold',
+  },
+  criteriaSubText: {
+    fontSize: 11,
+    color: '#334155',
+  },
+  projectDescText: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  projectBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  projectStatusPill: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  projectStatusPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  projectDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  projectDetailBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+
+  /* ============================================================ */
+  /* 3. PERKS & PRIVILEGES SECTION (LUXURY MODERN 2-COL GRID)    */
+  /* ============================================================ */
+  perksSection: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  perksHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  perksHeaderTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  challengeTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  sectionSubHeaderTitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
   },
-  timerTag: {
+  perkCountBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  perkCountBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  perksGridTwoCol: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  perkModernCard: {
+    width: '48.5%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    justifyContent: 'space-between',
+    minHeight: 140,
+  },
+  perkModernCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  perkIconRoundBox: {
+    width: 32,
+    height: 32,
     borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  timerText: {
-    fontSize: 11,
-    color: '#FFFFFF',
+  perkCategoryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 6,
   },
-  challengeSubTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  perkCategoryBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
-  questCard: {
+  perkModernTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 17,
+    marginBottom: 4,
+  },
+  perkModernSubtitle: {
+    fontSize: 10.5,
+    color: '#64748B',
+    lineHeight: 15,
+    flex: 1,
+    marginBottom: 8,
+  },
+  perkModernFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  perkNumberPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  perkNumberPillText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  perkUnlockedBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  perkLockedBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* ============================================================ */
+  /* MODALS                                                       */
+  /* ============================================================ */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  fullModalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 12,
+    borderRadius: 18,
+    padding: 18,
+    width: '100%',
+    maxWidth: 420,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  questHeaderRow: {
+  infoModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
+    width: '100%',
+    maxWidth: 380,
+  },
+  modalHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  questBadgeTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#DC2626',
-  },
-  questMainGoal: {
-    fontSize: 15,
-    color: '#1F2937',
-    marginBottom: 14,
-  },
-  boldGoalText: {
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  progressBarWrapper: {
-    position: 'relative',
-    marginVertical: 12,
-  },
-  progressBarTrack: {
-    height: 10,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#059669',
-  },
-  retentionFloorMarker: {
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  retentionFloorText: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
-  progressScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'flex-end',
-    marginBottom: 14,
-  },
-  currentScoreText: {
+  modalHeaderTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  targetScoreText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 4,
+  modalHeaderSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
   },
-  recommendSectionTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#374151',
+  roadmapItemCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 8,
-  },
-  recommendGrid: {
-    gap: 8,
-  },
-  recommendCard: {
-    backgroundColor: '#F9FAFB',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
+  },
+  roadmapItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  roadmapBadge: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  roadmapBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  roadmapTitleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  roadmapConditionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  roadmapConditionLabel: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  roadmapConditionValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  roadmapPerkSummary: {
+    gap: 3,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  roadmapPerkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  roadmapPerkBullet: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: 'bold',
+  },
+  roadmapPerkText: {
+    fontSize: 10,
+    color: '#334155',
+  },
+  modalConfirmBtn: {
+    backgroundColor: '#0F172A',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  modalConfirmBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  infoDescriptionText: {
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  boldText: {
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  infoStepBox: {
+    backgroundColor: '#F8FAFC',
     borderRadius: 8,
     padding: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2563EB',
   },
-  recommendInfo: {
-    flex: 1,
+  infoStepTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
   },
-  recommendTitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  recommendSub: {
+  infoStepDesc: {
     fontSize: 11,
-    color: '#6B7280',
+    color: '#64748B',
+    lineHeight: 16,
   },
-  subQuestRow: {
+  projectLevelTagBadge: {
+    backgroundColor: '#CCFBF1',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tierRewardCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  tierRewardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 5,
+    marginBottom: 4,
+  },
+  tierRewardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  tierRewardContentText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#78350F',
+    lineHeight: 18,
+  },
+  tierRewardNoteText: {
+    fontSize: 10.5,
+    color: '#B45309',
+    marginTop: 4,
+    lineHeight: 14,
+  },
+  assignedTasksBlock: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  assignedTasksHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  assignedTasksHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  openProjectManageLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  openProjectManageLinkText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  assignedTasksList: {
+    gap: 8,
+  },
+  assignedTaskCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+  },
+  assignedTaskCardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  assignedTaskOrderBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assignedTaskOrderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  assignedTaskTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 18,
+  },
+  assignedTaskKpi: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  statusBadgeApproved: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusBadgeApprovedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  statusBadgeSubmitted: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusBadgeSubmittedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  statusBadgePending: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusBadgePendingText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  submittedPreviewBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  submittedPreviewLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  submittedPreviewNote: {
+    fontSize: 12,
+    color: '#1E293B',
+    lineHeight: 16,
+  },
+  submittedPreviewLink: {
+    fontSize: 11,
+    color: '#2563EB',
+    marginTop: 3,
+  },
+  submittedPreviewImagesCount: {
+    fontSize: 10,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  reportActionBtn: {
+    backgroundColor: '#0F766E',
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
     marginTop: 10,
   },
-  subQuestInfo: {
-    flex: 1,
+  reportActionBtnSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#0F766E',
   },
-  subQuestTitle: {
+  reportActionBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  reportActionBtnTextSecondary: {
+    color: '#0F766E',
+  },
+  emptyAssignedBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  emptyAssignedTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  emptyAssignedDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  goToAssignBtn: {
+    backgroundColor: '#0F766E',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginTop: 10,
+  },
+  goToAssignBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  reportModalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  reportTopSafeArea: {
+    backgroundColor: '#0F766E',
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    backgroundColor: '#0F766E',
+  },
+  reportModalLevelTag: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#99F6E4',
+    marginBottom: 2,
+  },
+  reportModalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    lineHeight: 22,
+  },
+  reportModalCloseBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginLeft: 10,
+  },
+  reportModalCloseBtnText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  reportModalBody: {
+    padding: 18,
+  },
+  reportKpiCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  reportKpiLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  reportKpiValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  reportKpiDesc: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  reportSectionBlock: {
+    marginBottom: 20,
+  },
+  reportSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  reportSectionSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 8,
+    lineHeight: 17,
+  },
+  reportTextArea: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    minHeight: 110,
+    textAlignVertical: 'top',
+  },
+  reportInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  imagePickHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pickImageBtn: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  pickImageBtnText: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: 'bold',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 6,
+  },
+  imageThumbWrapper: {
+    position: 'relative',
+  },
+  imageThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#DC2626',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeImageBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  emptyImageBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyImageText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  reportActionFooter: {
+    marginTop: 10,
+    marginBottom: 40,
+  },
+  submitReportMainBtn: {
+    backgroundColor: '#0F766E',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  submitReportMainBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 0.3,
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  previewCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  previewCloseBtnText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#0F172A',
   },
-  subQuestCurrent: {
+  fullPreviewImage: {
+    width: '100%',
+    height: '75%',
+  },
+
+  /* GMV Specific Styles */
+  gmvCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  editGmvButtonBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  editGmvButtonText: {
     fontSize: 11,
-    color: '#059669',
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  gmvInputFieldBlock: {
+    marginBottom: 14,
+  },
+  gmvInputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  gmvInputSubText: {
+    fontSize: 11,
+    color: '#64748B',
     marginTop: 2,
+    marginBottom: 6,
+  },
+  gmvTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  realtimeNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#F0F9FF',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  realtimeNoticeText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#0369A1',
+    lineHeight: 16,
+  },
+  saveGmvBtn: {
+    backgroundColor: '#0F766E',
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  saveGmvBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+
+  /* Unconfigured & Access Request Styles */
+  unconfiguredPerksCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 12,
+    marginTop: 4,
+  },
+  unconfiguredIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unconfiguredCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 3,
+  },
+  unconfiguredCardSubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    lineHeight: 17,
+  },
+  unconfiguredProjectCard: {
+    backgroundColor: '#FFFDF5',
+    borderRadius: 14,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginTop: 6,
+  },
+  unconfiguredProjectIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  unconfiguredProjectTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 6,
+  },
+  unconfiguredProjectDesc: {
+    fontSize: 13,
+    color: '#78350F',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+  },
+  unconfiguredProjectNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  unconfiguredProjectNoticeText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  accessControlContainer: {
+    marginTop: 6,
+  },
+  accessPendingCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  accessCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  accessPendingTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  accessPendingDesc: {
+    fontSize: 13,
+    color: '#78350F',
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  accessReasonBox: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#D97706',
+  },
+  accessReasonLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  accessReasonText: {
+    fontSize: 12.5,
+    color: '#78350F',
+    fontStyle: 'italic',
+  },
+  accessPendingNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  accessPendingNoticeText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#B45309',
+  },
+  accessRejectedCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  accessRejectedTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#991B1B',
+  },
+  accessRejectedDesc: {
+    fontSize: 13,
+    color: '#7F1D1D',
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  accessFeedbackBox: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626',
+  },
+  accessFeedbackLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 2,
+  },
+  accessFeedbackText: {
+    fontSize: 12.5,
+    color: '#7F1D1D',
+    fontStyle: 'italic',
+  },
+  accessLockedCard: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: 14,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    alignItems: 'center',
+  },
+  accessLockedTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F766E',
+    textAlign: 'center',
+  },
+  accessLockedDesc: {
+    fontSize: 13,
+    color: '#115E59',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  requestAccessBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    width: '100%',
+  },
+  requestAccessBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  accessApprovedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+  accessApprovedBannerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  requestAccessModalCard: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  requestModalInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    marginBottom: 16,
+  },
+  requestModalInfoText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#0F766E',
+    lineHeight: 18,
+  },
+  requestModalInputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  requestModalTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 13.5,
+    color: '#0F172A',
+    minHeight: 90,
+  },
+  requestModalBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  requestModalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  requestModalCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  requestModalSubmitBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F766E',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  requestModalSubmitBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

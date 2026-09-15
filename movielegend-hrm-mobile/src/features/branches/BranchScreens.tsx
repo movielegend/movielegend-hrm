@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { RefreshControl, StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useMemo } from 'react';
+import { RefreshControl, StyleSheet, Text, View, Pressable, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
@@ -12,21 +12,30 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
-import { useBranches, useCreateBranch, useDeleteBranch, useUpdateBranch, useBranch } from '../../api/branches.api';
+import { FilterChip } from '../../components/FilterChip';
+import { useBranches, useCreateBranch, useDeleteBranch, useUpdateBranch, useBranch, type Branch } from '../../api/branches.api';
+import { useRegions } from '../../api/regions.api';
 import { getDepartments } from '../../api/departments.api';
 import { useQuery } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
 import { normalizeApiError } from '../../utils/api-error';
 import { MultiSelectModal } from '../../components/MultiSelectModal';
+import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { LocationPickerMap, LocationData } from '../../components/LocationPickerMap';
 
 import { useAppAlert } from '../../contexts/AlertContext';
+import { useAuth } from '../../providers/AuthProvider';
 
 export function BranchListScreen() {
   const router = useRouter();
   const { showAlert, showConfirm } = useAppAlert();
+  const { user } = useAuth();
+  const isGlobalAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(s => s.role === 'ADMIN' && s.scopeType === 'GLOBAL');
   const [search, setSearch] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('ALL');
+  
   const branches = useBranches();
+  const regions = useRegions();
   const deleteBranch = useDeleteBranch();
   
   const handleDelete = (id: string, name: string) => {
@@ -46,10 +55,63 @@ export function BranchListScreen() {
     });
   };
 
-  const filteredItems = branches.data?.filter(b => 
-    b.name.toLowerCase().includes(search.toLowerCase()) || 
-    b.code.toLowerCase().includes(search.toLowerCase())
-  );
+  const totalBranchesCount = branches.data?.length || 0;
+
+  const filterOptions = useMemo(() => {
+    if (!branches.data) return [];
+    const countMap: Record<string, number> = {};
+    branches.data.forEach((b) => {
+      const rId = b.isHeadquarters ? 'HQ' : (b.region?.id || b.regionId || 'UNASSIGNED');
+      countMap[rId] = (countMap[rId] || 0) + 1;
+    });
+    const list: { id: string; name: string; count: number }[] = [];
+    if (countMap['HQ']) {
+      list.push({ id: 'HQ', name: 'Trụ sở chính', count: countMap['HQ'] });
+    }
+    regions.data?.forEach((r) => {
+      list.push({ id: r.id, name: r.name, count: countMap[r.id] || 0 });
+    });
+    if (countMap['UNASSIGNED']) {
+      list.push({ id: 'UNASSIGNED', name: 'Chưa phân miền', count: countMap['UNASSIGNED'] });
+    }
+    return list;
+  }, [branches.data, regions.data]);
+
+  const groupedSections = useMemo(() => {
+    if (!branches.data) return [];
+    const query = search.trim().toLowerCase();
+    const searchedBranches = branches.data.filter((b) => {
+      return b.name.toLowerCase().includes(query) || b.code.toLowerCase().includes(query) ||
+        (b.region?.name ? b.region.name.toLowerCase().includes(query) : false) ||
+        (b.address ? b.address.toLowerCase().includes(query) : false);
+    });
+    const groupMap: Record<string, { regionId: string; regionName: string; regionCode?: string; branches: Branch[] }> = {};
+    regions.data?.forEach((r) => {
+      groupMap[r.id] = { regionId: r.id, regionName: r.name, regionCode: r.code, branches: [] };
+    });
+    const unassignedList: Branch[] = [];
+    const hqList: Branch[] = [];
+    searchedBranches.forEach((b) => {
+      if (b.isHeadquarters) { hqList.push(b); return; }
+      const rId = b.region?.id || b.regionId;
+      if (rId && groupMap[rId]) { groupMap[rId].branches.push(b); }
+      else if (rId) {
+        if (!groupMap[rId]) { groupMap[rId] = { regionId: rId, regionName: b.region?.name || 'Miền khác', regionCode: b.region?.code, branches: [b] }; }
+        else { groupMap[rId].branches.push(b); }
+      } else { unassignedList.push(b); }
+    });
+    let sections = Object.values(groupMap);
+    if (unassignedList.length > 0) {
+      sections.push({ regionId: 'UNASSIGNED', regionName: 'Chưa phân miền', branches: unassignedList });
+    }
+    if (hqList.length > 0) {
+      sections.unshift({ regionId: 'HQ', regionName: 'Trụ sở chính', branches: hqList });
+    }
+    if (selectedRegionId !== 'ALL') {
+      sections = sections.filter((s) => s.regionId === selectedRegionId);
+    }
+    return sections;
+  }, [branches.data, regions.data, search, selectedRegionId]);
 
   return (
     <Screen>
@@ -57,6 +119,7 @@ export function BranchListScreen() {
         <PageHeader
           title="Chi nhánh"
           subtitle="Quản lý chi nhánh công ty"
+          showBack={false}
           right={
             <Pressable style={styles.addBtn} onPress={() => router.push('./branches/create')}>
               <MaterialCommunityIcons name="plus" size={18} color="#fff" />
@@ -64,39 +127,73 @@ export function BranchListScreen() {
             </Pressable>
           }
         />
-        <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm chi nhánh..." />
-        
+        <View style={{ marginBottom: 16 }}>
+          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm chi nhánh..." />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
+            <FilterChip label={`Tất cả (${totalBranchesCount})`} isActive={selectedRegionId === 'ALL'} onPress={() => setSelectedRegionId('ALL')} />
+            {filterOptions.map((opt) => (
+              <FilterChip key={opt.id} label={`${opt.name} (${opt.count})`} isActive={selectedRegionId === opt.id} onPress={() => setSelectedRegionId(opt.id)} />
+            ))}
+          </View>
+        </ScrollView>
         {branches.isLoading ? <LoadingState /> : null}
         {branches.isError ? <ErrorState error={branches.error} onRetry={() => void branches.refetch()} /> : null}
-        {!branches.isLoading && !filteredItems?.length ? <EmptyState title="Chưa có chi nhánh" /> : null}
-        
+        {!branches.isLoading && !branches.data?.length ? <EmptyState title="Chưa có chi nhánh" /> : null}
         <View style={styles.list}>
-          {filteredItems?.map((branch) => (
-            <Pressable key={branch.id} style={styles.card} onPress={() => router.push(`/admin/branches/${branch.id}/departments`)}>
-              <View style={styles.cardHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
-                  <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
-                  </View>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.cardTitle}>{branch.name}</Text>
-                    <Text style={styles.cardSubtitle}>Mã: {branch.code}</Text>
-                  </View>
-                </View>
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() => handleDelete(branch.id, branch.name)}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="#111827" />
-                </Pressable>
-              </View>
-              {branch.address ? <Text style={styles.cardDesc}>{branch.address}</Text> : null}
-              {branch.departments && branch.departments.length > 0 ? (
-                <Text style={styles.cardCount}>
-                  {branch.departments.length} phòng ban
+          {groupedSections.map((section) => (
+            <View key={section.regionId} style={{ marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{section.regionName}</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 'auto' }}>
+                  {section.regionId === 'HQ' ? '' : 'Khu vực điều hành • '}{section.branches.length} chi nhánh
                 </Text>
-              ) : null}
-            </Pressable>
+              </View>
+              {section.branches.length === 0 ? (
+                <View style={{ padding: 24, backgroundColor: '#F9FAFB', borderRadius: 12, alignItems: 'center' }}>
+                  <Text style={{ color: '#6B7280' }}>Không có chi nhánh nào phù hợp</Text>
+                </View>
+              ) : (
+                <View style={{ gap: 12 }}>
+                  {section.branches.map((branch) => (
+                    <Pressable key={branch.id} style={styles.card} onPress={() => router.push(`/admin/branches/${branch.id}/departments`)}>
+                      <View style={styles.cardHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+                          <View style={styles.iconBox}>
+                            <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
+                          </View>
+                          <View style={styles.cardInfo}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <Text style={styles.cardTitle}>{branch.name}</Text>
+                              {branch.isHeadquarters && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                  <Text style={{ fontSize: 10, fontWeight: '600', color: '#D97706' }}>Trụ sở</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                        {(!branch.isHeadquarters || isGlobalAdmin) && (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <Pressable style={styles.actionBtn} onPress={() => router.push(`/admin/branches/${branch.id}/edit` as any)}>
+                            <MaterialCommunityIcons name="pencil-outline" size={20} color="#111827" />
+                          </Pressable>
+                          <Pressable style={styles.actionBtn} onPress={() => handleDelete(branch.id, branch.name)}>
+                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#111827" />
+                          </Pressable>
+                        </View>
+                        )}
+                      </View>
+                      {branch.address ? <Text style={styles.cardDesc}>{branch.address}</Text> : null}
+                      {branch.departments && branch.departments.length > 0 ? (
+                        <Text style={styles.cardCount}>{branch.departments.length} phòng ban</Text>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
           ))}
         </View>
       </ScreenContainer>
@@ -110,16 +207,36 @@ import * as Location from 'expo-location';
 export function BranchCreateScreen() {
   const router = useRouter();
   const { showAlert, showConfirm } = useAppAlert();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(s => s.role === 'ADMIN' && s.scopeType === 'GLOBAL');
   const mutation = useCreateBranch();
   
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [isHeadquarters, setIsHeadquarters] = useState(false);
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
   const [networkName, setNetworkName] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [regionModalVisible, setRegionModalVisible] = useState(false);
   const [mapVisible, setMapVisible] = useState(false);
   const [isFetchingIp, setIsFetchingIp] = useState(false);
+
+  const regionsQuery = useRegions();
+
+  const selectedRegionName = useMemo(() => {
+    if (!selectedRegionId) return '';
+    const r = regionsQuery.data?.find((item) => item.id === selectedRegionId);
+    return r ? r.name : '';
+  }, [selectedRegionId, regionsQuery.data]);
+
+  const regionOptions: SelectOption[] = useMemo(() => {
+    return (regionsQuery.data || []).map((r) => ({
+      id: r.id,
+      label: r.name,
+    }));
+  }, [regionsQuery.data]);
 
   const fetchCurrentIp = async (currentValue: string) => {
     try {
@@ -180,6 +297,8 @@ export function BranchCreateScreen() {
         latitude: latitude,
         longitude: longitude,
         allowedIps: allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [],
+        isHeadquarters,
+        regionId: selectedRegionId || undefined,
       };
       
       await mutation.mutateAsync(payload);
@@ -235,7 +354,36 @@ export function BranchCreateScreen() {
               </Pressable>
             }
           />
+          {isSuperAdmin && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vùng / Miền quản lý</Text>
+              <Pressable 
+                onPress={() => setRegionModalVisible(true)}
+                style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  borderWidth: 1, 
+                  borderColor: '#E5E7EB', 
+                  borderRadius: 12, 
+                  paddingHorizontal: 16,
+                  minHeight: 48,
+                  backgroundColor: '#FFFFFF'
+                }}
+              >
+                <Text style={{ flex: 1, color: selectedRegionName ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                  {selectedRegionName || 'Chọn Vùng / Miền (Ví dụ: Miền Bắc...)'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
+              </Pressable>
+            </View>
+          )}
           <View style={{ marginBottom: 16 }}>
+            {isSuperAdmin && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Là trụ sở chính?</Text>
+              <Switch value={isHeadquarters} onValueChange={setIsHeadquarters} trackColor={{ false: '#D1D5DB', true: '#3B82F6' }} />
+            </View>
+            )}
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
             <View style={{ 
               flexDirection: 'row', 
@@ -282,6 +430,18 @@ export function BranchCreateScreen() {
         initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
       />
 
+      <SelectModal
+        visible={regionModalVisible}
+        title="Chọn Vùng / Miền"
+        options={regionOptions}
+        selectedValue={selectedRegionId}
+        onSelect={(opt) => {
+          setSelectedRegionId(opt.id);
+          setRegionModalVisible(false);
+        }}
+        onClose={() => setRegionModalVisible(false)}
+      />
+
 
     </Screen>
   );
@@ -289,6 +449,8 @@ export function BranchCreateScreen() {
 
 export function BranchEditScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(s => s.role === 'ADMIN' && s.scopeType === 'GLOBAL');
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showAlert, showConfirm } = useAppAlert();
   const branchQuery = useBranch(id!);
@@ -297,11 +459,30 @@ export function BranchEditScreen() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [isHeadquarters, setIsHeadquarters] = useState(false);
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [allowedIps, setAllowedIps] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [regionModalVisible, setRegionModalVisible] = useState(false);
   const [mapVisible, setMapVisible] = useState(false);
   const [isFetchingIp, setIsFetchingIp] = useState(false);
+
+  const regionsQuery = useRegions();
+
+  const selectedRegionName = useMemo(() => {
+    if (!selectedRegionId) return '';
+    const r = regionsQuery.data?.find((item) => item.id === selectedRegionId);
+    return r ? r.name : '';
+  }, [selectedRegionId, regionsQuery.data]);
+
+  const regionOptions: SelectOption[] = useMemo(() => {
+    const list: SelectOption[] = (regionsQuery.data || []).map((r) => ({
+      id: r.id,
+      label: r.name,
+    }));
+    return [{ id: '', label: 'Không gắn miền (Chưa phân miền)' }, ...list];
+  }, [regionsQuery.data]);
 
   const fetchCurrentIp = async (setter: (val: string) => void, currentValue: string) => {
     try {
@@ -327,9 +508,11 @@ export function BranchEditScreen() {
       setCode(branchQuery.data.code);
       setName(branchQuery.data.name);
       setAddress(branchQuery.data.address || '');
+      setIsHeadquarters(branchQuery.data.isHeadquarters || false);
       setLatitude(branchQuery.data.latitude);
       setLongitude(branchQuery.data.longitude);
       setAllowedIps((branchQuery.data as any).allowedIps?.join(', ') || '');
+      setSelectedRegionId(branchQuery.data.regionId || branchQuery.data.region?.id || null);
     }
   }, [branchQuery.data]);
 
@@ -340,6 +523,10 @@ export function BranchEditScreen() {
       if (latitude !== undefined) payload.latitude = latitude;
       if (longitude !== undefined) payload.longitude = longitude;
       payload.allowedIps = allowedIps ? allowedIps.split(',').map(ip => ip.trim()).filter(Boolean) : [];
+      payload.isHeadquarters = isHeadquarters;
+      if (isSuperAdmin) {
+        payload.regionId = selectedRegionId || null;
+      }
 
       await mutation.mutateAsync(payload);
       showAlert('Thành công', 'Đã lưu thay đổi chi nhánh', () => router.back());
@@ -370,14 +557,6 @@ export function BranchEditScreen() {
         <PageHeader title="Sửa Chi nhánh" subtitle="Cập nhật thông tin chi nhánh" />
         <SectionCard>
           <FormField
-            label="Mã chi nhánh (Cố định) *"
-            value={code}
-            onChangeText={() => {}}
-            placeholder="Ví dụ: HN01"
-            autoCapitalize="characters"
-            editable={false}
-          />
-          <FormField
             label="Tên chi nhánh *"
             value={name}
             onChangeText={setName}
@@ -406,7 +585,36 @@ export function BranchEditScreen() {
               </Pressable>
             }
           />
+          {isSuperAdmin && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vùng / Miền quản lý</Text>
+              <Pressable 
+                onPress={() => setRegionModalVisible(true)}
+                style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  borderWidth: 1, 
+                  borderColor: '#E5E7EB', 
+                  borderRadius: 12, 
+                  paddingHorizontal: 16,
+                  minHeight: 48,
+                  backgroundColor: '#FFFFFF'
+                }}
+              >
+                <Text style={{ flex: 1, color: selectedRegionName ? '#111827' : '#9CA3AF', fontSize: 15 }}>
+                  {selectedRegionName || 'Không gắn miền (Chưa phân miền)'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
+              </Pressable>
+            </View>
+          )}
           <View style={{ marginBottom: 16 }}>
+            {isSuperAdmin && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Là trụ sở chính?</Text>
+              <Switch value={isHeadquarters} onValueChange={setIsHeadquarters} trackColor={{ false: '#D1D5DB', true: '#3B82F6' }} />
+            </View>
+            )}
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Vị trí / Địa chỉ</Text>
             <View style={{ 
               flexDirection: 'row', 
@@ -451,6 +659,18 @@ export function BranchEditScreen() {
         onClose={() => setMapVisible(false)}
         onSelect={handleLocationSelect}
         initialLocation={(latitude !== undefined && longitude !== undefined) ? { latitude, longitude } : undefined}
+      />
+
+      <SelectModal
+        visible={regionModalVisible}
+        title="Chuyển / Chọn Vùng Miền"
+        options={regionOptions}
+        selectedValue={selectedRegionId || ''}
+        onSelect={(opt) => {
+          setSelectedRegionId(opt.id ? opt.id : null);
+          setRegionModalVisible(false);
+        }}
+        onClose={() => setRegionModalVisible(false)}
       />
 
 

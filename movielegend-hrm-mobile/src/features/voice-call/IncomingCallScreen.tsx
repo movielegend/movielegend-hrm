@@ -10,8 +10,6 @@ import {
   Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface IncomingCallScreenProps {
@@ -27,42 +25,9 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
   const ringAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [sound, setSound] = useState<any | null>(null);
 
   useEffect(() => {
-    let currentSound: Audio.Sound | null = null;
-    let isMounted = true;
-
-    async function playRingtone() {
-      try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          require('../../../assets/sounds/ringtone.wav'),
-          { isLooping: true }
-        );
-        
-        if (isMounted) {
-          currentSound = newSound;
-          setSound(newSound);
-          await newSound.setVolumeAsync(1.0);
-          await newSound.playAsync();
-        } else {
-          // If unmounted before loading finished
-          await newSound.unloadAsync();
-        }
-      } catch (error) {
-        console.warn('Failed to load ringtone:', error);
-      }
-    }
-
-    playRingtone();
-
     // Vibrate pattern for incoming call
     const vibrationPattern = [0, 800, 400, 800];
     Vibration.vibrate(vibrationPattern, true);
@@ -100,13 +65,7 @@ export function IncomingCallScreen({ callerName, callerAvatar, onAccept, onRejec
     ]).start();
 
     return () => {
-      isMounted = false;
       Vibration.cancel();
-      if (currentSound) {
-        currentSound.stopAsync().then(() => {
-          currentSound?.unloadAsync();
-        }).catch(() => {}); // ignore errors on unmount
-      }
     };
   }, []);
 

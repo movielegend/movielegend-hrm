@@ -7,12 +7,13 @@ import { useAuth } from '../../../src/providers/AuthProvider';
 import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role-routing';
 import { colors } from '../../../src/theme/colors';
 
-import { useUnreadNotificationCount } from '../../../src/hooks/useNotifications';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../../src/hooks/useNotifications';
 
 export default function EmployeeLayout() {
   const insets = useSafeAreaInsets();
   const { isLoading, user } = useAuth();
-  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
 
   if (isLoading) return <LoadingState />;
   if (!canAccessRoleRoute(user, '/employee')) return <Redirect href={getHomeRouteForUser(user)} />;
@@ -64,6 +65,7 @@ export default function EmployeeLayout() {
         name="chat"
         options={{
           title: 'Nhóm chat',
+          tabBarBadge: unreadChat > 0 ? (unreadChat > 99 ? '99+' : unreadChat) : undefined,
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
           ),
@@ -73,7 +75,7 @@ export default function EmployeeLayout() {
         name="notifications"
         options={{
           title: 'Thông báo',
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadge: unreadNotifications > 0 ? (unreadNotifications > 99 ? '99+' : unreadNotifications) : undefined,
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} size={24} color={color} />
           ),

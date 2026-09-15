@@ -14,6 +14,7 @@ import { EditProfileModal } from './components/EditProfileModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
+import { formatSeniority } from '../../utils/seniority';
 
 export function AdminProfileScreen() {
   const router = useRouter();
@@ -29,6 +30,13 @@ export function AdminProfileScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const openEdit = () => setIsEditing(true);
+
+  // BUG-06 fix: dùng scopes thay vì hard-code phone
+  const regionScope = user?.scopes?.find(
+    (s) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId,
+  );
+  const isSuperAdmin = user?.roles?.includes('ADMIN') && !regionScope;
+  const adminRoleLabel = isSuperAdmin ? 'Super Admin' : isHR ? 'Nhân sự (HR)' : 'Admin Vùng';
 
   const handleLogout = () => {
     showConfirm({
@@ -59,7 +67,7 @@ export function AdminProfileScreen() {
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
           <AvatarPicker getInitials={getInitials} />
           <Text style={styles.userName}>{user?.fullName || 'Quản trị viên'}</Text>
-          <Text style={styles.userRole}>System Admin</Text>
+          <Text style={styles.userRole}>{adminRoleLabel}</Text>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>Đang hoạt động</Text>
@@ -73,7 +81,19 @@ export function AdminProfileScreen() {
             <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
-            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} isLast={!isHR} />
+            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} />
+            <InfoRow 
+              icon="calendar-clock" 
+              label="Thâm niên" 
+              value={formatSeniority(user?.joinDate || (user as any)?.createdAt)} 
+              valueColor="#059669"
+            />
+            <InfoRow 
+              icon="calendar-account" 
+              label="Ngày vào làm" 
+              value={(user?.joinDate || (user as any)?.createdAt) ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} 
+              isLast={!isHR}
+            />
             {isHR && (
               <InfoRow 
                 icon="face-recognition" 
@@ -87,17 +107,31 @@ export function AdminProfileScreen() {
           </View>
         </View>
 
+        {/* Tiện ích cá nhân */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
+          <View style={styles.infoCard}>
+            <ActionRow icon="calendar-clock" title="Bảng công" onPress={() => router.push('/admin/timesheet' as any)} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/admin/payslip' as any)} />
+            <ActionRow icon="history" title="Lịch sử chấm công" onPress={() => router.push('/admin/attendance')} isLast />
+          </View>
+        </View>
+
         {/* Tính năng Nhân sự */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tính năng Nhân sự</Text>
           <View style={styles.infoCard}>
             {!isHR && <ActionRow icon="domain" title="Cơ cấu Tổ chức" onPress={() => router.push('/admin/branches')} />}
+            <ActionRow icon="crown-outline" title="Cấu hình Level" onPress={() => router.push('/admin/levels' as any)} />
+            <ActionRow icon="shield-check-outline" title="Duyệt Level" onPress={() => router.push('/admin/competition/review' as any)} />
+            <ActionRow icon="wallet-giftcard" title="Ví Thưởng" onPress={() => router.push('/admin/tet-wallet' as any)} />
             <ActionRow icon="clock-check-outline" title="Dữ liệu Chấm công" onPress={() => router.push('/admin/attendance')} />
             {!isHR && <ActionRow icon="calendar-clock" title="Ca làm việc" onPress={() => router.push('/admin/shifts')} />}
             <ActionRow icon="clipboard-check-outline" title="Duyệt đơn" onPress={() => router.push('/leader/employee-requests')} />
             <ActionRow icon="account-check-outline" title="Duyệt tài khoản" onPress={() => router.push('/admin/approvals')} />
             <ActionRow icon="swap-horizontal" title="Luân chuyển PB" onPress={() => router.push('/admin/cross-department')} />
-            <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} isLast={isHR} />
+            <ActionRow icon="file-document-edit" title="Hợp đồng" onPress={() => router.push('/admin/contracts')} />
+            <ActionRow icon="folder-text-outline" title="Tài liệu nội bộ" onPress={() => router.push('/admin/documents' as any)} isLast={isHR} />
             {!isHR && <ActionRow icon="message-draw" title="Quản lý Góp ý" onPress={() => router.push('/admin/feedbacks' as any)} isLast />}
           </View>
         </View>

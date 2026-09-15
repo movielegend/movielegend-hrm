@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, SafeAreaView, View, Pressable, Text, ActivityIndicator } from 'react-native';
+import { Modal, SafeAreaView, View, Pressable, Text, ActivityIndicator, Platform, Image } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -17,6 +17,8 @@ export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu
   const [currentPdfUri, setCurrentPdfUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const isImage = url ? /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url) : false;
+
   useEffect(() => {
     if (visible && url) {
       loadPdf(url);
@@ -30,6 +32,13 @@ export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu
   const loadPdf = async (pdfUrl: string) => {
     try {
       setLoading(true);
+
+      if (Platform.OS === 'web' || isImage) {
+        setCurrentPdfUri(pdfUrl);
+        setLoading(false);
+        return;
+      }
+
       let cleanFileName = (pdfUrl.split('/').pop() || 'document').replace(/[^a-zA-Z0-9.-]/g, '_');
       if (!cleanFileName.toLowerCase().endsWith('.pdf')) cleanFileName += '.pdf';
       const localUri = FileSystem.documentDirectory + cleanFileName;
@@ -117,14 +126,50 @@ export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu
             <ActivityIndicator color="#fff" style={{ marginRight: 10 }} />
           ) : currentPdfUri ? (
             <Pressable
-              onPress={() => Sharing.shareAsync(currentPdfUri, { UTI: 'application/pdf', mimeType: 'application/pdf' }).catch(console.error)}
+              onPress={() => {
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.open(currentPdfUri, '_blank');
+                } else {
+                  Sharing.shareAsync(currentPdfUri, { UTI: 'application/pdf', mimeType: 'application/pdf' }).catch(console.error);
+                }
+              }}
               style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.primary, borderRadius: 8 }}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Lưu / Chia sẻ</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>
+                {Platform.OS === 'web' ? 'Mở tab mới' : 'Lưu / Chia sẻ'}
+              </Text>
             </Pressable>
           ) : null}
         </View>
-        {pdfHtml ? (
+        {Platform.OS === 'web' ? (
+          <View style={{ flex: 1, backgroundColor: isImage ? '#0f172a' : '#525659', justifyContent: 'center', alignItems: 'center' }}>
+            {url ? (
+              isImage ? (
+                <img
+                  src={url}
+                  alt={title}
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' } as any}
+                />
+              ) : (
+                <iframe
+                  src={url}
+                  style={{ width: '100%', height: '100%', border: 'none' } as any}
+                  title={title}
+                />
+              )
+            ) : null}
+          </View>
+        ) : isImage ? (
+          <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
+            {currentPdfUri ? (
+              <Image
+                source={{ uri: currentPdfUri }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        ) : pdfHtml ? (
           <WebView
             source={{ html: pdfHtml, baseUrl: '' }}
             style={{ flex: 1 }}

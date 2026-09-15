@@ -13,6 +13,7 @@ import { EditProfileModal } from './components/EditProfileModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { useUserGuide } from '../../components/UserGuideManager';
+import { formatSeniority } from '../../utils/seniority';
 
 import { AvatarPicker } from './components/AvatarPicker';
 
@@ -74,6 +75,17 @@ export function EmployeeProfileScreen() {
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Quản trị hệ thống'} />
+            <InfoRow 
+              icon="calendar-clock" 
+              label="Thâm niên" 
+              value={formatSeniority(user?.joinDate || (user as any)?.createdAt)} 
+              valueColor="#059669"
+            />
+            <InfoRow 
+              icon="calendar-account" 
+              label="Ngày vào làm" 
+              value={(user?.joinDate || (user as any)?.createdAt) ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} 
+            />
             <InfoRow
               icon="face-recognition"
               label="Dữ liệu khuôn mặt"
@@ -85,12 +97,14 @@ export function EmployeeProfileScreen() {
           </View>
         </View>
 
-        {/* Tính năng Nhân sự */}
+        {/* Tiện ích cá nhân */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tính năng</Text>
+          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.infoCard}>
+            <ActionRow icon="calendar-clock" title="Bảng công" onPress={() => router.push('/employee/timesheet' as any)} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/employee/payslip' as any)} />
             <ActionRow icon="text-box-check-outline" title="Hợp đồng lao động" onPress={() => router.push('/employee/contracts' as any)} />
-            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => showAlert('Thông báo', 'Chức năng đang được phát triển')} />
+            <ActionRow icon="folder-text-outline" title="Tài liệu nội bộ" onPress={() => router.push('/employee/documents' as any)} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/employee/assets' as any)} />
             <ActionRow icon="newspaper-variant" title="Bảng tin nội bộ" onPress={() => router.push('/employee/news' as any)} />
             <ActionRow icon="message-text-outline" title="Nhóm chat" onPress={() => router.push('/employee/chat' as any)} />
@@ -102,7 +116,7 @@ export function EmployeeProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="file-document-outline" title="Cẩm nang PDF" onPress={showGuideManual} />
+            <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={showGuideManual} />
             <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
             <ActionRow icon="account-remove-outline" title="Quyền sở hữu & Xóa tài khoản" onPress={() => setIsDeleting(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>

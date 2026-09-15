@@ -4,14 +4,16 @@ import { spacing } from '../theme/spacing';
 
 interface FilterChipProps {
   label: string;
-  selected: boolean;
+  selected?: boolean;
+  isActive?: boolean;
   onPress: () => void;
 }
 
-export function FilterChip({ label, selected, onPress }: FilterChipProps) {
+export function FilterChip({ label, selected, isActive, onPress }: FilterChipProps) {
+  const isSelected = selected ?? isActive ?? false;
   return (
-    <Pressable accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={[styles.chip, selected && styles.selected]}>
-      <Text style={[styles.text, selected && styles.selectedText]}>{label}</Text>
+    <Pressable accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={[styles.chip, isSelected && styles.selected]}>
+      <Text style={[styles.text, isSelected && styles.selectedText]}>{label}</Text>
     </Pressable>
   );
 }

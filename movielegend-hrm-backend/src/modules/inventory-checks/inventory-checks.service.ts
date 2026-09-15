@@ -17,8 +17,8 @@ export class InventoryChecksService {
     private readonly realtime: RealtimeEventsService,
   ) {}
 
-  create(dto: CreateInventoryCheckDto, actor: AuthenticatedUser) {
-    this.warehouses.assertWarehouseAccess(actor, dto.warehouseId);
+  async create(dto: CreateInventoryCheckDto, actor: AuthenticatedUser) {
+    await this.warehouses.assertWarehouseAccess(actor, dto.warehouseId);
     return this.prisma.$transaction(async (tx) => {
       const checkCode = await this.prisma.nextSequenceCode(tx, 'inventory_check_code_seq', 'INV');
       const stocks = await tx.warehouseStock.findMany({ where: { warehouseId: dto.warehouseId } });
@@ -44,8 +44,8 @@ export class InventoryChecksService {
     });
   }
 
-  findAll(actor: AuthenticatedUser) {
-    const ids = this.warehouses.visibleWarehouseIds(actor);
+  async findAll(actor: AuthenticatedUser) {
+    const ids = await this.warehouses.visibleWarehouseIds(actor);
     return this.prisma.inventoryCheck.findMany({
       where: ids ? { warehouseId: { in: ids } } : {},
       include: { items: true },
@@ -56,7 +56,7 @@ export class InventoryChecksService {
   async findOne(id: string, actor: AuthenticatedUser) {
     const check = await this.prisma.inventoryCheck.findUnique({ where: { id }, include: { items: true } });
     if (!check) throw notFound('INVENTORY_CHECK_NOT_FOUND', 'Inventory check not found');
-    this.warehouses.assertWarehouseAccess(actor, check.warehouseId);
+    await this.warehouses.assertWarehouseAccess(actor, check.warehouseId);
     return check;
   }
 
@@ -90,7 +90,7 @@ export class InventoryChecksService {
     const result = await this.prisma.$transaction(async (tx) => {
       const check = await tx.inventoryCheck.findUnique({ where: { id }, include: { items: true } });
       if (!check) throw notFound('INVENTORY_CHECK_NOT_FOUND', 'Inventory check not found');
-      this.warehouses.assertWarehouseAccess(actor, check.warehouseId);
+      await this.warehouses.assertWarehouseAccess(actor, check.warehouseId);
       if (check.status !== InventoryCheckStatus.SUBMITTED) throw conflict('INVENTORY_CHECK_NOT_SUBMITTED', 'Inventory check must be submitted before approval');
       for (const item of check.items) {
         if (item.materialId && item.differenceQuantity && Number(item.differenceQuantity) !== 0) {

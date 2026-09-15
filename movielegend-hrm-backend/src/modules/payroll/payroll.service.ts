@@ -11,13 +11,15 @@ import {
   PayrollStatus,
   Prisma,
   SalaryComponentType,
+  SalaryType,
 } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
-import { CreatePayrollPeriodDto } from './dto/payroll.dto';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, CompanyPayslipsQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
 import { PayrollPolicyService } from './payroll-policy.service';
 
 @Injectable()
@@ -27,6 +29,7 @@ export class PayrollService {
     private readonly policy: PayrollPolicyService,
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeEventsService,
+    private readonly scope: DepartmentScopeService,
   ) {}
 
   createPeriod(dto: CreatePayrollPeriodDto, actor: AuthenticatedUser) {
@@ -68,6 +71,7 @@ export class PayrollService {
       ? [PayrollPeriodStatus.DRAFT, PayrollPeriodStatus.CALCULATED]
       : [PayrollPeriodStatus.DRAFT, PayrollPeriodStatus.CALCULATED];
     if (!allowed.includes(period.status)) throw conflict('PAYROLL_PERIOD_NOT_CALCULABLE', 'Payroll period cannot be calculated now');
+    const originalStatus = period.status;
     const claimed = await this.prisma.payrollPeriod.updateMany({
       where: { id, status: { in: allowed } },
       data: { status: PayrollPeriodStatus.CALCULATING },
@@ -96,7 +100,7 @@ export class PayrollService {
       this.realtime.emitToRoom('payroll:admin', 'payroll:period-updated', { id, status: updated.status });
       return updated;
     } catch (error) {
-      await this.prisma.payrollPeriod.update({ where: { id }, data: { status: PayrollPeriodStatus.DRAFT } });
+      await this.prisma.payrollPeriod.update({ where: { id }, data: { status: originalStatus } });
       throw error;
     }
   }
@@ -160,9 +164,31 @@ export class PayrollService {
     return payload;
   }
 
-  findPeriodPayrolls(periodId: string) {
+  async findPeriodPayrolls(periodId: string, actor?: AuthenticatedUser) {
+    let visibleDepartmentIds: string[] | null = null;
+    if (actor) {
+      const isRegionAdmin = this.scope.isRegionAdmin(actor);
+      visibleDepartmentIds = isRegionAdmin
+        ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+        : await this.scope.getVisibleDepartmentIds(actor);
+    }
     return this.prisma.payroll.findMany({
-      where: { payrollPeriodId: periodId },
+      where: {
+        payrollPeriodId: periodId,
+        ...(visibleDepartmentIds !== null
+          ? {
+              user: {
+                departmentLinks: {
+                  some: {
+                    departmentId: {
+                      in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+                    },
+                  },
+                },
+              },
+            }
+          : {}),
+      },
       include: { user: { select: { id: true, userCode: true, email: true, phone: true, profile: true } }, items: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -191,6 +217,702 @@ export class PayrollService {
       throw forbidden('PAYROLL_NOT_VISIBLE', 'Payroll is not visible yet');
     }
     return payroll;
+  }
+
+  async getMyPayslip(actor: AuthenticatedUser, query: MyPayslipQueryDto) {
+    const now = new Date();
+    const month = query.month ? Number(query.month) : now.getMonth() + 1;
+    const year = query.year ? Number(query.year) : now.getFullYear();
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      include: {
+        profile: { include: { position: true } },
+        departmentLinks: { include: { department: true } },
+      },
+    });
+
+    const payroll = await this.prisma.payroll.findFirst({
+      where: {
+        userId: actor.userId,
+        period: { month, year },
+      },
+      include: {
+        period: true,
+        items: true,
+      },
+      orderBy: { calculatedAt: 'desc' },
+    });
+
+    // Lấy ảnh phiếu lương chốt chính thức từ Leader Kế toán (ưu tiên ảnh riêng của nhân sự này)
+    const specificImageLog = await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'PAYROLL_OFFICIAL_IMAGE',
+        entityId: actor.userId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const imageLog = specificImageLog || await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'PAYROLL_OFFICIAL_IMAGE',
+        entityId: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let finalOfficialImageUrl: string | null = null;
+    if (imageLog?.metadata && typeof imageLog.metadata === 'object') {
+      const meta = imageLog.metadata as any;
+      if (meta.month === month && meta.year === year) {
+        finalOfficialImageUrl = meta.imageUrl || null;
+      }
+    }
+
+    if (!payroll) {
+      return {
+        month,
+        year,
+        hasData: false,
+        finalOfficialImageUrl,
+        employee: {
+          fullName: user?.profile?.fullName || 'Nhân viên',
+          userCode: user?.userCode || '---',
+          departmentName: user?.departmentLinks?.[0]?.department?.name || '---',
+          positionName: user?.profile?.position?.name || 'Nhân viên',
+        },
+        baseSalary: 0,
+        actualSalary: 0,
+        standardWorkingDays: 26,
+        actualWorkingDays: 0,
+        paidLeaveDays: 0,
+        unpaidLeaveDays: 0,
+        overtimeHours: 0,
+        overtimeAmount: 0,
+        allowanceAmount: 0,
+        bonusAmount: 0,
+        deductionAmount: 0,
+        insuranceAmount: 0,
+        taxAmount: 0,
+        advanceAmount: 0,
+        latePenaltyAmount: 0,
+        grossSalary: 0,
+        netSalary: 0,
+        status: 'UNAVAILABLE',
+        items: [],
+      };
+    }
+
+    const overtimeHours = Number((payroll.overtimeMinutes / 60).toFixed(1));
+
+    // Phân loại items
+    const allowanceItems = payroll.items.filter((i) => i.itemType === PayrollItemType.ALLOWANCE);
+    const bonusItems = payroll.items.filter((i) => i.itemType === PayrollItemType.BONUS);
+    const deductionItems = payroll.items.filter(
+      (i) => i.itemType === PayrollItemType.DEDUCTION || i.itemType === PayrollItemType.INSURANCE || i.itemType === PayrollItemType.TAX,
+    );
+
+    return {
+      id: payroll.id,
+      month,
+      year,
+      hasData: true,
+      finalOfficialImageUrl,
+      periodCode: payroll.period.periodCode,
+      status: payroll.status,
+      calculatedAt: payroll.calculatedAt,
+      employeeAcknowledgedAt: payroll.employeeAcknowledgedAt,
+      employee: {
+        fullName: user?.profile?.fullName || 'Nhân viên',
+        userCode: user?.userCode || '---',
+        departmentName: user?.departmentLinks?.[0]?.department?.name || '---',
+        positionName: user?.profile?.position?.name || 'Nhân viên',
+      },
+      baseSalary: Number(payroll.baseSalary),
+      actualSalary: Number(payroll.grossSalary) || Number(payroll.baseSalary),
+      standardWorkingDays: Number(payroll.standardWorkingDays),
+      actualWorkingDays: Number(payroll.actualWorkingDays),
+      paidLeaveDays: Number(payroll.paidLeaveDays),
+      unpaidLeaveDays: Number(payroll.unpaidLeaveDays),
+      overtimeHours,
+      overtimeAmount: Number(payroll.overtimeAmount),
+      allowanceAmount: Number(payroll.allowanceAmount),
+      bonusAmount: Number(payroll.bonusAmount),
+      deductionAmount: Number(payroll.deductionAmount),
+      insuranceAmount: Number(payroll.insuranceAmount),
+      taxAmount: Number(payroll.taxAmount),
+      grossSalary: Number(payroll.grossSalary),
+      netSalary: Number(payroll.netSalary),
+      allowanceItems: allowanceItems.map((i) => ({ name: i.itemName, amount: Number(i.amount) })),
+      bonusItems: bonusItems.map((i) => ({ name: i.itemName, amount: Number(i.amount) })),
+      deductionItems: deductionItems.map((i) => ({ name: i.itemName, amount: Number(i.amount) })),
+      items: payroll.items.map((i) => ({
+        id: i.id,
+        itemCode: i.itemCode,
+        itemName: i.itemName,
+        itemType: i.itemType,
+        amount: Number(i.amount),
+        quantity: i.quantity ? Number(i.quantity) : null,
+        rate: i.rate ? Number(i.rate) : null,
+        note: i.note,
+      })),
+    };
+  }
+
+  async uploadOfficialImage(actor: AuthenticatedUser, dto: UploadPayslipImageDto) {
+    const { userId, month, year, note } = dto;
+    const imageUrl = dto.imageUrl || dto.fileUrl;
+    if (!imageUrl) {
+      throw badRequest('IMAGE_URL_REQUIRED', 'imageUrl hoặc fileUrl là bắt buộc');
+    }
+
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const visibleDepartmentIds = isRegionAdmin
+      ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+      : await this.scope.getVisibleDepartmentIds(actor);
+
+    if (userId && visibleDepartmentIds !== null) {
+      const userInScope = await this.prisma.departmentMember.findFirst({
+        where: {
+          userId,
+          departmentId: { in: visibleDepartmentIds },
+        },
+      });
+      if (!userInScope) {
+        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền thao tác nhân sự thuộc phòng ban hoặc vùng khác');
+      }
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYROLL_OFFICIAL_IMAGE',
+        entityType: 'PayslipImage',
+        entityId: userId || null,
+        metadata: {
+          month,
+          year,
+          imageUrl,
+          note,
+        },
+      },
+    });
+
+    // Gửi thông báo đến nhân sự
+    try {
+      let targetUserIds: string[] = [];
+      if (userId) {
+        targetUserIds = [userId];
+      } else {
+        const activeUsers = await this.prisma.user.findMany({
+          where: {
+            isActive: true,
+            deletedAt: null,
+            ...(visibleDepartmentIds !== null
+              ? {
+                  departmentLinks: {
+                    some: {
+                      departmentId: {
+                        in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+                      },
+                    },
+                  },
+                }
+              : {}),
+          },
+          select: { id: true },
+        });
+        targetUserIds = activeUsers.map((u) => u.id);
+      }
+
+      const payload = await this.notifications.createForUsers(this.prisma, targetUserIds, {
+        type: NotificationType.PAYSLIP_AVAILABLE,
+        title: `Phiếu lương tháng ${month}/${year}`,
+        body: `Phòng Kế toán đã phát hành ảnh phiếu lương chốt tháng ${month}/${year}. Vui lòng vào kiểm tra và xác nhận.`,
+        metadata: {
+          screen: 'EmployeePayslip',
+          month,
+          year,
+          type: 'PAYSLIP_OFFICIAL_IMAGE',
+        },
+      });
+      if (payload) {
+        this.notifications.emitCreated(payload);
+      }
+    } catch (e) {
+      // Do not fail upload if notification fails
+    }
+
+    return {
+      success: true,
+      message: 'Đã lưu ảnh phiếu lương chốt chính thức thành công',
+      imageUrl,
+      month,
+      year,
+    };
+  }
+
+  async getCompanyMonthlyPayslips(actor: AuthenticatedUser, query: CompanyPayslipsQueryDto) {
+    const now = new Date();
+    const month = query.month ? Number(query.month) : now.getMonth() + 1;
+    const year = query.year ? Number(query.year) : now.getFullYear();
+
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const visibleDepartmentIds = isRegionAdmin
+      ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+      : await this.scope.getVisibleDepartmentIds(actor);
+
+    let departmentFilter: Prisma.DepartmentMemberWhereInput | undefined = undefined;
+    if (query.departmentId) {
+      if (visibleDepartmentIds !== null && !visibleDepartmentIds.includes(query.departmentId)) {
+        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền truy cập phòng ban này');
+      }
+      departmentFilter = { departmentId: query.departmentId };
+    } else if (visibleDepartmentIds !== null) {
+      departmentFilter = {
+        departmentId: {
+          in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+        },
+      };
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        ...(departmentFilter ? { departmentLinks: { some: departmentFilter } } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                { profile: { fullName: { contains: query.search, mode: 'insensitive' } } },
+                { userCode: { contains: query.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        profile: { include: { position: true } },
+        departmentLinks: { include: { department: true } },
+        salaryProfiles: {
+          orderBy: { effectiveFrom: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const period = await this.prisma.payrollPeriod.findFirst({
+      where: { month, year },
+      include: {
+        payrolls: true,
+      },
+    });
+
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    const results = await Promise.all(
+      users.map(async (u) => {
+        const payroll = period?.payrolls.find((p) => p.userId === u.id);
+
+        const specificImageLog = await this.prisma.auditLog.findFirst({
+          where: {
+            action: 'PAYROLL_OFFICIAL_IMAGE',
+            entityId: u.id,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        const imageLog = specificImageLog || await this.prisma.auditLog.findFirst({
+          where: {
+            action: 'PAYROLL_OFFICIAL_IMAGE',
+            entityId: null,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        let finalOfficialImageUrl: string | null = null;
+        if (imageLog?.metadata && typeof imageLog.metadata === 'object') {
+          const meta = imageLog.metadata as any;
+          if (meta.month === month && meta.year === year) {
+            finalOfficialImageUrl = meta.imageUrl || null;
+          }
+        }
+
+        const baseSalary = payroll ? Number(payroll.baseSalary) : (u.salaryProfiles?.[0]?.baseSalary ? Number(u.salaryProfiles[0].baseSalary) : 0);
+        const actualWorkingDays = payroll ? Number(payroll.actualWorkingDays) : await this.prisma.attendanceRecord.count({
+          where: {
+            userId: u.id,
+            workDate: { gte: startOfMonth, lte: endOfMonth },
+            status: { in: ['CHECKED_OUT', 'CHECKED_IN', 'ADJUSTED'] },
+          },
+        });
+
+        return {
+          userId: u.id,
+          userCode: u.userCode,
+          fullName: u.profile?.fullName || 'Nhân sự',
+          departmentName: u.departmentLinks?.[0]?.department?.name || 'Chưa có phòng ban',
+          positionName: u.profile?.position?.name || 'Nhân viên',
+          baseSalary,
+          grossSalary: payroll ? Number(payroll.grossSalary) : baseSalary,
+          netSalary: payroll ? Number(payroll.netSalary) : baseSalary,
+          actualWorkingDays,
+          standardWorkingDays: payroll ? Number(payroll.standardWorkingDays) : 26,
+          status: payroll ? payroll.status : 'ACTIVE',
+          hasData: !!payroll || baseSalary > 0,
+          finalOfficialImageUrl,
+          employeeAcknowledgedAt: payroll?.employeeAcknowledgedAt?.toISOString() || null,
+        };
+      }),
+    );
+
+    return {
+      month,
+      year,
+      totalEmployees: results.length,
+      items: results,
+    };
+  }
+
+  async acknowledgePayslip(id: string, actor: AuthenticatedUser) {
+    const payroll = await this.prisma.payroll.findUnique({ where: { id } });
+    if (!payroll) throw notFound('PAYROLL_NOT_FOUND', 'Không tìm thấy phiếu lương');
+    if (payroll.userId !== actor.userId) throw forbidden('FORBIDDEN', 'Bạn chỉ có thể xác nhận phiếu lương của chính mình');
+
+    const updated = await this.prisma.payroll.update({
+      where: { id },
+      data: { employeeAcknowledgedAt: new Date() },
+    });
+
+    return {
+      success: true,
+      message: 'Đã xác nhận phiếu lương thành công',
+      employeeAcknowledgedAt: updated.employeeAcknowledgedAt,
+    };
+  }
+
+  async importPayrolls(actor: AuthenticatedUser, dto: ImportPayrollDto) {
+    const { month, year, items } = dto;
+    if (!items || items.length === 0) {
+      throw badRequest('EMPTY_PAYROLL_ITEMS', 'Danh sách phiếu lương không được để trống');
+    }
+
+    // Xác định companyId
+    let companyId = dto.companyId;
+    if (!companyId) {
+      companyId = (await this.prisma.company.findFirst({ select: { id: true } }))?.id;
+    }
+    if (!companyId) throw badRequest('COMPANY_NOT_FOUND', 'Không tìm thấy thông tin công ty');
+
+    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    let successCount = 0;
+    const errors: string[] = [];
+
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const visibleDepartmentIds = isRegionAdmin
+      ? ((await this.scope.getVisibleDepartmentIds(actor)) ?? [])
+      : await this.scope.getVisibleDepartmentIds(actor);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Tìm hoặc tạo PayrollPeriod cho kỳ này
+      let period = await tx.payrollPeriod.findFirst({
+        where: { companyId, month, year },
+      });
+
+      if (!period) {
+        const periodCode = `PAY-${year}${String(month).padStart(2, '0')}`;
+        period = await tx.payrollPeriod.create({
+          data: {
+            periodCode,
+            companyId,
+            month,
+            year,
+            startDate,
+            endDate,
+            status: PayrollPeriodStatus.APPROVED,
+            calculatedAt: new Date(),
+            approvedAt: new Date(),
+            createdById: actor.userId,
+            approvedById: actor.userId,
+          },
+        });
+      } else if (period.status === PayrollPeriodStatus.DRAFT || period.status === PayrollPeriodStatus.CALCULATED) {
+        period = await tx.payrollPeriod.update({
+          where: { id: period.id },
+          data: {
+            status: PayrollPeriodStatus.APPROVED,
+            approvedAt: new Date(),
+            approvedById: actor.userId,
+          },
+        });
+      }
+
+      const importedUserIds: string[] = [];
+
+      for (const item of items) {
+        const user = await tx.user.findFirst({
+          where: {
+            userCode: item.userCode,
+            deletedAt: null,
+            ...(visibleDepartmentIds !== null
+              ? {
+                  departmentLinks: {
+                    some: {
+                      departmentId: {
+                        in: visibleDepartmentIds.length > 0 ? visibleDepartmentIds : ['00000000-0000-0000-0000-000000000000'],
+                      },
+                    },
+                  },
+                }
+              : {}),
+          },
+          include: { profile: true, departmentLinks: { include: { department: true } } },
+        });
+
+        if (!user) {
+          errors.push(`Mã NV ${item.userCode} không tồn tại hoặc không thuộc quyền quản lý`);
+          continue;
+        }
+
+        // Tìm hoặc tạo SalaryProfile
+        let salaryProfile = await tx.salaryProfile.findFirst({
+          where: { userId: user.id },
+          orderBy: { effectiveFrom: 'desc' },
+        });
+
+        if (!salaryProfile) {
+          salaryProfile = await tx.salaryProfile.create({
+            data: {
+              userId: user.id,
+              salaryType: SalaryType.MONTHLY,
+              baseSalary: item.baseSalary,
+              standardWorkingDays: item.standardWorkingDays || 26,
+              effectiveFrom: startDate,
+              createdById: actor.userId,
+            },
+          });
+        }
+
+        const standardWorkingDays = item.standardWorkingDays || 26;
+        const actualWorkingDays = item.actualWorkingDays !== undefined ? item.actualWorkingDays : standardWorkingDays;
+        const overtimeMinutes = item.overtimeHours ? Math.round(item.overtimeHours * 60) : 0;
+        const overtimeAmount = item.overtimeAmount || 0;
+        const allowanceAmount = item.allowanceAmount || 0;
+        const bonusAmount = item.bonusAmount || 0;
+        const deductionAmount = item.deductionAmount || 0;
+        const insuranceAmount = item.insuranceAmount || 0;
+        const taxAmount = item.taxAmount || 0;
+        const grossSalary = item.actualSalary || (item.baseSalary + overtimeAmount + allowanceAmount + bonusAmount);
+        const netSalary = item.netSalary;
+
+        // Upsert Payroll record
+        const payroll = await tx.payroll.upsert({
+          where: {
+            payrollPeriodId_userId: {
+              payrollPeriodId: period.id,
+              userId: user.id,
+            },
+          },
+          update: {
+            baseSalary: item.baseSalary,
+            standardWorkingDays,
+            actualWorkingDays,
+            overtimeMinutes,
+            overtimeAmount,
+            allowanceAmount,
+            bonusAmount,
+            deductionAmount,
+            insuranceAmount,
+            taxAmount,
+            grossSalary,
+            netSalary,
+            status: PayrollStatus.APPROVED,
+            calculatedAt: new Date(),
+          },
+          create: {
+            payrollPeriodId: period.id,
+            userId: user.id,
+            salaryProfileId: salaryProfile.id,
+            baseSalary: item.baseSalary,
+            standardWorkingDays,
+            actualWorkingDays,
+            overtimeMinutes,
+            overtimeAmount,
+            allowanceAmount,
+            bonusAmount,
+            deductionAmount,
+            insuranceAmount,
+            taxAmount,
+            grossSalary,
+            netSalary,
+            status: PayrollStatus.APPROVED,
+            calculatedAt: new Date(),
+          },
+        });
+
+        // Xóa items cũ và tạo items mới
+        await tx.payrollItem.deleteMany({ where: { payrollId: payroll.id } });
+
+        const payrollItemsToCreate = [];
+        // Lương cơ bản
+        payrollItemsToCreate.push({
+          payrollId: payroll.id,
+          itemCode: 'BASIC_SALARY',
+          itemName: 'Lương cơ bản',
+          itemType: PayrollItemType.EARNING,
+          quantity: actualWorkingDays,
+          rate: item.baseSalary / standardWorkingDays,
+          amount: item.actualSalary || item.baseSalary,
+        });
+
+        // Tăng ca
+        if (overtimeAmount > 0 || (item.overtimeHours && item.overtimeHours > 0)) {
+          payrollItemsToCreate.push({
+            payrollId: payroll.id,
+            itemCode: 'OVERTIME_PAY',
+            itemName: 'Làm thêm giờ (OT)',
+            itemType: PayrollItemType.EARNING,
+            quantity: item.overtimeHours || 0,
+            amount: overtimeAmount,
+          });
+        }
+
+        // Phụ cấp
+        if (allowanceAmount > 0) {
+          payrollItemsToCreate.push({
+            payrollId: payroll.id,
+            itemCode: 'ALLOWANCE',
+            itemName: 'Phụ cấp (Ăn trưa, đi lại, trách nhiệm)',
+            itemType: PayrollItemType.ALLOWANCE,
+            amount: allowanceAmount,
+          });
+        }
+
+        // Thưởng
+        if (bonusAmount > 0) {
+          payrollItemsToCreate.push({
+            payrollId: payroll.id,
+            itemCode: 'BONUS',
+            itemName: 'Thưởng hiệu quả / KPI',
+            itemType: PayrollItemType.BONUS,
+            amount: bonusAmount,
+          });
+        }
+
+        // Bảo hiểm
+        if (insuranceAmount > 0) {
+          payrollItemsToCreate.push({
+            payrollId: payroll.id,
+            itemCode: 'INSURANCE',
+            itemName: 'Khấu trừ BHXH, BHYT, BHTN (10.5%)',
+            itemType: PayrollItemType.INSURANCE,
+            amount: insuranceAmount,
+          });
+        }
+
+        // Thuế TNCN
+        if (taxAmount > 0) {
+          payrollItemsToCreate.push({
+            payrollId: payroll.id,
+            itemCode: 'TAX',
+            itemName: 'Thuế thu nhập cá nhân (TNCN)',
+            itemType: PayrollItemType.TAX,
+            amount: taxAmount,
+          });
+        }
+
+        // Tạm ứng / Giảm trừ khác
+        if (item.advanceAmount && item.advanceAmount > 0) {
+          payrollItemsToCreate.push({
+            payrollId: payroll.id,
+            itemCode: 'ADVANCE',
+            itemName: 'Tạm ứng lương',
+            itemType: PayrollItemType.DEDUCTION,
+            amount: item.advanceAmount,
+          });
+        }
+
+        if (item.latePenaltyAmount && item.latePenaltyAmount > 0) {
+          payrollItemsToCreate.push({
+            payrollId: payroll.id,
+            itemCode: 'LATE_PENALTY',
+            itemName: 'Khấu trừ đi muộn / vi phạm',
+            itemType: PayrollItemType.DEDUCTION,
+            amount: item.latePenaltyAmount,
+          });
+        }
+
+        // Items chi tiết khác nếu có
+        if (item.itemDetails && item.itemDetails.length > 0) {
+          for (const det of item.itemDetails) {
+            payrollItemsToCreate.push({
+              payrollId: payroll.id,
+              itemCode: det.itemCode,
+              itemName: det.itemName,
+              itemType: det.itemType as PayrollItemType,
+              amount: det.amount || 0,
+              note: det.note,
+            });
+          }
+        }
+
+        if (payrollItemsToCreate.length > 0) {
+          await tx.payrollItem.createMany({ data: payrollItemsToCreate });
+        }
+
+        importedUserIds.push(user.id);
+        successCount++;
+      }
+
+      // Tạo audit log
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'PAYROLL_IMPORTED',
+          entityType: 'PayrollPeriod',
+          entityId: period.id,
+          metadata: { month, year, successCount, errors },
+        },
+      });
+
+      // Tạo thông báo cho toàn bộ nhân sự được import
+      if (importedUserIds.length > 0) {
+        const notify = await this.notifications.createForUsers(tx, importedUserIds, {
+          type: NotificationType.PAYROLL_APPROVED,
+          title: `Phiếu lương tháng ${month}/${year}`,
+          body: `Leader Kế toán đã phát hành phiếu lương tháng ${month}/${year}. Hãy kiểm tra và xác nhận!`,
+          metadata: { payrollPeriodId: period.id, month, year },
+        });
+        return { period, notify, importedUserIds, successCount };
+      }
+
+      return { period, importedUserIds, successCount };
+    });
+
+    // Phát realtime socket events & notifications
+    if (result.importedUserIds && result.importedUserIds.length > 0) {
+      if (result.notify) {
+        this.notifications.emitCreated(result.notify);
+      }
+      for (const uid of result.importedUserIds) {
+        this.realtime.emitToUser(uid, 'payroll:payslip-available', {
+          payrollPeriodId: result.period.id,
+          month,
+          year,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      month,
+      year,
+      periodId: result.period.id,
+      importedCount: successCount,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Đã import và phát hành phiếu lương tháng ${month}/${year} thành công cho ${successCount} nhân sự.`,
+    };
   }
 
   private async calculateEmployeePayroll(periodId: string, userId: string, actorUserId: string) {

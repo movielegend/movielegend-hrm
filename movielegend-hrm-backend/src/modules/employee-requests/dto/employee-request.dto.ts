@@ -72,3 +72,22 @@ export class EmployeeRequestQueryDto {
   @Max(100)
   limit = 20;
 }
+
+export class ApproveEmployeeRequestDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  disbursementProofUrl?: string;
+}
+
+export class RejectEmployeeRequestDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

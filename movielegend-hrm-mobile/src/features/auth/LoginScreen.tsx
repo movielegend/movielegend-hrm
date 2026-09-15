@@ -3,8 +3,19 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
@@ -89,16 +100,20 @@ export function LoginScreen() {
   });
 
   return (
-    <Screen>
-      <View style={styles.container}>
-
-        <KeyboardAwareScrollView
-          contentContainerStyle={styles.scrollContent}
-          enableOnAndroid={true}
-          extraScrollHeight={20}
-          keyboardShouldPersistTaps="handled"
+    <Screen unsafe={true}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.innerContent}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            keyboardDismissMode="on-drag"
+          >
+            <View style={styles.innerContent}>
 
             {/* Header Branding */}
             <View style={styles.header}>
@@ -223,9 +238,6 @@ export function LoginScreen() {
                   <Text style={styles.submitButtonText}>Đăng nhập</Text>
                 )}
               </Pressable>
-
-
-
             </View>
 
             <View style={styles.footerRow}>
@@ -234,12 +246,12 @@ export function LoginScreen() {
                 <Text style={styles.footerLink}>Đăng ký ngay</Text>
               </Pressable>
             </View>
-
           </View>
-        </KeyboardAwareScrollView>
-      </View>
-    </Screen>
-  );
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  </Screen>
+);
 }
 
 const styles = StyleSheet.create({
@@ -266,16 +278,15 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   innerContent: {
-    flex: 1,
+    width: '100%',
     paddingHorizontal: 24,
-    paddingTop: 10,
+    paddingTop: 36,
     paddingBottom: 40,
-    justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 36,
+    marginBottom: 28,
     width: '100%',
   },
   logoImage: {

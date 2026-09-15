@@ -134,6 +134,7 @@ export class AuthService {
               idCardFrontUrl,
               idCardBackUrl,
               avatarUrl: dto.avatarUrl,
+              joinDate: dto.joinDate ? new Date(dto.joinDate) : null,
             },
           },
           roles: employeeRole
@@ -186,19 +187,38 @@ export class AuthService {
       await this.uploads.attachTemporaryFiles(faceFileIds, user.id, UploadPurpose.FACE_REGISTRATION, tx);
       await this.uploads.attachTemporaryFiles(idCardFileIds, user.id, UploadPurpose.EMPLOYEE_DOCUMENT, tx);
 
+      let regionId: string | null = null;
+      if (dto.requestedDepartmentId) {
+        const dept = await tx.department.findUnique({
+          where: { id: dto.requestedDepartmentId },
+          select: { branch: { select: { regionId: true } } }
+        });
+        if (dept?.branch?.regionId) {
+          regionId = dept.branch.regionId;
+        }
+      }
+
       const admins = await tx.userRole.findMany({
-        where: { role: { code: 'ADMIN' } },
-        select: { userId: true }
+        where: { role: { code: 'ADMIN' }, user: { accountStatus: 'ACTIVE', isActive: true, deletedAt: null } },
+        select: { userId: true, scopeType: true, scopeId: true }
       });
 
-      const notifyUserIds = new Set(admins.map(a => a.userId));
+      const notifyUserIds = new Set<string>();
+      admins.forEach(ur => {
+        if (ur.scopeType === 'GLOBAL' || !ur.scopeType) {
+          notifyUserIds.add(ur.userId);
+        } else if (ur.scopeType === 'REGION' && ur.scopeId === regionId) {
+          notifyUserIds.add(ur.userId);
+        }
+      });
 
       if (dto.requestedDepartmentId) {
         const leaders = await tx.userRole.findMany({
           where: { 
             role: { code: 'LEADER' },
             scopeType: 'DEPARTMENT',
-            scopeId: dto.requestedDepartmentId
+            scopeId: dto.requestedDepartmentId,
+            user: { accountStatus: 'ACTIVE', isActive: true, deletedAt: null }
           },
           select: { userId: true }
         });
@@ -224,12 +244,53 @@ export class AuthService {
     });
   }
 
+  async checkAvailability(dto: { phone?: string; email?: string; idCardNumber?: string }) {
+    const duplicates: { phone?: boolean; email?: boolean; idCardNumber?: boolean } = {};
+
+    const [existingPhone, existingEmail, existingCard] = await Promise.all([
+      dto.phone ? this.prisma.user.findUnique({ where: { phone: dto.phone.trim() }, select: { id: true } }) : null,
+      dto.email ? this.prisma.user.findUnique({ where: { email: dto.email.trim().toLowerCase() }, select: { id: true } }) : null,
+      dto.idCardNumber ? this.prisma.employeeProfile.findUnique({ where: { idCardNumber: dto.idCardNumber.trim() }, select: { id: true } }) : null,
+    ]);
+
+    if (existingPhone) duplicates.phone = true;
+    if (existingEmail) duplicates.email = true;
+    if (existingCard) duplicates.idCardNumber = true;
+
+    const isDuplicate = Boolean(duplicates.phone || duplicates.email || duplicates.idCardNumber);
+    let message: string | undefined;
+
+    if (isDuplicate) {
+      if (duplicates.phone && duplicates.email) {
+        message = 'Cả Số điện thoại và Email đều đã được đăng ký trên hệ thống. Vui lòng nhập lại thông tin khác.';
+      } else if (duplicates.phone) {
+        message = 'Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng nhập số khác.';
+      } else if (duplicates.email) {
+        message = 'Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác.';
+      } else if (duplicates.idCardNumber) {
+        message = 'Số CCCD/CMND này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại.';
+      }
+    }
+
+    return {
+      isAvailable: !isDuplicate,
+      phoneDuplicate: Boolean(duplicates.phone),
+      emailDuplicate: Boolean(duplicates.email),
+      idCardDuplicate: Boolean(duplicates.idCardNumber),
+      message,
+    };
+  }
+
   async login(dto: LoginDto, meta: RequestMeta) {
     const user = await this.prisma.user.findUnique({
       where: { phone: dto.phone },
       include: this.userInclude(),
     });
-    if (!user) throw unauthorized('INVALID_CREDENTIALS', 'Số điện thoại hoặc mật khẩu không đúng');
+    if (!user) {
+      // Dummy bcrypt compare to prevent timing attack (user enumeration)
+      await bcrypt.compare(dto.password, '$2b$10$invalidhashfortimingequaliz');
+      throw unauthorized('INVALID_CREDENTIALS', 'Số điện thoại hoặc mật khẩu không đúng');
+    }
 
     const passwordOk = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordOk) throw unauthorized('INVALID_CREDENTIALS', 'Số điện thoại hoặc mật khẩu không đúng');
@@ -380,6 +441,7 @@ export class AuthService {
     const payload = await this.buildPayload(userId);
     
     if (isLogin && !payload.roles.includes('ADMIN')) {
+      // Non-admin users: single session policy — revoke all existing sessions on new login
       await this.prisma.refreshSession.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
@@ -388,6 +450,27 @@ export class AuthService {
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
+    } else if (isLogin && payload.roles.includes('ADMIN')) {
+      // BUG-09: Admin Miền được phép multi-device nhưng giới hạn tối đa 5 session đồng thời
+      // để hạn chế rủi ro nếu thiết bị bị mất/đánh cắp. Global Admin (GLOBAL scope) không bị ảnh hưởng.
+      const isRegionAdmin = payload.scopes?.some(
+        (s) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId,
+      );
+      if (isRegionAdmin) {
+        const MAX_ADMIN_SESSIONS = 5;
+        const activeSessions = await this.prisma.refreshSession.findMany({
+          where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: 'asc' },
+        });
+        if (activeSessions.length >= MAX_ADMIN_SESSIONS) {
+          // Revoke oldest sessions vượt quá giới hạn
+          const toRevoke = activeSessions.slice(0, activeSessions.length - MAX_ADMIN_SESSIONS + 1);
+          await this.prisma.refreshSession.updateMany({
+            where: { id: { in: toRevoke.map((s) => s.id) } },
+            data: { revokedAt: new Date() },
+          });
+        }
+      }
     }
 
     const accessSecret = this.config.getOrThrow<string>('jwt.accessSecret');
@@ -470,8 +553,14 @@ export class AuthService {
 
   private toAuthUser(user: Prisma.UserGetPayload<{ include: ReturnType<AuthService['userInclude']> }>) {
     const permissions = new Set<string>();
+    const scopes: Array<{ role: string; scopeType: string; scopeId: string | null }> = [];
     const roles = user.roles.map((userRole) => {
       userRole.role.permissions.forEach((item) => permissions.add(item.permission.code));
+      scopes.push({
+        role: userRole.role.code,
+        scopeType: userRole.scopeType,
+        scopeId: userRole.scopeId,
+      });
       return userRole.role.code;
     });
     const primaryDepartment = user.departmentLinks[0];
@@ -482,14 +571,18 @@ export class AuthService {
       phone: user.phone,
       email: user.email,
       avatarUrl: user.profile?.avatarUrl,
+      joinDate: user.profile?.joinDate ? user.profile.joinDate.toISOString() : (primaryDepartment?.joinedAt ? primaryDepartment.joinedAt.toISOString() : user.createdAt.toISOString()),
+      createdAt: user.createdAt.toISOString(),
       roles,
       permissions: [...permissions],
+      scopes,
       department: primaryDepartment?.department ?? null,
       position: user.profile?.position ?? primaryDepartment?.position ?? null,
       hasFaceData: Boolean(user.faceProfile?.images.length),
       accountStatus: user.accountStatus,
       approvalStatus: user.approvalStatus,
       isActive: user.isActive,
+      isRewardVaultEnabled: Boolean((user as any).isRewardVaultEnabled),
       deletionScheduledAt: (user as any).deletionScheduledAt ? (user as any).deletionScheduledAt.toISOString() : null,
     };
   }
@@ -771,3 +864,4 @@ export class AuthService {
     return { message: 'Bàn giao quyền Quản trị viên và đăng ký hủy tài khoản thành công. Tài khoản sẽ được chuyển vào mốc 30 ngày khôi phục.' };
   }
 }
+

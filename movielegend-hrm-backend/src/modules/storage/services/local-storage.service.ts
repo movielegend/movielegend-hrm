@@ -41,7 +41,12 @@ export class LocalStorageService extends StorageService {
   }
 
   getPublicUrl(key: string): string {
-    return `/uploads/${encodeURIComponent(sanitizeStorageKey(key))}`;
+    const cleanKey = sanitizeStorageKey(key);
+    const normalized = cleanKey
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    return `/uploads/${normalized}`;
   }
 
   async read(key: string): Promise<Buffer> {

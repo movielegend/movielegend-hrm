@@ -58,6 +58,11 @@ export class RegisterDto {
   @IsDateString()
   dateOfBirth?: string;
 
+  @ApiPropertyOptional({ type: String, format: 'date' })
+  @IsOptional()
+  @IsDateString()
+  joinDate?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()

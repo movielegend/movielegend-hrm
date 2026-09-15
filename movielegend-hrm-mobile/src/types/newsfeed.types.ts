@@ -22,14 +22,18 @@ export interface NewsfeedPostDto {
 export interface PostCommentDto {
   id: string;
   postId: string;
+  authorId?: string;
+  parentId?: string | null;
   content: string;
   createdAt: string;
   updatedAt: string;
   author: {
     id: string;
     userCode: string;
-    profile?: { fullName: string } | null;
+    profile?: { fullName: string; avatarUrl?: string | null } | null;
   };
+  reactions?: Record<string, string>;
+  replies?: PostCommentDto[];
 }
 
 export interface PostLikeDto {
@@ -43,8 +47,12 @@ export interface CreateNewsfeedPostPayload {
   title?: string;
   content: string;
   departmentId?: string;
+  images?: string[];
+  attachments?: string[];
 }
 
 export interface CreateCommentPayload {
   content: string;
+  parentId?: string;
 }
+

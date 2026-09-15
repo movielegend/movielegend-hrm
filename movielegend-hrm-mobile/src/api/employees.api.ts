@@ -1,6 +1,15 @@
 import { apiClient, unwrapData } from './client';
 import type { ApiResponse } from '../types/api.types';
-import type { EmployeeListFilters, EmployeeProfile, EmployeeUser, ScopedEmployee, ScopedEmployeeFilters, UpdateEmployeePayload } from '../types/employee.types';
+import type {
+  EmployeeListFilters,
+  EmployeeProfile,
+  EmployeeUser,
+  ScopedEmployee,
+  ScopedEmployeeFilters,
+  UpdateEmployeePayload,
+  GrantVaultType,
+  MyVaultResponse,
+} from '../types/employee.types';
 import { normalizePagination, type PaginatedResult } from '../types/pagination.types';
 
 export async function getEmployees(filters: EmployeeListFilters): Promise<PaginatedResult<EmployeeUser>> {
@@ -56,6 +65,14 @@ export async function getScopedEmployees(filters: ScopedEmployeeFilters): Promis
   return unwrapData(response);
 }
 
+export async function fetchEmployees(filters: ScopedEmployeeFilters): Promise<{ data: ScopedEmployee[]; pagination: any }> {
+  const result = await getScopedEmployees(filters);
+  return {
+    data: result.items || [],
+    pagination: result.pagination,
+  };
+}
+
 function cleanPaginationFallback(filters: EmployeeListFilters): { page?: number; limit?: number } {
   return {
     ...(typeof filters.page === 'number' ? { page: filters.page } : {}),
@@ -67,3 +84,104 @@ export async function updateEmployeeAccountStatus(id: string, status: string): P
   const response = await apiClient.patch<ApiResponse<any>>(`/employees/${id}/account-status`, { status });
   return unwrapData(response);
 }
+
+export async function grantVaultPoints(payload: {
+  userId: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  grantType?: GrantVaultType;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/grant', payload);
+  return unwrapData(response);
+}
+
+export async function bulkGrantVaultPoints(payload: {
+  departmentId?: string;
+  userIds?: string[];
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  grantType?: GrantVaultType;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/bulk-grant', payload);
+  return unwrapData(response);
+}
+
+export async function grantProjectPackage(payload: {
+  userId: string;
+  title: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  startDate?: string;
+  durationMonths?: number;
+  intervalMonths?: number;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/grant-package', payload);
+  return unwrapData(response);
+}
+
+export async function bulkGrantProjectPackage(payload: {
+  departmentId?: string;
+  userIds?: string[];
+  title: string;
+  points: number;
+  year?: number;
+  cashValuePerPoint?: number;
+  startDate?: string;
+  durationMonths?: number;
+  intervalMonths?: number;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/admin/talent-vault/bulk-grant-package', payload);
+  return unwrapData(response);
+}
+
+export async function getMyVault(): Promise<MyVaultResponse> {
+  const response = await apiClient.get<ApiResponse<MyVaultResponse>>('/employees/vault/my-vault');
+  return unwrapData(response);
+}
+
+export async function withdrawVaultPoints(payload: {
+  points: number;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>('/employees/vault/withdraw', payload);
+  return unwrapData(response);
+}
+
+export async function getVaultWithdrawalRequests(params?: {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<any> {
+  const response = await apiClient.get<ApiResponse<any>>('/admin/vault/withdrawals', { params });
+  return unwrapData(response);
+}
+
+export async function adminApproveWithdrawal(id: string, payload?: { note?: string }): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>(`/admin/vault/withdrawals/${id}/admin-approve`, payload || {});
+  return unwrapData(response);
+}
+
+export async function accountantConfirmWithdrawal(id: string, payload?: {
+  transactionReference?: string;
+  note?: string;
+}): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>(`/admin/vault/withdrawals/${id}/accountant-confirm`, payload || {});
+  return unwrapData(response);
+}
+
+export async function rejectWithdrawal(id: string, payload: { reason: string }): Promise<any> {
+  const response = await apiClient.post<ApiResponse<any>>(`/admin/vault/withdrawals/${id}/reject`, payload);
+  return unwrapData(response);
+}
+

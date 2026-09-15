@@ -1,6 +1,7 @@
 import React from 'react';
-import { AdminLevelConfigScreen } from '../../../src/features/admin-config/AdminLevelConfigScreen';
+import { UnifiedLevelingScreen } from '../../../src/features/leveling/UnifiedLevelingScreen';
 
 export default function AdminLevelsRoute() {
-  return <AdminLevelConfigScreen />;
+  return <UnifiedLevelingScreen mode="config_only" initialTab="config" />;
 }
+

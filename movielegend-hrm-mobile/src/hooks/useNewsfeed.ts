@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchNewsfeed, fetchNewsfeedPost, createPost, likePost, commentPost, deletePost, fetchPendingPosts, approvePost } from '../api/newsfeed.api';
+import { fetchNewsfeed, fetchNewsfeedPost, createPost, likePost, commentPost, reactComment, deletePost, fetchPendingPosts, approvePost } from '../api/newsfeed.api';
 import { newsfeedKeys } from '../constants/queryKeys';
 
 export function useNewsfeedPosts(departmentId?: string) {
@@ -45,11 +45,49 @@ export function useCreatePost() {
   });
 }
 
+import { useAuth } from '../providers/AuthProvider';
+
 export function useLikePost() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
   return useMutation({
     mutationFn: (postId: string) => likePost(postId),
-    onSuccess: () => {
+    onMutate: async (postId: string) => {
+      await queryClient.cancelQueries({ queryKey: newsfeedKeys.all });
+
+      const togglePostLike = (post: any) => {
+        if (!post || post.id !== postId) return post;
+        const currentLikes = post.likes || [];
+        const hasLiked = currentLikes.some((l: any) => l.userId === user?.id);
+        const newLikes = hasLiked
+          ? currentLikes.filter((l: any) => l.userId !== user?.id)
+          : [...currentLikes, { userId: user?.id, postId }];
+        const currentCount = post._count?.likes ?? currentLikes.length;
+        const newCount = hasLiked ? Math.max(0, currentCount - 1) : currentCount + 1;
+
+        return {
+          ...post,
+          likes: newLikes,
+          _count: {
+            ...post._count,
+            likes: newCount,
+          },
+        };
+      };
+
+      queryClient.setQueriesData({ queryKey: newsfeedKeys.all }, (old: any) => {
+        if (!old) return old;
+        if (Array.isArray(old)) return old.map(togglePostLike);
+        if (old.items && Array.isArray(old.items)) {
+          return { ...old, items: old.items.map(togglePostLike) };
+        }
+        return old;
+      });
+
+      queryClient.setQueryData(['newsfeed', postId], (old: any) => togglePostLike(old));
+    },
+    onError: () => {
       void queryClient.invalidateQueries({ queryKey: newsfeedKeys.all });
     },
   });
@@ -68,10 +106,23 @@ export function useDeletePost() {
 export function useAddComment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ postId, content }: { postId: string; content: string }) =>
-      commentPost(postId, content),
-    onSuccess: () => {
+    mutationFn: ({ postId, content, parentId }: { postId: string; content: string; parentId?: string }) =>
+      commentPost(postId, content, parentId),
+    onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: newsfeedKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['newsfeed', variables.postId] });
+    },
+  });
+}
+
+export function useReactComment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, commentId, emoji }: { postId: string; commentId: string; emoji: string }) =>
+      reactComment(postId, commentId, emoji),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: newsfeedKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['newsfeed', variables.postId] });
     },
   });
 }

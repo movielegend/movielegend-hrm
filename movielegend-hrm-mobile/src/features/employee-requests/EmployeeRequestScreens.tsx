@@ -15,13 +15,35 @@ export function EmployeeRequestsHomeScreen() {
   const { data, isLoading } = useMyEmployeeRequests({ page: 1, limit: 50 });
   const requests = data?.items || [];
 
-  const getStatusDisplay = (status: string) => {
-    switch (status) {
-      case 'PENDING': return { text: 'Đang chờ', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' };
-      case 'APPROVED': return { text: 'Đã duyệt', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' };
-      case 'REJECTED': return { text: 'Từ chối', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' };
-      default: return { text: 'Không rõ', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' };
+  const getStatusDisplay = (req: any) => {
+    const status = req?.status;
+    const meta = (typeof req?.attachmentMetadata === 'object' && req?.attachmentMetadata !== null) ? req.attachmentMetadata : {};
+    const stage = meta.stage;
+
+    if (status === 'REJECTED') {
+      return { text: 'Từ chối', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' };
     }
+    if (status === 'APPROVED') {
+      if (meta.disbursementProofUrl || stage === 'DISBURSED') {
+        return { text: 'Đã giải ngân', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' };
+      }
+      return { text: 'Đã duyệt', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' };
+    }
+    if (status === 'PENDING') {
+      switch (stage) {
+        case 'PENDING_LEADER':
+          return { text: 'Chờ Leader duyệt', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' };
+        case 'PENDING_HR':
+          return { text: 'Chờ HR đối chứng', color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' };
+        case 'PENDING_ADMIN':
+          return { text: 'Chờ Admin duyệt', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' };
+        case 'PENDING_DISBURSEMENT':
+          return { text: 'Chờ Kế toán giải ngân', color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' };
+        default:
+          return { text: 'Đang chờ duyệt', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' };
+      }
+    }
+    return { text: 'Không rõ', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' };
   };
 
   const queryClient = useQueryClient();
@@ -51,19 +73,26 @@ export function EmployeeRequestsHomeScreen() {
           <Text style={{ textAlign: 'center', marginTop: 20, color: '#98A0A8' }}>Chưa có yêu cầu nào.</Text>
         ) : (
           requests.map(req => {
-            const statusObj = getStatusDisplay(req.status);
+            const statusObj = getStatusDisplay(req);
             return (
               <Pressable key={req.id} onPress={() => router.push('/employee/requests/' + req.id)} style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#E6EEF3' }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61' }}>{req.title || req.type}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#0B3B61', flex: 1, marginRight: 8 }} numberOfLines={1}>
+                    {req.title || req.type}
+                  </Text>
                   <View style={{ backgroundColor: statusObj.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
                     <Text style={{ fontSize: 12, color: statusObj.color, fontWeight: '600' }}>{statusObj.text}</Text>
                   </View>
                 </View>
-                <Text style={{ fontSize: 14, color: '#98A0A8', marginBottom: 4 }}>
+                {req.amount != null && (
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#F97316', marginBottom: 4 }}>
+                    {Number(req.amount).toLocaleString('vi-VN')} VNĐ
+                  </Text>
+                )}
+                <Text style={{ fontSize: 13, color: '#98A0A8', marginBottom: 4 }}>
                   {new Date(req.createdAt).toLocaleDateString('vi-VN')}
                 </Text>
-                <Text style={{ fontSize: 14, color: '#3B4A59' }} numberOfLines={1}>{req.content}</Text>
+                <Text style={{ fontSize: 14, color: '#3B4A59' }} numberOfLines={2}>{req.content}</Text>
               </Pressable>
             );
           })
@@ -125,18 +154,59 @@ export function EmployeeRequestDetailScreen() {
     }
   };
 
-  const getStatusDisplay = (status: string) => {
-    switch (status) {
-      case 'PENDING': return { text: 'Đang chờ', color: '#F59E0B', bg: '#FEF3C7' };
-      case 'APPROVED': return { text: 'Đã duyệt', color: '#10B981', bg: '#D1FAE5' };
-      case 'REJECTED': return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
-      default: return { text: 'Không rõ', color: '#6B7280', bg: '#F3F4F6' };
+  const getStatusDisplay = (req: any) => {
+    const status = req?.status;
+    const meta = (typeof req?.attachmentMetadata === 'object' && req?.attachmentMetadata !== null) ? req.attachmentMetadata : {};
+    const stage = meta.stage;
+
+    if (status === 'REJECTED') {
+      return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
     }
+    if (status === 'APPROVED') {
+      if (meta.disbursementProofUrl || stage === 'DISBURSED') {
+        return { text: 'Đã giải ngân', color: '#10B981', bg: '#D1FAE5' };
+      }
+      return { text: 'Đã duyệt', color: '#10B981', bg: '#D1FAE5' };
+    }
+    if (status === 'PENDING') {
+      switch (stage) {
+        case 'PENDING_LEADER':
+          return { text: 'Chờ Leader duyệt', color: '#F59E0B', bg: '#FEF3C7' };
+        case 'PENDING_HR':
+          return { text: 'Chờ HR đối chứng', color: '#3B82F6', bg: '#DBEAFE' };
+        case 'PENDING_ADMIN':
+          return { text: 'Chờ Admin duyệt', color: '#8B5CF6', bg: '#EDE9FE' };
+        case 'PENDING_DISBURSEMENT':
+          return { text: 'Chờ Kế toán giải ngân', color: '#F97316', bg: '#FFEDD5' };
+        default:
+          return { text: 'Đang chờ duyệt', color: '#F59E0B', bg: '#FEF3C7' };
+      }
+    }
+    return { text: 'Không rõ', color: '#6B7280', bg: '#F3F4F6' };
   };
 
-  const statusObj = getStatusDisplay(request.status);
+  const formatDateStr = (dateVal?: string | Date | null) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatTimeStr = (dateVal?: string | Date | null) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null) 
+    ? (request.attachmentMetadata as Record<string, any>) 
+    : {};
+  const statusObj = getStatusDisplay(request);
   const typeConfig = getTypeConfig(request.type);
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
+  const isFinancial = request.type === 'ADVANCE' || request.type === 'EXPENSE' || request.type === 'PURCHASE';
+  const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
 
   return (
     <KeyboardAvoidingView 
@@ -196,12 +266,223 @@ export function EmployeeRequestDetailScreen() {
               <Text style={styles.reasonText}>"{request.content}"</Text>
             </View>
 
-            {request.attachmentMetadata?.image && (
+            {/* 1. Chi tiết thông tin Đơn Nghỉ Phép (LEAVE) */}
+            {request.type === 'LEAVE' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="calendar-clock" size={18} color="#10B981" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#047857', marginBottom: 0 }]}>
+                    THÔNG TIN NGHỈ PHÉP
+                  </Text>
+                </View>
+
+                {meta.leaveType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Loại nghỉ:</Text>
+                    <Text style={styles.metaValueBold}>{meta.leaveType}</Text>
+                  </View>
+                ) : null}
+
+                {meta.leaveDurationType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Hình thức:</Text>
+                    <Text style={styles.metaValueBold}>{meta.leaveDurationType}</Text>
+                  </View>
+                ) : null}
+
+                {/* Thời gian nghỉ */}
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Thời gian nghỉ:</Text>
+                  <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>
+                    {meta.leaveDurationType === 'Nhiều ngày' && meta.toDate
+                      ? `Từ ${formatDateStr(meta.fromDate)} đến ${formatDateStr(meta.toDate)}`
+                      : formatDateStr(meta.fromDate)}
+                    {meta.startTime && meta.endTime
+                      ? ` (${formatTimeStr(meta.startTime)} - ${formatTimeStr(meta.endTime)})`
+                      : ''}
+                  </Text>
+                </View>
+
+                {meta.handoverEmployee ? (
+                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
+                    <Text style={styles.metaLabel}>Người bàn giao:</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="account-check-outline" size={16} color="#059669" style={{ marginRight: 4 }} />
+                      <Text style={[styles.metaValueBold, { color: '#059669' }]}>
+                        {meta.handoverEmployee}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 2. Chi tiết thông tin Giải trình công (ATTENDANCE_ADJUSTMENT) */}
+            {request.type === 'ATTENDANCE_ADJUSTMENT' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="clock-edit-outline" size={18} color="#3B82F6" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#1D4ED8', marginBottom: 0 }]}>
+                    THÔNG TIN GIẢI TRÌNH CÔNG
+                  </Text>
+                </View>
+
+                {meta.explanationType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Loại giải trình:</Text>
+                    <Text style={styles.metaValueBold}>{meta.explanationType}</Text>
+                  </View>
+                ) : null}
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày cần giải trình:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.startTime || meta.endTime) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#1D4ED8' }]}>
+                      {meta.startTime ? `Vào: ${formatTimeStr(meta.startTime)}` : ''}
+                      {meta.startTime && meta.endTime ? ' | ' : ''}
+                      {meta.endTime ? `Ra: ${formatTimeStr(meta.endTime)}` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 3. Chi tiết Đi muộn / Về sớm */}
+            {(request.type === 'LATE_ARRIVAL' || request.type === 'EARLY_LEAVE') && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons 
+                    name={request.type === 'LATE_ARRIVAL' ? 'clock-in' : 'clock-out'} 
+                    size={18} 
+                    color={request.type === 'LATE_ARRIVAL' ? '#F59E0B' : '#EF4444'} 
+                    style={{ marginRight: 6 }} 
+                  />
+                  <Text style={[styles.metaCardTitle, { color: request.type === 'LATE_ARRIVAL' ? '#B45309' : '#B91C1C', marginBottom: 0 }]}>
+                    {request.type === 'LATE_ARRIVAL' ? 'THÔNG TIN ĐI MUỘN' : 'THÔNG TIN VỀ SỚM'}
+                  </Text>
+                </View>
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày áp dụng:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {request.type === 'LATE_ARRIVAL' && meta.startTime ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ đến thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#F59E0B' }]}>{formatTimeStr(meta.startTime)}</Text>
+                  </View>
+                ) : null}
+
+                {request.type === 'EARLY_LEAVE' && meta.endTime ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Giờ về thực tế:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#EF4444' }]}>{formatTimeStr(meta.endTime)}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* 4. Chi tiết Làm thêm giờ (OVERTIME) */}
+            {request.type === 'OVERTIME' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="briefcase-clock" size={18} color="#8B5CF6" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#6D28D9', marginBottom: 0 }]}>
+                    THÔNG TIN LÀM THÊM GIỜ (OT)
+                  </Text>
+                </View>
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày làm thêm:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.shiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
+                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.startTime || meta.endTime) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Khung giờ OT:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#8B5CF6' }]}>
+                      {formatTimeStr(meta.startTime)} - {formatTimeStr(meta.endTime)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {meta.bankInfo && (
+              <View style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#BAE6FD' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1', marginBottom: 6 }}>
+                  THÔNG TIN TÀI KHOẢN NHẬN TIỀN
+                </Text>
+                {meta.bankInfo.bankName ? (
+                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
+                    Ngân hàng: <Text style={{ fontWeight: '600' }}>{meta.bankInfo.bankName}</Text>
+                  </Text>
+                ) : null}
+                {meta.bankInfo.accountNumber ? (
+                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
+                    Số tài khoản: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{meta.bankInfo.accountNumber}</Text>
+                  </Text>
+                ) : null}
+                {meta.bankInfo.accountHolder ? (
+                  <Text style={{ fontSize: 13, color: '#334155' }}>
+                    Chủ tài khoản: <Text style={{ fontWeight: '600' }}>{meta.bankInfo.accountHolder}</Text>
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
+            {meta.image && (
               <View style={styles.attachmentBox}>
-                <Text style={styles.attachmentLabel}>Ảnh minh chứng đính kèm:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(request.attachmentMetadata.image)}>
+                <Text style={styles.attachmentLabel}>Ảnh chứng từ/hóa đơn đính kèm:</Text>
+                <TouchableOpacity onPress={() => setSelectedImage(meta.image)}>
                   <Image 
-                    source={{ uri: request.attachmentMetadata.image }} 
+                    source={{ uri: meta.image }} 
+                    style={styles.evidenceImage} 
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {meta.disbursementProofUrl && (
+              <View style={[styles.attachmentBox, { marginTop: 16, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#BBF7D0' }]}>
+                <Text style={[styles.attachmentLabel, { color: '#15803D' }]}>Biên lai / Chứng từ giải ngân từ Kế toán:</Text>
+                <TouchableOpacity onPress={() => setSelectedImage(meta.disbursementProofUrl)}>
+                  <Image 
+                    source={{ uri: meta.disbursementProofUrl }} 
                     style={styles.evidenceImage} 
                     resizeMode="contain"
                   />
@@ -230,40 +511,106 @@ export function EmployeeRequestDetailScreen() {
                   <Text style={styles.timelineTitle}>Gửi yêu cầu</Text>
                   <Text style={styles.timelineTime}>{dateStr}</Text>
                 </View>
-                <Text style={styles.timelineDesc}>Bạn đã tạo đơn</Text>
+                <Text style={styles.timelineDesc}>Bạn đã tạo và nộp đơn</Text>
               </View>
             </View>
 
-            {/* Step 2: Kết quả */}
-            <View style={[styles.timelineRow, { marginBottom: 0 }]}>
-              <View style={[
-                styles.timelineDot, 
-                request.status === 'PENDING' ? { borderColor: '#111827' } : { backgroundColor: statusObj.bg, borderWidth: 0 }
-              ]}>
-                {request.status === 'PENDING' ? (
-                  <MaterialCommunityIcons name="clock-outline" size={16} color="#111827" />
-                ) : request.status === 'APPROVED' ? (
-                  <MaterialCommunityIcons name="check" size={16} color={statusObj.color} />
-                ) : (
-                  <MaterialCommunityIcons name="close" size={16} color={statusObj.color} />
-                )}
-              </View>
-              <View style={styles.timelineContent}>
-                <View style={styles.timelineHeader}>
-                  <Text style={[styles.timelineTitle, { color: request.status === 'PENDING' ? '#111827' : statusObj.color }]}>
-                    {request.status === 'PENDING' ? 'Chờ duyệt' : request.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}
+            {/* Recorded Multi-step Approval History */}
+            {approvalSteps.map((step: any, idx: number) => {
+              const isLast = idx === approvalSteps.length - 1 && request.status !== 'PENDING';
+              const isRejected = step.action === 'REJECTED';
+              const isDisbursed = step.action === 'DISBURSED';
+              const stepColor = isRejected ? '#EF4444' : '#10B981';
+
+              let stepTitle = 'Phê duyệt';
+              if (step.stage === 'PENDING_LEADER' || step.action === 'LEADER_APPROVED') stepTitle = 'Trưởng bộ phận duyệt';
+              else if (step.stage === 'PENDING_HR' || step.action === 'HR_VERIFIED' || step.action === 'HR_APPROVED') stepTitle = 'HR đối chứng & duyệt';
+              else if (step.stage === 'PENDING_ADMIN' || step.action === 'ADMIN_APPROVED') stepTitle = 'Ban Giám Đốc duyệt';
+              else if (step.stage === 'PENDING_DISBURSEMENT' || isDisbursed) stepTitle = 'Kế toán giải ngân';
+
+              return (
+                <View key={idx} style={[styles.timelineRow, isLast && { marginBottom: 0 }]}>
+                  {!isLast && <View style={styles.timelineLine} />}
+                  <View style={[styles.timelineDot, { borderColor: stepColor }]}>
+                    <MaterialCommunityIcons 
+                      name={isRejected ? "close" : "check"} 
+                      size={16} 
+                      color={stepColor} 
+                    />
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <View style={styles.timelineHeader}>
+                      <Text style={[styles.timelineTitle, { color: isRejected ? '#EF4444' : '#111827' }]}>
+                        {stepTitle}
+                      </Text>
+                      {step.at && (
+                        <Text style={styles.timelineTime}>{new Date(step.at).toLocaleString('vi-VN')}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.timelineDesc}>
+                      {step.actorName ? `${step.actorName} - ` : ''}
+                      {isRejected ? `Từ chối: ${step.reason || 'Không hợp lệ'}` : isDisbursed ? 'Đã thực hiện giải ngân thành công' : step.note ? `Ghi chú: ${step.note}` : 'Đã chấp thuận'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* Current Pending Step if PENDING */}
+            {request.status === 'PENDING' && (
+              <View style={[styles.timelineRow, { marginBottom: 0 }]}>
+                <View style={[styles.timelineDot, { borderColor: '#F59E0B', backgroundColor: '#FEF3C7' }]}>
+                  <MaterialCommunityIcons name="clock-outline" size={16} color="#F59E0B" />
+                </View>
+                <View style={styles.timelineContent}>
+                  <View style={styles.timelineHeader}>
+                    <Text style={[styles.timelineTitle, { color: '#D97706' }]}>
+                      {meta.stage === 'PENDING_LEADER' ? 'Chờ Leader duyệt' :
+                       meta.stage === 'PENDING_HR' ? 'Chờ Leader HR đối chứng' :
+                       meta.stage === 'PENDING_ADMIN' ? 'Chờ Ban Giám Đốc duyệt' :
+                       meta.stage === 'PENDING_DISBURSEMENT' ? 'Chờ Kế toán giải ngân' :
+                       'Đang chờ xem xét'}
+                    </Text>
+                  </View>
+                  <Text style={styles.timelineDesc}>
+                    {meta.stage === 'PENDING_LEADER' ? 'Đang chờ Trưởng bộ phận xem xét và chuyển HR' :
+                     meta.stage === 'PENDING_HR' ? 'HR đang đối chứng bảng lương & hợp đồng' :
+                     meta.stage === 'PENDING_ADMIN' ? 'Ban Giám Đốc đang xem xét phê duyệt đơn trên 5 triệu' :
+                     meta.stage === 'PENDING_DISBURSEMENT' ? 'Kế toán đang tiến hành chuyển khoản giải ngân' :
+                     'Đơn đang được xử lý theo quy trình'}
                   </Text>
-                  {request.decidedAt && (
-                    <Text style={styles.timelineTime}>{new Date(request.decidedAt).toLocaleString('vi-VN')}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* If simple non-financial request completed without approvalSteps array */}
+            {approvalSteps.length === 0 && request.status !== 'PENDING' && (
+              <View style={[styles.timelineRow, { marginBottom: 0 }]}>
+                <View style={[
+                  styles.timelineDot, 
+                  { backgroundColor: statusObj.bg, borderWidth: 0 }
+                ]}>
+                  {request.status === 'APPROVED' ? (
+                    <MaterialCommunityIcons name="check" size={16} color={statusObj.color} />
+                  ) : (
+                    <MaterialCommunityIcons name="close" size={16} color={statusObj.color} />
                   )}
                 </View>
-                <Text style={styles.timelineDesc}>
-                  {request.status === 'PENDING' 
-                    ? 'Đang chờ Leader xem xét' 
-                    : request.status === 'APPROVED' ? 'Yêu cầu của bạn đã được chấp thuận' : 'Yêu cầu đã bị từ chối'}
-                </Text>
+                <View style={styles.timelineContent}>
+                  <View style={styles.timelineHeader}>
+                    <Text style={[styles.timelineTitle, { color: statusObj.color }]}>
+                      {request.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}
+                    </Text>
+                    {request.decidedAt && (
+                      <Text style={styles.timelineTime}>{new Date(request.decidedAt).toLocaleString('vi-VN')}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.timelineDesc}>
+                    {request.status === 'APPROVED' ? 'Yêu cầu của bạn đã được chấp thuận' : 'Yêu cầu đã bị từ chối'}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
           </View>
         </View>
@@ -482,5 +829,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     marginTop: 2,
+  },
+  metaCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  metaCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  metaLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  metaValueBold: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });

@@ -22,6 +22,12 @@ export class AuthController {
   }
 
   @Public()
+  @Post('check-availability')
+  checkAvailability(@Body() dto: { phone?: string; email?: string; idCardNumber?: string }) {
+    return this.authService.checkAvailability(dto);
+  }
+
+  @Public()
   @Post('login')
   login(@Body() dto: LoginDto, @Ip() ipAddress: string, @Headers('user-agent') userAgent?: string) {
     return this.authService.login(dto, { ipAddress, userAgent });

@@ -45,6 +45,6 @@ export class UserQueryDto {
   @IsOptional()
   @Type(() => Number)
   @Min(1)
-  @Max(500)
+  @Max(1000)
   limit = 20;
 }

@@ -68,6 +68,7 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
         <PageHeader 
           title="Luân chuyển & Phối hợp" 
           subtitle="Quản lý các yêu cầu liên phòng ban" 
+          showBack={false}
           right={
             area !== 'admin' ? (
               <Pressable style={styles.addBtn} onPress={() => router.push(`/${area}/cross-department/create`)}>
@@ -191,7 +192,7 @@ export function CreateCrossDepartmentScreen() {
     return departmentsQuery.data.items?.map(d => ({
       id: d.id,
       label: d.name,
-      subtitle: `Mã: ${d.code}`
+      subtitle: `Mã: ${d.code}${d.branch?.name ? ` • Cơ sở: ${d.branch.name}` : ''}`,
     }));
   }, [departmentsQuery.data]);
 

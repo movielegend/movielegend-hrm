@@ -1,0 +1,18 @@
+{
+  "name": "server-monitor-bot",
+  "version": "1.0.0",
+  "description": "24/7 Telegram Server Watchdog and Remote Control for MovieLegend Backend",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "telegram",
+    "watchdog",
+    "monitoring",
+    "pm2",
+    "server"
+  ],
+  "author": "",
+  "license": "ISC"
+}

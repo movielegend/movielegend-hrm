@@ -33,12 +33,16 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails, useGroupMembers, useCreateCustomChat } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
+import { usePublicDepartments } from '../../hooks/useDepartments';
 import { uploadFile } from '../../api/uploads.api';
+import { createDirectChat } from '../../api/chat.api';
 import { assertSocketUrl } from '../../constants/env';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { useVoiceCall } from '../voice-call/VoiceCallProvider';
+import * as Clipboard from 'expo-clipboard';
+import { downloadAndSaveImage } from '../../utils/file-download';
 
 // ── Helpers ──
 
@@ -181,11 +185,244 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
 export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all' }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { showAlert } = useAppAlert();
+  const queryClient = useQueryClient();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
   const markAsRead = useMarkGroupAsRead();
+  const createCustomChatMutation = useCreateCustomChat();
   const groups = scope === 'all' ? allGroups : myGroups;
-  const groupItems = Array.isArray(groups.data) ? groups.data : [];
+  const groupItems = useMemo(() => {
+    const raw = Array.isArray(groups.data) ? groups.data : [];
+    const uniqueMap = new Map<string, any>();
+    for (const item of raw) {
+      if (item?.id && !uniqueMap.has(item.id)) {
+        uniqueMap.set(item.id, item);
+      }
+    }
+    return Array.from(uniqueMap.values()).sort((a: any, b: any) => {
+      const timeA = a.latestMessage?.createdAt
+        ? new Date(a.latestMessage.createdAt).getTime()
+        : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+      const timeB = b.latestMessage?.createdAt
+        ? new Date(b.latestMessage.createdAt).getTime()
+        : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+      return timeB - timeA;
+    });
+  }, [groups.data]);
+
+  const departmentsQuery = usePublicDepartments({ limit: 100 });
+  const employeesQuery = useScopedEmployees({ limit: 100 });
+
+  // Admin Role Detection (Global Admin, Region Admin 1, Region Admin 2)
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    (!user?.scopes || user?.scopes.length === 0 || user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType)))
+  );
+  const isRegionAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
+  );
+  const isAdmin = isGlobalAdmin || isRegionAdmin || user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
+
+  // Leader Directory Modal State
+  const [isLeaderModalVisible, setLeaderModalVisible] = useState(false);
+  const [leaderSearch, setLeaderSearch] = useState('');
+  const [connectingLeaderId, setConnectingLeaderId] = useState<string | null>(null);
+
+  // Create Group Modal State (Admin)
+  const [isCreateGroupModalVisible, setCreateGroupModalVisible] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [filterDeptId, setFilterDeptId] = useState<string>('all');
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+
+  // Extract all department leaders
+  const departmentLeaders = useMemo(() => {
+    const map = new Map<string, {
+      userId: string;
+      fullName: string;
+      userCode?: string;
+      avatarUrl?: string | null;
+      departmentName: string;
+      branchName?: string;
+    }>();
+
+    // 1. From departments
+    const deptItems = Array.isArray(departmentsQuery.data)
+      ? departmentsQuery.data
+      : (departmentsQuery.data?.items ?? []);
+
+    for (const d of deptItems) {
+      if (d.leader && d.leader.id) {
+        const uId = d.leader.id;
+        if (uId === user?.id) continue;
+        map.set(uId, {
+          userId: uId,
+          fullName: d.leader.profile?.fullName || d.leader.userCode || 'Trưởng phòng',
+          userCode: d.leader.userCode,
+          avatarUrl: resolveImageUrl(d.leader.profile?.avatarUrl),
+          departmentName: d.name,
+          branchName: d.branch?.name,
+        });
+      }
+    }
+
+    // 2. Also check scoped employees for any with role LEADER or leadership positions
+    const empItems = Array.isArray(employeesQuery.data)
+      ? employeesQuery.data
+      : (employeesQuery.data?.items ?? []);
+
+    for (const e of empItems) {
+      const isLeaderRole = (e.roles as any)?.some((r: any) => r.role?.code === 'LEADER' || r.code === 'LEADER') ||
+        e.position?.name?.toLowerCase().includes('trưởng') ||
+        e.position?.name?.toLowerCase().includes('leader') ||
+        e.position?.name?.toLowerCase().includes('quản lý');
+
+      if (isLeaderRole && e.id && e.id !== user?.id) {
+        if (!map.has(e.id)) {
+          map.set(e.id, {
+            userId: e.id,
+            fullName: e.fullName || e.profile?.fullName || e.userCode || 'Trưởng phòng',
+            userCode: e.userCode,
+            avatarUrl: resolveImageUrl(e.avatarUrl || e.profile?.avatarUrl),
+            departmentName: e.department?.name || 'Phòng ban',
+            branchName: undefined,
+          });
+        }
+      }
+    }
+
+    return Array.from(map.values());
+  }, [departmentsQuery.data, employeesQuery.data, user?.id]);
+
+  const filteredLeaders = useMemo(() => {
+    if (!leaderSearch.trim()) return departmentLeaders;
+    const q = leaderSearch.toLowerCase().trim();
+    return departmentLeaders.filter(
+      (l) =>
+        l.fullName.toLowerCase().includes(q) ||
+        l.departmentName.toLowerCase().includes(q) ||
+        (l.userCode && l.userCode.toLowerCase().includes(q)) ||
+        (l.branchName && l.branchName.toLowerCase().includes(q))
+    );
+  }, [departmentLeaders, leaderSearch]);
+
+  // Candidates for Custom Group Creation
+  const candidateEmployees = useMemo(() => {
+    const raw = Array.isArray(employeesQuery.data)
+      ? employeesQuery.data
+      : (employeesQuery.data?.items ?? (employeesQuery.data as any)?.data ?? []);
+
+    return raw.filter((e: any) => e.id && e.id !== user?.id);
+  }, [employeesQuery.data, user?.id]);
+
+  const filteredCandidateEmployees = useMemo(() => {
+    let list = candidateEmployees;
+    if (filterDeptId !== 'all') {
+      list = list.filter((e: any) => e.department?.id === filterDeptId || e.departmentId === filterDeptId);
+    }
+    if (memberSearchQuery.trim()) {
+      const q = memberSearchQuery.toLowerCase().trim();
+      list = list.filter((e: any) => {
+        const name = (e.fullName || e.profile?.fullName || '').toLowerCase();
+        const code = (e.userCode || '').toLowerCase();
+        const dept = (e.department?.name || '').toLowerCase();
+        return name.includes(q) || code.includes(q) || dept.includes(q);
+      });
+    }
+    return list;
+  }, [candidateEmployees, filterDeptId, memberSearchQuery]);
+
+  const availableDepartments = useMemo(() => {
+    const list = Array.isArray(departmentsQuery.data)
+      ? departmentsQuery.data
+      : (departmentsQuery.data?.items ?? []);
+    return list;
+  }, [departmentsQuery.data]);
+
+  const selectedMembers = useMemo(() => {
+    return candidateEmployees.filter((e: any) => selectedMemberIds.includes(e.id));
+  }, [candidateEmployees, selectedMemberIds]);
+
+  const toggleMemberSelection = (userId: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleOpenDirectChat = async (leader: { userId: string; fullName: string }) => {
+    try {
+      setConnectingLeaderId(leader.userId);
+      const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' :
+        user?.roles?.includes('HR') ? '/hr/chat' :
+          user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
+
+      // Check if direct chat already exists in user's chat groups
+      const existingGroup = groupItems.find((g: any) => {
+        if (g.type !== 'DIRECT') return false;
+        return g.members?.some((m: any) => m.userId === leader.userId);
+      });
+
+      if (existingGroup) {
+        setLeaderModalVisible(false);
+        router.push(`${basePath}/${existingGroup.id}?name=${encodeURIComponent(leader.fullName)}` as any);
+        return;
+      }
+
+      // Create new direct chat
+      const created = await createDirectChat(leader.userId);
+      await queryClient.invalidateQueries({ queryKey: ['chat', 'my-groups'] });
+      setLeaderModalVisible(false);
+      const groupId = created?.id || (created as any)?.data?.id;
+      if (groupId) {
+        router.push(`${basePath}/${groupId}?name=${encodeURIComponent(leader.fullName)}` as any);
+      }
+    } catch (err) {
+      console.error('Failed to open direct chat with leader:', err);
+    } finally {
+      setConnectingLeaderId(null);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    const trimmedName = newGroupName.trim();
+    if (!trimmedName) {
+      showAlert('Thông báo', 'Vui lòng nhập tên nhóm chat');
+      return;
+    }
+    if (selectedMemberIds.length === 0) {
+      showAlert('Thông báo', 'Vui lòng chọn ít nhất 1 thành viên tham gia nhóm');
+      return;
+    }
+
+    try {
+      setIsCreatingGroup(true);
+      const res: any = await createCustomChatMutation.mutateAsync({
+        name: trimmedName,
+        memberIds: selectedMemberIds,
+      });
+      const newGroupId = res?.id || res?.data?.id;
+      setCreateGroupModalVisible(false);
+      setNewGroupName('');
+      setSelectedMemberIds([]);
+      setMemberSearchQuery('');
+      setFilterDeptId('all');
+
+      if (newGroupId) {
+        const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' :
+          user?.roles?.includes('HR') ? '/hr/chat' :
+            user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
+        router.push(`${basePath}/${newGroupId}?name=${encodeURIComponent(trimmedName)}` as any);
+      }
+    } catch (err: any) {
+      console.error('Failed to create custom group:', err);
+      showAlert('Lỗi', normalizeApiError(err)?.message || 'Không thể tạo nhóm chat, vui lòng thử lại');
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
 
   return (
     <Screen>
@@ -196,7 +433,94 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
         <PageHeader
           title="Nhóm Chat"
           subtitle={scope === 'all' ? 'Tất cả nhóm chat trong công ty' : 'Trao đổi nội bộ công ty'}
+          showBack={false}
+          right={
+            isAdmin ? (
+              <TouchableOpacity
+                style={styles.headerCreateGroupBtn}
+                activeOpacity={0.8}
+                onPress={() => setCreateGroupModalVisible(true)}
+              >
+                <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+                <Text style={styles.headerCreateGroupBtnText}>Tạo nhóm</Text>
+              </TouchableOpacity>
+            ) : undefined
+          }
         />
+
+        {/* ── Section: Trưởng phòng các bộ phận (Leader Directory Carousel) ── */}
+        {departmentLeaders.length > 0 && (
+          <View style={styles.leadersSection}>
+            <View style={styles.leadersHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <MaterialCommunityIcons name="shield-account-outline" size={20} color="#2563EB" />
+                <Text style={styles.leadersSectionTitle}>Trưởng phòng các bộ phận</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setLeaderModalVisible(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+              >
+                <Text style={styles.leadersSeeAllText}>Xem tất cả ({departmentLeaders.length})</Text>
+                <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.leadersCarousel}
+            >
+              {departmentLeaders.map((leader) => (
+                <TouchableOpacity
+                  key={leader.userId}
+                  style={styles.leaderCard}
+                  activeOpacity={0.7}
+                  disabled={connectingLeaderId === leader.userId}
+                  onPress={() => handleOpenDirectChat(leader)}
+                >
+                  <View style={styles.leaderAvatarContainer}>
+                    {leader.avatarUrl ? (
+                      <Image source={{ uri: leader.avatarUrl }} style={styles.leaderAvatar} />
+                    ) : (
+                      <View style={styles.leaderAvatarFallback}>
+                        <Text style={styles.leaderAvatarInitials}>{getInitials(leader.fullName)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.leaderCrownBadge}>
+                      <MaterialCommunityIcons name="crown" size={11} color="#FFF" />
+                    </View>
+                  </View>
+
+                  <Text style={styles.leaderCardName} numberOfLines={1}>
+                    {leader.fullName}
+                  </Text>
+
+                  <View style={styles.leaderDeptBadge}>
+                    <Text style={styles.leaderDeptText} numberOfLines={1}>
+                      {leader.departmentName}
+                    </Text>
+                  </View>
+
+                  <View style={styles.leaderMsgButton}>
+                    {connectingLeaderId === leader.userId ? (
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="message-outline" size={13} color="#2563EB" />
+                        <Text style={styles.leaderMsgButtonText}>Nhắn tin</Text>
+                      </>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Section title for recent chats */}
+        <View style={styles.chatSectionTitleRow}>
+          <Text style={styles.chatSectionTitle}>Đoạn chat gần đây</Text>
+        </View>
 
         <View style={styles.groupList}>
           {groupItems.length > 0 ? (
@@ -265,14 +589,14 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
                   <View style={styles.groupInfo}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={[styles.groupName, { flex: 1 }]} numberOfLines={1}>{groupName}</Text>
+                      <Text style={[styles.groupName, { flex: 1 }, unreadCount > 0 && { fontWeight: '700', color: '#111827' }]} numberOfLines={1}>{groupName}</Text>
                       {unreadCount > 0 && (
                         <View style={{ backgroundColor: '#EF4444', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginLeft: 8 }}>
-                          <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>{unreadCount}</Text>
+                          <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.groupMeta, unreadCount > 0 && { color: '#111827', fontWeight: '500' }]} numberOfLines={1}>
+                    <Text style={[styles.groupMeta, unreadCount > 0 ? { color: '#1F2937', fontWeight: '700' } : { color: colors.muted, fontWeight: '400' }]} numberOfLines={1}>
                       {lastMsgText}
                     </Text>
                   </View>
@@ -294,6 +618,309 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           ) : null}
         </View>
       </ScrollView>
+
+      {/* ── Modal: Tạo nhóm Chat Mới (Admin) ── */}
+      <Modal
+        visible={isCreateGroupModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          if (!isCreatingGroup) setCreateGroupModalVisible(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          style={styles.leaderModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={[styles.leaderModalContainer, { height: '90%', maxHeight: '90%' }]}>
+            {/* Header */}
+            <View style={styles.leaderModalHeader}>
+              <View>
+                <Text style={styles.leaderModalTitle}>Tạo nhóm chat mới</Text>
+                <Text style={styles.leaderModalSubtitle}>
+                  {isGlobalAdmin ? 'Admin Tổng • Mời thành viên toàn công ty' : isRegionAdmin ? 'Admin Miền • Mời thành viên trong miền' : 'Mời thành viên tham gia nhóm'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setCreateGroupModalVisible(false)}
+                style={styles.leaderModalCloseBtn}
+                disabled={isCreatingGroup}
+              >
+                <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Form: Group Name Input */}
+            <View style={styles.createGroupNameContainer}>
+              <Text style={styles.createGroupInputLabel}>Tên nhóm chat <Text style={{ color: '#EF4444' }}>*</Text></Text>
+              <View style={styles.createGroupNameInputWrap}>
+                <MaterialCommunityIcons name="account-group-outline" size={20} color="#64748B" />
+                <TextInput
+                  style={styles.createGroupNameInput}
+                  placeholder="Nhập tên nhóm (VD: Dự án Phim Tết, Ban Quản Lý...)"
+                  placeholderTextColor="#94A3B8"
+                  value={newGroupName}
+                  onChangeText={setNewGroupName}
+                />
+              </View>
+            </View>
+
+            {/* Search Input */}
+            <View style={[styles.leaderSearchBox, { marginVertical: 6 }]}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
+              <TextInput
+                style={styles.leaderSearchInput}
+                placeholder="Tìm nhân sự theo tên hoặc mã NV..."
+                placeholderTextColor="#94A3B8"
+                value={memberSearchQuery}
+                onChangeText={setMemberSearchQuery}
+              />
+              {memberSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setMemberSearchQuery('')}>
+                  <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Department Filter Tabs */}
+            {availableDepartments.length > 0 && (
+              <View style={{ height: 44 }}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.deptFilterScroll}
+                >
+                  <TouchableOpacity
+                    style={[styles.deptFilterChip, filterDeptId === 'all' && styles.deptFilterChipActive]}
+                    onPress={() => setFilterDeptId('all')}
+                  >
+                    <Text style={[styles.deptFilterChipText, filterDeptId === 'all' && styles.deptFilterChipTextActive]}>
+                      Tất cả ({candidateEmployees.length})
+                    </Text>
+                  </TouchableOpacity>
+                  {availableDepartments.map((dept: any) => (
+                    <TouchableOpacity
+                      key={dept.id}
+                      style={[styles.deptFilterChip, filterDeptId === dept.id && styles.deptFilterChipActive]}
+                      onPress={() => setFilterDeptId(dept.id)}
+                    >
+                      <Text style={[styles.deptFilterChipText, filterDeptId === dept.id && styles.deptFilterChipTextActive]}>
+                        {dept.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Selected Members Chips */}
+            {selectedMembers.length > 0 && (
+              <View style={styles.selectedMembersSection}>
+                <Text style={styles.selectedMembersCount}>
+                  Đã chọn ({selectedMembers.length}):
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+                >
+                  {selectedMembers.map((m: any) => {
+                    const avatar = resolveImageUrl(m.avatarUrl || m.profile?.avatarUrl);
+                    const name = m.fullName || m.profile?.fullName || m.userCode || 'Thành viên';
+                    return (
+                      <View key={m.id} style={styles.selectedMemberChip}>
+                        {avatar ? (
+                          <Image source={{ uri: avatar }} style={styles.selectedMemberChipAvatar} />
+                        ) : (
+                          <View style={styles.selectedMemberChipFallback}>
+                            <Text style={styles.selectedMemberChipFallbackText}>{getInitials(name)}</Text>
+                          </View>
+                        )}
+                        <Text style={styles.selectedMemberChipName} numberOfLines={1}>{name}</Text>
+                        <TouchableOpacity
+                          onPress={() => toggleMemberSelection(m.id)}
+                          style={styles.selectedMemberChipRemove}
+                        >
+                          <MaterialCommunityIcons name="close" size={12} color="#64748B" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Candidate List */}
+            <FlatList
+              data={filteredCandidateEmployees}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+              renderItem={({ item }) => {
+                const isSelected = selectedMemberIds.includes(item.id);
+                const avatar = resolveImageUrl(item.avatarUrl || item.profile?.avatarUrl);
+                const name = item.fullName || item.profile?.fullName || item.userCode || 'Thành viên';
+                const deptName = item.department?.name || item.departmentName || 'Phòng ban';
+
+                return (
+                  <TouchableOpacity
+                    style={[styles.memberSelectRow, isSelected && styles.memberSelectRowActive]}
+                    activeOpacity={0.7}
+                    onPress={() => toggleMemberSelection(item.id)}
+                  >
+                    <View style={styles.memberSelectCheckbox}>
+                      {isSelected ? (
+                        <MaterialCommunityIcons name="checkbox-marked-circle" size={24} color="#2563EB" />
+                      ) : (
+                        <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={24} color="#CBD5E1" />
+                      )}
+                    </View>
+
+                    {avatar ? (
+                      <Image source={{ uri: avatar }} style={styles.memberSelectAvatar} />
+                    ) : (
+                      <View style={styles.memberSelectAvatarFallback}>
+                        <Text style={styles.memberSelectAvatarInitials}>{getInitials(name)}</Text>
+                      </View>
+                    )}
+
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.memberSelectName}>{name}</Text>
+                        {item.userCode ? <Text style={styles.memberSelectCode}>({item.userCode})</Text> : null}
+                      </View>
+                      <Text style={styles.memberSelectDept}>{deptName}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <MaterialCommunityIcons name="account-search-outline" size={44} color="#CBD5E1" />
+                  <Text style={{ marginTop: 8, fontSize: 14, color: '#94A3B8' }}>Không tìm thấy nhân sự phù hợp</Text>
+                </View>
+              }
+            />
+
+            {/* Bottom Submit Action */}
+            <View style={styles.createGroupFooter}>
+              <TouchableOpacity
+                style={[
+                  styles.createGroupSubmitBtn,
+                  (!newGroupName.trim() || selectedMemberIds.length === 0 || isCreatingGroup) && styles.createGroupSubmitBtnDisabled
+                ]}
+                disabled={!newGroupName.trim() || selectedMemberIds.length === 0 || isCreatingGroup}
+                onPress={handleCreateGroup}
+              >
+                {isCreatingGroup ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check" size={20} color="#FFFFFF" />
+                    <Text style={styles.createGroupSubmitBtnText}>
+                      Tạo nhóm {selectedMemberIds.length > 0 ? `(${selectedMemberIds.length} thành viên)` : ''}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Modal: Danh sách Tất cả Trưởng phòng ── */}
+      <Modal
+        visible={isLeaderModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLeaderModalVisible(false)}
+      >
+        <View style={styles.leaderModalOverlay}>
+          <View style={styles.leaderModalContainer}>
+            {/* Header */}
+            <View style={styles.leaderModalHeader}>
+              <View>
+                <Text style={styles.leaderModalTitle}>Trưởng phòng các bộ phận</Text>
+                <Text style={styles.leaderModalSubtitle}>Chọn Trưởng phòng để nhắn tin trao đổi công việc</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setLeaderModalVisible(false)}
+                style={styles.leaderModalCloseBtn}
+              >
+                <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search */}
+            <View style={styles.leaderSearchBox}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
+              <TextInput
+                style={styles.leaderSearchInput}
+                placeholder="Tìm theo tên hoặc phòng ban..."
+                placeholderTextColor="#94A3B8"
+                value={leaderSearch}
+                onChangeText={setLeaderSearch}
+              />
+              {leaderSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setLeaderSearch('')}>
+                  <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* List */}
+            <FlatList
+              data={filteredLeaders}
+              keyExtractor={(item) => item.userId}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.leaderListItem}
+                  activeOpacity={0.7}
+                  disabled={connectingLeaderId === item.userId}
+                  onPress={() => handleOpenDirectChat(item)}
+                >
+                  <View style={styles.leaderListAvatarContainer}>
+                    {item.avatarUrl ? (
+                      <Image source={{ uri: item.avatarUrl }} style={styles.leaderListAvatar} />
+                    ) : (
+                      <View style={styles.leaderListAvatarFallback}>
+                        <Text style={styles.leaderListAvatarInitials}>{getInitials(item.fullName)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.leaderCrownBadgeSmall}>
+                      <MaterialCommunityIcons name="crown" size={9} color="#FFF" />
+                    </View>
+                  </View>
+
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.leaderListName}>{item.fullName}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                      <Text style={styles.leaderListDept}>{item.departmentName}</Text>
+                      {item.branchName && (
+                        <Text style={styles.leaderListBranch}>• {item.branchName}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.leaderListActionBtn}>
+                    {connectingLeaderId === item.userId ? (
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    ) : (
+                      <MaterialCommunityIcons name="chat-outline" size={20} color="#2563EB" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <MaterialCommunityIcons name="account-search-outline" size={44} color="#CBD5E1" />
+                  <Text style={{ marginTop: 8, fontSize: 14, color: '#94A3B8' }}>Không tìm thấy Trưởng phòng phù hợp</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -319,6 +946,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
   const deleteMessage = useDeleteMessage(groupId);
+  const markAsRead = useMarkGroupAsRead();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
 
@@ -330,25 +958,58 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     limit: 100,
     departmentId: currentGroup?.departmentId || undefined
   });
+  const groupMembersQuery = useGroupMembers(groupId);
 
-  const mentionCandidates = useMemo(() => {
+  const availableMembers = useMemo(() => {
+    // 1. From group members API
+    const fromApi = groupMembersQuery.data;
+    if (Array.isArray(fromApi) && fromApi.length > 0) {
+      return fromApi.map((m: any) => ({
+        id: m.userId || m.id || m.user?.id,
+        userCode: m.userCode || m.user?.userCode || '',
+        fullName: m.fullName || m.user?.profile?.fullName || m.user?.userCode || m.userCode || 'Thành viên',
+        avatarUrl: m.avatarUrl || m.user?.profile?.avatarUrl || null,
+      })).filter((item: any) => item.id);
+    }
+
+    // 2. From currentGroup.members (populated by getMyGroups / getAllGroups)
     if (currentGroup?.members && Array.isArray(currentGroup.members) && currentGroup.members.length > 0) {
       return currentGroup.members
         .map((m: any) => {
           const u = m.user;
-          const uId = m.userId || u?.id;
+          const uId = m.userId || u?.id || m.id;
           if (!uId) return null;
           return {
             id: uId,
-            userCode: u?.userCode || '',
-            fullName: u?.profile?.fullName || u?.userCode || 'Thành viên',
-            avatarUrl: u?.profile?.avatarUrl
+            userCode: u?.userCode || m.userCode || '',
+            fullName: u?.profile?.fullName || m.fullName || u?.userCode || m.userCode || 'Thành viên',
+            avatarUrl: u?.profile?.avatarUrl || m.avatarUrl || null,
           };
         })
-        .filter(Boolean);
+        .filter(Boolean) as any[];
     }
-    return Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []);
-  }, [currentGroup?.members, employees.data]);
+
+    // 3. Fallback to employees if available (for admin/HR users)
+    const rawEmployees = Array.isArray(employees.data) ? employees.data : (employees.data?.items ?? []);
+    if (Array.isArray(rawEmployees) && rawEmployees.length > 0) {
+      return rawEmployees.map((item: any) => ({
+        id: item.id,
+        userCode: item.userCode || '',
+        fullName: item.profile?.fullName || item.fullName || item.userCode || 'Thành viên',
+        avatarUrl: item.profile?.avatarUrl || item.avatarUrl || null,
+      }));
+    }
+
+    return [];
+  }, [groupMembersQuery.data, currentGroup?.members, employees.data]);
+
+  const mentionCandidates = useMemo(() => {
+    return availableMembers;
+  }, [availableMembers]);
+
+  const callCandidates = useMemo(() => {
+    return availableMembers.filter((m: any) => m.id !== user?.id);
+  }, [availableMembers, user?.id]);
   const insets = useSafeAreaInsets();
 
   const [text, setText] = useState('');
@@ -361,23 +1022,92 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [mentions, setMentions] = useState<string[]>([]);
   const [isStickerOpen, setIsStickerOpen] = useState(false);
   const [isCallModalVisible, setIsCallModalVisible] = useState(false);
+  const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
+  const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
+  const [detailMessage, setDetailMessage] = useState<any | null>(null);
+  const [detailTab, setDetailTab] = useState<'reactions' | 'seen'>('reactions');
+  const [selectedReactionFilter, setSelectedReactionFilter] = useState<string>('ALL');
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+
+  const deleteMessageMutation = useDeleteMessage(groupId);
+  const reactMessageMutation = useReactMessage(groupId);
+  const reactionDetailsQuery = useMessageReactionDetails(groupId, detailMessage?.id || '', !!detailMessage);
+  const seenDetailsQuery = useMessageSeenDetails(groupId, detailMessage?.id || '', !!detailMessage);
   const { initiateCall } = useVoiceCall();
 
-  const messageItems = Array.isArray(messages.data)
-    ? messages.data
-    : (messages.data as any)?.items ?? [];
+  async function handleCopyText(content?: string) {
+    if (!content) return;
+    await Clipboard.setStringAsync(content);
+    setActiveActionMessage(null);
+    showAlert('Thành công', 'Đã sao chép tin nhắn');
+  }
+
+  async function handleDownloadImage(imageUrl?: string) {
+    if (!imageUrl) return;
+    setIsDownloading(true);
+    try {
+      const fullUrl = resolveImageUrl(imageUrl) || imageUrl;
+      await downloadAndSaveImage(fullUrl);
+      showAlert('Thành công', 'Đã lưu ảnh vào thiết bị');
+    } catch (e) {
+      showAlert('Lỗi', 'Không thể lưu ảnh vào thiết bị');
+    } finally {
+      setIsDownloading(false);
+      setActiveActionMessage(null);
+    }
+  }
+
+  function handleRecallMessage(msg: any) {
+    if (!msg?.id) return;
+    setActiveActionMessage(null);
+    showConfirm({
+      title: 'Thu hồi tin nhắn',
+      message: 'Bạn có chắc chắn muốn thu hồi tin nhắn này với tất cả mọi người?',
+      confirmLabel: 'Thu hồi',
+      onConfirm: () => {
+        deleteMessageMutation.mutate(msg.id, {
+          onError: (err) => {
+            showAlert('Lỗi', normalizeApiError(err).message);
+          },
+        });
+      },
+    });
+  }
+
+  // Sort newest first for inverted list with defensive filtering
+  const sortedMessages = useMemo(() => {
+    const raw = Array.isArray(messages.data)
+      ? messages.data
+      : (messages.data as any)?.items ?? [];
+    if (!Array.isArray(raw)) return [];
+
+    const seen = new Set<string>();
+    const unique = raw.filter((m: any) => {
+      if (!m || typeof m !== 'object') return false;
+      const key = m.id || m._tempId;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique.sort((a: any, b: any) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [messages.data]);
 
   const { joinChatRoom } = useSocketStatus();
 
-  // Sort newest first for inverted list
-  const sortedMessages = [...messageItems].sort(
-    (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-
   useEffect(() => {
-    if (groupId) joinChatRoom(groupId);
-  }, [groupId, joinChatRoom]);
+    if (groupId) {
+      joinChatRoom(groupId);
+      markAsRead.mutateAsync(groupId).catch(console.error);
+    }
+  }, [groupId, sortedMessages.length, joinChatRoom]);
 
   async function handleSendSticker(stickerUrl: string, type: string) {
     setIsStickerOpen(false);
@@ -436,18 +1166,20 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   }
 
   async function handleSend() {
+    if (isUploading || sendMessage.isPending) return;
     if (!text.trim() && selectedImages.length === 0) return;
     const content = text.trim();
+    const currentMentions = [...mentions];
     setText('');
+    setMentions([]);
     const currentImages = [...selectedImages];
     setSelectedImages([]);
-    setIsUploading(true);
+    const currentReplyTo = replyingMessage;
+    setReplyingMessage(null);
 
-    try {
-      let fileUrl: string | undefined;
-      let fileType: string | undefined;
-
-      if (currentImages.length > 0) {
+    if (currentImages.length > 0) {
+      setIsUploading(true);
+      try {
         const uploadResults = await Promise.all(
           currentImages.map((uri, idx) =>
             uploadFile({
@@ -459,6 +1191,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )
         );
 
+        let fileUrl: string | undefined;
+        let fileType: string | undefined;
         if (uploadResults.length === 1) {
           fileUrl = uploadResults[0].fileUrl;
           fileType = 'IMAGE';
@@ -466,22 +1200,41 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           fileUrl = JSON.stringify(uploadResults.map(r => r.fileUrl));
           fileType = 'IMAGE_ALBUM';
         }
-      }
 
-      await sendMessage.mutateAsync({
-        content: content || undefined,
-        fileUrl,
-        fileType,
-        mentions: mentions.length > 0 ? mentions : undefined
-      });
-      setMentions([]);
-    } catch (error) {
-      const normalized = normalizeApiError(error);
-      showAlert('Lỗi', normalized.message);
-      setText(content); // restore text if failed
-      setSelectedImages(currentImages);
-    } finally {
-      setIsUploading(false);
+        await sendMessage.mutateAsync({
+          content: content || undefined,
+          fileUrl,
+          fileType,
+          mentions: currentMentions.length > 0 ? currentMentions : undefined,
+          replyToId: currentReplyTo?.id,
+          replyTo: currentReplyTo,
+        });
+      } catch (error) {
+        const normalized = normalizeApiError(error);
+        showAlert('Lỗi', normalized.message);
+        setText(content);
+        setSelectedImages(currentImages);
+        setReplyingMessage(currentReplyTo);
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      sendMessage.mutate(
+        {
+          content: content || undefined,
+          mentions: currentMentions.length > 0 ? currentMentions : undefined,
+          replyToId: currentReplyTo?.id,
+          replyTo: currentReplyTo,
+        },
+        {
+          onError: error => {
+            const normalized = normalizeApiError(error);
+            showAlert('Lỗi', normalized.message);
+            setText(content);
+            setReplyingMessage(currentReplyTo);
+          },
+        }
+      );
     }
   }
 
@@ -505,27 +1258,15 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             <View style={styles.chatHeaderInfo}>
               <Text style={styles.chatHeaderName}>{(decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat').replace('NV000001', 'Admin')}</Text>
               <Text style={styles.chatHeaderMeta}>
-                {messageItems.length} tin nhắn
+                {sortedMessages.length} tin nhắn
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 onPress={() => {
-                  if (!currentGroup) {
-                    showAlert('Vui lòng đợi', 'Đang tải thông tin nhóm chat...');
-                    return;
-                  }
                   const targetUserId = currentGroup?.otherUserId || (currentGroup?.type === 'DIRECT' ? currentGroup?.members?.find((m: any) => m.userId !== user?.id)?.userId : undefined);
                   if (currentGroup?.type === 'DIRECT' && targetUserId) {
                     initiateCall(targetUserId, currentGroup.name || 'Người dùng', currentGroup.otherUserAvatar);
-                  } else if (currentGroup?.members && currentGroup.members.length === 2) {
-                    const otherMember = currentGroup.members.find((m: any) => m.userId !== user?.id);
-                    if (otherMember) {
-                      const u = otherMember.user;
-                      initiateCall(otherMember.userId, u?.profile?.fullName || u?.username || u?.userCode || 'Người dùng', u?.profile?.avatarUrl);
-                    } else {
-                      setIsCallModalVisible(true);
-                    }
                   } else {
                     setIsCallModalVisible(true);
                   }
@@ -564,31 +1305,23 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
           {/* Messages */}
           <FlatList
+            ref={flatListRef}
             style={styles.messageList}
             contentContainerStyle={styles.messageListContent}
             data={sortedMessages}
-            keyExtractor={(msg: any) => msg.id}
+            keyExtractor={(msg: any, index: number) => String(msg?.id || msg?._tempId || `msg-${index}`)}
             inverted
             refreshing={messages.isRefetching}
             onRefresh={() => void messages.refetch()}
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
             renderItem={({ item: msg }) => {
-              const isMine = msg.sender?.id === user?.id || msg.senderId === user?.id;
+              if (!msg) return null;
+              const isMine = Boolean(user?.id && (msg.sender?.id === user.id || msg.senderId === user.id));
               const senderName = msg.sender?.profile?.fullName ?? (msg.sender?.userCode === 'NV000001' ? 'Admin' : msg.sender?.userCode) ?? 'User';
+              const isRecalled = msg.content === 'Tin nhắn đã bị thu hồi';
 
-              return (
-                <Pressable
-                  onLongPress={() => {
-                    if (isMine) {
-                      showConfirm({
-                        title: 'Thu hồi tin nhắn',
-                        message: 'Bạn có chắc chắn muốn thu hồi tin nhắn này?',
-                        confirmLabel: 'Thu hồi',
-                        onConfirm: () => deleteMessage.mutate(msg.id) 
-                      });
-                    }
-                  }}
-                >
+              if (isRecalled) {
+                return (
                   <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
                     {!isMine && (
                       <View style={[styles.messageBubbleAvatar, msg.sender?.profile?.avatarUrl ? { backgroundColor: 'transparent', overflow: 'hidden' } : {}]}>
@@ -596,7 +1329,48 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                           <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
                         ) : (
                           <Text style={styles.messageBubbleAvatarText}>
-                            {getInitials(senderName)}
+                            {getInitials(senderName || 'U')}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                    <View style={[styles.messageBubble, styles.recalledBubble, isMine ? styles.recalledBubbleMine : styles.recalledBubbleOther]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <MaterialCommunityIcons name="undo-variant" size={15} color="#94A3B8" />
+                        <Text style={styles.recalledText}>Tin nhắn đã bị thu hồi</Text>
+                      </View>
+                      <Text style={[styles.messageTime, { color: '#94A3B8', marginTop: 2 }]}>
+                        {timeAgo(msg.createdAt)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }
+
+              const hasReactions = !!msg.reactions && typeof msg.reactions === 'object' && Object.keys(msg.reactions).length > 0;
+
+              return (
+                <Pressable
+                  onLongPress={() => {
+                    if (!msg.id?.startsWith('temp-')) {
+                      setActiveActionMessage(msg);
+                    }
+                  }}
+                  delayLongPress={300}
+                >
+                  <View style={[
+                    styles.messageRow,
+                    isMine && styles.messageRowMine,
+                    hasReactions && { marginBottom: 12 },
+                    Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }
+                  ]}>
+                    {!isMine && (
+                      <View style={[styles.messageBubbleAvatar, msg.sender?.profile?.avatarUrl ? { backgroundColor: 'transparent', overflow: 'hidden' } : {}]}>
+                        {msg.sender?.profile?.avatarUrl ? (
+                          <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                        ) : (
+                          <Text style={styles.messageBubbleAvatarText}>
+                            {getInitials(senderName || 'U')}
                           </Text>
                         )}
                       </View>
@@ -604,12 +1378,60 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                   <View style={[
                     styles.messageBubble,
                     isMine ? styles.messageBubbleMine : styles.messageBubbleOther,
+                    !!msg.replyTo && styles.messageBubbleWithReply,
+                    msg.id === highlightedMessageId && (isMine ? styles.messageBubbleHighlightedMine : styles.messageBubbleHighlightedOther),
                     msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {},
                     msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
                   ]}>
                     {!isMine && !msg.content?.startsWith('LOTTIE_STICKER:') && !msg.content?.startsWith('STATIC_STICKER:') && !msg.content?.startsWith('GIPHY_STICKER:') && (
                       <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
                     )}
+
+                    {/* Quoted Message (Reply Block - Zalo Style) */}
+                    {!!msg.replyTo && (
+                      <TouchableOpacity
+                        activeOpacity={0.75}
+                        onPress={() => {
+                          if (msg.replyTo?.id && flatListRef.current) {
+                            const targetIndex = sortedMessages.findIndex((m: any) => m.id === msg.replyTo.id);
+                            if (targetIndex !== -1) {
+                              try {
+                                flatListRef.current.scrollToIndex({ index: targetIndex, animated: true, viewPosition: 0.5 });
+                              } catch (e) {
+                                try {
+                                  flatListRef.current.scrollToOffset({ offset: targetIndex * 70, animated: true });
+                                } catch (e2) {}
+                              }
+                              setHighlightedMessageId(msg.replyTo.id);
+                              setTimeout(() => {
+                                setHighlightedMessageId((prev) => (prev === msg.replyTo.id ? null : prev));
+                              }, 2000);
+                            }
+                          }
+                        }}
+                        style={[
+                          styles.quoteBlock,
+                          isMine ? styles.quoteBlockMine : styles.quoteBlockOther
+                        ]}
+                      >
+                        <View style={[styles.quoteIndicator, isMine ? styles.quoteIndicatorMine : styles.quoteIndicatorOther]} />
+                        <View style={{ flex: 1, paddingLeft: 8, paddingRight: 4 }}>
+                          <Text style={[styles.quoteSender, isMine ? styles.quoteSenderMine : styles.quoteSenderOther]} numberOfLines={1}>
+                            {msg.replyTo.sender?.profile?.fullName || (msg.replyTo.sender?.userCode === 'NV000001' ? 'Admin' : msg.replyTo.sender?.userCode) || 'Người dùng'}
+                          </Text>
+                          <Text style={[styles.quoteText, isMine ? styles.quoteTextMine : styles.quoteTextOther]} numberOfLines={3}>
+                            {msg.replyTo.content || (msg.replyTo.fileType === 'IMAGE' ? '[Hình ảnh]' : msg.replyTo.fileType === 'IMAGE_ALBUM' ? '[Bộ sưu tập ảnh]' : '[Tệp tin]')}
+                          </Text>
+                        </View>
+                        {msg.replyTo.fileUrl && (msg.replyTo.fileType === 'IMAGE' || msg.replyTo.fileType === 'IMAGE_ALBUM') && (
+                          <Image
+                            source={{ uri: resolveImageUrl(msg.replyTo.fileType === 'IMAGE_ALBUM' ? (() => { try { return JSON.parse(msg.replyTo.fileUrl)[0]; } catch(e) { return msg.replyTo.fileUrl; } })() : msg.replyTo.fileUrl) || '' }}
+                            style={styles.quoteThumb}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    )}
+
                     {msg.fileUrl && (msg.fileType === 'IMAGE' || msg.fileType === 'IMAGE_ALBUM') && (
                       <View>
                         {msg.fileType === 'IMAGE_ALBUM' ? (() => {
@@ -632,15 +1454,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                               <Pressable
                                 onPress={() => setViewingAlbum(albumUrls)}
                                 onLongPress={() => {
-                                  if (isMine) {
-                                    showConfirm({
-                                      title: 'Thu hồi tin nhắn',
-                                      message: 'Bạn có chắc chắn muốn thu hồi album ảnh này?',
-                                      confirmLabel: 'Thu hồi',
-                                      onConfirm: () => deleteMessage.mutate(msg.id)
-                                    });
+                                  if (!msg.id?.startsWith('temp-')) {
+                                    setActiveActionMessage(msg);
                                   }
                                 }}
+                                delayLongPress={300}
                                 style={{ width: 170, height: 180, position: 'relative', marginTop: 6 }}
                               >
                                 {/* Layer 3 (Bottom Stacked Card) */}
@@ -711,15 +1529,11 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                           <Pressable 
                             onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}
                             onLongPress={() => {
-                              if (isMine) {
-                                showConfirm({
-                                  title: 'Thu hồi tin nhắn',
-                                  message: 'Bạn có chắc chắn muốn thu hồi tin nhắn ảnh này?',
-                                  confirmLabel: 'Thu hồi',
-                                  onConfirm: () => deleteMessage.mutate(msg.id)
-                                });
+                              if (!msg.id?.startsWith('temp-')) {
+                                setActiveActionMessage(msg);
                               }
                             }}
+                            delayLongPress={300}
                           >
                             <Image
                               source={{ uri: resolveImageUrl(msg.fileUrl) || '' }}
@@ -756,11 +1570,46 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     <Text style={[
                       styles.messageTime,
                       isMine && styles.messageTimeMine,
-                      msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, color: '#fff' } : {},
+                      msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { position: 'absolute', bottom: 8, left: 10, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 10, color: '#fff' } : {},
                       (msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:')) ? { color: colors.muted } : {}
                     ]}>
                       {timeAgo(msg.createdAt)}
                     </Text>
+
+                    {/* Floating Reaction Badge attached to bubble */}
+                    {!!msg.reactions && typeof msg.reactions === 'object' && Object.keys(msg.reactions).length > 0 && (() => {
+                      const reactionMap: Record<string, number> = {};
+                      let total = 0;
+                      Object.values(msg.reactions).forEach((emoji: any) => {
+                        if (typeof emoji === 'string') {
+                          reactionMap[emoji] = (reactionMap[emoji] || 0) + 1;
+                          total += 1;
+                        }
+                      });
+                      const uniqueEmojis = Object.keys(reactionMap);
+                      if (uniqueEmojis.length === 0) return null;
+
+                      return (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            if (!msg.id?.startsWith('temp-')) {
+                              setDetailMessage(msg);
+                              setDetailTab('reactions');
+                              setSelectedReactionFilter('ALL');
+                            }
+                          }}
+                          style={[
+                            styles.messageReactionBadge,
+                            isMine ? styles.messageReactionBadgeMine : styles.messageReactionBadgeOther,
+                          ]}
+                        >
+                          <Text style={styles.messageReactionBadgeText}>
+                            {uniqueEmojis.slice(0, 3).join('')}{total > 1 ? ` ${total}` : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
                   </View>
                 </View>
               </Pressable>
@@ -793,6 +1642,33 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 )}
                 keyboardShouldPersistTaps="handled"
               />
+            </View>
+          )}
+
+          {/* Reply Preview Bar Above Input */}
+          {!!replyingMessage && (
+            <View style={styles.replyPreviewBar}>
+              <View style={styles.replyPreviewIndicator} />
+              <View style={{ flex: 1, paddingLeft: 10, paddingRight: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="reply" size={14} color="#2563EB" />
+                  <Text style={styles.replyPreviewSender} numberOfLines={1}>
+                    Đang trả lời {replyingMessage.sender?.profile?.fullName || (replyingMessage.sender?.userCode === 'NV000001' ? 'Admin' : replyingMessage.sender?.userCode) || 'Người dùng'}
+                  </Text>
+                </View>
+                <Text style={styles.replyPreviewText} numberOfLines={1}>
+                  {replyingMessage.content || (replyingMessage.fileType === 'IMAGE' ? '[Hình ảnh]' : replyingMessage.fileType === 'IMAGE_ALBUM' ? '[Bộ sưu tập ảnh]' : '[Tệp tin]')}
+                </Text>
+              </View>
+              {replyingMessage.fileUrl && (replyingMessage.fileType === 'IMAGE' || replyingMessage.fileType === 'IMAGE_ALBUM') && (
+                <Image
+                  source={{ uri: resolveImageUrl(replyingMessage.fileType === 'IMAGE_ALBUM' ? (() => { try { return JSON.parse(replyingMessage.fileUrl)[0]; } catch(e) { return replyingMessage.fileUrl; } })() : replyingMessage.fileUrl) || '' }}
+                  style={styles.replyPreviewThumb}
+                />
+              )}
+              <TouchableOpacity onPress={() => setReplyingMessage(null)} style={styles.replyPreviewCloseBtn}>
+                <MaterialCommunityIcons name="close-circle" size={20} color="#94A3B8" />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -847,22 +1723,357 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               />
             </View>
             <Pressable
-              style={[styles.chatSendBtn, (!text.trim() && selectedImages.length === 0) && styles.chatSendBtnDisabled]}
+              style={[
+                styles.chatSendBtn,
+                ((!text.trim() && selectedImages.length === 0) || isUploading || sendMessage.isPending) && styles.chatSendBtnDisabled,
+              ]}
               onPress={handleSend}
-              disabled={(!text.trim() && selectedImages.length === 0) || sendMessage.isPending || isUploading}
+              disabled={(!text.trim() && selectedImages.length === 0) || isUploading || sendMessage.isPending}
             >
-              <MaterialCommunityIcons name={isUploading ? 'loading' : 'send'} size={20} color="#fff" />
+              <MaterialCommunityIcons name={isUploading || sendMessage.isPending ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>
           </View>
         </View>
 
-        {/* Image Viewer Modal */}
+        {/* Image Viewer Modal with Close & Download Buttons */}
         <ImageViewing
-          images={viewingAlbum ? viewingAlbum.map(u => ({ uri: resolveImageUrl(u) || u })) : (viewingImage ? [{ uri: viewingImage }] : [])}
+          images={viewingAlbum ? viewingAlbum.map(u => ({ uri: resolveImageUrl(u) || u })) : (viewingImage ? [{ uri: resolveImageUrl(viewingImage) || viewingImage }] : [])}
           imageIndex={0}
           visible={!!viewingImage || !!viewingAlbum}
           onRequestClose={() => { setViewingImage(null); setViewingAlbum(null); }}
+          HeaderComponent={({ imageIndex }) => {
+            const currentImg = viewingAlbum ? viewingAlbum[imageIndex] : viewingImage;
+            const totalCount = viewingAlbum ? viewingAlbum.length : 1;
+            return (
+              <SafeAreaView edges={['top']} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 }}>
+                <TouchableOpacity
+                  style={styles.imageViewerDownloadBtn}
+                  onPress={() => { setViewingImage(null); setViewingAlbum(null); }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                {totalCount > 1 ? (
+                  <View style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
+                      {imageIndex + 1} / {totalCount}
+                    </Text>
+                  </View>
+                ) : (
+                  <View />
+                )}
+
+                <TouchableOpacity
+                  style={styles.imageViewerDownloadBtn}
+                  onPress={() => handleDownloadImage(currentImg || '')}
+                  disabled={isDownloading}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name={isDownloading ? 'loading' : 'download'} size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+              </SafeAreaView>
+            );
+          }}
         />
+
+        {/* Long Press Message Action Sheet (Zalo Style) */}
+        <Modal
+          visible={!!activeActionMessage}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setActiveActionMessage(null)}
+        >
+          <Pressable
+            style={styles.actionModalBackdrop}
+            onPress={() => setActiveActionMessage(null)}
+          >
+            <Pressable style={styles.actionModalCard} onPress={(e) => e.stopPropagation?.()}>
+              {/* Floating Quick Reactions Bar (Zalo Style) */}
+              <View style={styles.reactionBar}>
+                {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => {
+                  const isCurrentEmoji = activeActionMessage?.reactions && user?.id && activeActionMessage.reactions[user.id] === emoji;
+                  return (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[styles.reactionItem, isCurrentEmoji && styles.reactionItemActive]}
+                      onPress={() => {
+                        const msg = activeActionMessage;
+                        setActiveActionMessage(null);
+                        if (msg?.id) {
+                          reactMessageMutation.mutate({
+                            messageId: msg.id,
+                            emoji,
+                          });
+                        }
+                      }}
+                    >
+                      <Text style={[styles.reactionEmoji, isCurrentEmoji && { transform: [{ scale: 1.25 }] }]}>{emoji}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Action Menu Grid (Zalo Style) */}
+              <View style={styles.zaloActionGrid}>
+                {/* 1. Trả lời */}
+                <TouchableOpacity
+                  style={styles.zaloActionBtn}
+                  onPress={() => {
+                    const msg = activeActionMessage;
+                    setActiveActionMessage(null);
+                    setReplyingMessage(msg);
+                  }}
+                >
+                  <View style={[styles.zaloActionIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                    <MaterialCommunityIcons name="reply" size={22} color="#2563EB" />
+                  </View>
+                  <Text style={styles.zaloActionLabel}>Trả lời</Text>
+                </TouchableOpacity>
+
+                {/* 2. Sao chép (nếu có nội dung chữ) */}
+                {!!activeActionMessage?.content &&
+                  activeActionMessage.content !== 'Tin nhắn đã bị thu hồi' &&
+                  !activeActionMessage.content.startsWith('LOTTIE_STICKER:') &&
+                  !activeActionMessage.content.startsWith('STATIC_STICKER:') &&
+                  !activeActionMessage.content.startsWith('GIPHY_STICKER:') && (
+                    <TouchableOpacity
+                      style={styles.zaloActionBtn}
+                      onPress={() => handleCopyText(activeActionMessage.content)}
+                    >
+                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#ECFDF5' }]}>
+                        <MaterialCommunityIcons name="content-copy" size={22} color="#059669" />
+                      </View>
+                      <Text style={styles.zaloActionLabel}>Sao chép</Text>
+                    </TouchableOpacity>
+                  )}
+
+                {/* 3. Lưu ảnh (nếu là ảnh) */}
+                {!!activeActionMessage?.fileUrl &&
+                  (activeActionMessage.fileType === 'IMAGE' || activeActionMessage.fileType === 'IMAGE_ALBUM') && (
+                    <TouchableOpacity
+                      style={styles.zaloActionBtn}
+                      onPress={() => {
+                        let urlToDownload = activeActionMessage.fileUrl;
+                        if (activeActionMessage.fileType === 'IMAGE_ALBUM') {
+                          try {
+                            const urls = JSON.parse(activeActionMessage.fileUrl);
+                            urlToDownload = urls[0];
+                          } catch (e) {}
+                        }
+                        handleDownloadImage(urlToDownload);
+                      }}
+                    >
+                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                        <MaterialCommunityIcons name="download" size={22} color="#D97706" />
+                      </View>
+                      <Text style={styles.zaloActionLabel}>Lưu ảnh</Text>
+                    </TouchableOpacity>
+                  )}
+
+                {/* 4. Xem chi tiết người thả cảm xúc / người xem */}
+                <TouchableOpacity
+                  style={styles.zaloActionBtn}
+                  onPress={() => {
+                    const msg = activeActionMessage;
+                    setActiveActionMessage(null);
+                    setDetailMessage(msg);
+                    setDetailTab('reactions');
+                    setSelectedReactionFilter('ALL');
+                  }}
+                >
+                  <View style={[styles.zaloActionIconWrap, { backgroundColor: '#EEF2FF' }]}>
+                    <MaterialCommunityIcons name="account-eye-outline" size={22} color="#4F46E5" />
+                  </View>
+                  <Text style={styles.zaloActionLabel}>Chi tiết</Text>
+                </TouchableOpacity>
+
+                {/* 5. Thu hồi tin nhắn */}
+                {(Boolean(user?.id && (activeActionMessage?.sender?.id === user.id || activeActionMessage?.senderId === user.id)) ||
+                  user?.roles?.includes('ADMIN')) &&
+                  activeActionMessage?.content !== 'Tin nhắn đã bị thu hồi' && (
+                    <TouchableOpacity
+                      style={styles.zaloActionBtn}
+                      onPress={() => handleRecallMessage(activeActionMessage)}
+                    >
+                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#FEF2F2' }]}>
+                        <MaterialCommunityIcons name="delete-restore" size={22} color="#EF4444" />
+                      </View>
+                      <Text style={[styles.zaloActionLabel, { color: '#EF4444' }]}>Thu hồi</Text>
+                    </TouchableOpacity>
+                  )}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Message Reaction & Seen Details Modal (Zalo Style) */}
+        <Modal
+          visible={!!detailMessage}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setDetailMessage(null)}
+        >
+          <View style={styles.detailModalBackdrop}>
+            <View style={styles.detailModalCard}>
+              {/* Header */}
+              <View style={styles.detailModalHeader}>
+                <Text style={styles.detailModalTitle}>Chi tiết tin nhắn</Text>
+                <TouchableOpacity onPress={() => setDetailMessage(null)} style={{ padding: 4 }}>
+                  <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Segmented Tab: Cảm xúc vs Đã xem */}
+              <View style={styles.detailSegmentedBar}>
+                <TouchableOpacity
+                  style={[styles.detailSegmentTab, detailTab === 'reactions' && styles.detailSegmentTabActive]}
+                  onPress={() => setDetailTab('reactions')}
+                >
+                  <Text style={[styles.detailSegmentTabText, detailTab === 'reactions' && styles.detailSegmentTabTextActive]}>
+                    Cảm xúc ({detailMessage?.reactions ? Object.keys(detailMessage.reactions).length : 0})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.detailSegmentTab, detailTab === 'seen' && styles.detailSegmentTabActive]}
+                  onPress={() => setDetailTab('seen')}
+                >
+                  <Text style={[styles.detailSegmentTabText, detailTab === 'seen' && styles.detailSegmentTabTextActive]}>
+                    Đã xem ({seenDetailsQuery.data?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Tab 1: Reactions */}
+              {detailTab === 'reactions' && (
+                <View style={{ flex: 1 }}>
+                  {/* Reaction filter tabs */}
+                  {(() => {
+                    const reactionCounts: Record<string, number> = {};
+                    let total = 0;
+                    if (detailMessage?.reactions) {
+                      Object.values(detailMessage.reactions).forEach((emoji: any) => {
+                        if (typeof emoji === 'string') {
+                          reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
+                          total += 1;
+                        }
+                      });
+                    }
+                    const availableEmojis = Object.keys(reactionCounts);
+
+                    return (
+                      <View style={styles.detailFilterBar}>
+                        <TouchableOpacity
+                          style={[styles.detailFilterPill, selectedReactionFilter === 'ALL' && styles.detailFilterPillActive]}
+                          onPress={() => setSelectedReactionFilter('ALL')}
+                        >
+                          <Text style={[styles.detailFilterPillText, selectedReactionFilter === 'ALL' && styles.detailFilterPillTextActive]}>
+                            Tất cả {total}
+                          </Text>
+                        </TouchableOpacity>
+                        {availableEmojis.map((emoji) => (
+                          <TouchableOpacity
+                            key={emoji}
+                            style={[styles.detailFilterPill, selectedReactionFilter === emoji && styles.detailFilterPillActive]}
+                            onPress={() => setSelectedReactionFilter(emoji)}
+                          >
+                            <Text style={[styles.detailFilterPillText, selectedReactionFilter === emoji && styles.detailFilterPillTextActive]}>
+                              {emoji} {reactionCounts[emoji]}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  })()}
+
+                  {/* List of reacted users */}
+                  {reactionDetailsQuery.isLoading ? (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    </View>
+                  ) : (() => {
+                    const list = (reactionDetailsQuery.data || []).filter((item: any) =>
+                      selectedReactionFilter === 'ALL' || item.emoji === selectedReactionFilter
+                    );
+
+                    if (list.length === 0) {
+                      return (
+                        <View style={{ padding: 40, alignItems: 'center' }}>
+                          <Text style={{ fontSize: 14, color: '#94A3B8' }}>Chưa có cảm xúc nào</Text>
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <FlatList
+                        data={list}
+                        keyExtractor={(item: any) => item.user.id}
+                        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+                        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 6 }} />}
+                        renderItem={({ item }: { item: any }) => (
+                          <View style={styles.detailUserRow}>
+                            <View style={styles.detailUserAvatar}>
+                              {item.user.avatarUrl ? (
+                                <Image source={{ uri: item.user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                              ) : (
+                                <Text style={styles.detailUserAvatarText}>{getInitials(item.user.fullName)}</Text>
+                              )}
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <Text style={styles.detailUserName}>{item.user.fullName}</Text>
+                              <Text style={styles.detailUserCode}>{item.user.userCode}</Text>
+                            </View>
+                            <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+                          </View>
+                        )}
+                      />
+                    );
+                  })()}
+                </View>
+              )}
+
+              {/* Tab 2: Seen by */}
+              {detailTab === 'seen' && (
+                <View style={{ flex: 1 }}>
+                  {seenDetailsQuery.isLoading ? (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    </View>
+                  ) : (seenDetailsQuery.data || []).length === 0 ? (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 14, color: '#94A3B8' }}>Chưa có ai xem tin nhắn này</Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={seenDetailsQuery.data || []}
+                      keyExtractor={(item: any) => item.user.id}
+                      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+                      ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 6 }} />}
+                      renderItem={({ item }: { item: any }) => (
+                        <View style={styles.detailUserRow}>
+                          <View style={styles.detailUserAvatar}>
+                            {item.user.avatarUrl ? (
+                              <Image source={{ uri: item.user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                            ) : (
+                              <Text style={styles.detailUserAvatarText}>{getInitials(item.user.fullName)}</Text>
+                            )}
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <Text style={styles.detailUserName}>{item.user.fullName}</Text>
+                            <Text style={styles.detailUserCode}>{item.user.userCode}</Text>
+                          </View>
+                          {!!item.readAt && (
+                            <Text style={{ fontSize: 12, color: '#94A3B8' }}>{timeAgo(item.readAt)}</Text>
+                          )}
+                        </View>
+                      )}
+                    />
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Sticker Modal */}
         <StickerPickerModal
@@ -874,39 +2085,57 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         {/* Call User Selection Modal */}
         <Modal visible={isCallModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsCallModalVisible(false)}>
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Chọn người để gọi</Text>
-                <TouchableOpacity onPress={() => setIsCallModalVisible(false)}>
+            <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#111827' }}>Chọn người để gọi</Text>
+                <TouchableOpacity onPress={() => setIsCallModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <MaterialCommunityIcons name="close" size={24} color="#666" />
                 </TouchableOpacity>
               </View>
               <FlatList
-                data={currentGroup?.members?.length > 0 ? currentGroup.members.map((m: any) => ({ ...m.user, id: m.userId, fullName: m.user?.profile?.fullName, avatarUrl: m.user?.profile?.avatarUrl })) : (employees.data?.items ?? [])}
+                data={callCandidates}
                 keyExtractor={(item: any) => item.id}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                  <View style={{ paddingVertical: 40, alignItems: 'center', justifyContent: 'center' }}>
+                    <MaterialCommunityIcons name="account-off-outline" size={48} color="#D1D5DB" />
+                    <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14, textAlign: 'center' }}>
+                      {groupMembersQuery.isLoading ? 'Đang tải danh sách thành viên...' : 'Không tìm thấy thành viên nào khác trong nhóm để gọi'}
+                    </Text>
+                  </View>
+                }
                 renderItem={({ item }) => {
-                  if (item.id === user?.id) return null; // Don't call yourself
-                  const displayName = item.fullName ?? item.profile?.fullName ?? item.userCode;
-                  const avatar = item.avatarUrl ?? item.profile?.avatarUrl;
+                  const displayName = item.fullName ?? item.userCode ?? 'Người dùng';
+                  const avatar = item.avatarUrl;
                   return (
                     <TouchableOpacity
-                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}
                       onPress={() => {
                         setIsCallModalVisible(false);
                         initiateCall(item.id, displayName, avatar);
                       }}
                     >
-                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>{getInitials(displayName)}</Text>
+                      {avatar ? (
+                        <Image source={{ uri: resolveImageUrl(avatar) || avatar }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
+                      ) : (
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{getInitials(displayName)}</Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>{displayName}</Text>
+                        {item.userCode ? (
+                          <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{item.userCode}</Text>
+                        ) : null}
                       </View>
-                      <Text style={{ fontSize: 16, flex: 1 }}>{displayName}</Text>
-                      <MaterialCommunityIcons name="phone" size={24} color="#10B981" />
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center' }}>
+                        <MaterialCommunityIcons name="phone" size={20} color="#10B981" />
+                      </View>
                     </TouchableOpacity>
                   );
                 }}
               />
             </View>
-
           </View>
         </Modal>
 
@@ -1083,13 +2312,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderBottomRightRadius: 16,
     borderBottomLeftRadius: 16,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   messageImageOnly: {
     width: 220,
     height: 220,
     borderRadius: 16,
     marginBottom: 0,
+    overflow: 'hidden',
   },
 
   imageViewerContainer: {
@@ -1236,5 +2466,851 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.text,
+  },
+  // Recalled Message Styling
+  recalledBubble: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  recalledBubbleMine: {
+    backgroundColor: '#F8FAFC',
+  },
+  recalledBubbleOther: {
+    backgroundColor: '#F1F5F9',
+  },
+  recalledText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  // Image Viewer Download Button
+  imageViewerDownloadBtn: {
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Long-press Action Sheet Modal
+  actionModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  actionModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  reactionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  reactionItem: {
+    padding: 6,
+    borderRadius: 20,
+  },
+  reactionEmoji: {
+    fontSize: 26,
+  },
+  actionModalDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 6,
+  },
+  actionModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 14,
+  },
+  actionModalIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionModalRowText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  actionModalRowSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  reactionItemActive: {
+    backgroundColor: '#E0F2FE',
+    transform: [{ scale: 1.15 }],
+  },
+  messageReactionBadge: {
+    position: 'absolute',
+    bottom: -8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 4,
+    zIndex: 10,
+  },
+  messageReactionBadgeMine: {
+    right: 8,
+  },
+  messageReactionBadgeOther: {
+    right: 8,
+  },
+  messageReactionBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+
+  messageBubbleWithReply: {
+    minWidth: 190,
+    maxWidth: '82%',
+  },
+  messageBubbleHighlightedMine: {
+    borderColor: '#60A5FA',
+    borderWidth: 2,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  messageBubbleHighlightedOther: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 2,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
+  /* Quote Block inside message bubble */
+  quoteBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginBottom: 6,
+    alignSelf: 'stretch',
+    minWidth: 160,
+    overflow: 'hidden',
+  },
+  quoteBlockMine: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  quoteBlockOther: {
+    backgroundColor: '#F1F5F9',
+  },
+  quoteIndicator: {
+    width: 3.5,
+    borderRadius: 2,
+    alignSelf: 'stretch',
+  },
+  quoteIndicatorMine: {
+    backgroundColor: '#FFFFFF',
+  },
+  quoteIndicatorOther: {
+    backgroundColor: '#2563EB',
+  },
+  quoteSender: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  quoteSenderMine: {
+    color: '#FFFFFF',
+  },
+  quoteSenderOther: {
+    color: '#2563EB',
+  },
+  quoteText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  quoteTextMine: {
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  quoteTextOther: {
+    color: '#334155',
+  },
+  quoteThumb: {
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+
+  /* Reply Preview Bar above input */
+  replyPreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    position: 'relative',
+  },
+  replyPreviewIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: '#2563EB',
+  },
+  replyPreviewSender: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  replyPreviewText: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 2,
+  },
+  replyPreviewThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  replyPreviewCloseBtn: {
+    padding: 4,
+  },
+
+  /* Zalo Action Grid */
+  zaloActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  zaloActionBtn: {
+    alignItems: 'center',
+    width: '22%',
+    paddingVertical: 6,
+  },
+  zaloActionIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  zaloActionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+    textAlign: 'center',
+  },
+
+  /* Detail Modal */
+  detailModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  detailModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '65%',
+    paddingTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  detailModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  detailModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  detailSegmentedBar: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginVertical: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 3,
+  },
+  detailSegmentTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  detailSegmentTabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  detailSegmentTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  detailSegmentTabTextActive: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  detailFilterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  detailFilterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+  },
+  detailFilterPillActive: {
+    backgroundColor: '#DBEAFE',
+  },
+  detailFilterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  detailFilterPillTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  detailUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  detailUserAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  detailUserAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  detailUserName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  detailUserCode: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  // Leader Directory Carousel & Modal Styles
+  leadersSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  leadersHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  leadersSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  leadersSeeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  leadersCarousel: {
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  leaderCard: {
+    width: 125,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  leaderAvatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  leaderAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  leaderAvatarFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#C7D2FE',
+  },
+  leaderAvatarInitials: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  leaderCrownBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#F59E0B',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  leaderCardName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  leaderDeptBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 8,
+    maxWidth: '100%',
+  },
+  leaderDeptText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#2563EB',
+    textAlign: 'center',
+  },
+  leaderMsgButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  leaderMsgButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
+  chatSectionTitleRow: {
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  chatSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  leaderModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  leaderModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingTop: 16,
+  },
+  leaderModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  leaderModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  leaderModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  leaderModalCloseBtn: {
+    padding: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+  },
+  leaderSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  leaderSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    padding: 0,
+  },
+  leaderListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  leaderListAvatarContainer: {
+    position: 'relative',
+  },
+  leaderListAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  leaderListAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  leaderListAvatarInitials: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  leaderCrownBadgeSmall: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    width: 15,
+    height: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  leaderListName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  leaderListDept: {
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '500',
+  },
+  leaderListBranch: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  leaderListActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Create Custom Group Styles (Admin)
+  headerCreateGroupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  headerCreateGroupBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  createGroupNameContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  createGroupInputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  createGroupNameInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  createGroupNameInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    padding: 0,
+  },
+  deptFilterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+    paddingVertical: 6,
+  },
+  deptFilterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  deptFilterChipActive: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#93C5FD',
+  },
+  deptFilterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  deptFilterChipTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  selectedMembersSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#FAFAFA',
+  },
+  selectedMembersCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 4,
+  },
+  selectedMemberChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 16,
+    paddingLeft: 4,
+    paddingRight: 8,
+    paddingVertical: 3,
+    gap: 5,
+  },
+  selectedMemberChipAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  selectedMemberChipFallback: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedMemberChipFallbackText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  selectedMemberChipName: {
+    fontSize: 12,
+    color: '#1E293B',
+    maxWidth: 90,
+  },
+  selectedMemberChipRemove: {
+    padding: 2,
+  },
+  memberSelectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  memberSelectRowActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  memberSelectCheckbox: {
+    marginRight: 10,
+  },
+  memberSelectAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  memberSelectAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  memberSelectAvatarInitials: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  memberSelectName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  memberSelectCode: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  memberSelectDept: {
+    fontSize: 12,
+    color: '#2563EB',
+    marginTop: 2,
+  },
+  createGroupFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+  },
+  createGroupSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+  },
+  createGroupSubmitBtnDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  createGroupSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

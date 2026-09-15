@@ -27,13 +27,17 @@ import { Platform } from 'react-native';
 
 export async function setupNotificationChannel() {
   if (!Notifications) return;
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Thông báo chung',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#3B82F6',
-    });
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Thông báo chung',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#3B82F6',
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to setup default notification channel:', e);
   }
   // Also setup the incoming calls channel
   try {

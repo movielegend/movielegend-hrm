@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
 import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -69,6 +69,8 @@ export default function CreateRequestScreen() {
   const [isFullScreenPhoto, setIsFullScreenPhoto] = useState(false);
   const [apiShifts, setApiShifts] = useState<Shift[]>([]);
   const [apiEmployees, setApiEmployees] = useState<EmployeeUser[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
   const leaveDurationTypes = ["1/4 ngày", "1/2 ngày", "3/4 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
   const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
@@ -84,6 +86,21 @@ export default function CreateRequestScreen() {
   const isLateOrEarly = selectedType === 'LATE_ARRIVAL' || selectedType === 'EARLY_LEAVE';
   const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE' || selectedType === 'PURCHASE';
 
+  const fetchEmployeesList = useCallback(async () => {
+    try {
+      setIsLoadingEmployees(true);
+      const res = await getScopedEmployees({ page: 1, limit: 100 });
+      const rawList = res?.items || (Array.isArray(res) ? res : []);
+      // Lọc bỏ chính mình khỏi danh sách người bàn giao
+      const validList = rawList.filter((e: any) => e.id !== user?.id);
+      setApiEmployees(validList);
+    } catch (err) {
+      console.log('Error fetching scoped employees:', err);
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  }, [user?.id]);
+
   React.useEffect(() => {
     if (isLateOrEarly || isExplanation || isOvertime) {
       getShifts()
@@ -91,11 +108,9 @@ export default function CreateRequestScreen() {
         .catch(err => console.log('Error fetching shifts', err));
     }
     if ((isLeave || isExplanation) && apiEmployees.length === 0) {
-      getScopedEmployees({ page: 1, limit: 50 })
-        .then(res => setApiEmployees(res.items || []))
-        .catch(err => console.log('Error fetching employees', err));
+      void fetchEmployeesList();
     }
-  }, [isLateOrEarly, isLeave, isExplanation, isOvertime]);
+  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList, apiEmployees.length]);
 
 
 
@@ -284,7 +299,10 @@ export default function CreateRequestScreen() {
         ...(explanationType ? { explanationType } : {}),
         ...(leaveType ? { leaveType } : {}),
         ...(leaveDurationType ? { leaveDurationType } : {}),
-        ...(handoverEmployee ? { handoverEmployee: handoverEmployee.fullName, handoverUserId: handoverEmployee.id } : {}),
+        ...(handoverEmployee ? {
+          handoverEmployee: handoverEmployee.fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự',
+          handoverUserId: handoverEmployee.id
+        } : {}),
       };
 
       await createEmployeeRequest({
@@ -615,6 +633,37 @@ export default function CreateRequestScreen() {
                   />
                 </View>
 
+                {/* Luồng phê duyệt thông minh theo số tiền */}
+                <View style={{
+                  backgroundColor: Number(amount || 0) > 5000000 ? '#EFF6FF' : '#F0FDF4',
+                  borderWidth: 1,
+                  borderColor: Number(amount || 0) > 5000000 ? '#BFDBFE' : '#BBF7D0',
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: spacing.md
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <MaterialCommunityIcons 
+                      name="transit-connection-variant" 
+                      size={18} 
+                      color={Number(amount || 0) > 5000000 ? '#2563EB' : '#16A34A'} 
+                    />
+                    <Text style={{ 
+                      fontSize: 13, 
+                      fontWeight: '700', 
+                      color: Number(amount || 0) > 5000000 ? '#1E40AF' : '#15803D',
+                      marginLeft: 6 
+                    }}>
+                      Quy trình duyệt {Number(amount || 0) > 5000000 ? '(Đơn trên 5.000.000 đ)' : '(Đơn dưới hoặc bằng 5.000.000 đ)'}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#374151', lineHeight: 18 }}>
+                    {Number(amount || 0) > 5000000
+                      ? '1. Trưởng bộ phận duyệt ➔ 2. Leader HR đối chứng ➔ 3. Ban Giám Đốc/Admin duyệt ➔ 4. Kế toán giải ngân'
+                      : '1. Trưởng bộ phận duyệt ➔ 2. Leader HR đối chứng & duyệt ➔ 3. Kế toán giải ngân'}
+                  </Text>
+                </View>
+
                 {/* Chụp ảnh minh chứng (Chỉ hiện cho EXPENSE và PURCHASE) */}
                 {selectedType !== 'ADVANCE' && (
                   <View style={{ marginBottom: spacing.md }}>
@@ -751,7 +800,7 @@ export default function CreateRequestScreen() {
                     <MaterialCommunityIcons name="account-tie-outline" size={20} color="#000" />
                   </View>
                   <Text style={[handoverEmployee ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                    {handoverEmployee ? handoverEmployee.fullName : 'Chọn người bàn giao'}
+                    {handoverEmployee ? (handoverEmployee.fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự') : 'Chọn người bàn giao'}
                   </Text>
                   <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
                 </Pressable>
@@ -1107,28 +1156,127 @@ export default function CreateRequestScreen() {
         <View style={styles.fullScreenModalOverlay}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
-              <Pressable onPress={() => setShowEmployeeModal(false)} style={{ padding: 8, marginRight: 8 }}>
+              <Pressable onPress={() => { setShowEmployeeModal(false); setEmployeeSearchQuery(''); }} style={{ padding: 8, marginRight: 8 }}>
                 <MaterialCommunityIcons name="close" size={24} color="#111827" />
               </Pressable>
               <Text style={styles.fullScreenModalTitle}>{isExplanation ? 'Người duyệt' : 'Người bàn giao'}</Text>
             </View>
-            {apiEmployees.length === 0 ? (
-              <Text style={{ textAlign: 'center', padding: 20, color: '#9CA3AF' }}>Đang tải danh sách nhân sự...</Text>
-            ) : (
-              <FlatList
-                data={apiEmployees}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={styles.fullScreenModalItem} 
-                    onPress={() => { setHandoverEmployee(item); setShowEmployeeModal(false); }}
-                  >
-                    <Text style={styles.fullScreenModalItemText}>{item.fullName}</Text>
-                    <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>{item.email}</Text>
-                  </TouchableOpacity>
-                )}
+
+            {/* Search Box */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F3F4F6',
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+              marginHorizontal: 16,
+              marginBottom: 12,
+            }}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <TextInput
+                style={{ flex: 1, fontSize: 14, color: '#111827' }}
+                placeholder="Tìm nhân sự theo tên, mã NV, phòng ban..."
+                placeholderTextColor="#9CA3AF"
+                value={employeeSearchQuery}
+                onChangeText={setEmployeeSearchQuery}
+                clearButtonMode="while-editing"
               />
-            )}
+              {employeeSearchQuery ? (
+                <Pressable onPress={() => setEmployeeSearchQuery('')}>
+                  <MaterialCommunityIcons name="close-circle" size={18} color="#9CA3AF" />
+                </Pressable>
+              ) : null}
+            </View>
+
+            {isLoadingEmployees ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#10B981" />
+                <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14 }}>Đang tải danh sách nhân sự...</Text>
+              </View>
+            ) : (() => {
+              const q = employeeSearchQuery.toLowerCase().trim();
+              const filteredList = apiEmployees.filter((item: any) => {
+                const name = (item.fullName || item.profile?.fullName || '').toLowerCase();
+                const code = (item.userCode || '').toLowerCase();
+                const dept = (item.department?.name || '').toLowerCase();
+                const pos = (item.position?.name || '').toLowerCase();
+                return !q || name.includes(q) || code.includes(q) || dept.includes(q) || pos.includes(q);
+              });
+
+              if (filteredList.length === 0) {
+                return (
+                  <View style={{ paddingVertical: 40, alignItems: 'center', paddingHorizontal: 20 }}>
+                    <MaterialCommunityIcons name="account-search-outline" size={48} color="#9CA3AF" />
+                    <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14, textAlign: 'center' }}>
+                      {apiEmployees.length === 0
+                        ? 'Chưa có dữ liệu nhân sự phù hợp.'
+                        : 'Không tìm thấy nhân sự phù hợp với từ khóa.'}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => void fetchEmployeesList()}
+                      style={{
+                        marginTop: 16,
+                        backgroundColor: '#F3F4F6',
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: '#E5E7EB',
+                      }}
+                    >
+                      <Text style={{ color: '#374151', fontWeight: '600', fontSize: 13 }}>Tải lại danh sách</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+
+              return (
+                <FlatList
+                  data={filteredList}
+                  keyExtractor={(item) => item.id}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }: { item: any }) => {
+                    const dispName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
+                    const deptName = item.department?.name;
+                    const posName = item.position?.name;
+                    const subtitle = [item.userCode, deptName, posName].filter(Boolean).join(' • ');
+
+                    return (
+                      <TouchableOpacity
+                        style={[styles.fullScreenModalItem, { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }]}
+                        onPress={() => {
+                          setHandoverEmployee(item);
+                          setShowEmployeeModal(false);
+                          setEmployeeSearchQuery('');
+                        }}
+                      >
+                        <View style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: '#10B98115',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 12,
+                        }}>
+                          <Text style={{ fontSize: 16, fontWeight: '700', color: '#10B981' }}>
+                            {dispName.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.fullScreenModalItemText, { fontSize: 15, fontWeight: '600' }]}>{dispName}</Text>
+                          {subtitle ? (
+                            <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>{subtitle}</Text>
+                          ) : null}
+                        </View>
+                        <MaterialCommunityIcons name="chevron-right" size={20} color="#D1D5DB" />
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              );
+            })()}
           </View>
         </View>
       </Modal>

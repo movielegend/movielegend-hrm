@@ -11,9 +11,9 @@ import { ScopedEmployeeQueryDto } from './dto/scoped-employee-query.dto';
 @Injectable()
 export class EmployeesService {
   async updateAccountStatus(id: string, status: AccountStatus, actor: AuthenticatedUser) {
-    if (!actor.roles.includes('ADMIN') && !actor.permissions.includes('user.manage') && !actor.roles.includes('HR')) {
+    if (!actor.roles.includes('HR')) {
        const userDeptId = await this.scope.getPrimaryDepartmentId(id);
-       this.scope.assertDepartmentAccess(actor, userDeptId);
+       await this.scope.assertDepartmentAccessAsync(actor, userDeptId);
     }
     return this.prisma.user.update({
       where: { id },
@@ -42,6 +42,7 @@ export class EmployeesService {
             accountStatus: true,
             approvalStatus: true,
             isActive: true,
+            isRewardVaultEnabled: true,
             lastLoginAt: true,
             createdAt: true,
             updatedAt: true,
@@ -58,24 +59,14 @@ export class EmployeesService {
   }
 
   async scoped(actor: AuthenticatedUser, query: ScopedEmployeeQueryDto) {
-    let allowedDeptIds: string[] | null = null;
-    
-    if (actor.roles.includes('ADMIN') || actor.roles.includes('HR')) {
-      allowedDeptIds = null;
-    } else {
-      const leaderDepts = actor.scopes
-        .filter((s) => s.role === 'LEADER' && s.scopeType === 'DEPARTMENT' && s.scopeId)
-        .map((s) => s.scopeId as string);
-        
-      if (leaderDepts.length > 0) {
-        allowedDeptIds = leaderDepts;
-      } else {
-        const userDepts = await this.prisma.departmentMember.findMany({
-          where: { userId: actor.userId, leftAt: null },
-          select: { departmentId: true }
-        });
-        allowedDeptIds = userDepts.map(d => d.departmentId);
-      }
+    let allowedDeptIds = await this.scope.getVisibleDepartmentIds(actor);
+
+    if (allowedDeptIds === null && !actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
+      const userDepts = await this.prisma.departmentMember.findMany({
+        where: { userId: actor.userId, leftAt: null },
+        select: { departmentId: true }
+      });
+      allowedDeptIds = userDepts.map(d => d.departmentId);
     }
 
     if (query.departmentId && allowedDeptIds !== null && !allowedDeptIds.includes(query.departmentId)) {
@@ -103,7 +94,7 @@ export class EmployeesService {
               },
             },
           }
-        : allowedDeptIds !== null
+        : allowedDeptIds !== null && allowedDeptIds.length > 0
         ? {
             departmentLinks: {
               some: {
@@ -122,12 +113,25 @@ export class EmployeesService {
           userCode: true,
           accountStatus: true,
           isActive: true,
-          profile: { select: { fullName: true, avatarUrl: true, employmentStatus: true } },
+          isRewardVaultEnabled: true,
+          profile: { select: { fullName: true, avatarUrl: true, employmentStatus: true, currentLevelNumber: true } },
           departmentLinks: {
             where: { leftAt: null, ...(query.departmentId ? { departmentId: query.departmentId } : {}) },
             take: 1,
             include: {
-              department: { select: { id: true, name: true } },
+              department: {
+                select: {
+                  id: true,
+                  name: true,
+                  branch: {
+                    select: {
+                      id: true,
+                      name: true,
+                      region: { select: { id: true, name: true } },
+                    },
+                  },
+                },
+              },
               position: { select: { id: true, name: true } },
             },
           },
@@ -149,11 +153,19 @@ export class EmployeesService {
           userCode: item.userCode,
           fullName: item.profile?.fullName ?? null,
           avatarUrl: item.profile?.avatarUrl ?? null,
+          profile: {
+            fullName: item.profile?.fullName ?? null,
+            avatarUrl: item.profile?.avatarUrl ?? null,
+            employmentStatus: item.profile?.employmentStatus ?? null,
+            currentLevelNumber: item.profile?.currentLevelNumber ?? 1,
+          },
+          currentLevelNumber: item.profile?.currentLevelNumber ?? 1,
           department: link?.department ?? null,
           position: link?.position ?? null,
           employmentStatus: item.profile?.employmentStatus ?? null,
           accountStatus: item.accountStatus,
           isActive: item.isActive,
+          isRewardVaultEnabled: item.isRewardVaultEnabled ?? false,
           roles: item.roles,
         };
       }),

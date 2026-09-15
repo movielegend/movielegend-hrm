@@ -10,7 +10,7 @@ import { useUnreadNotificationCount } from '../../../src/hooks/useNotifications'
 export default function HRTabsLayout() {
   const insets = useSafeAreaInsets();
   const { isLoading, user } = useAuth();
-  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
 
   if (isLoading) return <LoadingState />;
   if (!canAccessRoleRoute(user, '/hr')) return <Redirect href={getHomeRouteForUser(user)} />;
@@ -84,7 +84,7 @@ export default function HRTabsLayout() {
           tabBarIcon: ({ color }) => (
             <View>
               <MaterialCommunityIcons name="bell-outline" size={26} color={color} />
-              {unreadCount > 0 && (
+              {unreadNotifications > 0 && (
                 <View style={{
                   position: 'absolute',
                   top: -4,
@@ -100,7 +100,7 @@ export default function HRTabsLayout() {
                   borderColor: '#fff'
                 }}>
                   <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
                   </Text>
                 </View>
               )}

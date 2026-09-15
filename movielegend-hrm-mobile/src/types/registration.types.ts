@@ -21,6 +21,7 @@ export interface RegistrationFormValues {
   idCardNumber: string;
   dateOfBirth?: string | undefined;
   gender?: Gender | undefined;
+  joinDate?: string | undefined;
   requestedDepartmentId: string;
   faceImages: FaceImageInput[];
 }
@@ -33,8 +34,9 @@ export interface RegisterPayload {
   idCardNumber: string;
   dateOfBirth?: string | undefined;
   gender?: Gender | undefined;
+  joinDate?: string | undefined;
   requestedDepartmentId: string;
-  faceImages: Array<{ pose: FacePose; imageUrl: string; fileId?: string | undefined }>;
+  faceImages?: Array<{ pose: FacePose; imageUrl: string; fileId?: string | undefined }>;
 }
 
 export interface RegisterResult {

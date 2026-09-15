@@ -1,6 +1,6 @@
 import React from 'react';
-import { AdminOptInVaultScreen } from '../../../src/features/admin-config/AdminOptInVaultScreen';
+import { AdminTetWalletScreen } from '../../../src/features/tet-wallet/AdminTetWalletScreen';
 
 export default function AdminVaultPermissionsRoute() {
-  return <AdminOptInVaultScreen />;
+  return <AdminTetWalletScreen />;
 }

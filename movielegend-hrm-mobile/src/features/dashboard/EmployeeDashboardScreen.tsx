@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Dimensions, Alert, Image, RefreshControl } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ContourHeroPattern } from './components/ContourHeroPattern';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
@@ -9,11 +11,15 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useMySchedule } from '../../hooks/useShifts';
 import { useMyTasks } from '../../hooks/useTasks';
+import { getMyVault } from '../../api/employees.api';
+import { getNextVaultMilestone } from '../vault/vault-utils';
 import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
 import { Screen } from '../../components/Screen';
 import { spacing } from '../../theme/spacing';
-import { useUnreadNotificationCount } from '../../hooks/useNotifications';
-import { RetentionVaultWidget } from '../vault/RetentionVaultWidget';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
+import { LiveClock } from '../../components/LiveClock';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
@@ -25,8 +31,30 @@ export function EmployeeDashboardScreen() {
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: schedule } = useMySchedule();
   const { data: myTasks } = useMyTasks({ limit: 100 });
-  const { data: unreadData } = useUnreadNotificationCount();
-  const unreadCount = unreadData?.count || 0;
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
+  const { data: myVault } = useQuery({
+    queryKey: ['my-vault', user?.id],
+    queryFn: getMyVault,
+    enabled: Boolean(user?.id),
+  });
+
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress', user?.id],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+    enabled: Boolean(user?.id),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 1;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#2196F3';
+  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || `Cấp ${currentLevelNumber}`;
+  const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
+  const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
+  const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
+
+  const vaultMilestone = useMemo(() => {
+    return getNextVaultMilestone(myVault, new Date());
+  }, [myVault]);
 
   useEffect(() => {
     if (schedule && schedule.length > 0) {
@@ -49,16 +77,13 @@ export function EmployeeDashboardScreen() {
     return name.charAt(0).toUpperCase();
   };
 
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentDate(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
   const fullName = user?.fullName || user?.userCode || 'Nhân viên';
-  const timeString = currentDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-  const dateString = currentDate.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dateString = new Date().toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 
   const uncompletedTasksCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
 
@@ -78,43 +103,77 @@ export function EmployeeDashboardScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-            <View style={styles.avatar}>
-              {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-              )}
+          <View style={styles.headerLeft}>
+            <Pressable
+              style={styles.avatarWrapper}
+              onPress={() => router.push('/employee/leveling' as any)}
+            >
+              <View style={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </View>
+              {/* Level Rank Badge on Avatar */}
+              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+              </View>
+            </Pressable>
+
+            <View style={styles.greetingInfo}>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greetingText}>Xin chào 👋</Text>
+                <Pressable
+                  style={[
+                    styles.levelPill,
+                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
+                  ]}
+                  onPress={() => router.push('/employee/leveling' as any)}
+                >
+                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
+                  <Text style={[styles.levelPillText, { color: levelColor }]}>
+                    Lv.{currentLevelNumber} • {levelTitle}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.userName} numberOfLines={1}>{fullName}</Text>
+              <Text style={styles.dateText}>{dateString}</Text>
             </View>
-          <View style={styles.headerInfo}>
-            <Text style={styles.greetingText}>Xin chào,</Text>
-            <Text style={styles.userName}>{fullName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/(tabs)/newsfeed')}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/notifications' as any)}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
+              {unreadNotifications > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
                   </Text>
                 </View>
               )}
             </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/(tabs)/chat')}>
+            <Pressable style={styles.iconBtn} onPress={() => router.push('/employee/chat' as any)}>
               <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
+              {unreadChat > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadChat > 99 ? '99+' : unreadChat}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
 
-        {/* Hero Card - Chấm công */}
-        <Pressable
-          style={[styles.heroCard, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#F59E0B' }]}
+        {/* Hero Card (Đã chấm công) */}
+        <Pressable 
+          style={styles.heroCard}
           onPress={async () => {
             try {
               if (currentAttendance?.state === 'CHECKED_IN') {
-                router.push('/employee/attendance/check-out');
+                router.push('/employee/attendance/check-out' as any);
               } else {
-                router.push('/employee/attendance/check-in');
+                router.push('/employee/attendance/check-in' as any);
               }
             } catch (error) {
               Toast.show({
@@ -125,102 +184,259 @@ export function EmployeeDashboardScreen() {
             }
           }}
         >
-          {/* Decorative topographic wood grain background asset */}
-          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24, overflow: 'hidden' }}>
-            <Image
-              source={require('../../../assets/topographic-contour-employee-v2.png')}
-              style={styles.heroTopographicBg}
-              resizeMode="cover"
-            />
-          </View>
-          
+          <View style={styles.heroCardInner}>
+            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
+            <ContourHeroPattern variant="blue" />
 
-          <View style={styles.statusBadge}>
-            <MaterialCommunityIcons name="check-circle" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#3B82F6'} />
-            <Text style={[styles.statusBadgeText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>
-              {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
-            </Text>
-          </View>
-          <View style={styles.timeContainer}>
-            <Text style={[styles.timeValue, currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF' }]}>{timeString}</Text>
-          </View>
-          <View style={styles.locationContainer}>
-            <MaterialCommunityIcons name="map-marker-outline" size={16} color={currentAttendance?.state === 'CHECKED_IN' ? '#FEF3C7' : '#6B7280'} />
-            <Text style={[styles.locationText, currentAttendance?.state === 'CHECKED_IN' && { color: '#FEF3C7' }]}>Văn phòng Hà Nội</Text>
+            {/* Top Status Header */}
+            <View style={styles.heroHeaderRow}>
+              <MaterialCommunityIcons 
+                name={currentAttendance?.state === 'CHECKED_IN' ? 'check-circle' : 'check-circle'} 
+                size={18} 
+                color="#2563EB" 
+              />
+              <Text style={styles.heroStatusText}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              </Text>
+            </View>
+
+            {/* Main Clock */}
+            <View style={styles.heroTimeWrapper}>
+              <LiveClock style={styles.heroTimeText} />
+            </View>
+
+            {/* Bottom Row */}
+            <View style={styles.heroFooterRow}>
+              <View style={styles.locationWrapper}>
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
+                <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+              </View>
+            </View>
           </View>
         </Pressable>
 
-        {/* Ví Thưởng Giữ Chân Nhân Tài (Opt-in Widget) */}
-        <RetentionVaultWidget isVaultEnabled={true} />
+        {/* Banner Cấp Bậc & Lộ Trình (Phong cách Apple UI tinh tế, sang trọng) */}
+        <Pressable
+          style={styles.levelAppleCard}
+          onPress={() => router.push('/employee/leveling' as any)}
+        >
+          {/* Top Section */}
+          <View style={styles.levelAppleHeaderRow}>
+            <View style={styles.levelAppleLeft}>
+              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
+                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
+              </View>
+              <View style={styles.levelAppleTitleBlock}>
+                <View style={styles.levelAppleBadgeRow}>
+                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
+                    Level {currentLevelNumber}: {levelTitle}
+                  </Text>
+                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
+                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
+                      Lv.{currentLevelNumber}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.levelAppleSubtitle}>
+                  {levelProgress?.nextLevel
+                    ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                    : 'Cấp bậc danh dự tối cao'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
+              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Lộ trình</Text>
+              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
+            </View>
+          </View>
+
+          {/* Full-width elegant progress bar */}
+          <View style={styles.levelAppleProgressContainer}>
+            <View style={styles.levelAppleProgressTrack}>
+              <View
+                style={[
+                  styles.levelAppleProgressFill,
+                  {
+                    width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                    backgroundColor: levelColor,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.levelAppleProgressFooter}>
+              <Text style={styles.levelAppleProgressFooterText}>
+                {levelProgress?.nextLevel
+                  ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
+                  : 'Đạt cấp độ cao nhất'}
+              </Text>
+              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
+                {levelProgress?.overallProgressPercent || 0}%
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Banner Ví Thưởng & Vạch thời gian đếm ngược đến hạn rút (Hiển thị nổi bật khi được trao điểm/mở quyền) */}
+        {isVaultEnabled && (
+          <Pressable
+            style={styles.vaultAppleCard}
+            onPress={() => router.push('/employee/vault' as any)}
+          >
+            {/* Top Section */}
+            <View style={styles.vaultAppleHeaderRow}>
+              <View style={styles.vaultAppleLeft}>
+                <View style={styles.vaultAppleIconCircle}>
+                  <MaterialCommunityIcons name="gift" size={22} color="#D97706" />
+                </View>
+                <View style={styles.vaultAppleTitleBlock}>
+                  <View style={styles.vaultAppleBadgeRow}>
+                    <Text style={styles.vaultAppleTitle} numberOfLines={1}>
+                      Ví Thưởng Tích Lũy
+                    </Text>
+                    <View style={styles.vaultAppleVipBadge}>
+                      <Text style={styles.vaultAppleVipBadgeText}>VIP</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.vaultAppleSubtitle}>
+                    Khả dụng: <Text style={styles.vaultAppleSubtitleBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                    {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.vaultAppleActionBtn}>
+                <Text style={styles.vaultAppleActionText}>Mở ví</Text>
+                <MaterialCommunityIcons name="chevron-right" size={14} color="#92400E" />
+              </View>
+            </View>
+
+            {/* Vạch thời gian & Đếm ngược đến hạn rút */}
+            {vaultMilestone ? (
+              <View style={styles.vaultAppleProgressContainer}>
+                <View style={styles.vaultAppleProgressTrack}>
+                  <View
+                    style={[
+                      styles.vaultAppleProgressFill,
+                      {
+                        width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
+                        backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706',
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.vaultAppleProgressFooter}>
+                  <View style={styles.vaultAppleProgressFooterLeft}>
+                    <MaterialCommunityIcons
+                      name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
+                      size={13}
+                      color={vaultMilestone.isAllUnlocked ? '#059669' : '#D97706'}
+                    />
+                    <Text style={styles.vaultAppleProgressFooterText}>
+                      {vaultMilestone.isAllUnlocked
+                        ? 'Đã mở khóa tất cả các đợt rút'
+                        : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.vaultAppleProgressFooterPercent,
+                      { color: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706' },
+                    ]}
+                  >
+                    {vaultMilestone.isAllUnlocked
+                      ? '100% Hoàn tất'
+                      : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </Pressable>
+        )}
 
         {/* Tiện ích (Grid) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
+        <View style={[styles.section, styles.utilitySection]}>
+          <Text style={styles.sectionTitle}>Tiện ích</Text>
           <View style={styles.gridContainer}>
             <GridItem
               icon="star-circle-outline"
               title="Cấp của bạn"
+              color="#F59E0B"
               onPress={() => router.push('/employee/leveling' as any)}
             />
             <GridItem
-              icon="trophy-award"
-              title="Thi đua"
-              onPress={() => router.push('/employee/competition' as any)}
+              icon="briefcase-outline"
+              title="Dự án"
+              color="#3B82F6"
+              onPress={() => router.push('/employee/level-projects' as any)}
             />
             <GridItem
               icon="gift-outline"
-              title="Ví Thưởng Tết"
+              title="Ví Thưởng"
+              color="#059669"
+              badge={isVaultEnabled ? 'VÍ' : undefined}
+              badgeColor="#D97706"
               onPress={() => router.push('/employee/vault' as any)}
             />
             <GridItem
-              icon="history"
-              title="Lịch sử chấm công"
+              icon="calendar-clock"
+              title="Lịch sử công"
+              color="#6366F1"
               onPress={() => router.push('/employee/attendance/history' as any)}
             />
             <GridItem
-              icon="calendar-clock"
+              icon="view-grid-outline"
               title="Ca làm việc"
+              color="#EC4899"
               onPress={() => router.push('/employee/schedule')}
             />
             <GridItem
               icon="format-list-checks"
               title="Công việc"
+              color="#10B981"
               badge={uncompletedTasksCount > 0 ? String(uncompletedTasksCount) : undefined}
               onPress={() => router.push('/employee/tasks')}
             />
             <GridItem
               icon="file-document-edit-outline"
               title="Đơn từ"
+              color="#EA580C"
               onPress={() => router.push('/employee/requests')}
             />
             <GridItem
               icon="transit-connection-variant"
-              title="Yêu cầu Liên phòng"
+              title="Liên phòng"
+              color="#0D9488"
               onPress={() => router.push('/employee/cross-department')}
             />
             <GridItem
-              icon="cash-multiple"
-              title="Phiếu lương"
-              onPress={() => Alert.alert('Thông báo', 'Chức năng đang được phát triển')}
+              icon="file-document-outline"
+              title="Hợp đồng"
+              color="#8B5CF6"
+              onPress={() => router.push('/employee/contracts')}
             />
             <GridItem
-              icon="text-box-check-outline"
-              title="Hợp đồng"
-              onPress={() => router.push('/employee/contracts')}
+              icon="folder-text-outline"
+              title="Tài liệu"
+              color="#2563EB"
+              onPress={() => router.push('/employee/documents' as any)}
             />
             <GridItem
               icon="message-draw"
               title="Góp ý"
+              color="#E11D48"
               onPress={() => router.push('/employee/feedbacks' as any)}
             />
             <GridItem
               icon="laptop"
               title="Tài sản"
+              color="#64748B"
               onPress={() => router.push('/employee/assets')}
             />
             <GridItem
               icon="swap-horizontal"
               title="Đổi ca"
+              color="#2563EB"
               onPress={() => router.push('/employee/shift-swaps')}
             />
           </View>
@@ -240,17 +456,26 @@ export function EmployeeDashboardScreen() {
                   return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
                 })
                 .slice(0, 5)
-                .map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    title={task.title}
-                    priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
-                    priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
-                    dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
-                    onPress={() => router.push(`/employee/tasks/${task.id}`)}
-                    isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
-                  />
-                ))
+                .map((task) => {
+                  let formattedDueDate = 'Không có hạn';
+                  if (task.dueDate) {
+                    const parsed = new Date(task.dueDate);
+                    if (!isNaN(parsed.getTime())) {
+                      formattedDueDate = parsed.toLocaleDateString('vi-VN');
+                    }
+                  }
+                  return (
+                    <TaskCard
+                      key={task.id}
+                      title={task.title}
+                      priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
+                      priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
+                      dueDate={formattedDueDate}
+                      onPress={() => router.push(`/employee/tasks/${task.id}`)}
+                      isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
+                    />
+                  );
+                })
             ) : (
               <TaskCard
                 title="Cập nhật báo cáo tiến độ tuần"
@@ -276,13 +501,13 @@ export function EmployeeDashboardScreen() {
   );
 }
 
-function GridItem({ icon, title, onPress, color, badge }: any) {
+function GridItem({ icon, title, onPress, color, badge, badgeColor }: any) {
   return (
     <Pressable style={styles.gridItem} onPress={onPress}>
       <View style={styles.gridIconContainer}>
-        <MaterialCommunityIcons name={icon} size={28} color="#111827" />
+        <MaterialCommunityIcons name={icon} size={28} color={color || "#111827"} />
         {badge && (
-          <View style={styles.badge}>
+          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
@@ -323,7 +548,8 @@ function TaskCard({ title, priority, priorityColor, dueDate, onPress, isComplete
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.xxl,
     backgroundColor: '#FAFAFA',
   },
@@ -331,8 +557,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.md,
+    marginBottom: 28,
+    marginTop: spacing.xs,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginRight: spacing.md,
   },
   avatar: {
     width: 52,
@@ -341,104 +578,190 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
   },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerInfo: {
-    flex: 1,
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FAFAFA',
+    paddingHorizontal: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  avatarLevelBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 12,
+  },
+  greetingInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+    flexWrap: 'wrap',
+  },
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  levelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   greetingText: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
   },
   userName: {
     fontSize: 20,
     fontWeight: '800',
     color: '#111827',
   },
+  dateText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    marginTop: 1,
+  },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#ECEEF3',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    zIndex: 10,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   heroCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: spacing.xl,
     marginBottom: spacing.xl,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  heroCardInner: {
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#EFF6FF',
+    borderColor: '#E0F2FE',
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+    minHeight: 148,
+    justifyContent: 'space-between',
   },
-  heroTopographicBg: {
-    position: 'absolute',
-    right: -10,
-    bottom: -10,
-    top: -10,
-    width: '65%',
-    height: '120%',
-    opacity: 0.85,
-  },
-  statusBadge: {
+  heroHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: spacing.md,
+    gap: 7,
+    zIndex: 2,
   },
-  statusBadgeText: {
+  heroStatusText: {
+    color: '#1E40AF',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E3A8A',
+    letterSpacing: -0.2,
   },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.sm,
+  heroTimeWrapper: {
+    marginVertical: 4,
+    zIndex: 2,
   },
-  timeValue: {
+  heroTimeText: {
     fontSize: 48,
-    fontWeight: '800',
-    color: '#111827',
-    letterSpacing: -1,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -1.5,
   },
-  timeAmPm: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    marginLeft: 8,
-  },
-  locationContainer: {
+  heroFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    zIndex: 2,
+  },
+  locationWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   locationText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  utilitySection: {
+    marginBottom: -12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111827',
     marginBottom: spacing.md,
@@ -571,5 +894,235 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 999,
-  }
+  },
+  levelAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  levelAppleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  levelAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  levelAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  levelAppleTitleBlock: {
+    flex: 1,
+  },
+  levelAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  levelAppleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  levelApplePillTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  levelApplePillTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  levelAppleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  levelAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  levelAppleActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  levelAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  levelAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  levelAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  levelAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  levelAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  levelAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  vaultAppleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  vaultAppleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  vaultAppleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  vaultAppleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vaultAppleTitleBlock: {
+    flex: 1,
+  },
+  vaultAppleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  vaultAppleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  vaultAppleVipBadge: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  vaultAppleVipBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  vaultAppleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  vaultAppleSubtitleBold: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  vaultAppleActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  vaultAppleActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  vaultAppleProgressContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+  },
+  vaultAppleProgressTrack: {
+    height: 6,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  vaultAppleProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  vaultAppleProgressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  vaultAppleProgressFooterLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  vaultAppleProgressFooterText: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '500',
+  },
+  vaultAppleProgressFooterPercent: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
 });

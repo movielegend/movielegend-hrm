@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { AttendanceCamera } from './AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -11,6 +11,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from '../../lib/Maps';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 import { Screen } from '../../components/Screen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkIn } from '../../api/attendance.api';
 import { uploadFile } from '../../api/uploads.api';
 import { colors } from '../../theme/colors';
@@ -20,6 +21,7 @@ import Toast from 'react-native-toast-message';
 
 export function CheckInScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
 
   // Find today's shift
@@ -161,83 +163,88 @@ export function CheckInScreen() {
         <View style={styles.iconBtnPlaceholder} />
       </View>
 
-      {/* Map View */}
-      <View style={styles.mapContainerWrapper}>
-        <View style={styles.mapContainer}>
-          {location ? (
-            <MapView
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              initialRegion={{
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 + Math.max(insets.bottom, 20) }}
+      >
+        {/* Map View */}
+        <View style={styles.mapContainerWrapper}>
+          <View style={styles.mapContainer}>
+            {location ? (
+              <MapView
+                style={styles.map}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={{
+                  latitude: location.coords.latitude,
+                  longitude: location.coords.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+              >
+                <Marker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} />
+              </MapView>
+            ) : (
+              <View style={[styles.map, styles.center]}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            )}
+          </View>
+
+          {/* Map Footer Info */}
+          <View style={styles.mapFooter}>
+            <Text style={styles.privacyText}>Quyền riêng tư</Text>
+            <Pressable
+              style={styles.refreshBtn}
+              onPress={() => void fetchLocation(true)}
+              disabled={isRefreshingLocation}
             >
-              <Marker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} />
-            </MapView>
+              {isRefreshingLocation ? (
+                <ActivityIndicator size="small" color="#111827" />
+              ) : (
+                <MaterialCommunityIcons name="refresh" size={16} color="#111827" />
+              )}
+              <Text style={styles.refreshText}>{isRefreshingLocation ? 'Đang tải...' : 'Làm mới vị trí'}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Network Info */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Mạng hiện tại</Text>
+          <View style={styles.wifiBox}>
+            <View style={styles.wifiIconBox}>
+              <MaterialCommunityIcons name="wifi" size={24} color="#111827" />
+            </View>
+            <View style={styles.wifiInfoBox}>
+              <Text style={styles.wifiName}>Mạng: {networkType}</Text>
+              <Text style={styles.wifiBssid}>Đang kết nối</Text>
+            </View>
+            <MaterialCommunityIcons name="check-circle" size={20} color="#111827" />
+          </View>
+        </View>
+
+        {/* Shift Selection */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Ca làm việc đang chọn</Text>
+          {scheduleLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+          ) : todayShift ? (
+            <Pressable style={styles.shiftCard}>
+              <MaterialCommunityIcons name="radiobox-marked" size={24} color="#111827" style={styles.radioIcon} />
+              <View>
+                <Text style={styles.shiftName}>{todayShift.shift?.name}</Text>
+                <Text style={styles.shiftTime}>{todayShift.shift?.startTime} - {todayShift.shift?.endTime}</Text>
+              </View>
+            </Pressable>
           ) : (
-            <View style={[styles.map, styles.center]}>
-              <ActivityIndicator color={colors.primary} />
+            <View style={styles.emptyShiftCard}>
+              <MaterialCommunityIcons name="calendar-blank-outline" size={32} color="#9CA3AF" />
+              <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay.</Text>
+              <Text style={{ textAlign: 'center', color: '#6B7280', fontSize: 13, marginTop: 4 }}>Bạn vẫn có thể bấm "Xác nhận" để vào ca OT đột xuất.</Text>
             </View>
           )}
         </View>
-
-        {/* Map Footer Info */}
-        <View style={styles.mapFooter}>
-          <Text style={styles.privacyText}>Quyền riêng tư</Text>
-          <Pressable
-            style={styles.refreshBtn}
-            onPress={() => void fetchLocation(true)}
-            disabled={isRefreshingLocation}
-          >
-            {isRefreshingLocation ? (
-              <ActivityIndicator size="small" color="#111827" />
-            ) : (
-              <MaterialCommunityIcons name="refresh" size={16} color="#111827" />
-            )}
-            <Text style={styles.refreshText}>{isRefreshingLocation ? 'Đang tải...' : 'Làm mới vị trí'}</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Network Info */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Mạng hiện tại</Text>
-        <View style={styles.wifiBox}>
-          <View style={styles.wifiIconBox}>
-            <MaterialCommunityIcons name="wifi" size={24} color="#111827" />
-          </View>
-          <View style={styles.wifiInfoBox}>
-            <Text style={styles.wifiName}>Mạng: {networkType}</Text>
-            <Text style={styles.wifiBssid}>Đang kết nối</Text>
-          </View>
-          <MaterialCommunityIcons name="check-circle" size={20} color="#111827" />
-        </View>
-      </View>
-
-      {/* Shift Selection */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Ca làm việc đang chọn</Text>
-        {scheduleLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
-        ) : todayShift ? (
-          <Pressable style={styles.shiftCard}>
-            <MaterialCommunityIcons name="radiobox-marked" size={24} color="#111827" style={styles.radioIcon} />
-            <View>
-              <Text style={styles.shiftName}>{todayShift.shift?.name}</Text>
-              <Text style={styles.shiftTime}>{todayShift.shift?.startTime} - {todayShift.shift?.endTime}</Text>
-            </View>
-          </Pressable>
-        ) : (
-          <View style={styles.emptyShiftCard}>
-            <MaterialCommunityIcons name="calendar-blank-outline" size={32} color="#9CA3AF" />
-            <Text style={styles.emptyShiftText}>Bạn không có ca làm việc hôm nay.</Text>
-            <Text style={{ textAlign: 'center', color: '#6B7280', fontSize: 13, marginTop: 4 }}>Bạn vẫn có thể bấm "Xác nhận" để vào ca OT đột xuất.</Text>
-          </View>
-        )}
-      </View>
+      </ScrollView>
 
       {/* Camera Modal */}
       <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent>
@@ -250,7 +257,7 @@ export function CheckInScreen() {
 
       {/* Footer Confirm Button */}
       {!isCameraVisible ? (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <Pressable
             style={styles.confirmBtn}
             onPress={() => void handleConfirm()}

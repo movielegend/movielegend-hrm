@@ -42,8 +42,10 @@ export class AssetsService {
     private readonly storage: StorageService,
   ) {}
 
-  create(dto: CreateAssetDto, actor: AuthenticatedUser) {
-    if (dto.departmentId && !actor.roles.includes('ADMIN')) this.departments.assertDepartmentAccess(actor, dto.departmentId);
+  async create(dto: CreateAssetDto, actor: AuthenticatedUser) {
+    if (dto.departmentId && !actor.roles.includes('HR')) {
+      await this.departments.assertDepartmentAccessAsync(actor, dto.departmentId);
+    }
     return this.prisma.$transaction(async (tx) => {
       const assetCode = dto.assetCode ?? (await this.prisma.nextSequenceCode(tx, 'asset_code_seq', 'AST'));
       const asset = await tx.asset.create({ data: { ...dto, assetCode } });
@@ -54,10 +56,12 @@ export class AssetsService {
     });
   }
 
-  async findAdminDepartments(search?: string) {
+  async findAdminDepartments(search: string | undefined, actor: AuthenticatedUser) {
+    const visibleIds = await this.departments.getVisibleDepartmentIds(actor);
     const departments = await this.prisma.department.findMany({
       where: {
         deletedAt: null,
+        ...(visibleIds ? { id: { in: visibleIds } } : {}),
         ...(search ? {
           OR: [
             { name: { contains: search, mode: 'insensitive' } },
@@ -95,19 +99,24 @@ export class AssetsService {
       })
     };
   }
-  findAll(actor: AuthenticatedUser) {
-    if (actor.roles.includes('ADMIN')) return this.prisma.asset.findMany({ where: { deletedAt: null }, include: { assignments: true, department: true } });
-    const departments = this.departments.visibleDepartmentIds(actor) ?? [];
+
+  async findAll(actor: AuthenticatedUser) {
+    const departments = await this.departments.getVisibleDepartmentIds(actor);
+    if (departments === null && actor.roles.includes('ADMIN')) {
+      return this.prisma.asset.findMany({ where: { deletedAt: null }, include: { assignments: true, department: true }, orderBy: { createdAt: 'desc' } });
+    }
+    const depts = departments ?? [];
     return this.prisma.asset.findMany({
       where: {
         deletedAt: null,
         OR: [
-          { departmentId: { in: departments } },
+          { departmentId: { in: depts } },
           { assignments: { some: { assignedToUserId: actor.userId, status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.RETURN_REQUESTED] } } } },
-          { assignments: { some: { assignedToDepartmentId: { in: departments } } } },
+          { assignments: { some: { assignedToDepartmentId: { in: depts } } } },
         ],
       },
       include: { assignments: true, department: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -138,8 +147,10 @@ export class AssetsService {
 
   async update(id: string, dto: UpdateAssetDto, actor: AuthenticatedUser) {
     const asset = await this.findOne(id, actor);
-    if (asset.warehouseId) this.warehouses.assertWarehouseAccess(actor, asset.warehouseId);
-    if (dto.departmentId && !actor.roles.includes('ADMIN')) this.departments.assertDepartmentAccess(actor, dto.departmentId);
+    if (asset.warehouseId) await this.warehouses.assertWarehouseAccessAsync(actor, asset.warehouseId);
+    if (dto.departmentId && !actor.roles.includes('HR')) {
+      await this.departments.assertDepartmentAccessAsync(actor, dto.departmentId);
+    }
     return this.prisma.asset.update({ where: { id }, data: dto });
   }
 
@@ -149,7 +160,9 @@ export class AssetsService {
       console.log('--- TRANSFER ASSET STATE ---', asset);
       if (!asset || asset.deletedAt) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
       if (asset.assetStatus !== AssetStatus.IN_STOCK) throw badRequest('ASSET_NOT_TRANSFERABLE', 'Asset must be in stock to transfer');
-      if (asset.departmentId && !actor.roles.includes('ADMIN')) this.departments.assertDepartmentAccess(actor, asset.departmentId);
+      if (asset.departmentId && !actor.roles.includes('HR')) {
+        await this.departments.assertDepartmentAccessAsync(actor, asset.departmentId);
+      }
       
       const updatedAsset = await tx.asset.update({
         where: { id },
@@ -169,7 +182,7 @@ export class AssetsService {
       const asset = await tx.asset.findUnique({ where: { id } });
       if (!asset || asset.deletedAt) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
       if (asset.assetStatus !== AssetStatus.IN_STOCK) throw badRequest('ASSET_NOT_ASSIGNABLE', 'Asset is not in stock');
-      if (asset.warehouseId) this.warehouses.assertWarehouseAccess(actor, asset.warehouseId);
+      if (asset.warehouseId) await this.warehouses.assertWarehouseAccess(actor, asset.warehouseId);
       // If asset is IN_STOCK, clean up any old stale active/pending assignments
       await tx.assetAssignment.updateMany({
         where: {
@@ -308,13 +321,38 @@ export class AssetsService {
     body: string,
     metadata: Record<string, unknown>,
   ) {
+    let regionId: string | null = null;
+    let warehouseId: string | null = null;
+    if (metadata.assetId) {
+      const asset = await tx.asset.findUnique({
+        where: { id: metadata.assetId as string },
+        select: { warehouse: { select: { id: true, branch: { select: { regionId: true } } } } }
+      });
+      if (asset?.warehouse) {
+        warehouseId = asset.warehouse.id;
+        regionId = asset.warehouse.branch?.regionId || null;
+      }
+    }
+
     const managers = await tx.userRole.findMany({
       where: { role: { code: { in: ['ADMIN', 'WAREHOUSE_MANAGER'] } } },
-      select: { userId: true },
+      select: { userId: true, role: { select: { code: true } }, scopeType: true, scopeId: true },
     });
-    const notifyUserIds = Array.from(new Set(managers.map((m) => m.userId))).filter((id) => id !== actor.userId);
-    if (notifyUserIds.length > 0) {
-      const notify = await this.notifications.createForUsers(tx, notifyUserIds, {
+    
+    const notifyUserIds = new Set<string>();
+    for (const m of managers) {
+      if (m.userId === actor.userId) continue;
+      
+      if (m.role.code === 'ADMIN') {
+        if (m.scopeType === 'GLOBAL') notifyUserIds.add(m.userId);
+        else if (m.scopeType === 'REGION' && m.scopeId === regionId) notifyUserIds.add(m.userId);
+      } else if (m.role.code === 'WAREHOUSE_MANAGER') {
+        if (m.scopeType === 'WAREHOUSE' && m.scopeId === warehouseId) notifyUserIds.add(m.userId);
+      }
+    }
+
+    if (notifyUserIds.size > 0) {
+      const notify = await this.notifications.createForUsers(tx, Array.from(notifyUserIds), {
         type,
         title,
         body,
@@ -386,7 +424,7 @@ export class AssetsService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const assignment = await tx.assetAssignment.findUnique({ where: { id }, include: { asset: true } });
       if (!assignment) throw notFound('ASSET_ASSIGNMENT_NOT_FOUND', 'Asset assignment not found');
-      if (assignment.asset.warehouseId) this.warehouses.assertWarehouseAccess(actor, assignment.asset.warehouseId);
+      if (assignment.asset.warehouseId) await this.warehouses.assertWarehouseAccess(actor, assignment.asset.warehouseId);
       if (assignment.status !== AssetAssignmentStatus.RETURN_REQUESTED && assignment.status !== AssetAssignmentStatus.ACTIVE) {
         throw conflict('ASSET_RETURN_NOT_ALLOWED', 'Asset return is not allowed now');
       }
@@ -606,17 +644,34 @@ export class AssetsService {
   }
 
   private async assertCanReadAsset(assetId: string, actor: AuthenticatedUser): Promise<void> {
-    if (actor.roles.includes('ADMIN')) return;
+    const asset = await this.prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset) throw notFound('ASSET_NOT_FOUND', 'Asset not found');
+
+    if (actor.roles.includes('ADMIN')) {
+      if (asset.departmentId) {
+        if (await this.departments.canAccessDepartmentAsync(actor, asset.departmentId)) return;
+      } else {
+        return; // Global Admin or unassigned asset? Let them see it for now if admin.
+      }
+    }
+
     const assignment = await this.prisma.assetAssignment.findFirst({
       where: {
         assetId,
         status: { in: [AssetAssignmentStatus.ACTIVE, AssetAssignmentStatus.PENDING_CONFIRMATION, AssetAssignmentStatus.RETURN_REQUESTED] },
       },
     });
-    if (!assignment) throw forbidden('ASSET_FORBIDDEN', 'Cannot access this asset');
+    
+    if (!assignment) {
+      if (actor.roles.includes('ADMIN')) return;
+      throw forbidden('ASSET_FORBIDDEN', 'Cannot access this asset');
+    }
     if (assignment.assignedToUserId === actor.userId) return;
-    if (assignment.assignedToDepartmentId) this.departments.assertDepartmentAccess(actor, assignment.assignedToDepartmentId);
-    else throw forbidden('ASSET_FORBIDDEN', 'Cannot access this asset');
+    if (assignment.assignedToDepartmentId) {
+      await this.departments.assertDepartmentAccessAsync(actor, assignment.assignedToDepartmentId);
+      return;
+    }
+    throw forbidden('ASSET_FORBIDDEN', 'Cannot access this asset');
   }
 
   private async assertCanReportAsset(assetId: string, actor: AuthenticatedUser): Promise<void> {

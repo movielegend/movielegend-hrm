@@ -20,6 +20,7 @@ export function useUserGuide() {
 export function UserGuideManager({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [showGuide, setShowGuide] = useState(false);
+  const [guideMode, setGuideMode] = useState<'prompt' | 'viewing'>('prompt');
   
   // We need to keep track of whether we've checked for the current user session
   // to avoid checking continuously if the modal is closed.
@@ -41,6 +42,7 @@ export function UserGuideManager({ children }: { children: React.ReactNode }) {
           const isUpToDate = isGuideUpToDate(status);
           
           if (!isUpToDate) {
+            setGuideMode('prompt');
             setShowGuide(true);
           }
         } catch (error) {
@@ -59,6 +61,7 @@ export function UserGuideManager({ children }: { children: React.ReactNode }) {
   };
 
   const showGuideManual = () => {
+    setGuideMode('viewing');
     setShowGuide(true);
   };
 
@@ -71,8 +74,10 @@ export function UserGuideManager({ children }: { children: React.ReactNode }) {
           userRoles={user.roles}
           isVisible={showGuide}
           onClose={handleCloseGuide}
+          initialViewMode={guideMode}
         />
       )}
     </UserGuideContext.Provider>
   );
 }
+

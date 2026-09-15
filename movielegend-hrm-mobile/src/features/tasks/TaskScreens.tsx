@@ -16,10 +16,13 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { MultiSelectModal } from '../../components/MultiSelectModal';
+import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
 import { useDepartments } from '../../hooks/useDepartments';
-import { useScopedEmployees } from '../../hooks/useEmployees';
+import { useEmployees, useScopedEmployees } from '../../hooks/useEmployees';
+import { useRegions } from '../../api/regions.api';
+import { useBranches } from '../../api/branches.api';
 import { useTaskGroups } from '../../hooks/useTaskGroups';
 import { useAppAlert } from '../../contexts/AlertContext';
 import {
@@ -60,6 +63,7 @@ import {
   PriorityBadge,
   ProgressBar,
   ReviewActionSheet,
+  SubtaskCardItem,
   TargetPreview,
   TaskCard,
   TaskStatusBadge,
@@ -83,7 +87,7 @@ const TASK_STATUS_TABS = [
   { label: 'Chờ nhận', value: 'NEW' },
   { label: 'Đang làm', value: 'IN_PROGRESS' },
   { label: 'Chờ duyệt', value: 'WAITING_REVIEW' },
-  { label: 'Quá hạn ⚠️', value: 'OVERDUE' },
+  { label: 'Quá hạn', value: 'OVERDUE' },
   { label: 'Hoàn thành', value: 'COMPLETED' },
   { label: 'Làm lại', value: 'REJECTED' },
   { label: 'Đã hủy', value: 'CANCELLED' },
@@ -109,24 +113,26 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   return (
     <Screen>
       <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
-        <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" />
+        <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" showBack={false} />
         
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />
         
-        <View style={styles.actionRow}>
-          {createRoute ? (
-            <Pressable style={styles.actionBtnPrimary} onPress={() => router.push(createRoute)}>
-              <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-              <Text style={styles.actionBtnTextPrimary}>Thêm công việc</Text>
-            </Pressable>
-          ) : null}
-          {reviewRoute ? (
-            <Pressable style={styles.actionBtnSecondary} onPress={() => router.push(reviewRoute)}>
-              <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.text} />
-              <Text style={styles.actionBtnTextSecondary}>Hàng đợi duyệt</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        {(createRoute || reviewRoute) ? (
+          <View style={styles.actionRow}>
+            {createRoute ? (
+              <Pressable style={styles.actionBtnPrimary} onPress={() => router.push(createRoute)}>
+                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+                <Text style={styles.actionBtnTextPrimary}>Thêm công việc</Text>
+              </Pressable>
+            ) : null}
+            {reviewRoute ? (
+              <Pressable style={styles.actionBtnSecondary} onPress={() => router.push(reviewRoute)}>
+                <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.text} />
+                <Text style={styles.actionBtnTextSecondary}>Hàng đợi duyệt</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.tabsContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
@@ -205,6 +211,21 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
     return relatedAssignment ? isSelfAssigned(relatedAssignment) : true;
   }) ?? [];
 
+  const isDepartmentTask = item.type === 'DEPARTMENT' || (item.targets?.some(t => t.targetType === 'DEPARTMENT') ?? false);
+  const isGroupTask = item.type === 'GROUP';
+  const isDepartmentLeader = hasAnyPermission(user, ['task.assign_department']) || Boolean(user?.roles?.includes('LEADER'));
+  const isGroupLeader = item.groupLeaderId === user?.id;
+  const isCreator = item.createdByUserId === user?.id;
+  const isAdmin = hasAnyPermission(user, ['task.assign_any']) || Boolean(user?.roles?.includes('ADMIN'));
+
+  const isAssignee = item.assignments?.some((a: any) => a.userId === user?.id);
+  const canManageSubtasks = (isAdmin || isCreator || (isDepartmentTask && isDepartmentLeader) || (isGroupTask && isGroupLeader)) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
+
+  const childTasks = item.childTasks ?? [];
+  const completedChildCount = childTasks.filter((c: any) => c.status === 'COMPLETED').length;
+  const totalChildCount = childTasks.length;
+  const subtasksProgressPercent = totalChildCount > 0 ? Math.round((completedChildCount / totalChildCount) * 100) : 0;
+
   async function run(action: () => Promise<unknown>, success: string) {
     try {
       await action();
@@ -234,6 +255,12 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           <View style={[styles.rowWrap, { marginTop: spacing.md }]}>
             <TaskStatusBadge status={item.status} />
             <PriorityBadge priority={item.priority} />
+            {isDepartmentTask ? (
+              <View style={styles.departmentBadgePill}>
+                <MaterialCommunityIcons name="domain" size={14} color={colors.primaryDark} />
+                <Text style={styles.departmentBadgePillText}>Dự án Phòng Ban</Text>
+              </View>
+            ) : null}
           </View>
           {item.description ? <Text style={[styles.body, { marginTop: spacing.md }]}>{item.description}</Text> : null}
           <View style={styles.heroDates}>
@@ -293,16 +320,24 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         </View>
 
         {assignment ? (
-          <SectionCard title="Nhiệm vụ của tôi">
+          <SectionCard title={isDepartmentTask ? "Tiếp nhận & Thực hiện Dự án" : "Nhiệm vụ của tôi"}>
             <TaskStepper currentStatus={assignment.status} />
             {!isReadOnlyStatus(item.status) ? (
               <>
                 {canAcceptAssignment(assignment.status) ? (
-                  <View style={{ backgroundColor: colors.primarySoft, padding: spacing.md, borderRadius: 8, alignItems: 'center' }}>
-                    <Text style={{ textAlign: 'center', marginBottom: spacing.sm, color: colors.primary, fontWeight: '700' }}>
-                      Bạn vừa được phân công công việc này. Hãy xác nhận để bắt đầu làm ngay!
+                  <View style={styles.receptionCardBox}>
+                    <MaterialCommunityIcons name="briefcase-check-outline" size={28} color={colors.primary} />
+                    <Text style={styles.receptionCardTitle}>
+                      {isDepartmentTask ? 'Dự án phân công cho Bộ phận của bạn' : 'Công việc mới được phân công'}
                     </Text>
-                    <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), 'Đã nhận việc và bắt đầu làm')}>Nhận việc & Làm ngay</PrimaryButton>
+                    <Text style={styles.receptionCardDesc}>
+                      {isDepartmentTask
+                        ? 'Dự án này đã được Admin chỉ định cho bộ phận. Hãy bấm Tiếp nhận dự án để bắt đầu phân rã công việc con cho các nhân viên.'
+                        : 'Bạn vừa được phân công công việc này. Hãy xác nhận để bắt đầu làm ngay!'}
+                    </Text>
+                    <PrimaryButton loading={start.isPending} onPress={() => void run(() => start.mutateAsync(assignment.id), isDepartmentTask ? 'Đã tiếp nhận dự án thành công' : 'Đã nhận việc và bắt đầu làm')}>
+                      {isDepartmentTask ? 'Tiếp nhận Dự án & Triển khai' : 'Nhận việc & Làm ngay'}
+                    </PrimaryButton>
                   </View>
                 ) : null}
                 {(canUpdateProgress(assignment.status) || canSubmitAssignment(assignment.status)) ? (
@@ -378,33 +413,64 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
-        {(item.childTasks ?? []).length > 0 ? (
-          <SectionCard title="Công việc con (Subtasks)">
-            {(item.childTasks ?? []).map((child: any) => (
-              <Pressable key={child.id} style={[styles.inlinePanel, { flexDirection: 'column', alignItems: 'flex-start' }]} onPress={() => router.push(`/${area}/tasks/${child.id}`)}>
-                <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
-                  <Text style={[styles.titleText, { flex: 1 }]}>{child.title}</Text>
-                  <TaskStatusBadge status={child.status} />
+        {/* ===================================================================== */}
+        {/* SUBTASKS MANAGEMENT SECTION (DÀNH CHO LEADER / ADMIN & XEM TIẾN ĐỘ)    */}
+        {/* ===================================================================== */}
+        {(totalChildCount > 0 || canManageSubtasks) ? (
+          <SectionCard title={`Công việc con (Subtasks)${totalChildCount > 0 ? ` • ${completedChildCount}/${totalChildCount}` : ''}`}>
+            {totalChildCount > 0 ? (
+              <View style={styles.subtasksProgressHeader}>
+                <View style={styles.subtasksProgressTitleRow}>
+                  <Text style={styles.subtasksProgressLabel}>Tiến độ hoàn thành việc con</Text>
+                  <Text style={styles.subtasksProgressValue}>
+                    {completedChildCount}/{totalChildCount} việc ({subtasksProgressPercent}%)
+                  </Text>
                 </View>
-                <Text style={styles.metaSmall}>{child.taskCode}</Text>
-              </Pressable>
-            ))}
-          </SectionCard>
-        ) : null}
+                <ProgressBar value={subtasksProgressPercent} />
+              </View>
+            ) : (
+              <View style={styles.emptySubtasksBox}>
+                <MaterialCommunityIcons name="format-list-checks" size={28} color={colors.primary} />
+                <Text style={styles.emptySubtasksTitle}>Chưa có công việc con nào</Text>
+                <Text style={styles.emptySubtasksDesc}>
+                  Hãy chia nhỏ dự án này thành các đầu việc cụ thể và phân công cho từng nhân viên trong bộ phận để bắt đầu triển khai.
+                </Text>
+              </View>
+            )}
 
-        {item.groupLeaderId === user?.id && item.status !== 'COMPLETED' ? (
-          <SectionCard title="Quản lý Nhóm (Leader)">
-            <SecondaryButton onPress={() => router.push(`/${area}/tasks/create?parentTaskId=${item.id}`)}>
-              + Thêm công việc con
-            </SecondaryButton>
-            <View style={{ marginTop: spacing.md }}>
-              <PrimaryButton 
-                loading={completeTask.isPending}
-                onPress={() => void run(() => completeTask.mutateAsync(), 'Đã hoàn thành công việc nhóm')}
-              >
-                Hoàn thành Task Nhóm
-              </PrimaryButton>
-            </View>
+            {childTasks.map((child: any) => (
+              <SubtaskCardItem
+                key={child.id}
+                subtask={child}
+                onPress={() => router.push(`/${area}/tasks/${child.id}`)}
+              />
+            ))}
+
+            {canManageSubtasks ? (
+              <View style={styles.subtaskActionGroup}>
+                <SecondaryButton onPress={() => router.push(`/${area}/tasks/create?parentTaskId=${item.id}`)}>
+                  + Chia nhỏ việc con cho nhân sự
+                </SecondaryButton>
+
+                {item.status !== 'COMPLETED' ? (
+                  <PrimaryButton
+                    loading={completeTask.isPending}
+                    onPress={() => {
+                      showConfirm({
+                        title: 'Nghiệm thu & Hoàn thành Dự án',
+                        message: totalChildCount > 0 && completedChildCount < totalChildCount
+                          ? `Hiện tại có ${totalChildCount - completedChildCount} việc con chưa hoàn thành. Bạn có chắc chắn muốn báo cáo nghiệm thu và hoàn tất dự án này?`
+                          : 'Xác nhận hoàn thành toàn bộ dự án và gửi báo cáo nghiệm thu lên cấp trên?',
+                        confirmLabel: 'Xác nhận hoàn thành',
+                        onConfirm: () => void run(() => completeTask.mutateAsync(), 'Đã hoàn thành và nghiệm thu dự án thành công'),
+                      });
+                    }}
+                  >
+                    Báo cáo nghiệm thu & Hoàn thành Dự án
+                  </PrimaryButton>
+                ) : null}
+              </View>
+            ) : null}
           </SectionCard>
         ) : null}
 
@@ -565,6 +631,7 @@ export function ActionDatePicker({
 export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
   const router = useRouter();
   const { parentTaskId } = useLocalSearchParams<{ parentTaskId?: string }>();
+  const parentTaskQuery = useTask(parentTaskId);
   const { user } = useAuth();
   const { showAlert } = useAppAlert();
   const mutation = useCreateTask();
@@ -579,7 +646,131 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   
-  const [departmentContextId, setDepartmentContextId] = useState(departmentIdFromUser(user) ?? '');
+  const branchesQuery = useBranches();
+  const departmentsQuery = useDepartments({ page: 1, limit: 1000 });
+
+  const isAdmin = Boolean(
+    user?.roles?.includes('ADMIN') ||
+    user?.roles?.some((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin')
+  );
+  const isGlobalAdmin = Boolean(
+    isAdmin &&
+    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && (s.scopeType === 'GLOBAL' || !s.scopeType))
+  );
+  const adminRegionScope = user?.scopes?.find(
+    (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
+  );
+  const userRegionId = adminRegionScope?.scopeId;
+  const isRegionAdmin = Boolean(adminRegionScope && userRegionId);
+
+  const availableBranches = useMemo(() => {
+    const all = branchesQuery.data ?? [];
+    if (isRegionAdmin && userRegionId) {
+      return all.filter((b) => b.regionId === userRegionId);
+    }
+    return all;
+  }, [branchesQuery.data, isRegionAdmin, userRegionId]);
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [branchModalVisible, setBranchModalVisible] = useState(false);
+
+  const [departmentContextId, setDepartmentContextId] = useState<string>(departmentIdFromUser(user) ?? '');
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (user?.department?.id && !departmentContextId) {
+      setDepartmentContextId(user.department.id);
+    }
+  }, [user?.department?.id]);
+
+  useEffect(() => {
+    if (parentTaskQuery.data?.departmentContextId) {
+      setDepartmentContextId(parentTaskQuery.data.departmentContextId);
+      const parentDept = departmentsQuery.data?.items?.find(
+        (d) => d.id === parentTaskQuery.data?.departmentContextId
+      );
+      if (parentDept?.branchId) {
+        setSelectedBranchId(parentDept.branchId);
+      }
+    }
+  }, [parentTaskQuery.data?.departmentContextId, departmentsQuery.data?.items]);
+
+  useEffect(() => {
+    if (departmentContextId && !selectedBranchId) {
+      const currentDept = departmentsQuery.data?.items?.find((d) => d.id === departmentContextId);
+      if (currentDept?.branchId) {
+        setSelectedBranchId(currentDept.branchId);
+      }
+    }
+  }, [departmentContextId, departmentsQuery.data?.items]);
+
+  const availableDepartments = useMemo(() => {
+    const allDepts = departmentsQuery.data?.items ?? [];
+    let filtered = allDepts;
+
+    if (isRegionAdmin && userRegionId) {
+      filtered = filtered.filter(
+        (d) => d.branch?.region?.id === userRegionId || availableBranches.some((b) => b.id === d.branchId)
+      );
+    }
+
+    if (selectedBranchId) {
+      filtered = filtered.filter((d) => d.branchId === selectedBranchId || d.branch?.id === selectedBranchId);
+    }
+
+    return filtered;
+  }, [departmentsQuery.data?.items, isRegionAdmin, userRegionId, availableBranches, selectedBranchId]);
+
+  const branchOptions: SelectOption[] = useMemo(() => {
+    return availableBranches.map((b) => ({
+      id: b.id,
+      label: b.name,
+      subtitle: b.address || undefined,
+    }));
+  }, [availableBranches]);
+
+  const deptOptions: SelectOption[] = useMemo(() => {
+    return availableDepartments.map((d) => ({
+      id: d.id,
+      label: d.name,
+      subtitle: d.branch?.name ? `Cơ sở: ${d.branch.name}` : undefined,
+    }));
+  }, [availableDepartments]);
+
+  const selectedBranch = useMemo(
+    () => availableBranches.find((b) => b.id === selectedBranchId),
+    [availableBranches, selectedBranchId]
+  );
+
+  const selectedDept = useMemo(
+    () => (departmentsQuery.data?.items ?? []).find((d) => d.id === departmentContextId),
+    [departmentsQuery.data?.items, departmentContextId]
+  );
+
+  const handleSelectBranch = (opt: SelectOption) => {
+    setSelectedBranchId(opt.id);
+    const deptsInBranch = (departmentsQuery.data?.items ?? []).filter(
+      (d) => d.branchId === opt.id || d.branch?.id === opt.id
+    );
+    if (deptsInBranch.length > 0 && deptsInBranch[0]?.id) {
+      if (!deptsInBranch.some((d) => d.id === departmentContextId)) {
+        setDepartmentContextId(deptsInBranch[0].id);
+      }
+    } else {
+      setDepartmentContextId('');
+    }
+    setTargets([]);
+  };
+
+  const handleSelectDept = (opt: SelectOption) => {
+    setDepartmentContextId(opt.id);
+    const foundDept = departmentsQuery.data?.items?.find((d) => d.id === opt.id);
+    if (foundDept?.branchId && foundDept.branchId !== selectedBranchId) {
+      setSelectedBranchId(foundDept.branchId);
+    }
+    setTargets([]);
+  };
+
   const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
   const [targetModalVisible, setTargetModalVisible] = useState(false);
@@ -626,7 +817,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         }
       }
       
-      showAlert('Thành công', 'Đã giao việc thành công!', () => router.back());
+      showAlert('Thành công', parentTaskId ? 'Đã tạo công việc con và phân công thành công!' : 'Đã giao việc thành công!', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
@@ -651,9 +842,26 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title={area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc (Leader)'} subtitle="Tạo và phân công công việc mới" />
+        <PageHeader 
+          title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc (Leader)'} 
+          subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : 'Tạo và phân công công việc mới'} 
+        />
+
+        {parentTaskId && parentTaskQuery.data ? (
+          <View style={styles.parentTaskBanner}>
+            <View style={styles.parentTaskTagRow}>
+              <MaterialCommunityIcons name="layers-outline" size={16} color={colors.primary} />
+              <Text style={styles.parentTaskTagText}>DỰ ÁN TRỰC THUỘC</Text>
+            </View>
+            <Text style={styles.parentTaskTitle}>{parentTaskQuery.data.title}</Text>
+            <Text style={styles.parentTaskSubInfo}>
+              Mã dự án: {parentTaskQuery.data.taskCode ?? 'Dự án'}
+              {parentTaskQuery.data.dueAt ? ` • Hạn chót dự án cha: ${formatDateTime(parentTaskQuery.data.dueAt)}` : ''}
+            </Text>
+          </View>
+        ) : null}
         
-        <SectionCard title="Thông tin công việc">
+        <SectionCard title={parentTaskId ? "Thông tin công việc con" : "Thông tin công việc"}>
           <FormField label="Tên công việc" value={title} onChangeText={setTitle} placeholder="Nhập tên công việc..." />
           <FormField label="Mô tả chi tiết" value={description} onChangeText={setDescription} multiline placeholder="Mô tả các yêu cầu cần làm..." />
           
@@ -747,6 +955,48 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           />
         </SectionCard>
 
+        <SectionCard title="Đơn vị phụ trách (Cơ sở & Phòng ban)">
+          <Text style={styles.fieldLabel}>Cơ sở (Chi nhánh)</Text>
+          <Pressable 
+            style={styles.selectorField} 
+            onPress={() => setBranchModalVisible(true)}
+          >
+            <View style={styles.selectorFieldContent}>
+              <MaterialCommunityIcons name="office-building-outline" size={20} color={colors.primary} />
+              <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                <Text style={selectedBranch ? styles.selectorFieldText : styles.selectorFieldPlaceholder}>
+                  {selectedBranch ? selectedBranch.name : 'Chọn cơ sở (chi nhánh)...'}
+                </Text>
+                {selectedBranch?.address ? (
+                  <Text style={styles.selectorFieldSub} numberOfLines={1}>{selectedBranch.address}</Text>
+                ) : null}
+              </View>
+            </View>
+            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.muted} />
+          </Pressable>
+
+          <View style={{ marginTop: spacing.md }}>
+            <Text style={styles.fieldLabel}>Phòng ban phụ trách</Text>
+            <Pressable 
+              style={styles.selectorField} 
+              onPress={() => setDeptModalVisible(true)}
+            >
+              <View style={styles.selectorFieldContent}>
+                <MaterialCommunityIcons name="domain" size={20} color={colors.primary} />
+                <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                  <Text style={selectedDept ? styles.selectorFieldText : styles.selectorFieldPlaceholder}>
+                    {selectedDept ? selectedDept.name : 'Chọn phòng ban phụ trách...'}
+                  </Text>
+                  {selectedDept?.branch?.name ? (
+                    <Text style={styles.selectorFieldSub} numberOfLines={1}>Thuộc: {selectedDept.branch.name}</Text>
+                  ) : null}
+                </View>
+              </View>
+              <MaterialCommunityIcons name="chevron-down" size={20} color={colors.muted} />
+            </Pressable>
+          </View>
+        </SectionCard>
+
         <SectionCard title="Người nhận việc (Assignees)">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
             <Text style={[styles.fieldLabel, { flex: 1, marginBottom: 0 }]}>Tạo nhóm tùy chỉnh (Ad-hoc Group)</Text>
@@ -800,7 +1050,13 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                 {targets.map((target: any) => (
                   <View key={target.targetId} style={styles.targetTag}>
                     <MaterialCommunityIcons 
-                      name={target.targetType === 'USER' ? 'account' : target.targetType === 'DEPARTMENT' ? 'domain' : 'account-group'} 
+                      name={
+                        target.targetType === 'USER'
+                          ? (target.targetName?.includes('Admin') ? 'shield-account' : 'account')
+                          : target.targetType === 'DEPARTMENT'
+                          ? 'domain'
+                          : 'account-group'
+                      } 
                       size={16} color={colors.primaryDark} 
                     />
                     <Text style={styles.targetTagText}>{target.targetName ?? `${target.targetType}: ${target.targetId.substring(0,6)}...`}</Text>
@@ -834,6 +1090,26 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         onClose={() => setTargetModalVisible(false)}
         targets={targets}
         onChange={setTargets}
+        filterBranchId={selectedBranchId}
+        filterDepartmentId={departmentContextId}
+      />
+
+      <SelectModal
+        visible={branchModalVisible}
+        title="Chọn Cơ sở (Chi nhánh)"
+        options={branchOptions}
+        selectedValue={selectedBranchId}
+        onSelect={handleSelectBranch}
+        onClose={() => setBranchModalVisible(false)}
+      />
+
+      <SelectModal
+        visible={deptModalVisible}
+        title="Chọn Phòng ban"
+        options={deptOptions}
+        selectedValue={departmentContextId}
+        onSelect={handleSelectDept}
+        onClose={() => setDeptModalVisible(false)}
       />
 
       <MultiSelectModal
@@ -915,49 +1191,143 @@ function AssigneeSelectorModal({
   onClose,
   targets,
   onChange,
+  filterDepartmentId,
+  filterBranchId,
 }: {
   area: Exclude<TaskArea, 'employee'>;
   visible: boolean;
   onClose: () => void;
   targets: CreateTaskTargetPayload[];
   onChange: (targets: CreateTaskTargetPayload[]) => void;
+  filterDepartmentId?: string;
+  filterBranchId?: string;
 }) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'USER' | 'DEPARTMENT' | 'GROUP'>('USER');
+
+  const isSuperAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    !user?.scopes?.some(
+      (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION' && s.scopeId
+    )
+  );
+
+  const canSelectRegionAdmin = isSuperAdmin || area === 'admin';
+
+  const [activeTab, setActiveTab] = useState<'REGION_ADMIN' | 'USER' | 'DEPARTMENT'>('USER');
+
+  useEffect(() => {
+    if (visible) {
+      if (canSelectRegionAdmin && isSuperAdmin && !filterDepartmentId && !filterBranchId) {
+        setActiveTab('REGION_ADMIN');
+      } else {
+        setActiveTab('USER');
+      }
+    }
+  }, [visible, canSelectRegionAdmin, isSuperAdmin, filterDepartmentId, filterBranchId]);
   
-  const departments = useDepartments({ page: 1, limit: 100 });
-  const groups = useTaskGroups({ page: 1, limit: 100 });
-  const departmentId = departmentIdFromUser(user);
-  const users = useScopedEmployees({ page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) }, hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department']));
+  const departments = useDepartments({ page: 1, limit: 1000 });
+  const regionsQuery = useRegions();
+  const adminUsersQuery = useEmployees({ role: 'ADMIN', limit: 100 }, canSelectRegionAdmin && visible);
+
+  const departmentId = filterDepartmentId || departmentIdFromUser(user);
+  const users = useScopedEmployees(
+    { page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) },
+    hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department'])
+  );
+
+  const filteredDepartments = useMemo(() => {
+    const items = departments.data?.items ?? [];
+    if (filterBranchId) {
+      return items.filter((d) => d.branchId === filterBranchId || d.branch?.id === filterBranchId);
+    }
+    return items;
+  }, [departments.data?.items, filterBranchId]);
 
   const isHR = user?.roles?.includes('HR');
+
+  const regionMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (regionsQuery.data ?? []).forEach((r) => {
+      map.set(r.id, r.name);
+    });
+    return map;
+  }, [regionsQuery.data]);
+
+  const regionAdmins = useMemo(() => {
+    if (!adminUsersQuery.data?.items) return [];
+    const list: Array<{
+      id: string;
+      fullName: string;
+      userCode: string;
+      phone?: string;
+      regionId: string;
+      regionName: string;
+      label: string;
+    }> = [];
+
+    adminUsersQuery.data.items.forEach((u) => {
+      const regionScope = u.roles?.find(
+        (r) => (r.role?.code === 'ADMIN' || (r as any).role === 'ADMIN') && r.scopeType === 'REGION' && r.scopeId
+      );
+      if (regionScope?.scopeId) {
+        const rName = regionMap.get(regionScope.scopeId) || 'Miền';
+        const fullName = u.profile?.fullName || (u as any).fullName || u.userCode;
+        list.push({
+          id: u.id,
+          fullName,
+          userCode: u.userCode,
+          phone: u.phone,
+          regionId: regionScope.scopeId,
+          regionName: rName,
+          label: `${fullName} (Admin ${rName})`,
+        });
+      }
+    });
+
+    return list;
+  }, [adminUsersQuery.data?.items, regionMap]);
 
   const filteredUsers = useMemo(() => {
     if (!users.data?.items) return [];
     if (isHR) {
-      return users.data.items.filter(u => u.roles?.some(r => r.role?.code === 'LEADER'));
+      return users.data.items.filter((u) => (u as any).roles?.some((r: any) => r.role?.code === 'LEADER' || r.role === 'LEADER'));
     }
     return users.data.items;
   }, [users.data?.items, isHR]);
 
   const isSelected = (type: TaskTargetType, id: string) => {
-    return targets.some(t => t.targetType === type && t.targetId === id);
+    return targets.some((t) => t.targetType === type && t.targetId === id);
   };
 
   const toggleTarget = (type: TaskTargetType, id: string, name?: string) => {
     if (type === 'USER') {
       if (isSelected(type, id)) {
-        onChange(targets.filter(t => t.targetType !== type || t.targetId !== id));
+        onChange(targets.filter((t) => t.targetType !== type || t.targetId !== id));
       } else {
-        onChange([{ targetType: type, targetId: id, targetName: name } as any]);
+        const currentUsers = targets.filter((t) => t.targetType === 'USER');
+        onChange([...currentUsers, { targetType: type, targetId: id, targetName: name } as any]);
       }
     } else {
       if (isSelected(type, id)) {
-        onChange(targets.filter(t => t.targetType !== type || t.targetId !== id));
+        onChange(targets.filter((t) => t.targetType !== type || t.targetId !== id));
       } else {
-        onChange([...targets.filter(t => t.targetType !== 'USER'), { targetType: type, targetId: id, targetName: name } as any]);
+        const currentDepts = targets.filter((t) => t.targetType === 'DEPARTMENT');
+        onChange([...currentDepts, { targetType: type, targetId: id, targetName: name } as any]);
       }
     }
+  };
+
+  const availableTabs: Array<'REGION_ADMIN' | 'USER' | 'DEPARTMENT'> = useMemo(() => {
+    if (canSelectRegionAdmin) {
+      return ['REGION_ADMIN', 'USER', 'DEPARTMENT'];
+    }
+    return ['USER', 'DEPARTMENT'];
+  }, [canSelectRegionAdmin]);
+
+  const tabLabels: Record<'REGION_ADMIN' | 'USER' | 'DEPARTMENT', string> = {
+    REGION_ADMIN: 'Admin miền',
+    USER: 'Cá nhân',
+    DEPARTMENT: area === 'leader' ? 'Leader phòng ban' : 'Phòng ban',
   };
 
   return (
@@ -972,9 +1342,8 @@ function AssigneeSelectorModal({
           </View>
 
           <View style={styles.assigneeTabs}>
-            {(['USER', 'DEPARTMENT'] as const).map(tab => {
+            {availableTabs.map((tab) => {
               const isActive = activeTab === tab;
-              const labels = { USER: 'Cá nhân', DEPARTMENT: area === 'leader' ? 'Leader phòng ban' : 'Phòng ban' };
               return (
                 <Pressable 
                   key={tab} 
@@ -982,7 +1351,7 @@ function AssigneeSelectorModal({
                   onPress={() => setActiveTab(tab)}
                 >
                   <Text style={[styles.assigneeTabText, isActive && styles.assigneeTabTextActive]}>
-                    {labels[tab]}
+                    {tabLabels[tab]}
                   </Text>
                 </Pressable>
               );
@@ -990,29 +1359,112 @@ function AssigneeSelectorModal({
           </View>
 
           <ScrollView style={styles.assigneeList}>
-            {activeTab === 'USER' && filteredUsers.map(u => (
-              <Pressable key={u.id} style={styles.assigneeRow} onPress={() => toggleTarget('USER', u.id, u.fullName ?? u.userCode)}>
-                <View style={styles.assigneeInfo}>
-                  <View style={styles.assigneeAvatar}><MaterialCommunityIcons name="account" size={20} color={colors.muted} /></View>
-                  <Text style={styles.assigneeName}>{u.fullName ?? u.userCode}</Text>
-                </View>
-                <MaterialCommunityIcons 
-                  name={isSelected('USER', u.id) ? 'radiobox-marked' : 'radiobox-blank'} 
-                  size={24} 
-                  color={isSelected('USER', u.id) ? colors.primary : colors.border} 
-                />
-              </Pressable>
-            ))}
+            {activeTab === 'REGION_ADMIN' && (
+              <>
+                {adminUsersQuery.isLoading || regionsQuery.isLoading ? (
+                  <LoadingState />
+                ) : regionAdmins.length === 0 ? (
+                  <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="shield-outline" size={48} color={colors.muted} />
+                    <Text style={[styles.meta, { textAlign: 'center', marginTop: spacing.sm }]}>
+                      Chưa có tài khoản nào được phân quyền Admin quản lý vùng miền.
+                    </Text>
+                  </View>
+                ) : (
+                  regionAdmins.map((item) => {
+                    const selected = isSelected('USER', item.id);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        style={styles.assigneeRow}
+                        onPress={() => toggleTarget('USER', item.id, item.label)}
+                      >
+                        <View style={styles.assigneeInfo}>
+                          <View style={[styles.assigneeAvatar, { backgroundColor: colors.primarySoft }]}>
+                            <MaterialCommunityIcons name="shield-account" size={22} color={colors.primary} />
+                          </View>
+                          <View>
+                            <Text style={styles.assigneeName}>{item.fullName}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                              <View style={styles.regionBadge}>
+                                <Text style={styles.regionBadgeText}>Admin {item.regionName}</Text>
+                              </View>
+                              <Text style={styles.assigneeSubtext}>{item.userCode}</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <MaterialCommunityIcons
+                          name={selected ? 'check-circle' : 'circle-outline'}
+                          size={24}
+                          color={selected ? colors.primary : colors.border}
+                        />
+                      </Pressable>
+                    );
+                  })
+                )}
+              </>
+            )}
 
-            {activeTab === 'DEPARTMENT' && departments.data?.items?.map(d => (
+            {activeTab === 'USER' && (
+              <>
+                {users.isLoading ? (
+                  <LoadingState />
+                ) : (
+                  filteredUsers.map((u) => {
+                    const selected = isSelected('USER', u.id);
+                    const matchingRegionAdmin = regionAdmins.find((ra) => ra.id === u.id);
+                    const displayName = matchingRegionAdmin ? matchingRegionAdmin.label : (u.fullName ?? u.userCode);
+                    return (
+                      <Pressable
+                        key={u.id}
+                        style={styles.assigneeRow}
+                        onPress={() => toggleTarget('USER', u.id, displayName)}
+                      >
+                        <View style={styles.assigneeInfo}>
+                          <View style={[styles.assigneeAvatar, matchingRegionAdmin && { backgroundColor: colors.primarySoft }]}>
+                            <MaterialCommunityIcons
+                              name={matchingRegionAdmin ? 'shield-account' : 'account'}
+                              size={20}
+                              color={matchingRegionAdmin ? colors.primary : colors.muted}
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.assigneeName}>{u.fullName ?? u.userCode}</Text>
+                            {matchingRegionAdmin ? (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                <View style={styles.regionBadge}>
+                                  <Text style={styles.regionBadgeText}>Admin {matchingRegionAdmin.regionName}</Text>
+                                </View>
+                              </View>
+                            ) : null}
+                          </View>
+                        </View>
+                        <MaterialCommunityIcons
+                          name={selected ? 'check-circle' : 'circle-outline'}
+                          size={24}
+                          color={selected ? colors.primary : colors.border}
+                        />
+                      </Pressable>
+                    );
+                  })
+                )}
+              </>
+            )}
+
+            {activeTab === 'DEPARTMENT' && filteredDepartments.map((d) => (
               <Pressable key={d.id} style={styles.assigneeRow} onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}>
                 <View style={styles.assigneeInfo}>
                   <View style={styles.assigneeAvatar}>
                     <MaterialCommunityIcons name={area === 'leader' ? "account-tie" : "domain"} size={20} color={colors.muted} />
                   </View>
-                  <Text style={styles.assigneeName}>
-                    {area === 'leader' ? `Leader ${d.name}` : d.name}
-                  </Text>
+                  <View>
+                    <Text style={styles.assigneeName}>
+                      {area === 'leader' ? `Leader ${d.name}` : d.name}
+                    </Text>
+                    {d.branch?.name ? (
+                      <Text style={styles.assigneeSubtext}>Cơ sở: {d.branch.name}</Text>
+                    ) : null}
+                  </View>
                 </View>
                 <MaterialCommunityIcons 
                   name={isSelected('DEPARTMENT', d.id) ? 'check-circle' : 'circle-outline'} 
@@ -1021,8 +1473,6 @@ function AssigneeSelectorModal({
                 />
               </Pressable>
             ))}
-
-
           </ScrollView>
           
           <View style={styles.assigneeFooter}>
@@ -1113,6 +1563,38 @@ const styles = StyleSheet.create({
   addTargetBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed' },
   addTargetBtnText: { fontSize: 13, fontWeight: '600', color: colors.primary },
 
+  selectorField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  selectorFieldContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  selectorFieldText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  selectorFieldPlaceholder: {
+    fontSize: 14,
+    color: colors.muted,
+  },
+  selectorFieldSub: {
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 2,
+  },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   assigneeModalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '80%', padding: spacing.lg },
   assigneeModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
@@ -1127,6 +1609,9 @@ const styles = StyleSheet.create({
   assigneeInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   assigneeAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   assigneeName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  assigneeSubtext: { fontSize: 12, color: colors.muted },
+  regionBadge: { backgroundColor: colors.primarySoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  regionBadgeText: { fontSize: 11, fontWeight: '700', color: colors.primaryDark },
   assigneeFooter: { paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   
   // Date Picker Modal
@@ -1137,16 +1622,16 @@ const styles = StyleSheet.create({
   pickerModalDone: { fontSize: 16, fontWeight: '600', color: colors.primary },
   
   // List UI
-  actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md, marginTop: spacing.sm },
-  actionBtnPrimary: { flex: 1, backgroundColor: '#1C1C1E', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8 },
-  actionBtnTextPrimary: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  actionBtnSecondary: { flex: 1, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8, borderWidth: 1, borderColor: colors.border },
-  actionBtnTextSecondary: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  tabsContainer: { marginHorizontal: -spacing.lg, marginBottom: spacing.lg },
-  tabsScroll: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  tabPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border },
+  actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm, marginTop: spacing.xs },
+  actionBtnPrimary: { flex: 1, backgroundColor: '#1C1C1E', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 8 },
+  actionBtnTextPrimary: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  actionBtnSecondary: { flex: 1, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 8, borderWidth: 1, borderColor: colors.border },
+  actionBtnTextSecondary: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  tabsContainer: { marginHorizontal: -spacing.lg, marginBottom: spacing.md, marginTop: spacing.xs },
+  tabsScroll: { paddingHorizontal: spacing.lg, gap: spacing.xs },
+  tabPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border },
   tabPillActive: { backgroundColor: '#1C1C1E', borderColor: '#1C1C1E' },
-  tabText: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  tabText: { fontSize: 13, fontWeight: '600', color: colors.muted },
   tabTextActive: { color: '#fff' },
   
   heroCard: {
@@ -1210,5 +1695,134 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '700',
-  }
+  },
+
+  /* Department Badge Pill */
+  departmentBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  departmentBadgePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+
+  /* Reception Card Box */
+  receptionCardBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    gap: 8,
+  },
+  receptionCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    textAlign: 'center',
+  },
+  receptionCardDesc: {
+    fontSize: 12,
+    color: '#3B82F6',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.xs,
+  },
+
+  /* Subtasks Progress Header & Empty Box */
+  subtasksProgressHeader: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  subtasksProgressTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  subtasksProgressLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  subtasksProgressValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  emptySubtasksBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: spacing.md,
+    gap: 6,
+  },
+  emptySubtasksTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
+  },
+  emptySubtasksDesc: {
+    fontSize: 12,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  subtaskActionGroup: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+
+  /* Parent Task Banner in CreateTaskScreen */
+  parentTaskBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  parentTaskTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  parentTaskTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  parentTaskTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 20,
+  },
+  parentTaskSubInfo: {
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 4,
+  },
 });

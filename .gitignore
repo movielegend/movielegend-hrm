@@ -1,3 +1,10 @@
 firebase-service-account.json
 movielegend-hrm-mobile/firebase-service-account.json
 movielegend-hrm-backend/firebase-service-account.json
+*.pt
+weights/
+scratch/
+movielegend-hrm-backend/storage/*
+!movielegend-hrm-backend/storage/*.pdf
+movielegend-hrm-web/
+

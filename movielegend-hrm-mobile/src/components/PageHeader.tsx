@@ -8,16 +8,28 @@ interface PageHeaderProps {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  showBack?: boolean;
+  onBack?: () => void;
 }
 
-export function PageHeader({ title, subtitle, right, showBack }: PageHeaderProps & { showBack?: boolean }) {
+export function PageHeader({ title, subtitle, right, showBack = false, onBack }: PageHeaderProps) {
   const router = useRouter();
-  const shouldShowBack = showBack !== undefined ? showBack : router.canGoBack();
+  const shouldShowBack = showBack || !!onBack;
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
 
   return (
-    <View style={{ marginBottom: 16 }}>
+    <View style={styles.container}>
       {shouldShowBack && (
-        <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Quay lại">
+        <Pressable onPress={handleBack} style={styles.backBtn} accessibilityLabel="Quay lại">
           <MaterialCommunityIcons name="arrow-left" size={24} color="#111827" />
         </Pressable>
       )}
@@ -35,9 +47,13 @@ export function PageHeader({ title, subtitle, right, showBack }: PageHeaderProps
 }
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: 12,
+    marginTop: 2,
+  },
   copy: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
   titleRow: {
     flexDirection: 'row',
@@ -45,7 +61,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    marginBottom: 12,
+    marginBottom: 10,
     padding: 8,
     alignSelf: 'flex-start',
     backgroundColor: '#F3F4F6',
@@ -53,12 +69,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: '#6B7280',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
   title: {
     color: '#111827',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
   },

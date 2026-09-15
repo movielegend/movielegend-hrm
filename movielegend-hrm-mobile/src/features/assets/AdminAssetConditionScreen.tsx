@@ -98,7 +98,7 @@ export function AdminAssetConditionScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />}
       >
-        <PageHeader title="Sự cố tài sản" subtitle="Quản lý tình trạng hỏng hóc" />
+        <PageHeader title="Sự cố tài sản" subtitle="Quản lý tình trạng hỏng hóc" showBack={false} />
 
         <View style={styles.tabs}>
           <Pressable

@@ -3,6 +3,7 @@ export const queryKeys = {
   approval: (id: string) => ['approval', id] as const,
   employees: <T extends object>(filters: T) => ['employees', filters] as const,
   employeeReport: <T extends object>(filters: T) => ['employee-report', filters] as const,
+  scopedEmployees: <T extends object>(filters: T) => ['scoped-employees', filters] as const,
   employee: (id: string) => ['employee', id] as const,
   departments: <T extends object>(filters: T = {} as T) => ['departments', filters] as const,
   department: (id: string) => ['department', id] as const,
@@ -33,8 +34,8 @@ export const queryKeys = {
   crossDepartmentRequests: <T extends object>(filters: T = {} as T) => ['cross-department-requests', filters] as const,
   crossDepartmentRequest: (id: string) => ['cross-department-requests', 'detail', id] as const,
   scopedEmployees: <T extends object>(filters: T = {} as T) => ['employees', 'scoped', filters] as const,
-  notifications: () => ['notifications', 'me'] as const,
-  notificationUnreadCount: () => ['notifications', 'unread-count'] as const,
+  notifications: (userId?: string) => ['notifications', 'me', userId ?? 'current'] as const,
+  notificationUnreadCount: (userId?: string) => ['notifications', 'unread-count', userId ?? 'current'] as const,
 };
 
 // Phase 5 warehouse/asset key factories — dùng factory, không rải literal array trong screen/hook.

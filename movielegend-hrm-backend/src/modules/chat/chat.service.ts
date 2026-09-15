@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
+
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 
 @Injectable()
 export class ChatService {
@@ -11,7 +14,8 @@ export class ChatService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEventsService,
     private readonly notifications: NotificationsService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly scopes: DepartmentScopeService
   ) {}
 
   // Get or Create group for a department
@@ -30,7 +34,8 @@ export class ChatService {
     });
   }
 
-  async getMessages(groupId: string, userId: string, isAdmin: boolean = false, skip: number = 0, take: number = 50) {
+  async getMessages(groupId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, skip: number = 0, take: number = 50) {
+    const userId = actor.userId;
     const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Chat group not found');
 
@@ -44,29 +49,40 @@ export class ChatService {
         throw new ForbiddenException('You do not have permission to read this direct chat');
       }
       
-      if (!isAdmin) {
+      const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
+      let hasAccess = false;
+
+      if (isGlobalAdmin) {
+        hasAccess = true;
+      } else {
         if (group.type === 'CUSTOM' || group.type === 'TASK') {
-          throw new ForbiddenException('You do not have permission to read this chat');
-        }
-        if (group.type === 'DEPARTMENT' && group.departmentId) {
-          const deptMember = await this.prisma.departmentMember.findUnique({
-            where: { departmentId_userId: { userId, departmentId: group.departmentId } }
-          });
-          if (!deptMember || deptMember.leftAt) {
-            throw new ForbiddenException('You do not have permission to read this chat');
+          // Regional admins can view CUSTOM/TASK if they are in the group, but we already know they are not a member here.
+          // Let's see if we should allow regional admin to view TASK. For now, deny.
+          hasAccess = false;
+        } else if (group.type === 'DEPARTMENT' && group.departmentId) {
+          const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+          if (visibleDepts && visibleDepts.includes(group.departmentId)) {
+            hasAccess = true;
+          } else {
+            const deptMember = await this.prisma.departmentMember.findUnique({
+              where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+            });
+            if (deptMember && !deptMember.leftAt) {
+              hasAccess = true;
+            }
           }
         }
+      }
+
+      if (!hasAccess) {
+        throw new ForbiddenException('You do not have permission to read this chat');
       }
     }
 
     const whereClause: any = { groupId };
     
-    if (member) {
-      if (member.clearedAt) {
-        whereClause.createdAt = { gt: member.clearedAt };
-      } else {
-        whereClause.createdAt = { gte: member.joinedAt };
-      }
+    if (member?.clearedAt) {
+      whereClause.createdAt = { gt: member.clearedAt };
     }
 
     return this.prisma.chatMessage.findMany({
@@ -75,7 +91,17 @@ export class ChatService {
       skip,
       take,
       include: {
-        sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+        sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+        replyTo: {
+          select: {
+            id: true,
+            content: true,
+            fileUrl: true,
+            fileType: true,
+            fileName: true,
+            sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+          }
+        }
       }
     });
   }
@@ -95,30 +121,35 @@ export class ChatService {
     return { success: true };
   }
 
-  async sendMessage(userId: string, groupId: string, dto: CreateChatMessageDto) {
-    const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
+  async sendMessage(actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, groupId: string, dto: CreateChatMessageDto) {
+    const userId = actor.userId;
+    const group = await this.prisma.chatGroup.findUnique({
+      where: { id: groupId },
+      include: { members: { select: { userId: true } } }
+    });
     if (!group) throw new NotFoundException('Chat group not found');
 
-    const senderUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { roles: { include: { role: true } } }
-    });
-    const isAdminUser = senderUser?.roles?.some(r => r.role?.code?.toUpperCase().includes('ADMIN'));
+    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
 
     const member = await this.prisma.chatGroupMember.findUnique({
       where: { groupId_userId: { groupId, userId } }
     });
 
-    if (!member && !isAdminUser) {
+    if (!member && !isGlobalAdmin) {
       if (group.type === 'DIRECT' || group.type === 'CUSTOM' || group.type === 'TASK') {
         throw new ForbiddenException('You do not have permission to send messages to this chat');
       }
       if (group.type === 'DEPARTMENT' && group.departmentId) {
-        const deptMember = await this.prisma.departmentMember.findUnique({
-          where: { departmentId_userId: { userId, departmentId: group.departmentId } }
-        });
-        if (!deptMember || deptMember.leftAt) {
-          throw new ForbiddenException('You do not have permission to send messages to this chat');
+        const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+        if (visibleDepts && visibleDepts.includes(group.departmentId)) {
+          // Regional admin has access
+        } else {
+          const deptMember = await this.prisma.departmentMember.findUnique({
+            where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+          });
+          if (!deptMember || deptMember.leftAt) {
+            throw new ForbiddenException('You do not have permission to send messages to this chat');
+          }
         }
       }
     }
@@ -127,6 +158,7 @@ export class ChatService {
       data: {
         groupId,
         senderId: userId,
+        replyToId: dto.replyToId,
         content: dto.content,
         fileUrl: dto.fileUrl,
         fileType: dto.fileType,
@@ -134,91 +166,149 @@ export class ChatService {
         mentions: dto.mentions ?? []
       },
       include: {
-        sender: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
+        sender: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } },
+        replyTo: {
+          select: {
+            id: true,
+            content: true,
+            fileUrl: true,
+            fileType: true,
+            fileName: true,
+            sender: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } }
+          }
+        }
       }
     });
 
     const isAdmin = message.sender?.roles?.some((r: any) => r.role?.code?.toUpperCase().includes('ADMIN'));
     const senderName = isAdmin ? 'Admin' : (message.sender?.profile?.fullName ?? message.sender.userCode);
 
-    // Phát tín hiệu qua WebSocket cho tất cả user
-    if (group.departmentId) {
-      this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
-      
-      const members = await this.prisma.departmentMember.findMany({
-        where: { departmentId: group.departmentId, leftAt: null },
-        select: { userId: true }
-      });
-      for (const m of members) {
-        this.realtime.emitToUser(m.userId, 'chat:message', message);
-      }
+    // 1. Cập nhật thời gian hoạt động của nhóm chat ngay lập tức đồng bộ
+    await this.prisma.chatGroup.update({
+      where: { id: groupId },
+      data: { updatedAt: new Date() }
+    }).catch(() => {});
 
-      const notifyMembers = members.filter(m => m.userId !== userId);
-      if (notifyMembers.length > 0) {
-        await this.prisma.$transaction(async (tx) => {
-          const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
-            ? '[Nhãn dán]'
-            : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+    // 2. Phát tín hiệu qua WebSocket ngay lập tức (0ms latency)
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
+    this.realtime.emitToRoom('company', 'chat:group_updated', { groupId, latestMessage: message });
 
-          const payload = await this.notifications.createForUsers(
-            tx as any,
-            notifyMembers.map(m => m.userId),
-            {
-              type: 'CHAT_MESSAGE',
-              title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
-              body: notificationBody,
-              metadata: { groupId: group.id, messageId: message.id }
-            }
-          );
-          if (payload) this.notifications.emitCreated(payload);
-        });
-      }
-    } else {
-      this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
-      
-      const members = await this.prisma.chatGroupMember.findMany({
-        where: { groupId }
-      });
-      for (const m of members) {
-        this.realtime.emitToUser(m.userId, 'chat:message', message);
-      }
-      
-      const otherMembers = members.filter(m => m.userId !== userId);
-      console.log(`[ChatService] Sending message from ${userId} to groupId ${groupId}`);
-      console.log(`[ChatService] Found ${members.length} members, otherMembers: ${otherMembers.length}`);
-      
-      if (otherMembers.length > 0) {
-        try {
-          await this.prisma.$transaction(async (tx) => {
-            const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
-              ? '[Nhãn dán]'
-              : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+    // 3. Chạy ngầm các tác vụ DB phụ và thông báo (Non-blocking async background)
+    setImmediate(async () => {
+      try {
+        await this.prisma.chatGroupMember.upsert({
+          where: { groupId_userId: { groupId, userId } },
+          create: { groupId, userId, lastReadAt: new Date() },
+          update: { lastReadAt: new Date() }
+        }).catch(() => {});
 
-            const payload = await this.notifications.createForUsers(
-              tx as any,
-              otherMembers.map(m => m.userId),
-              {
-                type: 'CHAT_MESSAGE',
-                title: group.type === 'DIRECT' 
-                  ? `Tin nhắn mới từ ${senderName}` 
-                  : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
-                body: notificationBody,
-                metadata: { groupId: group.id, messageId: message.id }
-              }
-            );
-            console.log(`[ChatService] Notification created successfully:`, !!payload);
-            if (payload) {
-              this.notifications.emitCreated(payload);
-              console.log(`[ChatService] Emitted notification.created to users`);
-            }
+        if (group.type === 'DEPARTMENT' && group.departmentId) {
+          const deptMembers = await this.prisma.departmentMember.findMany({
+            where: { departmentId: group.departmentId, leftAt: null },
+            select: { userId: true }
           });
-        } catch (error) {
-          console.error(`[ChatService] Failed to create notification:`, error);
+          for (const dm of deptMembers) {
+            if (dm.userId !== userId) {
+              this.realtime.emitToUser(dm.userId, 'chat:message', message);
+            }
+          }
+
+          const notifyMembers = deptMembers.filter(m => m.userId !== userId);
+          if (notifyMembers.length > 0) {
+            await this.prisma.$transaction(async (tx) => {
+              const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
+                ? '[Nhãn dán]'
+                : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+
+              const payload = await this.notifications.createForUsers(
+                tx as any,
+                notifyMembers.map(m => m.userId),
+                {
+                  type: 'CHAT_MESSAGE',
+                  title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
+                  body: notificationBody,
+                  metadata: { groupId: group.id, messageId: message.id }
+                }
+              );
+              if (payload) this.notifications.emitCreated(payload);
+            });
+          }
+        } else {
+          const members = await this.prisma.chatGroupMember.findMany({
+            where: { groupId }
+          });
+          for (const m of members) {
+            if (m.userId !== userId) {
+              this.realtime.emitToUser(m.userId, 'chat:message', message);
+            }
+          }
+
+          const otherMembers = members.filter(m => m.userId !== userId);
+          if (otherMembers.length > 0) {
+            await this.prisma.$transaction(async (tx) => {
+              const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
+                ? '[Nhãn dán]'
+                : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+
+              const payload = await this.notifications.createForUsers(
+                tx as any,
+                otherMembers.map(m => m.userId),
+                {
+                  type: 'CHAT_MESSAGE',
+                  title: group.type === 'DIRECT' 
+                    ? `Tin nhắn mới từ ${senderName}` 
+                    : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
+                  body: notificationBody,
+                  metadata: { groupId: group.id, messageId: message.id }
+                }
+              );
+              if (payload) this.notifications.emitCreated(payload);
+            });
+          }
         }
+      } catch (err) {
+        console.error('[ChatService] Background update/notification error:', err);
       }
-    }
+    });
 
     return message;
+  }
+
+  private async getUnreadCounts(groupIds: string[], userId: string): Promise<Record<string, number>> {
+    if (!groupIds || groupIds.length === 0) return {};
+
+    const unreadCounts: Record<string, number> = {};
+    for (const gid of groupIds) {
+      unreadCounts[gid] = 0;
+    }
+
+    try {
+      const formattedGroupIds = Prisma.join(groupIds.map(id => Prisma.sql`${id}::uuid`));
+      const results: Array<{ groupId: string; count: number | bigint | string }> = await this.prisma.$queryRaw`
+        SELECT 
+          cm."groupId"::text as "groupId",
+          COUNT(cm.id)::int as "count"
+        FROM chat_messages cm
+        LEFT JOIN chat_group_members cgm 
+          ON cgm."groupId" = cm."groupId" AND cgm."userId" = ${userId}::uuid
+        WHERE cm."groupId" IN (${formattedGroupIds})
+          AND cm."senderId" != ${userId}::uuid
+          AND (
+            (cgm."lastReadAt" IS NOT NULL AND cm."createdAt" > cgm."lastReadAt")
+            OR
+            (cgm."lastReadAt" IS NULL AND (cgm."clearedAt" IS NULL OR cm."createdAt" > cgm."clearedAt"))
+          )
+        GROUP BY cm."groupId"
+      `;
+
+      for (const row of results) {
+        unreadCounts[row.groupId] = Number(row.count) || 0;
+      }
+    } catch (err) {
+      console.error('[ChatService] getUnreadCounts queryRaw error:', err);
+    }
+
+    return unreadCounts;
   }
 
   async getMyGroups(userId: string) {
@@ -228,10 +318,10 @@ export class ChatService {
       select: { departmentId: true, department: { select: { name: true } } }
     });
 
-    const groups = [];
+    const rawGroups = [];
     for (const m of memberships) {
       const group = await this.getGroupForDepartment(m.departmentId);
-      groups.push(group);
+      rawGroups.push(group);
     }
 
     // Get ad-hoc chat groups (e.g., tasks) where user is a member
@@ -248,44 +338,60 @@ export class ChatService {
       }
     });
     for (const m of customMemberships) {
-      groups.push(m.group);
+      rawGroups.push(m.group);
     }
 
-    const unreadChatNotifications = await this.prisma.notificationTarget.findMany({
-      where: {
-        userId,
-        readAt: null,
-        notification: { type: 'CHAT_MESSAGE' }
-      },
-      include: { notification: { select: { metadata: true } } }
-    });
-
-    const unreadCountByGroup: Record<string, number> = {};
-    for (const target of unreadChatNotifications) {
-      const metadata = target.notification.metadata as any;
-      if (metadata && metadata.groupId) {
-        const groupId = metadata.groupId;
-        unreadCountByGroup[groupId] = (unreadCountByGroup[groupId] || 0) + 1;
+    // Lọc bỏ mọi nhóm trùng ID (Deduplicate)
+    const uniqueGroupsMap = new Map<string, any>();
+    for (const g of rawGroups) {
+      if (g?.id && !uniqueGroupsMap.has(g.id)) {
+        uniqueGroupsMap.set(g.id, g);
       }
     }
+    const groups = Array.from(uniqueGroupsMap.values());
 
-    // 1. Batch fetch latest messages for all groups
     const groupIds = groups.map(g => g.id);
-    const latestMessages = await this.prisma.chatMessage.findMany({
-      where: { groupId: { in: groupIds } },
-      orderBy: [{ groupId: 'asc' }, { createdAt: 'desc' }],
-      distinct: ['groupId'],
-      include: { sender: { select: { profile: { select: { fullName: true } } } } }
-    });
-    const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
-
-    // 2. Batch fetch direct group other members
     const directGroupIds = groups.filter(g => g.type === 'DIRECT').map(g => g.id);
-    const directMembers = await this.prisma.chatGroupMember.findMany({
-      where: { groupId: { in: directGroupIds }, userId: { not: userId } },
-      include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
-    });
+    const deptIds = groups.filter(g => g.type === 'DEPARTMENT' && g.departmentId).map(g => g.departmentId!);
+
+    const [unreadCountByGroup, latestMessages, directMembers, deptMembers] = await Promise.all([
+      this.getUnreadCounts(groupIds, userId),
+      groupIds.length > 0 ? this.prisma.chatMessage.findMany({
+        where: { groupId: { in: groupIds } },
+        orderBy: [{ groupId: 'asc' }, { createdAt: 'desc' }],
+        distinct: ['groupId'],
+        include: { sender: { select: { profile: { select: { fullName: true } } } } }
+      }) : [],
+      directGroupIds.length > 0 ? this.prisma.chatGroupMember.findMany({
+        where: { groupId: { in: directGroupIds }, userId: { not: userId } },
+        include: { user: { select: { userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } } }
+      }) : [],
+      deptIds.length > 0 ? this.prisma.departmentMember.findMany({
+        where: { departmentId: { in: deptIds }, leftAt: null },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } }
+            }
+          }
+        }
+      }) : []
+    ]);
+
+    const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
     const directMemberMap = Object.fromEntries(directMembers.map(m => [m.groupId, m]));
+    const deptMemberMap: Record<string, any[]> = {};
+    for (const dm of deptMembers) {
+      if (!deptMemberMap[dm.departmentId]) {
+        deptMemberMap[dm.departmentId] = [];
+      }
+      deptMemberMap[dm.departmentId].push({
+        userId: dm.userId,
+        user: dm.user
+      });
+    }
 
     const resultGroups = [];
     for (const group of groups) {
@@ -294,6 +400,11 @@ export class ChatService {
       let finalName = group.name;
       let otherUserId: string | undefined;
       let otherUserAvatar: string | undefined;
+      let members = (group as any).members;
+
+      if (group.type === 'DEPARTMENT' && group.departmentId) {
+        members = deptMemberMap[group.departmentId] || [];
+      }
 
       if (group.type === 'DIRECT') {
         const otherMember = directMemberMap[group.id];
@@ -306,6 +417,7 @@ export class ChatService {
 
       resultGroups.push({
         ...group,
+        members,
         name: finalName,
         otherUserId,
         otherUserAvatar,
@@ -314,7 +426,73 @@ export class ChatService {
       });
     }
 
+    resultGroups.sort((a, b) => {
+      const timeA = Math.max(
+        a.latestMessage?.createdAt ? new Date(a.latestMessage.createdAt).getTime() : 0,
+        a.updatedAt ? new Date(a.updatedAt).getTime() : 0,
+        a.createdAt ? new Date(a.createdAt).getTime() : 0
+      );
+      const timeB = Math.max(
+        b.latestMessage?.createdAt ? new Date(b.latestMessage.createdAt).getTime() : 0,
+        b.updatedAt ? new Date(b.updatedAt).getTime() : 0,
+        b.createdAt ? new Date(b.createdAt).getTime() : 0
+      );
+      return timeB - timeA;
+    });
+
     return resultGroups;
+  }
+
+  async getGroupMembers(groupId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const group = await this.prisma.chatGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                userCode: true,
+                profile: { select: { fullName: true, avatarUrl: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+    if (!group) throw new NotFoundException('Chat group not found');
+
+    if (group.type === 'DEPARTMENT' && group.departmentId) {
+      const deptMembers = await this.prisma.departmentMember.findMany({
+        where: { departmentId: group.departmentId, leftAt: null },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } }
+            }
+          }
+        }
+      });
+      return deptMembers.map(dm => ({
+        id: dm.userId,
+        userId: dm.userId,
+        userCode: dm.user?.userCode || '',
+        fullName: dm.user?.profile?.fullName || dm.user?.userCode || 'Thành viên',
+        avatarUrl: dm.user?.profile?.avatarUrl || null,
+        user: dm.user,
+      }));
+    }
+
+    return (group.members || []).map(m => ({
+      id: m.userId,
+      userId: m.userId,
+      userCode: m.user?.userCode || '',
+      fullName: m.user?.profile?.fullName || m.user?.userCode || 'Thành viên',
+      avatarUrl: m.user?.profile?.avatarUrl || null,
+      user: m.user,
+    }));
   }
 
   async createTaskGroup(taskId: string, name: string, memberIds: string[]) {
@@ -374,7 +552,22 @@ export class ChatService {
     });
   }
 
-  async getAllGroups(userId: string, search?: string) {
+  async getAllGroups(actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, search?: string) {
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    
+    // Nếu là Global Admin (visibleDepts = null), xem mọi nhóm.
+    // Nếu là Regional Admin (visibleDepts != null), xem nhóm CUSTOM/TASK, và chỉ DEPARTMENT thuộc miền.
+    const groupTypesFilter: any[] = [];
+    
+    if (visibleDepts === null) {
+      groupTypesFilter.push({ type: { in: ['DEPARTMENT', 'TASK', 'CUSTOM'] } });
+    } else {
+      groupTypesFilter.push({ type: { in: ['TASK', 'CUSTOM'] } });
+      if (visibleDepts.length > 0) {
+        groupTypesFilter.push({ type: 'DEPARTMENT', departmentId: { in: visibleDepts } });
+      }
+    }
+
     const groups = await this.prisma.chatGroup.findMany({
       where: {
         AND: [
@@ -386,8 +579,8 @@ export class ChatService {
           } : {},
           {
             OR: [
-              { type: { in: ['DEPARTMENT', 'TASK', 'CUSTOM'] } },
-              { members: { some: { userId } } }
+              ...groupTypesFilter,
+              { members: { some: { userId: actor.userId } } }
             ]
           }
         ]
@@ -403,22 +596,71 @@ export class ChatService {
       orderBy: { updatedAt: 'desc' }
     });
 
+    // Batch fetch department members for department groups
+    const deptIds = groups.filter(g => g.type === 'DEPARTMENT' && g.departmentId).map(g => g.departmentId!);
+    const deptMembers = deptIds.length > 0 ? await this.prisma.departmentMember.findMany({
+      where: { departmentId: { in: deptIds }, leftAt: null },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            profile: { select: { fullName: true, avatarUrl: true } }
+          }
+        }
+      }
+    }) : [];
+    const deptMemberMap: Record<string, any[]> = {};
+    for (const dm of deptMembers) {
+      if (!deptMemberMap[dm.departmentId]) {
+        deptMemberMap[dm.departmentId] = [];
+      }
+      deptMemberMap[dm.departmentId].push({
+        userId: dm.userId,
+        user: dm.user
+      });
+    }
+
+    const groupIds = groups.map(g => g.id);
+    const [unreadCountByGroup, latestMessages] = await Promise.all([
+      this.getUnreadCounts(groupIds, actor.userId),
+      groupIds.length > 0 ? this.prisma.chatMessage.findMany({
+        where: { groupId: { in: groupIds } },
+        orderBy: [{ groupId: 'asc' }, { createdAt: 'desc' }],
+        distinct: ['groupId'],
+        include: {
+          sender: {
+            select: {
+              id: true,
+              userCode: true,
+              profile: { select: { fullName: true, avatarUrl: true } }
+            }
+          }
+        }
+      }) : []
+    ]);
+    const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
+
     const resultGroups = [];
     for (const group of groups) {
-      // Lấy tin nhắn mới nhất cho mỗi nhóm
-      const latestMessage = await this.prisma.chatMessage.findFirst({
-        where: { groupId: group.id },
-        orderBy: { createdAt: 'desc' },
-        include: { sender: { select: { profile: { select: { fullName: true } } } } }
-      });
+      const latestMessage = latestMessageMap[group.id];
 
       let finalName = group.name;
+      let otherUserId: string | undefined;
+      let otherUserAvatar: string | undefined;
+      let members = (group as any).members;
+
+      if (group.type === 'DEPARTMENT' && group.departmentId) {
+        members = deptMemberMap[group.departmentId] || [];
+      }
+
       if (group.type === 'DIRECT' && group.members?.length === 2) {
-        const u1 = group.members[0].user;
-        const name1 = u1?.profile?.fullName || u1?.userCode || 'Người dùng';
-        const u2 = group.members[1].user;
-        const name2 = u2?.profile?.fullName || u2?.userCode || 'Người dùng';
-        finalName = `${name1} - ${name2}`;
+        const otherMember = group.members.find((m: any) => m.userId !== actor.userId) || group.members[0];
+        if (otherMember?.user) {
+          finalName = otherMember.user.profile?.fullName || otherMember.user.userCode || 'Người dùng';
+          otherUserId = otherMember.userId;
+          otherUserAvatar = otherMember.user.profile?.avatarUrl ?? undefined;
+        }
       } else if (group.type === 'DEPARTMENT' && group.department?.name) {
         finalName = group.department.name;
       } else if (group.type === 'TASK' && group.task?.title) {
@@ -427,10 +669,28 @@ export class ChatService {
 
       resultGroups.push({
         ...group,
+        members,
         name: finalName,
+        otherUserId,
+        otherUserAvatar,
         latestMessage,
+        unreadCount: unreadCountByGroup[group.id] || 0
       });
     }
+
+    resultGroups.sort((a, b) => {
+      const timeA = Math.max(
+        a.latestMessage?.createdAt ? new Date(a.latestMessage.createdAt).getTime() : 0,
+        a.updatedAt ? new Date(a.updatedAt).getTime() : 0,
+        a.createdAt ? new Date(a.createdAt).getTime() : 0
+      );
+      const timeB = Math.max(
+        b.latestMessage?.createdAt ? new Date(b.latestMessage.createdAt).getTime() : 0,
+        b.updatedAt ? new Date(b.updatedAt).getTime() : 0,
+        b.createdAt ? new Date(b.createdAt).getTime() : 0
+      );
+      return timeB - timeA;
+    });
 
     return resultGroups;
   }
@@ -459,10 +719,21 @@ export class ChatService {
         data: { readAt: new Date() }
       });
     }
+
+    // Update lastReadAt on ChatGroupMember (upsert to handle users who are viewing without explicit ChatGroupMember record)
+    await this.prisma.chatGroupMember.upsert({
+      where: { groupId_userId: { groupId, userId } },
+      create: { groupId, userId, lastReadAt: new Date() },
+      update: { lastReadAt: new Date() }
+    });
+
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:group_read', { groupId, userId, readAt: new Date() });
+
     return { success: true, markedCount: targetIdsToUpdate.length };
   }
 
-  async deleteGroup(groupId: string, userId: string, isAdmin: boolean) {
+  async deleteGroup(groupId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const userId = actor.userId;
     const group = await this.prisma.chatGroup.findUnique({
       where: { id: groupId },
       include: { members: true }
@@ -472,16 +743,22 @@ export class ChatService {
 
     const isMember = group.members.some(m => m.userId === userId);
 
-    if (!isAdmin && !isMember) {
+    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor) ?? [];
+    const isRegionalAdminWithAccess = group.type === 'DEPARTMENT' && group.departmentId && visibleDepts.includes(group.departmentId);
+    
+    const hasAdminAccess = isGlobalAdmin || !!isRegionalAdminWithAccess;
+
+    if (!hasAdminAccess && !isMember) {
       throw new ForbiddenException('You do not have permission to delete this group');
     }
 
-    if (!isAdmin && group.type !== 'DIRECT') {
+    if (!hasAdminAccess && group.type !== 'DIRECT') {
       throw new ForbiddenException('Only admin can delete non-direct chat groups');
     }
 
     await this.prisma.$transaction(async (tx) => {
-      if (isAdmin) {
+      if (hasAdminAccess) {
         await tx.chatGroup.delete({ where: { id: groupId } });
       } else {
         await tx.chatGroupMember.delete({ where: { groupId_userId: { groupId, userId } } });
@@ -495,15 +772,24 @@ export class ChatService {
     return { success: true };
   }
 
-  async deleteMessage(userId: string, groupId: string, messageId: string, isAdmin: boolean) {
+  async deleteMessage(groupId: string, messageId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const userId = actor.userId;
     const message = await this.prisma.chatMessage.findUnique({
-      where: { id: messageId }
+      where: { id: messageId },
+      include: { group: true }
     });
 
     if (!message) throw new NotFoundException('Message not found');
     if (message.groupId !== groupId) throw new ForbiddenException('Message does not belong to this group');
 
-    if (message.senderId !== userId && !isAdmin) {
+    const group = message.group;
+    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
+    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor) ?? [];
+    const isRegionalAdminWithAccess = group.type === 'DEPARTMENT' && group.departmentId && visibleDepts.includes(group.departmentId);
+    
+    const hasAdminAccess = isGlobalAdmin || !!isRegionalAdminWithAccess;
+
+    if (message.senderId !== userId && !hasAdminAccess) {
       throw new ForbiddenException('You can only recall your own messages');
     }
 
@@ -515,31 +801,129 @@ export class ChatService {
       }
     }
 
-    await this.prisma.chatMessage.delete({ where: { id: messageId } });
-
-    // Phát tín hiệu websocket bằng payload ảo để ứng dụng di động tự fetch lại tin nhắn mới nhất
-    const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
-    if (group) {
-      if (group.departmentId) {
-        this.realtime.emitToDepartment(group.departmentId, 'chat:message', { groupId });
-        const members = await this.prisma.departmentMember.findMany({
-          where: { departmentId: group.departmentId, leftAt: null },
-          select: { userId: true }
-        });
-        for (const m of members) {
-          this.realtime.emitToUser(m.userId, 'chat:message', { groupId });
-        }
-      } else {
-        this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', { groupId });
-        const members = await this.prisma.chatGroupMember.findMany({
-          where: { groupId }
-        });
-        for (const m of members) {
-          this.realtime.emitToUser(m.userId, 'chat:message', { groupId });
-        }
+    const updatedMessage = await this.prisma.chatMessage.update({
+      where: { id: messageId },
+      data: {
+        content: 'Tin nhắn đã bị thu hồi',
+        fileUrl: null,
+        fileType: null,
+        fileName: null,
+      },
+      include: {
+        sender: { select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } } }
       }
+    });
+
+    // Phát tín hiệu WebSocket tức thì cho các thành viên trong nhóm
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message_recalled', { groupId, messageId, message: updatedMessage });
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', updatedMessage);
+
+    return { success: true, message: updatedMessage };
+  }
+
+  async reactToMessage(groupId: string, messageId: string, emoji: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser) {
+    const userId = actor.userId;
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      include: { group: true }
+    });
+
+    if (!message) throw new NotFoundException('Message not found');
+    if (message.groupId !== groupId) throw new ForbiddenException('Message does not belong to this group');
+
+    let currentReactions: Record<string, string> = {};
+    if (message.reactions && typeof message.reactions === 'object') {
+      currentReactions = { ...(message.reactions as Record<string, string>) };
     }
 
-    return { success: true };
+    // Toggle logic: if user clicked the same emoji -> remove it. Otherwise, set emoji.
+    if (currentReactions[userId] === emoji) {
+      delete currentReactions[userId];
+    } else {
+      currentReactions[userId] = emoji;
+    }
+
+    await this.prisma.chatMessage.update({
+      where: { id: messageId },
+      data: {
+        reactions: currentReactions
+      }
+    });
+
+    // Realtime broadcast to all group members
+    this.realtime.emitToRoom(`group:${groupId}`, 'chat:message_reacted', {
+      groupId,
+      messageId,
+      userId,
+      emoji,
+      reactions: currentReactions
+    });
+
+    return { success: true, reactions: currentReactions };
+  }
+
+  async getMessageReactionDetails(groupId: string, messageId: string) {
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, groupId: true, reactions: true }
+    });
+    if (!message || message.groupId !== groupId) throw new NotFoundException('Message not found');
+
+    const reactionsMap = (message.reactions as Record<string, string>) || {};
+    const userIds = Object.keys(reactionsMap);
+    if (userIds.length === 0) return [];
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        userCode: true,
+        profile: { select: { fullName: true, avatarUrl: true } }
+      }
+    });
+
+    return users.map(u => ({
+      user: {
+        id: u.id,
+        userCode: u.userCode,
+        fullName: u.profile?.fullName || u.userCode,
+        avatarUrl: u.profile?.avatarUrl
+      },
+      emoji: reactionsMap[u.id]
+    }));
+  }
+
+  async getMessageSeenDetails(groupId: string, messageId: string) {
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, groupId: true, createdAt: true }
+    });
+    if (!message || message.groupId !== groupId) throw new NotFoundException('Message not found');
+
+    // Get group members who read messages on or after this message's createdAt
+    const members = await this.prisma.chatGroupMember.findMany({
+      where: { groupId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            profile: { select: { fullName: true, avatarUrl: true } }
+          }
+        }
+      }
+    });
+
+    return members
+      .filter(m => m.lastReadAt && new Date(m.lastReadAt) >= new Date(message.createdAt))
+      .map(m => ({
+        user: {
+          id: m.user.id,
+          userCode: m.user.userCode,
+          fullName: m.user.profile?.fullName || m.user.userCode,
+          avatarUrl: m.user.profile?.avatarUrl
+        },
+        readAt: m.lastReadAt
+      }));
   }
 }

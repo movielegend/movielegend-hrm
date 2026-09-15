@@ -7,26 +7,13 @@ import { CallingScreen } from './CallingScreen';
 import { ActiveCallScreen } from './ActiveCallScreen';
 import { showIncomingCallNotification, dismissCallNotification } from '../../services/call-notification';
 
-let useLastNotificationResponse = (): any => null;
+let Notifications: any = null;
 if (Platform.OS !== 'web' && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
-  const Notifications = require('expo-notifications');
-  useLastNotificationResponse = Notifications.useLastNotificationResponse;
-}
-
-// ── Conditional LiveKit imports (unavailable in Expo Go) ──
-let LiveKitRoom: any = ({ children }: any) => <>{children}</>;
-let useRoomContext: any = () => ({ state: 'connected' });
-let useLocalParticipant: any = () => ({ localParticipant: null });
-let AudioSession: any = null;
-
-try {
-  const livekit = require('@livekit/react-native');
-  if (livekit?.LiveKitRoom) LiveKitRoom = livekit.LiveKitRoom;
-  if (livekit?.useRoomContext) useRoomContext = livekit.useRoomContext;
-  if (livekit?.useLocalParticipant) useLocalParticipant = livekit.useLocalParticipant;
-  if (livekit?.AudioSession) AudioSession = livekit.AudioSession;
-} catch (e) {
-  console.warn('LiveKit native module fallback active:', e);
+  try {
+    Notifications = require('expo-notifications');
+  } catch (e) {
+    // Ignore if not supported
+  }
 }
 
 // ── Types ──
@@ -176,6 +163,17 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     };
   }, [socket, resetCall, clearCallTimeout]);
 
+  function ensureLiveKitGlobals() {
+    try {
+      const livekit = require('@livekit/react-native');
+      if (typeof livekit?.registerGlobals === 'function') {
+        livekit.registerGlobals();
+      }
+    } catch (e) {
+      console.warn('[LiveKit] registerGlobals failed or not available:', e);
+    }
+  }
+
   // ── Permissions ──
   const ensurePermissions = async (): Promise<boolean> => {
     try {
@@ -197,6 +195,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
 
+    ensureLiveKitGlobals();
     setTargetId(userId);
     setTargetName(name);
     setTargetAvatar(avatar || null);
@@ -219,6 +218,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
 
+    ensureLiveKitGlobals();
     dismissCallNotification();
     socket.emit('voice_call:accept', { callerId: cid });
   };
@@ -289,27 +289,35 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   }, [socket, pendingAction]);
 
   // ── Handle cold start tap from push notification ──
-  const lastNotificationResponse = useLastNotificationResponse();
   useEffect(() => {
-    if (
-      lastNotificationResponse &&
-      lastNotificationResponse.notification.request.content.data &&
-      lastNotificationResponse.notification.request.content.data.type === 'VOICE_CALL_INCOMING'
-    ) {
-      const actionId = lastNotificationResponse.actionIdentifier;
-      const data = lastNotificationResponse.notification.request.content.data as any;
-      
-      if (actionId === 'ACCEPT') {
-        if (socket) acceptCall(data.callerId);
-        else setPendingAction({ type: 'accept', callerId: data.callerId });
-      } else if (actionId === 'REJECT') {
-        if (socket) rejectCall(data.callerId);
-        else setPendingAction({ type: 'reject', callerId: data.callerId });
-      } else {
-        handleIncomingCallFromNotification(data);
+    async function checkLastNotification() {
+      try {
+        if (!Notifications || Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return;
+        if (typeof Notifications.getLastNotificationResponseAsync !== 'function') return;
+        const lastNotificationResponse = await Notifications.getLastNotificationResponseAsync();
+        if (
+          lastNotificationResponse?.notification?.request?.content?.data &&
+          lastNotificationResponse.notification.request.content.data.type === 'VOICE_CALL_INCOMING'
+        ) {
+          const actionId = lastNotificationResponse.actionIdentifier;
+          const data = lastNotificationResponse.notification.request.content.data as any;
+          
+          if (actionId === 'ACCEPT') {
+            if (socket) acceptCall(data.callerId);
+            else setPendingAction({ type: 'accept', callerId: data.callerId });
+          } else if (actionId === 'REJECT') {
+            if (socket) rejectCall(data.callerId);
+            else setPendingAction({ type: 'reject', callerId: data.callerId });
+          } else {
+            handleIncomingCallFromNotification(data);
+          }
+        }
+      } catch (e) {
+        console.warn('Error checking last notification response:', e);
       }
     }
-  }, [lastNotificationResponse, socket, handleIncomingCallFromNotification]);
+    void checkLastNotification();
+  }, [socket, handleIncomingCallFromNotification]);
 
   // ── End call ──
   const endCall = (duration?: number | any) => {
@@ -331,23 +339,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 
   // ── Toggle speaker ──
   const toggleSpeaker = useCallback(async () => {
-    setIsSpeaker(prev => {
-      const newVal = !prev;
-      try {
-        if (Platform.OS === 'android') {
-          const { Audio } = require('expo-av');
-          Audio.setAudioModeAsync({
-            playThroughEarpieceAndroid: !newVal
-          }).catch(console.warn);
-        } else if (AudioSession) {
-          // AudioSession API for switching output on iOS
-          AudioSession.showAudioRoutePicker?.();
-        }
-      } catch (e) {
-        console.warn('Failed to toggle speaker:', e);
-      }
-      return newVal;
-    });
+    setIsSpeaker(prev => !prev);
   }, []);
 
 
@@ -373,42 +365,28 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
         )}
 
         {callState === 'ACTIVE' && token && (
-          <LiveKitRoom
+          <ActiveCallLiveKitWrapper
             serverUrl={liveKitUrl}
             token={token}
-            connect={true}
-            audio={true}
-            video={false}
-            onConnected={(room: any) => { roomRef.current = room; }}
-          >
-            <ActiveCallInner
-              peerName={callerId ? callerName : targetName}
-              peerAvatar={callerId ? callerAvatar : targetAvatar}
-              isMuted={isMuted}
-              isSpeaker={isSpeaker}
-              onToggleMute={toggleMute}
-              onToggleSpeaker={toggleSpeaker}
-              onEndCall={endCall}
-              roomRef={roomRef}
-            />
-          </LiveKitRoom>
+            peerName={callerId ? callerName : targetName}
+            peerAvatar={callerId ? callerAvatar : targetAvatar}
+            isMuted={isMuted}
+            isSpeaker={isSpeaker}
+            onToggleMute={toggleMute}
+            onToggleSpeaker={toggleSpeaker}
+            onEndCall={endCall}
+            roomRef={roomRef}
+          />
         )}
       </Modal>
     </VoiceCallContext.Provider>
   );
 }
 
-// ── Active call wrapper to access room context ──
-function ActiveCallInner({
-  peerName,
-  peerAvatar,
-  isMuted,
-  isSpeaker,
-  onToggleMute,
-  onToggleSpeaker,
-  onEndCall,
-  roomRef,
-}: {
+// ── Active call dynamic wrapper ──
+function ActiveCallLiveKitWrapper(props: {
+  serverUrl: string;
+  token: string;
   peerName: string;
   peerAvatar?: string | null;
   isMuted: boolean;
@@ -418,36 +396,73 @@ function ActiveCallInner({
   onEndCall: (duration?: number) => void;
   roomRef: React.MutableRefObject<any>;
 }) {
-  const room = useRoomContext();
-  const { localParticipant } = useLocalParticipant();
+  let LiveKitModule: any = null;
+  try {
+    LiveKitModule = require('@livekit/react-native');
+  } catch (e) {
+    console.warn('LiveKit not available:', e);
+  }
 
-  useEffect(() => {
-    if (room) {
-      roomRef.current = room;
-    }
-  }, [room, roomRef]);
+  if (!LiveKitModule?.LiveKitRoom) {
+    return (
+      <ActiveCallScreen
+        peerName={props.peerName}
+        peerAvatar={props.peerAvatar}
+        isMuted={props.isMuted}
+        isSpeaker={props.isSpeaker}
+        onToggleMute={props.onToggleMute}
+        onToggleSpeaker={props.onToggleSpeaker}
+        onEndCall={props.onEndCall}
+      />
+    );
+  }
 
-  // Sync mute state with LiveKit local participant
-  useEffect(() => {
-    try {
-      if (localParticipant) {
-        localParticipant.setMicrophoneEnabled(!isMuted);
+  const { LiveKitRoom, useRoomContext, useLocalParticipant } = LiveKitModule;
+
+  function ActiveCallContent() {
+    const room = useRoomContext?.() || { state: 'connected' };
+    const { localParticipant } = useLocalParticipant?.() || { localParticipant: null };
+
+    useEffect(() => {
+      if (room) {
+        props.roomRef.current = room;
       }
-    } catch (e) {
-      console.warn('Failed to sync mute state:', e);
-    }
-  }, [localParticipant, isMuted]);
+    }, [room]);
+
+    useEffect(() => {
+      try {
+        if (localParticipant) {
+          localParticipant.setMicrophoneEnabled(!props.isMuted);
+        }
+      } catch (e) {
+        console.warn('Failed to sync mute state:', e);
+      }
+    }, [localParticipant, props.isMuted]);
+
+    return (
+      <ActiveCallScreen
+        peerName={props.peerName}
+        peerAvatar={props.peerAvatar}
+        isMuted={props.isMuted}
+        isSpeaker={props.isSpeaker}
+        onToggleMute={props.onToggleMute}
+        onToggleSpeaker={props.onToggleSpeaker}
+        onEndCall={props.onEndCall}
+        connectionState={room?.state}
+      />
+    );
+  }
 
   return (
-    <ActiveCallScreen
-      peerName={peerName}
-      peerAvatar={peerAvatar}
-      isMuted={isMuted}
-      isSpeaker={isSpeaker}
-      onToggleMute={onToggleMute}
-      onToggleSpeaker={onToggleSpeaker}
-      onEndCall={onEndCall}
-      connectionState={room?.state}
-    />
+    <LiveKitRoom
+      serverUrl={props.serverUrl}
+      token={props.token}
+      connect={true}
+      audio={true}
+      video={false}
+      onConnected={(room: any) => { props.roomRef.current = room; }}
+    >
+      <ActiveCallContent />
+    </LiveKitRoom>
   );
 }

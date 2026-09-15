@@ -12,6 +12,12 @@ export interface PositionSummary {
   name: string;
 }
 
+export interface UserScope {
+  role: string;
+  scopeType: string;
+  scopeId?: string | null;
+}
+
 export interface AuthUser {
   id: string;
   userCode: string;
@@ -21,9 +27,13 @@ export interface AuthUser {
   avatarUrl?: string | null;
   roles: UserRole[];
   permissions: string[];
+  scopes?: UserScope[];
   department?: DepartmentSummary | null;
   position?: PositionSummary | null;
   hasFaceData: boolean;
+  joinDate?: string | null;
+  createdAt?: string | null;
   accountStatus?: string;
+  isRewardVaultEnabled?: boolean;
   deletionScheduledAt?: string | null;
 }

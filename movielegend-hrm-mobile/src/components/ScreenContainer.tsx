@@ -1,7 +1,15 @@
 import { PropsWithChildren, useState, useCallback } from 'react';
-import { ScrollViewProps, StyleSheet, ViewStyle, RefreshControl } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import {
+  ScrollViewProps,
+  StyleSheet,
+  ViewStyle,
+  RefreshControl,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -12,6 +20,7 @@ interface ScreenContainerProps extends PropsWithChildren {
 }
 
 export function ScreenContainer({ children, style, refreshControl, disableGlobalRefresh }: ScreenContainerProps) {
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -22,21 +31,31 @@ export function ScreenContainer({ children, style, refreshControl, disableGlobal
   }, [queryClient]);
 
   const defaultRefreshControl = <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />;
+  const bottomPadding = Math.max(insets.bottom, 20) + spacing.xl;
 
   return (
-    <KeyboardAwareScrollView 
-      contentContainerStyle={[styles.content, style]} 
-      refreshControl={disableGlobalRefresh ? undefined : (refreshControl || defaultRefreshControl)}
-      enableOnAndroid={true}
-      extraScrollHeight={20}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      style={styles.keyboardContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      {children}
-    </KeyboardAwareScrollView>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }, style]}
+        refreshControl={disableGlobalRefresh ? undefined : (refreshControl || defaultRefreshControl)}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+  },
   content: {
     backgroundColor: colors.background,
     gap: spacing.lg,

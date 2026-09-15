@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset='utf-8'>
+<title>Tờ Trình Đề Xuất Mô Hình Phân Cấp Quản Trị HRM</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1f2937;
+    margin: 30px;
+  }
+  .header-card {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-left: 6px solid #0284c7;
+    padding: 18px 24px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+  }
+  .header-card h1 {
+    font-size: 18pt;
+    color: #0369a1;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .header-card .meta-item {
+    font-size: 10.5pt;
+    color: #334155;
+    margin: 3px 0;
+  }
+  h2 {
+    color: #0f172a;
+    font-size: 14pt;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 6px;
+    margin-top: 28px;
+    text-transform: uppercase;
+  }
+  h3 {
+    color: #0369a1;
+    font-size: 12pt;
+    margin-top: 18px;
+  }
+  .diagram-box {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 10pt;
+    line-height: 1.4;
+    white-space: pre;
+    margin: 15px 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 10pt;
+  }
+  th {
+    background-color: #0284c7;
+    color: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 10px;
+    border: 1px solid #0284c7;
+  }
+  td {
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    vertical-align: top;
+  }
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+  .badge-super {
+    background: #fef08a;
+    color: #854d0e;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .badge-region {
+    background: #dbeafe;
+    color: #1e40af;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .badge-leader {
+    background: #e0e7ff;
+    color: #3730a3;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .code-block {
+    background: #1e293b;
+    color: #f8fafc;
+    padding: 14px;
+    border-radius: 6px;
+    font-family: 'Consolas', monospace;
+    font-size: 9.5pt;
+    line-height: 1.5;
+    white-space: pre;
+  }
+  .note-box {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    padding: 12px 16px;
+    margin: 15px 0;
+    font-size: 10.5pt;
+  }
+  .highlight-card {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 5px solid #16a34a;
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin: 15px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class='header-card'>
+  <h1>TỜ TRÌNH ĐỀ XUẤT MÔ HÌNH PHÂN CẤP QUẢN TRỊ HRM</h1>
+  <div class='meta-item'><b>Dự án:</b> Movie Legend HRM</div>
+  <div class='meta-item'><b>Chủ đề:</b> Chuẩn hóa mô hình quản trị tinh gọn: <b>Admin Tổng ➔ Admin Miền (Nắm trọn tổng các quyền Admin điều hành toàn bộ Chi nhánh trong miền) ➔ Trưởng phòng (P. CSKH, P. Live) ➔ Nhân viên</b></div>
+  <div class='meta-item'><b>Đơn vị trình:</b> Ban Dự án Hệ thống Quản trị HRM</div>
+  <div class='meta-item'><b>Kính gửi:</b> Ban Quản Trị Doanh nghiệp / Tech Lead</div>
+</div>
+
+<div class='note-box'>
+  <b>Lưu ý nghiệp vụ:</b> Phân hệ Quản lý Kho hàng được vận hành hoàn toàn độc lập riêng biệt, không nằm trong phạm vi cây cơ cấu tổ chức nhân sự hành chính này.
+</div>
+
+<h2>1. BẢN CHẤT VAI TRÒ ADMIN MIỀN: TỔNG QUYỀN ADMIN QUẢN TRỊ CA & NHIỆM VỤ (TASKS)</h2>
+<div class='highlight-card'>
+  <b>Định vị chuẩn xác mô hình Miền Nam:</b><br/>
+  • <b>Chiến lược kinh doanh mũi nhọn tại Miền Nam:</b> Tập trung chủ yếu vào hoạt động <b>Live (Livestream bán hàng)</b> kết hợp cùng <b>Phòng CSKH</b> xử lý đơn và chăm sóc sau bán.<br/>
+  • <b>Hình thức vận hành nhân sự:</b> Không chỉ là ca kíp đơn thuần, mà hệ thống quản lý toàn diện thông qua hai trục chính: <b>Phân ca làm việc (Shifts)</b> và <b>Giao việc / Quản trị nhiệm vụ (Tasks)</b>.<br/>
+  • <b>Vị thế Admin Miền:</b> Nắm giữ <b>TỔNG CÁC QUYỀN CỦA ADMIN</b> (177 permissions trong mã nguồn), trực tiếp điều hành toàn bộ Chi nhánh 1, Chi nhánh 2, Chi nhánh 3... Không cần lập thêm tầng Admin chi nhánh trung gian.
+</div>
+
+<p>Phân cấp quản trị 2 cấp Admin tinh gọn được quy định cụ thể như sau:</p>
+<ol>
+  <li><b>ADMIN TỔNG (Super Admin / Toàn quốc - <code>GLOBAL</code>):</b>
+    <ul>
+      <li>Nắm trọn vẹn quyền tối cao trên toàn bộ hệ thống cả nước (Bao quát cả Miền Bắc và Miền Nam).</li>
+      <li>Bổ nhiệm, bãi nhiệm và quản lý tài khoản của các Admin Miền; thiết lập quy chế, chính sách chung và duyệt bảng lương toàn công ty.</li>
+    </ul>
+  </li>
+  <li><b>ADMIN MIỀN (Admin Miền Nam & Admin Miền Bắc - <code>REGION</code>):</b>
+    <ul>
+      <li><b>Trực tiếp điều hành và quản lý tất cả các Chi nhánh trong miền như một Admin thực thụ</b> (Miền Nam quản lý Chi nhánh 1, 2, 3...).</li>
+      <li><b>Sở hữu TỔNG CÁC QUYỀN ADMIN áp dụng trên toàn miền:</b>
+        <ul>
+          <li><b>Quản trị Nhiệm vụ (Tasks & Projects):</b> Khởi tạo nhóm công việc, giao task chiến dịch, duyệt gia hạn task, đánh giá kết quả hoàn thành task của các phòng ban (CSKH, Live) tại mọi chi nhánh.</li>
+          <li><b>Quản trị Phân ca (Shifts):</b> Thiết lập ca làm việc, phê duyệt bảng phân ca hàng tuần/tháng, điều phối ca làm giữa các chi nhánh.</li>
+          <li><b>Chấm công GPS & Kỷ luật:</b> Cấu hình tọa độ GPS, bán kính check-in (100m) và WiFi riêng cho từng Chi nhánh 1, 2, 3; theo dõi chuyên cần và xử lý giải trình công.</li>
+          <li><b>Phê duyệt Đơn từ:</b> Trực tiếp duyệt chốt mọi đơn xin nghỉ phép, đổi ca, làm thêm giờ (OT) của nhân sự toàn miền.</li>
+          <li><b>Quản trị Nhân sự & Hợp đồng:</b> Quản lý hồ sơ, duyệt tài khoản nhân viên mới, ký duyệt hợp đồng lao động, bổ nhiệm Trưởng phòng (Leader CSKH, Leader Live).</li>
+          <li><b>Leveling & Ví Thưởng Tết (Talent Vault):</b> Quản trị 12 cấp bậc Leveling, chấm điểm thi đua (Competition Review), duyệt cấp điểm và duyệt lệnh rút điểm Ví Thưởng Tết cho nhân viên.</li>
+          <li><b>Điều phối liên chi nhánh:</b> Chủ động điều chuyển nhân sự giỏi giữa Chi nhánh 1 ⇄ 2 ⇄ 3 khi triển khai các chiến dịch hoặc phiên Mega Live lớn.</li>
+        </ul>
+      </li>
+      <li><b>Phân lập dữ liệu:</b> Tổng quyền Admin Miền Nam chỉ có hiệu lực trên các chi nhánh thuộc Miền Nam; bị chặn hoàn toàn không xem được dữ liệu Miền Bắc.</li>
+    </ul>
+  </li>
+  <li><b>TRƯỞNG PHÒNG TẠI TỪNG CHI NHÁNH (<code>DEPARTMENT</code>):</b>
+    <ul>
+      <li>Tại mỗi Chi nhánh (CN1, CN2, CN3) gồm có: <b>Leader CSKH</b> và <b>Leader Live</b>.</li>
+      <li>Trực tiếp phân công, đôn đốc nhân viên thực hiện <b>Tasks</b> và theo dõi lịch <b>Ca làm việc</b> nội bộ nhóm.</li>
+      <li>Duyệt sơ bộ (cấp 1) các đề xuất nghỉ phép, đổi ca trước khi chuyển lên Admin Miền chốt; đánh giá hiệu suất hoàn thành task của nhân viên. Báo cáo trực tiếp cho Admin Miền.</li>
+    </ul>
+  </li>
+  <li><b>NHÂN VIÊN (<code>OWN</code>):</b>
+    <ul>
+      <li>Gồm Streamer Live và Nhân viên CSKH làm việc theo ca, nhận và báo cáo tiến độ Tasks được giao, chấm công GPS tại đúng chi nhánh được phân công.</li>
+    </ul>
+  </li>
+</ol>
+
+<h2>2. SƠ ĐỒ CẤU TRÚC PHÂN CẤP HỆ THỐNG TINH GỌN</h2>
+<div class='diagram-box'>                     👑 ADMIN TỔNG (Super Admin / Toàn quốc)
+              [ Toàn quyền tối cao - Kiểm soát toàn bộ Bắc & Nam ]
+                                       │
+       ┌───────────────────────────────┴───────────────────────────────┐
+       ▼                                                               ▼
+🏛️ ADMIN MIỀN BẮC                                             🏛️ ADMIN MIỀN NAM
+(Tổng quyền Admin trong các chi nhánh MB)                     (TỔNG QUYỀN ADMIN TRONG TẤT CẢ CHI NHÁNH MN)
+       │                                                               │
+  [Chi nhánh Hà Nội...]                       ┌────────────────────────┼────────────────────────┐
+       │                                      ▼                        ▼                        ▼
+  ┌────┴────┐                            🏪 CHI NHÁNH 1           🏪 CHI NHÁNH 2           🏪 CHI NHÁNH 3
+  📁 P. Kinh doanh                       (Do Admin MN quản lý)    (Do Admin MN quản lý)    (Do Admin MN quản lý)
+  📁 P. Vận hành                              │                        │                        │
+                                         ┌────┴────┐              ┌────┴────┐              ┌────┴────┐
+                                         📁 P. CSKH               📁 P. CSKH               📁 P. CSKH
+                                         📁 P. Live               📁 P. Live               📁 P. Live</div>
+
+<h2>3. BẢNG MA TRẬN PHÂN QUYỀN 177 QUYỀN ADMIN: QUẢN TRỊ CA & TASKS</h2>
+<table>
+  <thead>
+    <tr>
+      <th style='width: 8%;'>Cấp bậc</th>
+      <th style='width: 14%;'>Vai trò</th>
+      <th style='width: 13%;'>Phạm vi áp dụng (Scope)</th>
+      <th style='width: 22%;'>Quản trị Tasks, Dự án & Nhân sự</th>
+      <th style='width: 22%;'>Phân ca (Shifts), Chấm công GPS & Phê duyệt</th>
+      <th style='width: 21%;'>Ví Tết, Leveling & Báo cáo Hiệu suất</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style='text-align: center;'><span class='badge-super'>CẤP 0</span></td>
+      <td><b>👑 ADMIN TỔNG</b><br/><i>(Super Admin)</i></td>
+      <td><b>Toàn quốc</b><br/>(<code>GLOBAL</code>)</td>
+      <td>• Toàn quyền tối cao 177 quyền.<br/>• Bổ nhiệm/bãi nhiệm Admin Miền Nam, Miền Bắc.<br/>• Tạo/xóa các chi nhánh và phòng ban toàn quốc.</td>
+      <td>• Cấu hình khung chính sách chấm công toàn quốc.<br/>• Can thiệp xử lý sự cố đặc biệt cấp công ty.</td>
+      <td>• Quản lý tổng ngân sách Quỹ Ví Thưởng Tết cả nước.<br/>• Cấu hình tiêu chuẩn Leveling 12 cấp bậc toàn công ty.<br/>• Khóa sổ và duyệt bảng lương toàn quốc.</td>
+    </tr>
+    <tr>
+      <td style='text-align: center;'><span class='badge-region'>CẤP 1</span></td>
+      <td><b>🏛️ ADMIN MIỀN NAM</b><br/><i>(Tổng quyền Admin trong miền)</i></td>
+      <td><b>TOÀN BỘ CÁC CHI NHÁNH TRONG MIỀN</b><br/>(<code>REGION</code>)</td>
+      <td>• <b>Có đầy đủ tổng các quyền Admin quản trị Chi nhánh 1, 2, 3...</b><br/>• <b>Giao task, giám sát tiến độ công việc và duyệt gia hạn task</b> của P. CSKH và P. Live toàn miền.<br/>• Duyệt hồ sơ tuyển dụng nhân sự mới cho mọi chi nhánh.<br/>• <b>Toàn quyền điều phối nhân sự Live & CSKH luân chuyển giữa các Chi nhánh 1 ⇄ 2 ⇄ 3</b>.<br/>• Bổ nhiệm Leader CSKH, Leader Live tại từng chi nhánh.<br/>• Phân lập: Không thấy dữ liệu Miền Bắc.</td>
+      <td>• <b>Cấu hình tọa độ GPS, bán kính 100m, WiFi riêng cho từng Chi nhánh 1, 2, 3</b>.<br/>• <b>Thiết lập và phê duyệt lịch phân ca làm việc (Shifts)</b> của toàn bộ các chi nhánh.<br/>• <b>Trực tiếp duyệt chốt mọi đơn nghỉ phép, đổi ca, làm ngoài giờ (OT), giải trình công</b> của nhân viên toàn miền.</td>
+      <td>• Phân bổ và trực tiếp trao điểm Ví Thưởng Tết cho nhân viên các chi nhánh.<br/>• Duyệt các lệnh xin rút điểm Ví Tết của nhân viên toàn miền.<br/>• Chấm điểm thi đua (Competition Review) và duyệt thăng hạng Leveling nhân sự toàn miền.<br/>• Xem toàn bộ báo cáo doanh thu Live, tỷ lệ hoàn thành Tasks và KPI tổng hợp toàn miền.</td>
+    </tr>
+    <tr>
+      <td style='text-align: center;'><span class='badge-leader'>CẤP 2</span></td>
+      <td><b>📁 TRƯỞNG PHÒNG</b><br/><i>(Leader CSKH / Leader Live)</i></td>
+      <td><b>Nội bộ 1 Phòng tại Chi nhánh</b><br/>(<code>DEPARTMENT</code>)</td>
+      <td>• Phân công nhiệm vụ cụ thể (Tasks) cho nhân viên phòng tại chi nhánh.<br/>• Đôn đốc tiến độ, kiểm tra chất lượng hoàn thành task.<br/>• Báo cáo trực tiếp lên Admin Miền.</td>
+      <td>• Xếp lịch phân ca làm việc chi tiết trong tuần cho nhân viên.<br/>• Theo dõi giờ giấc chấm công, đi muộn/về sớm của nhân viên phòng.<br/>• Duyệt sơ bộ (cấp 1) đơn xin nghỉ phép, đổi ca trước khi chuyển Admin Miền chốt.</td>
+      <td>• Giám sát KPI doanh thu Live bán máy chiếu, tỷ lệ giải quyết tin nhắn CSKH.<br/>• Đánh giá điểm hiệu suất công việc và đề xuất thăng cấp Leveling cho nhân viên trong phòng.</td>
+    </tr>
+    <tr>
+      <td style='text-align: center;'><b>CẤP 3</b></td>
+      <td><b>👤 NHÂN VIÊN</b><br/><i>(CSKH / Streamer Live)</i></td>
+      <td><b>Cá nhân</b><br/>(<code>OWN</code>)</td>
+      <td>• Nhận nhiệm vụ (Tasks), cập nhật tiến độ và báo cáo kết quả hoàn thành.<br/>• Phối hợp chéo giữa nhân viên Live và CSKH theo đầu việc được giao.</td>
+      <td>• Đi làm đúng ca được xếp lịch, chấm công GPS tại đúng chi nhánh.<br/>• Gửi đơn xin nghỉ phép, đổi ca, xin OT lên Trưởng phòng.</td>
+      <td>• Tích lũy điểm Ví Thưởng Tết, thi đua Leveling thăng hạng.<br/>• Xem phiếu lương, kết quả KPI của bản thân.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>4. BỘ CÔNG CỤ VẬN HÀNH CA & TASKS DÀNH CHO ADMIN MIỀN NAM</h2>
+<div class='highlight-card'>
+  <b>Bộ lọc chuyển đổi Chi nhánh (Branch Switcher) trên Header:</b><br/>
+  Với tổng các quyền Admin trong tay, Admin Miền Nam dễ dàng chuyển đổi góc nhìn điều hành:
+  <ul>
+    <li><code>[ Tất cả chi nhánh Miền Nam ]</code>: Nắm trọn toàn cảnh: Tổng số nhân sự, tỷ lệ đi làm hôm nay, biểu đồ tiến độ Tasks toàn miền, tổng doanh số Live toàn miền, danh sách đơn từ và task đang chờ duyệt.</li>
+    <li><code>[ Chi nhánh 1 ]</code>: Đi sâu quản lý riêng Chi nhánh 1 (Tasks của CN1, bảng phân ca CN1, nhân sự P. CSKH & P. Live CN1, tọa độ GPS CN1).</li>
+    <li><code>[ Chi nhánh 2 ]</code>: Đi sâu quản lý riêng Chi nhánh 2 (Tasks của CN2, bảng phân ca CN2, nhân sự P. CSKH & P. Live CN2, tọa độ GPS CN2).</li>
+    <li><code>[ Chi nhánh 3 ]</code>: Đi sâu quản lý riêng Chi nhánh 3 (Tasks của CN3, bảng phân ca CN3, nhân sự P. CSKH & P. Live CN3, tọa độ GPS CN3).</li>
+  </ul>
+</div>
+
+<h2>5. THIẾT KẾ CƠ SỞ DỮ LIỆU ĐỀ XUẤT (PRISMA SCHEMA)</h2>
+<div class='code-block'>// 1. Bảng Vùng Miền (regions)
+model Region {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @db.Uuid
+  code        String    // MIEN_BAC, MIEN_NAM
+  name        String    // Miền Bắc, Miền Nam
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company     Company   @relation(fields: [companyId], references: [id])
+  branches    Branch[]  // Quản lý trực tiếp toàn bộ Chi nhánh 1, 2, 3...
+
+  @@unique([companyId, code])
+  @@map("regions")
+}
+
+// 2. Bảng Chi nhánh (branches - Đã có sẵn trong code)
+model Branch {
+  id            String       @id @default(uuid()) @db.Uuid
+  companyId     String       @db.Uuid
+  regionId      String       @db.Uuid // Khóa ngoại liên kết tới Region
+  code          String
+  name          String
+  address       String?
+  latitude      Decimal?     @db.Decimal(10, 7)
+  longitude     Decimal?     @db.Decimal(10, 7)
+  allowedRadius Int?         @default(100)
+  allowedIps    String[]
+  isActive      Boolean      @default(true)
+
+  company       Company      @relation(fields: [companyId], references: [id])
+  region        Region       @relation(fields: [regionId], references: [id])
+  departments   Department[] // Trực tiếp chứa P. CSKH, P. Live
+
+  @@unique([companyId, code])
+  @@map("branches")
+}
+
+// 3. Enum phân quyền RoleScopeType chuẩn trong Code
+enum RoleScopeType {
+  GLOBAL      // Dành riêng cho ADMIN TỔNG (Toàn quyền toàn quốc)
+  COMPANY     // Cấp công ty tổng
+  REGION      // Dành cho ADMIN MIỀN (Nắm tổng các quyền Admin trong các chi nhánh thuộc miền)
+  DEPARTMENT  // Dành cho TRƯỞNG PHÒNG (Leader CSKH / Leader Live tại từng chi nhánh)
+}</div>
+
+<h2>6. LỢI THẾ CỦA MÔ HÌNH QUẢN TRỊ CA & TASKS TẬP TRUNG TẠI ADMIN MIỀN</h2>
+<ul>
+  <li><b>Bao quát toàn diện công việc:</b> Kết hợp chặt chẽ giữa quản trị thời gian (Phân ca làm việc, chấm công GPS) và quản trị kết quả đầu ra (Giao việc, theo dõi Tasks, chỉ tiêu KPI).</li>
+  <li><b>Trao trọn quyền Admin cho cấp thực chiến:</b> Admin Miền có đầy đủ 177 quyền hạn để giải quyết dứt điểm các yêu cầu phát sinh tại các chi nhánh một cách nhanh chóng mà không cần chờ đợi.</li>
+  <li><b>Tối ưu nguồn lực cho hoạt động Live:</b> Hoạt động Live bán hàng đòi hỏi sự phối hợp nhịp nhàng giữa Streamer Live và bộ phận CSKH xử lý đơn; việc Admin Miền quản lý tập trung ca và tasks giúp dòng công việc vận hành liên tục, không bị đứt gãy.</li>
+</ul>
+
+<p style='text-align: center; margin-top: 40px; font-weight: bold; color: #0369a1;'>
+  KÍNH TRÌNH TECH LEAD / BAN QUẢN TRỊ XEM XÉT VÀ PHÊ DUYỆT.
+</p>
+
+</body>
+</html>

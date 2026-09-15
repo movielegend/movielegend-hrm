@@ -1,9 +1,8 @@
-import { Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
-import { Public } from '../../common/decorators/public.decorator';
-import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { UploadsService } from './uploads.service';
 
@@ -17,8 +16,6 @@ interface UploadRequest extends Request {
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
-  @Public()
-  @UseGuards(OptionalJwtAuthGuard)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiConsumes('multipart/form-data')
   @ApiBody({

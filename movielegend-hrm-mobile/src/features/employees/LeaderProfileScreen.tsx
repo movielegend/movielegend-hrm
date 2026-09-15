@@ -14,6 +14,7 @@ import { EditProfileModal } from './components/EditProfileModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
+import { formatSeniority } from '../../utils/seniority';
 
 export function LeaderProfileScreen() {
   const router = useRouter();
@@ -72,6 +73,17 @@ export function LeaderProfileScreen() {
             <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
             <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Chưa cập nhật'} />
+            <InfoRow 
+              icon="calendar-clock" 
+              label="Thâm niên" 
+              value={formatSeniority(user?.joinDate || (user as any)?.createdAt)} 
+              valueColor="#059669"
+            />
+            <InfoRow 
+              icon="calendar-account" 
+              label="Ngày vào làm" 
+              value={(user?.joinDate || (user as any)?.createdAt) ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} 
+            />
             <InfoRow
               icon="face-recognition"
               label="Dữ liệu khuôn mặt"
@@ -93,6 +105,7 @@ export function LeaderProfileScreen() {
             <ActionRow icon="help-circle-outline" title="Yêu cầu VTTB" onPress={() => router.push('/leader/material-issues' as any)} />
             <ActionRow icon="account-multiple" title="Nhân sự phòng" onPress={() => router.push('/leader/employees' as any)} />
             <ActionRow icon="calendar-check" title="Phân ca làm" onPress={() => router.push('/leader/shift-management' as any)} />
+            <ActionRow icon="folder-text-outline" title="Tài liệu nội bộ" onPress={() => router.push('/leader/documents' as any)} />
             <ActionRow icon="newspaper-variant-outline" title="Bảng tin" onPress={() => router.push('/leader/newsfeed' as any)} />
             <ActionRow icon="chat" title="Nhóm Chat" onPress={() => router.push('/leader/chat' as any)} isLast />
           </View>
@@ -102,8 +115,9 @@ export function LeaderProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="calendar-clock" title="Lịch sử chấm công" onPress={() => router.push('/leader/attendance-history' as any)} />
-            <ActionRow icon="cash-multiple" title="Bảng lương" onPress={() => router.push('/leader/payslip' as any)} />
+            <ActionRow icon="calendar-clock" title="Bảng công" onPress={() => router.push('/leader/timesheet' as any)} />
+            <ActionRow icon="cash-multiple" title="Phiếu lương" onPress={() => router.push('/leader/payslip' as any)} />
+            <ActionRow icon="history" title="Lịch sử chấm công" onPress={() => router.push('/leader/attendance-history' as any)} />
             <ActionRow icon="laptop" title="Tài sản của tôi" onPress={() => router.push('/leader/assets' as any)} />
             <ActionRow icon="message-draw" title="Góp ý" onPress={() => router.push('/leader/feedbacks' as any)} isLast />
           </View>
@@ -113,7 +127,7 @@ export function LeaderProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt</Text>
           <View style={styles.infoCard}>
-            <ActionRow icon="file-document-outline" title="Cẩm nang PDF" onPress={showGuideManual} />
+            <ActionRow icon="information-outline" title="Hướng dẫn sử dụng" onPress={showGuideManual} />
             <ActionRow icon="lock-outline" title="Đổi mật khẩu" onPress={() => setIsChangingPassword(true)} />
             <ActionRow icon="account-remove-outline" title="Quyền sở hữu & Xóa tài khoản" onPress={() => setIsDeleting(true)} />
             <Pressable style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>

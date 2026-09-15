@@ -1,19 +1,32 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Image, Pressable, StyleSheet, Text, View, Platform, Modal } from 'react-native';
+import { 
+  Image, 
+  Pressable, 
+  StyleSheet, 
+  Text, 
+  View, 
+  Platform, 
+  Modal, 
+  ScrollView,
+  Keyboard,
+  KeyboardAvoidingView,
+  ActivityIndicator,
+} from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
-import { registerEmployee } from '../../api/registration.api';
+import { registerEmployee, checkAccountAvailability } from '../../api/registration.api';
 import { uploadFile } from '../../api/uploads.api';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { VietnameseDatePickerModal } from '../../components/VietnameseDatePickerModal';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { Screen } from '../../components/Screen';
@@ -30,8 +43,8 @@ import { mapLoginError, normalizeApiError } from '../../utils/api-error';
 import { accountSchema, departmentSchema, faceSchema, profileSchema } from './registration.schema';
 import { facePoseLabels, useRegistration } from './RegistrationProvider';
 
-type AccountStepValues = Pick<RegistrationFormValues, 'fullName' | 'phone' | 'email' | 'password' | 'confirmPassword'>;
-type ProfileStepValues = Pick<RegistrationFormValues, 'idCardNumber' | 'dateOfBirth' | 'gender'>;
+type AccountStepValues = z.infer<typeof accountSchema>;
+type ProfileStepValues = Pick<RegistrationFormValues, 'idCardNumber' | 'dateOfBirth' | 'gender' | 'joinDate'>;
 type DepartmentStepValues = Pick<RegistrationFormValues, 'requestedDepartmentId'>;
 
 export function RegistrationIntroScreen() {
@@ -65,7 +78,7 @@ export function RegistrationIntroScreen() {
               ))}
             </View>
             
-            <Pressable onPress={() => router.push('/register/profile')} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
+            <Pressable onPress={() => router.push('/register/account')} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>BẮT ĐẦU</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', marginTop: 24, justifyContent: 'center' }}>
@@ -81,44 +94,254 @@ export function RegistrationIntroScreen() {
   );
 }
 
-export function RegistrationProfileScreen() {
+export function RegistrationAccountScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
-  const { control, handleSubmit, formState: { errors } } = useForm<AccountStepValues>({
+  const [checking, setChecking] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+
+  const {
+    control,
+    handleSubmit,
+    setError,
+    clearErrors,
+    formState: { errors },
+  } = useForm<AccountStepValues>({
     resolver: zodResolver(accountSchema),
-    defaultValues: values,
+    defaultValues: {
+      fullName: values.fullName,
+      phone: values.phone,
+      email: values.email,
+      password: values.password,
+      confirmPassword: values.confirmPassword,
+    },
   });
-  const submit = handleSubmit((data) => {
-    update(data);
-    router.push('/register/personal');
+
+  const submit = handleSubmit(async (data) => {
+    Keyboard.dismiss();
+    setDuplicateError(null);
+    setChecking(true);
+
+    try {
+      const checkRes = await checkAccountAvailability({
+        phone: data.phone,
+        email: data.email,
+      });
+
+      if (!checkRes.isAvailable) {
+        if (checkRes.phoneDuplicate) {
+          setError('phone', {
+            type: 'manual',
+            message: 'Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng nhập số khác.',
+          });
+        }
+        if (checkRes.emailDuplicate) {
+          setError('email', {
+            type: 'manual',
+            message: 'Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác.',
+          });
+        }
+        setDuplicateError(
+          checkRes.message || 'Thông tin đã tồn tại trên hệ thống. Vui lòng kiểm tra và nhập lại!'
+        );
+        return;
+      }
+
+      // Thông tin hợp lệ -> chuyển sang bước 2
+      update(data);
+      router.push('/register/personal');
+    } catch (err: any) {
+      // Nếu có lỗi mạng bất ngờ, vẫn cho qua bước tiếp theo
+      update(data);
+      router.push('/register/personal');
+    } finally {
+      setChecking(false);
+    }
   });
+
+  const handleCheckPhoneBlur = async (phoneVal?: string) => {
+    if (!phoneVal || phoneVal.length < 10) return;
+    try {
+      const res = await checkAccountAvailability({ phone: phoneVal });
+      if (res.phoneDuplicate) {
+        setError('phone', {
+          type: 'manual',
+          message: 'Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng nhập số khác.',
+        });
+        setDuplicateError('Số điện thoại này đã được đăng ký trên hệ thống. Vui lòng kiểm tra lại!');
+      }
+    } catch (_) {}
+  };
+
+  const handleCheckEmailBlur = async (emailVal?: string) => {
+    if (!emailVal || !emailVal.includes('@')) return;
+    try {
+      const res = await checkAccountAvailability({ email: emailVal });
+      if (res.emailDuplicate) {
+        setError('email', {
+          type: 'manual',
+          message: 'Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác.',
+        });
+        setDuplicateError('Email này đã được đăng ký trên hệ thống. Vui lòng nhập email khác!');
+      }
+    } catch (_) {}
+  };
+
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60, zIndex: 1 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ marginBottom: 24, paddingTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#111827" />
-              </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Thông tin tài khoản</Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        >
+          <ScrollView
+            contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={{ marginBottom: 24, paddingTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                  <Ionicons name="arrow-back" size={24} color="#111827" />
+                </Pressable>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Thông tin tài khoản</Text>
+              </View>
+              <StepBar currentStep={1} />
             </View>
-            <StepBar currentStep={1} />
-          </View>
 
-          <View style={{ gap: 20 }}>
-            <Controller control={control} name="fullName" render={({ field }) => <FormField label="Họ tên" value={field.value} onChangeText={field.onChange} error={errors.fullName?.message} />} />
-            <Controller control={control} name="phone" render={({ field }) => <FormField keyboardType="phone-pad" maxLength={10} label="Số điện thoại" value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 10))} error={errors.phone?.message} />} />
-            <Controller control={control} name="email" render={({ field }) => <FormField autoCapitalize="none" keyboardType="email-address" label="Email" value={field.value} onChangeText={field.onChange} error={errors.email?.message} />} />
-            <Controller control={control} name="password" render={({ field }) => <FormField isPassword label="Mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.password?.message} />} />
-            <Controller control={control} name="confirmPassword" render={({ field }) => <FormField isPassword label="Nhập lại mật khẩu" value={field.value} onChangeText={field.onChange} error={errors.confirmPassword?.message} />} />
-            
-            <Pressable onPress={submit} style={{ backgroundColor: '#0F172A', height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 16, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
-            </Pressable>
-          </View>
-        </KeyboardAwareScrollView>
+            {duplicateError ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 18,
+                }}
+              >
+                <Ionicons name="alert-circle" size={22} color="#DC2626" />
+                <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#B91C1C', lineHeight: 18 }}>
+                  {duplicateError}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={{ gap: 20 }}>
+              <Controller
+                control={control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormField
+                    label="Họ tên"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={errors.fullName?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field }) => (
+                  <FormField
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    label="Số điện thoại"
+                    value={field.value}
+                    onChangeText={(val) => {
+                      if (duplicateError) setDuplicateError(null);
+                      clearErrors('phone');
+                      field.onChange(val.replace(/\D/g, '').slice(0, 10));
+                    }}
+                    onBlur={() => handleCheckPhoneBlur(field.value || '')}
+                    error={errors.phone?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="email"
+                render={({ field }) => (
+                  <FormField
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    label="Email"
+                    value={field.value}
+                    onChangeText={(val) => {
+                      if (duplicateError) setDuplicateError(null);
+                      clearErrors('email');
+                      field.onChange(val);
+                    }}
+                    onBlur={() => handleCheckEmailBlur(field.value || '')}
+                    error={errors.email?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="password"
+                render={({ field }) => (
+                  <FormField
+                    isPassword
+                    label="Mật khẩu"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={errors.password?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormField
+                    isPassword
+                    label="Nhập lại mật khẩu"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={errors.confirmPassword?.message}
+                  />
+                )}
+              />
+              
+              <Pressable
+                onPress={submit}
+                disabled={checking}
+                style={{
+                  backgroundColor: checking ? '#475569' : '#0F172A',
+                  height: 56,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 16,
+                  flexDirection: 'row',
+                  gap: 8,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
+                  elevation: 3,
+                }}
+              >
+                {checking ? (
+                  <>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+                      ĐANG KIỂM TRA...
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
+                )}
+              </Pressable>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Screen>
   );
@@ -127,201 +350,434 @@ export function RegistrationProfileScreen() {
 export function RegistrationPersonalScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
-  const { control, handleSubmit, formState: { errors }, watch, setValue } = useForm<ProfileStepValues>({
+  const [checking, setChecking] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+
+  const {
+    control,
+    handleSubmit,
+    setError,
+    clearErrors,
+    formState: { errors },
+    watch,
+    setValue,
+  } = useForm<ProfileStepValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: values,
+    defaultValues: {
+      idCardNumber: values.idCardNumber,
+      dateOfBirth: values.dateOfBirth,
+      gender: values.gender,
+      joinDate: values.joinDate || '',
+    },
   });
-  
+
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showJoinDatePicker, setShowJoinDatePicker] = useState(false);
   const dob = watch('dateOfBirth');
   const gender = watch('gender');
-  
-  const submit = handleSubmit((data) => {
-    update(data);
-    router.push('/register/department');
+  const joinDate = watch('joinDate');
+
+  const submit = handleSubmit(async (data) => {
+    Keyboard.dismiss();
+    setDuplicateError(null);
+    setChecking(true);
+
+    try {
+      if (data.idCardNumber) {
+        const checkRes = await checkAccountAvailability({
+          idCardNumber: data.idCardNumber,
+        });
+
+        if (checkRes.idCardDuplicate) {
+          setError('idCardNumber', {
+            type: 'manual',
+            message: 'Số CCCD/CMND này đã được đăng ký trên hệ thống. Vui lòng kiểm tra lại.',
+          });
+          setDuplicateError('Số CCCD/CMND này đã tồn tại trên hệ thống. Vui lòng kiểm tra và nhập lại!');
+          return;
+        }
+      }
+
+      update(data);
+      router.push('/register/department');
+    } catch (err: any) {
+      update(data);
+      router.push('/register/department');
+    } finally {
+      setChecking(false);
+    }
   });
+
+  const handleCheckIdCardBlur = async (idCardVal?: string) => {
+    if (!idCardVal || idCardVal.length < 9) return;
+    try {
+      const res = await checkAccountAvailability({ idCardNumber: idCardVal });
+      if (res.idCardDuplicate) {
+        setError('idCardNumber', {
+          type: 'manual',
+          message: 'Số CCCD/CMND này đã được đăng ký trên hệ thống. Vui lòng kiểm tra lại.',
+        });
+        setDuplicateError('Số CCCD/CMND này đã tồn tại trên hệ thống. Vui lòng kiểm tra và nhập lại!');
+      }
+    } catch (_) {}
+  };
 
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
-          <View style={{ marginBottom: 24, paddingTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#111827" />
-              </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Hồ sơ cá nhân</Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        >
+          <ScrollView
+            contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={{ marginBottom: 24, paddingTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+                  <Ionicons name="arrow-back" size={24} color="#111827" />
+                </Pressable>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Hồ sơ cá nhân</Text>
+              </View>
+              <StepBar currentStep={2} />
             </View>
-            <StepBar currentStep={2} />
-          </View>
 
-          <View style={{ gap: 20 }}>
-            <Controller control={control} name="idCardNumber" render={({ field }) => <FormField label="Số CCCD" maxLength={12} value={field.value} onChangeText={(val) => field.onChange(val.replace(/\D/g, '').slice(0, 12))} error={errors.idCardNumber?.message} keyboardType="numeric" />} />
-            
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
-              <Pressable 
-                onPress={() => setShowDatePicker(true)}
-                style={{ height: 56, borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: '#FFFFFF' }}
+            {duplicateError ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 18,
+                }}
               >
-                <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: '500' }}>
-                  {dob ? dob.split('-').reverse().join('-') : 'Chọn ngày sinh'}
+                <Ionicons name="alert-circle" size={22} color="#DC2626" />
+                <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#B91C1C', lineHeight: 18 }}>
+                  {duplicateError}
                 </Text>
-              </Pressable>
-              {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.dateOfBirth.message}</Text> : null}
-            </View>
+              </View>
+            ) : null}
 
-            {showDatePicker && Platform.OS === 'ios' && (
-              <Modal transparent animationType="slide" visible={showDatePicker} onRequestClose={() => setShowDatePicker(false)}>
-                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                  <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 30 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#F3F4F6' }}>
-                      <Pressable onPress={() => setShowDatePicker(false)} style={{ padding: 8 }}>
-                        <Text style={{ color: '#6B7280', fontSize: 16, fontWeight: '500' }}>Hủy</Text>
-                      </Pressable>
-                      <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Chọn ngày sinh</Text>
-                      <Pressable onPress={() => setShowDatePicker(false)} style={{ padding: 8 }}>
-                        <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>Xong</Text>
-                      </Pressable>
-                    </View>
-                    <DateTimePicker
-                      value={dob ? (() => {
-                        const [y, m, d] = dob.split('-').map(Number);
-                        return (y && m && d) ? new Date(y, m - 1, d) : new Date(2000, 0, 1);
-                      })() : new Date(2000, 0, 1)}
-                      mode="date"
-                      display="spinner"
-                      maximumDate={new Date()}
-                      onChange={(event, selectedDate) => {
-                        if (selectedDate) {
-                          const y = selectedDate.getFullYear();
-                          const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                          const d = String(selectedDate.getDate()).padStart(2, '0');
-                          setValue('dateOfBirth', `${y}-${m}-${d}`);
-                        }
-                      }}
-                      style={{ height: 200, marginTop: 10 }}
-                    />
+            <View style={{ gap: 20 }}>
+              <Controller
+                control={control}
+                name="idCardNumber"
+                render={({ field }) => (
+                  <FormField
+                    label="Số CCCD"
+                    maxLength={12}
+                    value={field.value}
+                    onChangeText={(val) => {
+                      if (duplicateError) setDuplicateError(null);
+                      clearErrors('idCardNumber');
+                      field.onChange(val.replace(/\D/g, '').slice(0, 12));
+                    }}
+                    onBlur={() => handleCheckIdCardBlur(field.value)}
+                    error={errors.idCardNumber?.message}
+                    keyboardType="numeric"
+                  />
+                )}
+              />
+              
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
+                <Pressable 
+                  onPress={() => setShowDatePicker(true)}
+                  style={{ 
+                    height: 56, 
+                    borderWidth: 1, 
+                    borderColor: errors.dateOfBirth ? '#EF4444' : '#ECEEF3', 
+                    borderRadius: 12, 
+                    paddingHorizontal: 16, 
+                    flexDirection: 'row',
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    backgroundColor: '#FFFFFF' 
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="calendar-outline" size={20} color={dob ? '#111827' : '#9CA3AF'} />
+                    <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: dob ? '600' : '400' }}>
+                      {dob ? (() => {
+                        const parts = dob.split('-');
+                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dob;
+                      })() : 'Chọn ngày sinh'}
+                    </Text>
                   </View>
-                </View>
-              </Modal>
-            )}
+                  <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+                </Pressable>
+                {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.dateOfBirth.message}</Text> : null}
+              </View>
 
-            {showDatePicker && Platform.OS === 'android' && (
-              <DateTimePicker
-                value={dob ? (() => {
-                  const [y, m, d] = dob.split('-').map(Number);
-                  return (y && m && d) ? new Date(y, m - 1, d) : new Date(2000, 0, 1);
-                })() : new Date(2000, 0, 1)}
-                mode="date"
-                display="default"
-                maximumDate={new Date()}
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (event.type === 'set' && selectedDate) {
-                    const y = selectedDate.getFullYear();
-                    const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const d = String(selectedDate.getDate()).padStart(2, '0');
-                    setValue('dateOfBirth', `${y}-${m}-${d}`);
-                  }
+              <VietnameseDatePickerModal
+                visible={showDatePicker}
+                onClose={() => setShowDatePicker(false)}
+                initialDate={dob}
+                title="Chọn ngày sinh"
+                onSelect={(selectedDateStr) => {
+                  setValue('dateOfBirth', selectedDateStr);
                 }}
               />
-            )}
 
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Giới tính</Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                {[
-                  { id: 'MALE', label: 'Nam', icon: 'male-outline' },
-                  { id: 'FEMALE', label: 'Nữ', icon: 'female-outline' },
-                  { id: 'OTHER', label: 'Khác', icon: 'male-female-outline' }
-                ].map((item) => {
-                  const isSelected = gender === item.id;
-                  return (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => setValue('gender', item.id as any)}
-                      style={{ 
-                        flex: 1, 
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 6,
-                        height: 56, 
-                        borderWidth: 1, 
-                        borderColor: isSelected ? '#111827' : '#ECEEF3', 
-                        borderRadius: 12, 
-                        backgroundColor: isSelected ? '#F9FAFB' : '#FFFFFF' 
-                      }}
-                    >
-                      <Ionicons name={item.icon as any} size={18} color={isSelected ? '#111827' : '#6B7280'} />
-                      <Text style={{ color: isSelected ? '#111827' : '#6B7280', fontSize: 15, fontWeight: isSelected ? '600' : '500' }}>
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Giới tính</Text>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  {[
+                    { id: 'MALE', label: 'Nam', icon: 'male-outline' },
+                    { id: 'FEMALE', label: 'Nữ', icon: 'female-outline' },
+                    { id: 'OTHER', label: 'Khác', icon: 'male-female-outline' }
+                  ].map((item) => {
+                    const isSelected = gender === item.id;
+                    return (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => setValue('gender', item.id as any)}
+                        style={{ 
+                          flex: 1, 
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          height: 56, 
+                          borderWidth: 1, 
+                          borderColor: isSelected ? '#111827' : '#ECEEF3', 
+                          borderRadius: 12, 
+                          backgroundColor: isSelected ? '#F9FAFB' : '#FFFFFF' 
+                        }}
+                      >
+                        <Ionicons name={item.icon as any} size={18} color={isSelected ? '#111827' : '#6B7280'} />
+                        <Text style={{ color: isSelected ? '#111827' : '#6B7280', fontSize: 15, fontWeight: isSelected ? '600' : '500' }}>
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.gender.message}</Text> : null}
               </View>
-              {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.gender.message}</Text> : null}
+
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, marginLeft: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280' }}>Ngày bắt đầu làm việc (Tùy chọn)</Text>
+                  {joinDate ? (
+                    <Pressable onPress={() => setValue('joinDate', '')}>
+                      <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '500' }}>Xóa / Mặc định</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <Pressable 
+                  onPress={() => setShowJoinDatePicker(true)}
+                  style={{ 
+                    height: 56, 
+                    borderWidth: 1, 
+                    borderColor: errors.joinDate ? '#EF4444' : '#ECEEF3', 
+                    borderRadius: 12, 
+                    paddingHorizontal: 16, 
+                    flexDirection: 'row',
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    backgroundColor: '#FFFFFF' 
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
+                    <Ionicons name="briefcase-outline" size={20} color={joinDate ? '#111827' : '#9CA3AF'} />
+                    <Text numberOfLines={1} style={{ color: joinDate ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: joinDate ? '600' : '400' }}>
+                      {joinDate ? (() => {
+                        const parts = joinDate.split('-');
+                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : joinDate;
+                      })() : 'Dành cho nhân viên cũ (hoặc để trống)'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+                </Pressable>
+                <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4, marginLeft: 4 }}>
+                  {joinDate ? 'Thâm niên sẽ được tính từ ngày này.' : 'Nếu để trống, hệ thống sẽ tự động tính thâm niên từ ngày được duyệt tài khoản.'}
+                </Text>
+                {errors.joinDate ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.joinDate.message}</Text> : null}
+              </View>
+
+              <VietnameseDatePickerModal
+                visible={showJoinDatePicker}
+                onClose={() => setShowJoinDatePicker(false)}
+                initialDate={joinDate}
+                title="Chọn ngày bắt đầu làm việc"
+                onSelect={(selectedDateStr) => {
+                  setValue('joinDate', selectedDateStr);
+                }}
+              />
+              
+              <Pressable
+                onPress={submit}
+                disabled={checking}
+                style={{
+                  backgroundColor: checking ? '#475569' : '#111827',
+                  height: 60,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 16,
+                  flexDirection: 'row',
+                  gap: 8,
+                }}
+              >
+                {checking ? (
+                  <>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>
+                      ĐANG KIỂM TRA...
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
+                )}
+              </Pressable>
             </View>
-            
-            <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
-            </Pressable>
-          </View>
-        </KeyboardAwareScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Screen>
   );
 }
+
+export const RegistrationProfileScreen = RegistrationPersonalScreen;
 
 export function RegistrationDepartmentScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
   const [search, setSearch] = useState('');
   const departments = usePublicDepartments({ search });
+  
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  
   const { handleSubmit, setValue, watch, formState: { errors } } = useForm<DepartmentStepValues>({
     resolver: zodResolver(departmentSchema),
     defaultValues: { requestedDepartmentId: values.requestedDepartmentId },
   });
   const selectedId = watch('requestedDepartmentId');
+  
   const submit = handleSubmit((data) => {
+    Keyboard.dismiss();
     update(data);
     router.push('/register/review');
   });
+  
   const activeDepartments = departments.data?.items.filter((department) => department.isActive) ?? [];
+  
+  const regionsMap = new Map();
+  activeDepartments.forEach(dept => {
+    if (dept.branch?.region) {
+      regionsMap.set(dept.branch.region.id, dept.branch.region);
+    }
+  });
+  const regions = Array.from(regionsMap.values());
+
+  const branchesMap = new Map();
+  if (selectedRegionId) {
+    activeDepartments.forEach(dept => {
+      if (dept.branch && dept.branch.region?.id === selectedRegionId) {
+        branchesMap.set(dept.branch.id, dept.branch);
+      }
+    });
+  }
+  const branches = Array.from(branchesMap.values());
+
+  const filteredDepartments = selectedBranchId 
+    ? activeDepartments.filter(dept => dept.branch?.id === selectedBranchId)
+    : [];
+
+  const handleBack = () => {
+    if (selectedBranchId) {
+      setSelectedBranchId(null);
+      setValue('requestedDepartmentId', '', { shouldValidate: true });
+    } else if (selectedRegionId) {
+      setSelectedRegionId(null);
+    } else {
+      router.back();
+    }
+  };
+
+  const getTitle = () => {
+    if (!selectedRegionId) return 'Chọn Miền';
+    if (!selectedBranchId) return 'Chọn Chi nhánh';
+    return 'Chọn Phòng ban';
+  };
+
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+              <Pressable onPress={handleBack} style={{ padding: 4, marginRight: 12 }}>
                 <Ionicons name="arrow-back" size={24} color="#111827" />
               </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Chọn phòng ban</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>{getTitle()}</Text>
             </View>
             <StepBar currentStep={3} />
           </View>
 
-          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm phòng ban..." />
+          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm..." />
           <View style={{ height: 16 }} />
 
           {departments.isLoading ? <LoadingState /> : null}
           {departments.isError ? <ErrorState error={departments.error} onRetry={() => void departments.refetch()} /> : null}
-          {!departments.isLoading && !activeDepartments.length ? <EmptyState title="Không có phòng ban khả dụng" /> : null}
+          {!departments.isLoading && !activeDepartments.length ? <EmptyState title="Không có dữ liệu khả dụng" /> : null}
           
           <View style={{ gap: 12 }}>
-            {activeDepartments.map((department) => (
-              <DepartmentOption key={department.id} department={department} selected={selectedId === department.id} onPress={() => setValue('requestedDepartmentId', department.id, { shouldValidate: true })} />
+            {!selectedRegionId && regions.map(region => (
+              <Pressable 
+                key={region.id} 
+                onPress={() => setSelectedRegionId(region.id)}
+                style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>{region.name}</Text>
+                <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
+              </Pressable>
+            ))}
+
+            {selectedRegionId && !selectedBranchId && branches.map(branch => (
+              <Pressable 
+                key={branch.id} 
+                onPress={() => setSelectedBranchId(branch.id)}
+                style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>{branch.name}</Text>
+                <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
+              </Pressable>
+            ))}
+
+            {selectedBranchId && filteredDepartments.map((department) => (
+              <DepartmentOption 
+                key={department.id} 
+                department={department} 
+                selected={selectedId === department.id} 
+                onPress={() => setValue('requestedDepartmentId', department.id, { shouldValidate: true })} 
+              />
             ))}
           </View>
           
           {errors.requestedDepartmentId ? <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 12 }}>{errors.requestedDepartmentId.message}</Text> : null}
-        </KeyboardAwareScrollView>
+        </ScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
-           <Pressable onPress={submit} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+           <Pressable 
+             onPress={submit} 
+             disabled={!selectedId}
+             style={{ backgroundColor: !selectedId ? '#9CA3AF' : '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
+            >
               <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
         </View>
@@ -536,8 +992,12 @@ export function RegistrationReviewScreen() {
   const router = useRouter();
   const { values, reset } = useRegistration();
   const mutation = useMutation({ mutationFn: registerEmployee });
+  const { data: deptData } = usePublicDepartments();
+  const selectedDept = deptData?.items?.find((d) => d.id === values.requestedDepartmentId);
+
   const canSubmit = accountSchema.safeParse(values).success && profileSchema.safeParse(values).success && departmentSchema.safeParse(values).success;
   async function submit() {
+    Keyboard.dismiss();
     const payload: RegisterPayload = {
       fullName: values.fullName,
       phone: values.phone,
@@ -546,7 +1006,15 @@ export function RegistrationReviewScreen() {
       idCardNumber: values.idCardNumber,
       ...(values.dateOfBirth ? { dateOfBirth: values.dateOfBirth } : {}),
       ...(values.gender ? { gender: values.gender } : {}),
+      ...(values.joinDate ? { joinDate: values.joinDate } : {}),
       requestedDepartmentId: values.requestedDepartmentId,
+      ...(values.faceImages?.length ? {
+        faceImages: values.faceImages.map((img) => ({
+          pose: img.pose,
+          imageUrl: img.imageUrl,
+          fileId: img.uploadedFileId,
+        }))
+      } : {}),
     };
     try {
       await mutation.mutateAsync(payload);
@@ -559,7 +1027,7 @@ export function RegistrationReviewScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
-        <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} enableOnAndroid={true} extraScrollHeight={20} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
@@ -586,7 +1054,27 @@ export function RegistrationReviewScreen() {
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Hồ sơ</Text>
             </View>
             <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>CCCD:</Text> ********{values.idCardNumber.slice(-4)}</Text>
-            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ID:</Text> {values.requestedDepartmentId || 'Chưa chọn'}</Text>
+            {values.dateOfBirth ? (
+              <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                <Text style={{ fontWeight: '600' }}>Ngày sinh:</Text> {(() => {
+                  const parts = values.dateOfBirth.split('-');
+                  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : values.dateOfBirth;
+                })()}
+              </Text>
+            ) : null}
+            {values.gender ? (
+              <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                <Text style={{ fontWeight: '600' }}>Giới tính:</Text> {values.gender === 'MALE' ? 'Nam' : values.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+              </Text>
+            ) : null}
+            <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+              <Text style={{ fontWeight: '600' }}>Ngày vào làm:</Text>{' '}
+              {values.joinDate ? (() => {
+                const parts = values.joinDate.split('-');
+                return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : values.joinDate;
+              })() : 'Tự động tính từ ngày duyệt tài khoản'}
+            </Text>
+            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ứng tuyển:</Text> {selectedDept?.name || values.requestedDepartmentId || 'Chưa chọn'}</Text>
           </View>
           
           {mutation.error ? (
@@ -595,7 +1083,7 @@ export function RegistrationReviewScreen() {
                 <Text style={{ color: '#EF4444', fontSize: 13, flex: 1 }}>{registrationErrorMessage(mutation.error)}</Text>
               </View>
           ) : null}
-        </KeyboardAwareScrollView>
+        </ScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
            <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#9CA3AF' : '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
@@ -630,6 +1118,7 @@ export function RegistrationSuccessScreen() {
   );
 }
 
+
 function DepartmentOption({ department, selected, onPress }: { department: Department; selected: boolean; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={{ backgroundColor: selected ? '#F9FAFB' : '#FFFFFF', borderColor: selected ? '#111827' : '#ECEEF3', borderRadius: 12, borderWidth: selected ? 2 : 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -651,25 +1140,27 @@ function nextPose(pose: FacePose): FacePose {
 function registrationErrorMessage(error: unknown): string {
   const normalized = normalizeApiError(error);
   const map: Record<string, string> = {
-    DUPLICATE_PHONE: 'So dien thoai da ton tai',
-    DUPLICATE_ID_CARD: 'CCCD da ton tai',
-    INVALID_FACE_IMAGES: 'Can du anh FRONT, LEFT, RIGHT',
-    UPLOAD_FILE_REQUIRED: 'Can upload du 3 anh khuon mat',
-    UPLOAD_ALREADY_ATTACHED: 'Anh upload da duoc su dung',
-    UPLOAD_NOT_FOUND: 'Khong tim thay file upload',
+    DUPLICATE_PHONE: 'Số điện thoại này đã được đăng ký',
+    DUPLICATE_ID_CARD: 'Số CCCD này đã tồn tại trên hệ thống',
+    DUPLICATE_EMAIL: 'Email này đã được sử dụng',
+    DEPARTMENT_NOT_FOUND: 'Phòng ban được chọn không tồn tại hoặc đã ngừng hoạt động',
+    INVALID_FACE_IMAGES: 'Cần đủ ảnh các góc khuôn mặt',
+    UPLOAD_FILE_REQUIRED: 'Cần tải đủ ảnh khuôn mặt',
+    UPLOAD_ALREADY_ATTACHED: 'Ảnh tải lên đã được sử dụng',
+    UPLOAD_NOT_FOUND: 'Không tìm thấy tệp tải lên',
   };
-  return map[normalized.code] ?? mapLoginError(error);
+  return map[normalized.code] ?? normalized.message ?? mapLoginError(error);
 }
 
 function uploadErrorMessage(error: unknown): string {
   const normalized = normalizeApiError(error);
   const map: Record<string, string> = {
-    UPLOAD_FILE_TOO_LARGE: 'File qua lon',
-    UPLOAD_MIME_NOT_ALLOWED: 'Dinh dang file khong duoc ho tro',
-    UPLOAD_SIGNATURE_INVALID: 'Noi dung file khong hop le',
-    UPLOAD_STORAGE_FAILED: 'Luu file that bai',
+    UPLOAD_FILE_TOO_LARGE: 'Kích thước tệp quá lớn',
+    UPLOAD_MIME_NOT_ALLOWED: 'Định dạng tệp không được hỗ trợ',
+    UPLOAD_SIGNATURE_INVALID: 'Nội dung tệp không hợp lệ',
+    UPLOAD_STORAGE_FAILED: 'Lưu tệp thất bại',
   };
-  return map[normalized.code] ?? 'Upload failed';
+  return map[normalized.code] ?? 'Tải lên thất bại';
 }
 
 function StepBar({ currentStep, totalSteps = 4 }: { currentStep: number; totalSteps?: number }) {
