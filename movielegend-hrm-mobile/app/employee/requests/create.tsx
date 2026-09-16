@@ -1019,28 +1019,49 @@ export default function CreateRequestScreen() {
         </ScrollView>
 
       {/* Shift Picker Modal */}
-      <Modal visible={showShiftModal} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowShiftModal(false)}>
+      <Modal visible={showShiftModal} transparent animationType="slide" onRequestClose={() => setShowShiftModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowShiftModal(false)} />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Chọn ca làm</Text>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ width: 28 }} />
+              <Text style={styles.modalTitle}>Chọn ca làm</Text>
+              <Pressable onPress={() => setShowShiftModal(false)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+              </Pressable>
+            </View>
             {apiShifts.length === 0 ? (
               <Text style={{ textAlign: 'center', padding: 20, color: '#9CA3AF' }}>Đang tải danh sách ca...</Text>
             ) : (
               <FlatList
                 data={apiShifts}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.modalItem} onPress={() => handleSelectShift(item)}>
-                    <Text style={styles.modalItemText}>{item.name}</Text>
-                    <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 4 }}>
-                      {item.startTime} - {item.endTime}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => {
+                  const isSelected = shift?.id === item.id;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                      onPress={() => handleSelectShift(item)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>{item.name}</Text>
+                        <Text style={[styles.modalItemSubtext, isSelected && styles.modalItemSubtextSelected]}>
+                          {item.startTime} - {item.endTime}
+                        </Text>
+                      </View>
+                      {isSelected ? (
+                        <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />
+                      ) : (
+                        <MaterialCommunityIcons name="chevron-right" size={20} color="#D1D5DB" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
               />
             )}
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Real Time Picker */}
@@ -1603,11 +1624,61 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingTop: 20,
+    paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     maxHeight: '60%',
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalCloseBtn: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  modalItemSelected: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  modalItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  modalItemTextSelected: {
+    color: '#065F46',
+    fontWeight: '700',
+  },
+  modalItemSubtext: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 3,
+  },
+  modalItemSubtextSelected: {
+    color: '#059669',
   },
   iosPickerContainer: {
     backgroundColor: '#fff',
@@ -1627,22 +1698,6 @@ const styles = StyleSheet.create({
   iosPickerBtn: {
     fontSize: 16,
     color: '#3B82F6',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalItem: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  modalItemText: {
-    fontSize: 16,
-    color: '#374151',
   },
   fullScreenModalOverlay: {
     flex: 1,
