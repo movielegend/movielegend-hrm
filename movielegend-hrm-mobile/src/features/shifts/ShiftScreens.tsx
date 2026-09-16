@@ -11,6 +11,17 @@ import { Screen } from '../../components/Screen';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
+import {
+  useShifts,
+  useMySchedule,
+  useCreateShift,
+  useUpdateShift,
+  useDeleteShift,
+  useAssignShift,
+  useRevokeShiftAssignment,
+} from '../../hooks/useShifts';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { businessDateToday, formatDate, formatShiftRange, toIsoDate } from '../../utils/date-time';
