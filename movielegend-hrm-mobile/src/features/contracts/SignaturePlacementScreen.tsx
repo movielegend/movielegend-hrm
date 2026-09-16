@@ -10,6 +10,7 @@ import { resolveFileUrl } from '../../utils/url';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function SignaturePlacementScreen() {
   const params = useLocalSearchParams();
@@ -51,19 +52,53 @@ export function SignaturePlacementScreen() {
       try {
         if (!url) {
           CustomAlert.alert('Lỗi', 'Không tìm thấy đường dẫn PDF');
+          setIsLoading(false);
           return;
         }
-        let finalUrl = url.replace('http://', 'https://');
+
         const fileUri = FileSystem.cacheDirectory + 'temp_signature_pdf.pdf';
-        await FileSystem.downloadAsync(finalUrl, fileUri, { headers: { 'ngrok-skip-browser-warning': '69420' } });
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(fileUri, { idempotent: true });
+        }
+
+        let downloadSuccess = false;
+        let candidateUrls = [url];
+        if (url.startsWith('https://')) {
+          candidateUrls.push(url.replace('https://', 'http://'));
+        } else if (url.startsWith('http://')) {
+          candidateUrls.push(url.replace('http://', 'https://'));
+        }
+
+        let lastErr: any = null;
+        for (const targetUrl of candidateUrls) {
+          try {
+            const { status } = await FileSystem.downloadAsync(targetUrl, fileUri, {
+              headers: { 'ngrok-skip-browser-warning': '69420' }
+            });
+            if (status === 200) {
+              downloadSuccess = true;
+              break;
+            }
+          } catch (err) {
+            lastErr = err;
+          }
+        }
+
+        if (!downloadSuccess) {
+          throw lastErr || new Error('Không thể tải file PDF từ máy chủ');
+        }
+
         const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
         webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64, fields: fieldsRef.current }));
       } catch (e: any) {
+        console.error('[SignaturePlacement] Error loading PDF:', e);
         CustomAlert.alert('Lỗi', 'Không thể tải file PDF');
         setIsLoading(false);
       }
     }
-    setTimeout(() => { loadPdf(); }, 1000);
+    const timer = setTimeout(() => { void loadPdf(); }, 500);
+    return () => clearTimeout(timer);
   }, [pdfUrl]);
 
   // Push updated fields to WebView
