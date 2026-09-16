@@ -684,6 +684,31 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   
 
 
+  const departmentsQuery = useDepartments({ limit: 100 });
+  const branchesQuery = useBranches();
+  const regionsQuery = useRegions();
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('ADMIN') ||
+    user?.roles?.includes('SUPER_ADMIN') ||
+    user?.roles?.includes('HR')
+  );
+
+  const adminRegionScope = user?.scopes?.find?.((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION');
+  const userRegionId = adminRegionScope?.scopeId;
+  const isRegionAdmin = Boolean(!isGlobalAdmin && userRegionId);
+
+  const availableBranches = useMemo(() => {
+    const raw = branchesQuery.data;
+    const branches = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
+    if (isRegionAdmin && userRegionId) {
+      return branches.filter((b: any) => b.regionId === userRegionId || b.region?.id === userRegionId);
+    }
+    return branches;
+  }, [branchesQuery.data, isRegionAdmin, userRegionId]);
+
   const [departmentContextId, setDepartmentContextId] = useState<string>(
     area === 'leader' ? (departmentIdFromUser(user) ?? '') : ''
   );
