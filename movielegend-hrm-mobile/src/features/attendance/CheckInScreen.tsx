@@ -17,12 +17,15 @@ import { checkIn, getAttendanceHistory } from '../../api/attendance.api';
 import { uploadFile } from '../../api/uploads.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../constants/queryKeys';
 import { useMySchedule } from '../../hooks/useShifts';
 import Toast from 'react-native-toast-message';
 
 export function CheckInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
 
   // Find today's shift
@@ -154,6 +157,9 @@ export function CheckInScreen() {
       };
 
       await checkIn(payload);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.attendanceCurrent() });
+      await queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       CustomAlert.alert('Thành công', 'Vào ca thành công!', [
         { text: 'OK', onPress: () => router.back() }
       ]);
