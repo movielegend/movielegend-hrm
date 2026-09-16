@@ -207,12 +207,12 @@ export function HRDashboard() {
             {/* Top Status Header */}
             <View style={styles.heroHeaderRow}>
               <MaterialCommunityIcons 
-                name={currentAttendance?.state === 'CHECKED_IN' ? 'check-circle' : 'check-circle'} 
+                name={currentAttendance?.state === 'CHECKED_IN' ? 'clock-check-outline' : currentAttendance?.state === 'CHECKED_OUT' ? 'check-all' : 'clock-outline'} 
                 size={18} 
-                color="#475569" 
+                color={currentAttendance?.state === 'CHECKED_IN' ? '#0284C7' : '#475569'} 
               />
-              <Text style={styles.heroStatusText}>
-                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              <Text style={[styles.heroStatusText, currentAttendance?.state === 'CHECKED_IN' && { color: '#0284C7', fontWeight: '700' }]}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca • Chạm để Ra ca' : currentAttendance?.state === 'CHECKED_OUT' ? 'Đã hoàn thành ca làm' : 'Vào ca / Chấm công'}
               </Text>
             </View>
 

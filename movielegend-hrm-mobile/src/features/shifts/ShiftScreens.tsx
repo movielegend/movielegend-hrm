@@ -19,6 +19,7 @@ import { normalizeApiError } from '../../utils/api-error';
 import { getHomeRouteForUser } from '../../utils/role-routing';
 import { findTodayShift } from '../attendance/attendance.logic';
 import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts, useRevokeShiftAssignment } from '../../hooks/useShifts';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppAlert } from '../../contexts/AlertContext';
 
@@ -130,6 +131,11 @@ export function EmployeeScheduleScreen() {
   }, [allAssignments, todayIso]);
 
   const rolePrefix = useMemo(() => getHomeRouteForUser(user), [user]);
+  const { data: currentAttendance } = useCurrentAttendance();
+
+  const attendanceRoute = currentAttendance?.state === 'CHECKED_IN'
+    ? `${rolePrefix}/attendance/check-out`
+    : `${rolePrefix}/attendance/check-in`;
 
   const displayList = activeTab === 'upcoming' ? upcomingShifts : pastShifts;
 
@@ -148,7 +154,7 @@ export function EmployeeScheduleScreen() {
           {todayShift?.shift ? (
             <Pressable 
               style={styles.todayShiftCard}
-              onPress={() => router.push(`${rolePrefix}/attendance/check-in` as any)}
+              onPress={() => router.push(attendanceRoute as any)}
             >
               <View style={styles.shiftIconBox}>
                 <MaterialCommunityIcons name="briefcase-clock-outline" size={28} color={colors.primary} />
@@ -165,7 +171,9 @@ export function EmployeeScheduleScreen() {
               </View>
               <View style={styles.attendanceActionBox}>
                 <MaterialCommunityIcons name="fingerprint" size={24} color={colors.primary} />
-                <Text style={styles.attendanceActionText}>Chấm công</Text>
+                <Text style={styles.attendanceActionText}>
+                  {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
+                </Text>
               </View>
             </Pressable>
           ) : (
@@ -199,11 +207,13 @@ export function EmployeeScheduleScreen() {
               <Text style={styles.utilityText}>Đổi ca</Text>
             </Pressable>
 
-            <Pressable style={styles.utilityBtn} onPress={() => router.push(`${rolePrefix}/attendance/check-in` as any)}>
+            <Pressable style={styles.utilityBtn} onPress={() => router.push(attendanceRoute as any)}>
               <View style={[styles.utilityIconBox, { backgroundColor: '#EFF6FF' }]}>
                 <MaterialCommunityIcons name="fingerprint" size={24} color="#3B82F6" />
               </View>
-              <Text style={styles.utilityText}>Chấm công</Text>
+              <Text style={styles.utilityText}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
+              </Text>
             </Pressable>
           </View>
         </SectionCard>
