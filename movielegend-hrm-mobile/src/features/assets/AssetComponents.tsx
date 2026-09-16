@@ -16,6 +16,7 @@ import {
   assignmentStatusLabels,
   assignmentStatusTone,
   incidentStatusTone,
+  incidentStatusLabels,
   incidentTypeLabels,
 } from './asset.logic';
 
@@ -106,9 +107,9 @@ export function IncidentCard({ incident, onPress }: { incident: any; onPress?: (
     <SectionCard>
       <View style={styles.headerRow}>
         <Text style={styles.title}>{incident.asset?.name ?? incident.assetId}</Text>
-        <StatusBadge label={incident.status} tone={incidentStatusTone(incident.status)} />
+        <StatusBadge label={incidentStatusLabels[incident.status as keyof typeof incidentStatusLabels] ?? incident.status} tone={incidentStatusTone(incident.status)} />
       </View>
-      <Text style={styles.meta}>Loại: {incidentTypeLabels[incident.incidentType] ?? incident.incidentType}</Text>
+      <Text style={styles.meta}>Loại: {incidentTypeLabels[incident.incidentType as keyof typeof incidentTypeLabels] ?? incident.incidentType}</Text>
       <Text style={styles.body} numberOfLines={2}>{incident.description}</Text>
       <Text style={styles.meta}>{formatDateTime(incident.createdAt)}</Text>
       {onPress ? <SecondaryButton onPress={onPress}>Chi tiết</SecondaryButton> : null}
@@ -116,14 +117,13 @@ export function IncidentCard({ incident, onPress }: { incident: any; onPress?: (
   );
 }
 
-
-
 export function MaintenanceCard({ record, costVisible }: { record: AssetMaintenanceDto; costVisible: boolean }) {
+  const statusLabel = record.status === 'COMPLETED' ? 'Đã hoàn tất' : record.status === 'IN_PROGRESS' ? 'Đang bảo trì' : 'Chờ xử lý';
   return (
     <SectionCard>
       <View style={styles.headerRow}>
         <Text style={styles.title}>{record.maintenanceType}</Text>
-        <StatusBadge label={record.status} tone={record.status === 'COMPLETED' ? 'success' : 'warning'} />
+        <StatusBadge label={statusLabel} tone={record.status === 'COMPLETED' ? 'success' : 'warning'} />
       </View>
       {record.vendorName ? <Text style={styles.meta}>Nhà cung cấp: {record.vendorName}</Text> : null}
       <Text style={styles.body}>{record.description}</Text>
@@ -147,7 +147,7 @@ export function AssetSelector({
   onSelect: (assetId: string) => void;
 }) {
   const assignable = assets.filter((asset) => asset.assetStatus === 'IN_STOCK');
-  if (!assignable.length) return <Text style={styles.meta}>Không có tài sản IN_STOCK để cấp phát</Text>;
+  if (!assignable.length) return <Text style={styles.meta}>Không có tài sản trong kho để cấp phát</Text>;
   return (
     <View style={styles.selector}>
       {assignable.map((asset) => (

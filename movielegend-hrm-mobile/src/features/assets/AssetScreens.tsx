@@ -236,13 +236,18 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
   return (
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={assets.isRefetching} onRefresh={() => void assets.refetch()} />}>
-        <PageHeader title="Tài sản" subtitle="Backend scope theo vai trò; filter trạng thái là client-side trên dữ liệu backend trả." />
+        <PageHeader title="Quản lý Tài sản" subtitle="Danh sách và tình trạng toàn bộ tài sản, thiết bị" />
         {area === 'admin' && hasPermission(user, 'asset.create') ? (
           <PrimaryButton onPress={() => router.push('/admin/assets/create' as never)}>Tạo tài sản</PrimaryButton>
         ) : null}
         <View style={styles.chipRow}>
           {statuses.map((status) => (
-            <FilterChip key={status} label={status} selected={statusFilter === status} onPress={() => setStatusFilter(status)} />
+            <FilterChip
+              key={status}
+              label={status === 'ALL' ? 'Tất cả' : (assetStatusLabels[status as AssetStatus] || status)}
+              selected={statusFilter === status}
+              onPress={() => setStatusFilter(status)}
+            />
           ))}
         </View>
         {assets.isLoading ? <LoadingState /> : null}
@@ -778,7 +783,7 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
   if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />;
   if (!asset.data) return <EmptyState title="Không tìm thấy tài sản" />;
   if (!isAssignable(asset.data)) {
-    return <EmptyState title="Tài sản không ở trạng thái IN_STOCK" message="Backend chỉ cho cấp phát tài sản trong kho." />;
+    return <EmptyState title="Tài sản không ở trong kho" message="Chỉ có thể cấp phát tài sản khi ở trạng thái Trong kho." />;
   }
 
   const targetChosen = targetType === 'USER' ? Boolean(assignedToUserId) : Boolean(assignedToDepartmentId);
@@ -817,7 +822,7 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
           )}
         </SectionCard>
         <SectionCard title="Thông tin cấp phát">
-          <FormField label="Hạn trả dự kiến (ISO, tùy chọn)" value={expectedReturnAt} onChangeText={setExpectedReturnAt} placeholder="2026-08-01" autoCapitalize="none" />
+          <FormField label="Hạn trả dự kiến (YYYY-MM-DD, tùy chọn)" value={expectedReturnAt} onChangeText={setExpectedReturnAt} placeholder="VD: 2026-12-31" autoCapitalize="none" />
           <Text style={styles.sectionLabel}>Tình trạng khi cấp (mặc định theo tài sản)</Text>
           <View style={{ marginBottom: spacing.md }}>
             <Pressable style={styles.pickerContainer} onPress={() => setShowConditionSelect(true)}>
