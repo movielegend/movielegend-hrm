@@ -73,15 +73,15 @@ export function AttendanceHomeScreen() {
   }, [queryClient]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
       <ScrollView 
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#0B3B61" />
@@ -208,7 +208,7 @@ export function AttendanceHomeScreen() {
         </View>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -635,17 +635,17 @@ export function AttendanceDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }} edges={['top', 'left', 'right']}>
         <LoadingState />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!detail) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
         <EmptyState title="Không tìm thấy chi tiết chấm công" />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -654,11 +654,11 @@ export function AttendanceDetailScreen() {
   const role = user?.profile?.role || 'Nhân viên';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#111827" />
@@ -775,7 +775,7 @@ export function AttendanceDetailScreen() {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1041,17 +1041,17 @@ export function AdminAttendanceDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }} edges={['top', 'left', 'right']}>
         <LoadingState />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!detail) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
         <EmptyState title="Không tìm thấy chi tiết chấm công" />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -1060,11 +1060,11 @@ export function AdminAttendanceDetailScreen() {
   const role = user?.profile?.role || 'Nhân viên';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#111827" />
@@ -1181,7 +1181,7 @@ export function AdminAttendanceDetailScreen() {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
