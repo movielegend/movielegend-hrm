@@ -875,8 +875,8 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader 
-          title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc (Leader)'} 
-          subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : 'Tạo và phân công công việc mới'} 
+          title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc cho nhân sự'} 
+          subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : area === 'leader' ? `Phòng ban: ${user?.department?.name || 'Của bạn'}` : 'Tạo và phân công công việc mới'} 
         />
 
         {parentTaskId && parentTaskQuery.data ? (
@@ -1343,16 +1343,24 @@ function AssigneeSelectorModal({
     if (visible) {
       setSearchKeyword('');
       setDeptUserSearch('');
-      setSelectedBranch(null);
-      setSelectedDept(null);
-      if (departmentTree.length === 1 && departmentTree[0]) {
-        const firstRegion = departmentTree[0];
-        setSelectedRegion({ id: firstRegion.id, name: firstRegion.name });
-      } else {
+      if (area === 'leader') {
+        const targetDeptId = filterDepartmentId || departmentIdFromUser(user) || '__MY_DEPT__';
+        const deptName = user?.department?.name || 'Phòng ban của bạn';
+        setSelectedDept({ id: targetDeptId, name: deptName });
         setSelectedRegion(null);
+        setSelectedBranch(null);
+      } else {
+        setSelectedBranch(null);
+        setSelectedDept(null);
+        if (departmentTree.length === 1 && departmentTree[0]) {
+          const firstRegion = departmentTree[0];
+          setSelectedRegion({ id: firstRegion.id, name: firstRegion.name });
+        } else {
+          setSelectedRegion(null);
+        }
       }
     }
-  }, [visible, departmentTree]);
+  }, [visible, departmentTree, area, filterDepartmentId, user]);
 
   const departmentId = filterDepartmentId || departmentIdFromUser(user);
   const users = useScopedEmployees(
@@ -1483,6 +1491,9 @@ function AssigneeSelectorModal({
   const deptUsers = useMemo(() => {
     if (!selectedDept) return [];
     let list = usersByDeptId.get(selectedDept.id) || [];
+    if (list.length === 0 && area === 'leader') {
+      list = users.data?.items ?? [];
+    }
     if (area === 'leader') {
       list = list.filter((u) => {
         if (u.id === user?.id) return false;
@@ -1493,7 +1504,7 @@ function AssigneeSelectorModal({
       });
     }
     return list;
-  }, [selectedDept, usersByDeptId, area, user?.id]);
+  }, [selectedDept, usersByDeptId, area, user?.id, users.data?.items]);
 
   const filteredDeptUsers = useMemo(() => {
     if (!deptUserSearch.trim()) return deptUsers;
@@ -1691,30 +1702,39 @@ function AssigneeSelectorModal({
             /* --- STEP 4: USER LIST OF SELECTED DEPARTMENT --- */
             <>
               <View style={styles.stepNavHeader}>
-                <Pressable
-                  style={styles.stepBackBtn}
-                  onPress={() => {
-                    setSelectedDept(null);
-                    setDeptUserSearch('');
-                  }}
-                >
-                  <MaterialCommunityIcons name="arrow-left" size={20} color="#334155" />
-                  <Text style={styles.stepBackBtnText}>
-                    {selectedBranch ? selectedBranch.name : 'Danh mục'}
-                  </Text>
-                </Pressable>
+                {area !== 'leader' ? (
+                  <Pressable
+                    style={styles.stepBackBtn}
+                    onPress={() => {
+                      setSelectedDept(null);
+                      setDeptUserSearch('');
+                    }}
+                  >
+                    <MaterialCommunityIcons name="arrow-left" size={20} color="#334155" />
+                    <Text style={styles.stepBackBtnText}>
+                      {selectedBranch ? selectedBranch.name : 'Danh mục'}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.stepTitle}>Giao việc cho nhân sự</Text>
+                    <Text style={styles.stepSubtitle}>{user?.department?.name || selectedDept.name}</Text>
+                  </View>
+                )}
                 <Pressable onPress={onClose}>
                   <MaterialCommunityIcons name="close" size={24} color={colors.text} />
                 </Pressable>
               </View>
 
-              <View style={styles.stepTitleBox}>
-                <Text style={styles.stepTitle}>{selectedDept.name}</Text>
-                <Text style={styles.stepSubtitle}>
-                  {selectedBranch ? `${selectedBranch.name} • ` : ''}
-                  {selectedRegion ? selectedRegion.name : ''}
-                </Text>
-              </View>
+              {area !== 'leader' && (
+                <View style={styles.stepTitleBox}>
+                  <Text style={styles.stepTitle}>{selectedDept.name}</Text>
+                  <Text style={styles.stepSubtitle}>
+                    {selectedBranch ? `${selectedBranch.name} • ` : ''}
+                    {selectedRegion ? selectedRegion.name : ''}
+                  </Text>
+                </View>
+              )}
 
               <SearchInput
                 value={deptUserSearch}
@@ -1747,11 +1767,11 @@ function AssigneeSelectorModal({
                     <View style={{ flex: 1 }}>
                       <Text style={styles.deptSelectAllTitle}>
                         {area === 'leader'
-                          ? `Giao cho Leader ${selectedDept.name}`
+                          ? `Giao cho toàn bộ nhân sự trong phòng`
                           : `Giao cho toàn bộ ${selectedDept.name}`}
                       </Text>
                       <Text style={styles.deptSelectAllSubtitle}>
-                        {area === 'leader' ? 'Leader đại diện nhận việc' : 'Giao đồng thời cho cả tập thể phòng ban'}
+                        {area === 'leader' ? 'Giao việc cho tất cả thành viên trong phòng ban của bạn' : 'Giao đồng thời cho cả tập thể phòng ban'}
                       </Text>
                     </View>
                   </View>
