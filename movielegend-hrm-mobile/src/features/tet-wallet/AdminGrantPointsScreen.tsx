@@ -80,7 +80,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const { user } = useAuth();
   const isRegionAdmin = Boolean(
     user?.roles?.includes('ADMIN') &&
-    user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
+    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION')
   );
   const isGlobalAdmin = Boolean(
     user?.roles?.includes('SUPER_ADMIN') ||

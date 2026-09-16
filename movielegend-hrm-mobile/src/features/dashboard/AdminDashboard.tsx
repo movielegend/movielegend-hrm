@@ -68,7 +68,10 @@ export function AdminDashboard() {
     queryFn: () => getVaultWithdrawalRequests({ limit: 1 }),
     staleTime: 1000 * 30,
   });
-  const pendingAdminCount = withdrawalData?.meta?.pendingAdminCount || 0;
+  const pendingAdminCount =
+    (withdrawalData as any)?.counts?.PENDING_ADMIN ??
+    (withdrawalData as any)?.meta?.pendingAdminCount ??
+    0;
 
   const [refreshing, setRefreshing] = useState(false);
 
