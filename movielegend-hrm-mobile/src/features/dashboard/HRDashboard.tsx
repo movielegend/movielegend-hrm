@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
@@ -17,9 +17,6 @@ import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
 import { ContourHeroPattern } from './components/ContourHeroPattern';
 import { spacing } from '../../theme/spacing';
-
-const { width } = Dimensions.get('window');
-const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
 
 const appleTheme = {
   bg: '#FFFFFF',
@@ -370,85 +367,127 @@ export function HRDashboard() {
           </Pressable>
         )}
 
-        {/* Tiện ích (HR Features) - Đồng bộ cấu trúc Grid như Leader */}
-        <View style={[styles.section, styles.utilitySection]}>
-          <Text style={styles.sectionTitle}>Tiện ích</Text>
-          <View style={styles.gridContainer}>
-            <GridItem 
-              icon="star-circle-outline" 
-              title="Cấp của bạn" 
-              color="#F59E0B" 
-              onPress={() => router.push('/hr/leveling' as any)} 
+        {/* Tiện ích thường dùng (Ma trận 4 cột hiện đại) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tiện ích thường dùng</Text>
+          <View style={styles.grid4Container}>
+            {/* Nhóm 1: Chấm công & Ca làm (Xanh dương hoàng gia) */}
+            <GridItem4
+              icon="calendar-account-outline"
+              title="QL Chấm công"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/attendance-management' as any)}
             />
-            <GridItem 
-              icon="briefcase-outline" 
-              title="Dự án" 
-              color="#3B82F6" 
-              onPress={() => router.push('/leader/level-projects' as any)} 
+            <GridItem4
+              icon="view-grid-outline"
+              title="Phân ca"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/shifts' as any)}
             />
-            <GridItem
+            <GridItem4
+              icon="calendar-clock-outline"
+              title="Lịch làm việc"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/schedule' as any)}
+            />
+            <GridItem4
+              icon="history"
+              title="Lịch sử công"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/attendance/history' as any)}
+            />
+
+            {/* Nhóm 2: Hành chính & Nhân sự (Teal thanh lịch) */}
+            <GridItem4
+              icon="file-document-check-outline"
+              title="Duyệt đơn"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              badge={dashboardData?.leave?.pending > 0 ? String(dashboardData.leave.pending) : undefined}
+              onPress={() => router.navigate('/hr/employee-requests' as any)}
+            />
+            <GridItem4
+              icon="account-group-outline"
+              title="Nhân sự"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              onPress={() => router.push('/hr/employees' as any)}
+            />
+            <GridItem4
+              icon="text-box-check-outline"
+              title="Hợp đồng"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              badge={dashboardData?.contracts?.expiringSoon > 0 ? String(dashboardData.contracts.expiringSoon) : undefined}
+              onPress={() => router.navigate('/hr/contracts' as any)}
+            />
+            <GridItem4
+              icon="folder-text-outline"
+              title="Tài liệu"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              onPress={() => router.push('/hr/documents' as any)}
+            />
+
+            {/* Nhóm 3: Cấp bậc, Dự án & Quỹ thưởng (Indigo sang trọng) */}
+            <GridItem4
+              icon="star-circle-outline"
+              title="Cấp của bạn"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/hr/leveling' as any)}
+            />
+            <GridItem4
+              icon="briefcase-outline"
+              title="Dự án"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/leader/level-projects' as any)}
+            />
+            <GridItem4
               icon="gift-outline"
               title="Ví Thưởng"
-              color="#059669"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
               badge={isVaultEnabled ? 'VÍ' : undefined}
-              badgeColor="#2563EB"
+              badgeColor="#4F46E5"
               onPress={() => router.push('/hr/vault' as any)}
             />
-            <GridItem 
-              icon="history" 
-              title="Lịch sử công" 
-              color="#6366F1" 
-              onPress={() => router.navigate('/hr/attendance/history' as any)} 
+            <GridItem4
+              icon="format-list-checks"
+              title="Công việc"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/hr/tasks' as any)}
             />
-            <GridItem 
-              icon="calendar-account-outline" 
-              title="QL Chấm công" 
-              color="#2563EB" 
-              onPress={() => router.navigate('/hr/attendance-management' as any)} 
+
+            {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}
+            <GridItem4
+              icon="robot-outline"
+              title="Trợ lý AI"
+              color="#FFFFFF"
+              bgColor="#0F172A"
+              badge="AI"
+              badgeColor="#2563EB"
+              onPress={() => router.push('/hr/ai-chat' as any)}
             />
-            <GridItem 
-              icon="calendar-clock-outline" 
-              title="Lịch làm việc" 
-              color="#0D9488" 
-              onPress={() => router.navigate('/hr/schedule' as any)} 
+            <GridItem4
+              icon="laptop"
+              title="Tài sản"
+              color="#64748B"
+              bgColor="#F8FAFC"
+              onPress={() => router.navigate('/hr/assets' as any)}
             />
-            <GridItem 
-              icon="file-document-check-outline" 
-              title="Duyệt đơn" 
-              color="#EA580C" 
-              badge={dashboardData?.leave?.pending > 0 ? dashboardData.leave.pending : undefined}
-              onPress={() => router.navigate('/hr/employee-requests' as any)} 
-            />
-            <GridItem 
-              icon="text-box-check-outline" 
-              title="Hợp đồng" 
-              color="#3B82F6" 
-              badge={dashboardData?.contracts?.expiringSoon > 0 ? dashboardData.contracts.expiringSoon : undefined}
-              onPress={() => router.navigate('/hr/contracts' as any)} 
-            />
-            <GridItem 
-              icon="folder-text-outline" 
-              title="Tài liệu" 
-              color="#2563EB" 
-              onPress={() => router.push('/hr/documents' as any)} 
-            />
-            <GridItem 
-              icon="view-grid-outline" 
-              title="Phân ca" 
-              color="#EC4899" 
-              onPress={() => router.navigate('/hr/shifts' as any)} 
-            />
-            <GridItem 
-              icon="laptop" 
-              title="Tài sản" 
-              color="#64748B" 
-              onPress={() => router.navigate('/hr/assets' as any)} 
-            />
-            <GridItem 
-              icon="message-draw" 
-              title="Góp ý" 
-              color="#E11D48" 
-              onPress={() => router.navigate('/hr/feedbacks' as any)} 
+            <GridItem4
+              icon="message-draw"
+              title="Góp ý"
+              color="#64748B"
+              bgColor="#F8FAFC"
+              onPress={() => router.navigate('/hr/feedbacks' as any)}
             />
           </View>
         </View>
@@ -567,37 +606,32 @@ export function HRDashboard() {
   );
 }
 
-function GridItem({
+const GridItem4 = React.memo(function GridItem4({
   icon,
   title,
-  color = colors?.primary || '#111827',
-  badge,
-  badgeColor = '#EF4444',
   onPress,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  title: string;
-  color?: string;
-  badge?: number | string;
-  badgeColor?: string;
-  onPress: () => void;
-}) {
+  color,
+  bgColor,
+  badge,
+  badgeColor,
+}: any) {
   return (
-    <Pressable style={styles.gridItem} onPress={onPress}>
-      <View style={styles.gridIconContainer}>
-        <MaterialCommunityIcons name={icon} size={28} color={color} />
-        {badge !== undefined && (
-          <View style={[styles.badge, { backgroundColor: badgeColor }]}>
+    <Pressable
+      style={({ pressed }) => [styles.grid4Item, pressed && styles.grid4ItemPressed]}
+      onPress={onPress}
+    >
+      <View style={[styles.grid4IconContainer, bgColor ? { backgroundColor: bgColor } : undefined]}>
+        <MaterialCommunityIcons name={icon} size={23} color={color || '#1E293B'} />
+        {badge && (
+          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
       </View>
-      <Text style={styles.gridTitle} numberOfLines={2}>
-        {title}
-      </Text>
+      <Text style={styles.grid4Title} numberOfLines={1}>{title}</Text>
     </Pressable>
   );
-}
+});
 
 function StatCard({
   title,
@@ -1111,54 +1145,65 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: spacing.md,
   },
-  gridContainer: {
+  grid4Container: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  gridItem: {
-    width: GRID_ITEM_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
     elevation: 1,
-    aspectRatio: 1,
   },
-  gridIconContainer: {
-    marginBottom: spacing.sm,
+  grid4Item: {
+    width: '25%',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+  },
+  grid4ItemPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
+  },
+  grid4IconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
     position: 'relative',
+  },
+  grid4Title: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+    textAlign: 'center',
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
     backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     color: '#FFFFFF',
-  },
-  gridTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'row',
