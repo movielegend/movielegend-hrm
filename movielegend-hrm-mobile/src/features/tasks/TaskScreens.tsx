@@ -71,7 +71,7 @@ import {
 } from './TaskComponents';
 import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment, canCancelTask, isReadOnlyStatus } from './task.logic';
 
-type TaskArea = 'employee' | 'leader' | 'admin';
+type TaskArea = 'employee' | 'leader' | 'admin' | 'hr';
 
 const priorities: TaskPriority[] = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
 
@@ -126,9 +126,10 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
 
+  const isLeaderArea = area === 'leader' || area === 'hr';
   const title = area === 'employee'
     ? 'Công việc của tôi'
-    : area === 'leader'
+    : isLeaderArea
     ? 'Công việc phòng ban'
     : isRegionOnly
     ? 'Công việc đã giao'
@@ -709,15 +710,17 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     return branches;
   }, [branchesQuery.data, isRegionAdmin, userRegionId]);
 
+  const isLeaderArea = area === 'leader' || area === 'hr';
+
   const [departmentContextId, setDepartmentContextId] = useState<string>(
-    area === 'leader' ? (departmentIdFromUser(user) ?? '') : ''
+    isLeaderArea ? (departmentIdFromUser(user) ?? '') : ''
   );
 
   useEffect(() => {
-    if (area === 'leader' && user?.department?.id && !departmentContextId) {
+    if (isLeaderArea && user?.department?.id && !departmentContextId) {
       setDepartmentContextId(user.department.id);
     }
-  }, [area, user?.department?.id]);
+  }, [isLeaderArea, user?.department?.id]);
 
   useEffect(() => {
     if (parentTaskQuery.data?.departmentContextId) {
@@ -740,7 +743,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
 
     if (isRegionAdmin && userRegionId) {
       filtered = filtered.filter(
-        (d) => d.branch?.region?.id === userRegionId || availableBranches.some((b) => b.id === d.branchId)
+        (d) => d.branch?.region?.id === userRegionId || availableBranches.some((b: any) => b.id === d.branchId)
       );
     }
 
@@ -752,7 +755,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   }, [departmentsQuery.data?.items, isRegionAdmin, userRegionId, availableBranches, selectedBranchId]);
 
   const branchOptions: SelectOption[] = useMemo(() => {
-    return availableBranches.map((b) => ({
+    return availableBranches.map((b: any) => ({
       id: b.id,
       label: b.name,
       subtitle: b.address || undefined,
@@ -768,7 +771,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   }, [availableDepartments]);
 
   const selectedBranch = useMemo(
-    () => availableBranches.find((b) => b.id === selectedBranchId),
+    () => availableBranches.find((b: any) => b.id === selectedBranchId),
     [availableBranches, selectedBranchId]
   );
 
@@ -812,7 +815,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [leaderId, setLeaderId] = useState<string>('');
   const [memberModalVisible, setMemberModalVisible] = useState(false);
   
-  const departmentId = area === 'leader' ? (departmentContextId || departmentIdFromUser(user)) : undefined;
+  const departmentId = isLeaderArea ? (departmentContextId || departmentIdFromUser(user)) : undefined;
   const usersQuery = useScopedEmployees(
     { page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) },
     hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department'])
@@ -876,7 +879,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader 
           title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc cho nhân sự'} 
-          subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : area === 'leader' ? `Phòng ban: ${user?.department?.name || 'Của bạn'}` : 'Tạo và phân công công việc mới'} 
+          subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : isLeaderArea ? `Phòng ban: ${user?.department?.name || 'Của bạn'}` : 'Tạo và phân công công việc mới'} 
         />
 
         {parentTaskId && parentTaskQuery.data ? (
@@ -1081,7 +1084,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         onClose={() => setTargetModalVisible(false)}
         targets={targets}
         onChange={setTargets}
-        filterDepartmentId={area === 'leader' ? departmentContextId : undefined}
+        filterDepartmentId={isLeaderArea ? departmentContextId : undefined}
       />
 
       <MultiSelectModal
@@ -1097,7 +1100,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   );
 }
 
-export function TaskReviewQueueScreen({ area }: { area: 'leader' | 'admin' }) {
+export function TaskReviewQueueScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
   const router = useRouter();
   const { showAlert } = useAppAlert();
   const queue = useTaskReviewQueue({ page: 1, limit: 20 });
@@ -1339,11 +1342,13 @@ function AssigneeSelectorModal({
     return tree;
   }, [regionsQuery.data, branchesQuery.data, departments.data?.items, filterBranchId, isRegionAdmin, userRegionId]);
 
+  const isLeaderMode = area === 'leader' || area === 'hr';
+
   useEffect(() => {
     if (visible) {
       setSearchKeyword('');
       setDeptUserSearch('');
-      if (area === 'leader') {
+      if (isLeaderMode) {
         const targetDeptId = filterDepartmentId || departmentIdFromUser(user) || '__MY_DEPT__';
         const deptName = user?.department?.name || 'Phòng ban của bạn';
         setSelectedDept({ id: targetDeptId, name: deptName });
@@ -1360,7 +1365,7 @@ function AssigneeSelectorModal({
         }
       }
     }
-  }, [visible, departmentTree, area, filterDepartmentId, user]);
+  }, [visible, departmentTree, isLeaderMode, filterDepartmentId, user]);
 
   const departmentId = filterDepartmentId || departmentIdFromUser(user);
   const users = useScopedEmployees(
@@ -1438,23 +1443,11 @@ function AssigneeSelectorModal({
     );
   }, [regionAdmins, searchKeyword]);
 
-  const isHR = user?.roles?.includes('HR');
-
   const filteredUsers = useMemo(() => {
     if (!users.data?.items) return [];
     let items = users.data.items;
-    if (isHR) {
-      items = items.filter((u) => (u as any).roles?.some((r: any) => r.role?.code === 'LEADER' || r.role === 'LEADER'));
-    }
-    // Nếu là Leader giao việc: chỉ hiển thị nhân sự cấp dưới trong phòng, loại bỏ chính mình và các Admin / Leader khác
-    if (area === 'leader') {
-      items = items.filter((u) => {
-        if (u.id === user?.id) return false;
-        const isLeaderOrAdmin = (u as any).roles?.some((r: any) =>
-          r.role?.code === 'ADMIN' || r.role === 'ADMIN' || r.role?.code === 'LEADER' || r.role === 'LEADER'
-        );
-        return !isLeaderOrAdmin;
-      });
+    if (isLeaderMode) {
+      items = items.filter((u) => u.id !== user?.id);
     }
     if (isRegionAdmin && userRegionId) {
       items = items.filter((u: any) => {
@@ -1486,25 +1479,19 @@ function AssigneeSelectorModal({
       });
     }
     return items;
-  }, [users.data?.items, isHR, area, user?.id, isRegionAdmin, userRegionId, branchRegionMap, searchKeyword]);
+  }, [users.data?.items, isLeaderMode, user?.id, isRegionAdmin, userRegionId, branchRegionMap, searchKeyword]);
 
   const deptUsers = useMemo(() => {
     if (!selectedDept) return [];
     let list = usersByDeptId.get(selectedDept.id) || [];
-    if (list.length === 0 && area === 'leader') {
+    if (list.length === 0 && isLeaderMode) {
       list = users.data?.items ?? [];
     }
-    if (area === 'leader') {
-      list = list.filter((u) => {
-        if (u.id === user?.id) return false;
-        const isLeaderOrAdmin = (u as any).roles?.some((r: any) => 
-          r.role?.code === 'ADMIN' || r.role === 'ADMIN' || r.role?.code === 'LEADER' || r.role === 'LEADER'
-        );
-        return !isLeaderOrAdmin;
-      });
+    if (isLeaderMode) {
+      list = list.filter((u) => u.id !== user?.id);
     }
     return list;
-  }, [selectedDept, usersByDeptId, area, user?.id, users.data?.items]);
+  }, [selectedDept, usersByDeptId, isLeaderMode, user?.id, users.data?.items]);
 
   const filteredDeptUsers = useMemo(() => {
     if (!deptUserSearch.trim()) return deptUsers;
@@ -1702,7 +1689,7 @@ function AssigneeSelectorModal({
             /* --- STEP 4: USER LIST OF SELECTED DEPARTMENT --- */
             <>
               <View style={styles.stepNavHeader}>
-                {area !== 'leader' ? (
+                {!isLeaderMode ? (
                   <Pressable
                     style={styles.stepBackBtn}
                     onPress={() => {
@@ -1726,7 +1713,7 @@ function AssigneeSelectorModal({
                 </Pressable>
               </View>
 
-              {area !== 'leader' && (
+              {!isLeaderMode && (
                 <View style={styles.stepTitleBox}>
                   <Text style={styles.stepTitle}>{selectedDept.name}</Text>
                   <Text style={styles.stepSubtitle}>
@@ -1766,12 +1753,12 @@ function AssigneeSelectorModal({
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.deptSelectAllTitle}>
-                        {area === 'leader'
+                        {isLeaderMode
                           ? `Giao cho toàn bộ nhân sự trong phòng`
                           : `Giao cho toàn bộ ${selectedDept.name}`}
                       </Text>
                       <Text style={styles.deptSelectAllSubtitle}>
-                        {area === 'leader' ? 'Giao việc cho tất cả thành viên trong phòng ban của bạn' : 'Giao đồng thời cho cả tập thể phòng ban'}
+                        {isLeaderMode ? 'Giao việc cho tất cả thành viên trong phòng ban của bạn' : 'Giao đồng thời cho cả tập thể phòng ban'}
                       </Text>
                     </View>
                   </View>

@@ -1,5 +1,5 @@
 import { TaskListScreen } from '../../../src/features/tasks/TaskScreens';
 
 export default function HRTasksRoute() {
-  return <TaskListScreen area="admin" />;
+  return <TaskListScreen area="hr" />;
 }
