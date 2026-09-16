@@ -34,7 +34,7 @@ import { useWarehouses } from '../../hooks/useWarehouses';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import type { AssetConditionStatus } from '../../types/asset.types';
+import type { AssetConditionStatus, AssetStatus } from '../../types/asset.types';
 import { formatDateTime } from '../../utils/date-time';
 import { hasPermission } from '../../utils/permissions';
 import { getScopedEmployees } from '../../api/employees.api';
@@ -43,6 +43,7 @@ import { queryKeys } from '../../constants/queryKeys';
 import {
   activeAssignment,
   assetConditionLabels,
+  assetStatusLabels,
   assignmentStatusTone,
   canConfirmAssignment,
   canReceiveReturn,
