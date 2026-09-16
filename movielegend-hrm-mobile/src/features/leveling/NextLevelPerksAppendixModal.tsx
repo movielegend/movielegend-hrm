@@ -26,6 +26,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   onOpenSubmitModal,
 }) => {
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   if (!progress) return null;
 
   const nextLevel = progress.nextLevel;
@@ -54,7 +55,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.container}>
-        <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+        <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
           <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
           {/* Header */}
@@ -70,7 +71,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
               <Ionicons name="close" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
 
         <ScrollView
           style={styles.body}

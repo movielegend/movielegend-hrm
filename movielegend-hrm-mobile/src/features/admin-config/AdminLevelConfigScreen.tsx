@@ -4,12 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
   ScrollView,
   TextInput,
   StatusBar,
+  Platform,
   ActivityIndicator} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useSocketStatus } from '../../providers/SocketProvider';
@@ -45,6 +46,8 @@ export interface AdminLevelItem {
 }
 
 export const AdminLevelConfigScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { user } = useAuth();
   const isAdmin = Boolean(
     user?.roles?.includes('ADMIN') ||
@@ -459,7 +462,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
 
       {/* Top Header Safe Area (Navy Blue #1E293B) */}
-      <SafeAreaView style={styles.headerSafeArea}>
+      <View style={[styles.headerSafeArea, { paddingTop: safeTopInset }]}>
         {/* Executive Header Card */}
         <View style={styles.executiveHeaderCard}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -512,7 +515,7 @@ export const AdminLevelConfigScreen: React.FC = () => {
             <Text style={[styles.stepTitle, activeStep === 3 && styles.stepTitleActive]}>Giao Dự Án</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Page Content Switcher & Bottom Container (Clean White #F8FAFC) */}
       <View style={styles.pageBodyContainer}>

@@ -5,8 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+  TextInput,
+  Platform,
+  StatusBar} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import * as SecureStore from 'expo-secure-store';
@@ -30,6 +32,7 @@ const ADMIN_REVIEWS_KEY = 'ADMIN_PENDING_ROUND1_REVIEWS';
 
 export const LeaderReviewScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { user } = useAuth();
   const { getSocket } = useSocketStatus();
   const leaderDeptId = (user as any)?.departmentId || user?.department?.id;
@@ -181,7 +184,8 @@ export const LeaderReviewScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { paddingTop: safeTopInset }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + Math.max(insets.bottom, 24) }]}>
         {/* Header */}
         <View style={styles.header}>
@@ -278,7 +282,7 @@ export const LeaderReviewScreen: React.FC = () => {
           <Text style={styles.submitBtnText}>GỬI KẾT QUẢ VÒNG 1 CHO ADMIN PHÊ DUYỆT</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

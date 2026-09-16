@@ -329,6 +329,7 @@ export const getMetalTheme = (level: number): MetalTheme => {
 export const TikTokStyleLevelingScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { user } = useAuth();
 
   // Load level stored or approved from Backend API & SecureStore
@@ -1423,7 +1424,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       {/* ===================================================================== */}
       <Modal visible={activeReportTask !== null} animationType="slide" transparent={false} onRequestClose={() => setActiveReportTask(null)}>
         <View style={styles.reportModalContainer}>
-          <SafeAreaView style={styles.reportTopSafeArea} edges={['top']}>
+          <View style={[styles.reportTopSafeArea, { paddingTop: safeTopInset }]}>
             <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
             <View style={styles.reportModalHeader}>
               <View style={{ flex: 1 }}>
@@ -1436,7 +1437,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                 <Text style={styles.reportModalCloseBtnText}>Đóng</Text>
               </TouchableOpacity>
             </View>
-          </SafeAreaView>
+          </View>
 
           <KeyboardAvoidingView
             style={{ flex: 1 }}

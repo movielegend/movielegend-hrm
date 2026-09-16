@@ -46,6 +46,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const params = useLocalSearchParams<{ tab?: string; subTab?: string; departmentId?: string; mode?: string }>();
   const { user } = useAuth();
 
@@ -710,7 +711,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const pendingCount = promotionRequests.filter((r) => r.status === 'PENDING').length;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Header */}
@@ -2399,7 +2400,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           await loadData();
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 

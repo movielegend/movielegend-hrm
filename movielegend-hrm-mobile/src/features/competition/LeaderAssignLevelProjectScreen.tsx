@@ -27,6 +27,7 @@ import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/Level
 export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const currentLeaderId = user?.id || 'leader-me';
   const currentLeaderName = user?.fullName || 'Trưởng nhóm (Tôi)';
   const leaderDeptId = (user as any)?.departmentId || user?.department?.id;
@@ -385,12 +386,12 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   if (!currentProject || projects.length === 0) {
     return (
       <View style={styles.container}>
-        <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+        <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
           <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
           <View style={styles.topHeader}>
             <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
           </View>
-        </SafeAreaView>
+        </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <Ionicons name="folder-open-outline" size={60} color="#94A3B8" />
           <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginTop: 14 }}>
@@ -406,7 +407,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+      <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
 
         {/* Top Header with Deep Teal Background */}
@@ -424,7 +425,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
-      </SafeAreaView>
+      </View>
 
       <View style={styles.bodyWrapper}>
         {/* Section Tabs: Đang Thực Hiện vs Lịch Sử Hoàn Thành */}
@@ -945,7 +946,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       {/* EXPANDABLE FULL PAGE DETAIL & APPROVAL / SUBMISSION MODAL */}
       <Modal visible={activeSubTask !== null} animationType="slide" transparent={false}>
         <View style={styles.container}>
-          <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+          <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
             <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
 
             {/* Top Page Header */}
@@ -960,7 +961,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                 <Text style={styles.fullPageCloseBtnText}>Đóng</Text>
               </TouchableOpacity>
             </View>
-          </SafeAreaView>
+          </View>
 
           <KeyboardAvoidingView
             style={{ flex: 1 }}
@@ -1353,7 +1354,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       {/* FULL PAGE SUBMIT ADMIN MODAL (KÉO LÊN TRANG MỚI) */}
       <Modal visible={submitAdminModalVisible} animationType="slide" transparent={false}>
         <View style={styles.container}>
-          <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+          <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
             <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
 
             {/* Top Page Header */}
@@ -1368,7 +1369,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                 <Text style={styles.fullPageCloseBtnText}>Đóng</Text>
               </TouchableOpacity>
             </View>
-          </SafeAreaView>
+          </View>
 
           <KeyboardAvoidingView
             style={{ flex: 1 }}

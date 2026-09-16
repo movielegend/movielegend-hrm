@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, SafeAreaView, View, Pressable, Text, ActivityIndicator, Platform, Image } from 'react-native';
+import { Modal, View, Pressable, Text, ActivityIndicator, Platform, Image, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu' }: Props) {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
   const [currentPdfUri, setCurrentPdfUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -112,7 +115,8 @@ export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
+      <View style={{ flex: 1, backgroundColor: '#1a1a1a', paddingTop: safeTopInset }}>
+        <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#1a1a1a', gap: 8 }}>
           <Pressable
             onPress={onClose}
@@ -179,7 +183,7 @@ export function PdfViewerModal({ visible, onClose, url, title = 'Xem tài liệu
             mixedContentMode="always"
           />
         ) : null}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

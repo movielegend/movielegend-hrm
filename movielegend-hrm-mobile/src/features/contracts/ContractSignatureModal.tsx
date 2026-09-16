@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Modal, StyleSheet, View, Text, TextInput, Pressable, ScrollView } from 'react-native';
+import { Modal, StyleSheet, View, Text, TextInput, Pressable, ScrollView, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SignatureScreen from '../../components/SignaturePad/SignaturePad';
 import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, fieldsToFill = [], contractUser }: Props) {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const ref = useRef<any>();
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
@@ -119,7 +122,8 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: safeTopInset }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
         <PageHeader title="Ký hợp đồng" subtitle="Vui lòng ký tên vào khung bên dưới" />
         
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 8 }}>

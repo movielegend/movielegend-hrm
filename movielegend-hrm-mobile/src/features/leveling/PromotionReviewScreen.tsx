@@ -23,6 +23,7 @@ import { getAbsoluteImageUrl } from '../../utils/image';
 export const PromotionReviewScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const params = useLocalSearchParams<{
     requestId?: string;
     fromLevelNumber?: string;
@@ -110,7 +111,7 @@ export const PromotionReviewScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -123,13 +124,13 @@ export const PromotionReviewScreen: React.FC = () => {
           <ActivityIndicator size="large" color="#38BDF8" />
           <Text style={styles.loadingText}>Đang tải chi tiết đề xuất...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!request) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -145,7 +146,7 @@ export const PromotionReviewScreen: React.FC = () => {
             <Text style={styles.btnBackOutlineText}>Quay lại danh sách</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -163,7 +164,7 @@ export const PromotionReviewScreen: React.FC = () => {
   const evidenceImages = request.evidenceImages || [];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Top Navbar */}
@@ -390,7 +391,7 @@ export const PromotionReviewScreen: React.FC = () => {
           onRequestClose={() => setPreviewImageIndex(null)}
         >
           <View style={styles.lightboxOverlay}>
-            <SafeAreaView style={styles.lightboxSafeArea} edges={['top', 'bottom']}>
+            <View style={[styles.lightboxSafeArea, { paddingTop: safeTopInset, paddingBottom: Math.max(insets.bottom, 16) }]}>
               {/* Lightbox Top Bar */}
               <View style={styles.lightboxHeader}>
                 <TouchableOpacity
@@ -440,7 +441,7 @@ export const PromotionReviewScreen: React.FC = () => {
               <View style={styles.lightboxFooter}>
                 <Text style={styles.lightboxFooterText}>Ảnh minh chứng đề xuất thăng cấp #{request.id.slice(0, 8)}</Text>
               </View>
-            </SafeAreaView>
+            </View>
           </View>
         </Modal>
       )}
@@ -483,7 +484,7 @@ export const PromotionReviewScreen: React.FC = () => {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

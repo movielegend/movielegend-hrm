@@ -5,9 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
+  Platform,
   ActivityIndicator} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useLevelProjects } from '../leveling/levelProjectsStore';
@@ -49,6 +50,8 @@ export interface AdminReviewItem {
 }
 
 export const AdminMonthlyReviewScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { data: realDeptData, isLoading: isDeptLoading } = useDepartments({ limit: 100 });
   const { getSocket } = useSocketStatus();
   const realDeptList = realDeptData?.data || realDeptData?.items || (Array.isArray(realDeptData) ? realDeptData : []);
@@ -261,7 +264,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
 
       {/* Top Header Safe Area (Navy Blue #1E293B) */}
-      <SafeAreaView style={styles.headerSafeArea}>
+      <View style={[styles.headerSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.executiveHeaderCard}>
           <Text style={styles.title}>Duyệt Level Cuối Tháng</Text>
           <Text style={styles.subTitle}>Kiểm tra tiến độ, phê duyệt thăng cấp Level & trao quà thưởng</Text>
@@ -306,7 +309,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
             <Text style={[styles.stepLabelText, activeStep === 3 ? styles.stepLabelTextActive : styles.stepLabelTextInactive]}>Duyệt Leader</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Main Content Body */}
       <View style={styles.pageBodyContainer}>

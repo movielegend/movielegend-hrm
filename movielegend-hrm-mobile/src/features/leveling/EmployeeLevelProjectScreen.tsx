@@ -24,6 +24,7 @@ import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 
 export const EmployeeLevelProjectScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { user } = useAuth();
   const empDeptId = (user as any)?.departmentId || user?.department?.id;
   const empDeptName = user?.department?.name || (user as any)?.departmentName;
@@ -175,7 +176,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView edges={['top']} style={styles.topSafeArea}>
+      <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
         {/* Top Header */}
@@ -185,7 +186,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
             <Text style={styles.headerTitle}>Nhiệm Vụ Cấp Bậc</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
 
       <View style={styles.bodyWrapper}>
         <ScrollView
@@ -582,7 +583,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
       {/* FULL PAGE DETAIL & SUBMISSION MODAL */}
       <Modal visible={activeItem !== null} animationType="slide" transparent={false}>
         <View style={styles.container}>
-          <SafeAreaView style={styles.topSafeArea}>
+          <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
             <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
             {/* Top Page Header */}
@@ -600,7 +601,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                 <Ionicons name="close" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-          </SafeAreaView>
+          </View>
 
           <KeyboardAvoidingView
             style={{ flex: 1 }}

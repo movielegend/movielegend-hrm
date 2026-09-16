@@ -23,6 +23,7 @@ import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 export const PromotionSubmissionScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const params = useLocalSearchParams<{
     fromLevelNumber?: string;
     fromLevelName?: string;
@@ -160,7 +161,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Top Navbar */}
@@ -366,7 +367,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
           onRequestClose={() => setPreviewImageIndex(null)}
         >
           <View style={styles.lightboxOverlay}>
-            <SafeAreaView style={styles.lightboxSafeArea} edges={['top', 'bottom']}>
+            <View style={[styles.lightboxSafeArea, { paddingTop: safeTopInset, paddingBottom: Math.max(insets.bottom, 16) }]}>
               {/* Lightbox Top Bar */}
               <View style={styles.lightboxHeader}>
                 <TouchableOpacity
@@ -429,7 +430,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
               <View style={styles.lightboxFooter}>
                 <Text style={styles.lightboxFooterText}>Ảnh minh chứng xét duyệt thăng cấp</Text>
               </View>
-            </SafeAreaView>
+            </View>
           </View>
         </Modal>
       )}
@@ -459,7 +460,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

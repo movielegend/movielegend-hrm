@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, View, Text, Image, ScrollView } from 'react-native';
+import { Modal, StyleSheet, View, Text, Image, ScrollView, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback } from '../../utils/mediaPermissions';
 import { PageHeader } from '../../components/PageHeader';
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export function ContractScannerModal({ visible, onClose, onScanComplete }: Props) {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const [image, setImage] = useState<string | null>(null);
   const scanMutation = useScanContract();
   const { showAlert } = useAppAlert();
@@ -55,7 +58,8 @@ export function ContractScannerModal({ visible, onClose, onScanComplete }: Props
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onDismiss={reset}>
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: safeTopInset }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
         <PageHeader title="Scan Hợp Đồng" subtitle="Chụp ảnh để AI tự động bóc tách dữ liệu" />
         
         <ScrollView contentContainerStyle={styles.content}>

@@ -5,7 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView} from 'react-native';
+  Platform,
+  StatusBar} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export interface DepartmentMemberContribution {
@@ -21,6 +23,8 @@ export interface DepartmentMemberContribution {
 }
 
 export const DepartmentCompetitionScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const [selectedDept, setSelectedDept] = useState<'LIVESTREAM' | 'HR' | 'WAREHOUSE' | 'CSKH' | 'MKT'>('LIVESTREAM');
 
   // Member data for drill-down view
@@ -31,7 +35,8 @@ export const DepartmentCompetitionScreen: React.FC = () => {
   const top3 = members[2];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: safeTopInset }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -168,7 +173,7 @@ export const DepartmentCompetitionScreen: React.FC = () => {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
