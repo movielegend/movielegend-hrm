@@ -36,7 +36,12 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const handleCaptureNow = async () => {
+  const startCountdown = () => {
+    if (capturing) return;
+    setCountdown(3);
+  };
+
+  const takePhotoAutomatically = async () => {
     if (capturing || !cameraRef.current) return;
     setCapturing(true);
     setError(null);
@@ -54,10 +59,6 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
       setCapturing(false);
       setCountdown(null);
     }
-  };
-
-  const startCountdown = () => {
-    handleCaptureNow();
   };
 
   if (!permission) {
