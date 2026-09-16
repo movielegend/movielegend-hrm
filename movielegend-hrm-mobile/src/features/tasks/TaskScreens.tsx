@@ -777,7 +777,6 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     }
     setTargets([]);
   };
->>>>>>> e8a7e44f (fix(tasks): fix HR and Leader task routes, screen props, and theme colors)
 
   const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
