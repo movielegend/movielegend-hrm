@@ -61,12 +61,18 @@ export class EmployeesService {
   async scoped(actor: AuthenticatedUser, query: ScopedEmployeeQueryDto) {
     let allowedDeptIds = await this.scope.getVisibleDepartmentIds(actor);
 
-    if (allowedDeptIds === null && !actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
+    if (!actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
       const userDepts = await this.prisma.departmentMember.findMany({
         where: { userId: actor.userId, leftAt: null },
-        select: { departmentId: true }
+        select: { departmentId: true },
       });
-      allowedDeptIds = userDepts.map(d => d.departmentId);
+      const ownDeptIds = userDepts.map((d) => d.departmentId);
+
+      if (allowedDeptIds === null) {
+        allowedDeptIds = ownDeptIds;
+      } else {
+        allowedDeptIds = Array.from(new Set([...allowedDeptIds, ...ownDeptIds]));
+      }
     }
 
     if (query.departmentId && allowedDeptIds !== null && !allowedDeptIds.includes(query.departmentId)) {

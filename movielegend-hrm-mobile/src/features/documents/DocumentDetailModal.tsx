@@ -7,8 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -50,7 +49,11 @@ export function DocumentDetailModal({
   const catColor = getCategoryColor(document.category);
   const catLabel = CATEGORY_LABELS[document.category] || document.category;
 
-  const deptText = document.department
+  const isRegionWide = Boolean((document as any).isRegionWide);
+  const regionName = (document as any).regionName || document.department?.branch?.name || '';
+  const deptText = isRegionWide
+    ? `Toàn miền${regionName ? ` (${regionName})` : ''}`
+    : document.department
     ? `${document.department.name}${document.department.branch?.name ? ` (${document.department.branch.name})` : ''}`
     : 'Toàn công ty';
 
@@ -93,18 +96,20 @@ export function DocumentDetailModal({
                 <View
                   style={[
                     styles.deptBadge,
-                    !document.department && { backgroundColor: '#EFF6FF' },
+                    !document.department && !isRegionWide && { backgroundColor: '#EFF6FF' },
+                    isRegionWide && { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
                   ]}
                 >
                   <MaterialCommunityIcons
-                    name={document.department ? 'domain' : 'earth'}
+                    name={isRegionWide ? 'earth' : (document.department ? 'domain' : 'earth')}
                     size={14}
-                    color={document.department ? '#4B5563' : '#2563EB'}
+                    color={isRegionWide ? '#B45309' : (document.department ? '#4B5563' : '#2563EB')}
                   />
                   <Text
                     style={[
                       styles.deptBadgeText,
-                      !document.department && { color: '#2563EB' },
+                      !document.department && !isRegionWide && { color: '#2563EB' },
+                      isRegionWide && { color: '#B45309', fontWeight: '700' },
                     ]}
                     numberOfLines={1}
                   >
@@ -157,6 +162,21 @@ export function DocumentDetailModal({
                 <Text style={styles.infoVal}>
                   {document.uploadedBy?.profile?.fullName || document.uploadedBy?.fullName || 'Hệ thống'}
                   {document.uploadedBy?.userCode ? ` (${document.uploadedBy.userCode})` : ''}
+                </Text>
+              </View>
+
+              {/* Scope */}
+              <View style={styles.infoRow}>
+                <View style={styles.infoLeft}>
+                  <MaterialCommunityIcons
+                    name={isRegionWide ? 'earth' : (document.department ? 'domain' : 'earth')}
+                    size={18}
+                    color={isRegionWide ? '#B45309' : '#6B7280'}
+                  />
+                  <Text style={styles.infoKey}>Phạm vi</Text>
+                </View>
+                <Text style={[styles.infoVal, isRegionWide && { color: '#B45309', fontWeight: '600' }]}>
+                  {deptText}
                 </Text>
               </View>
 

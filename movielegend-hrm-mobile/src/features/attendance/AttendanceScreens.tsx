@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useMemo, useState, useCallback, type ComponentType } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Alert, ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback, RefreshControl } from 'react-native';
+import {ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback, RefreshControl} from 'react-native';
 
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
@@ -73,15 +73,15 @@ export function AttendanceHomeScreen() {
   }, [queryClient]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
       <ScrollView 
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#0B3B61" />
@@ -208,7 +208,7 @@ export function AttendanceHomeScreen() {
         </View>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -229,7 +229,7 @@ export function AttendanceCheckInScreen() {
     const location = locationState.location ?? await locationState.requestLocation();
     if (!location) return;
     if (!photoUri) {
-      Alert.alert('Thieu anh', 'Hay chup anh cham cong truoc khi check-in.');
+      CustomAlert.alert('Thieu anh', 'Hay chup anh cham cong truoc khi check-in.');
       return;
     }
     try {
@@ -245,10 +245,10 @@ export function AttendanceCheckInScreen() {
         ...(typeof location.accuracy === 'number' ? { accuracy: location.accuracy } : {}),
         photoFileId: uploaded.fileId,
       });
-      Alert.alert('Thanh cong', 'Da check-in');
+      CustomAlert.alert('Thanh cong', 'Da check-in');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, mapAttendanceError(normalized.code, normalized.message));
+      CustomAlert.alert(normalized.code, mapAttendanceError(normalized.code, normalized.message));
       if (shouldRecoverAttendanceState(normalized.code)) {
         await Promise.all([
           history.refetch(),
@@ -299,10 +299,10 @@ export function AttendanceCheckOutScreen() {
     if (!location) return;
     try {
       await mutation.mutateAsync({ latitude: location.latitude, longitude: location.longitude });
-      Alert.alert('Thanh cong', 'Da checkout');
+      CustomAlert.alert('Thanh cong', 'Da checkout');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, mapAttendanceError(normalized.code, normalized.message));
+      CustomAlert.alert(normalized.code, mapAttendanceError(normalized.code, normalized.message));
       if (shouldRecoverAttendanceState(normalized.code)) {
         await Promise.all([
           history.refetch(),
@@ -635,17 +635,17 @@ export function AttendanceDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }} edges={['top', 'left', 'right']}>
         <LoadingState />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!detail) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
         <EmptyState title="Không tìm thấy chi tiết chấm công" />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -654,11 +654,11 @@ export function AttendanceDetailScreen() {
   const role = user?.profile?.role || 'Nhân viên';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#111827" />
@@ -775,7 +775,7 @@ export function AttendanceDetailScreen() {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -795,10 +795,10 @@ export function AttendanceAdjustmentScreen() {
         ...(requestedCheckOutAt ? { requestedCheckOutAt } : {}),
         reason,
       });
-      Alert.alert('Thanh cong', 'Da gui yeu cau dieu chinh cong');
+      CustomAlert.alert('Thanh cong', 'Da gui yeu cau dieu chinh cong');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      CustomAlert.alert(normalized.code, normalized.message);
     }
   }
 
@@ -1041,17 +1041,17 @@ export function AdminAttendanceDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }} edges={['top', 'left', 'right']}>
         <LoadingState />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!detail) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
         <EmptyState title="Không tìm thấy chi tiết chấm công" />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -1060,11 +1060,11 @@ export function AdminAttendanceDetailScreen() {
   const role = user?.profile?.role || 'Nhân viên';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F7FAFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={24} color="#111827" />
@@ -1181,13 +1181,14 @@ export function AdminAttendanceDetailScreen() {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 import * as Location from 'expo-location';
 import { useBranches } from '../../api/branches.api';
 import { useDepartments } from '../../hooks/useDepartments';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function AttendanceLocationCreateScreen() {
   const router = useRouter();
@@ -1220,7 +1221,7 @@ export function AttendanceLocationCreateScreen() {
 
 
   async function submit() {
-    if (!branchId) return Alert.alert('Lỗi', 'Vui lòng chọn chi nhánh');
+    if (!branchId) return CustomAlert.alert('Lỗi', 'Vui lòng chọn chi nhánh');
     try {
       const payload: any = {
         name,
@@ -1235,10 +1236,10 @@ export function AttendanceLocationCreateScreen() {
 
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, payload });
-        Alert.alert('Thành công', 'Đã cập nhật điểm chấm công');
+        CustomAlert.alert('Thành công', 'Đã cập nhật điểm chấm công');
       } else {
         await mutation.mutateAsync(payload);
-        Alert.alert('Thành công', 'Đã tạo điểm chấm công');
+        CustomAlert.alert('Thành công', 'Đã tạo điểm chấm công');
       }
       
       setName('');
@@ -1250,7 +1251,7 @@ export function AttendanceLocationCreateScreen() {
       void locationsQuery.refetch();
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      CustomAlert.alert('Lỗi', normalized.message);
     }
   }
 
@@ -1265,15 +1266,15 @@ export function AttendanceLocationCreateScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa điểm chấm công này?', [
+    CustomAlert.alert('Xác nhận', 'Bạn có chắc muốn xóa điểm chấm công này?', [
       { text: 'Hủy', style: 'cancel' },
       { text: 'Xóa', style: 'destructive', onPress: async () => {
         try {
           await deleteMutation.mutateAsync(id);
-          Alert.alert('Thành công', 'Đã xóa điểm chấm công');
+          CustomAlert.alert('Thành công', 'Đã xóa điểm chấm công');
           void locationsQuery.refetch();
         } catch (error) {
-          Alert.alert('Lỗi', normalizeApiError(error).message);
+          CustomAlert.alert('Lỗi', normalizeApiError(error).message);
         }
       }}
     ]);

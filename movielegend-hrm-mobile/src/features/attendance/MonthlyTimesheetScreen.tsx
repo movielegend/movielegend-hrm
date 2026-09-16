@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -10,8 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +27,30 @@ import {
 import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
+
+function formatTimesheetTime(isoString?: string | null): string {
+  if (!isoString) return '--:--';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '--:--';
+    return d.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
+  } catch {
+    try {
+      const d = new Date(isoString);
+      const vnTime = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+      const hours = String(vnTime.getUTCHours()).padStart(2, '0');
+      const minutes = String(vnTime.getUTCMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch {
+      return '--:--';
+    }
+  }
+}
 
 export function MonthlyTimesheetScreen() {
   const insets = useSafeAreaInsets();
@@ -102,7 +124,7 @@ export function MonthlyTimesheetScreen() {
         setCompanyTimesheet(data.items || []);
       }
     } catch (err: any) {
-      Alert.alert('Thông báo', err.message || 'Không thể tải dữ liệu bảng công');
+      CustomAlert.alert('Thông báo', err.message || 'Không thể tải dữ liệu bảng công');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -153,10 +175,10 @@ export function MonthlyTimesheetScreen() {
         year: selectedYear,
         imageUrl: uploaded.fileUrl || (uploaded as any).url,
       });
-      Alert.alert('Thành công', `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`);
+      CustomAlert.alert('Thành công', `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`);
       fetchTimesheet();
     } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh bảng công');
+      CustomAlert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh bảng công');
     } finally {
       setUploadingUserId(null);
     }
@@ -165,7 +187,7 @@ export function MonthlyTimesheetScreen() {
   const handleUploadUserTimesheetImage = (targetUserId?: string, targetUserName?: string) => {
     const isPersonal = !targetUserId || targetUserId === user?.id;
     const title = isPersonal ? 'Bảng công của bạn' : `Bảng công: ${targetUserName || 'Nhân sự'}`;
-    Alert.alert(
+    CustomAlert.alert(
       title,
       'Chọn phương thức tải ảnh chốt bảng công:',
       [
@@ -174,7 +196,7 @@ export function MonthlyTimesheetScreen() {
           onPress: async () => {
             const perm = await ImagePicker.requestCameraPermissionsAsync();
             if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
+              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
               return;
             }
             const result = await ImagePicker.launchCameraAsync({
@@ -191,7 +213,7 @@ export function MonthlyTimesheetScreen() {
           onPress: async () => {
             const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
               return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({
@@ -249,11 +271,11 @@ export function MonthlyTimesheetScreen() {
           <View style={styles.recordBottomRow}>
             <View style={styles.timeTag}>
               <MaterialCommunityIcons name="login" size={14} color="#10B981" />
-              <Text style={styles.timeVal}>{item.checkInAt ? item.checkInAt.slice(11, 16) : '--:--'}</Text>
+              <Text style={styles.timeVal}>{formatTimesheetTime(item.checkInAt)}</Text>
             </View>
             <View style={styles.timeTag}>
               <MaterialCommunityIcons name="logout" size={14} color="#EF4444" />
-              <Text style={styles.timeVal}>{item.checkOutAt ? item.checkOutAt.slice(11, 16) : '--:--'}</Text>
+              <Text style={styles.timeVal}>{formatTimesheetTime(item.checkOutAt)}</Text>
             </View>
             {hasOt && (
               <View style={[styles.timeTag, { backgroundColor: '#FEF3C7' }]}>

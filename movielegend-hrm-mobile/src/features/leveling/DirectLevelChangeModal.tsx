@@ -8,12 +8,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES, LevelNameBadge } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 interface DirectLevelChangeModalProps {
   visible: boolean;
@@ -60,14 +59,14 @@ export const DirectLevelChangeModal: React.FC<DirectLevelChangeModalProps> = ({
         note.trim() || 'Leader đổi cấp trực tiếp',
       );
 
-      Alert.alert(
+      CustomAlert.alert(
         'Thành công',
         `Đã cập nhật cấp bậc của ${targetUser.fullName} thành Level ${selectedLevel} - ${LEVEL_DEFAULT_NAMES[selectedLevel]}!`,
       );
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Lỗi cập nhật', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi cập nhật', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSubmitting(false);
     }

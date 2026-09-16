@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   View,
   Text,
@@ -6,14 +7,12 @@ import {
   Pressable,
   ScrollView,
   Image,
-  Alert,
   Modal,
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  RefreshControl,
-} from 'react-native';
+  RefreshControl} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Screen } from '../../components/Screen';
@@ -88,7 +87,7 @@ export function AccountantDisbursementScreen() {
         note: accountantNote.trim() || undefined,
       });
 
-      Alert.alert(
+      CustomAlert.alert(
         'Xác nhận chi tiền thành công 🎉',
         `Đã hoàn tất chi trả ${selectedTicket.cashAmount.toLocaleString('vi-VN')} VNĐ cho nhân viên ${selectedTicket.user?.profile?.fullName || selectedTicket.user?.userCode}. Hệ thống đã gửi thông báo đến nhân viên!`
       );
@@ -98,7 +97,7 @@ export function AccountantDisbursementScreen() {
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi xác nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận lúc này.');
+      CustomAlert.alert('Lỗi xác nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận lúc này.');
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +106,7 @@ export function AccountantDisbursementScreen() {
   const handleRejectSubmit = async () => {
     if (!selectedTicket) return;
     if (!rejectReason.trim()) {
-      Alert.alert('Thiếu lý do', 'Vui lòng nhập lý do từ chối để nhân viên nắm được thông tin.');
+      CustomAlert.alert('Thiếu lý do', 'Vui lòng nhập lý do từ chối để nhân viên nắm được thông tin.');
       return;
     }
     try {
@@ -116,13 +115,13 @@ export function AccountantDisbursementScreen() {
         reason: rejectReason.trim(),
       });
 
-      Alert.alert('Đã từ chối lệnh chi', 'Số điểm đã được tự động hoàn lại vào Ví Thưởng của nhân viên.');
+      CustomAlert.alert('Đã từ chối lệnh chi', 'Số điểm đã được tự động hoàn lại vào Ví Thưởng của nhân viên.');
       await queryClient.invalidateQueries({ queryKey: ['accountant-disbursements'] });
       await queryClient.invalidateQueries({ queryKey: ['vault-withdrawals'] });
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc này.');
+      CustomAlert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc này.');
     } finally {
       setIsSubmitting(false);
     }

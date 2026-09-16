@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
@@ -29,6 +29,7 @@ import { hasPermission } from '../../utils/permissions';
 import { formatQuantity } from '../../utils/quantity';
 import { mapWarehouseAssetError } from '../assets/asset.logic';
 import { inventoryStatusTone } from './inventory.logic';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function InventoryCheckListScreen({ area }: { area: 'warehouse' | 'admin' }) {
   const router = useRouter();
@@ -74,11 +75,11 @@ export function InventoryCheckCreateScreen() {
         warehouseId,
         ...(note.trim() ? { note: note.trim() } : {}),
       });
-      Alert.alert('Success', 'Inventory check created from backend snapshot.');
+      CustomAlert.alert('Success', 'Inventory check created from backend snapshot.');
       router.back();
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      CustomAlert.alert(mapped.code, mapped.message);
     }
   }
 
@@ -121,10 +122,10 @@ export function InventoryCheckDetailScreen() {
     }
     try {
       await updateItems.mutateAsync({ id, payload: { items } });
-      Alert.alert('Success', 'Count lines saved.');
+      CustomAlert.alert('Success', 'Count lines saved.');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      CustomAlert.alert(mapped.code, mapped.message);
     }
   }
 
@@ -133,10 +134,10 @@ export function InventoryCheckDetailScreen() {
     try {
       if (action === 'submit') await submitCheck.mutateAsync(id);
       if (action === 'approve') await approveCheck.mutateAsync(id);
-      Alert.alert('Success', `Inventory ${action} completed.`);
+      CustomAlert.alert('Success', `Inventory ${action} completed.`);
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      CustomAlert.alert(mapped.code, mapped.message);
     }
   }
 

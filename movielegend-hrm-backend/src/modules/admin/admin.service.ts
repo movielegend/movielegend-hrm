@@ -443,7 +443,11 @@ export class AdminService {
     }
 
     if (dto.isRewardVaultEnabled !== undefined && !this.scope.isGlobalAdmin(actor)) {
-      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền bật/tắt Ví Thưởng Tết cho nhân viên');
+      if (this.scope.isRegionAdmin(actor)) {
+        await this.scope.assertUserInScope(actor, id);
+      } else {
+        throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Admin Miền mới có quyền bật/tắt Ví Thưởng Tết cho nhân viên');
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -534,6 +538,17 @@ export class AdminService {
 
       // Giữ nguyên quyền khi tạm khóa hoặc vô hiệu hóa tài khoản
 
+      if (dto.isRewardVaultEnabled !== undefined) {
+        this.realtimeEvents.emitToUser(id, 'vault:status_updated', {
+          userId: id,
+          isEnabled: dto.isRewardVaultEnabled,
+        });
+        this.realtimeEvents.emitToRoom('company', 'vault:status_updated', {
+          userId: id,
+          isEnabled: dto.isRewardVaultEnabled,
+        });
+      }
+
       const { passwordHash: _passwordHash, ...safeUser } = user;
       return safeUser;
     });
@@ -597,7 +612,11 @@ export class AdminService {
 
   async grantVaultPoints(dto: GrantVaultPointsDto, actor: AuthenticatedUser) {
     if (!this.scope.isGlobalAdmin(actor)) {
-      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao điểm thưởng Ví Tết');
+      if (this.scope.isRegionAdmin(actor)) {
+        await this.scope.assertUserInScope(actor, dto.userId);
+      } else {
+        throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Admin Miền mới có quyền trao điểm thưởng Ví Tết');
+      }
     }
     const year = dto.year || 2026;
     const cashValuePerPoint = dto.cashValuePerPoint || 1000;
@@ -828,6 +847,19 @@ export class AdminService {
       });
       if (notif) this.notifications.emitCreated(notif);
 
+      this.realtimeEvents.emitToUser(dto.userId, 'vault:points_granted', {
+        userId: dto.userId,
+        points,
+        grantType,
+        note,
+      });
+      this.realtimeEvents.emitToRoom('company', 'vault:points_granted', {
+        userId: dto.userId,
+        points,
+        grantType,
+        note,
+      });
+
       return tx.talentRetentionVault.findUnique({
         where: { id: vault.id },
         include: {
@@ -840,7 +872,16 @@ export class AdminService {
 
   async bulkGrantVaultPoints(dto: BulkGrantVaultPointsDto, actor: AuthenticatedUser) {
     if (!this.scope.isGlobalAdmin(actor)) {
-      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao điểm thưởng Ví Tết');
+      if (this.scope.isRegionAdmin(actor)) {
+        if (dto.departmentId) await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+        if (dto.userIds?.length) {
+          for (const uid of dto.userIds) {
+            await this.scope.assertUserInScope(actor, uid);
+          }
+        }
+      } else {
+        throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Admin Miền mới có quyền trao điểm thưởng Ví Tết');
+      }
     }
     let targetUserIds: string[] = dto.userIds || [];
 
@@ -866,7 +907,11 @@ export class AdminService {
 
   async grantProjectPackage(dto: GrantProjectPackageDto, actor: AuthenticatedUser) {
     if (!this.scope.isGlobalAdmin(actor)) {
-      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao gói thưởng Ví Tết');
+      if (this.scope.isRegionAdmin(actor)) {
+        await this.scope.assertUserInScope(actor, dto.userId);
+      } else {
+        throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Admin Miền mới có quyền trao gói thưởng Ví Tết');
+      }
     }
     const year = dto.year || new Date().getFullYear();
     const cashValuePerPoint = dto.cashValuePerPoint || 1000;
@@ -1001,6 +1046,17 @@ export class AdminService {
       });
       if (notif) this.notifications.emitCreated(notif);
 
+      this.realtimeEvents.emitToUser(dto.userId, 'vault:points_granted', {
+        userId: dto.userId,
+        points,
+        title,
+      });
+      this.realtimeEvents.emitToRoom('company', 'vault:points_granted', {
+        userId: dto.userId,
+        points,
+        title,
+      });
+
       return tx.talentRetentionVault.findUnique({
         where: { id: vault.id },
         include: {
@@ -1017,7 +1073,16 @@ export class AdminService {
 
   async bulkGrantProjectPackage(dto: BulkGrantProjectPackageDto, actor: AuthenticatedUser) {
     if (!this.scope.isGlobalAdmin(actor)) {
-      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền trao gói thưởng Ví Tết');
+      if (this.scope.isRegionAdmin(actor)) {
+        if (dto.departmentId) await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+        if (dto.userIds?.length) {
+          for (const uid of dto.userIds) {
+            await this.scope.assertUserInScope(actor, uid);
+          }
+        }
+      } else {
+        throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Admin Miền mới có quyền trao gói thưởng Ví Tết');
+      }
     }
     let targetUserIds: string[] = dto.userIds || [];
 
@@ -1317,8 +1382,8 @@ export class AdminService {
           userId,
           pointsWithdrawn: pointsToWithdraw,
           cashAmount: totalCash,
-          bankName: dto.bankName || 'Quy đổi ngoài (Nội bộ)',
-          bankAccountNumber: dto.bankAccountNumber || 'N/A',
+          bankName: dto.bankName || 'Tài khoản lương / Nội bộ',
+          bankAccountNumber: dto.bankAccountNumber || 'Theo hồ sơ',
           bankAccountName: (dto.bankAccountName || employeeName).toUpperCase(),
           note: dto.note || undefined,
           status: 'PENDING_ADMIN',
@@ -1363,7 +1428,7 @@ export class AdminService {
       const notif = await this.notifications.createForUsers(tx as any, [userId], {
         type: 'SYSTEM' as NotificationType,
         title: 'Yêu cầu rút điểm Ví Tết đã được gửi',
-        body: `Bạn đã gửi yêu cầu rút ${pointsToWithdraw.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ) về tài khoản ${dto.bankName}. Yêu cầu đang được chuyển đến Ban Giám Đốc để phê duyệt.`,
+        body: `Bạn đã gửi yêu cầu rút toàn bộ ${pointsToWithdraw.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ)${dto.bankName ? ` về tài khoản ${dto.bankName}` : ''}. Yêu cầu đang được chuyển đến Ban Giám Đốc để phê duyệt.`,
       });
       if (notif) this.notifications.emitCreated(notif);
 
@@ -1487,7 +1552,15 @@ export class AdminService {
 
   async adminApproveWithdrawal(id: string, dto: AdminApproveWithdrawalDto, actor: AuthenticatedUser) {
     if (!this.scope.isGlobalAdmin(actor)) {
-      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin mới có quyền phê duyệt yêu cầu rút tiền Ví Tết');
+      if (this.scope.isRegionAdmin(actor)) {
+        const req = await this.prisma.rewardWithdrawalRequest.findUnique({
+          where: { id },
+          select: { userId: true },
+        });
+        if (req) await this.scope.assertUserInScope(actor, req.userId);
+      } else {
+        throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Admin Miền mới có quyền phê duyệt yêu cầu rút tiền Ví Tết');
+      }
     }
     return this.prisma.$transaction(async (tx) => {
       const request = await tx.rewardWithdrawalRequest.findUnique({
@@ -1650,7 +1723,15 @@ export class AdminService {
 
   async rejectWithdrawal(id: string, dto: RejectWithdrawalDto, actor: AuthenticatedUser) {
     if (!this.scope.isGlobalAdmin(actor) && !actor.roles?.includes('ACCOUNTANT')) {
-      throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin hoặc Kế toán mới có quyền từ chối yêu cầu rút tiền');
+      if (this.scope.isRegionAdmin(actor)) {
+        const req = await this.prisma.rewardWithdrawalRequest.findUnique({
+          where: { id },
+          select: { userId: true },
+        });
+        if (req) await this.scope.assertUserInScope(actor, req.userId);
+      } else {
+        throw forbidden('FORBIDDEN_GLOBAL_ADMIN', 'Chỉ Super Admin, Admin Miền hoặc Kế toán mới có quyền từ chối yêu cầu rút tiền');
+      }
     }
     const currentYear = new Date().getFullYear();
     return this.prisma.$transaction(async (tx) => {

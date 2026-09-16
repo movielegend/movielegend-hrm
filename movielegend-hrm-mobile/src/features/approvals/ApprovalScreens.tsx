@@ -3,7 +3,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { RefreshControl, StyleSheet, Text, View, Image, Modal, TouchableOpacity, SafeAreaView, Pressable } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View, Image, Modal, TouchableOpacity, Pressable, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { Avatar } from '../../components/Avatar';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -102,6 +103,8 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
 
 export function ApprovalDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const approval = useApproval(id);
@@ -216,7 +219,7 @@ export function ApprovalDetailScreen() {
 
         <Modal visible={!!viewingImage} transparent={true} animationType="fade" onRequestClose={() => setViewingImage(null)}>
           <View style={styles.imageViewerContainer}>
-            <SafeAreaView style={styles.imageViewerSafeArea}>
+            <View style={[styles.imageViewerSafeArea, { paddingTop: safeTopInset }]}>
               <TouchableOpacity style={styles.imageViewerClose} onPress={() => setViewingImage(null)}>
                 <Text style={styles.imageViewerCloseText}>Đóng</Text>
               </TouchableOpacity>
@@ -228,7 +231,7 @@ export function ApprovalDetailScreen() {
                   </View>
                 </View>
               )}
-            </SafeAreaView>
+            </View>
           </View>
         </Modal>
       </ScreenContainer>

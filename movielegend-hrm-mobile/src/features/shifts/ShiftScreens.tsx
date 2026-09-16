@@ -11,16 +11,24 @@ import { Screen } from '../../components/Screen';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useAuth } from '../../providers/AuthProvider';
+import {
+  useShifts,
+  useMySchedule,
+  useCreateShift,
+  useUpdateShift,
+  useDeleteShift,
+  useAssignShift,
+  useRevokeShiftAssignment,
+} from '../../hooks/useShifts';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { businessDateToday, formatDate, formatShiftRange, toIsoDate } from '../../utils/date-time';
-import { hasPermission } from '../../utils/permissions';
+import { getRoleBaseRoute, getHomeRouteForUser } from '../../utils/role-routing';
 import { normalizeApiError } from '../../utils/api-error';
-import { getHomeRouteForUser } from '../../utils/role-routing';
+import { hasPermission } from '../../utils/permissions';
 import { findTodayShift } from '../attendance/attendance.logic';
-import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts, useRevokeShiftAssignment } from '../../hooks/useShifts';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAppAlert } from '../../contexts/AlertContext';
 
 function TimePickerField({ label, value, onChange }: { label: string; value: string; onChange: (val: string) => void }) {
   const [show, setShow] = useState(false);
@@ -129,7 +137,12 @@ export function EmployeeScheduleScreen() {
       .sort((a, b) => toIsoDate(b.workDate).localeCompare(toIsoDate(a.workDate)));
   }, [allAssignments, todayIso]);
 
-  const rolePrefix = useMemo(() => getHomeRouteForUser(user), [user]);
+  const rolePrefix = useMemo(() => getRoleBaseRoute(user), [user]);
+  const { data: currentAttendance } = useCurrentAttendance();
+
+  const attendanceRoute = currentAttendance?.state === 'CHECKED_IN'
+    ? `${rolePrefix}/attendance/check-out`
+    : `${rolePrefix}/attendance/check-in`;
 
   const displayList = activeTab === 'upcoming' ? upcomingShifts : pastShifts;
 
@@ -148,7 +161,7 @@ export function EmployeeScheduleScreen() {
           {todayShift?.shift ? (
             <Pressable 
               style={styles.todayShiftCard}
-              onPress={() => router.push(`${rolePrefix}/attendance/check-in` as any)}
+              onPress={() => router.push(attendanceRoute as any)}
             >
               <View style={styles.shiftIconBox}>
                 <MaterialCommunityIcons name="briefcase-clock-outline" size={28} color={colors.primary} />
@@ -165,7 +178,9 @@ export function EmployeeScheduleScreen() {
               </View>
               <View style={styles.attendanceActionBox}>
                 <MaterialCommunityIcons name="fingerprint" size={24} color={colors.primary} />
-                <Text style={styles.attendanceActionText}>Chấm công</Text>
+                <Text style={styles.attendanceActionText}>
+                  {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
+                </Text>
               </View>
             </Pressable>
           ) : (
@@ -199,11 +214,13 @@ export function EmployeeScheduleScreen() {
               <Text style={styles.utilityText}>Đổi ca</Text>
             </Pressable>
 
-            <Pressable style={styles.utilityBtn} onPress={() => router.push(`${rolePrefix}/attendance/check-in` as any)}>
+            <Pressable style={styles.utilityBtn} onPress={() => router.push(attendanceRoute as any)}>
               <View style={[styles.utilityIconBox, { backgroundColor: '#EFF6FF' }]}>
                 <MaterialCommunityIcons name="fingerprint" size={24} color="#3B82F6" />
               </View>
-              <Text style={styles.utilityText}>Chấm công</Text>
+              <Text style={styles.utilityText}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
+              </Text>
             </Pressable>
           </View>
         </SectionCard>
@@ -258,16 +275,16 @@ export function EmployeeScheduleScreen() {
                 <View style={styles.statusBox}>
                   <StatusBadge 
                     label={
-                      assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                      (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
                         ? (activeTab === 'past' ? 'Đã diễn ra' : 'Đã phân ca') 
-                        : assignment.status === 'CANCELLED' 
+                        : (assignment.status as string) === 'CANCELLED' 
                         ? 'Đã hủy' 
-                        : assignment.status
+                        : (assignment.status as string)
                     } 
                     tone={
-                      assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                      (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
                         ? (activeTab === 'past' ? 'neutral' : 'info') 
-                        : assignment.status === 'CANCELLED' 
+                        : (assignment.status as string) === 'CANCELLED' 
                         ? 'danger' 
                         : 'neutral'
                     } 
@@ -330,6 +347,19 @@ export function AdminShiftsScreen() {
     });
   };
 
+  const canCreateShift =
+    Boolean(user?.roles?.includes('ADMIN') ||
+    user?.roles?.includes('SUPER_ADMIN') ||
+    user?.roles?.includes('HR') ||
+    user?.permissions?.includes('shift.create'));
+
+  const canAssignShift =
+    Boolean(user?.roles?.includes('ADMIN') ||
+    user?.roles?.includes('SUPER_ADMIN') ||
+    user?.roles?.includes('HR') ||
+    user?.roles?.includes('LEADER') ||
+    user?.permissions?.includes('shift.assign'));
+
   return (
     <Screen>
       <ScrollView 
@@ -341,7 +371,7 @@ export function AdminShiftsScreen() {
           subtitle="Tất cả ca làm việc trong hệ thống"
           showBack={false}
           right={
-            hasPermission(user, 'shift.create') ? (
+            canCreateShift ? (
               <Pressable
                 style={styles.addBtn}
                 onPress={() => router.push('/admin/shifts/create')}
@@ -353,7 +383,7 @@ export function AdminShiftsScreen() {
           }
         />
         
-        {hasPermission(user, 'shift.assign') ? (
+        {canAssignShift ? (
           <SecondaryButton onPress={() => router.push('/admin/shifts/assign')}>
             Phân ca nhân viên
           </SecondaryButton>
@@ -383,9 +413,10 @@ export function AdminShiftsScreen() {
                 </Text>
               </View>
 
-              {shift.assignments && shift.assignments.length > 0 && (() => {
-                const uniqueAssignments = shift.assignments.filter(
-                  (a, index, self) => index === self.findIndex((t) => t.userId === a.userId)
+              {(shift as any).assignments && (shift as any).assignments.length > 0 && (() => {
+                const rawAssignments: any[] = (shift as any).assignments;
+                const uniqueAssignments = rawAssignments.filter(
+                  (a: any, index: number, self: any[]) => index === self.findIndex((t: any) => t.userId === a.userId)
                 );
                 
                 if (uniqueAssignments.length === 0) return null;
@@ -400,9 +431,9 @@ export function AdminShiftsScreen() {
                       </View>
                     </View>
                     <View style={styles.assignmentList}>
-                      {uniqueAssignments.map(a => {
+                      {uniqueAssignments.map((a: any) => {
                         const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
-                        const initials = name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
+                        const initials = name.split(' ').filter(Boolean).slice(-2).map((w: string) => w[0]).join('').toUpperCase();
                         return (
                           <Pressable 
                             key={a.id} 

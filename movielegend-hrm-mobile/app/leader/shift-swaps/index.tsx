@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { getLeaderPendingSwaps, updateShiftSwapStatus } from '../../../src/api/shift-swaps.api';
+import { CustomAlert } from '../../../src/components/CustomAlert';
 
 export default function LeaderShiftSwapsScreen() {
   const router = useRouter();
@@ -27,10 +28,10 @@ export default function LeaderShiftSwapsScreen() {
     mutationFn: (id: string) => updateShiftSwapStatus(id, { status: 'APPROVED' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-shift-swaps'] });
-      Alert.alert('Thành công', 'Đã duyệt yêu cầu đổi ca.');
+      CustomAlert.alert('Thành công', 'Đã duyệt yêu cầu đổi ca.');
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
+      CustomAlert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
     }
   });
 
@@ -38,10 +39,10 @@ export default function LeaderShiftSwapsScreen() {
     mutationFn: (id: string) => updateShiftSwapStatus(id, { status: 'REJECTED' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-shift-swaps'] });
-      Alert.alert('Thành công', 'Đã từ chối yêu cầu đổi ca.');
+      CustomAlert.alert('Thành công', 'Đã từ chối yêu cầu đổi ca.');
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
+      CustomAlert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
     }
   });
 

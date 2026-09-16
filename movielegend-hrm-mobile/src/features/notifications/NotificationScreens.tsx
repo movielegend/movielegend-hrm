@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {Pressable, RefreshControl, StyleSheet, Text, View} from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -16,6 +16,7 @@ import type { NotificationTargetDto } from '../../types/notification.types';
 import { normalizeApiError } from '../../utils/api-error';
 import { timeAgo } from '../../utils/date-time';
 import { getNotificationColor, getNotificationIcon, notificationRoute } from '../../utils/notification-routing';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function NotificationListScreen() {
   const router = useRouter();
@@ -44,13 +45,13 @@ export function NotificationListScreen() {
     try {
       const result = await registerDevice.mutateAsync();
       if (!result) {
-        Alert.alert('Chưa cấu hình thông báo', 'Thiết bị chưa cấp quyền nhận thông báo hoặc chưa thiết lập cấu hình.');
+        CustomAlert.alert('Chưa cấu hình thông báo', 'Thiết bị chưa cấp quyền nhận thông báo hoặc chưa thiết lập cấu hình.');
         return;
       }
-      Alert.alert('Thành công', 'Đã đăng ký thiết bị nhận thông báo');
+      CustomAlert.alert('Thành công', 'Đã đăng ký thiết bị nhận thông báo');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert(normalized.code, normalized.message);
+      CustomAlert.alert(normalized.code, normalized.message);
     }
   }
 

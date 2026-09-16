@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator, Alert } from 'react-native';
+import {Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, ActivityIndicator} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
 import ImageView from '../../components/ImageViewer/ImageViewer';
@@ -35,6 +35,7 @@ import { formatDateTime } from '../../utils/date-time';
 import { hasPermission } from '../../utils/permissions';
 import { incidentStatusTone, incidentTypeLabels, mapWarehouseAssetError } from '../assets/asset.logic';
 import { IncidentCard } from '../assets/AssetComponents';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export type IncidentArea = 'employee' | 'leader' | 'warehouse' | 'admin' | 'hr';
 
@@ -118,7 +119,7 @@ export function IncidentReportScreen() {
   };
 
   const handleSelectEvidence = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Minh chứng sự cố',
       'Bạn muốn cung cấp hình ảnh/video từ đâu?',
       [

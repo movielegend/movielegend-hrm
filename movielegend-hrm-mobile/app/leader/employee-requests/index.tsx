@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../src/providers/AuthProvider';
-import { getHomeRouteForUser } from '../../../src/utils/role-routing';
+import { CustomAlert } from '../../../src/components/CustomAlert';
+import { getRoleBaseRoute } from '../../../src/utils/role-routing';
 import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
@@ -26,7 +27,7 @@ const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: k
 export default function LeaderRequestsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const rolePrefix = getHomeRouteForUser(user);
+  const rolePrefix = getRoleBaseRoute(user);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
@@ -46,10 +47,10 @@ export default function LeaderRequestsScreen() {
     mutationFn: approveEmployeeRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
-      Alert.alert('Thành công', 'Đã duyệt yêu cầu.');
+      CustomAlert.alert('Thành công', 'Đã duyệt yêu cầu.');
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
+      CustomAlert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
     }
   });
 
@@ -57,10 +58,10 @@ export default function LeaderRequestsScreen() {
     mutationFn: rejectEmployeeRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
-      Alert.alert('Thành công', 'Đã từ chối yêu cầu.');
+      CustomAlert.alert('Thành công', 'Đã từ chối yêu cầu.');
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
+      CustomAlert.alert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra.');
     }
   });
 

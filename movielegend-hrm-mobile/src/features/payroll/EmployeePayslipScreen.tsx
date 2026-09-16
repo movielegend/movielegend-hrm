@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -10,8 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +27,7 @@ import {
 import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function EmployeePayslipScreen() {
   const insets = useSafeAreaInsets();
@@ -101,7 +100,7 @@ export function EmployeePayslipScreen() {
         setCompanyPayslips(data.items || []);
       }
     } catch (err: any) {
-      Alert.alert('Thông báo', err.message || 'Không thể tải dữ liệu phiếu lương');
+      CustomAlert.alert('Thông báo', err.message || 'Không thể tải dữ liệu phiếu lương');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -152,10 +151,10 @@ export function EmployeePayslipScreen() {
         year: selectedYear,
         imageUrl: uploaded.fileUrl || (uploaded as any).url,
       });
-      Alert.alert('Thành công', `Đã lưu ảnh phiếu lương cho ${targetUserName || 'bạn'} thành công!`);
+      CustomAlert.alert('Thành công', `Đã lưu ảnh phiếu lương cho ${targetUserName || 'bạn'} thành công!`);
       fetchPayslip();
     } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh phiếu lương chốt');
+      CustomAlert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh phiếu lương chốt');
     } finally {
       setUploadingUserId(null);
     }
@@ -164,7 +163,7 @@ export function EmployeePayslipScreen() {
   const handleUploadUserPayslipImage = (targetUserId?: string, targetUserName?: string) => {
     const isPersonal = !targetUserId || targetUserId === user?.id;
     const title = isPersonal ? 'Phiếu lương của bạn' : `Phiếu lương: ${targetUserName || 'Nhân sự'}`;
-    Alert.alert(
+    CustomAlert.alert(
       title,
       'Chọn phương thức tải ảnh chốt phiếu lương từ Leader Kế toán:',
       [
@@ -173,7 +172,7 @@ export function EmployeePayslipScreen() {
           onPress: async () => {
             const perm = await ImagePicker.requestCameraPermissionsAsync();
             if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
+              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
               return;
             }
             const result = await ImagePicker.launchCameraAsync({
@@ -190,7 +189,7 @@ export function EmployeePayslipScreen() {
           onPress: async () => {
             const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (!perm.granted) {
-              Alert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
               return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({
@@ -212,10 +211,10 @@ export function EmployeePayslipScreen() {
     try {
       setIsAcknowledging(true);
       await acknowledgePayslip(payslip.id);
-      Alert.alert('Thành công', 'Bạn đã xác nhận phiếu lương thành công!');
+      CustomAlert.alert('Thành công', 'Bạn đã xác nhận phiếu lương thành công!');
       fetchPayslip();
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể xác nhận phiếu lương');
+      CustomAlert.alert('Lỗi', err.message || 'Không thể xác nhận phiếu lương');
     } finally {
       setIsAcknowledging(false);
     }

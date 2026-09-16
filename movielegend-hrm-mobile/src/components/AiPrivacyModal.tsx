@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, View, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface AiPrivacyModalProps {
   visible: boolean;
@@ -10,12 +11,13 @@ interface AiPrivacyModalProps {
 }
 
 export function AiPrivacyModal({ visible, role = 'EMPLOYEE', onAccept, onDecline }: AiPrivacyModalProps) {
+  const insets = useSafeAreaInsets();
   const roleText = role === 'HR' ? 'bộ phận Nhân sự (HR)' : (role === 'LEADER' ? 'Cấp quản lý (Leader)' : 'Nhân viên');
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDecline}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}>
           {/* Header Icon + Title */}
           <View style={styles.header}>
             <View style={styles.iconBg}>

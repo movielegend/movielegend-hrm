@@ -11,15 +11,13 @@ import {
   Platform,
   UIManager,
   Switch,
-  Alert,
   Modal,
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
   PanResponder,
   Dimensions,
-  BackHandler,
-} from 'react-native';
+  BackHandler} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
@@ -35,6 +33,7 @@ import type { Department } from '../../types/department.types';
 import type { EmployeeUser } from '../../types/employee.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { updateEmployee as apiUpdateEmployee, getVaultWithdrawalRequests } from '../../api/employees.api';
+import { useRegions } from '../../api/regions.api';
 import { AdminGrantPointsScreen, type GrantTarget } from './AdminGrantPointsScreen';
 import { WithdrawalRequestsManager } from './WithdrawalRequestsManager';
 import { useQuery } from '@tanstack/react-query';
@@ -50,10 +49,25 @@ type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
 
 export function AdminTetWalletScreen() {
   const { user } = useAuth();
-  const isGlobalAdmin = Boolean(
+  const isRegionAdmin = Boolean(
     user?.roles?.includes('ADMIN') &&
-    user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType))
+    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION')
   );
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('SUPER_ADMIN') ||
+    (user?.roles?.includes('ADMIN') && !isRegionAdmin)
+  );
+  const regionIds = useMemo(() => {
+    return (
+      user?.scopes
+        ?.filter((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION' && s.scopeId)
+        .map((s: any) => s.scopeId) || []
+    );
+  }, [user]);
+
+  const { data: regionsData = [] } = useRegions();
+
+  const canManageTetWallet = isGlobalAdmin || isRegionAdmin;
 
   const params = useLocalSearchParams<{ tab?: string }>();
   const [mainTab, setMainTab] = useState<MainTab>(params.tab === 'WITHDRAWALS' ? 'WITHDRAWALS' : 'MEMBERS');
@@ -130,8 +144,40 @@ export function AdminTetWalletScreen() {
     await Promise.all([departmentsQuery.refetch(), employeesQuery.refetch(), withdrawalsQuery.refetch()]);
   }, [departmentsQuery, employeesQuery, withdrawalsQuery]);
 
-  const departments: Department[] = departmentsQuery.data?.items || [];
-  const employees: EmployeeUser[] = employeesQuery.data?.items || [];
+  const rawDepartments: Department[] = departmentsQuery.data?.items || [];
+  const departments: Department[] = useMemo(() => {
+    if (isRegionAdmin && !isGlobalAdmin && regionIds.length > 0) {
+      const filtered = rawDepartments.filter(
+        (d) =>
+          (d.branch?.region?.id && regionIds.includes(d.branch.region.id)) ||
+          ((d.branch as any)?.regionId && regionIds.includes((d.branch as any).regionId))
+      );
+      return filtered.length > 0 ? filtered : rawDepartments;
+    }
+    return rawDepartments;
+  }, [rawDepartments, isRegionAdmin, isGlobalAdmin, regionIds]);
+
+  const regionDeptIdSet = useMemo(() => new Set(departments.map((d) => d.id)), [departments]);
+
+  const managedRegion = useMemo(() => {
+    if (!isRegionAdmin || isGlobalAdmin) return null;
+    if (regionIds.length > 0) {
+      const found = (regionsData as any[]).find((r: any) => regionIds.includes(r.id));
+      if (found) return found;
+    }
+    const firstWithRegion = departments.find((d) => d.branch?.region);
+    return firstWithRegion?.branch?.region || null;
+  }, [isRegionAdmin, isGlobalAdmin, regionsData, regionIds, departments]);
+
+  const rawEmployees: EmployeeUser[] = employeesQuery.data?.items || [];
+  const employees: EmployeeUser[] = useMemo(() => {
+    if (isRegionAdmin && !isGlobalAdmin) {
+      return rawEmployees.filter((emp) =>
+        emp.departmentLinks?.some((link) => regionDeptIdSet.has(link.departmentId))
+      );
+    }
+    return rawEmployees;
+  }, [rawEmployees, isRegionAdmin, isGlobalAdmin, regionDeptIdSet]);
 
   // Group employees by department ID
   const employeesByDept = useMemo(() => {
@@ -171,6 +217,23 @@ export function AdminTetWalletScreen() {
 
   // Open Grant Screen for Single Employee
   const openGrantForEmployee = (emp: EmployeeUser) => {
+    if (!canManageTetWallet) {
+      CustomAlert.alert(
+        'Không có quyền trao điểm',
+        'Tài khoản không có quyền trao điểm thưởng Ví Tết.'
+      );
+      return;
+    }
+    if (isRegionAdmin && !isGlobalAdmin) {
+      const isInRegion = emp.departmentLinks?.some((link) => regionDeptIdSet.has(link.departmentId));
+      if (!isInRegion) {
+        CustomAlert.alert(
+          'Không thuộc miền quản lý',
+          `Bạn chỉ có quyền trao điểm thưởng cho nhân sự thuộc các phòng ban trong ${managedRegion?.name ? `miền "${managedRegion.name}"` : 'miền mình quản lý'}.`
+        );
+        return;
+      }
+    }
     setSelectedEmployee(null);
     setGrantTarget({
       type: 'SINGLE',
@@ -180,6 +243,20 @@ export function AdminTetWalletScreen() {
 
   // Open Grant Screen for Department
   const openGrantForDepartment = (dept: Department) => {
+    if (!canManageTetWallet) {
+      CustomAlert.alert(
+        'Không có quyền trao điểm',
+        'Tài khoản không có quyền trao điểm thưởng Ví Tết.'
+      );
+      return;
+    }
+    if (isRegionAdmin && !isGlobalAdmin && !regionDeptIdSet.has(dept.id)) {
+      CustomAlert.alert(
+        'Không thuộc miền quản lý',
+        `Bạn chỉ có quyền trao điểm thưởng cho phòng ban thuộc ${managedRegion?.name ? `miền "${managedRegion.name}"` : 'miền mình quản lý'}.`
+      );
+      return;
+    }
     const deptMembers = employeesByDept[dept.id] || [];
     setGrantTarget({
       type: 'DEPARTMENT',
@@ -209,6 +286,20 @@ export function AdminTetWalletScreen() {
 
   // Mutate single employee vault permission
   const handleToggleVault = async (emp: EmployeeUser, nextState: boolean) => {
+    if (!canManageTetWallet) {
+      CustomAlert.alert('Không có quyền', 'Tài khoản không có quyền cấu hình Ví Thưởng.');
+      return;
+    }
+    if (isRegionAdmin && !isGlobalAdmin) {
+      const isInRegion = emp.departmentLinks?.some((link) => regionDeptIdSet.has(link.departmentId));
+      if (!isInRegion) {
+        CustomAlert.alert(
+          'Không thuộc miền quản lý',
+          `Bạn chỉ có quyền cấu hình Ví Thưởng cho nhân sự thuộc ${managedRegion?.name ? `miền "${managedRegion.name}"` : 'miền mình quản lý'}.`
+        );
+        return;
+      }
+    }
     try {
       setTogglingEmpId(emp.id);
       await apiUpdateEmployee(emp.id, { isRewardVaultEnabled: nextState });
@@ -218,7 +309,7 @@ export function AdminTetWalletScreen() {
         setSelectedEmployee((prev) => (prev ? { ...prev, isRewardVaultEnabled: nextState } : null));
       }
     } catch (err: any) {
-      Alert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Điểm Thưởng lúc này.');
+      CustomAlert.alert('Lỗi cập nhật', err?.response?.data?.message || 'Không thể cập nhật quyền Ví Điểm Thưởng lúc này.');
     } finally {
       setTogglingEmpId(null);
     }
@@ -226,15 +317,26 @@ export function AdminTetWalletScreen() {
 
   // Bulk toggle for department
   const handleBulkDeptToggle = (dept: Department, enable: boolean) => {
+    if (!canManageTetWallet) {
+      CustomAlert.alert('Không có quyền', 'Tài khoản không có quyền cấu hình Ví Thưởng.');
+      return;
+    }
+    if (isRegionAdmin && !isGlobalAdmin && !regionDeptIdSet.has(dept.id)) {
+      CustomAlert.alert(
+        'Không thuộc miền quản lý',
+        `Bạn chỉ có quyền cấu hình Ví Thưởng cho phòng ban thuộc ${managedRegion?.name ? `miền "${managedRegion.name}"` : 'miền mình quản lý'}.`
+      );
+      return;
+    }
     const deptMembers = employeesByDept[dept.id] || [];
     const targets = deptMembers.filter((e) => Boolean(e.isRewardVaultEnabled) !== enable);
 
     if (targets.length === 0) {
-      Alert.alert('Thông báo', `Tất cả nhân viên trong phòng ${dept.name} đã ${enable ? 'được cấp quyền' : 'ở trạng thái chưa cấp quyền'}.`);
+      CustomAlert.alert('Thông báo', `Tất cả nhân viên trong phòng ${dept.name} đã ${enable ? 'được cấp quyền' : 'ở trạng thái chưa cấp quyền'}.`);
       return;
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       enable ? 'Cấp quyền toàn bộ phòng ban' : 'Thu hồi quyền toàn bộ',
       `Bạn có chắc chắn muốn ${enable ? 'CẤP QUYỀN' : 'THU HỒI QUYỀN'} Ví Điểm Thưởng cho ${targets.length} nhân sự thuộc phòng "${dept.name}"?`,
       [
@@ -248,9 +350,9 @@ export function AdminTetWalletScreen() {
                 targets.map((t) => apiUpdateEmployee(t.id, { isRewardVaultEnabled: enable }))
               );
               await queryClient.invalidateQueries({ queryKey: ['employees'] });
-              Alert.alert('Thành công', `Đã cập nhật quyền Ví Điểm Thưởng cho toàn bộ phòng ${dept.name}.`);
+              CustomAlert.alert('Thành công', `Đã cập nhật quyền Ví Điểm Thưởng cho toàn bộ phòng ${dept.name}.`);
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.message || 'Không thể cập nhật đồng loạt.');
+              CustomAlert.alert('Lỗi', err?.message || 'Không thể cập nhật đồng loạt.');
             }
           },
         },
@@ -336,6 +438,47 @@ export function AdminTetWalletScreen() {
               </View>
             }
           />
+
+          {/* Scope Banner: Region Admin vs Super Admin */}
+          {isRegionAdmin && !isGlobalAdmin ? (
+            <View style={styles.regionScopeBanner}>
+              <View style={styles.regionScopeIconBox}>
+                <MaterialCommunityIcons name="shield-account" size={22} color="#2563EB" />
+              </View>
+              <View style={styles.regionScopeContent}>
+                <View style={styles.regionScopeHeaderRow}>
+                  <Text style={styles.regionScopeTitle}>
+                    Phạm vi: {managedRegion?.name || 'Miền quản lý'}
+                  </Text>
+                  <View style={styles.regionBadge}>
+                    <Text style={styles.regionBadgeText}>ADMIN MIỀN</Text>
+                  </View>
+                </View>
+                <Text style={styles.regionScopeDesc}>
+                  Toàn quyền quản trị Ví Thưởng (cấp điểm, duyệt chi trả, cấu hình quyền) cho toàn bộ nhân sự và phòng ban trong khu vực miền.
+                </Text>
+              </View>
+            </View>
+          ) : isGlobalAdmin ? (
+            <View style={[styles.regionScopeBanner, styles.globalScopeBanner]}>
+              <View style={[styles.regionScopeIconBox, styles.globalScopeIconBox]}>
+                <MaterialCommunityIcons name="shield-crown" size={22} color="#059669" />
+              </View>
+              <View style={styles.regionScopeContent}>
+                <View style={styles.regionScopeHeaderRow}>
+                  <Text style={[styles.regionScopeTitle, { color: '#065F46' }]}>
+                    Phạm vi: Toàn hệ thống
+                  </Text>
+                  <View style={[styles.regionBadge, styles.globalBadge]}>
+                    <Text style={[styles.regionBadgeText, { color: '#065F46' }]}>SUPER ADMIN</Text>
+                  </View>
+                </View>
+                <Text style={[styles.regionScopeDesc, { color: '#047857' }]}>
+                  Toàn quyền quản trị Ví Thưởng trên tất cả các miền, phòng ban và nhân sự trong công ty.
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {/* Main Top Tab Switcher */}
           <View style={styles.topMainTabWrapper}>
@@ -556,8 +699,8 @@ export function AdminTetWalletScreen() {
                         />
                       </Pressable>
 
-                      {/* Department Actions Toolbar - Only Super Admin has grant/toggle rights */}
-                      {isGlobalAdmin && isExpanded && deptMembers.length > 0 && (
+                      {/* Department Actions Toolbar */}
+                      {canManageTetWallet && isExpanded && deptMembers.length > 0 && (
                         <View style={styles.deptToolbar}>
                           <Pressable
                             style={styles.deptActionToolBtn}
@@ -603,7 +746,7 @@ export function AdminTetWalletScreen() {
                               <EmployeeRowItem
                                 key={emp.id}
                                 employee={emp}
-                                isGlobalAdmin={isGlobalAdmin}
+                                canManage={canManageTetWallet}
                                 isToggling={togglingEmpId === emp.id}
                                 onToggle={(val) => handleToggleVault(emp, val)}
                                 onGrantPoints={() => openGrantForEmployee(emp)}
@@ -652,7 +795,7 @@ export function AdminTetWalletScreen() {
                           <EmployeeRowItem
                             key={emp.id}
                             employee={emp}
-                            isGlobalAdmin={isGlobalAdmin}
+                            canManage={canManageTetWallet}
                             isToggling={togglingEmpId === emp.id}
                             onToggle={(val) => handleToggleVault(emp, val)}
                             onGrantPoints={() => openGrantForEmployee(emp)}
@@ -685,7 +828,7 @@ export function AdminTetWalletScreen() {
                     key={emp.id}
                     employee={emp}
                     showDeptTag={true}
-                    isGlobalAdmin={isGlobalAdmin}
+                    canManage={canManageTetWallet}
                     isToggling={togglingEmpId === emp.id}
                     onToggle={(val) => handleToggleVault(emp, val)}
                     onGrantPoints={() => openGrantForEmployee(emp)}
@@ -771,17 +914,19 @@ export function AdminTetWalletScreen() {
                       VNĐ
                     </Text>
                   </View>
-                  <Pressable
-                    style={styles.modalGrantShortcutBtn}
-                    onPress={() => {
-                      const emp = selectedEmployee;
-                      setSelectedEmployee(null);
-                      openGrantForEmployee(emp);
-                    }}
-                  >
-                    <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
-                    <Text style={styles.modalGrantShortcutText}>Trao điểm</Text>
-                  </Pressable>
+                  {canManageTetWallet && (
+                    <Pressable
+                      style={styles.modalGrantShortcutBtn}
+                      onPress={() => {
+                        const emp = selectedEmployee;
+                        setSelectedEmployee(null);
+                        openGrantForEmployee(emp);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
+                      <Text style={styles.modalGrantShortcutText}>Trao điểm</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
 
@@ -850,7 +995,7 @@ interface EmployeeRowItemProps {
   showDeptTag?: boolean;
   isLast?: boolean;
   isToggling?: boolean;
-  isGlobalAdmin?: boolean;
+  canManage?: boolean;
   onToggle?: (value: boolean) => void;
   onGrantPoints?: () => void;
   onPress?: () => void;
@@ -861,7 +1006,7 @@ function EmployeeRowItem({
   showDeptTag = false,
   isLast = false,
   isToggling = false,
-  isGlobalAdmin = false,
+  canManage = false,
   onToggle,
   onGrantPoints,
   onPress,
@@ -954,8 +1099,8 @@ function EmployeeRowItem({
 
       {/* Right Controls: Grant Button & Switch */}
       <View style={styles.walletRightGroup}>
-        {/* Trao điểm Action Button - Only for Super Admin */}
-        {isGlobalAdmin && (
+        {/* Trao điểm Action Button */}
+        {canManage && (
           <Pressable
             style={styles.rowGrantBtn}
             onPress={(e) => {
@@ -968,14 +1113,14 @@ function EmployeeRowItem({
           </Pressable>
         )}
 
-        {/* Permission Switch & Status - Only Super Admin can toggle */}
+        {/* Permission Switch & Status */}
         <View style={styles.switchRow}>
           {isToggling ? (
             <ActivityIndicator size="small" color="#D97706" style={{ marginHorizontal: 4 }} />
           ) : (
             <Switch
               value={isVaultEnabled}
-              disabled={!isGlobalAdmin || isToggling}
+              disabled={!canManage || isToggling}
               onValueChange={onToggle}
               trackColor={{ false: '#E5E7EB', true: '#FDE68A' }}
               thumbColor={isVaultEnabled ? '#D97706' : '#9CA3AF'}
@@ -1007,7 +1152,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 60,
+    paddingBottom: 140,
     backgroundColor: '#F8FAFC',
   },
   headerIconBox: {
@@ -1913,5 +2058,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  regionScopeBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    padding: 12,
+    marginBottom: 14,
+    gap: 10,
+  },
+  globalScopeBanner: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  regionScopeIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  globalScopeIconBox: {
+    backgroundColor: '#D1FAE5',
+  },
+  regionScopeContent: {
+    flex: 1,
+  },
+  regionScopeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  regionScopeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E40AF',
+  },
+  regionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+  },
+  globalBadge: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#6EE7B7',
+  },
+  regionBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    letterSpacing: 0.5,
+  },
+  regionScopeDesc: {
+    fontSize: 12,
+    color: '#1E3A8A',
+    lineHeight: 16,
   },
 });

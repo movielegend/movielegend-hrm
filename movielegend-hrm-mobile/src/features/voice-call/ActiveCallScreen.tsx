@@ -6,8 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   Animated,
-  Image,
-} from 'react-native';
+  Image} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

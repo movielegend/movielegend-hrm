@@ -9,22 +9,22 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Modal,
-  RefreshControl,
-} from 'react-native';
+  RefreshControl} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { levelingApi, LevelPromotionRequestItem } from '../../api/leveling.api';
 import { LEVEL_COLORS, LevelNameBadge } from '../../components/common/LevelNameBadge';
 import { getAbsoluteImageUrl } from '../../utils/image';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export const PromotionReviewScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const params = useLocalSearchParams<{
     requestId?: string;
     fromLevelNumber?: string;
@@ -53,7 +53,7 @@ export const PromotionReviewScreen: React.FC = () => {
         setLeaderNote(data.leaderNote);
       }
     } catch (err: any) {
-      Alert.alert('Lỗi tải dữ liệu', err?.response?.data?.message || err?.message || 'Không thể tải chi tiết đề xuất');
+      CustomAlert.alert('Lỗi tải dữ liệu', err?.response?.data?.message || err?.message || 'Không thể tải chi tiết đề xuất');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -73,12 +73,12 @@ export const PromotionReviewScreen: React.FC = () => {
     if (!requestId) return;
 
     if (status === 'REJECTED' && !leaderNote.trim()) {
-      Alert.alert('Ghi chú bắt buộc', 'Vui lòng nhập lý do từ chối để nhân viên biết điểm cần cải thiện.');
+      CustomAlert.alert('Ghi chú bắt buộc', 'Vui lòng nhập lý do từ chối để nhân viên biết điểm cần cải thiện.');
       return;
     }
 
     if (status === 'SUPPLEMENT_REQUESTED' && !leaderNote.trim()) {
-      Alert.alert('Ghi chú bắt buộc', 'Vui lòng nhập nội dung cần nhân viên bổ sung thêm.');
+      CustomAlert.alert('Ghi chú bắt buộc', 'Vui lòng nhập nội dung cần nhân viên bổ sung thêm.');
       return;
     }
 
@@ -97,14 +97,14 @@ export const PromotionReviewScreen: React.FC = () => {
           ? `Đã gửi yêu cầu bổ sung bằng chứng tới ${empName}.`
           : `Đã từ chối đề xuất thăng cấp của ${empName}.`;
 
-      Alert.alert('Thành công', msg, [
+      CustomAlert.alert('Thành công', msg, [
         {
           text: 'Đồng ý',
           onPress: () => router.back(),
         },
       ]);
     } catch (err: any) {
-      Alert.alert('Lỗi xử lý', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi xử lý', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +112,7 @@ export const PromotionReviewScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -125,13 +125,13 @@ export const PromotionReviewScreen: React.FC = () => {
           <ActivityIndicator size="large" color="#38BDF8" />
           <Text style={styles.loadingText}>Đang tải chi tiết đề xuất...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!request) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -147,7 +147,7 @@ export const PromotionReviewScreen: React.FC = () => {
             <Text style={styles.btnBackOutlineText}>Quay lại danh sách</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -165,7 +165,7 @@ export const PromotionReviewScreen: React.FC = () => {
   const evidenceImages = request.evidenceImages || [];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Top Navbar */}
@@ -392,7 +392,7 @@ export const PromotionReviewScreen: React.FC = () => {
           onRequestClose={() => setPreviewImageIndex(null)}
         >
           <View style={styles.lightboxOverlay}>
-            <SafeAreaView style={styles.lightboxSafeArea} edges={['top', 'bottom']}>
+            <View style={[styles.lightboxSafeArea, { paddingTop: safeTopInset, paddingBottom: Math.max(insets.bottom, 16) }]}>
               {/* Lightbox Top Bar */}
               <View style={styles.lightboxHeader}>
                 <TouchableOpacity
@@ -442,7 +442,7 @@ export const PromotionReviewScreen: React.FC = () => {
               <View style={styles.lightboxFooter}>
                 <Text style={styles.lightboxFooterText}>Ảnh minh chứng đề xuất thăng cấp #{request.id.slice(0, 8)}</Text>
               </View>
-            </SafeAreaView>
+            </View>
           </View>
         </Modal>
       )}
@@ -485,7 +485,7 @@ export const PromotionReviewScreen: React.FC = () => {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

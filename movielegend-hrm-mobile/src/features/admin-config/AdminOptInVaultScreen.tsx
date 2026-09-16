@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   Switch,
   TextInput,
-  Alert,
-  SafeAreaView,
   Modal,
-} from 'react-native';
+  Platform,
+  StatusBar} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmployees } from '../../hooks/useEmployees';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export interface UserOptInVaultItem {
   id: string;
@@ -22,6 +23,8 @@ export interface UserOptInVaultItem {
 }
 
 export const AdminOptInVaultScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { data: realEmpData, isLoading } = useEmployees({ limit: 100 });
   const realEmpList = (realEmpData as any)?.data || (realEmpData as any)?.items || (Array.isArray(realEmpData) ? realEmpData : []);
 
@@ -47,7 +50,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     setUsers((prev) =>
       prev.map((u) => (u.id === id ? { ...u, isRewardVaultEnabled: !currentValue } : u))
     );
-    Alert.alert(
+    CustomAlert.alert(
       'Cập Nhật Cấp Quyền Ví Điểm',
       `Đã ${!currentValue ? 'BẬT đặc quyền Ví Điểm Thưởng' : 'TẮT Ví Điểm Thưởng'} cho nhân sự!`
     );
@@ -59,7 +62,7 @@ export const AdminOptInVaultScreen: React.FC = () => {
     setUsers((prev) =>
       prev.map((u) => (u.id === grantingUser.id ? { ...u, grantedPoints: pts, isRewardVaultEnabled: true } : u))
     );
-    Alert.alert(
+    CustomAlert.alert(
       'Cấp Quỹ Thưởng Thành Công!',
       `Đã cấp Quỹ Thưởng Đồng Hành ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) mở khóa 25%/Quý cho ${grantingUser.name}.`,
       [{ text: 'Đóng', onPress: () => setGrantingUser(null) }]
@@ -67,7 +70,8 @@ export const AdminOptInVaultScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: safeTopInset }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <ScrollView contentContainerStyle={styles.scroll}>
         
         {/* Executive Header Card */}
@@ -85,35 +89,33 @@ export const AdminOptInVaultScreen: React.FC = () => {
                 <Text style={styles.userName}>{u.name}</Text>
                 <Text style={styles.userDept}>{u.department}</Text>
               </View>
-
-              <View style={styles.toggleGroup}>
-                <Text style={styles.toggleLabel}>Quyền Ví Điểm:</Text>
-                <Switch
-                  value={u.isRewardVaultEnabled}
-                  onValueChange={() => handleToggleVault(u.id, u.isRewardVaultEnabled)}
-                  trackColor={{ false: '#CBD5E1', true: '#A7F3D0' }}
-                  thumbColor={u.isRewardVaultEnabled ? '#059669' : '#64748B'}
-                />
-              </View>
+              <Switch
+                value={u.isRewardVaultEnabled}
+                onValueChange={() => handleToggleVault(u.id, u.isRewardVaultEnabled)}
+                trackColor={{ false: '#E2E8F0', true: '#10B981' }}
+                thumbColor="#FFFFFF"
+              />
             </View>
 
-            {u.isRewardVaultEnabled ? (
-              <View style={styles.vaultActiveBox}>
-                <Text style={styles.vaultActiveText}>
-                  Quỹ thưởng năm: <Text style={{ fontWeight: 'bold' }}>{u.grantedPoints.toLocaleString('vi-VN')} điểm</Text> ({(u.grantedPoints * 1000).toLocaleString('vi-VN')} VNĐ)
+            <View style={styles.userBottomRow}>
+              <View>
+                <Text style={styles.pointsLabel}>Quỹ thưởng được cấp:</Text>
+                <Text style={styles.pointsValue}>
+                  {u.grantedPoints.toLocaleString('vi-VN')} điểm{' '}
+                  <Text style={styles.pointsVnd}>({(u.grantedPoints * 1000).toLocaleString('vi-VN')} đ)</Text>
                 </Text>
-                <TouchableOpacity style={styles.grantBtn} onPress={() => { setGrantingUser(u); setPointsToGrant(String(u.grantedPoints || 50000)); }}>
-                  <Text style={styles.grantBtnText}>Điều chỉnh Quỹ</Text>
-                </TouchableOpacity>
               </View>
-            ) : (
-              <View style={styles.vaultDisabledBox}>
-                <Text style={styles.vaultDisabledText}>Chưa bật đặc quyền Ví Điểm Thưởng</Text>
-                <TouchableOpacity style={styles.enableBtn} onPress={() => { setGrantingUser(u); setPointsToGrant('50000'); }}>
-                  <Text style={styles.enableBtnText}>Bật & Cấp Quỹ</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+
+              <TouchableOpacity
+                style={styles.grantBtn}
+                onPress={() => {
+                  setGrantingUser(u);
+                  setPointsToGrant(String(u.grantedPoints || 50000));
+                }}
+              >
+                <Text style={styles.grantBtnText}>✏ Cấp điểm</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
 
@@ -124,40 +126,36 @@ export const AdminOptInVaultScreen: React.FC = () => {
       <Modal visible={grantingUser !== null} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cấp Quỹ Thưởng Đồng Hành & Cống Hiến</Text>
-              <TouchableOpacity onPress={() => setGrantingUser(null)}>
-                <Text style={{ fontSize: 18, color: '#64748B', fontWeight: 'bold' }}>✕</Text>
+            <Text style={styles.modalTitle}>Cấp Quỹ Thưởng Đồng Hành</Text>
+            <Text style={styles.modalSub}>Nhân sự: {grantingUser?.name} ({grantingUser?.department})</Text>
+
+            <Text style={styles.inputLabel}>Số điểm cấp thưởng (1 điểm = 1,000 VNĐ):</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="numeric"
+              value={pointsToGrant}
+              onChangeText={setPointsToGrant}
+              placeholder="VD: 50000"
+            />
+            <Text style={styles.inputNote}>
+              Giá trị quy đổi:{' '}
+              <Text style={{ fontWeight: 'bold', color: '#10B981' }}>
+                {((Number(pointsToGrant) || 0) * 1000).toLocaleString('vi-VN')} VNĐ
+              </Text>
+            </Text>
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setGrantingUser(null)}>
+                <Text style={styles.cancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleGrantPointsSubmit}>
+                <Text style={styles.confirmBtnText}>Lưu & Cấp Ngay</Text>
               </TouchableOpacity>
             </View>
-
-            {grantingUser && (
-              <View>
-                <Text style={styles.modalSub}>Nhân sự: <Text style={{ fontWeight: 'bold', color: '#0F172A' }}>{grantingUser.name}</Text></Text>
-
-                <Text style={styles.inputLabel}>Số điểm thưởng năm được cấp:</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={pointsToGrant}
-                  onChangeText={setPointsToGrant}
-                  placeholder="50000"
-                />
-
-                <Text style={styles.cashPreviewText}>
-                  Tương đương: <Text style={{ color: '#059669', fontWeight: 'bold' }}>{((Number(pointsToGrant) || 0) * 1000).toLocaleString('vi-VN')} VNĐ</Text>
-                </Text>
-                <Text style={styles.vestingNotice}>• Số tiền được khóa & mở khóa dần 25%/Quý (Cuối Q1, Q2, Q3, Q4)</Text>
-
-                <TouchableOpacity style={styles.submitGrantBtn} onPress={handleGrantPointsSubmit}>
-                  <Text style={styles.submitGrantText}>XÁC NHẬN CẤP QUỸ THƯỞNG</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 

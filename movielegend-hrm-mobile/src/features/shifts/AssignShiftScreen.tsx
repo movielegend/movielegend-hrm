@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, Alert, Platform, Modal, RefreshControl } from 'react-native';
+import {StyleSheet, Text, View, ScrollView, Pressable, Platform, Modal, RefreshControl} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -19,6 +19,7 @@ import { useDepartments } from '../../hooks/useDepartments';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function AssignShiftScreen() {
   const router = useRouter();
@@ -218,7 +219,7 @@ export function AssignShiftScreen() {
       const datesToAssign = selectedWeekdays.map(index => allWeekDates[index]).filter(Boolean) as string[];
 
       if (datesToAssign.length === 0) {
-        Alert.alert('Lỗi', 'Vui lòng chọn ít nhất một ngày trong tuần.');
+        CustomAlert.alert('Lỗi', 'Vui lòng chọn ít nhất một ngày trong tuần.');
         return;
       }
       
@@ -228,7 +229,7 @@ export function AssignShiftScreen() {
         const raw = (empOpt as any).raw;
         const dId = raw?.department?.id;
         if (!dId) {
-          Alert.alert('Cảnh báo', `Nhân viên "${empOpt.label}" chưa được phân vào phòng ban nào.`);
+          CustomAlert.alert('Cảnh báo', `Nhân viên "${empOpt.label}" chưa được phân vào phòng ban nào.`);
           return;
         }
         if (!deptGroups.has(dId)) {
@@ -246,12 +247,12 @@ export function AssignShiftScreen() {
         });
       }
       
-      Alert.alert('Thành công', `Đã phân ca tuần thành công cho ${selectedEmployees.length} ${isAdmin ? 'Leader' : 'nhân viên'}.`, [
+      CustomAlert.alert('Thành công', `Đã phân ca tuần thành công cho ${selectedEmployees.length} ${isAdmin ? 'Leader' : 'nhân viên'}.`, [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi phân ca', normalized.message);
+      CustomAlert.alert('Lỗi phân ca', normalized.message);
     }
   };
 

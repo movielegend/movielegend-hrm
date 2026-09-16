@@ -1,4 +1,5 @@
-import { Alert } from 'react-native';
+import { CustomAlert } from '../components/CustomAlert';
+
 
 export function useSnackbar() {
   const showSnackbar = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -7,7 +8,7 @@ export function useSnackbar() {
     else if (type === 'success') title = 'Thành công';
     else if (type === 'warning') title = 'Cảnh báo';
 
-    Alert.alert(title, message);
+    CustomAlert.alert(title, message);
   };
 
   return { showSnackbar };

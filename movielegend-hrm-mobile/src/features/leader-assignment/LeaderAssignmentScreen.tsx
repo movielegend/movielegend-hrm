@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, Text, View, Pressable, Alert } from 'react-native';
+import {StyleSheet, Text, View, Pressable} from 'react-native';
 import { z } from 'zod';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ErrorState } from '../../components/ErrorState';
@@ -17,6 +17,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const schema = z.object({
   userId: z.string().uuid('userId phải là UUID'),
@@ -48,11 +49,11 @@ export function LeaderAssignmentScreen() {
   const submit = handleSubmit(async (payload) => {
     try {
       await assign.mutateAsync({ ...payload, primary: true });
-      Alert.alert('Thành công', 'Đã gán chức vụ Quản lý thành công!');
+      CustomAlert.alert('Thành công', 'Đã gán chức vụ Quản lý thành công!');
       router.back();
     } catch (error: any) {
       const apiError = normalizeApiError(error);
-      Alert.alert('Lỗi', apiError.message);
+      CustomAlert.alert('Lỗi', apiError.message);
     }
   });
 

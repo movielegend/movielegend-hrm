@@ -6,13 +6,11 @@ import {
   Pressable,
   ScrollView,
   Image,
-  Alert,
   Modal,
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
@@ -73,11 +71,16 @@ function getBankCode(bankName: string): string {
 
 export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequestsManagerProps) {
   const { user } = useAuth();
-  const isGlobalAdmin = Boolean(
+  const isRegionAdmin = Boolean(
     user?.roles?.includes('ADMIN') &&
-    user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType))
+    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION')
+  );
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('SUPER_ADMIN') ||
+    (user?.roles?.includes('ADMIN') && !isRegionAdmin)
   );
   const isAccountant = Boolean(user?.roles?.includes('ACCOUNTANT') || isGlobalAdmin);
+  const canAdminApprove = isGlobalAdmin || isRegionAdmin;
 
   const [activeTab, setActiveTab] = useState<FilterTab>('PENDING_ADMIN');
   const [search, setSearch] = useState('');
@@ -123,7 +126,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
         visibilityTime: 2000,
       });
     } catch {
-      Alert.alert('Sao chép', text);
+      CustomAlert.alert('Sao chép', text);
     }
   };
 
@@ -153,7 +156,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi phê duyệt', err?.response?.data?.message || err?.message || 'Không thể phê duyệt lúc này.');
+      CustomAlert.alert('Lỗi phê duyệt', err?.response?.data?.message || err?.message || 'Không thể phê duyệt lúc này.');
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +189,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi xác nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận lúc này.');
+      CustomAlert.alert('Lỗi xác nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận lúc này.');
     } finally {
       setIsSubmitting(false);
     }
@@ -201,7 +204,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
   const handleRejectSubmit = async () => {
     if (!selectedTicket) return;
     if (!rejectReason.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập lý do từ chối để nhân viên nắm rõ.');
+      CustomAlert.alert('Thiếu thông tin', 'Vui lòng nhập lý do từ chối để nhân viên nắm rõ.');
       return;
     }
 
@@ -222,7 +225,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       setModalType(null);
       setSelectedTicket(null);
     } catch (err: any) {
-      Alert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc này.');
+      CustomAlert.alert('Lỗi từ chối', err?.response?.data?.message || err?.message || 'Không thể từ chối lúc này.');
     } finally {
       setIsSubmitting(false);
     }
@@ -489,8 +492,8 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
                   )}
                 </View>
 
-                {/* Action Buttons - Only Super Admin can approve/reject step 1 */}
-                {isPendingAdmin && isGlobalAdmin && (
+                {/* Action Buttons - Super Admin or Region Admin in their scope can approve/reject step 1 */}
+                {isPendingAdmin && canAdminApprove && (
                   <View style={styles.actionBtnsRow}>
                     <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(ticket)}>
                       <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />

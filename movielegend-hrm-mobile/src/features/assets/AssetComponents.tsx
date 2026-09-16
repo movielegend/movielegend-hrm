@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SecondaryButton } from '../../components/Buttons';
 import { SectionCard } from '../../components/SectionCard';
@@ -7,6 +7,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { AssetConditionStatus, AssetDto, AssetMaintenanceDto, AssetStatus } from '../../types/asset.types';
 import type { MyAssetAssignmentDto } from '../../types/asset-assignment.types';
+import { useAsset } from '../../hooks/useAssets';
 import { formatDateTime } from '../../utils/date-time';
 import {
   assetConditionLabels,
@@ -16,6 +17,7 @@ import {
   assignmentStatusLabels,
   assignmentStatusTone,
   incidentStatusTone,
+  incidentStatusLabels,
   incidentTypeLabels,
 } from './asset.logic';
 
@@ -45,7 +47,10 @@ export function AssetCard({ asset, onPress }: { asset: AssetDto; onPress?: () =>
 
 export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssignmentDto; onPress?: () => void }) {
   const asset = assignment.asset;
+  const { data: assetDetail } = useAsset(assignment.assetId);
   const openIncidents = asset.incidents?.length ?? 0;
+  const imageUrl = asset.imageUrl || assetDetail?.imageUrl;
+  const brand = asset.brand || (asset as any).brand || assetDetail?.brand;
 
   let iconName: any = 'cube-outline';
   const nameLower = asset.name.toLowerCase();
@@ -62,11 +67,15 @@ export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssign
     <Pressable style={({ pressed }) => [styles.myAssetCard, pressed && { opacity: 0.9 }]} onPress={onPress}>
       <View style={styles.myAssetHeader}>
         <View style={styles.myAssetIconWrap}>
-          <MaterialCommunityIcons name={iconName} size={30} color="#09090B" />
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.myAssetImage} resizeMode="cover" />
+          ) : (
+            <MaterialCommunityIcons name={iconName} size={30} color="#09090B" />
+          )}
         </View>
         <View style={styles.myAssetInfo}>
           <Text style={styles.myAssetTitle}>{asset.name}</Text>
-          <Text style={styles.myAssetCode}>{asset.assetCode} {(asset as any).brand ? `• ${(asset as any).brand}` : ''}</Text>
+          <Text style={styles.myAssetCode}>{asset.assetCode} {brand ? `• ${brand}` : ''}</Text>
         </View>
         <AssetStatusBadge status={asset.assetStatus} />
       </View>
@@ -106,9 +115,9 @@ export function IncidentCard({ incident, onPress }: { incident: any; onPress?: (
     <SectionCard>
       <View style={styles.headerRow}>
         <Text style={styles.title}>{incident.asset?.name ?? incident.assetId}</Text>
-        <StatusBadge label={incident.status} tone={incidentStatusTone(incident.status)} />
+        <StatusBadge label={incidentStatusLabels[incident.status as keyof typeof incidentStatusLabels] ?? incident.status} tone={incidentStatusTone(incident.status)} />
       </View>
-      <Text style={styles.meta}>Loại: {incidentTypeLabels[incident.incidentType] ?? incident.incidentType}</Text>
+      <Text style={styles.meta}>Loại: {incidentTypeLabels[incident.incidentType as keyof typeof incidentTypeLabels] ?? incident.incidentType}</Text>
       <Text style={styles.body} numberOfLines={2}>{incident.description}</Text>
       <Text style={styles.meta}>{formatDateTime(incident.createdAt)}</Text>
       {onPress ? <SecondaryButton onPress={onPress}>Chi tiết</SecondaryButton> : null}
@@ -116,14 +125,13 @@ export function IncidentCard({ incident, onPress }: { incident: any; onPress?: (
   );
 }
 
-
-
 export function MaintenanceCard({ record, costVisible }: { record: AssetMaintenanceDto; costVisible: boolean }) {
+  const statusLabel = record.status === 'COMPLETED' ? 'Đã hoàn tất' : record.status === 'IN_PROGRESS' ? 'Đang bảo trì' : 'Chờ xử lý';
   return (
     <SectionCard>
       <View style={styles.headerRow}>
         <Text style={styles.title}>{record.maintenanceType}</Text>
-        <StatusBadge label={record.status} tone={record.status === 'COMPLETED' ? 'success' : 'warning'} />
+        <StatusBadge label={statusLabel} tone={record.status === 'COMPLETED' ? 'success' : 'warning'} />
       </View>
       {record.vendorName ? <Text style={styles.meta}>Nhà cung cấp: {record.vendorName}</Text> : null}
       <Text style={styles.body}>{record.description}</Text>
@@ -147,7 +155,7 @@ export function AssetSelector({
   onSelect: (assetId: string) => void;
 }) {
   const assignable = assets.filter((asset) => asset.assetStatus === 'IN_STOCK');
-  if (!assignable.length) return <Text style={styles.meta}>Không có tài sản IN_STOCK để cấp phát</Text>;
+  if (!assignable.length) return <Text style={styles.meta}>Không có tài sản trong kho để cấp phát</Text>;
   return (
     <View style={styles.selector}>
       {assignable.map((asset) => (
@@ -225,6 +233,12 @@ const styles = StyleSheet.create({
     borderColor: '#E4E4E7',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  myAssetImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 11,
   },
   myAssetInfo: {
     flex: 1,

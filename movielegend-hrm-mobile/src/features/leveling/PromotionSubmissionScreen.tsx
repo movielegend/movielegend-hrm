@@ -9,11 +9,9 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  Modal,
-} from 'react-native';
+  Modal} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,10 +19,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../api/uploads.api';
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export const PromotionSubmissionScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const params = useLocalSearchParams<{
     fromLevelNumber?: string;
     fromLevelName?: string;
@@ -41,8 +41,8 @@ export const PromotionSubmissionScreen: React.FC = () => {
   const deptId = params.departmentId || '';
   const deptName = params.departmentName || 'Phòng ban';
 
-  const fromColor = LEVEL_COLORS[fromLevel] || '#FF9800';
-  const toColor = LEVEL_COLORS[toLevel] || '#E91E63';
+  const fromColor = LEVEL_COLORS[fromLevel] || '#475569';
+  const toColor = LEVEL_COLORS[toLevel] || '#2563EB';
 
   const [note, setNote] = useState('');
   const [extraNote, setExtraNote] = useState('');
@@ -54,7 +54,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
   const handlePickImage = async () => {
     try {
       if (selectedImages.length >= 6) {
-        Alert.alert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
+        CustomAlert.alert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
         return;
       }
 
@@ -79,7 +79,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
         }
       }
     } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err?.message || 'Không thể tải ảnh lên máy chủ. Vui lòng thử lại.');
+      CustomAlert.alert('Lỗi tải ảnh', err?.message || 'Không thể tải ảnh lên máy chủ. Vui lòng thử lại.');
     } finally {
       setIsUploadingImage(false);
     }
@@ -88,13 +88,13 @@ export const PromotionSubmissionScreen: React.FC = () => {
   const handleTakePhoto = async () => {
     try {
       if (selectedImages.length >= 6) {
-        Alert.alert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
+        CustomAlert.alert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 6 ảnh minh chứng');
         return;
       }
 
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập Camera để chụp ảnh trực tiếp');
+        CustomAlert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập Camera để chụp ảnh trực tiếp');
         return;
       }
 
@@ -118,7 +118,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
         }
       }
     } catch (err: any) {
-      Alert.alert('Lỗi chụp ảnh', err?.message || 'Không thể chụp ảnh. Vui lòng thử lại.');
+      CustomAlert.alert('Lỗi chụp ảnh', err?.message || 'Không thể chụp ảnh. Vui lòng thử lại.');
     } finally {
       setIsUploadingImage(false);
     }
@@ -130,7 +130,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!note.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tóm tắt thành tích và kết quả công việc nổi bật của bạn');
+      CustomAlert.alert('Thiếu thông tin', 'Vui lòng nhập tóm tắt thành tích và kết quả công việc nổi bật của bạn');
       return;
     }
 
@@ -148,68 +148,68 @@ export const PromotionSubmissionScreen: React.FC = () => {
         departmentId: deptId || undefined,
       });
 
-      Alert.alert('Thành công 🎉', 'Đề xuất thăng cấp đã được gửi tới Leader và Ban Quản trị xét duyệt!', [
+      CustomAlert.alert('Thành công', 'Đề xuất thăng cấp đã được gửi tới Leader và Ban Quản trị xét duyệt!', [
         {
           text: 'Đồng ý',
           onPress: () => router.back(),
         },
       ]);
     } catch (err: any) {
-      Alert.alert('Lỗi gửi đề xuất', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi gửi đề xuất', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       {/* Top Navbar */}
       <View style={styles.navBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.navTitle}>Đề Xuất Xét Thăng Cấp</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: '#F8FAFC' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Target Transition Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.heroDeptBadge}>
-              <Ionicons name="business" size={13} color="#38BDF8" />
+              <Ionicons name="business-outline" size={13} color="#2563EB" />
               <Text style={styles.heroDeptText}>{deptName}</Text>
             </View>
 
             <View style={styles.transitionRow}>
               {/* From Level */}
               <View style={styles.levelBox}>
-                <View style={[styles.levelCircle, { borderColor: fromColor, backgroundColor: `${fromColor}15` }]}>
-                  <Text style={[styles.levelCircleNum, { color: fromColor }]}>{fromLevel}</Text>
+                <View style={styles.fromLevelCircle}>
+                  <Text style={styles.fromLevelCircleNum}>{fromLevel}</Text>
                 </View>
                 <Text style={styles.levelRoleLabel}>Cấp hiện tại</Text>
-                <Text style={[styles.levelRoleName, { color: fromColor }]} numberOfLines={1}>
+                <Text style={styles.fromLevelRoleName} numberOfLines={1}>
                   {fromName}
                 </Text>
               </View>
 
               {/* Arrow */}
               <View style={styles.transitionArrowBox}>
-                <Ionicons name="arrow-forward" size={18} color="#94A3B8" />
+                <Ionicons name="arrow-forward" size={16} color="#64748B" />
               </View>
 
               {/* To Level */}
               <View style={styles.levelBox}>
-                <View style={[styles.levelCircle, { borderColor: toColor, backgroundColor: `${toColor}20` }]}>
-                  <Text style={[styles.levelCircleNum, { color: toColor }]}>{toLevel}</Text>
+                <View style={styles.toLevelCircle}>
+                  <Text style={styles.toLevelCircleNum}>{toLevel}</Text>
                 </View>
                 <Text style={styles.levelRoleLabel}>Mục tiêu xét duyệt</Text>
-                <Text style={[styles.levelRoleName, { color: toColor }]} numberOfLines={1}>
+                <Text style={styles.toLevelRoleName} numberOfLines={1}>
                   {toName}
                 </Text>
               </View>
@@ -219,15 +219,15 @@ export const PromotionSubmissionScreen: React.FC = () => {
           {/* Form Section 1: Self Evaluation & Achievements */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconBg, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="document-text" size={16} color="#2563EB" />
+              <View style={styles.sectionIconBg}>
+                <Ionicons name="document-text-outline" size={16} color="#2563EB" />
               </View>
               <Text style={styles.sectionTitle}>
-                1. Tự Đánh Giá & Báo Cáo Thành Tích <Text style={{ color: '#EF4444' }}>*</Text>
+                Báo Cáo Thành Tích & Tự Đánh Giá <Text style={{ color: '#EF4444' }}>*</Text>
               </Text>
             </View>
             <Text style={styles.sectionDesc}>
-              Tóm tắt các ca làm, KPI hoàn thành, các dự án nổi bật hoặc đóng góp tiêu biểu của bạn trong kỳ vừa qua:
+              Tóm tắt các ca làm, KPI hoàn thành, các dự án nổi bật hoặc đóng góp tiêu biểu trong kỳ xét duyệt:
             </Text>
             <TextInput
               style={styles.textArea}
@@ -245,10 +245,10 @@ export const PromotionSubmissionScreen: React.FC = () => {
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderBetween}>
               <View style={styles.sectionHeaderLeft}>
-                <View style={[styles.sectionIconBg, { backgroundColor: '#ECFDF5' }]}>
-                  <Ionicons name="images" size={16} color="#059669" />
+                <View style={styles.sectionIconBg}>
+                  <Ionicons name="images-outline" size={16} color="#2563EB" />
                 </View>
-                <Text style={styles.sectionTitle}>2. Ảnh Bằng Chứng / Minh Chứng</Text>
+                <Text style={styles.sectionTitle}>Hồ Sơ & Ảnh Minh Chứng</Text>
               </View>
 
               <View style={styles.counterBadge}>
@@ -257,7 +257,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
             </View>
 
             <Text style={styles.sectionDesc}>
-              Đính kèm ảnh chụp báo cáo doanh số, bảng chấm công hoặc minh chứng hoàn thành nhiệm vụ:
+              Đính kèm ảnh chụp báo cáo doanh số, bảng chấm công hoặc minh chứng kết quả công việc:
             </Text>
 
             {/* Two Spacious Action Cards */}
@@ -269,8 +269,8 @@ export const PromotionSubmissionScreen: React.FC = () => {
                   disabled={isUploadingImage}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#EFF6FF' }]}>
-                    <Ionicons name="camera" size={20} color="#2563EB" />
+                  <View style={styles.actionPickIconCircle}>
+                    <Ionicons name="camera-outline" size={18} color="#2563EB" />
                   </View>
                   <View style={styles.actionPickTextBox}>
                     <Text style={styles.actionPickTitle}>Chụp ảnh mới</Text>
@@ -284,8 +284,8 @@ export const PromotionSubmissionScreen: React.FC = () => {
                   disabled={isUploadingImage}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.actionPickIconCircle, { backgroundColor: '#ECFDF5' }]}>
-                    <Ionicons name="image" size={20} color="#059669" />
+                  <View style={styles.actionPickIconCircle}>
+                    <Ionicons name="image-outline" size={18} color="#2563EB" />
                   </View>
                   <View style={styles.actionPickTextBox}>
                     <Text style={styles.actionPickTitle}>Thư viện ảnh</Text>
@@ -330,7 +330,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
                     </TouchableOpacity>
                   ))}
                 </View>
-                <Text style={styles.imageTapHint}>💡 Chạm vào ảnh để xem kích thước lớn</Text>
+                <Text style={styles.imageTapHint}>Chạm vào ảnh để xem kích thước lớn</Text>
               </View>
             )}
           </View>
@@ -338,10 +338,10 @@ export const PromotionSubmissionScreen: React.FC = () => {
           {/* Form Section 3: Extra Note */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconBg, { backgroundColor: '#F3E8FF' }]}>
-                <Ionicons name="chatbox-ellipses" size={16} color="#7C3AED" />
+              <View style={styles.sectionIconBg}>
+                <Ionicons name="chatbox-ellipses-outline" size={16} color="#2563EB" />
               </View>
-              <Text style={styles.sectionTitle}>3. Lời Nhắn Gửi Tới Leader (Tùy chọn)</Text>
+              <Text style={styles.sectionTitle}>Ghi Chú Thêm Cho Quản Lý (Tùy chọn)</Text>
             </View>
             <TextInput
               style={[styles.textArea, { minHeight: 70 }]}
@@ -368,7 +368,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
           onRequestClose={() => setPreviewImageIndex(null)}
         >
           <View style={styles.lightboxOverlay}>
-            <SafeAreaView style={styles.lightboxSafeArea} edges={['top', 'bottom']}>
+            <View style={[styles.lightboxSafeArea, { paddingTop: safeTopInset, paddingBottom: Math.max(insets.bottom, 16) }]}>
               {/* Lightbox Top Bar */}
               <View style={styles.lightboxHeader}>
                 <TouchableOpacity
@@ -431,7 +431,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
               <View style={styles.lightboxFooter}>
                 <Text style={styles.lightboxFooterText}>Ảnh minh chứng xét duyệt thăng cấp</Text>
               </View>
-            </SafeAreaView>
+            </View>
           </View>
         </Modal>
       )}
@@ -443,7 +443,10 @@ export const PromotionSubmissionScreen: React.FC = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.btnSubmit, { backgroundColor: toColor }]}
+          style={[
+            styles.btnSubmit,
+            (isSubmitting || isUploadingImage) && { opacity: 0.6 },
+          ]}
           onPress={handleSubmit}
           disabled={isSubmitting || isUploadingImage}
           activeOpacity={0.85}
@@ -458,7 +461,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -473,49 +476,60 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    backgroundColor: '#0F172A',
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   navTitle: {
     fontSize: 17,
-    fontWeight: '700',
-    color: '#F8FAFC',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   container: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  scrollContent: {
     padding: 16,
   },
   heroCard: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   heroDeptBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 6,
-    marginBottom: 14,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 5,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   heroDeptText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#38BDF8',
+    color: '#1D4ED8',
   },
   transitionRow: {
     flexDirection: 'row',
@@ -526,50 +540,78 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  levelCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2.5,
+  fromLevelCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 2,
+    borderColor: '#334155',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
   },
-  levelCircleNum: {
-    fontSize: 20,
+  fromLevelCircleNum: {
+    fontSize: 18,
     fontWeight: '900',
+    color: '#1E293B',
+  },
+  fromLevelRoleName: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#0F172A',
+  },
+  toLevelCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 2,
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  toLevelCircleNum: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#2563EB',
+  },
+  toLevelRoleName: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#1E40AF',
   },
   levelRoleLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#94A3B8',
     fontWeight: '600',
     marginBottom: 2,
     textTransform: 'uppercase',
-  },
-  levelRoleName: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   transitionArrowBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#334155',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 8,
   },
   sectionCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
   sectionHeader: {
@@ -594,12 +636,13 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#0F172A',
   },
   sectionDesc: {
@@ -614,20 +657,20 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#0F172A',
     minHeight: 110,
   },
   counterBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   counterBadgeText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#2563EB',
   },
   uploadActionRow: {
     flexDirection: 'row',
@@ -640,15 +683,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 10,
   },
   actionPickIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -724,7 +768,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#64748B',
     marginTop: 6,
-    fontStyle: 'italic',
   },
   lightboxOverlay: {
     flex: 1,
@@ -813,36 +856,45 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: '#E2E8F0',
     gap: 10,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 6,
   },
   btnCancel: {
     flex: 1,
-    backgroundColor: '#334155',
+    backgroundColor: '#F1F5F9',
     paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   btnCancelText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#E2E8F0',
+    color: '#475569',
   },
   btnSubmit: {
     flex: 2,
     flexDirection: 'row',
+    backgroundColor: '#2563EB',
     paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
+    shadowColor: '#2563EB',
+    shadowOpacity: 0.2,
     shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
   btnSubmitText: {

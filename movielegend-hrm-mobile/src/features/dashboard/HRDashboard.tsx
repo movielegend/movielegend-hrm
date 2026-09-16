@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
@@ -17,9 +18,6 @@ import Toast from 'react-native-toast-message';
 import { LiveClock } from '../../components/LiveClock';
 import { ContourHeroPattern } from './components/ContourHeroPattern';
 import { spacing } from '../../theme/spacing';
-
-const { width } = Dimensions.get('window');
-const GRID_ITEM_WIDTH = Math.floor((width - spacing.lg * 2 - spacing.md * 2) / 3);
 
 const appleTheme = {
   bg: '#FFFFFF',
@@ -38,6 +36,7 @@ const appleTheme = {
 export function HRDashboard() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
@@ -114,8 +113,12 @@ export function HRDashboard() {
   return (
     <Screen backgroundColor="#FAFAFA">
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
+        ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -207,12 +210,12 @@ export function HRDashboard() {
             {/* Top Status Header */}
             <View style={styles.heroHeaderRow}>
               <MaterialCommunityIcons 
-                name={currentAttendance?.state === 'CHECKED_IN' ? 'check-circle' : 'check-circle'} 
+                name={currentAttendance?.state === 'CHECKED_IN' ? 'clock-check-outline' : currentAttendance?.state === 'CHECKED_OUT' ? 'check-all' : 'clock-outline'} 
                 size={18} 
-                color="#475569" 
+                color={currentAttendance?.state === 'CHECKED_IN' ? '#0284C7' : '#475569'} 
               />
-              <Text style={styles.heroStatusText}>
-                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca làm' : 'Vào ca / Chấm công'}
+              <Text style={[styles.heroStatusText, currentAttendance?.state === 'CHECKED_IN' && { color: '#0284C7', fontWeight: '700' }]}>
+                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca • Chạm để Ra ca' : currentAttendance?.state === 'CHECKED_OUT' ? 'Đã hoàn thành ca làm' : 'Vào ca / Chấm công'}
               </Text>
             </View>
 
@@ -231,224 +234,254 @@ export function HRDashboard() {
           </View>
         </Pressable>
 
-        {/* Banner Cấp Bậc & Lộ Trình (Phong cách Apple UI tinh tế, sang trọng) */}
-        <Pressable
-          style={styles.levelAppleCard}
-          onPress={() => router.push('/hr/leveling' as any)}
-        >
-          {/* Top Section */}
-          <View style={styles.levelAppleHeaderRow}>
-            <View style={styles.levelAppleLeft}>
-              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
-                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
-              </View>
-              <View style={styles.levelAppleTitleBlock}>
-                <View style={styles.levelAppleBadgeRow}>
-                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
-                    Level {currentLevelNumber}: {levelTitle}
-                  </Text>
-                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
-                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
-                      Lv.{currentLevelNumber}
-                    </Text>
-                  </View>
+        {/* Hub Cấp Bậc & Ví Thưởng (Thẻ gộp chung chuẩn Apple UI) */}
+        <View style={styles.hubContainer}>
+          <View style={styles.hubCard}>
+            {/* Segment 1: Cấp Bậc Hiện Tại & Tiến Độ */}
+            <Pressable
+              style={styles.hubSegment}
+              onPress={() => router.push('/hr/leveling' as any)}
+            >
+              <View style={styles.hubRow}>
+                <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
+                  <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
                 </View>
-                <Text style={styles.levelAppleSubtitle}>
-                  {levelProgress?.nextLevel
-                    ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
-                    : 'Cấp bậc danh dự tối cao'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
-              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Lộ trình</Text>
-              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
-            </View>
-          </View>
-
-          {/* Full-width elegant progress bar */}
-          <View style={styles.levelAppleProgressContainer}>
-            <View style={styles.levelAppleProgressTrack}>
-              <View
-                style={[
-                  styles.levelAppleProgressFill,
-                  {
-                    width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
-                    backgroundColor: levelColor,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.levelAppleProgressFooter}>
-              <Text style={styles.levelAppleProgressFooterText}>
-                {levelProgress?.nextLevel
-                  ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
-                  : 'Đã hoàn thành toàn bộ lộ trình cấp bậc'}
-              </Text>
-              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
-                {levelProgress?.overallProgressPercent || 0}%
-              </Text>
-            </View>
-          </View>
-        </Pressable>
-
-        {/* Banner Ví Thưởng & Vạch thời gian đếm ngược đến hạn rút (Hiển thị nổi bật khi được trao điểm/mở quyền) */}
-        {isVaultEnabled && (
-          <Pressable
-            style={styles.vaultAppleCard}
-            onPress={() => router.push('/employee/vault' as any)}
-          >
-            {/* Top Section */}
-            <View style={styles.vaultAppleHeaderRow}>
-              <View style={styles.vaultAppleLeft}>
-                <View style={styles.vaultAppleIconCircle}>
-                  <MaterialCommunityIcons name="gift" size={22} color="#D97706" />
-                </View>
-                <View style={styles.vaultAppleTitleBlock}>
-                  <View style={styles.vaultAppleBadgeRow}>
-                    <Text style={styles.vaultAppleTitle} numberOfLines={1}>
-                      Ví Thưởng Tích Lũy
+                <View style={styles.hubInfoBlock}>
+                  <View style={styles.hubTitleRow}>
+                    <Text style={styles.hubTitle} numberOfLines={1}>
+                      Level {currentLevelNumber}: {levelTitle}
                     </Text>
-                    <View style={styles.vaultAppleVipBadge}>
-                      <Text style={styles.vaultAppleVipBadgeText}>VIP</Text>
+                    <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
+                      <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
                     </View>
                   </View>
-                  <Text style={styles.vaultAppleSubtitle}>
-                    Khả dụng: <Text style={styles.vaultAppleSubtitleBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                    {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                  <Text style={styles.hubSubtitle}>
+                    {levelProgress?.nextLevel
+                      ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                      : 'Cấp bậc danh dự tối cao'}
                   </Text>
                 </View>
-              </View>
-
-              <View style={styles.vaultAppleActionBtn}>
-                <Text style={styles.vaultAppleActionText}>Mở ví</Text>
-                <MaterialCommunityIcons name="chevron-right" size={14} color="#92400E" />
-              </View>
-            </View>
-
-            {/* Vạch thời gian & Đếm ngược đến hạn rút */}
-            {vaultMilestone ? (
-              <View style={styles.vaultAppleProgressContainer}>
-                <View style={styles.vaultAppleProgressTrack}>
-                  <View
-                    style={[
-                      styles.vaultAppleProgressFill,
-                      {
-                        width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
-                        backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706',
-                      },
-                    ]}
-                  />
+                <View style={[styles.hubActionBtn, { backgroundColor: `${levelColor}10` }]}>
+                  <Text style={[styles.hubActionText, { color: levelColor }]}>Lộ trình</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
                 </View>
-                <View style={styles.vaultAppleProgressFooter}>
-                  <View style={styles.vaultAppleProgressFooterLeft}>
-                    <MaterialCommunityIcons
-                      name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
-                      size={13}
-                      color={vaultMilestone.isAllUnlocked ? '#059669' : '#D97706'}
-                    />
-                    <Text style={styles.vaultAppleProgressFooterText}>
-                      {vaultMilestone.isAllUnlocked
-                        ? 'Đã mở khóa tất cả các đợt rút'
-                        : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
-                    </Text>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={styles.hubProgressTrack}>
+                <View
+                  style={[
+                    styles.hubProgressFill,
+                    {
+                      width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                      backgroundColor: levelColor,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.hubProgressFooter}>
+                <Text style={styles.hubProgressLabel}>
+                  {levelProgress?.nextLevel
+                    ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
+                    : 'Đã hoàn tất tiến độ cấp'}
+                </Text>
+                <Text style={[styles.hubProgressPercent, { color: levelColor }]}>
+                  {levelProgress?.overallProgressPercent || 0}%
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Segment 2: Ví Thưởng Tích Lũy (Hiển thị khi mở ví) */}
+            {isVaultEnabled && (
+              <>
+                <View style={styles.hubDivider} />
+                <Pressable
+                  style={styles.hubSegment}
+                  onPress={() => router.push('/hr/vault' as any)}
+                >
+                  <View style={styles.hubRow}>
+                    <View style={[styles.hubIconCircle, { backgroundColor: '#F1F5F9' }]}>
+                      <MaterialCommunityIcons name="wallet-outline" size={20} color="#1E293B" />
+                    </View>
+                    <View style={styles.hubInfoBlock}>
+                      <View style={styles.hubTitleRow}>
+                        <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
+                        <View style={styles.vaultBadge}>
+                          <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.hubSubtitle}>
+                        Khả dụng: <Text style={styles.hubSubtitleGreen}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                        {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.vaultActionBtn}>
+                      <Text style={styles.vaultActionText}>Chi tiết</Text>
+                      <MaterialCommunityIcons name="chevron-right" size={14} color="#475569" />
+                    </View>
                   </View>
-                  <Text
-                    style={[
-                      styles.vaultAppleProgressFooterPercent,
-                      { color: vaultMilestone.isAllUnlocked ? '#059669' : '#D97706' },
-                    ]}
-                  >
-                    {vaultMilestone.isAllUnlocked
-                      ? '100% Hoàn tất'
-                      : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </Pressable>
-        )}
 
-        {/* Tiện ích (HR Features) - Đồng bộ cấu trúc Grid như Leader */}
-        <View style={[styles.section, styles.utilitySection]}>
-          <Text style={styles.sectionTitle}>Tiện ích</Text>
-          <View style={styles.gridContainer}>
-            <GridItem 
-              icon="star-circle-outline" 
-              title="Cấp của bạn" 
-              color="#F59E0B" 
-              onPress={() => router.push('/hr/leveling' as any)} 
+                  {vaultMilestone ? (
+                    <>
+                      <View style={styles.hubProgressTrack}>
+                        <View
+                          style={[
+                            styles.hubProgressFill,
+                            {
+                              width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
+                              backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB',
+                            },
+                          ]}
+                        />
+                      </View>
+                      <View style={styles.hubProgressFooter}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <MaterialCommunityIcons
+                            name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
+                            size={12}
+                            color={vaultMilestone.isAllUnlocked ? '#059669' : '#64748B'}
+                          />
+                          <Text style={styles.vaultCountdownLabel}>
+                            {vaultMilestone.isAllUnlocked
+                              ? 'Đã mở khóa tất cả đợt'
+                              : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
+                          </Text>
+                        </View>
+                        <Text style={styles.vaultCountdownTime}>
+                          {vaultMilestone.isAllUnlocked
+                            ? '100% Hoàn tất'
+                            : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
+                        </Text>
+                      </View>
+                    </>
+                  ) : null}
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* Tiện ích thường dùng (Ma trận 4 cột hiện đại) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tiện ích thường dùng</Text>
+          <View style={styles.grid4Container}>
+            {/* Nhóm 1: Chấm công & Ca làm (Xanh dương hoàng gia) */}
+            <GridItem4
+              icon="calendar-account-outline"
+              title="QL Chấm công"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/attendance-management' as any)}
             />
-            <GridItem 
-              icon="briefcase-outline" 
-              title="Dự án" 
-              color="#3B82F6" 
-              onPress={() => router.push('/leader/level-projects' as any)} 
+            <GridItem4
+              icon="view-grid-outline"
+              title="Phân ca"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/shifts' as any)}
             />
-            <GridItem
+            <GridItem4
+              icon="calendar-clock-outline"
+              title="Lịch làm việc"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/schedule' as any)}
+            />
+            <GridItem4
+              icon="history"
+              title="Lịch sử công"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.navigate('/hr/attendance/history' as any)}
+            />
+
+            {/* Nhóm 2: Hành chính & Nhân sự (Teal thanh lịch) */}
+            <GridItem4
+              icon="file-document-check-outline"
+              title="Duyệt đơn"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              badge={dashboardData?.leave?.pending > 0 ? String(dashboardData.leave.pending) : undefined}
+              onPress={() => router.navigate('/hr/employee-requests' as any)}
+            />
+            <GridItem4
+              icon="account-group-outline"
+              title="Nhân sự"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              onPress={() => router.push('/hr/employees' as any)}
+            />
+            <GridItem4
+              icon="text-box-check-outline"
+              title="Hợp đồng"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              badge={dashboardData?.contracts?.expiringSoon > 0 ? String(dashboardData.contracts.expiringSoon) : undefined}
+              onPress={() => router.navigate('/hr/contracts' as any)}
+            />
+            <GridItem4
+              icon="folder-text-outline"
+              title="Tài liệu"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              onPress={() => router.push('/hr/documents' as any)}
+            />
+
+            {/* Nhóm 3: Cấp bậc, Dự án & Quỹ thưởng (Indigo sang trọng) */}
+            <GridItem4
+              icon="star-circle-outline"
+              title="Cấp của bạn"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/hr/leveling' as any)}
+            />
+            <GridItem4
+              icon="briefcase-outline"
+              title="Dự án"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/leader/level-projects' as any)}
+            />
+            <GridItem4
               icon="gift-outline"
               title="Ví Thưởng"
-              color="#059669"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
               badge={isVaultEnabled ? 'VÍ' : undefined}
-              badgeColor="#D97706"
-              onPress={() => router.push('/employee/vault' as any)}
+              badgeColor="#4F46E5"
+              onPress={() => router.push('/hr/vault' as any)}
             />
-            <GridItem 
-              icon="history" 
-              title="Lịch sử công" 
-              color="#6366F1" 
-              onPress={() => router.navigate('/hr/attendance/history' as any)} 
+            <GridItem4
+              icon="format-list-checks"
+              title="Công việc"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/hr/tasks' as any)}
             />
-            <GridItem 
-              icon="calendar-account-outline" 
-              title="QL Chấm công" 
-              color="#2563EB" 
-              onPress={() => router.navigate('/hr/attendance-management' as any)} 
+
+            {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}
+            <GridItem4
+              icon="robot-outline"
+              title="Trợ lý AI"
+              color="#FFFFFF"
+              bgColor="#0F172A"
+              badge="AI"
+              badgeColor="#2563EB"
+              onPress={() => router.push('/hr/ai-chat' as any)}
             />
-            <GridItem 
-              icon="calendar-clock-outline" 
-              title="Lịch làm việc" 
-              color="#0D9488" 
-              onPress={() => router.navigate('/hr/schedule' as any)} 
+            <GridItem4
+              icon="laptop"
+              title="Tài sản"
+              color="#64748B"
+              bgColor="#F8FAFC"
+              onPress={() => router.navigate('/hr/assets' as any)}
             />
-            <GridItem 
-              icon="file-document-check-outline" 
-              title="Duyệt đơn" 
-              color="#EA580C" 
-              badge={dashboardData?.leave?.pending > 0 ? dashboardData.leave.pending : undefined}
-              onPress={() => router.navigate('/hr/employee-requests' as any)} 
-            />
-            <GridItem 
-              icon="text-box-check-outline" 
-              title="Hợp đồng" 
-              color="#3B82F6" 
-              badge={dashboardData?.contracts?.expiringSoon > 0 ? dashboardData.contracts.expiringSoon : undefined}
-              onPress={() => router.navigate('/hr/contracts' as any)} 
-            />
-            <GridItem 
-              icon="folder-text-outline" 
-              title="Tài liệu" 
-              color="#2563EB" 
-              onPress={() => router.push('/hr/documents' as any)} 
-            />
-            <GridItem 
-              icon="view-grid-outline" 
-              title="Phân ca" 
-              color="#EC4899" 
-              onPress={() => router.navigate('/hr/shifts' as any)} 
-            />
-            <GridItem 
-              icon="laptop" 
-              title="Tài sản" 
-              color="#64748B" 
-              onPress={() => router.navigate('/hr/assets' as any)} 
-            />
-            <GridItem 
-              icon="message-draw" 
-              title="Góp ý" 
-              color="#E11D48" 
-              onPress={() => router.navigate('/hr/feedbacks' as any)} 
+            <GridItem4
+              icon="message-draw"
+              title="Góp ý"
+              color="#64748B"
+              bgColor="#F8FAFC"
+              onPress={() => router.navigate('/hr/feedbacks' as any)}
             />
           </View>
         </View>
@@ -558,46 +591,44 @@ export function HRDashboard() {
 
       {/* Floating AI Chat Button */}
       <Pressable
-        style={styles.fab}
+        style={[
+          styles.fab,
+          { bottom: Math.max(insets.bottom, 16) + 72 },
+        ]}
         onPress={() => router.push('/hr/ai-chat' as any)}
       >
-        <MaterialCommunityIcons name="robot-outline" size={28} color="#fff" />
+        <MaterialCommunityIcons name="robot-outline" size={26} color="#FFFFFF" />
       </Pressable>
     </Screen>
   );
 }
 
-function GridItem({
+const GridItem4 = React.memo(function GridItem4({
   icon,
   title,
-  color = colors?.primary || '#111827',
-  badge,
-  badgeColor = '#EF4444',
   onPress,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  title: string;
-  color?: string;
-  badge?: number | string;
-  badgeColor?: string;
-  onPress: () => void;
-}) {
+  color,
+  bgColor,
+  badge,
+  badgeColor,
+}: any) {
   return (
-    <Pressable style={styles.gridItem} onPress={onPress}>
-      <View style={styles.gridIconContainer}>
-        <MaterialCommunityIcons name={icon} size={28} color={color} />
-        {badge !== undefined && (
-          <View style={[styles.badge, { backgroundColor: badgeColor }]}>
+    <Pressable
+      style={({ pressed }) => [styles.grid4Item, pressed && styles.grid4ItemPressed]}
+      onPress={onPress}
+    >
+      <View style={[styles.grid4IconContainer, bgColor ? { backgroundColor: bgColor } : undefined]}>
+        <MaterialCommunityIcons name={icon} size={23} color={color || '#1E293B'} />
+        {badge && (
+          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
       </View>
-      <Text style={styles.gridTitle} numberOfLines={2}>
-        {title}
-      </Text>
+      <Text style={styles.grid4Title} numberOfLines={1}>{title}</Text>
     </Pressable>
   );
-}
+});
 
 function StatCard({
   title,
@@ -804,11 +835,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#fff',
   },
-  levelAppleCard: {
+  // Hub Cấp Bậc & Ví Thưởng
+  hubContainer: {
+    marginBottom: spacing.xl,
+  },
+  hubCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#0F172A',
@@ -817,98 +851,137 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
-  levelAppleHeaderRow: {
+  hubSegment: {
+    paddingVertical: 4,
+  },
+  hubRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  levelAppleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  levelAppleIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  hubIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
   },
-  levelAppleTitleBlock: {
+  hubInfoBlock: {
     flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
   },
-  levelAppleBadgeRow: {
+  hubTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 2,
   },
-  levelAppleTitle: {
+  hubTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
     flexShrink: 1,
   },
-  levelApplePillTag: {
+  hubTag: {
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
   },
-  levelApplePillTagText: {
+  hubTagText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
-  levelAppleSubtitle: {
+  hubSubtitle: {
     fontSize: 12,
     color: '#64748B',
     fontWeight: '500',
   },
-  levelAppleActionBtn: {
+  hubSubtitleGreen: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  hubActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 20,
-    marginLeft: 8,
+    borderRadius: 16,
   },
-  levelAppleActionText: {
+  hubActionText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  levelAppleProgressContainer: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-  },
-  levelAppleProgressTrack: {
-    height: 6,
+  hubProgressTrack: {
+    height: 5,
     backgroundColor: '#F1F5F9',
     borderRadius: 3,
     overflow: 'hidden',
+    marginTop: 10,
     marginBottom: 6,
   },
-  levelAppleProgressFill: {
+  hubProgressFill: {
     height: '100%',
     borderRadius: 3,
   },
-  levelAppleProgressFooter: {
+  hubProgressFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  levelAppleProgressFooterText: {
+  hubProgressLabel: {
     fontSize: 11,
     color: '#94A3B8',
     fontWeight: '500',
   },
-  levelAppleProgressFooterPercent: {
+  hubProgressPercent: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  hubDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  vaultBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  vaultBadgeText: {
+    color: '#475569',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  vaultActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  vaultActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  vaultCountdownLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  vaultCountdownTime: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   heroButton: {
     borderRadius: 24,
@@ -975,10 +1048,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
-    shadowColor: '#D97706',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
@@ -997,11 +1070,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   vaultAppleTitleBlock: {
     flex: 1,
@@ -1019,13 +1092,15 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   vaultAppleVipBadge: {
-    backgroundColor: '#D97706',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   vaultAppleVipBadgeText: {
-    color: '#FFFFFF',
+    color: '#2563EB',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1043,28 +1118,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
     marginLeft: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#DBEAFE',
   },
   vaultAppleActionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#2563EB',
   },
   vaultAppleProgressContainer: {
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#FEF3C7',
+    borderTopColor: '#F1F5F9',
   },
   vaultAppleProgressTrack: {
     height: 6,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F1F5F9',
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 6,
@@ -1086,7 +1161,7 @@ const styles = StyleSheet.create({
   },
   vaultAppleProgressFooterText: {
     fontSize: 11,
-    color: '#92400E',
+    color: '#475569',
     fontWeight: '500',
   },
   vaultAppleProgressFooterPercent: {
@@ -1109,54 +1184,65 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: spacing.md,
   },
-  gridContainer: {
+  grid4Container: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  gridItem: {
-    width: GRID_ITEM_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
     elevation: 1,
-    aspectRatio: 1,
   },
-  gridIconContainer: {
-    marginBottom: spacing.sm,
+  grid4Item: {
+    width: '25%',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+  },
+  grid4ItemPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
+  },
+  grid4IconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
     position: 'relative',
+  },
+  grid4Title: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+    textAlign: 'center',
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
     backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     color: '#FFFFFF',
-  },
-  gridTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'row',
@@ -1284,17 +1370,16 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: spacing.xxl,
-    right: spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#111827',
+    right: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
     zIndex: 999,

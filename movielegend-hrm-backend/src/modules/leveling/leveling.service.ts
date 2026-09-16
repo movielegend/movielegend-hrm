@@ -64,6 +64,7 @@ export interface BulletSubTaskItem {
 }
 
 export interface LevelDepartmentProjectItem {
+  id?: string;
   levelNumber: number;
   levelName: string;
   departmentName: string;
@@ -79,6 +80,7 @@ export interface LevelDepartmentProjectItem {
   rewardItem?: string;
   rewardType?: 'CASH' | 'PHYSICAL_ITEM' | 'HYBRID' | 'MULTIPLE';
   cashAmount?: number;
+  promotionBonusAmount?: number;
   physicalItems?: string[];
   physicalItemName?: string;
   subTasks: BulletSubTaskItem[];
@@ -1030,15 +1032,17 @@ export class LevelingService {
         const existingSub = existingProject?.subTasks?.find(
           (t) => t.id === subTaskId || t.orderNumber === idx + 1,
         );
+        const subTaskObj = Array.isArray(lvl.subTasks) ? lvl.subTasks[idx] : null;
 
         return {
           id: subTaskId,
           orderNumber: idx + 1,
           title: cleanTitle,
-          targetKpi: '',
+          targetKpi: subTaskObj?.targetKpi || existingSub?.targetKpi || '',
+          description: subTaskObj?.description || existingSub?.description || '',
           status: existingSub?.status || 'PENDING',
-          assignedUserId: existingSub?.assignedUserId,
-          assignedUserName: existingSub?.assignedUserName,
+          assignedUserId: subTaskObj?.assignedUserId || subTaskObj?.assignedToUserId || existingSub?.assignedUserId,
+          assignedUserName: subTaskObj?.assignedUserName || subTaskObj?.assignedToUserName || existingSub?.assignedUserName,
           submissionNote: existingSub?.submissionNote,
           evidenceUrl: existingSub?.evidenceUrl,
           evidenceImages: existingSub?.evidenceImages,
@@ -1053,6 +1057,7 @@ export class LevelingService {
       ).length;
 
       return {
+        id: `proj-${departmentId}-${levelNumber}`,
         levelNumber,
         levelName,
         departmentName,
@@ -1068,6 +1073,7 @@ export class LevelingService {
         rewardItem,
         rewardType,
         cashAmount,
+        promotionBonusAmount: cashAmount,
         physicalItems,
         physicalItemName,
         subTasks,

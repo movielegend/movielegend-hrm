@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, RefreshControl, StyleSheet, Text, View, Alert, ScrollView, Platform } from 'react-native';
+import {Pressable, RefreshControl, StyleSheet, Text, View, ScrollView, Platform} from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
 import { Avatar } from '../../components/Avatar';
@@ -33,6 +33,7 @@ import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
 import { maskIdCard, maskPhone } from '../../utils/privacy';
 import { formatSeniority } from '../../utils/seniority';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const editSchema = z.object({
   fullName: z.string().min(2, 'Vui long nhap ho ten'),
@@ -118,9 +119,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             {adminUsers.data?.items?.map((employee) => (
               <View key={employee.id} style={styles.card}>
                 <View style={styles.identityRow}>
-                  <View style={styles.avatarBox}>
-                    <Text style={styles.avatarText}>{employee.profile?.fullName ? employee.profile.fullName.split(' ').pop()?.[0] || 'NV' : 'NV'}</Text>
-                  </View>
+                  <Avatar name={employee.profile?.fullName ?? employee.userCode} uri={employee.profile?.avatarUrl} size={48} />
                   <View style={styles.flex}>
                     <Text style={styles.titleText}>{employee.profile?.fullName ?? '-'}</Text>
                     <Text style={styles.metaText}>{employee.userCode}</Text>
@@ -128,14 +127,18 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                       Vị trí: {employee.roles?.some((r) => r.role.code === 'LEADER') ? 'Quản lý (Leader)' : (employee.profile?.position?.name ?? 'Chưa có')}
                     </Text>
                   </View>
-                  <View style={styles.badgeWrapper}>
-                    <Text style={styles.badgeText}>{employee.accountStatus}</Text>
+                  <View style={[styles.badgeWrapper, employee.accountStatus === 'ACTIVE' ? { backgroundColor: '#ECFDF5' } : { backgroundColor: '#FEF2F2' }]}>
+                    <Text style={[styles.badgeText, employee.accountStatus === 'ACTIVE' ? { color: '#059669' } : { color: '#DC2626' }]}>
+                      {employee.accountStatus === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}
+                    </Text>
                   </View>
                 </View>
 
                 <View style={styles.cardMeta}>
-                  <MaterialCommunityIcons name="office-building" size={18} color="#111827" />
-                  <Text style={[styles.metaText, { color: '#111827', fontWeight: '500' }]}>{employee.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}</Text>
+                  <MaterialCommunityIcons name="office-building" size={18} color="#64748B" />
+                  <Text style={[styles.metaText, { color: '#334155', fontWeight: '500', marginTop: 0 }]}>
+                    {employee.departmentLinks?.map((link) => link.department?.name).filter(Boolean).join(', ') || 'Chưa xếp phòng'}
+                  </Text>
                 </View>
 
                 <View style={styles.actions}>
@@ -146,8 +149,24 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                   {scope === 'admin' ? (
                     <>
                       <Pressable style={styles.actionBtn} onPress={() => router.push({ pathname: '/admin/employees/[id]', params: { id: employee.id, edit: '1' } })}>
-                        <MaterialCommunityIcons name="pencil" size={18} color="#111827" />
+                        <MaterialCommunityIcons name="pencil-outline" size={18} color="#111827" />
                         <Text style={styles.actionText}>Sửa</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.actionBtn, { flex: 0, paddingHorizontal: 12 }]}
+                        onPress={() => {
+                          setConfirmAction({
+                            type: employee.accountStatus === 'ACTIVE' ? 'lock' : 'unlock',
+                            employeeId: employee.id,
+                            employeeName: employee.profile?.fullName || employee.userCode,
+                          });
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name={employee.accountStatus === 'ACTIVE' ? "lock-outline" : "lock-open-variant-outline"}
+                          size={18}
+                          color={employee.accountStatus === 'ACTIVE' ? colors.danger : colors.success}
+                        />
                       </Pressable>
                       {departmentId ? (
                         (() => {
@@ -616,7 +635,7 @@ export function EmployeeDetailScreen() {
           <SecondaryButton
             loading={deleteEmployee.isPending}
             onPress={() => {
-              Alert.alert('Xóa nhân sự', 'Bạn có chắc chắn muốn xóa nhân sự này không? Hành động này sẽ xóa hoàn toàn thông tin định danh (SĐT, Email, CCCD) khỏi hệ thống.', [
+              CustomAlert.alert('Xóa nhân sự', 'Bạn có chắc chắn muốn xóa nhân sự này không? Hành động này sẽ xóa hoàn toàn thông tin định danh (SĐT, Email, CCCD) khỏi hệ thống.', [
                 { text: 'Hủy', style: 'cancel' },
                 {
                   text: 'Xóa vĩnh viễn',
@@ -662,11 +681,11 @@ export function CreateEmployeeScreen() {
         ...(payload.departmentId ? { departmentId: payload.departmentId } : {}),
       };
       await createEmployee.mutateAsync(cleanPayload);
-      Alert.alert('Thành công', 'Đã thêm nhân viên mới');
+      CustomAlert.alert('Thành công', 'Đã thêm nhân viên mới');
       router.back();
     } catch (error: any) {
       const apiError = normalizeApiError(error);
-      Alert.alert('Lỗi', apiError.message);
+      CustomAlert.alert('Lỗi', apiError.message);
     }
   });
 

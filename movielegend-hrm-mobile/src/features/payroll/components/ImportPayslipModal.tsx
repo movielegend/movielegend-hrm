@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { importPayrolls, ImportPayrollItem } from '../../../api/payroll.api';
 import { exportPayslipTemplate, parsePayslipExcelData } from '../../../utils/payslip-excel.util';
+import { CustomAlert } from '../../../components/CustomAlert';
 
 interface Props {
   visible: boolean;
@@ -70,13 +69,13 @@ export function ImportPayslipModal({ visible, onClose, month, year, onSuccess }:
     try {
       await exportPayslipTemplate(month, year);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải file mẫu phiếu lương');
+      CustomAlert.alert('Lỗi', err.message || 'Không thể tải file mẫu phiếu lương');
     }
   };
 
   const handleSubmit = async () => {
     if (parsedItems.length === 0) {
-      Alert.alert('Thông báo', 'Vui lòng chọn file Excel có dữ liệu phiếu lương');
+      CustomAlert.alert('Thông báo', 'Vui lòng chọn file Excel có dữ liệu phiếu lương');
       return;
     }
 
@@ -88,7 +87,7 @@ export function ImportPayslipModal({ visible, onClose, month, year, onSuccess }:
         items: parsedItems,
       });
 
-      Alert.alert(
+      CustomAlert.alert(
         'Phát hành thành công',
         res.message || `Đã import và phát hành phiếu lương tháng ${month}/${year} thành công!`,
         [
@@ -103,7 +102,7 @@ export function ImportPayslipModal({ visible, onClose, month, year, onSuccess }:
         ]
       );
     } catch (err: any) {
-      Alert.alert('Lỗi Import', err.message || 'Đã có lỗi xảy ra khi import phiếu lương');
+      CustomAlert.alert('Lỗi Import', err.message || 'Đã có lỗi xảy ra khi import phiếu lương');
     } finally {
       setIsSubmitting(false);
     }

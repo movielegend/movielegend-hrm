@@ -4,8 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+  ScrollView} from 'react-native';
 
 export interface DepartmentSummaryItem {
   id: string;

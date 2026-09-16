@@ -32,6 +32,17 @@ const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typ
   { type: 'OTHER', label: 'Khác', icon: 'file-document', color: '#6B7280' },
 ];
 
+function normalizeSearchText(str?: string | null): string {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
+
 export default function CreateRequestScreen() {
   const { showAlert } = useAppAlert();
   const router = useRouter();
@@ -86,20 +97,33 @@ export default function CreateRequestScreen() {
   const isLateOrEarly = selectedType === 'LATE_ARRIVAL' || selectedType === 'EARLY_LEAVE';
   const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE' || selectedType === 'PURCHASE';
 
+  const userDeptId = user?.department?.id || (user as any)?.departmentId;
+  const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
+
   const fetchEmployeesList = useCallback(async () => {
     try {
       setIsLoadingEmployees(true);
-      const res = await getScopedEmployees({ page: 1, limit: 100 });
+      const currentDeptId = user?.department?.id || (user as any)?.departmentId;
+      const res = await getScopedEmployees({
+        page: 1,
+        limit: 100,
+        ...(currentDeptId ? { departmentId: currentDeptId } : {}),
+      });
       const rawList = res?.items || (Array.isArray(res) ? res : []);
-      // Lọc bỏ chính mình khỏi danh sách người bàn giao
-      const validList = rawList.filter((e: any) => e.id !== user?.id);
+      // BẮT BUỘC: Chỉ lấy đúng nhân sự thuộc phòng ban của người tạo đơn
+      const validList = rawList.filter((e: any) => {
+        if (!currentDeptId) return true;
+        const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
+        return empDeptId === currentDeptId;
+      });
       setApiEmployees(validList);
     } catch (err) {
       console.log('Error fetching scoped employees:', err);
+      setApiEmployees([]);
     } finally {
       setIsLoadingEmployees(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.department?.id, (user as any)?.departmentId]);
 
   React.useEffect(() => {
     if (isLateOrEarly || isExplanation || isOvertime) {
@@ -107,10 +131,8 @@ export default function CreateRequestScreen() {
         .then(setApiShifts)
         .catch(err => console.log('Error fetching shifts', err));
     }
-    if ((isLeave || isExplanation) && apiEmployees.length === 0) {
-      void fetchEmployeesList();
-    }
-  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList, apiEmployees.length]);
+    void fetchEmployeesList();
+  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList]);
 
 
 
@@ -795,7 +817,13 @@ export default function CreateRequestScreen() {
                 ) : null}
 
                 {/* Chọn người bàn giao */}
-                <Pressable style={styles.rowInput} onPress={() => setShowEmployeeModal(true)}>
+                <Pressable
+                  style={styles.rowInput}
+                  onPress={() => {
+                    setShowEmployeeModal(true);
+                    void fetchEmployeesList();
+                  }}
+                >
                   <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
                     <MaterialCommunityIcons name="account-tie-outline" size={20} color="#000" />
                   </View>
@@ -991,28 +1019,49 @@ export default function CreateRequestScreen() {
         </ScrollView>
 
       {/* Shift Picker Modal */}
-      <Modal visible={showShiftModal} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowShiftModal(false)}>
+      <Modal visible={showShiftModal} transparent animationType="slide" onRequestClose={() => setShowShiftModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowShiftModal(false)} />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Chọn ca làm</Text>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ width: 28 }} />
+              <Text style={styles.modalTitle}>Chọn ca làm</Text>
+              <Pressable onPress={() => setShowShiftModal(false)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+              </Pressable>
+            </View>
             {apiShifts.length === 0 ? (
               <Text style={{ textAlign: 'center', padding: 20, color: '#9CA3AF' }}>Đang tải danh sách ca...</Text>
             ) : (
               <FlatList
                 data={apiShifts}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.modalItem} onPress={() => handleSelectShift(item)}>
-                    <Text style={styles.modalItemText}>{item.name}</Text>
-                    <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 4 }}>
-                      {item.startTime} - {item.endTime}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => {
+                  const isSelected = shift?.id === item.id;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                      onPress={() => handleSelectShift(item)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>{item.name}</Text>
+                        <Text style={[styles.modalItemSubtext, isSelected && styles.modalItemSubtextSelected]}>
+                          {item.startTime} - {item.endTime}
+                        </Text>
+                      </View>
+                      {isSelected ? (
+                        <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />
+                      ) : (
+                        <MaterialCommunityIcons name="chevron-right" size={20} color="#D1D5DB" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
               />
             )}
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Real Time Picker */}
@@ -1159,7 +1208,25 @@ export default function CreateRequestScreen() {
               <Pressable onPress={() => { setShowEmployeeModal(false); setEmployeeSearchQuery(''); }} style={{ padding: 8, marginRight: 8 }}>
                 <MaterialCommunityIcons name="close" size={24} color="#111827" />
               </Pressable>
-              <Text style={styles.fullScreenModalTitle}>{isExplanation ? 'Người duyệt' : 'Người bàn giao'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fullScreenModalTitle}>{isExplanation ? 'Người duyệt' : 'Người bàn giao'}</Text>
+                {userDeptName ? (
+                  <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600', marginTop: 1 }}>
+                    Phòng ban: {userDeptName}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable
+                onPress={() => void fetchEmployeesList()}
+                style={{ padding: 8 }}
+                disabled={isLoadingEmployees}
+              >
+                <MaterialCommunityIcons
+                  name="reload"
+                  size={22}
+                  color={isLoadingEmployees ? '#9CA3AF' : '#10B981'}
+                />
+              </Pressable>
             </View>
 
             {/* Search Box */}
@@ -1176,7 +1243,7 @@ export default function CreateRequestScreen() {
               <MaterialCommunityIcons name="magnify" size={20} color="#6B7280" style={{ marginRight: 8 }} />
               <TextInput
                 style={{ flex: 1, fontSize: 14, color: '#111827' }}
-                placeholder="Tìm nhân sự theo tên, mã NV, phòng ban..."
+                placeholder="Tìm nhân sự cùng phòng (tên, mã NV)..."
                 placeholderTextColor="#9CA3AF"
                 value={employeeSearchQuery}
                 onChangeText={setEmployeeSearchQuery}
@@ -1195,13 +1262,14 @@ export default function CreateRequestScreen() {
                 <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14 }}>Đang tải danh sách nhân sự...</Text>
               </View>
             ) : (() => {
-              const q = employeeSearchQuery.toLowerCase().trim();
+              const cleanQ = normalizeSearchText(employeeSearchQuery);
               const filteredList = apiEmployees.filter((item: any) => {
-                const name = (item.fullName || item.profile?.fullName || '').toLowerCase();
-                const code = (item.userCode || '').toLowerCase();
-                const dept = (item.department?.name || '').toLowerCase();
-                const pos = (item.position?.name || '').toLowerCase();
-                return !q || name.includes(q) || code.includes(q) || dept.includes(q) || pos.includes(q);
+                if (!cleanQ) return true;
+                const name = normalizeSearchText(item.fullName || item.profile?.fullName || '');
+                const code = normalizeSearchText(item.userCode || '');
+                const dept = normalizeSearchText(item.department?.name || '');
+                const pos = normalizeSearchText(item.position?.name || '');
+                return name.includes(cleanQ) || code.includes(cleanQ) || dept.includes(cleanQ) || pos.includes(cleanQ);
               });
 
               if (filteredList.length === 0) {
@@ -1210,7 +1278,9 @@ export default function CreateRequestScreen() {
                     <MaterialCommunityIcons name="account-search-outline" size={48} color="#9CA3AF" />
                     <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14, textAlign: 'center' }}>
                       {apiEmployees.length === 0
-                        ? 'Chưa có dữ liệu nhân sự phù hợp.'
+                        ? userDeptName
+                          ? `Không có nhân sự nào khác trong phòng ban "${userDeptName}".`
+                          : 'Chưa có dữ liệu nhân sự phù hợp.'
                         : 'Không tìm thấy nhân sự phù hợp với từ khóa.'}
                     </Text>
                     <TouchableOpacity
@@ -1237,7 +1307,9 @@ export default function CreateRequestScreen() {
                   keyExtractor={(item) => item.id}
                   keyboardShouldPersistTaps="handled"
                   renderItem={({ item }: { item: any }) => {
-                    const dispName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
+                    const isMe = item.id === user?.id;
+                    const rawName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
+                    const dispName = isMe ? `${rawName} (Bạn)` : rawName;
                     const deptName = item.department?.name;
                     const posName = item.position?.name;
                     const subtitle = [item.userCode, deptName, posName].filter(Boolean).join(' • ');
@@ -1552,11 +1624,61 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingTop: 20,
+    paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     maxHeight: '60%',
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalCloseBtn: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  modalItemSelected: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  modalItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  modalItemTextSelected: {
+    color: '#065F46',
+    fontWeight: '700',
+  },
+  modalItemSubtext: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 3,
+  },
+  modalItemSubtextSelected: {
+    color: '#059669',
   },
   iosPickerContainer: {
     backgroundColor: '#fff',
@@ -1576,22 +1698,6 @@ const styles = StyleSheet.create({
   iosPickerBtn: {
     fontSize: 16,
     color: '#3B82F6',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalItem: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  modalItemText: {
-    fontSize: 16,
-    color: '#374151',
   },
   fullScreenModalOverlay: {
     flex: 1,

@@ -17,14 +17,14 @@ import type {
 
 export async function checkIn(payload: CheckInPayload): Promise<AttendanceRecord> {
   const response = await apiClient.post<ApiResponse<AttendanceRecord>>('/attendance/check-in', payload, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
   return unwrapData(response);
 }
 
 export async function checkOut(payload: CheckOutPayload): Promise<AttendanceRecord> {
   const response = await apiClient.post<ApiResponse<AttendanceRecord>>('/attendance/check-out', payload, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
   return unwrapData(response);
 }

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {RefreshControl, StyleSheet, Text, View} from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { FilterChip } from '../../components/FilterChip';
@@ -22,6 +22,7 @@ import { spacing } from '../../theme/spacing';
 import type { AssetConditionStatus, AssetDto } from '../../types/asset.types';
 import { assetConditionLabels, canStartMaintenance, mapWarehouseAssetError } from '../assets/asset.logic';
 import { AssetCard } from '../assets/AssetComponents';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
@@ -73,13 +74,13 @@ export function MaintenanceActionsSection({ asset }: { asset: AssetDto }) {
           ...(vendorName.trim() ? { vendorName: vendorName.trim() } : {}),
         },
       });
-      Alert.alert('Thành công', 'Đã đưa tài sản vào bảo trì');
+      CustomAlert.alert('Thành công', 'Đã đưa tài sản vào bảo trì');
       setMaintenanceType('');
       setDescription('');
       setVendorName('');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      CustomAlert.alert(mapped.code, mapped.message);
     }
   }
 
@@ -87,10 +88,10 @@ export function MaintenanceActionsSection({ asset }: { asset: AssetDto }) {
     if (!activeRecord) return;
     try {
       await complete.mutateAsync({ recordId: activeRecord.id, payload: { conditionWhenReturned: condition } });
-      Alert.alert('Thành công', 'Đã hoàn tất bảo trì — trạng thái cuối do backend quyết định');
+      CustomAlert.alert('Thành công', 'Đã hoàn tất bảo trì — trạng thái cuối do backend quyết định');
     } catch (error) {
       const mapped = mapWarehouseAssetError(error);
-      Alert.alert(mapped.code, mapped.message);
+      CustomAlert.alert(mapped.code, mapped.message);
     }
   }
 

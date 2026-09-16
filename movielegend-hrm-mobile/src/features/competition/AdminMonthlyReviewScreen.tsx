@@ -5,16 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  SafeAreaView,
   StatusBar,
-  ActivityIndicator,
-} from 'react-native';
+  Platform,
+  ActivityIndicator} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useLevelProjects } from '../leveling/levelProjectsStore';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { levelingApi } from '../../api/leveling.api';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export interface SubTaskProgressItem {
   id: string;
@@ -51,6 +51,8 @@ export interface AdminReviewItem {
 }
 
 export const AdminMonthlyReviewScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { data: realDeptData, isLoading: isDeptLoading } = useDepartments({ limit: 100 });
   const { getSocket } = useSocketStatus();
   const realDeptList = realDeptData?.data || realDeptData?.items || (Array.isArray(realDeptData) ? realDeptData : []);
@@ -206,7 +208,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       });
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'CHỐT PHÊ DUYỆT THĂNG CẤP NHÂN VIÊN!',
       `Đã duyệt thăng cấp cho Nhân viên: ${item.userName}\n\n• Cấp bậc mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x\n\nLevel của nhân viên đã được cập nhật Real-time!`,
       [{ text: 'Đóng' }]
@@ -243,7 +245,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       });
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'CHỐT PHÊ DUYỆT THĂNG CẤP LEADER / QUẢN LÝ!',
       `Đã duyệt thăng cấp quản trị cho Leader: ${item.userName}\n\n• Vị trí Level mới: ${item.targetLevelName}\n• Quà hiện vật: ${item.rewardPhysicalItem}\n• Thưởng nóng: ${item.promotionBonusAmount.toLocaleString('vi-VN')} VNĐ\n• Hệ số Tết mới: ${item.retentionMultiplier}x\n\nLevel của Leader đã được cập nhật Real-time!`,
       [{ text: 'Đóng' }]
@@ -251,7 +253,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
   };
 
   const handleRejectItem = (item: AdminReviewItem) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Yêu Cầu Bổ Sung Dự Án Level',
       `Nhân sự ${item.userName} chưa đạt 100% tiến độ việc con. Đã gửi thông báo yêu cầu hoàn thiện trước khi chốt duyệt lại!`,
       [{ text: 'Đóng' }]
@@ -263,7 +265,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#1E293B" />
 
       {/* Top Header Safe Area (Navy Blue #1E293B) */}
-      <SafeAreaView style={styles.headerSafeArea}>
+      <View style={[styles.headerSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.executiveHeaderCard}>
           <Text style={styles.title}>Duyệt Level Cuối Tháng</Text>
           <Text style={styles.subTitle}>Kiểm tra tiến độ, phê duyệt thăng cấp Level & trao quà thưởng</Text>
@@ -308,7 +310,7 @@ export const AdminMonthlyReviewScreen: React.FC = () => {
             <Text style={[styles.stepLabelText, activeStep === 3 ? styles.stepLabelTextActive : styles.stepLabelTextInactive]}>Duyệt Leader</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Main Content Body */}
       <View style={styles.pageBodyContainer}>

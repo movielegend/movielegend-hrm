@@ -1,57 +1,24 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LoadingState } from '../../../src/components/LoadingState';
-import { useAuth } from '../../../src/providers/AuthProvider';
-import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role-routing';
 import { colors } from '../../../src/theme/colors';
 
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../../src/hooks/useNotifications';
+import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
 
 export default function EmployeeLayout() {
   const insets = useSafeAreaInsets();
-  const { isLoading, user } = useAuth();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
 
-  if (isLoading) return <LoadingState />;
-  if (!canAccessRoleRoute(user, '/employee')) return <Redirect href={getHomeRouteForUser(user)} />;
-  
   return (
     <Tabs
+      initialRouteName="index"
+      tabBar={(props) => <MagicTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#111827',
-        tabBarInactiveTintColor: '#6B7280',
-        tabBarStyle: {
-          borderTopWidth: 0,
-          backgroundColor: '#fff',
-          height: 60 + insets.bottom,
-          paddingBottom: Math.max(Platform.OS === 'android' ? 5 : 20, insets.bottom),
-          paddingTop: 5,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-          marginTop: 4,
-        }
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Trang chủ',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="news"
         options={{
@@ -68,6 +35,15 @@ export default function EmployeeLayout() {
           tabBarBadge: unreadChat > 0 ? (unreadChat > 99 ? '99+' : unreadChat) : undefined,
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Trang chủ',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
           ),
         }}
       />

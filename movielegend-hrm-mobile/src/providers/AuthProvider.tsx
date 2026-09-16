@@ -8,7 +8,7 @@ import {
   setAccessToken,
   setRefreshToken,
 } from '../storage/secure-token.storage';
-import { clearAppQueryClient } from './QueryProvider';
+import { appQueryClient, clearAppQueryClient } from './QueryProvider';
 import { levelProjectsStore } from '../features/leveling/levelProjectsStore';
 import type { AuthContextValue, LoginPayload } from '../types/auth.types';
 import type { AuthUser } from '../types/user.types';
@@ -45,12 +45,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const reloadProfile = useCallback(async () => {
     try {
       const profile = await meApi();
+      appQueryClient.setQueryData(['me'], profile);
+      appQueryClient.setQueryData(['auth-user'], profile);
       setUser(profile);
       return profile;
     } catch {
       const refreshed = await refreshSession();
       if (!refreshed) return null;
       const profile = await meApi();
+      appQueryClient.setQueryData(['me'], profile);
+      appQueryClient.setQueryData(['auth-user'], profile);
       setUser(profile);
       return profile;
     }
@@ -61,6 +65,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     levelProjectsStore.clear();
     const response = await loginApi(payload);
     await Promise.all([setAccessToken(response.accessToken), setRefreshToken(response.refreshToken)]);
+    appQueryClient.setQueryData(['me'], response.user);
+    appQueryClient.setQueryData(['auth-user'], response.user);
     setUser(response.user);
     return response.user;
   }, []);
@@ -129,4 +135,11 @@ export function useAuth(): AuthContextValue {
   const value = useContext(AuthContext);
   if (!value) throw new Error('useAuth must be used inside AuthProvider');
   return value;
+}
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).useAuth = useAuth;
+}
+if (typeof global !== 'undefined') {
+  (global as any).useAuth = useAuth;
 }

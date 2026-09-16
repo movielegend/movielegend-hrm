@@ -1,5 +1,5 @@
-import { MyAssetsScreen } from '../../../src/features/assets/AssetScreens';
+import { AssetListScreen } from '../../../src/features/assets/AssetScreens';
 
 export default function HRAssetsRoute() {
-  return <MyAssetsScreen area="hr" />;
+  return <AssetListScreen area="admin" />;
 }

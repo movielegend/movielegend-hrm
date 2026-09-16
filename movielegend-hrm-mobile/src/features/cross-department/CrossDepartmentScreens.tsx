@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator } from 'react-native';
+import {RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -35,6 +35,7 @@ import type { CrossDepartmentRequestDto } from '../../types/cross-department.typ
 import { normalizeApiError } from '../../utils/api-error';
 import { formatDateTime } from '../../utils/date-time';
 import { hasAnyPermission } from '../../utils/permissions';
+import { CustomAlert } from '../../components/CustomAlert';
 
 type CrossArea = 'employee' | 'leader' | 'admin' | 'hr';
 
@@ -233,23 +234,23 @@ export function CreateCrossDepartmentScreen() {
 
   async function submit() {
     if (!sourceDepartment) {
-      Alert.alert('Thông báo', 'Vui lòng chọn Phòng ban nguồn.');
+      CustomAlert.alert('Thông báo', 'Vui lòng chọn Phòng ban nguồn.');
       return;
     }
     if (!targetDepartment) {
-      Alert.alert('Thông báo', 'Vui lòng chọn Phòng ban đích.');
+      CustomAlert.alert('Thông báo', 'Vui lòng chọn Phòng ban đích.');
       return;
     }
     if (sourceDepartment.id === targetDepartment.id) {
-      Alert.alert('Thông báo', 'Phòng ban nguồn và phòng ban đích không được trùng nhau.');
+      CustomAlert.alert('Thông báo', 'Phòng ban nguồn và phòng ban đích không được trùng nhau.');
       return;
     }
     if (!title.trim() || title.trim().length < 3) {
-      Alert.alert('Thông báo', 'Tiêu đề yêu cầu phải có ít nhất 3 ký tự.');
+      CustomAlert.alert('Thông báo', 'Tiêu đề yêu cầu phải có ít nhất 3 ký tự.');
       return;
     }
     if (!content.trim() || content.trim().length < 3) {
-      Alert.alert('Thông báo', 'Nội dung yêu cầu phải có ít nhất 3 ký tự.');
+      CustomAlert.alert('Thông báo', 'Nội dung yêu cầu phải có ít nhất 3 ký tự.');
       return;
     }
 
@@ -277,12 +278,12 @@ export function CreateCrossDepartmentScreen() {
         title: title.trim(),
         content: finalContent,
       });
-      Alert.alert('Thành công', 'Đã tạo yêu cầu liên phòng ban!');
+      CustomAlert.alert('Thành công', 'Đã tạo yêu cầu liên phòng ban!');
       router.back();
     } catch (error) {
       setIsUploading(false);
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      CustomAlert.alert('Lỗi', normalized.message);
     }
   }
 
@@ -509,12 +510,12 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
   async function runAction(next: 'source-approve' | 'source-reject' | 'target-accept' | 'target-reject', reason?: string) {
     try {
       await action.mutateAsync({ id: id ?? '', action: next, payload: { reason: reason ?? '' } });
-      Alert.alert('Thành công', 'Đã cập nhật trạng thái yêu cầu');
+      CustomAlert.alert('Thành công', 'Đã cập nhật trạng thái yêu cầu');
       setActionModalVisible(false);
       setRejectReason('');
     } catch (error) {
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      CustomAlert.alert('Lỗi', normalized.message);
     }
   }
 
@@ -569,7 +570,7 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
         await action.mutateAsync({ id: item.id, action: 'complete', payload: { rating } });
       }
       setIsUploading(false);
-      Alert.alert('Thành công', 'Cập nhật trạng thái thành công!');
+      CustomAlert.alert('Thành công', 'Cập nhật trạng thái thành công!');
       setInputModalVisible(false);
       setSelectedAttachmentUri(null);
       setSelectedFileName(null);
@@ -577,7 +578,7 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
     } catch (error) {
       setIsUploading(false);
       const normalized = normalizeApiError(error);
-      Alert.alert('Lỗi', normalized.message);
+      CustomAlert.alert('Lỗi', normalized.message);
     }
   }
 

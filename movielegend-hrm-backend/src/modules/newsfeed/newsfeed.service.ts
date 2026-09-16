@@ -70,6 +70,8 @@ export class NewsfeedService {
     });
 
     if (status === 'PENDING' && departmentLeaderId) {
+      // Realtime alert to leader
+      this.realtimeEvents.emitToUser(departmentLeaderId, 'newsfeed:post_pending', post);
       // Send notification to leader
       const notifPayload = await this.prisma.$transaction(async (tx) => {
          return this.notificationsService.createForUsers(tx, [departmentLeaderId!], {
@@ -81,6 +83,8 @@ export class NewsfeedService {
       });
       if (notifPayload) this.notificationsService.emitCreated(notifPayload);
     } else if (status === 'APPROVED') {
+      // Realtime alert to company
+      this.realtimeEvents.emitToRoom('company', 'newsfeed:post_created', post);
       // Notify all users if post is auto-approved
       const activeUsers = await this.prisma.user.findMany({
         where: { isActive: true, deletedAt: null },
@@ -212,6 +216,13 @@ export class NewsfeedService {
         rejectionReason: dto.rejectionReason,
         approvedById: user.userId,
         approvedAt: new Date()
+      },
+      include: {
+        author: {
+          select: { id: true, userCode: true, roles: { include: { role: true } }, profile: { select: { fullName: true, avatarUrl: true } } }
+        },
+        _count: { select: { comments: true, likes: true } },
+        likes: { select: { userId: true } }
       }
     });
 
@@ -233,6 +244,8 @@ export class NewsfeedService {
     if (notifPayload) this.notificationsService.emitCreated(notifPayload);
 
     if (dto.status === 'APPROVED') {
+      this.realtimeEvents.emitToRoom('company', 'newsfeed:post_approved', updated);
+      this.realtimeEvents.emitToUser(post.authorId, 'newsfeed:post_approved', updated);
       const activeUsers = await this.prisma.user.findMany({
         where: { isActive: true, deletedAt: null },
         select: { id: true }
@@ -249,6 +262,8 @@ export class NewsfeedService {
         });
         if (broadCastPayload) this.notificationsService.emitCreated(broadCastPayload);
       }
+    } else {
+      this.realtimeEvents.emitToUser(post.authorId, 'newsfeed:post_rejected', updated);
     }
 
     return updated;

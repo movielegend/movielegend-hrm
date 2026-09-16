@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, Modal, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {StyleSheet, Text, View, Pressable, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform} from 'react-native';
 import { apiClient } from '../../../api/client';
 import { useAuth } from '../../../providers/AuthProvider';
+import { CustomAlert } from '../../../components/CustomAlert';
 
 export function EditProfileModal({ visible, onClose, initialPhone = '', initialEmail = '' }: any) {
   const [editForm, setEditForm] = useState({ phone: '', email: '' });
@@ -19,13 +20,13 @@ export function EditProfileModal({ visible, onClose, initialPhone = '', initialE
       setIsSaving(true);
       await apiClient.patch('/users/me', { phone: editForm.phone, email: editForm.email });
       await reloadProfile();
-      Alert.alert('Thành công', 'Cập nhật thông tin thành công.', [
+      CustomAlert.alert('Thành công', 'Cập nhật thông tin thành công.', [
         { text: 'OK', onPress: () => {
            onClose();
         }}
       ]);
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể cập nhật thông tin');
+      CustomAlert.alert('Lỗi', error?.response?.data?.message || 'Không thể cập nhật thông tin');
     } finally {
       setIsSaving(false);
     }

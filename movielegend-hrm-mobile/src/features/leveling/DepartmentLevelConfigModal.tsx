@@ -8,12 +8,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { levelingApi, DepartmentLevelItem } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 interface DepartmentLevelConfigModalProps {
   visible: boolean;
@@ -68,7 +67,7 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
         );
       }
     } catch (err: any) {
-      Alert.alert('Lỗi tải cấu hình', err?.message || 'Không thể tải cấu hình phòng ban');
+      CustomAlert.alert('Lỗi tải cấu hình', err?.message || 'Không thể tải cấu hình phòng ban');
     } finally {
       setIsLoading(false);
     }
@@ -132,11 +131,11 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
           motivationQuote: c.motivationQuote || '',
         })),
       );
-      Alert.alert('Thành công', `Đã lưu cấu hình danh xưng & phần thưởng cấp bậc cho phòng ${departmentName}!`);
+      CustomAlert.alert('Thành công', `Đã lưu cấu hình danh xưng & phần thưởng cấp bậc cho phòng ${departmentName}!`);
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi lưu cấu hình', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
     } finally {
       setIsSaving(false);
     }
@@ -191,14 +190,20 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
                     />
 
                     {isLevelOne ? (
-                      <Text style={styles.levelOneHint}>
-                        🌱 Cấp bậc khởi đầu (Thực tập) - Không áp dụng phần thưởng thăng cấp.
-                      </Text>
+                      <View style={styles.levelOneHintBox}>
+                        <Ionicons name="information-circle-outline" size={15} color="#059669" />
+                        <Text style={styles.levelOneHint}>
+                          Cấp bậc khởi đầu (Thực tập) • Không áp dụng thưởng thăng cấp
+                        </Text>
+                      </View>
                     ) : (
                       <View style={styles.rewardConfigSubBox}>
-                        <Text style={styles.rewardSubTitle}>
-                          🎁 PHẦN THƯỞNG ĐẠT LEVEL {item.levelNumber}
-                        </Text>
+                        <View style={styles.rewardHeaderRow}>
+                          <Ionicons name="gift-outline" size={14} color="#2563EB" />
+                          <Text style={styles.rewardSubTitle}>
+                            PHẦN THƯỞNG ĐẠT LEVEL {item.levelNumber}
+                          </Text>
+                        </View>
 
                         {/* Reward Type Picker */}
                         <View style={styles.rewardTypeRow}>
@@ -209,13 +214,18 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
                             ]}
                             onPress={() => handleRewardTypeChange(item.levelNumber, 'CASH')}
                           >
+                            <Ionicons
+                              name="cash-outline"
+                              size={13}
+                              color={item.rewardType === 'CASH' ? '#1D4ED8' : '#64748B'}
+                            />
                             <Text
                               style={[
                                 styles.rewardTypePillText,
                                 item.rewardType === 'CASH' && styles.rewardTypePillTextActive,
                               ]}
                             >
-                              💵 Tiền mặt
+                              Tiền mặt
                             </Text>
                           </TouchableOpacity>
 
@@ -226,13 +236,18 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
                             ]}
                             onPress={() => handleRewardTypeChange(item.levelNumber, 'PHYSICAL_ITEM')}
                           >
+                            <Ionicons
+                              name="cube-outline"
+                              size={13}
+                              color={item.rewardType === 'PHYSICAL_ITEM' ? '#1D4ED8' : '#64748B'}
+                            />
                             <Text
                               style={[
                                 styles.rewardTypePillText,
                                 item.rewardType === 'PHYSICAL_ITEM' && styles.rewardTypePillTextActive,
                               ]}
                             >
-                              🎁 Hiện vật
+                              Hiện vật
                             </Text>
                           </TouchableOpacity>
 
@@ -243,13 +258,18 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
                             ]}
                             onPress={() => handleRewardTypeChange(item.levelNumber, 'HYBRID')}
                           >
+                            <Ionicons
+                              name="layers-outline"
+                              size={13}
+                              color={(item.rewardType === 'HYBRID' || !item.rewardType) ? '#1D4ED8' : '#64748B'}
+                            />
                             <Text
                               style={[
                                 styles.rewardTypePillText,
                                 (item.rewardType === 'HYBRID' || !item.rewardType) && styles.rewardTypePillTextActive,
                               ]}
                             >
-                              ✨ Kết hợp
+                              Kết hợp
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -269,9 +289,12 @@ export const DepartmentLevelConfigModal: React.FC<DepartmentLevelConfigModalProp
                               }
                             />
                             {Boolean(item.promotionBonusAmount && item.promotionBonusAmount > 0) && (
-                              <Text style={styles.previewCashText}>
-                                💰 Thưởng: {item.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ
-                              </Text>
+                              <View style={styles.previewCashRow}>
+                                <Ionicons name="pricetag-outline" size={12} color="#059669" />
+                                <Text style={styles.previewCashText}>
+                                  Định mức thưởng: {item.promotionBonusAmount?.toLocaleString('vi-VN')} VNĐ
+                                </Text>
+                              </View>
                             )}
                           </View>
                         )}
@@ -435,14 +458,22 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     backgroundColor: '#FFFFFF',
   },
-  levelOneHint: {
-    fontSize: 11,
-    color: '#059669',
-    fontStyle: 'italic',
+  levelOneHintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 6,
     backgroundColor: '#ECFDF5',
     padding: 8,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  levelOneHint: {
+    fontSize: 11,
+    color: '#047857',
+    fontWeight: '500',
+    flex: 1,
   },
   rewardConfigSubBox: {
     marginTop: 8,
@@ -452,12 +483,20 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
+  rewardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 4,
+  },
   rewardSubTitle: {
     fontSize: 11,
     fontWeight: '700',
     color: '#1E40AF',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    letterSpacing: 0.3,
   },
   rewardTypeRow: {
     flexDirection: 'row',
@@ -466,7 +505,8 @@ const styles = StyleSheet.create({
   },
   rewardTypePill: {
     flex: 1,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    paddingVertical: 7,
     paddingHorizontal: 4,
     borderRadius: 6,
     borderWidth: 1,
@@ -474,6 +514,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
   },
   rewardTypePillActive: {
     backgroundColor: '#EFF6FF',
@@ -488,11 +529,16 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     fontWeight: '700',
   },
+  previewCashRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
   previewCashText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#059669',
-    marginTop: 3,
   },
   footer: {
     flexDirection: 'row',

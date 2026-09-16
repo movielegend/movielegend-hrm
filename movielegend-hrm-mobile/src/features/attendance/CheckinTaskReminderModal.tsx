@@ -6,8 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Vibration,
-} from 'react-native';
+  Vibration} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export interface PendingTaskItem {

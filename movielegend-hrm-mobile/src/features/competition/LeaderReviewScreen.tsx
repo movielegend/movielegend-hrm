@@ -6,15 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+  Platform,
+  StatusBar} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../../providers/AuthProvider';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { useLevelProjects } from '../leveling/levelProjectsStore';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export interface LeaderReviewItem {
   userId: string;
@@ -32,6 +33,7 @@ const ADMIN_REVIEWS_KEY = 'ADMIN_PENDING_ROUND1_REVIEWS';
 
 export const LeaderReviewScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { user } = useAuth();
   const { getSocket } = useSocketStatus();
   const leaderDeptId = (user as any)?.departmentId || user?.department?.id;
@@ -135,11 +137,11 @@ export const LeaderReviewScreen: React.FC = () => {
 
   const handleSubmitReviews = () => {
     if (reviews.length === 0) {
-      Alert.alert('Thông báo', 'Không có nhân sự nào cần duyệt Vòng 1.');
+      CustomAlert.alert('Thông báo', 'Không có nhân sự nào cần duyệt Vòng 1.');
       return;
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'Xác Nhận Gửi Duyệt Vòng 1',
       `Bạn có chắc chắn muốn gửi kết quả đánh giá thi đua Vòng 1 của ${reviews.length} nhân sự lên Admin phê duyệt cuối tháng?`,
       [
@@ -169,12 +171,12 @@ export const LeaderReviewScreen: React.FC = () => {
                 });
               }
 
-              Alert.alert(
+              CustomAlert.alert(
                 'Thành Công',
                 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin thành công! Danh sách đã được gạch bỏ khỏi trang duyệt Vòng 1 của Leader.'
               );
             } catch {
-              Alert.alert('Thành Công', 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin!');
+              CustomAlert.alert('Thành Công', 'Đã gửi Đề xuất Thi đua Vòng 1 lên Admin!');
             }
           },
         },
@@ -183,7 +185,8 @@ export const LeaderReviewScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { paddingTop: safeTopInset }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + Math.max(insets.bottom, 24) }]}>
         {/* Header */}
         <View style={styles.header}>
@@ -280,7 +283,7 @@ export const LeaderReviewScreen: React.FC = () => {
           <Text style={styles.submitBtnText}>GỬI KẾT QUẢ VÒNG 1 CHO ADMIN PHÊ DUYỆT</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

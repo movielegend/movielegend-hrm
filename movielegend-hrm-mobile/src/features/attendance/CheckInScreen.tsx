@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, Alert, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import {StyleSheet, Text, View, Pressable, ActivityIndicator, Modal, ScrollView} from 'react-native';
 import { AttendanceCamera } from './AttendanceCamera';
 import * as Location from 'expo-location';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -11,17 +11,21 @@ import MapView, { Marker, PROVIDER_GOOGLE } from '../../lib/Maps';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 import { Screen } from '../../components/Screen';
+import { CustomAlert } from '../../components/CustomAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { checkIn } from '../../api/attendance.api';
+import { checkIn, getAttendanceHistory } from '../../api/attendance.api';
 import { uploadFile } from '../../api/uploads.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../constants/queryKeys';
 import { useMySchedule } from '../../hooks/useShifts';
 import Toast from 'react-native-toast-message';
 
 export function CheckInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
 
   // Find today's shift
@@ -39,23 +43,38 @@ export function CheckInScreen() {
       try {
         const state = await NetInfo.fetch();
         if (state.type === 'wifi') {
-          const ssid = (state.details as any)?.ssid;
-          if (ssid && ssid !== '<unknown ssid>' && ssid !== 'unknown') {
-            setNetworkType(`Wi-Fi: ${ssid}`);
-          } else {
-            setNetworkType('Wi-Fi');
-          }
+          setNetworkType(`Wi-Fi: ${state.details?.ssid || 'Đã kết nối'}`);
         } else if (state.type === 'cellular') {
-          setNetworkType('Mạng Di động (4G/5G)');
+          setNetworkType(`Dữ liệu di động (${state.details?.cellularGeneration || '4G/5G'})`);
         } else {
-          setNetworkType(state.type ? String(state.type) : 'Không rõ');
+          setNetworkType('Không có kết nối mạng');
         }
-      } catch (e: any) {
-        setNetworkType('Lỗi: ' + e.message);
+      } catch {
+        setNetworkType('Không xác định');
       }
     };
+
     getNetworkInfo();
+    requestLocation();
   }, []);
+
+  const requestLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Ứng dụng cần quyền truy cập vị trí để chấm công.');
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      setLocation(loc);
+    } catch (err: any) {
+      setLocationError('Không thể lấy vị trí hiện tại. Vui lòng bật GPS.');
+    }
+  };
+
   const [isCameraVisible, setCameraVisible] = useState(false);
   const cameraRef = useRef<any>(null);
 
@@ -80,15 +99,11 @@ export function CheckInScreen() {
     }
   };
 
-  useEffect(() => {
-    void fetchLocation();
-  }, []);
-
 
 
   const handleConfirm = async () => {
-    if (locationError || !location) {
-      Alert.alert('Lỗi', locationError || 'Đang lấy vị trí, vui lòng chờ...');
+    if (!location) {
+      CustomAlert.alert('Chưa có vị trí', 'Vui lòng đợi ứng dụng lấy tọa độ GPS chính xác.');
       return;
     }
 
@@ -97,19 +112,20 @@ export function CheckInScreen() {
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
       if (hasHardware && isEnrolled) {
-        const authResult = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Xác nhận danh tính để chấm công',
-          fallbackLabel: 'Sử dụng mật khẩu',
+        const auth = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Xác thực sinh trắc học để vào ca',
+          fallbackLabel: 'Dùng mã PIN/Mật khẩu',
+          cancelLabel: 'Hủy',
         });
 
-        if (!authResult.success) {
-          Alert.alert('Xác thực thất bại', 'Bạn cần xác thực sinh trắc học hoặc mật khẩu điện thoại để tiếp tục.');
+        if (!auth.success) {
+          CustomAlert.alert('Xác thực thất bại', 'Cần xác thực sinh trắc học để tiếp tục.');
           return;
         }
       }
     } catch (err) {
       console.warn('Lỗi xác thực sinh trắc học:', err);
-      // Có thể bỏ qua nếu lỗi phần cứng hoặc tiếp tục tùy theo yêu cầu
+      // Có thể bỏ qua nếu lỗi phần hardware hoặc tiếp tục tùy theo yêu cầu
     }
 
     setCameraVisible(true);
@@ -122,11 +138,11 @@ export function CheckInScreen() {
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
-      // Compress image
+      // Fast lightweight image compression (30-40KB)
       const compressedImage = await ImageManipulator.manipulateAsync(
         photoUri,
-        [{ resize: { width: 600 } }],
-        { compress: 0.3, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 400 } }],
+        { compress: 0.25, format: ImageManipulator.SaveFormat.JPEG }
       );
 
       // Read file as base64
@@ -141,12 +157,34 @@ export function CheckInScreen() {
       };
 
       await checkIn(payload);
-      Alert.alert('Thành công', 'Vào ca thành công!', [
+      await queryClient.invalidateQueries({ queryKey: queryKeys.attendanceCurrent() });
+      await queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      CustomAlert.alert('Thành công', 'Vào ca thành công!', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
+      // If error is timeout, double check if attendance was actually recorded
+      const isTimeout = e.code === 'ECONNABORTED' || (e.message && e.message.toLowerCase().includes('timeout'));
+      if (isTimeout) {
+        try {
+          const history = await getAttendanceHistory({ limit: 1 });
+          const todayStr = new Date().toISOString().substring(0, 10);
+          const hasTodayCheckin = history.data?.some((r: any) => 
+            new Date(r.workDate).toISOString().substring(0, 10) === todayStr && !!r.checkInAt
+          );
+          if (hasTodayCheckin) {
+            CustomAlert.alert('Thành công', 'Vào ca thành công!', [
+              { text: 'OK', onPress: () => router.back() }
+            ]);
+            return;
+          }
+        } catch {
+          // ignore verification error
+        }
+      }
       const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
-      Alert.alert('Lỗi chấm công', msg);
+      CustomAlert.alert('Lỗi chấm công', msg);
     } finally {
       setLoading(false);
       setCameraVisible(false);

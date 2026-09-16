@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import {View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl} from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
@@ -10,6 +10,7 @@ import type { AssetDto } from '../../types/asset.types';
 import { normalizeApiError } from '../../utils/api-error';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function AdminAssetConditionScreen() {
   const [tab, setTab] = useState<'PENDING' | 'APPROVE'>('PENDING');
@@ -27,12 +28,12 @@ export function AdminAssetConditionScreen() {
       Toast.show({ type: 'success', text1: 'Đã cập nhật trạng thái' });
     },
     onError: (error) => {
-      Alert.alert('Lỗi', normalizeApiError(error).message);
+      CustomAlert.alert('Lỗi', normalizeApiError(error).message);
     }
   });
 
   const handleUpdate = (assetId: string, status: 'BROKEN' | 'OK') => {
-    Alert.alert(
+    CustomAlert.alert(
       'Xác nhận',
       `Bạn có chắc chắn đánh dấu vật tư này là ${status === 'BROKEN' ? 'Hỏng' : 'Chưa hỏng'}?`,
       [

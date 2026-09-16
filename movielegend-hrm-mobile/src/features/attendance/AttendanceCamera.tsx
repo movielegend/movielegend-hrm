@@ -38,7 +38,7 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
 
   const startCountdown = () => {
     if (capturing) return;
-    setCountdown(3); 
+    setCountdown(3);
   };
 
   const takePhotoAutomatically = async () => {
@@ -47,12 +47,10 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
     setError(null);
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.5, // Increased quality slightly for better face recognition
-        // Removed skipProcessing because it causes malformed JPEGs on Android
+        quality: 0.5,
       });
       if (photo?.uri) {
-        const normalizedUri = await normalizeAndCompressImage(photo.uri);
-        onCapture(normalizedUri);
+        onCapture(photo.uri);
       } else {
         throw new Error('Không thể lấy được ảnh chụp');
       }

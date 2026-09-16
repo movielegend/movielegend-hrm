@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator } from 'react-native';
+import {RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
@@ -34,7 +34,7 @@ import { useWarehouses } from '../../hooks/useWarehouses';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import type { AssetConditionStatus } from '../../types/asset.types';
+import type { AssetConditionStatus, AssetStatus } from '../../types/asset.types';
 import { formatDateTime } from '../../utils/date-time';
 import { hasPermission } from '../../utils/permissions';
 import { getScopedEmployees } from '../../api/employees.api';
@@ -43,6 +43,7 @@ import { queryKeys } from '../../constants/queryKeys';
 import {
   activeAssignment,
   assetConditionLabels,
+  assetStatusLabels,
   assignmentStatusTone,
   canConfirmAssignment,
   canReceiveReturn,
@@ -58,6 +59,7 @@ import {
 } from './asset.logic';
 import { AssetCard, AssetConditionBadge, AssetStatusBadge, MyAssetCard } from './AssetComponents';
 import { MaintenanceActionsSection } from '../asset-maintenance/MaintenanceScreens';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export type AssetArea = 'employee' | 'leader' | 'warehouse' | 'admin';
 
@@ -236,13 +238,18 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
   return (
     <Screen>
       <ScreenContainer refreshControl={<RefreshControl refreshing={assets.isRefetching} onRefresh={() => void assets.refetch()} />}>
-        <PageHeader title="Tài sản" subtitle="Backend scope theo vai trò; filter trạng thái là client-side trên dữ liệu backend trả." />
+        <PageHeader title="Quản lý Tài sản" subtitle="Danh sách và tình trạng toàn bộ tài sản, thiết bị" />
         {area === 'admin' && hasPermission(user, 'asset.create') ? (
           <PrimaryButton onPress={() => router.push('/admin/assets/create' as never)}>Tạo tài sản</PrimaryButton>
         ) : null}
         <View style={styles.chipRow}>
           {statuses.map((status) => (
-            <FilterChip key={status} label={status} selected={statusFilter === status} onPress={() => setStatusFilter(status)} />
+            <FilterChip
+              key={status}
+              label={status === 'ALL' ? 'Tất cả' : (assetStatusLabels[status as AssetStatus] || status)}
+              selected={statusFilter === status}
+              onPress={() => setStatusFilter(status)}
+            />
           ))}
         </View>
         {assets.isLoading ? <LoadingState /> : null}
@@ -278,7 +285,7 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
     if (asset.isError) {
       const err = asset.error as any;
       if (err?.response?.data?.code === 'ASSET_FORBIDDEN' || err?.response?.status === 403 || err?.message?.includes('403')) {
-        Alert.alert('Không có quyền', 'Vật tư bị thu hồi', [
+        CustomAlert.alert('Không có quyền', 'Vật tư bị thu hồi', [
           { text: 'OK', onPress: () => router.replace(`/${area}/assets` as never) }
         ]);
       }
@@ -549,7 +556,7 @@ export function AssetCreateScreen() {
   };
 
   const handleSelectImage = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Ảnh thiết bị',
       'Bạn muốn chọn ảnh từ đâu?',
       [
@@ -778,7 +785,7 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
   if (asset.isError) return <ErrorState error={asset.error} onRetry={() => void asset.refetch()} />;
   if (!asset.data) return <EmptyState title="Không tìm thấy tài sản" />;
   if (!isAssignable(asset.data)) {
-    return <EmptyState title="Tài sản không ở trạng thái IN_STOCK" message="Backend chỉ cho cấp phát tài sản trong kho." />;
+    return <EmptyState title="Tài sản không ở trong kho" message="Chỉ có thể cấp phát tài sản khi ở trạng thái Trong kho." />;
   }
 
   const targetChosen = targetType === 'USER' ? Boolean(assignedToUserId) : Boolean(assignedToDepartmentId);
@@ -817,7 +824,7 @@ export function AssetAssignScreen({ area }: { area: AssetArea }) {
           )}
         </SectionCard>
         <SectionCard title="Thông tin cấp phát">
-          <FormField label="Hạn trả dự kiến (ISO, tùy chọn)" value={expectedReturnAt} onChangeText={setExpectedReturnAt} placeholder="2026-08-01" autoCapitalize="none" />
+          <FormField label="Hạn trả dự kiến (YYYY-MM-DD, tùy chọn)" value={expectedReturnAt} onChangeText={setExpectedReturnAt} placeholder="VD: 2026-12-31" autoCapitalize="none" />
           <Text style={styles.sectionLabel}>Tình trạng khi cấp (mặc định theo tài sản)</Text>
           <View style={{ marginBottom: spacing.md }}>
             <Pressable style={styles.pickerContainer} onPress={() => setShowConditionSelect(true)}>

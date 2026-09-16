@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Image, ActivityIndicator, Alert, Modal } from 'react-native';
+import {View, Text, StyleSheet, Pressable, Image, ActivityIndicator, Modal} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../providers/AuthProvider';
 import { updateMe } from '../../../api/users.api';
 import { uploadFile } from '../../../api/uploads.api';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../../utils/mediaPermissions';
+import { CustomAlert } from '../../../components/CustomAlert';
 
 export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => string }) {
   const { user, reloadProfile } = useAuth();
@@ -61,7 +62,7 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
         await reloadProfile();
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', error.message || 'Có lỗi xảy ra khi cập nhật ảnh đại diện');
+      CustomAlert.alert('Lỗi', error.message || 'Có lỗi xảy ra khi cập nhật ảnh đại diện');
     } finally {
       setLoading(false);
     }

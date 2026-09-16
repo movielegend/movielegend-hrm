@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
@@ -16,9 +17,6 @@ import { FeedbackCard } from '../feedback/components/FeedbackCard';
 import { LiveClock } from '../../components/LiveClock';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ContourHeroPattern } from './components/ContourHeroPattern';
-
-const { width } = Dimensions.get('window');
-const GRID_ITEM_WIDTH = Math.floor((width - 32 - 12 * 2) / 3);
 
 const appleTheme = {
   bg: '#FFFFFF', // pure white background based on mockup
@@ -37,6 +35,7 @@ const appleTheme = {
 export function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
@@ -69,7 +68,10 @@ export function AdminDashboard() {
     queryFn: () => getVaultWithdrawalRequests({ limit: 1 }),
     staleTime: 1000 * 30,
   });
-  const pendingAdminCount = withdrawalData?.meta?.pendingAdminCount || 0;
+  const pendingAdminCount =
+    (withdrawalData as any)?.counts?.PENDING_ADMIN ??
+    (withdrawalData as any)?.meta?.pendingAdminCount ??
+    0;
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -98,8 +100,12 @@ export function AdminDashboard() {
   return (
     <Screen backgroundColor="#FAFAFA">
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
+        ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -195,71 +201,118 @@ export function AdminDashboard() {
           </View>
         </Pressable>
 
-        {/* Tiện ích (Leader-style layout with vibrant colors) */}
-        <View style={[styles.section, styles.utilitySection]}>
-          <Text style={styles.sectionTitle}>Tiện ích</Text>
-          <View style={styles.gridContainer}>
-            <GridItem
-              icon="crown-outline"
-              title="Cấu hình Level"
-              color="#D97706"
-              onPress={() => router.push('/admin/levels' as any)}
-            />
-            <GridItem
-              icon="shield-check-outline"
-              title="Duyệt Level"
-              color="#4F46E5"
-              onPress={() => router.push('/admin/competition/review' as any)}
-            />
-            <GridItem
-              icon="gift-outline"
-              title="Ví Thưởng"
-              color="#059669"
-              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'VÍ'}
-              badgeColor={pendingAdminCount > 0 ? '#EF4444' : '#D97706'}
-              onPress={() => router.push('/admin/tet-wallet' as any)}
-            />
-            <GridItem
-              icon="clipboard-check-outline"
-              title="Duyệt đơn"
-              color="#EA580C"
-              onPress={() => router.push('/leader/approvals')}
-            />
-            <GridItem
+        {/* Tiện ích thường dùng (Ma trận 4 cột hiện đại) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tiện ích thường dùng</Text>
+          <View style={styles.grid4Container}>
+            {/* Nhóm 1: Vận hành & Cơ cấu (Xanh dương hoàng gia) */}
+            <GridItem4
               icon="swap-horizontal"
               title="Chấm công"
               color="#2563EB"
-              onPress={() => router.push('/admin/attendance')}
+              bgColor="#EFF6FF"
+              onPress={() => router.push('/admin/attendance' as any)}
             />
-            <GridItem
-              icon="briefcase-outline"
-              title="Công việc"
-              color="#0284C7"
-              onPress={() => router.push('/admin/tasks')}
+            <GridItem4
+              icon="view-grid-outline"
+              title="Phân ca"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.push('/leader/shift-management' as any)}
             />
-            <GridItem
+            <GridItem4
+              icon="account-group-outline"
+              title="Nhân sự"
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.push('/admin/employees' as any)}
+            />
+            <GridItem4
               icon="domain"
               title="Cơ cấu PB"
-              color="#7C3AED"
-              onPress={() => router.push('/admin/branches')}
+              color="#2563EB"
+              bgColor="#EFF6FF"
+              onPress={() => router.push('/admin/branches' as any)}
             />
-            <GridItem
+
+            {/* Nhóm 2: Hành chính & Đơn từ (Teal thanh lịch) */}
+            <GridItem4
+              icon="clipboard-check-outline"
+              title="Duyệt đơn"
+              color="#0D9488"
+              bgColor="#F0FDFA"
+              onPress={() => router.push('/leader/approvals' as any)}
+            />
+            <GridItem4
               icon="file-document-outline"
               title="Hợp đồng"
               color="#0D9488"
-              onPress={() => router.push('/admin/contracts')}
+              bgColor="#F0FDFA"
+              onPress={() => router.push('/admin/contracts' as any)}
             />
-            <GridItem
+            <GridItem4
               icon="folder-text-outline"
               title="Tài liệu"
-              color="#2563EB"
+              color="#0D9488"
+              bgColor="#F0FDFA"
               onPress={() => router.push('/admin/documents' as any)}
             />
-            <GridItem
+
+            {/* Nhóm 3: Cấp bậc & Quỹ thưởng (Indigo sang trọng) */}
+            <GridItem4
+              icon="crown-outline"
+              title="Cấu hình Level"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/admin/levels' as any)}
+            />
+            <GridItem4
+              icon="shield-check-outline"
+              title="Duyệt Level"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/admin/competition/review' as any)}
+            />
+            <GridItem4
+              icon="gift-outline"
+              title="Ví Thưởng"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'VÍ'}
+              badgeColor={pendingAdminCount > 0 ? '#EF4444' : '#4F46E5'}
+              onPress={() => router.push('/admin/tet-wallet' as any)}
+            />
+            <GridItem4
+              icon="briefcase-outline"
+              title="Công việc"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/admin/tasks' as any)}
+            />
+
+            {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}
+            <GridItem4
+              icon="robot-outline"
+              title="Trợ lý AI"
+              color="#FFFFFF"
+              bgColor="#0F172A"
+              badge="AI"
+              badgeColor="#2563EB"
+              onPress={() => router.push('/admin/ai-chat' as any)}
+            />
+            <GridItem4
+              icon="laptop"
+              title="Tài sản"
+              color="#64748B"
+              bgColor="#F8FAFC"
+              onPress={() => router.push('/admin/assets' as any)}
+            />
+            <GridItem4
               icon="message-draw"
               title="Góp ý"
-              color="#E11D48"
-              onPress={() => router.push('/admin/feedbacks')}
+              color="#64748B"
+              bgColor="#F8FAFC"
+              onPress={() => router.push('/admin/feedbacks' as any)}
             />
           </View>
         </View>
@@ -305,6 +358,17 @@ export function AdminDashboard() {
         </View>
 
       </ScrollView>
+
+      {/* Floating AI Chat Button */}
+      <Pressable
+        style={[
+          styles.fab,
+          { bottom: Math.max(insets.bottom, 16) + 72 },
+        ]}
+        onPress={() => router.push('/admin/ai-chat' as any)}
+      >
+        <MaterialCommunityIcons name="robot-outline" size={26} color="#FFFFFF" />
+      </Pressable>
     </Screen>
   );
 }
@@ -318,27 +382,32 @@ function SummaryCard({ label, value }: { label: string, value: string }) {
   );
 }
 
-function GridItem({ icon, title, onPress, color, badge, badgeColor }: any) {
+const GridItem4 = React.memo(function GridItem4({
+  icon,
+  title,
+  onPress,
+  color,
+  bgColor,
+  badge,
+  badgeColor,
+}: any) {
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.gridItem,
-        pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
-      ]}
+      style={({ pressed }) => [styles.grid4Item, pressed && styles.grid4ItemPressed]}
       onPress={onPress}
     >
-      <View style={styles.gridIconContainer}>
-        <MaterialCommunityIcons name={icon} size={30} color={color || '#111827'} />
+      <View style={[styles.grid4IconContainer, bgColor ? { backgroundColor: bgColor } : undefined]}>
+        <MaterialCommunityIcons name={icon} size={23} color={color || '#1E293B'} />
         {badge && (
           <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
             <Text style={styles.badgeText}>{badge}</Text>
           </View>
         )}
       </View>
-      <Text style={styles.gridTitle} numberOfLines={2}>{title}</Text>
+      <Text style={styles.grid4Title} numberOfLines={1}>{title}</Text>
     </Pressable>
   );
-}
+});
 
 function TimelineItem({ icon, time, title, subtitle, isLast = false, color = '#111827' }: any) {
   return (
@@ -698,60 +767,64 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 10,
   },
-  gridContainer: {
+  grid4Container: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-  },
-  gridItem: {
-    width: GRID_ITEM_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
     elevation: 1,
-    aspectRatio: 1,
   },
-  gridIconContainer: {
+  grid4Item: {
+    width: '25%',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+  },
+  grid4ItemPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
+  },
+  grid4IconContainer: {
     width: 44,
     height: 44,
     borderRadius: 14,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
     position: 'relative',
   },
-  gridTitle: {
+  grid4Title: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#1E293B',
+    color: '#334155',
     textAlign: 'center',
-    lineHeight: 14,
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
     backgroundColor: '#EF4444',
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
-    paddingHorizontal: 3,
   },
   badgeText: {
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   summaryGrid: {
@@ -821,5 +894,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
     paddingBottom: 16,
-  }
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 999,
+  },
 });

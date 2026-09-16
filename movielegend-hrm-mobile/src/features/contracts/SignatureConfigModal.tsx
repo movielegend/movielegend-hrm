@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
+import {Modal, View, Text, TextInput, Pressable, StyleSheet} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { PrimaryButton } from '../../components/Buttons';
 import { useUpdateTemplateMapping } from '../../hooks/useContracts';
+import { CustomAlert } from '../../components/CustomAlert';
 
 interface SignatureConfigModalProps {
   visible: boolean;
@@ -35,7 +36,7 @@ export function SignatureConfigModal({ visible, onClose, templateId, initialConf
     const yNum = parseInt(y, 10);
 
     if (isNaN(pageNum) || isNaN(xNum) || isNaN(yNum)) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số hợp lệ');
+      CustomAlert.alert('Lỗi', 'Vui lòng nhập số hợp lệ');
       return;
     }
 
@@ -51,10 +52,10 @@ export function SignatureConfigModal({ visible, onClose, templateId, initialConf
           }
         ]
       });
-      Alert.alert('Thành công', 'Đã cập nhật vị trí chữ ký');
+      CustomAlert.alert('Thành công', 'Đã cập nhật vị trí chữ ký');
       onClose();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi', error?.message || 'Có lỗi xảy ra');
     }
   };
 

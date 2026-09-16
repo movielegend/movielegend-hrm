@@ -203,30 +203,12 @@ export class AttendanceService {
       photo = await this.prisma.uploadedFile.findUnique({ where: { id: finalPhotoId } });
     }
 
+    if (photo) {
+      this.applyWatermarkInBackground(photo, actor.userId, dto.latitude, dto.longitude);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       if (photo) {
-        // Áp dụng watermark lên ảnh chấm công TRƯỚC khi attach
-        try {
-          const user = await this.prisma.user.findUnique({ where: { id: actor.userId } });
-          const userProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
-          const imageBuffer = await this.storage.read(photo.storageKey);
-          const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
-            employeeName: userProfile?.fullName ?? 'Unknown',
-            userCode: user?.userCode ?? actor.userId,
-            latitude: dto.latitude,
-            longitude: dto.longitude,
-          });
-
-          await this.storage.upload({
-            buffer: watermarkedBuffer,
-            fileName: photo.fileName,
-            mimeType: 'image/jpeg',
-            storageKey: photo.storageKey,
-          });
-        } catch (error) {
-          console.warn('Watermark processing failed', error instanceof Error ? error.message : error);
-        }
-
         const attached = await tx.uploadedFile.updateMany({
           where: {
             id: photo.id,
@@ -324,29 +306,12 @@ export class AttendanceService {
       throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xác minh khuôn mặt không thành công');
     }
 
+    if (photo) {
+      this.applyWatermarkInBackground(photo, actor.userId, dto.latitude, dto.longitude);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       if (photo) {
-        try {
-          const user = await tx.user.findUnique({ where: { id: actor.userId } });
-          const userProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
-          const imageBuffer = await this.storage.read(photo.storageKey);
-          const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
-            employeeName: userProfile?.fullName ?? 'Unknown',
-            userCode: user?.userCode ?? actor.userId,
-            latitude: dto.latitude,
-            longitude: dto.longitude,
-          });
-
-          await this.storage.upload({
-            buffer: watermarkedBuffer,
-            fileName: photo.fileName,
-            mimeType: 'image/jpeg',
-            storageKey: photo.storageKey,
-          });
-        } catch (error) {
-          console.warn('Watermark processing failed', error instanceof Error ? error.message : error);
-        }
-
         const attached = await tx.uploadedFile.updateMany({
           where: {
             id: photo.id,
@@ -937,6 +902,36 @@ export class AttendanceService {
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private applyWatermarkInBackground(
+    photo: { storageKey: string; fileName: string },
+    actorUserId: string,
+    latitude?: number,
+    longitude?: number,
+  ) {
+    setImmediate(async () => {
+      try {
+        const user = await this.prisma.user.findUnique({ where: { id: actorUserId } });
+        const userProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actorUserId } });
+        const imageBuffer = await this.storage.read(photo.storageKey);
+        const watermarkedBuffer = await this.imageProcessing.addAttendanceWatermark(imageBuffer, {
+          employeeName: userProfile?.fullName ?? 'Unknown',
+          userCode: user?.userCode ?? actorUserId,
+          latitude,
+          longitude,
+        });
+
+        await this.storage.upload({
+          buffer: watermarkedBuffer,
+          fileName: photo.fileName,
+          mimeType: 'image/jpeg',
+          storageKey: photo.storageKey,
+        });
+      } catch (error) {
+        console.warn('Background watermark processing failed:', error instanceof Error ? error.message : error);
+      }
+    });
   }
 
   private departmentFilter(

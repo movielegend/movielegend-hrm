@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import {
   Pressable,
   ScrollView,
@@ -10,8 +10,7 @@ import {
   Linking,
   Image,
   Modal,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ContractScannerModal } from "./ContractScannerModal";
 import { ContractSignatureModal } from "./ContractSignatureModal";
@@ -29,9 +28,13 @@ import { resolveFileUrl } from "../../utils/url";
 import { normalizeApiError } from "../../utils/api-error";
 import { roleBase } from "../../utils/notification-routing";
 import { MultiSelectModal } from "../../components/MultiSelectModal";
+import { SelectModal, type SelectOption } from "../../components/SelectModal";
 import { CustomDatePickerModal } from "../../components/CustomDatePickerModal";
 import { useAppAlert } from "../../contexts/AlertContext";
 import { useEmployees } from "../../hooks/useEmployees";
+import { useDepartments } from "../../hooks/useDepartments";
+import { useRegions } from "../../api/regions.api";
+import { useBranches } from "../../api/branches.api";
 import {
   useContractTemplates,
   useContracts,
@@ -1074,17 +1077,182 @@ export function CreateContractScreen() {
   const templateId =
     typeof params.templateId === "string" ? params.templateId : undefined;
   const { data: templates } = useContractTemplates();
-  const employeesQuery = useEmployees({ limit: 200, page: 1 });
+  const employeesQuery = useEmployees({ limit: 500, page: 1 });
   const employeesData = Array.isArray(employeesQuery.data)
     ? employeesQuery.data
     : employeesQuery.data?.items || employeesQuery.data?.data || [];
-  const employeeOptions = employeesData.map((e: any) => ({
-    id: e.id,
-    label: e.profile?.fullName ?? e.userCode ?? e.email,
-    subtitle: e.email,
-  }));
+
+  // Region, Branch & Department filter state
+  const [selectedRegionId, setSelectedRegionId] = useState<string>("ALL");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("ALL");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("ALL");
+  const [isRegionSelectVisible, setRegionSelectVisible] = useState(false);
+  const [isBranchSelectVisible, setBranchSelectVisible] = useState(false);
+  const [isDeptSelectVisible, setDeptSelectVisible] = useState(false);
+
+  const regionsQuery = useRegions();
+  const branchesQuery = useBranches();
+  const departmentsQuery = useDepartments({ limit: 1000 });
+  const regions = regionsQuery.data || [];
+  const branches = branchesQuery.data || [];
+  const departmentsData = Array.isArray(departmentsQuery.data)
+    ? departmentsQuery.data
+    : departmentsQuery.data?.items || departmentsQuery.data?.data || [];
+
+  const regionOptions: SelectOption[] = useMemo(() => {
+    return [
+      { id: "ALL", label: "Tất cả các Miền" },
+      ...regions.map((r: any) => ({ id: r.id, label: r.name })),
+    ];
+  }, [regions]);
+
+  const availableBranches = useMemo(() => {
+    if (selectedRegionId === "ALL") return branches;
+    return branches.filter(
+      (b: any) => b.regionId === selectedRegionId || b.region?.id === selectedRegionId
+    );
+  }, [branches, selectedRegionId]);
+
+  const branchOptions: SelectOption[] = useMemo(() => {
+    return [
+      { id: "ALL", label: "Tất cả Chi nhánh" },
+      ...availableBranches.map((b: any) => ({ id: b.id, label: b.name })),
+    ];
+  }, [availableBranches]);
+
+  const availableDepartments = useMemo(() => {
+    return departmentsData.filter((d: any) => {
+      const dBranchId = d.branchId || d.branch?.id;
+      // If branch selected, must match branch
+      if (selectedBranchId !== "ALL") {
+        return dBranchId === selectedBranchId;
+      }
+      // If only region selected, must match any branch in that region
+      if (selectedRegionId !== "ALL") {
+        const branchIdsInRegion = new Set(availableBranches.map((b: any) => b.id));
+        return (dBranchId && branchIdsInRegion.has(dBranchId)) || d.branch?.regionId === selectedRegionId || d.branch?.region?.id === selectedRegionId;
+      }
+      return true;
+    });
+  }, [departmentsData, selectedBranchId, selectedRegionId, availableBranches]);
+
+  const departmentOptions: SelectOption[] = useMemo(() => {
+    return [
+      { id: "ALL", label: "Tất cả Phòng ban" },
+      ...availableDepartments.map((d: any) => ({ id: d.id, label: d.name })),
+    ];
+  }, [availableDepartments]);
+
+  const handleSelectRegion = (rId: string) => {
+    setSelectedRegionId(rId);
+    if (rId !== "ALL" && selectedBranchId !== "ALL") {
+      const branchStillValid = branches.some(
+        (b: any) => b.id === selectedBranchId && (b.regionId === rId || b.region?.id === rId)
+      );
+      if (!branchStillValid) {
+        setSelectedBranchId("ALL");
+      }
+    }
+    if (selectedDepartmentId !== "ALL") {
+      const dept = departmentsData.find((d: any) => d.id === selectedDepartmentId);
+      const dBranchId = dept?.branchId || dept?.branch?.id;
+      if (rId !== "ALL" && dBranchId) {
+        const dBranch = branches.find((b: any) => b.id === dBranchId);
+        const dRegionId = dBranch?.regionId || dBranch?.region?.id || dept?.branch?.regionId;
+        if (dRegionId && dRegionId !== rId) {
+          setSelectedDepartmentId("ALL");
+        }
+      }
+    }
+  };
+
+  const handleSelectBranch = (bId: string) => {
+    setSelectedBranchId(bId);
+    if (bId !== "ALL" && selectedDepartmentId !== "ALL") {
+      const dept = departmentsData.find((d: any) => d.id === selectedDepartmentId);
+      const dBranchId = dept?.branchId || dept?.branch?.id;
+      if (dBranchId && dBranchId !== bId) {
+        setSelectedDepartmentId("ALL");
+      }
+    }
+  };
+
+  // Filter out Admins and filter by selected Region / Branch / Department
+  const filteredEmployees = useMemo(() => {
+    return employeesData.filter((e: any) => {
+      // 1. Bỏ các Admin
+      const isRoleAdmin = e.roles?.some((r: any) => 
+        r.role?.code === "ADMIN" || r.role?.code === "SUPER_ADMIN"
+      );
+      const emailIsAdmin = e.email?.toLowerCase().includes("admin");
+      const nameIsAdmin = (e.profile?.fullName || e.fullName || "").toLowerCase().includes("admin");
+      const codeIsAdmin = (e.userCode || "").toLowerCase().includes("admin");
+      if (isRoleAdmin || emailIsAdmin || nameIsAdmin || codeIsAdmin) {
+        return false;
+      }
+
+      // 2. Lấy thông tin phòng ban, chi nhánh, miền
+      const link = e.departmentLinks?.[0];
+      const deptBranchId = link?.department?.branchId || link?.department?.branch?.id;
+      const matchedBranch = branches.find((b: any) => b.id === deptBranchId);
+      const userBranchId = matchedBranch?.id || deptBranchId;
+      const userRegionId = matchedBranch?.regionId || matchedBranch?.region?.id || link?.department?.branch?.regionId || link?.department?.branch?.region?.id;
+
+      // 3. Lọc theo Miền nếu chọn
+      if (selectedRegionId !== "ALL") {
+        if (!userRegionId || userRegionId !== selectedRegionId) {
+          return false;
+        }
+      }
+
+      // 4. Lọc theo Chi nhánh nếu chọn
+      if (selectedBranchId !== "ALL") {
+        if (!userBranchId || userBranchId !== selectedBranchId) {
+          return false;
+        }
+      }
+
+      // 5. Lọc theo Phòng ban nếu chọn
+      if (selectedDepartmentId !== "ALL") {
+        const belongsToDept = e.departmentLinks?.some((l: any) => 
+          (l.departmentId === selectedDepartmentId || l.department?.id === selectedDepartmentId)
+        );
+        if (!belongsToDept) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [employeesData, branches, selectedRegionId, selectedBranchId, selectedDepartmentId]);
+
+  const employeeOptions = useMemo(() => {
+    return filteredEmployees.map((e: any) => {
+      const link = e.departmentLinks?.[0];
+      const deptName = link?.department?.name;
+      const deptBranchId = link?.department?.branchId || link?.department?.branch?.id;
+      const matchedBranch = branches.find((b: any) => b.id === deptBranchId);
+      const branchName = matchedBranch?.name || link?.department?.branch?.name;
+      const matchedRegion = regions.find((r: any) => r.id === (matchedBranch?.regionId || matchedBranch?.region?.id));
+      const regionName = matchedRegion?.name || matchedBranch?.region?.name || link?.department?.branch?.region?.name;
+      const positionName = link?.position?.name;
+
+      const subParts = [positionName, deptName, branchName, regionName].filter(Boolean);
+      const subtitle = subParts.length > 0 ? subParts.join(" · ") : (e.email || e.userCode);
+
+      return {
+        id: e.id,
+        label: e.profile?.fullName ?? e.userCode ?? e.email,
+        subtitle,
+      };
+    });
+  }, [filteredEmployees, branches, regions]);
 
   const [userIds, setUserIds] = useState<string[]>([]);
+  const [successModalInfo, setSuccessModalInfo] = useState<{
+    visible: boolean;
+    count: number;
+  }>({ visible: false, count: 0 });
   const [contractType, setContractType] = useState<ContractType>("FIXED_TERM");
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString());
@@ -1132,6 +1300,7 @@ export function CreateContractScreen() {
       if (!versionId)
         throw new Error("Mẫu hợp đồng này chưa có phiên bản hợp lệ");
 
+      const createdCount = userIds.length;
       await Promise.all(
         userIds.map(async (userId) => {
           return createContractMutation.mutateAsync({
@@ -1146,12 +1315,7 @@ export function CreateContractScreen() {
         }),
       );
 
-      if (window && typeof window.alert === "function") {
-        window.alert("Đã tạo hợp đồng thành công");
-      } else {
-        showAlert("Thành công", "Đã tạo hợp đồng");
-      }
-      router.replace(`${roleBase(user)}/contracts` as any);
+      setSuccessModalInfo({ visible: true, count: createdCount });
     } catch (error: any) {
       showAlert("Lỗi", normalizeApiError(error).message);
     }
@@ -1163,6 +1327,39 @@ export function CreateContractScreen() {
         <PageHeader title="Tạo Hợp đồng" subtitle="Tạo hợp đồng mới từ mẫu" />
 
         <View style={styles.formCard}>
+          <Field icon="map-marker-radius-outline" label="Khu vực (Miền)">
+            <Pressable
+              style={styles.input}
+              onPress={() => setRegionSelectVisible(true)}
+            >
+              <Text style={{ fontSize: 15, color: colors.text }}>
+                {regionOptions.find((r) => r.id === selectedRegionId)?.label || "Tất cả các Miền"}
+              </Text>
+            </Pressable>
+          </Field>
+
+          <Field icon="office-building-outline" label="Chi nhánh">
+            <Pressable
+              style={styles.input}
+              onPress={() => setBranchSelectVisible(true)}
+            >
+              <Text style={{ fontSize: 15, color: colors.text }}>
+                {branchOptions.find((b) => b.id === selectedBranchId)?.label || "Tất cả Chi nhánh"}
+              </Text>
+            </Pressable>
+          </Field>
+
+          <Field icon="domain" label="Phòng ban">
+            <Pressable
+              style={styles.input}
+              onPress={() => setDeptSelectVisible(true)}
+            >
+              <Text style={{ fontSize: 15, color: colors.text }}>
+                {departmentOptions.find((d) => d.id === selectedDepartmentId)?.label || "Tất cả Phòng ban"}
+              </Text>
+            </Pressable>
+          </Field>
+
           <Field icon="account-multiple-outline" label="Nhân viên">
             <Pressable
               style={styles.input}
@@ -1198,8 +1395,8 @@ export function CreateContractScreen() {
             </Pressable>
           </Field>
 
-          {contractType !== "INDEFINITE_TERM" && (
-            <Field icon="calendar-end" label="Ngày kết thúc">
+          <Field icon="calendar-end" label="Ngày kết thúc">
+            {contractType !== "INDEFINITE_TERM" ? (
               <Pressable
                 style={styles.input}
                 onPress={() => setDatePickerState("end")}
@@ -1208,8 +1405,12 @@ export function CreateContractScreen() {
                   {endDate ? formatDate(endDate) : "Chọn ngày"}
                 </Text>
               </Pressable>
-            </Field>
-          )}
+            ) : (
+              <View style={[styles.input, { opacity: 0.6 }]}>
+                <Text style={{ color: colors.muted }}>Vô thời hạn (Không có ngày kết thúc)</Text>
+              </View>
+            )}
+          </Field>
 
           <View style={{ marginTop: 12 }}>
             <PrimaryButton
@@ -1221,6 +1422,42 @@ export function CreateContractScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <SelectModal
+        visible={isRegionSelectVisible}
+        title="Chọn Miền / Khu vực"
+        options={regionOptions}
+        selectedValue={selectedRegionId}
+        onSelect={(opt) => {
+          handleSelectRegion(opt.id || "ALL");
+          setRegionSelectVisible(false);
+        }}
+        onClose={() => setRegionSelectVisible(false)}
+      />
+
+      <SelectModal
+        visible={isBranchSelectVisible}
+        title="Chọn Chi nhánh"
+        options={branchOptions}
+        selectedValue={selectedBranchId}
+        onSelect={(opt) => {
+          handleSelectBranch(opt.id || "ALL");
+          setBranchSelectVisible(false);
+        }}
+        onClose={() => setBranchSelectVisible(false)}
+      />
+
+      <SelectModal
+        visible={isDeptSelectVisible}
+        title="Chọn Phòng ban"
+        options={departmentOptions}
+        selectedValue={selectedDepartmentId}
+        onSelect={(opt) => {
+          setSelectedDepartmentId(opt.id || "ALL");
+          setDeptSelectVisible(false);
+        }}
+        onClose={() => setDeptSelectVisible(false)}
+      />
 
       <MultiSelectModal
         visible={isEmployeeSelectVisible}
@@ -1254,6 +1491,50 @@ export function CreateContractScreen() {
           setDatePickerState(null);
         }}
       />
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={successModalInfo.visible}
+        onRequestClose={() => {
+          setSuccessModalInfo({ visible: false, count: 0 });
+          router.replace(`${roleBase(user)}/contracts` as any);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.successModalCard}>
+            <View style={styles.successIconCircle}>
+              <MaterialCommunityIcons name="check-circle" size={44} color="#10B981" />
+            </View>
+            <Text style={styles.successModalTitle}>Tạo hợp đồng thành công!</Text>
+            <Text style={styles.successModalMessage}>
+              {`Đã tạo thành công ${successModalInfo.count} hợp đồng cho nhân viên đã chọn.\nBạn có thể kiểm tra danh sách hợp đồng ngay bây giờ.`}
+            </Text>
+
+            <View style={styles.successModalActions}>
+              <PrimaryButton
+                style={{ width: "100%", marginBottom: 10 }}
+                onPress={() => {
+                  setSuccessModalInfo({ visible: false, count: 0 });
+                  router.replace(`${roleBase(user)}/contracts` as any);
+                }}
+              >
+                Xem danh sách hợp đồng
+              </PrimaryButton>
+
+              <SecondaryButton
+                style={{ width: "100%" }}
+                onPress={() => {
+                  setSuccessModalInfo({ visible: false, count: 0 });
+                  setUserIds([]);
+                }}
+              >
+                Tiếp tục tạo mới
+              </SecondaryButton>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -1285,6 +1566,52 @@ function Field({
 // ── Styles ──
 
 const styles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  successModalCard: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  successIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "#ECFDF5",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  successModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  successModalMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  successModalActions: {
+    width: "100%",
+  },
   fieldGroup: {
     gap: 8,
     marginBottom: 20,

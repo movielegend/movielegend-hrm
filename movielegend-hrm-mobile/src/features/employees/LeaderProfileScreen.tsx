@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   scrollContent: {
-    paddingBottom: spacing.xxl,
+    paddingBottom: 140,
   },
   headerBg: {
     backgroundColor: '#111827',

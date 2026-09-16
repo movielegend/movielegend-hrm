@@ -10,10 +10,8 @@ import {
   Pressable,
   TextInput,
   Image,
-  Alert,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -31,6 +29,7 @@ import {
 import { useLevelGmv } from './levelGmvStore';
 import { levelingApi, UserLevelProgressData } from '../../api/leveling.api';
 import { NextLevelPerksAppendixModal } from './NextLevelPerksAppendixModal';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export interface LevelPerkItem {
   id: string;
@@ -331,6 +330,7 @@ export const getMetalTheme = (level: number): MetalTheme => {
 export const TikTokStyleLevelingScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const { user } = useAuth();
 
   // Load level stored or approved from Backend API & SecureStore
@@ -439,7 +439,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         if (payload.targetLevelNumber) {
           setApprovedLevelNumber(payload.targetLevelNumber);
           setSelectedLevel(payload.targetLevelNumber);
-          Alert.alert(
+          CustomAlert.alert(
             'CHÚC MỪNG BẠN ĐÃ ĐƯỢC THĂNG CẤP!',
             `Admin đã chốt phê duyệt thăng cấp cho bạn lên ${payload.targetLevelName || `Level ${payload.targetLevelNumber}`}!`
           );
@@ -641,7 +641,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
         setEvidenceImages((prev) => [...prev, ...newUris]);
       }
     } catch {
-      Alert.alert('Thông báo', 'Không thể mở thư viện ảnh');
+      CustomAlert.alert('Thông báo', 'Không thể mở thư viện ảnh');
     }
   };
 
@@ -652,7 +652,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
   const handleSubmitReport = () => {
     if (!activeReportTask) return;
     if (!reportNote.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả thực hiện.');
+      CustomAlert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả thực hiện.');
       return;
     }
 
@@ -665,7 +665,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     );
 
     setActiveReportTask(null);
-    Alert.alert('Thành Công', 'Đã nộp báo cáo kết quả và minh chứng.');
+    CustomAlert.alert('Thành Công', 'Đã nộp báo cáo kết quả và minh chứng.');
   };
 
   // Modals
@@ -685,7 +685,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
 
   const handleSendAccessRequest = async () => {
     if (!user?.id) {
-      Alert.alert('Lỗi', 'Vui lòng đăng nhập để gửi yêu cầu.');
+      CustomAlert.alert('Lỗi', 'Vui lòng đăng nhập để gửi yêu cầu.');
       return;
     }
     setIsSubmittingAccessRequest(true);
@@ -704,12 +704,12 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       });
       setRequestAccessModalVisible(false);
       setRequestReasonText('');
-      Alert.alert(
+      CustomAlert.alert(
         'Đã Gửi Yêu Cầu Xin Làm Dự Án',
         `Yêu cầu làm dự án ${selectedTier.levelName} đã được gửi tới Trưởng nhóm (Leader). Khi Leader phê duyệt, bạn sẽ được phép nhận việc con và nộp báo cáo!`
       );
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu lúc này.');
+      CustomAlert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu lúc này.');
     } finally {
       setIsSubmittingAccessRequest(false);
     }
@@ -738,13 +738,13 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
     const flr = parseFloat(inputFloorGmv) || 0;
 
     if (ceil <= 0) {
-      Alert.alert('Lỗi', 'Mục tiêu nâng cấp (GMV) phải lớn hơn 0.');
+      CustomAlert.alert('Lỗi', 'Mục tiêu nâng cấp (GMV) phải lớn hơn 0.');
       return;
     }
 
     updateGmv(selectedTier.levelNumber, cur, ceil, flr, userDisplayName);
     setEditGmvModalVisible(false);
-    Alert.alert('Thành Công', `Đã cập nhật doanh số ${selectedTier.levelName} thành công và đồng bộ realtime!`);
+    CustomAlert.alert('Thành Công', `Đã cập nhật doanh số ${selectedTier.levelName} thành công và đồng bộ realtime!`);
   };
 
   return (
@@ -1425,7 +1425,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
       {/* ===================================================================== */}
       <Modal visible={activeReportTask !== null} animationType="slide" transparent={false} onRequestClose={() => setActiveReportTask(null)}>
         <View style={styles.reportModalContainer}>
-          <SafeAreaView style={styles.reportTopSafeArea} edges={['top']}>
+          <View style={[styles.reportTopSafeArea, { paddingTop: safeTopInset }]}>
             <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
             <View style={styles.reportModalHeader}>
               <View style={{ flex: 1 }}>
@@ -1438,7 +1438,7 @@ export const TikTokStyleLevelingScreen: React.FC = () => {
                 <Text style={styles.reportModalCloseBtnText}>Đóng</Text>
               </TouchableOpacity>
             </View>
-          </SafeAreaView>
+          </View>
 
           <KeyboardAvoidingView
             style={{ flex: 1 }}
@@ -2346,6 +2346,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+  },
+  projectLevelTagBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F766E',
   },
   tierRewardCard: {
     backgroundColor: '#FFFBEB',

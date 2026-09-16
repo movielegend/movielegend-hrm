@@ -1,5 +1,5 @@
 import { NewsfeedListScreen } from '../../../src/features/newsfeed/NewsfeedScreens';
 
-export default function HRNewsfeedTab() {
+export default function HRNewsTab() {
   return <NewsfeedListScreen canModerate={true} />;
 }

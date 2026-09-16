@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { spacing } from '../../../src/theme/spacing';
 import { shadows } from '../../../src/theme/shadows';
 import { getMyShiftSwaps, updateShiftSwapStatus } from '../../../src/api/shift-swaps.api';
 import { useAuth } from '../../../src/providers/AuthProvider';
+import { CustomAlert } from '../../../src/components/CustomAlert';
 
 export default function ShiftSwapsScreen() {
   const router = useRouter();
@@ -28,19 +29,19 @@ export default function ShiftSwapsScreen() {
       queryClient.invalidateQueries({ queryKey: ['shift-swaps-me'] });
     },
     onError: (err: any) => {
-      Alert.alert('Lỗi', err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert('Lỗi', err?.message || 'Có lỗi xảy ra');
     }
   });
 
   const handleTargetApprove = (id: string) => {
-    Alert.alert('Xác nhận', 'Bạn có đồng ý đổi ca với nhân viên này?', [
+    CustomAlert.alert('Xác nhận', 'Bạn có đồng ý đổi ca với nhân viên này?', [
       { text: 'Hủy', style: 'cancel' },
       { text: 'Đồng ý', onPress: () => updateStatusMutation.mutate({ id, status: 'PENDING_LEADER_APPROVAL' }) },
     ]);
   };
 
   const handleTargetReject = (id: string) => {
-    Alert.alert('Từ chối', 'Bạn muốn từ chối yêu cầu đổi ca này?', [
+    CustomAlert.alert('Từ chối', 'Bạn muốn từ chối yêu cầu đổi ca này?', [
       { text: 'Hủy', style: 'cancel' },
       { text: 'Từ chối', style: 'destructive', onPress: () => updateStatusMutation.mutate({ id, status: 'REJECTED', reason: 'Người được đổi ca từ chối' }) },
     ]);

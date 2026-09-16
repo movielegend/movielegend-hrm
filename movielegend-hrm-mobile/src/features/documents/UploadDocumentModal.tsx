@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -9,8 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery } from '@tanstack/react-query';
@@ -57,23 +55,28 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
     queryFn: () => getDepartments({ limit: 100 }),
   });
 
-  const isGlobalAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(
+  const isHR = Boolean(user?.roles?.includes('HR'));
+  const isGlobalAdmin = (user?.roles?.includes('ADMIN') && user?.scopes?.some(
     (s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType)
-  );
-  const isRegionAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(
+  )) || Boolean(user?.roles?.includes('SUPER_ADMIN'));
+  const isRegionAdmin = Boolean(user?.roles?.includes('ADMIN') && user?.scopes?.some(
     (s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION'
-  );
-  const isLeader = user?.roles?.includes('LEADER');
+  ));
+  const isLeader = Boolean(user?.roles?.includes('LEADER'));
+
+  const canPostCompanyWide = isGlobalAdmin || isHR;
 
   const departmentOptions: SelectOption[] = useMemo(() => {
     const opts: SelectOption[] = [];
-    if (isGlobalAdmin) {
-      opts.push({ id: '__ALL__', value: '__ALL__', label: '🌐 Toàn công ty (Tất cả phòng ban)' });
+    if (canPostCompanyWide) {
+      opts.push({ id: '__ALL__', value: '__ALL__', label: 'Toàn công ty (Tất cả phòng ban)' });
+    } else if (isRegionAdmin) {
+      opts.push({ id: '__REGION_ALL__', value: '__REGION_ALL__', label: 'Toàn miền (Tất cả phòng ban trong miền)' });
     }
 
     let items = deptData?.items || [];
-    if (isGlobalAdmin) {
-      // Super Admin: xem hết
+    if (canPostCompanyWide) {
+      // Super Admin & HR: xem và đăng cho toàn bộ các phòng ban
     } else if (isRegionAdmin) {
       const regionIds = user?.scopes
         ?.filter((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId)
@@ -91,13 +94,19 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
       opts.push({ id: d.id, value: d.id, label: `${d.name}${branchName}` });
     });
     return opts;
-  }, [deptData, isGlobalAdmin, isRegionAdmin, isLeader, user]);
+  }, [deptData, canPostCompanyWide, isRegionAdmin, isLeader, user]);
 
   React.useEffect(() => {
-    if (!selectedDeptId && !isGlobalAdmin && departmentOptions.length === 1 && departmentOptions[0]) {
-      setSelectedDeptId(departmentOptions[0].value || null);
+    if (!selectedDeptId) {
+      if (canPostCompanyWide) {
+        setSelectedDeptId(currentDepartmentId || '__ALL__');
+      } else if (isRegionAdmin) {
+        setSelectedDeptId(currentDepartmentId || '__REGION_ALL__');
+      } else if (departmentOptions.length === 1 && departmentOptions[0]) {
+        setSelectedDeptId(departmentOptions[0].value || null);
+      }
     }
-  }, [departmentOptions, isGlobalAdmin, selectedDeptId]);
+  }, [departmentOptions, canPostCompanyWide, isRegionAdmin, selectedDeptId, currentDepartmentId]);
 
   const handlePickFile = async () => {
     try {
@@ -124,7 +133,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
         setTitle(cleanName);
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể chọn file');
+      CustomAlert.alert('Lỗi', err.message || 'Không thể chọn file');
     }
   };
 
@@ -139,17 +148,17 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
 
   const handleSubmit = async () => {
     if (!selectedFile) {
-      Alert.alert('Thiếu tệp', 'Vui lòng chọn file tài liệu cần tải lên');
+      CustomAlert.alert('Thiếu tệp', 'Vui lòng chọn file tài liệu cần tải lên');
       return;
     }
     if (!title.trim()) {
-      Alert.alert('Thiếu tiêu đề', 'Vui lòng nhập tên tài liệu');
+      CustomAlert.alert('Thiếu tiêu đề', 'Vui lòng nhập tên tài liệu');
       return;
     }
-    if (!isGlobalAdmin && (!selectedDeptId || selectedDeptId === '__ALL__')) {
-      Alert.alert(
+    if (!canPostCompanyWide && !isRegionAdmin && (!selectedDeptId || selectedDeptId === '__ALL__' || selectedDeptId === '__REGION_ALL__')) {
+      CustomAlert.alert(
         'Chưa chọn phòng ban',
-        'Vui lòng chọn phòng ban cụ thể trong danh sách áp dụng. Chỉ Admin tổng mới có quyền đăng tài liệu cho toàn công ty.'
+        'Vui lòng chọn phòng ban cụ thể trong danh sách áp dụng. Chỉ Admin tổng hoặc Nhân sự (HR) mới có quyền đăng tài liệu cho toàn công ty.'
       );
       return;
     }
@@ -166,18 +175,64 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
       });
 
       // 2. Tạo bản ghi DepartmentDocument và gắn fileId
-      await createMutation.mutateAsync({
-        departmentId: selectedDeptId === '__ALL__' ? undefined : (selectedDeptId || undefined),
-        title: title.trim(),
-        description: description.trim() || undefined,
-        category,
-        fileName: selectedFile.name,
-        fileUrl: uploaded.fileUrl,
-        storageKey: (uploaded as any).storageKey,
-        fileId: uploaded.fileId,
-        mimeType: selectedFile.mimeType,
-        fileSize: selectedFile.size,
-      });
+      if (selectedDeptId === '__REGION_ALL__') {
+        const regionDeptIds = departmentOptions
+          .filter((opt) => opt.value !== '__REGION_ALL__' && opt.value !== '__ALL__' && opt.value)
+          .map((opt) => opt.value);
+
+        if (regionDeptIds.length === 0) {
+          throw new Error('Không tìm thấy phòng ban nào thuộc miền quản lý của bạn.');
+        }
+
+        const [firstDeptId, ...otherDeptIds] = regionDeptIds;
+
+        // Đính kèm fileId ở phòng ban đầu tiên để đánh dấu file là ATTACHED
+        await createMutation.mutateAsync({
+          departmentId: firstDeptId,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          category,
+          fileName: selectedFile.name,
+          fileUrl: uploaded.fileUrl,
+          storageKey: (uploaded as any).storageKey,
+          fileId: uploaded.fileId,
+          mimeType: selectedFile.mimeType,
+          fileSize: selectedFile.size,
+        });
+
+        // Các phòng ban còn lại dùng chung fileUrl (không truyền lại fileId để tránh lỗi UPLOAD_ALREADY_ATTACHED)
+        if (otherDeptIds.length > 0) {
+          await Promise.all(
+            otherDeptIds.map((dId) =>
+              createMutation.mutateAsync({
+                departmentId: dId,
+                title: title.trim(),
+                description: description.trim() || undefined,
+                category,
+                fileName: selectedFile.name,
+                fileUrl: uploaded.fileUrl,
+                storageKey: (uploaded as any).storageKey,
+                fileId: undefined,
+                mimeType: selectedFile.mimeType,
+                fileSize: selectedFile.size,
+              })
+            )
+          );
+        }
+      } else {
+        await createMutation.mutateAsync({
+          departmentId: selectedDeptId === '__ALL__' ? undefined : (selectedDeptId || undefined),
+          title: title.trim(),
+          description: description.trim() || undefined,
+          category,
+          fileName: selectedFile.name,
+          fileUrl: uploaded.fileUrl,
+          storageKey: (uploaded as any).storageKey,
+          fileId: uploaded.fileId,
+          mimeType: selectedFile.mimeType,
+          fileSize: selectedFile.size,
+        });
+      }
 
       handleReset();
       onSuccess();
@@ -193,15 +248,17 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
         err.response?.data?.error?.message ||
         err.message ||
         'Không thể lưu tài liệu. Vui lòng thử lại.';
-      Alert.alert('Lỗi tải lên', errorMsg);
+      CustomAlert.alert('Lỗi tải lên', errorMsg);
     } finally {
       setIsUploading(false);
     }
   };
 
   const categoryLabel = CATEGORIES.find((c) => (c.value || c.id) === category)?.label || category;
-  const deptLabel = selectedDeptId === '__ALL__'
-    ? '🌐 Toàn công ty'
+  const deptLabel = (selectedDeptId === '__ALL__' || (!selectedDeptId && canPostCompanyWide))
+    ? 'Toàn công ty (Tất cả phòng ban)'
+    : (selectedDeptId === '__REGION_ALL__' || (!selectedDeptId && isRegionAdmin))
+    ? 'Toàn miền (Tất cả phòng ban trong miền)'
     : departmentOptions.find((d) => (d.id || d.value) === selectedDeptId)?.label || 'Chọn phòng ban áp dụng...';
 
   return (
@@ -279,7 +336,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
             {/* Chọn Phòng ban áp dụng */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
-                Phạm vi áp dụng {!isGlobalAdmin && <Text style={{ color: '#EF4444' }}>*</Text>}
+                Phạm vi áp dụng {!canPostCompanyWide && <Text style={{ color: '#EF4444' }}>*</Text>}
               </Text>
               <Pressable
                 style={styles.selectBtn}
@@ -291,7 +348,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
                   <MaterialCommunityIcons name="chevron-down" size={20} color="#6B7280" />
                 )}
               </Pressable>
-              {!isGlobalAdmin && (
+              {!canPostCompanyWide && (
                 <Text style={styles.hintText}>
                   * Vui lòng chọn phòng ban trực thuộc miền/chi nhánh bạn quản lý
                 </Text>

@@ -16,8 +16,7 @@ import {
   ScrollView,
   Keyboard,
   KeyboardAvoidingView,
-  ActivityIndicator,
-} from 'react-native';
+  ActivityIndicator} from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { registerEmployee, checkAccountAvailability } from '../../api/registration.api';
