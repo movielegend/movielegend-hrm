@@ -7,7 +7,7 @@ import {
   Animated,
   Dimensions,
   Platform} from 'react-native';
-import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 
@@ -24,12 +24,26 @@ export const MagicTabBar = React.memo(function MagicTabBar({
   const screenWidth = Dimensions.get('window').width;
   const [containerWidth, setContainerWidth] = useState(screenWidth);
 
-  const numTabs = state.routes.length;
+  // Lọc ra danh sách các tab được phép hiển thị trên thanh điều hướng đáy
+  const visibleRoutes = state.routes.filter((route) => {
+    const descriptor = descriptors[route.key];
+    if (!descriptor) return false;
+    const { options } = descriptor;
+    return (options as any).href !== null && (options.tabBarItemStyle as any)?.display !== 'none';
+  });
+
+  const numTabs = visibleRoutes.length;
   const tabWidth = containerWidth > 0 && numTabs > 0 ? containerWidth / numTabs : 0;
 
+  // Xác định vị trí tab đang active trong danh sách visibleRoutes
+  const currentRouteKey = state.routes[state.index]?.key;
+  const activeVisibleIndex = visibleRoutes.findIndex((r) => r.key === currentRouteKey);
+  const isCurrentRouteVisible = activeVisibleIndex >= 0;
+  const safeIndex = isCurrentRouteVisible ? activeVisibleIndex : 0;
+
   // Tọa độ X ban đầu cho con trượt hào quang và vạch chỉ báo
-  const initialAuraX = tabWidth > 0 ? tabWidth * state.index + (tabWidth - AURA_WIDTH) / 2 : 0;
-  const initialPillX = tabWidth > 0 ? tabWidth * state.index + (tabWidth - TOP_PILL_WIDTH) / 2 : 0;
+  const initialAuraX = tabWidth > 0 ? tabWidth * safeIndex + (tabWidth - AURA_WIDTH) / 2 : 0;
+  const initialPillX = tabWidth > 0 ? tabWidth * safeIndex + (tabWidth - TOP_PILL_WIDTH) / 2 : 0;
 
   const auraTranslateX = useRef(new Animated.Value(initialAuraX)).current;
   const pillTranslateX = useRef(new Animated.Value(initialPillX)).current;
@@ -37,9 +51,9 @@ export const MagicTabBar = React.memo(function MagicTabBar({
 
   // Lắng nghe chuyển tab để chạy animation lò xo 60fps Native Driver
   useEffect(() => {
-    if (tabWidth > 0) {
-      const targetAuraX = tabWidth * state.index + (tabWidth - AURA_WIDTH) / 2;
-      const targetPillX = tabWidth * state.index + (tabWidth - TOP_PILL_WIDTH) / 2;
+    if (tabWidth > 0 && isCurrentRouteVisible) {
+      const targetAuraX = tabWidth * activeVisibleIndex + (tabWidth - AURA_WIDTH) / 2;
+      const targetPillX = tabWidth * activeVisibleIndex + (tabWidth - TOP_PILL_WIDTH) / 2;
 
       Animated.parallel([
         Animated.spring(auraTranslateX, {
@@ -71,7 +85,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
         ]),
       ]).start();
     }
-  }, [state.index, tabWidth]);
+  }, [activeVisibleIndex, tabWidth, isCurrentRouteVisible]);
 
   const bottomPadding = Math.max(Platform.OS === 'android' ? 8 : 16, insets.bottom);
 
@@ -91,7 +105,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
       }}
     >
       {/* Vạch chỉ báo mảnh 2.5px ở mép đỉnh trượt đồng bộ với tab active */}
-      {tabWidth > 0 && (
+      {tabWidth > 0 && isCurrentRouteVisible && (
         <Animated.View
           style={[
             styles.topPillIndicator,
@@ -104,7 +118,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
       )}
 
       {/* Vầng hào quang xanh chuyển sắc (Ambient Aura Glow) nằm gọn gàng sau icon active */}
-      {tabWidth > 0 && (
+      {tabWidth > 0 && isCurrentRouteVisible && (
         <Animated.View
           style={[
             styles.auraGlowWrapper,
@@ -140,13 +154,13 @@ export const MagicTabBar = React.memo(function MagicTabBar({
         </Animated.View>
       )}
 
-      {/* Hàng 5 tab điều hướng */}
+      {/* Hàng tab điều hướng hiển thị chuẩn xác */}
       <View style={styles.tabsRow}>
-        {state.routes.map((route, index) => {
+        {visibleRoutes.map((route, index) => {
           const descriptor = descriptors[route.key];
           if (!descriptor) return null;
           const { options } = descriptor;
-          const isFocused = state.index === index;
+          const isFocused = isCurrentRouteVisible && activeVisibleIndex === index;
           const label =
             options.tabBarLabel !== undefined
               ? options.tabBarLabel

@@ -68,7 +68,7 @@ export default function AdminTabsLayout() {
         name="tasks"
         options={{
           href: null,
-          title: 'Duyệt đơn',
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tabs>

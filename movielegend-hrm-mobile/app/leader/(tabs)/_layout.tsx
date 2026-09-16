@@ -68,14 +68,14 @@ export default function LeaderTabsLayout() {
         name="tasks"
         options={{
           href: null,
-          title: 'Giao việc',
+          tabBarItemStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="approvals"
         options={{
           href: null,
-          title: 'Duyệt đơn',
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tabs>
