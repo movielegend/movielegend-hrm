@@ -19,6 +19,9 @@ import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCrea
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppAlert } from '../../contexts/AlertContext';
+import { findTodayShift } from '../attendance/attendance.logic';
+import { normalizeApiError } from '../../utils/api-error';
+import { hasPermission } from '../../utils/permissions';
 
 function TimePickerField({ label, value, onChange }: { label: string; value: string; onChange: (val: string) => void }) {
   const [show, setShow] = useState(false);
@@ -265,16 +268,16 @@ export function EmployeeScheduleScreen() {
                 <View style={styles.statusBox}>
                   <StatusBadge 
                     label={
-                      assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                      (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
                         ? (activeTab === 'past' ? 'Đã diễn ra' : 'Đã phân ca') 
-                        : assignment.status === 'CANCELLED' 
+                        : (assignment.status as string) === 'CANCELLED' 
                         ? 'Đã hủy' 
-                        : assignment.status
+                        : (assignment.status as string)
                     } 
                     tone={
-                      assignment.status === 'ASSIGNED' || assignment.status === 'ACTIVE' 
+                      (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
                         ? (activeTab === 'past' ? 'neutral' : 'info') 
-                        : assignment.status === 'CANCELLED' 
+                        : (assignment.status as string) === 'CANCELLED' 
                         ? 'danger' 
                         : 'neutral'
                     } 
@@ -390,9 +393,10 @@ export function AdminShiftsScreen() {
                 </Text>
               </View>
 
-              {shift.assignments && shift.assignments.length > 0 && (() => {
-                const uniqueAssignments = shift.assignments.filter(
-                  (a, index, self) => index === self.findIndex((t) => t.userId === a.userId)
+              {(shift as any).assignments && (shift as any).assignments.length > 0 && (() => {
+                const rawAssignments: any[] = (shift as any).assignments;
+                const uniqueAssignments = rawAssignments.filter(
+                  (a: any, index: number, self: any[]) => index === self.findIndex((t: any) => t.userId === a.userId)
                 );
                 
                 if (uniqueAssignments.length === 0) return null;
@@ -407,9 +411,9 @@ export function AdminShiftsScreen() {
                       </View>
                     </View>
                     <View style={styles.assignmentList}>
-                      {uniqueAssignments.map(a => {
+                      {uniqueAssignments.map((a: any) => {
                         const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
-                        const initials = name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
+                        const initials = name.split(' ').filter(Boolean).slice(-2).map((w: string) => w[0]).join('').toUpperCase();
                         return (
                           <Pressable 
                             key={a.id} 
