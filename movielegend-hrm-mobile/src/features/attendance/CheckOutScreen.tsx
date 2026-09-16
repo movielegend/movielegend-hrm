@@ -20,7 +20,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../constants/queryKeys';
 import { useMySchedule } from '../../hooks/useShifts';
 import Toast from 'react-native-toast-message';
-import { CustomAlert } from '../../components/CustomAlert';
 
 export function CheckOutScreen() {
   const router = useRouter();
