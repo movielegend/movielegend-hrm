@@ -64,13 +64,6 @@ export default function AdminTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          href: null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
     </Tabs>
   );
 }

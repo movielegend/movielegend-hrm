@@ -64,34 +64,6 @@ export default function HRTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          href: null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="newsfeed"
-        options={{
-          href: null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="attendance"
-        options={{
-          href: null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="attendance-management"
-        options={{
-          href: null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
     </Tabs>
   );
 }

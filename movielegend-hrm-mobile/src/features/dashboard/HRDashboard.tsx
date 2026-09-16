@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, D
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
@@ -35,6 +36,7 @@ const appleTheme = {
 export function HRDashboard() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
@@ -111,8 +113,12 @@ export function HRDashboard() {
   return (
     <Screen backgroundColor="#FAFAFA">
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
+        ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>

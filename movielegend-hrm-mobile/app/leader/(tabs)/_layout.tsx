@@ -64,20 +64,6 @@ export default function LeaderTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          href: null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="approvals"
-        options={{
-          href: null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
     </Tabs>
   );
 }

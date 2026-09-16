@@ -40,6 +40,7 @@ const appleTheme = {
 export function LeaderDashboard() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'TASKS' | 'ACTIVITY'>('TASKS');
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
@@ -125,7 +126,10 @@ export function LeaderDashboard() {
   return (
     <Screen backgroundColor="#FAFAFA">
       <ScrollView 
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
+        ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
       >
@@ -403,7 +407,7 @@ export function LeaderDashboard() {
               title="Duyệt đơn"
               color="#0D9488"
               bgColor="#F0FDFA"
-              onPress={() => router.push('/leader/(tabs)/approvals' as any)}
+              onPress={() => router.push('/leader/employee-requests' as any)}
             />
             <GridItem4
               icon="account-tie-outline"

@@ -133,7 +133,7 @@ export function HRProfileScreen() {
             <ActionRow 
               icon="clipboard-text-outline" 
               title="Quản lý công việc" 
-              onPress={() => router.push('/hr/(tabs)/tasks' as any)} 
+              onPress={() => router.push('/hr/tasks' as any)} 
             />
             <ActionRow 
               icon="text-box-check-outline" 
@@ -163,7 +163,7 @@ export function HRProfileScreen() {
             <ActionRow 
               icon="newspaper-variant" 
               title="Bảng tin & Thông báo công ty" 
-              onPress={() => router.push('/hr/(tabs)/newsfeed' as any)} 
+              onPress={() => router.push('/hr/newsfeed' as any)} 
               isLast 
             />
           </View>
