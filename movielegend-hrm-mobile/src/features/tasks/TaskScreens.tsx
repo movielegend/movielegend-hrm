@@ -698,7 +698,86 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     if (parentTaskQuery.data?.departmentContextId) {
       setDepartmentContextId(parentTaskQuery.data.departmentContextId);
     }
-  }, [parentTaskQuery.data?.departmentContextId]);
+  }, [parentTaskQuery.data?.departmentContextId, departmentsQuery.data?.items]);
+
+  useEffect(() => {
+    if (departmentContextId && !selectedBranchId) {
+      const currentDept = departmentsQuery.data?.items?.find((d) => d.id === departmentContextId);
+      if (currentDept?.branchId) {
+        setSelectedBranchId(currentDept.branchId);
+      }
+    }
+  }, [departmentContextId, departmentsQuery.data?.items]);
+
+  const availableDepartments = useMemo(() => {
+    const allDepts = departmentsQuery.data?.items ?? [];
+    let filtered = allDepts;
+
+    if (isRegionAdmin && userRegionId) {
+      filtered = filtered.filter(
+        (d) => d.branch?.region?.id === userRegionId || availableBranches.some((b) => b.id === d.branchId)
+      );
+    }
+
+    if (selectedBranchId) {
+      filtered = filtered.filter((d) => d.branchId === selectedBranchId || d.branch?.id === selectedBranchId);
+    }
+
+    return filtered;
+  }, [departmentsQuery.data?.items, isRegionAdmin, userRegionId, availableBranches, selectedBranchId]);
+
+  const branchOptions: SelectOption[] = useMemo(() => {
+    return availableBranches.map((b) => ({
+      id: b.id,
+      label: b.name,
+      subtitle: b.address || undefined,
+    }));
+  }, [availableBranches]);
+
+  const deptOptions: SelectOption[] = useMemo(() => {
+    return availableDepartments.map((d) => ({
+      id: d.id,
+      label: d.name,
+      subtitle: d.branch?.name ? `Cơ sở: ${d.branch.name}` : undefined,
+    }));
+  }, [availableDepartments]);
+
+  const selectedBranch = useMemo(
+    () => availableBranches.find((b) => b.id === selectedBranchId),
+    [availableBranches, selectedBranchId]
+  );
+
+  const selectedDept = useMemo(
+    () => (departmentsQuery.data?.items ?? []).find((d) => d.id === departmentContextId),
+    [departmentsQuery.data?.items, departmentContextId]
+  );
+
+  const handleSelectBranch = (opt: SelectOption) => {
+    const bId = String(opt.id || '');
+    setSelectedBranchId(bId);
+    const deptsInBranch = (departmentsQuery.data?.items ?? []).filter(
+      (d) => d.branchId === bId || d.branch?.id === bId
+    );
+    if (deptsInBranch.length > 0 && deptsInBranch[0]?.id) {
+      if (!deptsInBranch.some((d) => d.id === departmentContextId)) {
+        setDepartmentContextId(deptsInBranch[0].id);
+      }
+    } else {
+      setDepartmentContextId('');
+    }
+    setTargets([]);
+  };
+
+  const handleSelectDept = (opt: SelectOption) => {
+    const dId = String(opt.id || '');
+    setDepartmentContextId(dId);
+    const foundDept = departmentsQuery.data?.items?.find((d) => d.id === dId);
+    if (foundDept?.branchId && foundDept.branchId !== selectedBranchId) {
+      setSelectedBranchId(foundDept.branchId);
+    }
+    setTargets([]);
+  };
+>>>>>>> e8a7e44f (fix(tasks): fix HR and Leader task routes, screen props, and theme colors)
 
   const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);

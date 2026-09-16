@@ -1,5 +1,5 @@
-import { ReviewTaskScreen } from '../../../src/features/tasks/TaskScreens';
+import { TaskReviewQueueScreen } from '../../../src/features/tasks/TaskScreens';
 
 export default function HRTaskReviewRoute() {
-  return <ReviewTaskScreen area="admin" />;
+  return <TaskReviewQueueScreen area="admin" />;
 }

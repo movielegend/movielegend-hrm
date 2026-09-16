@@ -547,7 +547,7 @@ export function LeaderDashboard() {
                     title={task.title}
                     priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
                     priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
-                    dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
+                    dueDate={task.dueAt || (task as any).dueDate ? new Date(task.dueAt || (task as any).dueDate).toLocaleDateString('vi-VN') : ''}
                     onPress={() => router.push(`/leader/tasks/${task.id}` as any)}
                     isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
                   />
@@ -574,7 +574,7 @@ export function LeaderDashboard() {
                     title={task.title}
                     priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
                     priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
-                    dueDate={new Date(task.dueDate).toLocaleDateString('vi-VN')}
+                    dueDate={task.dueAt || (task as any).dueDate ? new Date(task.dueAt || (task as any).dueDate).toLocaleDateString('vi-VN') : ''}
                     onPress={() => router.push(`/leader/tasks/${task.id}` as any)}
                     isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
                   />

@@ -301,8 +301,8 @@ export function AttachmentPicker({
                     <Image source={{ uri: item.fileUrl }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
                   </Pressable>
                 ) : (
-                  <View style={{ flex: 1, borderRadius: 8, backgroundColor: colors.surfaceHover, justifyContent: 'center', alignItems: 'center', padding: 8 }}>
-                    <MaterialCommunityIcons name="file-document-outline" size={32} color={colors.textSecondary} />
+                  <View style={{ flex: 1, borderRadius: 8, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', padding: 8 }}>
+                    <MaterialCommunityIcons name="file-document-outline" size={32} color={colors.muted} />
                     <Text style={[styles.titleSmall, { textAlign: 'center', marginTop: 4 }]} numberOfLines={2}>{item.fileName}</Text>
                   </View>
                 )}
@@ -480,7 +480,7 @@ export function AttachmentList({
               style={{ padding: 8 }}
               hitSlop={10}
             >
-              <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.error} />
+              <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.danger} />
             </Pressable>
           )}
         </Pressable>
@@ -551,7 +551,7 @@ export function ExtensionRequestModal({
             Đã đạt giới hạn gia hạn (2/2 lần)
           </Text>
         </View>
-        <Text style={[styles.metaSmall, { marginTop: 4, color: colors.textSecondary }]}>
+        <Text style={[styles.metaSmall, { marginTop: 4, color: colors.muted }]}>
           Bạn đã sử dụng hết 2 lượt xin gia hạn cho công việc này.
         </Text>
       </View>
@@ -615,8 +615,8 @@ export function ExtensionList({ extensions }: { extensions?: TaskExtensionReques
             <Text style={{ fontWeight: '600' }}>Lý do xin gia hạn:</Text> {extension.reason}
           </Text>
           {Boolean(extension.rejectionReason || (extension as any).decisionNote || (extension as any).note) ? (
-            <View style={{ marginTop: spacing.xs, backgroundColor: extension.status === 'APPROVED' ? colors.successSoft : colors.dangerSoft, padding: spacing.xs, borderRadius: 6 }}>
-              <Text style={{ fontSize: 13, color: extension.status === 'APPROVED' ? colors.successDark : colors.dangerDark, fontWeight: '600' }}>
+            <View style={{ marginTop: spacing.xs, backgroundColor: extension.status === 'APPROVED' ? '#ECFDF5' : colors.dangerSoft, padding: spacing.xs, borderRadius: 6 }}>
+              <Text style={{ fontSize: 13, color: extension.status === 'APPROVED' ? '#047857' : '#B91C1C', fontWeight: '600' }}>
                 Ghi chú duyệt: {extension.rejectionReason || (extension as any).decisionNote || (extension as any).note}
               </Text>
             </View>
@@ -644,7 +644,7 @@ export function TargetPreview({ task }: { task: TaskDto }) {
   return (
     <View style={{ gap: spacing.xs }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
-        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginRight: 2 }}>Người thực hiện:</Text>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, marginRight: 2 }}>Người thực hiện:</Text>
         {targets.map((t) => {
           const type = t.targetType ?? t.type;
           let icon: keyof typeof MaterialCommunityIcons.glyphMap = 'account';
