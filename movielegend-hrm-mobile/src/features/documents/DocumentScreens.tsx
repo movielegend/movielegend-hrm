@@ -61,32 +61,45 @@ export function DocumentListScreen() {
   const deleteMutation = useDeleteDepartmentDocument();
 
   // Kiểm tra quyền
-  const isGlobalAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(
+  const isHR = Boolean(user?.roles?.includes('HR'));
+  const isGlobalAdmin = (user?.roles?.includes('ADMIN') && user?.scopes?.some(
     (s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType)
-  );
-  const isRegionAdmin = user?.roles?.includes('ADMIN') && user?.scopes?.some(
+  )) || Boolean(user?.roles?.includes('SUPER_ADMIN'));
+  const isRegionAdmin = Boolean(user?.roles?.includes('ADMIN') && user?.scopes?.some(
     (s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION'
-  );
-  const isLeader = user?.roles?.includes('LEADER');
+  ));
+  const isLeader = Boolean(user?.roles?.includes('LEADER'));
 
-  // Quyền đăng tài liệu: Admin Tổng, Admin Miền, hoặc Leader
-  const canUpload = isGlobalAdmin || isRegionAdmin || isLeader;
+  const canManageAll = isGlobalAdmin || isHR;
+  // Quyền đăng tài liệu: Admin Tổng, HR, Admin Miền, hoặc Leader
+  const canUpload = canManageAll || isRegionAdmin || isLeader;
 
-  // Danh sách phòng ban để lọc (chỉ dành cho Admin / Region Admin)
+  // Danh sách phòng ban để lọc (dành cho Admin / HR / Region Admin)
   const { data: deptData } = useQuery({
     queryKey: ['departments'],
     queryFn: () => getDepartments({ limit: 100 }),
-    enabled: !!(isGlobalAdmin || isRegionAdmin),
+    enabled: !!(canManageAll || isRegionAdmin),
   });
 
   const deptOptions: SelectOption[] = useMemo(() => {
-    const opts: SelectOption[] = [{ id: '', value: '', label: 'Tất cả phòng ban được phép' }];
-    deptData?.items?.forEach((d) => {
+    const isRegionOnly = isRegionAdmin && !canManageAll;
+    const defaultLabel = isRegionOnly ? 'Toàn miền (Tất cả phòng ban trong miền)' : 'Tất cả phòng ban được phép';
+    const opts: SelectOption[] = [{ id: '', value: '', label: defaultLabel }];
+
+    let items = deptData?.items || [];
+    if (isRegionOnly) {
+      const regionIds = user?.scopes
+        ?.filter((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId)
+        .map((s: any) => s.scopeId) || [];
+      items = items.filter((d) => d.branch?.region?.id && regionIds.includes(d.branch.region.id));
+    }
+
+    items.forEach((d) => {
       const branchName = d.branch?.name ? ` (${d.branch.name})` : '';
       opts.push({ id: d.id, value: d.id, label: `${d.name}${branchName}` });
     });
     return opts;
-  }, [deptData]);
+  }, [deptData, isRegionAdmin, canManageAll, user]);
 
   const getFullFileUrl = (url: string) => {
     if (!url) return '';
@@ -135,15 +148,55 @@ export function DocumentListScreen() {
     }
   };
 
+  const displayDocuments = useMemo(() => {
+    const rawItems = data?.items || [];
+    if (selectedDeptId) {
+      return rawItems;
+    }
+
+    const groupedMap = new Map<string, DepartmentDocument & { relatedDocIds?: string[]; isRegionWide?: boolean; regionName?: string }>();
+
+    rawItems.forEach((doc) => {
+      const groupKey = `${doc.fileUrl || doc.fileName}_${doc.title}_${doc.category}`;
+
+      if (!groupedMap.has(groupKey)) {
+        groupedMap.set(groupKey, {
+          ...doc,
+          relatedDocIds: [doc.id],
+        });
+      } else {
+        const existing = groupedMap.get(groupKey)!;
+        existing.relatedDocIds?.push(doc.id);
+        existing.isRegionWide = true;
+        if (!existing.regionName) {
+          existing.regionName = doc.department?.branch?.region?.name || doc.department?.branch?.name;
+        }
+      }
+    });
+
+    return Array.from(groupedMap.values());
+  }, [data?.items, selectedDeptId]);
+
   const handleDelete = (doc: DepartmentDocument) => {
+    const relatedIds = (doc as any).relatedDocIds as string[] | undefined;
+    const isMultiple = Boolean(relatedIds && relatedIds.length > 1);
+
     showConfirm({
       title: 'Xác nhận xóa',
-      message: `Bạn có chắc chắn muốn xóa tài liệu "${doc.title}" không?`,
+      message: isMultiple
+        ? `Tài liệu "${doc.title}" được áp dụng cho toàn miền (${relatedIds!.length} phòng ban). Bạn có chắc chắn muốn xóa khỏi toàn bộ các phòng ban không?`
+        : `Bạn có chắc chắn muốn xóa tài liệu "${doc.title}" không?`,
       confirmLabel: 'Xóa',
       onConfirm: async () => {
         try {
-          await deleteMutation.mutateAsync(doc.id);
+          if (isMultiple && relatedIds) {
+            await Promise.all(relatedIds.map((id) => deleteMutation.mutateAsync(id)));
+          } else {
+            await deleteMutation.mutateAsync(doc.id);
+          }
           showAlert('Thành công', 'Đã xóa tài liệu thành công!');
+          setSelectedDocDetail(null);
+          void refetch();
         } catch (err: any) {
           showAlert('Lỗi', err.message || 'Không thể xóa tài liệu');
         }
@@ -156,9 +209,13 @@ export function DocumentListScreen() {
     const catColor = getCategoryColor(item.category);
     const catLabel = CATEGORIES.find((c) => c.value === item.category)?.label || item.category;
 
-    const deptText = item.department
+    const isRegionWide = Boolean((item as any).isRegionWide);
+    const regionName = (item as any).regionName || item.department?.branch?.name || '';
+    const deptText = isRegionWide
+      ? `Toàn miền${regionName ? ` • ${regionName}` : ''}`
+      : item.department
       ? `${item.department.name}${item.department.branch?.name ? ` • ${item.department.branch.name}` : ''}`
-      : '🌐 Toàn công ty';
+      : 'Toàn công ty';
 
     const fileSizeText = item.fileSize
       ? item.fileSize > 1024 * 1024
@@ -188,8 +245,10 @@ export function DocumentListScreen() {
                 <Text style={[styles.catBadgeText, { color: catColor.text }]}>{catLabel}</Text>
               </View>
               {item.department ? (
-                <View style={styles.deptBadge}>
-                  <Text style={styles.deptBadgeText} numberOfLines={1}>{deptText}</Text>
+                <View style={[styles.deptBadge, isRegionWide && { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+                  <Text style={[styles.deptBadgeText, isRegionWide && { color: '#B45309', fontWeight: '700' }]} numberOfLines={1}>
+                    {deptText}
+                  </Text>
                 </View>
               ) : (
                 <View style={[styles.deptBadge, { backgroundColor: '#EFF6FF' }]}>
@@ -297,15 +356,15 @@ export function DocumentListScreen() {
         </ScrollView>
       </View>
 
-      {/* Bộ lọc phòng ban (cho Admin Tổng và Admin Miền) */}
-      {(isGlobalAdmin || isRegionAdmin) && (
+      {/* Bộ lọc phòng ban (cho Admin Tổng, HR và Admin Miền) */}
+      {(canManageAll || isRegionAdmin) && (
         <View style={styles.deptFilterRow}>
           <Pressable style={styles.deptFilterBtn} onPress={() => setShowDeptModal(true)}>
             <MaterialCommunityIcons name="filter-variant" size={16} color="#2563EB" />
             <Text style={styles.deptFilterBtnText} numberOfLines={1}>
               {selectedDeptId
                 ? deptOptions.find((d) => d.value === selectedDeptId)?.label || 'Phòng ban'
-                : 'Tất cả phòng ban'}
+                : (isRegionAdmin && !canManageAll ? 'Toàn miền' : 'Tất cả phòng ban')}
             </Text>
             <MaterialCommunityIcons name="chevron-down" size={16} color="#6B7280" />
           </Pressable>
@@ -322,7 +381,7 @@ export function DocumentListScreen() {
         <LoadingState label="Đang tải danh sách tài liệu..." />
       ) : (
         <FlatList
-          data={data?.items || []}
+          data={displayDocuments}
           keyExtractor={(item) => item.id}
           renderItem={renderDocumentItem}
           contentContainerStyle={styles.listContent}

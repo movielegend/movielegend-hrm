@@ -71,11 +71,16 @@ function getBankCode(bankName: string): string {
 
 export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequestsManagerProps) {
   const { user } = useAuth();
-  const isGlobalAdmin = Boolean(
+  const isRegionAdmin = Boolean(
     user?.roles?.includes('ADMIN') &&
-    user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType))
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
+  );
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('SUPER_ADMIN') ||
+    (user?.roles?.includes('ADMIN') && !isRegionAdmin)
   );
   const isAccountant = Boolean(user?.roles?.includes('ACCOUNTANT') || isGlobalAdmin);
+  const canAdminApprove = isGlobalAdmin || isRegionAdmin;
 
   const [activeTab, setActiveTab] = useState<FilterTab>('PENDING_ADMIN');
   const [search, setSearch] = useState('');
@@ -487,8 +492,8 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
                   )}
                 </View>
 
-                {/* Action Buttons - Only Super Admin can approve/reject step 1 */}
-                {isPendingAdmin && isGlobalAdmin && (
+                {/* Action Buttons - Super Admin or Region Admin in their scope can approve/reject step 1 */}
+                {isPendingAdmin && canAdminApprove && (
                   <View style={styles.actionBtnsRow}>
                     <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(ticket)}>
                       <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />

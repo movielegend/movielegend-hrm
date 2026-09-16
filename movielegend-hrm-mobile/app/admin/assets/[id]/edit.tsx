@@ -18,6 +18,7 @@ import { SectionCard } from '../../../../src/components/SectionCard';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../../../src/api/uploads.api';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../../../src/utils/mediaPermissions';
+import { CustomAlert } from '../../../../src/components/CustomAlert';
 
 export default function AssetEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

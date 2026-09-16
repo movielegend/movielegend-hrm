@@ -7,6 +7,7 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { PrimaryButton, SecondaryButton } from './Buttons';
+import { CustomAlert } from './CustomAlert';
 
 export interface LocationData {
   latitude: number;

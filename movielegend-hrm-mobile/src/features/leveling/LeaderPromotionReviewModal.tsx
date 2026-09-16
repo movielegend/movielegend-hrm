@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LevelPromotionRequestItem, levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LevelNameBadge } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

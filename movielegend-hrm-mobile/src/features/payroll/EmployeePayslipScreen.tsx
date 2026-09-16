@@ -27,6 +27,7 @@ import {
 import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function EmployeePayslipScreen() {
   const insets = useSafeAreaInsets();

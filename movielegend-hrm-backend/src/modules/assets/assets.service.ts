@@ -128,6 +128,8 @@ export class AssetsService {
           select: {
             assetCode: true,
             name: true,
+            brand: true,
+            imageUrl: true,
             conditionStatus: true,
             assetStatus: true,
             incidents: { where: { status: { in: [AssetIncidentStatus.OPEN, AssetIncidentStatus.INVESTIGATING] } } },

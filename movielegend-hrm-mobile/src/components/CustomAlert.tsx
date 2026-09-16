@@ -65,6 +65,7 @@ declare global {
   };
 }
 
+
 export function CustomAlertProvider() {
   const [visible, setVisible] = useState(false);
   const [opts, setOpts] = useState<CustomAlertOptions | null>(null);

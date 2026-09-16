@@ -19,6 +19,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { levelingApi, LevelPromotionRequestItem } from '../../api/leveling.api';
 import { LEVEL_COLORS, LevelNameBadge } from '../../components/common/LevelNameBadge';
 import { getAbsoluteImageUrl } from '../../utils/image';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export const PromotionReviewScreen: React.FC = () => {
   const router = useRouter();

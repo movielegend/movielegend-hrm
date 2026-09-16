@@ -19,6 +19,7 @@ import { useDepartments } from '../../hooks/useDepartments';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function AssignShiftScreen() {
   const router = useRouter();

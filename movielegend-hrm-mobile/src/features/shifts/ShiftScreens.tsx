@@ -14,14 +14,10 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { businessDateToday, formatDate, formatShiftRange, toIsoDate } from '../../utils/date-time';
-import { getRoleBaseRoute } from '../../utils/role-routing';
-import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts, useRevokeShiftAssignment } from '../../hooks/useShifts';
-import { useCurrentAttendance } from '../../hooks/useAttendance';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAppAlert } from '../../contexts/AlertContext';
-import { findTodayShift } from '../attendance/attendance.logic';
+import { getRoleBaseRoute, getHomeRouteForUser } from '../../utils/role-routing';
 import { normalizeApiError } from '../../utils/api-error';
 import { hasPermission } from '../../utils/permissions';
+import { findTodayShift } from '../attendance/attendance.logic';
 
 function TimePickerField({ label, value, onChange }: { label: string; value: string; onChange: (val: string) => void }) {
   const [show, setShow] = useState(false);
@@ -340,6 +336,19 @@ export function AdminShiftsScreen() {
     });
   };
 
+  const canCreateShift =
+    Boolean(user?.roles?.includes('ADMIN') ||
+    user?.roles?.includes('SUPER_ADMIN') ||
+    user?.roles?.includes('HR') ||
+    user?.permissions?.includes('shift.create'));
+
+  const canAssignShift =
+    Boolean(user?.roles?.includes('ADMIN') ||
+    user?.roles?.includes('SUPER_ADMIN') ||
+    user?.roles?.includes('HR') ||
+    user?.roles?.includes('LEADER') ||
+    user?.permissions?.includes('shift.assign'));
+
   return (
     <Screen>
       <ScrollView 
@@ -351,7 +360,7 @@ export function AdminShiftsScreen() {
           subtitle="Tất cả ca làm việc trong hệ thống"
           showBack={false}
           right={
-            hasPermission(user, 'shift.create') ? (
+            canCreateShift ? (
               <Pressable
                 style={styles.addBtn}
                 onPress={() => router.push('/admin/shifts/create')}
@@ -363,7 +372,7 @@ export function AdminShiftsScreen() {
           }
         />
         
-        {hasPermission(user, 'shift.assign') ? (
+        {canAssignShift ? (
           <SecondaryButton onPress={() => router.push('/admin/shifts/assign')}>
             Phân ca nhân viên
           </SecondaryButton>

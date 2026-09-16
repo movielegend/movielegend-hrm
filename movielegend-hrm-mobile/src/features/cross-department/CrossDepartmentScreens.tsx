@@ -35,6 +35,7 @@ import type { CrossDepartmentRequestDto } from '../../types/cross-department.typ
 import { normalizeApiError } from '../../utils/api-error';
 import { formatDateTime } from '../../utils/date-time';
 import { hasAnyPermission } from '../../utils/permissions';
+import { CustomAlert } from '../../components/CustomAlert';
 
 type CrossArea = 'employee' | 'leader' | 'admin' | 'hr';
 

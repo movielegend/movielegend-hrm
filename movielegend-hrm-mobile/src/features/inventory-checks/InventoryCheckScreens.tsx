@@ -29,6 +29,7 @@ import { hasPermission } from '../../utils/permissions';
 import { formatQuantity } from '../../utils/quantity';
 import { mapWarehouseAssetError } from '../assets/asset.logic';
 import { inventoryStatusTone } from './inventory.logic';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function InventoryCheckListScreen({ area }: { area: 'warehouse' | 'admin' }) {
   const router = useRouter();

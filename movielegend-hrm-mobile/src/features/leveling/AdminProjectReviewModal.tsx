@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LevelDepartmentProject, BulletSubTask } from './levelProjectsStore';
 import { LEVEL_COLORS, LevelNameBadge } from '../../components/common/LevelNameBadge';
 import { getAbsoluteImageUrl } from '../../utils/image';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

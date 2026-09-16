@@ -10,6 +10,7 @@ import type { AssetDto } from '../../types/asset.types';
 import { normalizeApiError } from '../../utils/api-error';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function AdminAssetConditionScreen() {
   const [tab, setTab] = useState<'PENDING' | 'APPROVE'>('PENDING');

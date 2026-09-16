@@ -22,7 +22,7 @@ export const uploadPolicies: Record<UploadPurpose, UploadPolicy> = {
   },
   TASK_ATTACHMENT: {
     purpose: UploadPurpose.TASK_ATTACHMENT,
-    maxSize: 10 * 1024 * 1024,
+    maxSize: 50 * 1024 * 1024,
     mimeTypes: [
       'image/jpeg',
       'image/png',
@@ -30,8 +30,14 @@ export const uploadPolicies: Record<UploadPurpose, UploadPolicy> = {
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/zip',
+      'application/x-zip-compressed',
+      'application/x-rar-compressed',
+      'application/vnd.rar',
+      'application/x-7z-compressed',
+      'application/octet-stream',
     ],
-    extensions: ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.docx', '.xlsx'],
+    extensions: ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.docx', '.xlsx', '.zip', '.rar', '.7z', '.tar', '.gz'],
   },
   EMPLOYEE_DOCUMENT: {
     purpose: UploadPurpose.EMPLOYEE_DOCUMENT,

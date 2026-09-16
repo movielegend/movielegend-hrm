@@ -12,6 +12,7 @@ import {
   StatusBar} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmployees } from '../../hooks/useEmployees';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export interface UserOptInVaultItem {
   id: string;

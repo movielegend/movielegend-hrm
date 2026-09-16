@@ -16,6 +16,7 @@ import type { NotificationTargetDto } from '../../types/notification.types';
 import { normalizeApiError } from '../../utils/api-error';
 import { timeAgo } from '../../utils/date-time';
 import { getNotificationColor, getNotificationIcon, notificationRoute } from '../../utils/notification-routing';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function NotificationListScreen() {
   const router = useRouter();

@@ -23,6 +23,7 @@ import {
   LevelProjectPermissionRequest,
 } from '../leveling/levelProjectsStore';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const { user } = useAuth();

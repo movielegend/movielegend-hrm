@@ -59,6 +59,7 @@ import {
 } from './asset.logic';
 import { AssetCard, AssetConditionBadge, AssetStatusBadge, MyAssetCard } from './AssetComponents';
 import { MaintenanceActionsSection } from '../asset-maintenance/MaintenanceScreens';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export type AssetArea = 'employee' | 'leader' | 'warehouse' | 'admin';
 

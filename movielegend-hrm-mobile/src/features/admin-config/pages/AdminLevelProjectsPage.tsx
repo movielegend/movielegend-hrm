@@ -9,6 +9,7 @@ import {
   Platform,
   KeyboardAvoidingView} from 'react-native';
 import type { AdminLevelItem } from '../AdminLevelConfigScreen';
+import { CustomAlert } from '../../../components/CustomAlert';
 
 interface AdminLevelProjectsPageProps {
   departmentName: string;

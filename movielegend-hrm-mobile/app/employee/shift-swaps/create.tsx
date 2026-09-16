@@ -10,6 +10,7 @@ import { shadows } from '../../../src/theme/shadows';
 import { PrimaryButton } from '../../../src/components/Buttons';
 import { getMySchedule } from '../../../src/api/shifts.api';
 import { createShiftSwapRequest, getTargetShift, getAvailableTargets } from '../../../src/api/shift-swaps.api';
+import { CustomAlert } from '../../../src/components/CustomAlert';
 
 export default function CreateShiftSwapScreen() {
   const router = useRouter();

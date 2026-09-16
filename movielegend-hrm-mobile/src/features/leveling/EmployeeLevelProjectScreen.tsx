@@ -21,6 +21,7 @@ import {
   LevelDepartmentProject,
 } from './levelProjectsStore';
 import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export const EmployeeLevelProjectScreen: React.FC = () => {
   const insets = useSafeAreaInsets();

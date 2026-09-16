@@ -95,20 +95,55 @@ const TASK_STATUS_TABS = [
 
 export function TaskListScreen({ area }: { area: TaskArea }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
-  const filters: TaskListFilters = {
+
+  const isAdmin = Boolean(
+    user?.roles?.includes('ADMIN') ||
+    user?.roles?.some((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin')
+  );
+  const isGlobalAdmin = Boolean(
+    isAdmin &&
+    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && (s.scopeType === 'GLOBAL' || !s.scopeType))
+  ) || Boolean(user?.roles?.includes('SUPER_ADMIN'));
+
+  const adminRegionScope = user?.scopes?.find(
+    (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
+  );
+  const isRegionAdmin = Boolean(adminRegionScope && adminRegionScope.scopeId);
+  const isRegionOnly = isRegionAdmin && !isGlobalAdmin;
+
+  const filters: TaskListFilters = useMemo(() => ({
     page: 1,
     limit: 20,
     ...(search ? { search } : {}),
-    ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {})
-  };
+    ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {}),
+    ...(isRegionOnly && user?.id ? { createdById: user.id } : {})
+  }), [search, status, isRegionOnly, user?.id]);
+
   const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
 
-  const title = area === 'employee' ? 'Công việc của tôi' : area === 'leader' ? 'Công việc phòng ban' : 'Tất cả Công việc';
+  const title = area === 'employee'
+    ? 'Công việc của tôi'
+    : area === 'leader'
+    ? 'Công việc phòng ban'
+    : isRegionOnly
+    ? 'Công việc đã giao'
+    : 'Tất cả Công việc';
   const insets = useSafeAreaInsets();
+
+  const displayTasks = useMemo(() => {
+    const rawItems = tasks.data?.items ?? [];
+    if (isRegionOnly && user?.id) {
+      return rawItems.filter(
+        (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
+      );
+    }
+    return rawItems;
+  }, [tasks.data?.items, isRegionOnly, user?.id]);
 
   return (
     <Screen>
@@ -153,8 +188,8 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
 
         {tasks.isLoading ? <LoadingState /> : null}
         {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
-        {!tasks.isLoading && !tasks.data?.items?.length ? <EmptyState title="Chưa có công việc nào" /> : null}
-        {tasks.data?.items?.map((task) => (
+        {!tasks.isLoading && !displayTasks.length ? <EmptyState title="Chưa có công việc nào" /> : null}
+        {displayTasks.map((task) => (
           <TaskCard key={task.id} task={task} onPress={() => router.push(`/${area}/tasks/${task.id}`)} />
         ))}
       </ScreenContainer>
@@ -647,130 +682,23 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   
-  const branchesQuery = useBranches();
-  const departmentsQuery = useDepartments({ page: 1, limit: 1000 });
 
-  const isAdmin = Boolean(
-    user?.roles?.includes('ADMIN') ||
-    user?.roles?.some((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin')
+
+  const [departmentContextId, setDepartmentContextId] = useState<string>(
+    area === 'leader' ? (departmentIdFromUser(user) ?? '') : ''
   );
-  const isGlobalAdmin = Boolean(
-    isAdmin &&
-    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && (s.scopeType === 'GLOBAL' || !s.scopeType))
-  );
-  const adminRegionScope = user?.scopes?.find(
-    (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
-  );
-  const userRegionId = adminRegionScope?.scopeId;
-  const isRegionAdmin = Boolean(adminRegionScope && userRegionId);
-
-  const availableBranches = useMemo(() => {
-    const all = branchesQuery.data ?? [];
-    if (isRegionAdmin && userRegionId) {
-      return all.filter((b) => b.regionId === userRegionId);
-    }
-    return all;
-  }, [branchesQuery.data, isRegionAdmin, userRegionId]);
-
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
-  const [branchModalVisible, setBranchModalVisible] = useState(false);
-
-  const [departmentContextId, setDepartmentContextId] = useState<string>(departmentIdFromUser(user) ?? '');
-  const [deptModalVisible, setDeptModalVisible] = useState(false);
 
   useEffect(() => {
-    if (user?.department?.id && !departmentContextId) {
+    if (area === 'leader' && user?.department?.id && !departmentContextId) {
       setDepartmentContextId(user.department.id);
     }
-  }, [user?.department?.id]);
+  }, [area, user?.department?.id]);
 
   useEffect(() => {
     if (parentTaskQuery.data?.departmentContextId) {
       setDepartmentContextId(parentTaskQuery.data.departmentContextId);
-      const parentDept = departmentsQuery.data?.items?.find(
-        (d) => d.id === parentTaskQuery.data?.departmentContextId
-      );
-      if (parentDept?.branchId) {
-        setSelectedBranchId(parentDept.branchId);
-      }
     }
-  }, [parentTaskQuery.data?.departmentContextId, departmentsQuery.data?.items]);
-
-  useEffect(() => {
-    if (departmentContextId && !selectedBranchId) {
-      const currentDept = departmentsQuery.data?.items?.find((d) => d.id === departmentContextId);
-      if (currentDept?.branchId) {
-        setSelectedBranchId(currentDept.branchId);
-      }
-    }
-  }, [departmentContextId, departmentsQuery.data?.items]);
-
-  const availableDepartments = useMemo(() => {
-    const allDepts = departmentsQuery.data?.items ?? [];
-    let filtered = allDepts;
-
-    if (isRegionAdmin && userRegionId) {
-      filtered = filtered.filter(
-        (d) => d.branch?.region?.id === userRegionId || availableBranches.some((b) => b.id === d.branchId)
-      );
-    }
-
-    if (selectedBranchId) {
-      filtered = filtered.filter((d) => d.branchId === selectedBranchId || d.branch?.id === selectedBranchId);
-    }
-
-    return filtered;
-  }, [departmentsQuery.data?.items, isRegionAdmin, userRegionId, availableBranches, selectedBranchId]);
-
-  const branchOptions: SelectOption[] = useMemo(() => {
-    return availableBranches.map((b) => ({
-      id: b.id,
-      label: b.name,
-      subtitle: b.address || undefined,
-    }));
-  }, [availableBranches]);
-
-  const deptOptions: SelectOption[] = useMemo(() => {
-    return availableDepartments.map((d) => ({
-      id: d.id,
-      label: d.name,
-      subtitle: d.branch?.name ? `Cơ sở: ${d.branch.name}` : undefined,
-    }));
-  }, [availableDepartments]);
-
-  const selectedBranch = useMemo(
-    () => availableBranches.find((b) => b.id === selectedBranchId),
-    [availableBranches, selectedBranchId]
-  );
-
-  const selectedDept = useMemo(
-    () => (departmentsQuery.data?.items ?? []).find((d) => d.id === departmentContextId),
-    [departmentsQuery.data?.items, departmentContextId]
-  );
-
-  const handleSelectBranch = (opt: SelectOption) => {
-    setSelectedBranchId(opt.id);
-    const deptsInBranch = (departmentsQuery.data?.items ?? []).filter(
-      (d) => d.branchId === opt.id || d.branch?.id === opt.id
-    );
-    if (deptsInBranch.length > 0 && deptsInBranch[0]?.id) {
-      if (!deptsInBranch.some((d) => d.id === departmentContextId)) {
-        setDepartmentContextId(deptsInBranch[0].id);
-      }
-    } else {
-      setDepartmentContextId('');
-    }
-    setTargets([]);
-  };
-
-  const handleSelectDept = (opt: SelectOption) => {
-    setDepartmentContextId(opt.id);
-    const foundDept = departmentsQuery.data?.items?.find((d) => d.id === opt.id);
-    if (foundDept?.branchId && foundDept.branchId !== selectedBranchId) {
-      setSelectedBranchId(foundDept.branchId);
-    }
-    setTargets([]);
-  };
+  }, [parentTaskQuery.data?.departmentContextId]);
 
   const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
@@ -781,7 +709,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [leaderId, setLeaderId] = useState<string>('');
   const [memberModalVisible, setMemberModalVisible] = useState(false);
   
-  const departmentId = departmentContextId || departmentIdFromUser(user);
+  const departmentId = area === 'leader' ? (departmentContextId || departmentIdFromUser(user)) : undefined;
   const usersQuery = useScopedEmployees(
     { page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) },
     hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department'])
@@ -956,47 +884,6 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           />
         </SectionCard>
 
-        <SectionCard title="Đơn vị phụ trách (Cơ sở & Phòng ban)">
-          <Text style={styles.fieldLabel}>Cơ sở (Chi nhánh)</Text>
-          <Pressable 
-            style={styles.selectorField} 
-            onPress={() => setBranchModalVisible(true)}
-          >
-            <View style={styles.selectorFieldContent}>
-              <MaterialCommunityIcons name="office-building-outline" size={20} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                <Text style={selectedBranch ? styles.selectorFieldText : styles.selectorFieldPlaceholder}>
-                  {selectedBranch ? selectedBranch.name : 'Chọn cơ sở (chi nhánh)...'}
-                </Text>
-                {selectedBranch?.address ? (
-                  <Text style={styles.selectorFieldSub} numberOfLines={1}>{selectedBranch.address}</Text>
-                ) : null}
-              </View>
-            </View>
-            <MaterialCommunityIcons name="chevron-down" size={20} color={colors.muted} />
-          </Pressable>
-
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={styles.fieldLabel}>Phòng ban phụ trách</Text>
-            <Pressable 
-              style={styles.selectorField} 
-              onPress={() => setDeptModalVisible(true)}
-            >
-              <View style={styles.selectorFieldContent}>
-                <MaterialCommunityIcons name="domain" size={20} color={colors.primary} />
-                <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                  <Text style={selectedDept ? styles.selectorFieldText : styles.selectorFieldPlaceholder}>
-                    {selectedDept ? selectedDept.name : 'Chọn phòng ban phụ trách...'}
-                  </Text>
-                  {selectedDept?.branch?.name ? (
-                    <Text style={styles.selectorFieldSub} numberOfLines={1}>Thuộc: {selectedDept.branch.name}</Text>
-                  ) : null}
-                </View>
-              </View>
-              <MaterialCommunityIcons name="chevron-down" size={20} color={colors.muted} />
-            </Pressable>
-          </View>
-        </SectionCard>
 
         <SectionCard title="Người nhận việc (Assignees)">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
@@ -1091,26 +978,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         onClose={() => setTargetModalVisible(false)}
         targets={targets}
         onChange={setTargets}
-        filterBranchId={selectedBranchId}
-        filterDepartmentId={departmentContextId}
-      />
-
-      <SelectModal
-        visible={branchModalVisible}
-        title="Chọn Cơ sở (Chi nhánh)"
-        options={branchOptions}
-        selectedValue={selectedBranchId}
-        onSelect={handleSelectBranch}
-        onClose={() => setBranchModalVisible(false)}
-      />
-
-      <SelectModal
-        visible={deptModalVisible}
-        title="Chọn Phòng ban"
-        options={deptOptions}
-        selectedValue={departmentContextId}
-        onSelect={handleSelectDept}
-        onClose={() => setDeptModalVisible(false)}
+        filterDepartmentId={area === 'leader' ? departmentContextId : undefined}
       />
 
       <MultiSelectModal
@@ -1205,46 +1073,37 @@ function AssigneeSelectorModal({
 }) {
   const { user } = useAuth();
 
+  const adminRegionScope = user?.scopes?.find(
+    (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION' && s.scopeId
+  );
+  const userRegionId = adminRegionScope?.scopeId;
+  const isRegionAdmin = Boolean(adminRegionScope && userRegionId);
+
   const isSuperAdmin = Boolean(
-    user?.roles?.includes('ADMIN') &&
-    !user?.scopes?.some(
-      (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION' && s.scopeId
-    )
+    user?.roles?.includes('ADMIN') && !isRegionAdmin
   );
 
-  const canSelectRegionAdmin = isSuperAdmin || area === 'admin';
+  // Only Super Admin can assign tasks to Region Admins!
+  const canSelectRegionAdmin = isSuperAdmin;
 
-  const [activeTab, setActiveTab] = useState<'REGION_ADMIN' | 'USER' | 'DEPARTMENT'>('USER');
+  const [selectedRegion, setSelectedRegion] = useState<{ id: string; name: string } | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<{ id: string; name: string } | null>(null);
+  const [selectedDept, setSelectedDept] = useState<{ id: string; name: string } | null>(null);
+  const [deptUserSearch, setDeptUserSearch] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
 
-  useEffect(() => {
-    if (visible) {
-      if (canSelectRegionAdmin && isSuperAdmin && !filterDepartmentId && !filterBranchId) {
-        setActiveTab('REGION_ADMIN');
-      } else {
-        setActiveTab('USER');
-      }
-    }
-  }, [visible, canSelectRegionAdmin, isSuperAdmin, filterDepartmentId, filterBranchId]);
-  
   const departments = useDepartments({ page: 1, limit: 1000 });
   const regionsQuery = useRegions();
+  const branchesQuery = useBranches();
   const adminUsersQuery = useEmployees({ role: 'ADMIN', limit: 100 }, canSelectRegionAdmin && visible);
 
-  const departmentId = filterDepartmentId || departmentIdFromUser(user);
-  const users = useScopedEmployees(
-    { page: 1, limit: 100, ...(departmentId ? { departmentId } : {}) },
-    hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department'])
-  );
-
-  const filteredDepartments = useMemo(() => {
-    const items = departments.data?.items ?? [];
-    if (filterBranchId) {
-      return items.filter((d) => d.branchId === filterBranchId || d.branch?.id === filterBranchId);
-    }
-    return items;
-  }, [departments.data?.items, filterBranchId]);
-
-  const isHR = user?.roles?.includes('HR');
+  const branchRegionMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (branchesQuery.data ?? []).forEach((b) => {
+      if (b.regionId) map.set(b.id, b.regionId);
+    });
+    return map;
+  }, [branchesQuery.data]);
 
   const regionMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -1253,6 +1112,175 @@ function AssigneeSelectorModal({
     });
     return map;
   }, [regionsQuery.data]);
+
+  const departmentTree = useMemo<Array<{
+    id: string;
+    name: string;
+    code?: string;
+    branches: Array<{
+      id: string;
+      name: string;
+      address?: string;
+      departments: Array<{ id: string; name: string }>;
+    }>;
+  }>>(() => {
+    const rawRegions = regionsQuery.data ?? [];
+    const rawBranches = branchesQuery.data ?? [];
+    let rawDepts = departments.data?.items ?? [];
+
+    if (filterBranchId) {
+      rawDepts = rawDepts.filter((d) => d.branchId === filterBranchId || d.branch?.id === filterBranchId);
+    }
+
+    // Build branch map
+    const branchMap = new Map<string, {
+      id: string;
+      name: string;
+      address?: string;
+      departments: Array<{ id: string; name: string }>;
+    }>();
+
+    rawBranches.forEach((b) => {
+      branchMap.set(b.id, {
+        id: b.id,
+        name: b.name,
+        address: b.address,
+        departments: [],
+      });
+    });
+
+    rawDepts.forEach((d) => {
+      const bId = d.branchId || d.branch?.id;
+      if (bId && branchMap.has(bId)) {
+        branchMap.get(bId)!.departments.push({
+          id: d.id,
+          name: d.name,
+        });
+      } else if (bId) {
+        branchMap.set(bId, {
+          id: bId,
+          name: d.branch?.name || 'Cơ sở khác',
+          departments: [{ id: d.id, name: d.name }],
+        });
+      } else {
+        const unknownBId = 'UNKNOWN_BRANCH';
+        if (!branchMap.has(unknownBId)) {
+          branchMap.set(unknownBId, {
+            id: unknownBId,
+            name: 'Chưa phân cơ sở',
+            departments: [],
+          });
+        }
+        branchMap.get(unknownBId)!.departments.push({ id: d.id, name: d.name });
+      }
+    });
+
+    // Build region map
+    const regionMapObj = new Map<string, {
+      id: string;
+      name: string;
+      code?: string;
+      branches: Array<{
+        id: string;
+        name: string;
+        address?: string;
+        departments: Array<{ id: string; name: string }>;
+      }>;
+    }>();
+
+    rawRegions.forEach((r) => {
+      regionMapObj.set(r.id, {
+        id: r.id,
+        name: r.name,
+        code: r.code,
+        branches: [],
+      });
+    });
+
+    const fallbackRegionId = 'OTHER_REGION';
+    const fallbackRegion = {
+      id: fallbackRegionId,
+      name: 'Trụ sở / Cơ sở khác',
+      code: 'OTHER',
+      branches: [] as Array<{
+        id: string;
+        name: string;
+        address?: string;
+        departments: Array<{ id: string; name: string }>;
+      }>,
+    };
+
+    branchMap.forEach((branchItem, bId) => {
+      const rawB = rawBranches.find((b) => b.id === bId);
+      const rId = rawB?.regionId || rawB?.region?.id;
+      if (rId && regionMapObj.has(rId)) {
+        regionMapObj.get(rId)!.branches.push(branchItem);
+      } else {
+        fallbackRegion.branches.push(branchItem);
+      }
+    });
+
+    let tree = Array.from(regionMapObj.values());
+    if (fallbackRegion.branches.length > 0) {
+      tree.push(fallbackRegion);
+    }
+
+    // Filter by Region Admin scope if applicable
+    if (isRegionAdmin && userRegionId) {
+      tree = tree.filter((r) => r.id === userRegionId);
+    }
+
+    // Sort regions so Miền Bắc, Miền Nam appear consistently
+    tree.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+
+    return tree;
+  }, [regionsQuery.data, branchesQuery.data, departments.data?.items, filterBranchId, isRegionAdmin, userRegionId]);
+
+  useEffect(() => {
+    if (visible) {
+      setSearchKeyword('');
+      setDeptUserSearch('');
+      setSelectedBranch(null);
+      setSelectedDept(null);
+      if (departmentTree.length === 1 && departmentTree[0]) {
+        const firstRegion = departmentTree[0];
+        setSelectedRegion({ id: firstRegion.id, name: firstRegion.name });
+      } else {
+        setSelectedRegion(null);
+      }
+    }
+  }, [visible, departmentTree]);
+
+  const departmentId = filterDepartmentId || departmentIdFromUser(user);
+  const users = useScopedEmployees(
+    { page: 1, limit: 200, ...(departmentId ? { departmentId } : {}) },
+    hasAnyPermission(user, ['employee.read', 'task.assign_any', 'task.assign_department'])
+  );
+
+  const usersByDeptId = useMemo(() => {
+    const map = new Map<string, any[]>();
+    (users.data?.items ?? []).forEach((u: any) => {
+      const deptIds = new Set<string>();
+      if (u.department?.id) deptIds.add(u.department.id);
+      if (u.departmentId) deptIds.add(u.departmentId);
+      if (Array.isArray(u.departmentLinks)) {
+        u.departmentLinks.forEach((link: any) => {
+          const dId = link.departmentId || link.department?.id;
+          if (dId) deptIds.add(dId);
+        });
+      }
+      if (deptIds.size === 0) {
+        deptIds.add('__UNASSIGNED__');
+      }
+      deptIds.forEach((dId) => {
+        if (!map.has(dId)) {
+          map.set(dId, []);
+        }
+        map.get(dId)!.push(u);
+      });
+    });
+    return map;
+  }, [users.data?.items]);
 
   const regionAdmins = useMemo(() => {
     if (!adminUsersQuery.data?.items) return [];
@@ -1288,14 +1316,72 @@ function AssigneeSelectorModal({
     return list;
   }, [adminUsersQuery.data?.items, regionMap]);
 
+  const filteredRegionAdmins = useMemo(() => {
+    if (!searchKeyword.trim()) return regionAdmins;
+    const kw = searchKeyword.trim().toLowerCase();
+    return regionAdmins.filter(
+      (ra) =>
+        ra.fullName.toLowerCase().includes(kw) ||
+        ra.userCode.toLowerCase().includes(kw) ||
+        ra.regionName.toLowerCase().includes(kw)
+    );
+  }, [regionAdmins, searchKeyword]);
+
+  const isHR = user?.roles?.includes('HR');
+
   const filteredUsers = useMemo(() => {
     if (!users.data?.items) return [];
+    let items = users.data.items;
     if (isHR) {
-      return users.data.items.filter((u) => (u as any).roles?.some((r: any) => r.role?.code === 'LEADER' || r.role === 'LEADER'));
+      items = items.filter((u) => (u as any).roles?.some((r: any) => r.role?.code === 'LEADER' || r.role === 'LEADER'));
     }
     // Nếu là Leader giao việc: chỉ hiển thị nhân sự cấp dưới trong phòng, loại bỏ chính mình và các Admin / Leader khác
     if (area === 'leader') {
-      return users.data.items.filter((u) => {
+      items = items.filter((u) => {
+        if (u.id === user?.id) return false;
+        const isLeaderOrAdmin = (u as any).roles?.some((r: any) =>
+          r.role?.code === 'ADMIN' || r.role === 'ADMIN' || r.role?.code === 'LEADER' || r.role === 'LEADER'
+        );
+        return !isLeaderOrAdmin;
+      });
+    }
+    if (isRegionAdmin && userRegionId) {
+      items = items.filter((u: any) => {
+        const links = u.departmentLinks || [];
+        if (links.length > 0) {
+          return links.some((l: any) => {
+            const rId =
+              l.department?.branch?.region?.id ||
+              l.department?.branch?.regionId ||
+              branchRegionMap.get(l.department?.branchId);
+            return rId === userRegionId;
+          });
+        }
+        const dept = u.department;
+        if (dept) {
+          const rId = dept.branch?.region?.id || dept.branch?.regionId || branchRegionMap.get(dept.branchId);
+          return rId === userRegionId;
+        }
+        return true;
+      });
+    }
+    if (searchKeyword.trim()) {
+      const kw = searchKeyword.trim().toLowerCase();
+      items = items.filter((u: any) => {
+        const name = (u.profile?.fullName || u.fullName || u.userCode || '').toLowerCase();
+        const code = (u.userCode || '').toLowerCase();
+        const deptName = (u.department?.name || '').toLowerCase();
+        return name.includes(kw) || code.includes(kw) || deptName.includes(kw);
+      });
+    }
+    return items;
+  }, [users.data?.items, isHR, area, user?.id, isRegionAdmin, userRegionId, branchRegionMap, searchKeyword]);
+
+  const deptUsers = useMemo(() => {
+    if (!selectedDept) return [];
+    let list = usersByDeptId.get(selectedDept.id) || [];
+    if (area === 'leader') {
+      list = list.filter((u) => {
         if (u.id === user?.id) return false;
         const isLeaderOrAdmin = (u as any).roles?.some((r: any) => 
           r.role?.code === 'ADMIN' || r.role === 'ADMIN' || r.role?.code === 'LEADER' || r.role === 'LEADER'
@@ -1303,8 +1389,19 @@ function AssigneeSelectorModal({
         return !isLeaderOrAdmin;
       });
     }
-    return users.data.items;
-  }, [users.data?.items, isHR, area, user?.id]);
+    return list;
+  }, [selectedDept, usersByDeptId, area, user?.id]);
+
+  const filteredDeptUsers = useMemo(() => {
+    if (!deptUserSearch.trim()) return deptUsers;
+    const kw = deptUserSearch.trim().toLowerCase();
+    return deptUsers.filter((u: any) => {
+      const name = (u.profile?.fullName || u.fullName || u.userCode || '').toLowerCase();
+      const code = (u.userCode || '').toLowerCase();
+      const pos = (u.position?.name || '').toLowerCase();
+      return name.includes(kw) || code.includes(kw) || pos.includes(kw);
+    });
+  }, [deptUsers, deptUserSearch]);
 
   const isSelected = (type: TaskTargetType, id: string) => {
     return targets.some((t) => t.targetType === type && t.targetId === id);
@@ -1328,82 +1425,310 @@ function AssigneeSelectorModal({
     }
   };
 
-  const availableTabs: Array<'REGION_ADMIN' | 'USER' | 'DEPARTMENT'> = useMemo(() => {
-    if (area === 'leader') {
-      return ['USER'];
-    }
-    if (canSelectRegionAdmin) {
-      return ['REGION_ADMIN', 'USER', 'DEPARTMENT'];
-    }
-    return ['USER', 'DEPARTMENT'];
-  }, [canSelectRegionAdmin, area]);
-
-  const tabLabels: Record<'REGION_ADMIN' | 'USER' | 'DEPARTMENT', string> = {
-    REGION_ADMIN: 'Admin miền',
-    USER: area === 'leader' ? 'Nhân viên phòng' : 'Cá nhân',
-    DEPARTMENT: 'Phòng ban',
+  const getSelectedCountInDept = (deptId: string) => {
+    const isEntire = isSelected('DEPARTMENT', deptId);
+    const usersInDept = usersByDeptId.get(deptId) || [];
+    const selectedUsers = usersInDept.filter((u) => isSelected('USER', u.id)).length;
+    return { isEntire, selectedUsers, total: isEntire ? selectedUsers + 1 : selectedUsers };
   };
+
+  const getSelectedCountInBranch = (b: { departments: Array<{ id: string }> }) => {
+    let count = 0;
+    b.departments.forEach((d) => {
+      count += getSelectedCountInDept(d.id).total;
+    });
+    return count;
+  };
+
+  const getSelectedCountInRegion = (r: { id: string; branches: Array<{ departments: Array<{ id: string }> }> }) => {
+    let count = 0;
+    const rAdmins = regionAdmins.filter((ra) => ra.regionId === r.id);
+    rAdmins.forEach((ra) => {
+      if (isSelected('USER', ra.id)) count++;
+    });
+    r.branches.forEach((b) => {
+      count += getSelectedCountInBranch(b);
+    });
+    return count;
+  };
+
+  // Find active region and branch objects from tree
+  const currentRegionObj = useMemo(() => {
+    if (!selectedRegion) return null;
+    return departmentTree.find((r) => r.id === selectedRegion.id) || null;
+  }, [selectedRegion, departmentTree]);
+
+  const currentBranchObj = useMemo(() => {
+    if (!currentRegionObj || !selectedBranch) return null;
+    return currentRegionObj.branches.find((b) => b.id === selectedBranch.id) || null;
+  }, [currentRegionObj, selectedBranch]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.assigneeModalContent}>
-          <View style={styles.assigneeModalHeader}>
-            <Text style={styles.assigneeModalTitle}>Chọn người nhận việc</Text>
-            <Pressable onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color={colors.text} />
-            </Pressable>
-          </View>
+          {searchKeyword.trim() ? (
+            /* --- SEARCH RESULTS VIEW --- */
+            <>
+              <View style={styles.stepNavHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>Kết quả tìm kiếm</Text>
+                  <Text style={styles.stepSubtitle}>Từ khoá: "{searchKeyword.trim()}"</Text>
+                </View>
+                <Pressable onPress={onClose}>
+                  <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
 
-          <View style={styles.assigneeTabs}>
-            {availableTabs.map((tab) => {
-              const isActive = activeTab === tab;
-              return (
-                <Pressable 
-                  key={tab} 
-                  style={[styles.assigneeTab, isActive && styles.assigneeTabActive]}
-                  onPress={() => setActiveTab(tab)}
+              <SearchInput
+                value={searchKeyword}
+                onChangeText={setSearchKeyword}
+                placeholder="Tìm kiếm miền, cơ sở, phòng ban hoặc tên NV..."
+              />
+
+              <ScrollView style={[styles.assigneeList, { marginTop: spacing.md }]}>
+                {/* Matching Users */}
+                {filteredUsers.length > 0 && (
+                  <View style={{ marginBottom: spacing.md }}>
+                    <Text style={[styles.deptUsersSectionTitle, { marginBottom: spacing.xs }]}>
+                      Nhân sự tìm thấy ({filteredUsers.length})
+                    </Text>
+                    {filteredUsers.map((u) => {
+                      const selected = isSelected('USER', u.id);
+                      const matchingRegionAdmin = regionAdmins.find((ra) => ra.id === u.id);
+                      const displayName = matchingRegionAdmin ? matchingRegionAdmin.label : (u.fullName ?? u.userCode);
+                      const dept = (u as any).departmentLinks?.[0]?.department || (u as any).department;
+                      const branchName = dept?.branch?.name;
+                      return (
+                        <Pressable
+                          key={u.id}
+                          style={[styles.assigneeRow, selected && styles.assigneeRowSelected]}
+                          onPress={() => toggleTarget('USER', u.id, displayName)}
+                        >
+                          <View style={styles.assigneeInfo}>
+                            <View style={[styles.assigneeAvatar, matchingRegionAdmin && { backgroundColor: colors.primarySoft }]}>
+                              <MaterialCommunityIcons
+                                name={matchingRegionAdmin ? 'shield-account' : 'account'}
+                                size={20}
+                                color={matchingRegionAdmin ? colors.primary : colors.muted}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.assigneeName, selected && { color: colors.primaryDark, fontWeight: '700' }]}>
+                                {u.fullName ?? u.userCode}
+                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                                {matchingRegionAdmin && (
+                                  <View style={styles.regionBadge}>
+                                    <Text style={styles.regionBadgeText}>Admin {matchingRegionAdmin.regionName}</Text>
+                                  </View>
+                                )}
+                                {u.userCode ? <Text style={styles.assigneeSubtext}>{u.userCode}</Text> : null}
+                                {dept?.name ? <Text style={styles.assigneeSubtext}>• {dept.name}</Text> : null}
+                                {branchName ? <Text style={styles.assigneeSubtext}>({branchName})</Text> : null}
+                              </View>
+                            </View>
+                          </View>
+                          <MaterialCommunityIcons
+                            name={selected ? 'check-circle' : 'circle-outline'}
+                            size={24}
+                            color={selected ? colors.primary : colors.border}
+                          />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {/* Matching Region Admins */}
+                {canSelectRegionAdmin && filteredRegionAdmins.length > 0 && (
+                  <View style={{ marginBottom: spacing.md }}>
+                    <Text style={[styles.deptUsersSectionTitle, { marginBottom: spacing.xs }]}>
+                      Admin miền ({filteredRegionAdmins.length})
+                    </Text>
+                    {filteredRegionAdmins.map((item) => {
+                      const selected = isSelected('USER', item.id);
+                      return (
+                        <Pressable
+                          key={item.id}
+                          style={[styles.treeAdminRow, selected && styles.treeAdminRowSelected]}
+                          onPress={() => toggleTarget('USER', item.id, item.label)}
+                        >
+                          <View style={styles.treeAdminLeft}>
+                            <View style={styles.treeAdminIcon}>
+                              <MaterialCommunityIcons name="shield-account" size={18} color="#D97706" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.treeAdminName}>{item.fullName}</Text>
+                              <Text style={styles.treeAdminSubtext}>Admin {item.regionName} • {item.userCode}</Text>
+                            </View>
+                          </View>
+                          <MaterialCommunityIcons
+                            name={selected ? 'check-circle' : 'circle-outline'}
+                            size={22}
+                            color={selected ? colors.primary : colors.border}
+                          />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {filteredUsers.length === 0 && filteredRegionAdmins.length === 0 && (
+                  <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="account-search-outline" size={44} color={colors.muted} />
+                    <Text style={[styles.meta, { textAlign: 'center', marginTop: spacing.sm }]}>
+                      Không tìm thấy nhân sự nào với từ khóa này.
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </>
+          ) : selectedDept ? (
+            /* --- STEP 4: USER LIST OF SELECTED DEPARTMENT --- */
+            <>
+              <View style={styles.stepNavHeader}>
+                <Pressable
+                  style={styles.stepBackBtn}
+                  onPress={() => {
+                    setSelectedDept(null);
+                    setDeptUserSearch('');
+                  }}
                 >
-                  <Text style={[styles.assigneeTabText, isActive && styles.assigneeTabTextActive]}>
-                    {tabLabels[tab]}
+                  <MaterialCommunityIcons name="arrow-left" size={20} color="#334155" />
+                  <Text style={styles.stepBackBtnText}>
+                    {selectedBranch ? selectedBranch.name : 'Danh mục'}
                   </Text>
                 </Pressable>
-              );
-            })}
-          </View>
+                <Pressable onPress={onClose}>
+                  <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
 
-          <ScrollView style={styles.assigneeList}>
-            {activeTab === 'REGION_ADMIN' && (
-              <>
-                {adminUsersQuery.isLoading || regionsQuery.isLoading ? (
-                  <LoadingState />
-                ) : regionAdmins.length === 0 ? (
+              <View style={styles.stepTitleBox}>
+                <Text style={styles.stepTitle}>{selectedDept.name}</Text>
+                <Text style={styles.stepSubtitle}>
+                  {selectedBranch ? `${selectedBranch.name} • ` : ''}
+                  {selectedRegion ? selectedRegion.name : ''}
+                </Text>
+              </View>
+
+              <SearchInput
+                value={deptUserSearch}
+                onChangeText={setDeptUserSearch}
+                placeholder="Tìm kiếm nhân viên trong phòng..."
+              />
+
+              {/* Option to select entire department */}
+              {selectedDept.id !== '__UNASSIGNED__' && (
+                <Pressable
+                  style={[
+                    styles.deptSelectAllCard,
+                    isSelected('DEPARTMENT', selectedDept.id) && styles.deptSelectAllCardActive,
+                  ]}
+                  onPress={() => toggleTarget('DEPARTMENT', selectedDept.id, selectedDept.name)}
+                >
+                  <View style={styles.deptSelectAllLeft}>
+                    <View
+                      style={[
+                        styles.deptSelectAllIcon,
+                        isSelected('DEPARTMENT', selectedDept.id) && { backgroundColor: '#DCFCE7' },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="domain"
+                        size={20}
+                        color={isSelected('DEPARTMENT', selectedDept.id) ? '#16A34A' : colors.primary}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.deptSelectAllTitle}>
+                        {area === 'leader'
+                          ? `Giao cho Leader ${selectedDept.name}`
+                          : `Giao cho toàn bộ ${selectedDept.name}`}
+                      </Text>
+                      <Text style={styles.deptSelectAllSubtitle}>
+                        {area === 'leader' ? 'Leader đại diện nhận việc' : 'Giao đồng thời cho cả tập thể phòng ban'}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons
+                    name={isSelected('DEPARTMENT', selectedDept.id) ? 'check-circle' : 'circle-outline'}
+                    size={24}
+                    color={isSelected('DEPARTMENT', selectedDept.id) ? '#16A34A' : colors.border}
+                  />
+                </Pressable>
+              )}
+
+              <View style={styles.deptUsersSectionHeader}>
+                <Text style={styles.deptUsersSectionTitle}>
+                  Danh sách nhân sự ({filteredDeptUsers.length})
+                </Text>
+                {filteredDeptUsers.length > 0 && (
+                  <Pressable
+                    onPress={() => {
+                      const allSelected = filteredDeptUsers.every((u) => isSelected('USER', u.id));
+                      if (allSelected) {
+                        const unselectedIds = new Set(filteredDeptUsers.map((u) => u.id));
+                        onChange(targets.filter((t) => t.targetType !== 'USER' || !unselectedIds.has(t.targetId)));
+                      } else {
+                        const newTargets = [...targets];
+                        filteredDeptUsers.forEach((u) => {
+                          if (!newTargets.some((t) => t.targetType === 'USER' && t.targetId === u.id)) {
+                            const name = u.profile?.fullName || u.fullName || u.userCode;
+                            newTargets.push({ targetType: 'USER', targetId: u.id, targetName: name } as any);
+                          }
+                        });
+                        onChange(newTargets);
+                      }
+                    }}
+                  >
+                    <Text style={styles.deptSelectAllActionText}>
+                      {filteredDeptUsers.every((u) => isSelected('USER', u.id)) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+
+              <ScrollView style={styles.assigneeList}>
+                {filteredDeptUsers.length === 0 ? (
                   <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-                    <MaterialCommunityIcons name="shield-outline" size={48} color={colors.muted} />
+                    <MaterialCommunityIcons name="account-search-outline" size={44} color={colors.muted} />
                     <Text style={[styles.meta, { textAlign: 'center', marginTop: spacing.sm }]}>
-                      Chưa có tài khoản nào được phân quyền Admin quản lý vùng miền.
+                      {deptUserSearch ? 'Không tìm thấy nhân sự phù hợp' : 'Chưa có nhân sự nào trong phòng ban này.'}
                     </Text>
                   </View>
                 ) : (
-                  regionAdmins.map((item) => {
-                    const selected = isSelected('USER', item.id);
+                  filteredDeptUsers.map((u) => {
+                    const selected = isSelected('USER', u.id);
+                    const fullName = u.profile?.fullName || u.fullName || u.userCode;
+                    const positionName = u.position?.name || 'Nhân viên';
                     return (
                       <Pressable
-                        key={item.id}
-                        style={styles.assigneeRow}
-                        onPress={() => toggleTarget('USER', item.id, item.label)}
+                        key={u.id}
+                        style={[styles.assigneeRow, selected && styles.assigneeRowSelected]}
+                        onPress={() => toggleTarget('USER', u.id, fullName)}
                       >
                         <View style={styles.assigneeInfo}>
-                          <View style={[styles.assigneeAvatar, { backgroundColor: colors.primarySoft }]}>
-                            <MaterialCommunityIcons name="shield-account" size={22} color={colors.primary} />
+                          <View style={[styles.assigneeAvatar, selected && { backgroundColor: colors.primarySoft }]}>
+                            <MaterialCommunityIcons
+                              name="account"
+                              size={20}
+                              color={selected ? colors.primary : colors.muted}
+                            />
                           </View>
-                          <View>
-                            <Text style={styles.assigneeName}>{item.fullName}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.assigneeName,
+                                selected && { color: colors.primaryDark, fontWeight: '700' },
+                              ]}
+                            >
+                              {fullName}
+                            </Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                              <View style={styles.regionBadge}>
-                                <Text style={styles.regionBadgeText}>Admin {item.regionName}</Text>
-                              </View>
-                              <Text style={styles.assigneeSubtext}>{item.userCode}</Text>
+                              <Text style={styles.assigneeSubtext}>{u.userCode}</Text>
+                              <Text style={styles.assigneeSubtext}>• {positionName}</Text>
                             </View>
                           </View>
                         </View>
@@ -1416,81 +1741,330 @@ function AssigneeSelectorModal({
                     );
                   })
                 )}
-              </>
-            )}
+              </ScrollView>
+            </>
+          ) : selectedBranch ? (
+            /* --- STEP 3: DEPARTMENTS OF SELECTED BRANCH --- */
+            <>
+              <View style={styles.stepNavHeader}>
+                <Pressable
+                  style={styles.stepBackBtn}
+                  onPress={() => setSelectedBranch(null)}
+                >
+                  <MaterialCommunityIcons name="arrow-left" size={20} color="#334155" />
+                  <Text style={styles.stepBackBtnText}>
+                    {selectedRegion ? selectedRegion.name : 'Chi nhánh'}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={onClose}>
+                  <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
 
-            {activeTab === 'USER' && (
-              <>
-                {users.isLoading ? (
-                  <LoadingState />
+              <View style={styles.stepTitleBox}>
+                <Text style={styles.stepTitle}>{selectedBranch.name}</Text>
+                <Text style={styles.stepSubtitle}>
+                  Chọn phòng ban nhận việc • {selectedRegion?.name || ''}
+                </Text>
+              </View>
+
+              {/* Header Action: Select All / Deselect All Departments */}
+              {(currentBranchObj?.departments ?? []).length > 0 && (
+                <View style={styles.deptUsersSectionHeader}>
+                  <Text style={styles.deptUsersSectionTitle}>
+                    Phòng ban ({currentBranchObj?.departments.length ?? 0})
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      const depts = currentBranchObj?.departments ?? [];
+                      const allSelected = depts.every((d) => isSelected('DEPARTMENT', d.id));
+                      if (allSelected) {
+                        const deptIds = new Set(depts.map((d) => d.id));
+                        onChange(targets.filter((t) => t.targetType !== 'DEPARTMENT' || !deptIds.has(t.targetId)));
+                      } else {
+                        const newTargets = [...targets];
+                        depts.forEach((d) => {
+                          if (!newTargets.some((t) => t.targetType === 'DEPARTMENT' && t.targetId === d.id)) {
+                            newTargets.push({ targetType: 'DEPARTMENT', targetId: d.id, targetName: d.name } as any);
+                          }
+                        });
+                        onChange(newTargets);
+                      }
+                    }}
+                  >
+                    <Text style={styles.deptSelectAllActionText}>
+                      {(currentBranchObj?.departments ?? []).every((d) => isSelected('DEPARTMENT', d.id))
+                        ? 'Bỏ chọn tất cả'
+                        : 'Tích chọn tất cả'}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+
+              <ScrollView style={styles.assigneeList}>
+                {(currentBranchObj?.departments ?? []).length === 0 ? (
+                  <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="domain-off" size={44} color={colors.muted} />
+                    <Text style={[styles.meta, { textAlign: 'center', marginTop: spacing.sm }]}>
+                      Chưa có phòng ban nào thuộc chi nhánh này.
+                    </Text>
+                  </View>
                 ) : (
-                  filteredUsers.map((u) => {
-                    const selected = isSelected('USER', u.id);
-                    const matchingRegionAdmin = regionAdmins.find((ra) => ra.id === u.id);
-                    const displayName = matchingRegionAdmin ? matchingRegionAdmin.label : (u.fullName ?? u.userCode);
+                  (currentBranchObj?.departments ?? []).map((d) => {
+                    const { isEntire, selectedUsers, total } = getSelectedCountInDept(d.id);
+                    const userCount = usersByDeptId.get(d.id)?.length ?? 0;
+
                     return (
-                      <Pressable
-                        key={u.id}
-                        style={styles.assigneeRow}
-                        onPress={() => toggleTarget('USER', u.id, displayName)}
+                      <View
+                        key={d.id}
+                        style={[styles.stepCard, (isEntire || total > 0) && styles.stepCardSelected]}
                       >
-                        <View style={styles.assigneeInfo}>
-                          <View style={[styles.assigneeAvatar, matchingRegionAdmin && { backgroundColor: colors.primarySoft }]}>
+                        {/* Direct Checkbox to select the whole department */}
+                        <Pressable
+                          style={styles.deptCheckboxTouch}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}
+                        >
+                          <MaterialCommunityIcons
+                            name={isEntire ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                            size={24}
+                            color={isEntire ? '#16A34A' : colors.muted}
+                          />
+                        </Pressable>
+
+                        {/* Department info pressable: opens Step 4 (Individual Users) */}
+                        <Pressable
+                          style={styles.stepCardContentPressable}
+                          onPress={() => {
+                            setSelectedDept({ id: d.id, name: d.name });
+                            setDeptUserSearch('');
+                          }}
+                        >
+                          <View style={[styles.stepCardIcon, { backgroundColor: isEntire ? '#DCFCE7' : '#F1F5F9' }]}>
                             <MaterialCommunityIcons
-                              name={matchingRegionAdmin ? 'shield-account' : 'account'}
-                              size={20}
-                              color={matchingRegionAdmin ? colors.primary : colors.muted}
+                              name={area === 'leader' ? 'account-tie' : 'domain'}
+                              size={22}
+                              color={isEntire ? '#16A34A' : total > 0 ? colors.primary : colors.muted}
                             />
                           </View>
-                          <View>
-                            <Text style={styles.assigneeName}>{u.fullName ?? u.userCode}</Text>
-                            {matchingRegionAdmin ? (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                <View style={styles.regionBadge}>
-                                  <Text style={styles.regionBadgeText}>Admin {matchingRegionAdmin.regionName}</Text>
-                                </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.stepCardTitle, isEntire && { color: '#15803D', fontWeight: '800' }]}>
+                              {d.name}
+                            </Text>
+                            <Text style={styles.stepCardSubtitle}>
+                              {userCount} nhân sự {isEntire ? '• Cả phòng được giao' : ''}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            {isEntire ? (
+                              <View style={[styles.treeCountBadge, { backgroundColor: '#DCFCE7' }]}>
+                                <Text style={[styles.treeCountBadgeText, { color: '#15803D' }]}>Cả phòng</Text>
+                              </View>
+                            ) : selectedUsers > 0 ? (
+                              <View style={styles.treeCountBadge}>
+                                <Text style={styles.treeCountBadgeText}>{selectedUsers} NV</Text>
                               </View>
                             ) : null}
+                            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+                          </View>
+                        </Pressable>
+                      </View>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </>
+          ) : selectedRegion ? (
+            /* --- STEP 2: BRANCHES OF SELECTED REGION --- */
+            <>
+              <View style={styles.stepNavHeader}>
+                {departmentTree.length > 1 ? (
+                  <Pressable
+                    style={styles.stepBackBtn}
+                    onPress={() => setSelectedRegion(null)}
+                  >
+                    <MaterialCommunityIcons name="arrow-left" size={20} color="#334155" />
+                    <Text style={styles.stepBackBtnText}>Tất cả miền</Text>
+                  </Pressable>
+                ) : (
+                  <View />
+                )}
+                <Pressable onPress={onClose}>
+                  <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
+
+              <View style={styles.stepTitleBox}>
+                <Text style={styles.stepTitle}>{selectedRegion.name}</Text>
+                <Text style={styles.stepSubtitle}>Chọn cơ sở / chi nhánh nhận việc</Text>
+              </View>
+
+              <ScrollView style={styles.assigneeList}>
+                {/* Admin Miền Golden Card */}
+                {canSelectRegionAdmin && (
+                  <>
+                    {regionAdmins
+                      .filter((ra) => ra.regionId === selectedRegion.id)
+                      .map((ra) => {
+                        const selected = isSelected('USER', ra.id);
+                        return (
+                          <Pressable
+                            key={ra.id}
+                            style={[styles.treeAdminRow, selected && styles.treeAdminRowSelected, { marginBottom: spacing.md }]}
+                            onPress={() => toggleTarget('USER', ra.id, ra.label)}
+                          >
+                            <View style={styles.treeAdminLeft}>
+                              <View style={styles.treeAdminIcon}>
+                                <MaterialCommunityIcons name="shield-account" size={20} color="#D97706" />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.treeAdminName}>Giao cho Admin {ra.regionName}</Text>
+                                <Text style={styles.treeAdminSubtext}>{ra.fullName} • {ra.userCode}</Text>
+                              </View>
+                            </View>
+                            <MaterialCommunityIcons
+                              name={selected ? 'check-circle' : 'circle-outline'}
+                              size={24}
+                              color={selected ? colors.primary : colors.border}
+                            />
+                          </Pressable>
+                        );
+                      })}
+                  </>
+                )}
+
+                {/* Branches List */}
+                {(currentRegionObj?.branches ?? []).length === 0 ? (
+                  <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="office-building-outline" size={44} color={colors.muted} />
+                    <Text style={[styles.meta, { textAlign: 'center', marginTop: spacing.sm }]}>
+                      Chưa có chi nhánh nào trực thuộc {selectedRegion.name}.
+                    </Text>
+                  </View>
+                ) : (
+                  (currentRegionObj?.branches ?? []).map((b) => {
+                    const selectedCountInBranch = getSelectedCountInBranch(b);
+
+                    return (
+                      <Pressable
+                        key={b.id}
+                        style={[styles.stepCard, selectedCountInBranch > 0 && styles.stepCardSelected]}
+                        onPress={() => setSelectedBranch({ id: b.id, name: b.name })}
+                      >
+                        <View style={styles.stepCardLeft}>
+                          <View style={[styles.stepCardIcon, { backgroundColor: '#F0F9FF' }]}>
+                            <MaterialCommunityIcons name="office-building-outline" size={22} color="#0284C7" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.stepCardTitle, selectedCountInBranch > 0 && { color: colors.primaryDark }]}>
+                              {b.name}
+                            </Text>
+                            <Text style={styles.stepCardSubtitle}>{b.departments.length} phòng ban</Text>
                           </View>
                         </View>
-                        <MaterialCommunityIcons
-                          name={selected ? 'check-circle' : 'circle-outline'}
-                          size={24}
-                          color={selected ? colors.primary : colors.border}
-                        />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          {selectedCountInBranch > 0 && (
+                            <View style={styles.treeCountBadge}>
+                              <Text style={styles.treeCountBadgeText}>{selectedCountInBranch} đã chọn</Text>
+                            </View>
+                          )}
+                          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.muted} />
+                        </View>
                       </Pressable>
                     );
                   })
                 )}
-              </>
-            )}
-
-            {activeTab === 'DEPARTMENT' && filteredDepartments.map((d) => (
-              <Pressable key={d.id} style={styles.assigneeRow} onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}>
-                <View style={styles.assigneeInfo}>
-                  <View style={styles.assigneeAvatar}>
-                    <MaterialCommunityIcons name={area === 'leader' ? "account-tie" : "domain"} size={20} color={colors.muted} />
-                  </View>
-                  <View>
-                    <Text style={styles.assigneeName}>
-                      {area === 'leader' ? `Leader ${d.name}` : d.name}
-                    </Text>
-                    {d.branch?.name ? (
-                      <Text style={styles.assigneeSubtext}>Cơ sở: {d.branch.name}</Text>
-                    ) : null}
-                  </View>
+              </ScrollView>
+            </>
+          ) : (
+            /* --- STEP 1: REGIONS BUTTONS --- */
+            <>
+              <View style={styles.stepNavHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>Chọn người nhận việc</Text>
+                  <Text style={styles.stepSubtitle}>Chọn vùng miền nhận việc</Text>
                 </View>
-                <MaterialCommunityIcons 
-                  name={isSelected('DEPARTMENT', d.id) ? 'check-circle' : 'circle-outline'} 
-                  size={24} 
-                  color={isSelected('DEPARTMENT', d.id) ? colors.primary : colors.border} 
-                />
-              </Pressable>
-            ))}
-          </ScrollView>
-          
+                <Pressable onPress={onClose}>
+                  <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
+
+              <SearchInput
+                value={searchKeyword}
+                onChangeText={setSearchKeyword}
+                placeholder="Tìm kiếm miền, cơ sở, phòng ban hoặc tên NV..."
+              />
+
+              <ScrollView style={[styles.assigneeList, { marginTop: spacing.md }]}>
+                {departmentTree.map((r) => {
+                  const selectedCountInRegion = getSelectedCountInRegion(r);
+                  const totalDeptsInRegion = r.branches.reduce((sum, b) => sum + b.departments.length, 0);
+
+                  return (
+                    <Pressable
+                      key={r.id}
+                      style={[styles.stepCard, selectedCountInRegion > 0 && styles.stepCardSelected]}
+                      onPress={() => setSelectedRegion({ id: r.id, name: r.name })}
+                    >
+                      <View style={styles.stepCardLeft}>
+                        <View style={[styles.stepCardIcon, { backgroundColor: '#EFF6FF' }]}>
+                          <MaterialCommunityIcons name="earth" size={24} color="#2563EB" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.stepCardTitle, selectedCountInRegion > 0 && { color: colors.primaryDark }]}>
+                            {r.name}
+                          </Text>
+                          <Text style={styles.stepCardSubtitle}>
+                            {r.branches.length > 0
+                              ? `${r.branches.length} chi nhánh • ${totalDeptsInRegion} phòng ban`
+                              : 'Chưa có chi nhánh'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {selectedCountInRegion > 0 && (
+                          <View style={styles.treeCountBadge}>
+                            <Text style={styles.treeCountBadgeText}>{selectedCountInRegion} đã chọn</Text>
+                          </View>
+                        )}
+                        <MaterialCommunityIcons name="chevron-right" size={24} color={colors.muted} />
+                      </View>
+                    </Pressable>
+                  );
+                })}
+
+                {/* Unassigned users card */}
+                {usersByDeptId.has('__UNASSIGNED__') && (usersByDeptId.get('__UNASSIGNED__')?.length ?? 0) > 0 && (
+                  <Pressable
+                    style={styles.stepCard}
+                    onPress={() => {
+                      setSelectedDept({ id: '__UNASSIGNED__', name: 'Nhân sự chưa phân phòng ban' });
+                      setDeptUserSearch('');
+                    }}
+                  >
+                    <View style={styles.stepCardLeft}>
+                      <View style={[styles.stepCardIcon, { backgroundColor: '#F1F5F9' }]}>
+                        <MaterialCommunityIcons name="account-group-outline" size={22} color="#475569" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.stepCardTitle}>Nhân sự chưa phân phòng ban</Text>
+                        <Text style={styles.stepCardSubtitle}>
+                          {usersByDeptId.get('__UNASSIGNED__')?.length ?? 0} nhân sự độc lập
+                        </Text>
+                      </View>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={24} color={colors.muted} />
+                  </Pressable>
+                )}
+              </ScrollView>
+            </>
+          )}
+
+          {/* Fixed Footer */}
           <View style={styles.assigneeFooter}>
-            <PrimaryButton onPress={onClose}>Hoàn tất ({targets.length})</PrimaryButton>
+            <PrimaryButton onPress={onClose}>
+              Hoàn tất ({targets.length})
+            </PrimaryButton>
           </View>
         </View>
       </View>
@@ -1610,8 +2184,8 @@ const styles = StyleSheet.create({
   },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  assigneeModalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '80%', padding: spacing.lg },
-  assigneeModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  assigneeModalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '85%', padding: spacing.lg },
+  assigneeModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
   assigneeModalTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
   assigneeTabs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   assigneeTab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
@@ -1620,13 +2194,390 @@ const styles = StyleSheet.create({
   assigneeTabTextActive: { color: colors.primaryDark },
   assigneeList: { flex: 1 },
   assigneeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  assigneeInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  assigneeRowSelected: { backgroundColor: '#F0FDF4' },
+  assigneeInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
   assigneeAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   assigneeName: { fontSize: 15, fontWeight: '600', color: colors.text },
   assigneeSubtext: { fontSize: 12, color: colors.muted },
   regionBadge: { backgroundColor: colors.primarySoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   regionBadgeText: { fontSize: 11, fontWeight: '700', color: colors.primaryDark },
   assigneeFooter: { paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+
+  /* Department User Detail View Styles */
+  deptDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  deptDetailBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+  },
+  deptDetailBackText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  deptDetailTitleBox: {
+    marginBottom: spacing.sm,
+    marginTop: 4,
+  },
+  deptDetailTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  deptDetailSubtitle: {
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  deptSelectAllCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
+  deptSelectAllCardActive: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+  },
+  deptSelectAllLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  deptSelectAllIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deptSelectAllTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  deptSelectAllSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  deptUsersSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
+    paddingHorizontal: 4,
+  },
+  deptUsersSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  deptSelectAllActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+
+  /* Admin Miền in tree */
+  treeAdminRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginTop: 6,
+    marginBottom: 4,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  treeAdminRowSelected: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  treeAdminLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  treeAdminIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  treeAdminName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  treeAdminSubtext: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 1,
+  },
+
+  /* Step Drilldown Navigation Styles */
+  stepNavHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  stepBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+  },
+  stepBackBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  stepTitleBox: {
+    marginBottom: spacing.sm,
+    marginTop: 4,
+  },
+  stepTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  stepSubtitle: {
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  stepCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginBottom: spacing.sm,
+  },
+  stepCardSelected: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+  },
+  deptCheckboxTouch: {
+    paddingRight: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepCardContentPressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stepCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  stepCardIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  stepCardSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Tree Hierarchy Styles */
+  treeRegionBlock: {
+    marginBottom: spacing.sm,
+  },
+  treeRegionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  treeRegionHeaderExpanded: {
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    borderColor: '#CBD5E1',
+  },
+  treeRegionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  treeRegionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  treeRegionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  treeRegionSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  treeBranchContainer: {
+    marginLeft: 12,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: '#E2E8F0',
+    paddingTop: 4,
+  },
+  treeBranchBlock: {
+    marginTop: 4,
+  },
+  treeBranchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#EDF2F7',
+  },
+  treeBranchHeaderExpanded: {
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    borderColor: '#CBD5E1',
+  },
+  treeBranchLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  treeBranchIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F0F9FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  treeBranchTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  treeBranchSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  treeDeptContainer: {
+    marginLeft: 12,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: '#CBD5E1',
+    paddingVertical: 2,
+  },
+  treeDeptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: 4,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  treeDeptRowSelected: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+  },
+  treeDeptLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  treeDeptIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  treeDeptName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  treeDeptSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  treeCountBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  treeCountBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
   
   // Date Picker Modal
   pickerModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

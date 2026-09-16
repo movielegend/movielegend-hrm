@@ -48,10 +48,23 @@ type FilterStatus = 'ALL' | 'ENABLED' | 'DISABLED';
 
 export function AdminTetWalletScreen() {
   const { user } = useAuth();
-  const isGlobalAdmin = Boolean(
+  const isRegionAdmin = Boolean(
     user?.roles?.includes('ADMIN') &&
-    user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType))
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
   );
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('SUPER_ADMIN') ||
+    (user?.roles?.includes('ADMIN') && !isRegionAdmin)
+  );
+  const regionIds = useMemo(() => {
+    return (
+      user?.scopes
+        ?.filter((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION' && s.scopeId)
+        .map((s: any) => s.scopeId) || []
+    );
+  }, [user]);
+
+  const canManageTetWallet = isGlobalAdmin || isRegionAdmin;
 
   const params = useLocalSearchParams<{ tab?: string }>();
   const [mainTab, setMainTab] = useState<MainTab>(params.tab === 'WITHDRAWALS' ? 'WITHDRAWALS' : 'MEMBERS');
@@ -128,8 +141,29 @@ export function AdminTetWalletScreen() {
     await Promise.all([departmentsQuery.refetch(), employeesQuery.refetch(), withdrawalsQuery.refetch()]);
   }, [departmentsQuery, employeesQuery, withdrawalsQuery]);
 
-  const departments: Department[] = departmentsQuery.data?.items || [];
-  const employees: EmployeeUser[] = employeesQuery.data?.items || [];
+  const rawDepartments: Department[] = departmentsQuery.data?.items || [];
+  const departments: Department[] = useMemo(() => {
+    if (isRegionAdmin && !isGlobalAdmin && regionIds.length > 0) {
+      return rawDepartments.filter(
+        (d) =>
+          (d.branch?.region?.id && regionIds.includes(d.branch.region.id)) ||
+          ((d.branch as any)?.regionId && regionIds.includes((d.branch as any).regionId))
+      );
+    }
+    return rawDepartments;
+  }, [rawDepartments, isRegionAdmin, isGlobalAdmin, regionIds]);
+
+  const regionDeptIdSet = useMemo(() => new Set(departments.map((d) => d.id)), [departments]);
+
+  const rawEmployees: EmployeeUser[] = employeesQuery.data?.items || [];
+  const employees: EmployeeUser[] = useMemo(() => {
+    if (isRegionAdmin && !isGlobalAdmin) {
+      return rawEmployees.filter((emp) =>
+        emp.departmentLinks?.some((link) => regionDeptIdSet.has(link.departmentId))
+      );
+    }
+    return rawEmployees;
+  }, [rawEmployees, isRegionAdmin, isGlobalAdmin, regionDeptIdSet]);
 
   // Group employees by department ID
   const employeesByDept = useMemo(() => {
@@ -169,6 +203,23 @@ export function AdminTetWalletScreen() {
 
   // Open Grant Screen for Single Employee
   const openGrantForEmployee = (emp: EmployeeUser) => {
+    if (!canManageTetWallet) {
+      CustomAlert.alert(
+        'Không có quyền trao điểm',
+        'Tài khoản không có quyền trao điểm thưởng Ví Tết.'
+      );
+      return;
+    }
+    if (isRegionAdmin && !isGlobalAdmin) {
+      const isInRegion = emp.departmentLinks?.some((link) => regionDeptIdSet.has(link.departmentId));
+      if (!isInRegion) {
+        CustomAlert.alert(
+          'Không thuộc miền quản lý',
+          'Bạn chỉ có quyền trao điểm thưởng cho nhân sự thuộc các phòng ban trong miền mình quản lý.'
+        );
+        return;
+      }
+    }
     setSelectedEmployee(null);
     setGrantTarget({
       type: 'SINGLE',
@@ -178,6 +229,20 @@ export function AdminTetWalletScreen() {
 
   // Open Grant Screen for Department
   const openGrantForDepartment = (dept: Department) => {
+    if (!canManageTetWallet) {
+      CustomAlert.alert(
+        'Không có quyền trao điểm',
+        'Tài khoản không có quyền trao điểm thưởng Ví Tết.'
+      );
+      return;
+    }
+    if (isRegionAdmin && !isGlobalAdmin && !regionDeptIdSet.has(dept.id)) {
+      CustomAlert.alert(
+        'Không thuộc miền quản lý',
+        'Bạn chỉ có quyền trao điểm thưởng cho phòng ban thuộc miền mình quản lý.'
+      );
+      return;
+    }
     const deptMembers = employeesByDept[dept.id] || [];
     setGrantTarget({
       type: 'DEPARTMENT',
@@ -554,8 +619,8 @@ export function AdminTetWalletScreen() {
                         />
                       </Pressable>
 
-                      {/* Department Actions Toolbar - Only Super Admin has grant/toggle rights */}
-                      {isGlobalAdmin && isExpanded && deptMembers.length > 0 && (
+                      {/* Department Actions Toolbar */}
+                      {canManageTetWallet && isExpanded && deptMembers.length > 0 && (
                         <View style={styles.deptToolbar}>
                           <Pressable
                             style={styles.deptActionToolBtn}
@@ -601,7 +666,7 @@ export function AdminTetWalletScreen() {
                               <EmployeeRowItem
                                 key={emp.id}
                                 employee={emp}
-                                isGlobalAdmin={isGlobalAdmin}
+                                canManage={canManageTetWallet}
                                 isToggling={togglingEmpId === emp.id}
                                 onToggle={(val) => handleToggleVault(emp, val)}
                                 onGrantPoints={() => openGrantForEmployee(emp)}
@@ -650,7 +715,7 @@ export function AdminTetWalletScreen() {
                           <EmployeeRowItem
                             key={emp.id}
                             employee={emp}
-                            isGlobalAdmin={isGlobalAdmin}
+                            canManage={canManageTetWallet}
                             isToggling={togglingEmpId === emp.id}
                             onToggle={(val) => handleToggleVault(emp, val)}
                             onGrantPoints={() => openGrantForEmployee(emp)}
@@ -683,7 +748,7 @@ export function AdminTetWalletScreen() {
                     key={emp.id}
                     employee={emp}
                     showDeptTag={true}
-                    isGlobalAdmin={isGlobalAdmin}
+                    canManage={canManageTetWallet}
                     isToggling={togglingEmpId === emp.id}
                     onToggle={(val) => handleToggleVault(emp, val)}
                     onGrantPoints={() => openGrantForEmployee(emp)}
@@ -769,17 +834,19 @@ export function AdminTetWalletScreen() {
                       VNĐ
                     </Text>
                   </View>
-                  <Pressable
-                    style={styles.modalGrantShortcutBtn}
-                    onPress={() => {
-                      const emp = selectedEmployee;
-                      setSelectedEmployee(null);
-                      openGrantForEmployee(emp);
-                    }}
-                  >
-                    <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
-                    <Text style={styles.modalGrantShortcutText}>Trao điểm</Text>
-                  </Pressable>
+                  {canManageTetWallet && (
+                    <Pressable
+                      style={styles.modalGrantShortcutBtn}
+                      onPress={() => {
+                        const emp = selectedEmployee;
+                        setSelectedEmployee(null);
+                        openGrantForEmployee(emp);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
+                      <Text style={styles.modalGrantShortcutText}>Trao điểm</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
 
@@ -848,7 +915,7 @@ interface EmployeeRowItemProps {
   showDeptTag?: boolean;
   isLast?: boolean;
   isToggling?: boolean;
-  isGlobalAdmin?: boolean;
+  canManage?: boolean;
   onToggle?: (value: boolean) => void;
   onGrantPoints?: () => void;
   onPress?: () => void;
@@ -859,7 +926,7 @@ function EmployeeRowItem({
   showDeptTag = false,
   isLast = false,
   isToggling = false,
-  isGlobalAdmin = false,
+  canManage = false,
   onToggle,
   onGrantPoints,
   onPress,
@@ -952,8 +1019,8 @@ function EmployeeRowItem({
 
       {/* Right Controls: Grant Button & Switch */}
       <View style={styles.walletRightGroup}>
-        {/* Trao điểm Action Button - Only for Super Admin */}
-        {isGlobalAdmin && (
+        {/* Trao điểm Action Button */}
+        {canManage && (
           <Pressable
             style={styles.rowGrantBtn}
             onPress={(e) => {
@@ -966,14 +1033,14 @@ function EmployeeRowItem({
           </Pressable>
         )}
 
-        {/* Permission Switch & Status - Only Super Admin can toggle */}
+        {/* Permission Switch & Status */}
         <View style={styles.switchRow}>
           {isToggling ? (
             <ActivityIndicator size="small" color="#D97706" style={{ marginHorizontal: 4 }} />
           ) : (
             <Switch
               value={isVaultEnabled}
-              disabled={!isGlobalAdmin || isToggling}
+              disabled={!canManage || isToggling}
               onValueChange={onToggle}
               trackColor={{ false: '#E5E7EB', true: '#FDE68A' }}
               thumbColor={isVaultEnabled ? '#D97706' : '#9CA3AF'}

@@ -11,6 +11,7 @@ import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { getEmployeeRequests, approveEmployeeRequest, rejectEmployeeRequest } from '../../../src/api/employee-requests.api';
 import type { EmployeeRequestType, EmployeeRequestStatus } from '../../../src/types/request.types';
+import { CustomAlert } from '../../../src/components/CustomAlert';
 
 const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, color: string }[] = [
   { type: 'ALL', label: 'Tất cả', icon: 'format-list-bulleted', color: colors.muted },

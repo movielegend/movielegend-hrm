@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../api/uploads.api';
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 interface EvidenceSubmissionModalProps {
   visible: boolean;

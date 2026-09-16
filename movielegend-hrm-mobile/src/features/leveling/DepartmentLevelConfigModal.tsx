@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { levelingApi, DepartmentLevelItem } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
+import { CustomAlert } from '../../components/CustomAlert';
 
 interface DepartmentLevelConfigModalProps {
   visible: boolean;

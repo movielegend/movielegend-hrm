@@ -35,6 +35,7 @@ import { formatDateTime } from '../../utils/date-time';
 import { hasPermission } from '../../utils/permissions';
 import { incidentStatusTone, incidentTypeLabels, mapWarehouseAssetError } from '../assets/asset.logic';
 import { IncidentCard } from '../assets/AssetComponents';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export type IncidentArea = 'employee' | 'leader' | 'warehouse' | 'admin' | 'hr';
 

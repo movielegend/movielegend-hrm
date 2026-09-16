@@ -21,6 +21,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { AdminDeptOverviewPage, DepartmentSummaryItem } from './pages/AdminDeptOverviewPage';
 import { AdminLevelRewardsPage } from './pages/AdminLevelRewardsPage';
 import { AdminLevelProjectsPage } from './pages/AdminLevelProjectsPage';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export interface LevelStageProject {
   projectName: string;

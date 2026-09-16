@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {StyleSheet, Text, View, Pressable, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform} from 'react-native';
 import { apiClient } from '../../../api/client';
 import { useAuth } from '../../../providers/AuthProvider';
+import { CustomAlert } from '../../../components/CustomAlert';
 
 export function EditProfileModal({ visible, onClose, initialPhone = '', initialEmail = '' }: any) {
   const [editForm, setEditForm] = useState({ phone: '', email: '' });

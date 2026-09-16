@@ -22,6 +22,7 @@ import { spacing } from '../../theme/spacing';
 import type { AssetConditionStatus, AssetDto } from '../../types/asset.types';
 import { assetConditionLabels, canStartMaintenance, mapWarehouseAssetError } from '../assets/asset.logic';
 import { AssetCard } from '../assets/AssetComponents';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 

@@ -14,6 +14,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
 import { getMyVault, withdrawVaultPoints } from '../../api/employees.api';
+import { CustomAlert } from '../../components/CustomAlert';
 import type {
   MyVaultResponse,
   VestingMilestone,

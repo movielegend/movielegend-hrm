@@ -30,6 +30,8 @@ import {
   bulkGrantProjectPackage as apiBulkGrantProjectPackage,
 } from '../../api/employees.api';
 import { useQueryClient } from '@tanstack/react-query';
+import { CustomAlert } from '../../components/CustomAlert';
+import { useAuth } from '../../providers/AuthProvider';
 
 export interface GrantTarget {
   type: 'SINGLE' | 'DEPARTMENT';
@@ -75,6 +77,17 @@ const INTERVAL_OPTIONS = [
 const WEEKDAYS_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrantPointsScreenProps) {
+  const { user } = useAuth();
+  const isRegionAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
+  );
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('SUPER_ADMIN') ||
+    (user?.roles?.includes('ADMIN') && !isRegionAdmin)
+  );
+  const canGrant = isGlobalAdmin || isRegionAdmin;
+
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
@@ -108,13 +121,13 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const smoothExit = useCallback(() => {
     Animated.timing(translateX, {
       toValue: screenWidth,
-      duration: 200,
-      easing: Easing.out(Easing.poly(4)),
+      duration: 220,
+      easing: Easing.in(Easing.poly(4)),
       useNativeDriver: true,
     }).start(() => {
       onBack();
     });
-  }, [translateX, onBack, screenWidth]);
+  }, [translateX, screenWidth, onBack]);
 
   // Handle hardware back on Android with smooth transition
   useEffect(() => {
@@ -256,6 +269,14 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   }, [customPointsInput, durationMonths, intervalMonths, startDateStr]);
 
   const handleConfirmGrant = async () => {
+    if (!canGrant) {
+      CustomAlert.alert(
+        'Không có quyền trao điểm',
+        'Tài khoản của bạn không có quyền trao điểm thưởng Ví Tết.'
+      );
+      return;
+    }
+
     const pts = parseInt(customPointsInput, 10);
     if (isNaN(pts) || pts <= 0) {
       CustomAlert.alert('Số điểm không hợp lệ', 'Vui lòng nhập số điểm lớn hơn 0.');
@@ -304,7 +325,15 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 
       await queryClient.invalidateQueries({ queryKey: ['employees'] });
     } catch (err: any) {
-      CustomAlert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
+      const isForbidden = err?.response?.status === 403 || err?.response?.data?.code === 'FORBIDDEN_GLOBAL_ADMIN';
+      if (isForbidden) {
+        CustomAlert.alert(
+          'Không có quyền trao điểm',
+          'Tài khoản Admin Miền không có quyền trao điểm thưởng Ví Tết. Chức năng này chỉ dành riêng cho Super Admin (Admin Tổng).'
+        );
+      } else {
+        CustomAlert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -338,6 +367,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                 </View>
               }
             />
+
+
 
             {/* 1. Target Card */}
             {target.type === 'SINGLE' && target.employee && (
@@ -647,16 +678,26 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             </Pressable>
 
             <Pressable
-              style={[styles.submitButton, isSubmitting && { opacity: 0.7 }]}
+              style={[
+                styles.submitButton,
+                !canGrant && styles.submitButtonDisabled,
+                isSubmitting && { opacity: 0.7 },
+              ]}
               onPress={handleConfirmGrant}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !canGrant}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <MaterialCommunityIcons name="check-decagram" size={20} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>XÁC NHẬN TRAO ĐIỂM THƯỞNG</Text>
+                  <MaterialCommunityIcons
+                    name={!canGrant ? 'shield-lock-outline' : 'check-decagram'}
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.submitButtonText}>
+                    {!canGrant ? 'BẠN KHÔNG CÓ QUYỀN' : 'XÁC NHẬN TRAO ĐIỂM THƯỞNG'}
+                  </Text>
                 </>
               )}
             </Pressable>
@@ -1055,6 +1096,36 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#94A3B8',
+    shadowColor: '#64748B',
+    shadowOpacity: 0.1,
+    elevation: 1,
+  },
+  permissionWarningCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  permissionWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  permissionWarningTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
+  permissionWarningDesc: {
+    fontSize: 13,
+    color: '#7F1D1D',
+    lineHeight: 19,
   },
   datePickerBtnCard: {
     flexDirection: 'row',

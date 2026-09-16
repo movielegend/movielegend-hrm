@@ -136,3 +136,10 @@ export function useAuth(): AuthContextValue {
   if (!value) throw new Error('useAuth must be used inside AuthProvider');
   return value;
 }
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).useAuth = useAuth;
+}
+if (typeof global !== 'undefined') {
+  (global as any).useAuth = useAuth;
+}

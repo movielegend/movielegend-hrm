@@ -6,6 +6,7 @@ import { useAuth } from '../../../providers/AuthProvider';
 import { updateMe } from '../../../api/users.api';
 import { uploadFile } from '../../../api/uploads.api';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../../utils/mediaPermissions';
+import { CustomAlert } from '../../../components/CustomAlert';
 
 export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => string }) {
   const { user, reloadProfile } = useAuth();

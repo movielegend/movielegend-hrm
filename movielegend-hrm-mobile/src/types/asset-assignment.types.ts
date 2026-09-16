@@ -30,9 +30,12 @@ export interface MyAssetAssignmentDto extends AssetAssignmentDto {
   asset: {
     assetCode: string;
     name: string;
+    brand?: string | null;
+    imageUrl?: string | null;
     serialNumber?: string | null;
     conditionStatus: AssetConditionStatus;
     assetStatus: AssetStatus;
+    incidents?: any[];
   };
 }
 

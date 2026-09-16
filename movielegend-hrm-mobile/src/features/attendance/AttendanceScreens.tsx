@@ -1188,6 +1188,7 @@ export function AdminAttendanceDetailScreen() {
 import * as Location from 'expo-location';
 import { useBranches } from '../../api/branches.api';
 import { useDepartments } from '../../hooks/useDepartments';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export function AttendanceLocationCreateScreen() {
   const router = useRouter();

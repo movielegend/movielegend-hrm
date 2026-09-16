@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SecondaryButton } from '../../components/Buttons';
 import { SectionCard } from '../../components/SectionCard';
@@ -7,6 +7,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { AssetConditionStatus, AssetDto, AssetMaintenanceDto, AssetStatus } from '../../types/asset.types';
 import type { MyAssetAssignmentDto } from '../../types/asset-assignment.types';
+import { useAsset } from '../../hooks/useAssets';
 import { formatDateTime } from '../../utils/date-time';
 import {
   assetConditionLabels,
@@ -46,7 +47,10 @@ export function AssetCard({ asset, onPress }: { asset: AssetDto; onPress?: () =>
 
 export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssignmentDto; onPress?: () => void }) {
   const asset = assignment.asset;
+  const { data: assetDetail } = useAsset(assignment.assetId);
   const openIncidents = asset.incidents?.length ?? 0;
+  const imageUrl = asset.imageUrl || assetDetail?.imageUrl;
+  const brand = asset.brand || (asset as any).brand || assetDetail?.brand;
 
   let iconName: any = 'cube-outline';
   const nameLower = asset.name.toLowerCase();
@@ -63,11 +67,15 @@ export function MyAssetCard({ assignment, onPress }: { assignment: MyAssetAssign
     <Pressable style={({ pressed }) => [styles.myAssetCard, pressed && { opacity: 0.9 }]} onPress={onPress}>
       <View style={styles.myAssetHeader}>
         <View style={styles.myAssetIconWrap}>
-          <MaterialCommunityIcons name={iconName} size={30} color="#09090B" />
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.myAssetImage} resizeMode="cover" />
+          ) : (
+            <MaterialCommunityIcons name={iconName} size={30} color="#09090B" />
+          )}
         </View>
         <View style={styles.myAssetInfo}>
           <Text style={styles.myAssetTitle}>{asset.name}</Text>
-          <Text style={styles.myAssetCode}>{asset.assetCode} {(asset as any).brand ? `• ${(asset as any).brand}` : ''}</Text>
+          <Text style={styles.myAssetCode}>{asset.assetCode} {brand ? `• ${brand}` : ''}</Text>
         </View>
         <AssetStatusBadge status={asset.assetStatus} />
       </View>
@@ -225,6 +233,12 @@ const styles = StyleSheet.create({
     borderColor: '#E4E4E7',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  myAssetImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 11,
   },
   myAssetInfo: {
     flex: 1,

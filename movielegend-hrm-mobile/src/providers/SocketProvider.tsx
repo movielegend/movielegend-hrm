@@ -7,6 +7,7 @@ import { createHrmSocket } from '../api/socket';
 import { queryKeys, chatKeys, newsfeedKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
+import { CustomAlert } from '../components/CustomAlert';
 
 let Notifications: any = null;
 if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {

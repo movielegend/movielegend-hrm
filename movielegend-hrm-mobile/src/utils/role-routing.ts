@@ -62,3 +62,14 @@ export function canAccessRoleRoute(user: AuthUser | null, route: string): boolea
   const baseRoute = getRoleBaseRoute(user);
   return route.startsWith(baseRoute);
 }
+
+export const getRoleBaseRoute = getHomeRouteForUser;
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).getRoleBaseRoute = getHomeRouteForUser;
+  (globalThis as any).getHomeRouteForUser = getHomeRouteForUser;
+}
+if (typeof global !== 'undefined') {
+  (global as any).getRoleBaseRoute = getHomeRouteForUser;
+  (global as any).getHomeRouteForUser = getHomeRouteForUser;
+}

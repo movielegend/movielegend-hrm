@@ -29,6 +29,7 @@ import {
 import { useLevelGmv } from './levelGmvStore';
 import { levelingApi, UserLevelProgressData } from '../../api/leveling.api';
 import { NextLevelPerksAppendixModal } from './NextLevelPerksAppendixModal';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export interface LevelPerkItem {
   id: string;

@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { PrimaryButton } from '../../components/Buttons';
 import { useUpdateTemplateMapping } from '../../hooks/useContracts';
+import { CustomAlert } from '../../components/CustomAlert';
 
 interface SignatureConfigModalProps {
   visible: boolean;

@@ -28,6 +28,30 @@ import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
 
+function formatTimesheetTime(isoString?: string | null): string {
+  if (!isoString) return '--:--';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '--:--';
+    return d.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
+  } catch {
+    try {
+      const d = new Date(isoString);
+      const vnTime = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+      const hours = String(vnTime.getUTCHours()).padStart(2, '0');
+      const minutes = String(vnTime.getUTCMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch {
+      return '--:--';
+    }
+  }
+}
+
 export function MonthlyTimesheetScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -247,11 +271,11 @@ export function MonthlyTimesheetScreen() {
           <View style={styles.recordBottomRow}>
             <View style={styles.timeTag}>
               <MaterialCommunityIcons name="login" size={14} color="#10B981" />
-              <Text style={styles.timeVal}>{item.checkInAt ? item.checkInAt.slice(11, 16) : '--:--'}</Text>
+              <Text style={styles.timeVal}>{formatTimesheetTime(item.checkInAt)}</Text>
             </View>
             <View style={styles.timeTag}>
               <MaterialCommunityIcons name="logout" size={14} color="#EF4444" />
-              <Text style={styles.timeVal}>{item.checkOutAt ? item.checkOutAt.slice(11, 16) : '--:--'}</Text>
+              <Text style={styles.timeVal}>{formatTimesheetTime(item.checkOutAt)}</Text>
             </View>
             {hasOt && (
               <View style={[styles.timeTag, { backgroundColor: '#FEF3C7' }]}>

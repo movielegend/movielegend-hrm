@@ -33,6 +33,7 @@ import { hasPermission } from '../../utils/permissions';
 import { normalizeApiError } from '../../utils/api-error';
 import { maskIdCard, maskPhone } from '../../utils/privacy';
 import { formatSeniority } from '../../utils/seniority';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const editSchema = z.object({
   fullName: z.string().min(2, 'Vui long nhap ho ten'),
