@@ -1,10 +1,6 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LoadingState } from '../../../src/components/LoadingState';
-import { useAuth } from '../../../src/providers/AuthProvider';
-import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role-routing';
 import { colors } from '../../../src/theme/colors';
 
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../../src/hooks/useNotifications';
@@ -12,13 +8,9 @@ import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
 
 export default function EmployeeLayout() {
   const insets = useSafeAreaInsets();
-  const { isLoading, user } = useAuth();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
 
-  if (isLoading) return <LoadingState />;
-  if (!canAccessRoleRoute(user, '/employee')) return <Redirect href={getHomeRouteForUser(user)} />;
-  
   return (
     <Tabs
       initialRouteName="index"

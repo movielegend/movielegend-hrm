@@ -1,21 +1,14 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { View, Text, Platform } from 'react-native';
+import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LoadingState } from '../../../src/components/LoadingState';
-import { useAuth } from '../../../src/providers/AuthProvider';
-import { canAccessRoleRoute, getHomeRouteForUser } from '../../../src/utils/role-routing';
 import { useUnreadNotificationCount } from '../../../src/hooks/useNotifications';
 import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
 
 export default function HRTabsLayout() {
   const insets = useSafeAreaInsets();
-  const { isLoading, user } = useAuth();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
 
-  if (isLoading) return <LoadingState />;
-  if (!canAccessRoleRoute(user, '/hr')) return <Redirect href={getHomeRouteForUser(user)} />;
-  
   return (
     <Tabs
       tabBar={(props) => <MagicTabBar {...props} />}
