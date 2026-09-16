@@ -302,7 +302,7 @@ export function AdminDashboard() {
               title="Tài sản"
               color="#64748B"
               bgColor="#F8FAFC"
-              onPress={() => router.push('/hr/assets' as any)}
+              onPress={() => router.push('/admin/assets' as any)}
             />
             <GridItem4
               icon="message-draw"
