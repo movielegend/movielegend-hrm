@@ -228,144 +228,132 @@ export function HRDashboard() {
           </View>
         </Pressable>
 
-        {/* Banner Cấp Bậc & Lộ Trình (Phong cách Apple UI tinh tế, sang trọng) */}
-        <Pressable
-          style={styles.levelAppleCard}
-          onPress={() => router.push('/hr/leveling' as any)}
-        >
-          {/* Top Section */}
-          <View style={styles.levelAppleHeaderRow}>
-            <View style={styles.levelAppleLeft}>
-              <View style={[styles.levelAppleIconCircle, { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}30` }]}>
-                <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
-              </View>
-              <View style={styles.levelAppleTitleBlock}>
-                <View style={styles.levelAppleBadgeRow}>
-                  <Text style={styles.levelAppleTitle} numberOfLines={1}>
-                    Level {currentLevelNumber}: {levelTitle}
-                  </Text>
-                  <View style={[styles.levelApplePillTag, { backgroundColor: `${levelColor}15` }]}>
-                    <Text style={[styles.levelApplePillTagText, { color: levelColor }]}>
-                      Lv.{currentLevelNumber}
-                    </Text>
-                  </View>
+        {/* Hub Cấp Bậc & Ví Thưởng (Thẻ gộp chung chuẩn Apple UI) */}
+        <View style={styles.hubContainer}>
+          <View style={styles.hubCard}>
+            {/* Segment 1: Cấp Bậc Hiện Tại & Tiến Độ */}
+            <Pressable
+              style={styles.hubSegment}
+              onPress={() => router.push('/hr/leveling' as any)}
+            >
+              <View style={styles.hubRow}>
+                <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
+                  <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
                 </View>
-                <Text style={styles.levelAppleSubtitle}>
-                  {levelProgress?.nextLevel
-                    ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
-                    : 'Cấp bậc danh dự tối cao'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.levelAppleActionBtn, { backgroundColor: `${levelColor}10` }]}>
-              <Text style={[styles.levelAppleActionText, { color: levelColor }]}>Lộ trình</Text>
-              <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
-            </View>
-          </View>
-
-          {/* Full-width elegant progress bar */}
-          <View style={styles.levelAppleProgressContainer}>
-            <View style={styles.levelAppleProgressTrack}>
-              <View
-                style={[
-                  styles.levelAppleProgressFill,
-                  {
-                    width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
-                    backgroundColor: levelColor,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.levelAppleProgressFooter}>
-              <Text style={styles.levelAppleProgressFooterText}>
-                {levelProgress?.nextLevel
-                  ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
-                  : 'Đã hoàn thành toàn bộ lộ trình cấp bậc'}
-              </Text>
-              <Text style={[styles.levelAppleProgressFooterPercent, { color: levelColor }]}>
-                {levelProgress?.overallProgressPercent || 0}%
-              </Text>
-            </View>
-          </View>
-        </Pressable>
-
-        {/* Banner Ví Thưởng & Vạch thời gian đếm ngược đến hạn rút (Hiển thị nổi bật khi được trao điểm/mở quyền) */}
-        {isVaultEnabled && (
-          <Pressable
-            style={styles.vaultAppleCard}
-            onPress={() => router.push('/hr/vault' as any)}
-          >
-            {/* Top Section */}
-            <View style={styles.vaultAppleHeaderRow}>
-              <View style={styles.vaultAppleLeft}>
-                <View style={styles.vaultAppleIconCircle}>
-                  <Ionicons name="wallet-outline" size={20} color="#2563EB" />
-                </View>
-                <View style={styles.vaultAppleTitleBlock}>
-                  <View style={styles.vaultAppleBadgeRow}>
-                    <Text style={styles.vaultAppleTitle} numberOfLines={1}>
-                      Ví Thưởng Tích Lũy
+                <View style={styles.hubInfoBlock}>
+                  <View style={styles.hubTitleRow}>
+                    <Text style={styles.hubTitle} numberOfLines={1}>
+                      Level {currentLevelNumber}: {levelTitle}
                     </Text>
-                    <View style={styles.vaultAppleVipBadge}>
-                      <Text style={styles.vaultAppleVipBadgeText}>Đặc quyền</Text>
+                    <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
+                      <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
                     </View>
                   </View>
-                  <Text style={styles.vaultAppleSubtitle}>
-                    Khả dụng: <Text style={styles.vaultAppleSubtitleBold}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                    {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                  <Text style={styles.hubSubtitle}>
+                    {levelProgress?.nextLevel
+                      ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                      : 'Cấp bậc danh dự tối cao'}
                   </Text>
                 </View>
-              </View>
-
-              <View style={styles.vaultAppleActionBtn}>
-                <Text style={styles.vaultAppleActionText}>Mở ví</Text>
-                <Ionicons name="chevron-forward" size={14} color="#2563EB" />
-              </View>
-            </View>
-
-            {/* Vạch thời gian & Đếm ngược đến hạn rút */}
-            {vaultMilestone ? (
-              <View style={styles.vaultAppleProgressContainer}>
-                <View style={styles.vaultAppleProgressTrack}>
-                  <View
-                    style={[
-                      styles.vaultAppleProgressFill,
-                      {
-                        width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
-                        backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB',
-                      },
-                    ]}
-                  />
+                <View style={[styles.hubActionBtn, { backgroundColor: `${levelColor}10` }]}>
+                  <Text style={[styles.hubActionText, { color: levelColor }]}>Lộ trình</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
                 </View>
-                <View style={styles.vaultAppleProgressFooter}>
-                  <View style={styles.vaultAppleProgressFooterLeft}>
-                    <Ionicons
-                      name={vaultMilestone.isAllUnlocked ? 'checkmark-circle-outline' : 'time-outline'}
-                      size={14}
-                      color={vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB'}
-                    />
-                    <Text style={styles.vaultAppleProgressFooterText}>
-                      {vaultMilestone.isAllUnlocked
-                        ? 'Đã mở khóa tất cả các đợt rút'
-                        : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
-                    </Text>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={styles.hubProgressTrack}>
+                <View
+                  style={[
+                    styles.hubProgressFill,
+                    {
+                      width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                      backgroundColor: levelColor,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.hubProgressFooter}>
+                <Text style={styles.hubProgressLabel}>
+                  {levelProgress?.nextLevel
+                    ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
+                    : 'Đã hoàn tất tiến độ cấp'}
+                </Text>
+                <Text style={[styles.hubProgressPercent, { color: levelColor }]}>
+                  {levelProgress?.overallProgressPercent || 0}%
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Segment 2: Ví Thưởng Tích Lũy (Hiển thị khi mở ví) */}
+            {isVaultEnabled && (
+              <>
+                <View style={styles.hubDivider} />
+                <Pressable
+                  style={styles.hubSegment}
+                  onPress={() => router.push('/hr/vault' as any)}
+                >
+                  <View style={styles.hubRow}>
+                    <View style={[styles.hubIconCircle, { backgroundColor: '#F1F5F9' }]}>
+                      <MaterialCommunityIcons name="wallet-outline" size={20} color="#1E293B" />
+                    </View>
+                    <View style={styles.hubInfoBlock}>
+                      <View style={styles.hubTitleRow}>
+                        <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
+                        <View style={styles.vaultBadge}>
+                          <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.hubSubtitle}>
+                        Khả dụng: <Text style={styles.hubSubtitleGreen}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                        {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.vaultActionBtn}>
+                      <Text style={styles.vaultActionText}>Chi tiết</Text>
+                      <MaterialCommunityIcons name="chevron-right" size={14} color="#475569" />
+                    </View>
                   </View>
-                  <Text
-                    style={[
-                      styles.vaultAppleProgressFooterPercent,
-                      { color: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB' },
-                    ]}
-                  >
-                    {vaultMilestone.isAllUnlocked
-                      ? '100% Hoàn tất'
-                      : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </Pressable>
-        )}
+
+                  {vaultMilestone ? (
+                    <>
+                      <View style={styles.hubProgressTrack}>
+                        <View
+                          style={[
+                            styles.hubProgressFill,
+                            {
+                              width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
+                              backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB',
+                            },
+                          ]}
+                        />
+                      </View>
+                      <View style={styles.hubProgressFooter}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <MaterialCommunityIcons
+                            name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
+                            size={12}
+                            color={vaultMilestone.isAllUnlocked ? '#059669' : '#64748B'}
+                          />
+                          <Text style={styles.vaultCountdownLabel}>
+                            {vaultMilestone.isAllUnlocked
+                              ? 'Đã mở khóa tất cả đợt'
+                              : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
+                          </Text>
+                        </View>
+                        <Text style={styles.vaultCountdownTime}>
+                          {vaultMilestone.isAllUnlocked
+                            ? '100% Hoàn tất'
+                            : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
+                        </Text>
+                      </View>
+                    </>
+                  ) : null}
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
 
         {/* Tiện ích thường dùng (Ma trận 4 cột hiện đại) */}
         <View style={styles.section}>
@@ -838,11 +826,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#fff',
   },
-  levelAppleCard: {
+  // Hub Cấp Bậc & Ví Thưởng
+  hubContainer: {
+    marginBottom: spacing.xl,
+  },
+  hubCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#0F172A',
@@ -851,98 +842,137 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
-  levelAppleHeaderRow: {
+  hubSegment: {
+    paddingVertical: 4,
+  },
+  hubRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  levelAppleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  levelAppleIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  hubIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
   },
-  levelAppleTitleBlock: {
+  hubInfoBlock: {
     flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
   },
-  levelAppleBadgeRow: {
+  hubTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 2,
   },
-  levelAppleTitle: {
+  hubTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
     flexShrink: 1,
   },
-  levelApplePillTag: {
+  hubTag: {
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
   },
-  levelApplePillTagText: {
+  hubTagText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
-  levelAppleSubtitle: {
+  hubSubtitle: {
     fontSize: 12,
     color: '#64748B',
     fontWeight: '500',
   },
-  levelAppleActionBtn: {
+  hubSubtitleGreen: {
+    fontWeight: '800',
+    color: '#059669',
+  },
+  hubActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 20,
-    marginLeft: 8,
+    borderRadius: 16,
   },
-  levelAppleActionText: {
+  hubActionText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  levelAppleProgressContainer: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-  },
-  levelAppleProgressTrack: {
-    height: 6,
+  hubProgressTrack: {
+    height: 5,
     backgroundColor: '#F1F5F9',
     borderRadius: 3,
     overflow: 'hidden',
+    marginTop: 10,
     marginBottom: 6,
   },
-  levelAppleProgressFill: {
+  hubProgressFill: {
     height: '100%',
     borderRadius: 3,
   },
-  levelAppleProgressFooter: {
+  hubProgressFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  levelAppleProgressFooterText: {
+  hubProgressLabel: {
     fontSize: 11,
     color: '#94A3B8',
     fontWeight: '500',
   },
-  levelAppleProgressFooterPercent: {
+  hubProgressPercent: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  hubDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  vaultBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  vaultBadgeText: {
+    color: '#475569',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  vaultActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  vaultActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  vaultCountdownLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  vaultCountdownTime: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   heroButton: {
     borderRadius: 24,
