@@ -7,11 +7,12 @@ import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from '../../lib/Maps';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import { Screen } from '../../components/Screen';
 import { CustomAlert } from '../../components/CustomAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { checkOut } from '../../api/attendance.api';
+import { checkOut, getAttendanceHistory } from '../../api/attendance.api';
 import { uploadFile } from '../../api/uploads.api';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -121,9 +122,16 @@ export function CheckOutScreen() {
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
+      // Fast lightweight image compression (30-40KB)
+      const compressedImage = await ImageManipulator.manipulateAsync(
+        photoUri,
+        [{ resize: { width: 400 } }],
+        { compress: 0.25, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
       // 1. Upload photo first
       const uploaded = await uploadFile({
-        uri: photoUri,
+        uri: compressedImage.uri,
         name: 'attendance.jpg',
         mimeType: 'image/jpeg',
         purpose: 'ATTENDANCE',
@@ -141,6 +149,25 @@ export function CheckOutScreen() {
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e: any) {
+      // If error is timeout, double check if checkout was actually recorded
+      const isTimeout = e.code === 'ECONNABORTED' || (e.message && e.message.toLowerCase().includes('timeout'));
+      if (isTimeout) {
+        try {
+          const history = await getAttendanceHistory({ limit: 1 });
+          const todayStr = new Date().toISOString().substring(0, 10);
+          const hasTodayCheckout = history.data?.some((r: any) => 
+            new Date(r.workDate).toISOString().substring(0, 10) === todayStr && !!r.checkOutAt
+          );
+          if (hasTodayCheckout) {
+            CustomAlert.alert('Thành công', 'Ra ca thành công!', [
+              { text: 'OK', onPress: () => router.back() }
+            ]);
+            return;
+          }
+        } catch {
+          // ignore verification error
+        }
+      }
       const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
       CustomAlert.alert('Lỗi chấm công', msg);
     } finally {
