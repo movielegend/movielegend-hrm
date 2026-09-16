@@ -1,48 +1,57 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../../src/theme/colors';
-
-import { useUnreadNotificationCount } from '../../../src/hooks/useNotifications';
+import { useUnreadNotificationCount, useUnreadChatCount } from '../../../src/hooks/useNotifications';
 import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
 
 export default function AdminTabsLayout() {
   const insets = useSafeAreaInsets();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
 
   return (
     <Tabs
+      initialRouteName="index"
       tabBar={(props) => <MagicTabBar {...props} />}
       screenOptions={{
         headerShown: false,
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="news"
         options={{
-          title: 'Trang chủ',
+          title: 'Bảng tin',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={28} color={color} />
+            <MaterialCommunityIcons name={focused ? "newspaper-variant" : "newspaper-variant-outline"} size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="tasks"
+        name="chat"
         options={{
-          title: 'Duyệt đơn',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="clipboard-check-outline" size={26} color={color} />
+          title: 'Nhóm chat',
+          tabBarBadge: unreadChat > 0 ? (unreadChat > 99 ? '99+' : unreadChat) : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
           ),
         }}
       />
-
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Trang chủ',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="notifications"
         options={{
           title: 'Thông báo',
           tabBarBadge: unreadNotifications > 0 ? (unreadNotifications > 99 ? '99+' : unreadNotifications) : undefined,
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="bell-outline" size={26} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -50,9 +59,16 @@ export default function AdminTabsLayout() {
         name="profile"
         options={{
           title: 'Hồ sơ',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="account-circle-outline" size={26} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={26} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          href: null,
+          title: 'Duyệt đơn',
         }}
       />
     </Tabs>
