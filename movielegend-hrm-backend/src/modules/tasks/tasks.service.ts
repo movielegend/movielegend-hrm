@@ -798,8 +798,25 @@ export class TasksService {
   }
 
   private async assertCanCreate(dto: CreateTaskDto, actor: AuthenticatedUser): Promise<void> {
-    if (this.scope.isGlobalAdmin(actor)) return;
-    if (!this.has(actor, 'task.assign_department') && !this.scope.isRegionAdmin(actor)) throw forbidden('TASK_FORBIDDEN', 'Cannot create task');
+    const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const isHR = actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
+    const isLeader = actor.roles.includes('LEADER') || this.has(actor, 'task.assign_department');
+
+    // Nhân viên thông thường (không có quyền Admin, HR, Leader) KHÔNG có quyền khởi tạo / giao việc
+    if (!isGlobalAdmin && !isRegionAdmin && !isHR && !isLeader) {
+      throw forbidden('EMPLOYEE_CANNOT_ASSIGN', 'Nhân viên không có quyền khởi tạo hoặc giao việc');
+    }
+
+    // Trưởng phòng (Leader) chỉ được giao việc cho nhân sự cấp dưới trong phòng ban / nhóm, không được giao việc cho cả phòng ban
+    if (isLeader && !isGlobalAdmin && !isRegionAdmin && !isHR) {
+      const departmentTargets = dto.targets?.filter((target) => target.targetType === TaskTargetType.DEPARTMENT) ?? [];
+      if (departmentTargets.length > 0) {
+        throw forbidden('LEADER_CANNOT_ASSIGN_DEPARTMENT', 'Trưởng phòng chỉ được phân công trực tiếp cho nhân sự cấp dưới');
+      }
+    }
+
+    if (isGlobalAdmin) return;
     const departmentTargets = dto.targets?.filter((target) => target.targetType === TaskTargetType.DEPARTMENT) ?? [];
     for (const target of departmentTargets) await this.scope.assertDepartmentAccessAsync(actor, target.targetId);
   }
@@ -808,15 +825,44 @@ export class TasksService {
     if (dto.isAdhocGroup && dto.leaderId) {
       return [dto.leaderId];
     }
+    const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const isHR = actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
+    const isLeader = actor.roles.includes('LEADER') || this.has(actor, 'task.assign_department');
+
     const userIds = new Set<string>();
     for (const target of dto.targets ?? []) {
-      if (target.targetType === TaskTargetType.USER) userIds.add(target.targetId);
+      if (target.targetType === TaskTargetType.USER) {
+        // Nếu Leader giao việc: không được tự giao việc cho chính mình và không được giao việc cho Admin / Leader khác
+        if (isLeader && !isGlobalAdmin && !isRegionAdmin && !isHR) {
+          if (target.targetId === actor.userId) {
+            throw badRequest('CANNOT_ASSIGN_TO_SELF', 'Trưởng phòng không thể tự giao việc cho chính mình');
+          }
+          const targetUser = await this.prisma.user.findUnique({
+            where: { id: target.targetId },
+            include: { roles: { include: { role: true } } },
+          });
+          const isTargetSuperiorOrLeader = targetUser?.roles?.some(
+            (r) => r.role?.code === 'ADMIN' || (r as any).role === 'ADMIN' || r.role?.code === 'LEADER' || (r as any).role === 'LEADER',
+          );
+          if (isTargetSuperiorOrLeader) {
+            throw forbidden('CANNOT_ASSIGN_TO_SUPERIOR', 'Trưởng phòng chỉ có thể giao việc cho nhân sự cấp dưới');
+          }
+        }
+        userIds.add(target.targetId);
+      }
       if (target.targetType === TaskTargetType.DEPARTMENT) {
         const dept = await this.prisma.department.findUnique({
           where: { id: target.targetId },
-          select: { leaderUserId: true },
+          select: { id: true, name: true, leaderUserId: true },
         });
-        if (dept?.leaderUserId) userIds.add(dept.leaderUserId);
+        if (!dept?.leaderUserId) {
+          throw badRequest(
+            'DEPARTMENT_NO_LEADER',
+            `Phòng ban "${dept?.name || target.targetId}" chưa có Trưởng phòng để tiếp nhận công việc`,
+          );
+        }
+        userIds.add(dept.leaderUserId);
       }
       if (target.targetType === TaskTargetType.GROUP) {
         const members = await this.prisma.taskGroupMember.findMany({

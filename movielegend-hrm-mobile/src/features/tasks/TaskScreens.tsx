@@ -219,7 +219,8 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const isAdmin = hasAnyPermission(user, ['task.assign_any']) || Boolean(user?.roles?.includes('ADMIN'));
 
   const isAssignee = item.assignments?.some((a: any) => a.userId === user?.id);
-  const canManageSubtasks = (isAdmin || isCreator || (isDepartmentTask && isDepartmentLeader) || (isGroupTask && isGroupLeader)) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
+  const isEmployeeOnly = !isAdmin && !isDepartmentLeader && !isGroupLeader;
+  const canManageSubtasks = !isEmployeeOnly && (isAdmin || (isDepartmentTask && isDepartmentLeader) || (isGroupTask && isGroupLeader) || (isCreator && isDepartmentLeader)) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
 
   const childTasks = item.childTasks ?? [];
   const completedChildCount = childTasks.filter((c: any) => c.status === 'COMPLETED').length;
@@ -1292,8 +1293,18 @@ function AssigneeSelectorModal({
     if (isHR) {
       return users.data.items.filter((u) => (u as any).roles?.some((r: any) => r.role?.code === 'LEADER' || r.role === 'LEADER'));
     }
+    // Nếu là Leader giao việc: chỉ hiển thị nhân sự cấp dưới trong phòng, loại bỏ chính mình và các Admin / Leader khác
+    if (area === 'leader') {
+      return users.data.items.filter((u) => {
+        if (u.id === user?.id) return false;
+        const isLeaderOrAdmin = (u as any).roles?.some((r: any) => 
+          r.role?.code === 'ADMIN' || r.role === 'ADMIN' || r.role?.code === 'LEADER' || r.role === 'LEADER'
+        );
+        return !isLeaderOrAdmin;
+      });
+    }
     return users.data.items;
-  }, [users.data?.items, isHR]);
+  }, [users.data?.items, isHR, area, user?.id]);
 
   const isSelected = (type: TaskTargetType, id: string) => {
     return targets.some((t) => t.targetType === type && t.targetId === id);
@@ -1318,16 +1329,19 @@ function AssigneeSelectorModal({
   };
 
   const availableTabs: Array<'REGION_ADMIN' | 'USER' | 'DEPARTMENT'> = useMemo(() => {
+    if (area === 'leader') {
+      return ['USER'];
+    }
     if (canSelectRegionAdmin) {
       return ['REGION_ADMIN', 'USER', 'DEPARTMENT'];
     }
     return ['USER', 'DEPARTMENT'];
-  }, [canSelectRegionAdmin]);
+  }, [canSelectRegionAdmin, area]);
 
   const tabLabels: Record<'REGION_ADMIN' | 'USER' | 'DEPARTMENT', string> = {
     REGION_ADMIN: 'Admin miền',
-    USER: 'Cá nhân',
-    DEPARTMENT: area === 'leader' ? 'Leader phòng ban' : 'Phòng ban',
+    USER: area === 'leader' ? 'Nhân viên phòng' : 'Cá nhân',
+    DEPARTMENT: 'Phòng ban',
   };
 
   return (
