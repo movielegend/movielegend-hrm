@@ -98,11 +98,11 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
     input: AttendanceFaceVerificationInput,
   ): Promise<AttendanceFaceVerificationResult> {
     if (!this.workerReady) {
-      this.logger.warn('Local Face AI models not loaded. Mocking true.');
+      this.logger.warn('Local Face AI models not ready yet.');
       return {
-        matched: true,
-        provider: 'mock',
-        reason: 'Local AI models not loaded.',
+        matched: false,
+        provider: 'local-face-api-worker',
+        reason: 'Hệ thống AI nhận diện đang tải dữ liệu. Vui lòng thử lại sau vài giây.',
       };
     }
 
