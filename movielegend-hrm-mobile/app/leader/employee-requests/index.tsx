@@ -3,6 +3,8 @@ import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Refres
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../../src/providers/AuthProvider';
+import { CustomAlert } from '../../../src/components/CustomAlert';
 import { getRoleBaseRoute } from '../../../src/utils/role-routing';
 import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';

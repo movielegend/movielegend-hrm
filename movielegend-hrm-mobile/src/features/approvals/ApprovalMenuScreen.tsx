@@ -10,7 +10,7 @@ export function ApprovalMenuScreen() {
   const router = useRouter();
   const { user } = useAuth();
   
-  const isAdmin = user?.roles?.includes('ADMIN');
+  const isAdmin = user?.roles?.some((r: any) => (typeof r === 'string' ? r : r.role?.code || r.name) === 'ADMIN') || user?.role?.code === 'ADMIN';
 
   return (
     <Screen>

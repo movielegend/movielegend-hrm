@@ -31,7 +31,7 @@ export default function ApprovalsTabScreen() {
           />
           <ApprovalCard 
             title="Yêu cầu VTTB" 
-            icon="box-check" 
+            icon="package-check" 
             iconBg="#FCE7F3" 
             iconColor="#DB2777"
             onPress={() => router.push('/leader/material-issues')}
