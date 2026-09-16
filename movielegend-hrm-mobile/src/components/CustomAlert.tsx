@@ -42,6 +42,29 @@ export const CustomAlert = {
   },
 };
 
+// Bind to global and globalThis so all components can call CustomAlert.alert without explicit imports
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).CustomAlert = CustomAlert;
+}
+if (typeof global !== 'undefined') {
+  (global as any).CustomAlert = CustomAlert;
+}
+if (typeof window !== 'undefined') {
+  (window as any).CustomAlert = CustomAlert;
+}
+
+declare global {
+  var CustomAlert: {
+    alert: (
+      title: string,
+      message?: string,
+      buttons?: AlertButton[],
+      options?: { cancelable?: boolean; onDismiss?: () => void }
+    ) => void;
+    hide: () => void;
+  };
+}
+
 export function CustomAlertProvider() {
   const [visible, setVisible] = useState(false);
   const [opts, setOpts] = useState<CustomAlertOptions | null>(null);

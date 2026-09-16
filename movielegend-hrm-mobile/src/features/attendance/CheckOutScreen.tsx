@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from '../../lib/Maps';
 
 import { Screen } from '../../components/Screen';
+import { CustomAlert } from '../../components/CustomAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkOut } from '../../api/attendance.api';
 import { uploadFile } from '../../api/uploads.api';

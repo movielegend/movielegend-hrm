@@ -11,6 +11,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from '../../lib/Maps';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 import { Screen } from '../../components/Screen';
+import { CustomAlert } from '../../components/CustomAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { checkIn } from '../../api/attendance.api';
 import { uploadFile } from '../../api/uploads.api';
