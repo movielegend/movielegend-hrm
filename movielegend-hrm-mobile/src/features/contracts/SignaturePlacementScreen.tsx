@@ -20,6 +20,8 @@ export function SignaturePlacementScreen() {
   
   const updateMapping = useUpdateTemplateMapping(templateId);
   const webviewRef = useRef<WebView>(null);
+  const webviewReadyRef = useRef(false);
+  const pdfBase64Ref = useRef<string | null>(null);
 
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,7 +48,21 @@ export function SignaturePlacementScreen() {
     }
   }, [initialConfigStr]);
 
+  const sendPdfToWebview = React.useCallback(() => {
+    if (webviewReadyRef.current && pdfBase64Ref.current && webviewRef.current) {
+      webviewRef.current.postMessage(
+        JSON.stringify({
+          type: 'load_pdf',
+          data: pdfBase64Ref.current,
+          fields: fieldsRef.current,
+        })
+      );
+    }
+  }, []);
+
   useEffect(() => {
+    let isMounted = true;
+
     async function loadPdf() {
       const url = resolveFileUrl(pdfUrl);
       try {
@@ -56,54 +72,71 @@ export function SignaturePlacementScreen() {
           return;
         }
 
-        const fileUri = FileSystem.cacheDirectory + 'temp_signature_pdf.pdf';
+        const safeId = templateId ? templateId.replace(/[^a-zA-Z0-9_-]/g, '_') : 'temp';
+        const fileUri = `${FileSystem.cacheDirectory}contract_tpl_${safeId}.pdf`;
+
         const fileInfo = await FileSystem.getInfoAsync(fileUri);
-        if (fileInfo.exists) {
-          await FileSystem.deleteAsync(fileUri, { idempotent: true });
-        }
+        let needDownload = true;
 
-        let downloadSuccess = false;
-        let candidateUrls = [url];
-        if (url.startsWith('https://')) {
-          candidateUrls.push(url.replace('https://', 'http://'));
-        } else if (url.startsWith('http://')) {
-          candidateUrls.push(url.replace('http://', 'https://'));
-        }
-
-        let lastErr: any = null;
-        for (const targetUrl of candidateUrls) {
+        if (fileInfo.exists && (fileInfo as any).size > 1000) {
           try {
-            const { status } = await FileSystem.downloadAsync(targetUrl, fileUri, {
-              headers: { 'ngrok-skip-browser-warning': '69420' }
-            });
-            if (status === 200) {
-              downloadSuccess = true;
-              break;
+            const cachedBase64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
+            if (isMounted) {
+              pdfBase64Ref.current = cachedBase64;
+              sendPdfToWebview();
+              needDownload = false;
             }
-          } catch (err) {
-            lastErr = err;
+          } catch (readErr) {
+            needDownload = true;
           }
         }
 
-        if (!downloadSuccess) {
-          throw lastErr || new Error('Không thể tải file PDF từ máy chủ');
-        }
+        if (needDownload) {
+          let downloadRes: any = null;
+          try {
+            downloadRes = await FileSystem.downloadAsync(url, fileUri, {
+              headers: { 'ngrok-skip-browser-warning': '69420' },
+            });
+          } catch (err) {
+            const altUrl = url.startsWith('https://')
+              ? url.replace('https://', 'http://')
+              : url.replace('http://', 'https://');
+            downloadRes = await FileSystem.downloadAsync(altUrl, fileUri, {
+              headers: { 'ngrok-skip-browser-warning': '69420' },
+            });
+          }
 
-        const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
-        webviewRef.current?.postMessage(JSON.stringify({ type: 'load_pdf', data: base64, fields: fieldsRef.current }));
+          if (downloadRes && downloadRes.status === 200) {
+            const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
+            if (isMounted) {
+              pdfBase64Ref.current = base64;
+              sendPdfToWebview();
+            }
+          } else {
+            throw new Error(`Không thể tải file PDF (mã phản hồi ${downloadRes?.status || 'lỗi mạng'})`);
+          }
+        }
       } catch (e: any) {
         console.error('[SignaturePlacement] Error loading PDF:', e);
-        CustomAlert.alert('Lỗi', 'Không thể tải file PDF');
-        setIsLoading(false);
+        if (isMounted) {
+          CustomAlert.alert('Lỗi', 'Không thể tải file PDF');
+          setIsLoading(false);
+        }
       }
     }
-    const timer = setTimeout(() => { void loadPdf(); }, 500);
-    return () => clearTimeout(timer);
-  }, [pdfUrl]);
+
+    void loadPdf();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pdfUrl, templateId, sendPdfToWebview]);
 
   // Push updated fields to WebView
   useEffect(() => {
-    webviewRef.current?.postMessage(JSON.stringify({ type: 'update_fields', fields }));
+    if (webviewReadyRef.current) {
+      webviewRef.current?.postMessage(JSON.stringify({ type: 'update_fields', fields }));
+    }
   }, [fields]);
 
   const htmlContent = `
@@ -111,6 +144,8 @@ export function SignaturePlacementScreen() {
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; padding-bottom: 100px; }
@@ -199,8 +234,6 @@ export function SignaturePlacementScreen() {
                     container.appendChild(el);
                 }
 
-                // If currently dragging this box, skip updating its position from state 
-                // so we don't interrupt the user's drag
                 if (activeBox !== el) {
                     el.style.left = screenX + 'px';
                     el.style.top = screenY + 'px';
@@ -225,7 +258,6 @@ export function SignaturePlacementScreen() {
                 el.innerText = field.label || field.id;
             });
 
-            // Remove old boxes
             document.querySelectorAll('.field-box').forEach(e => {
                 if (!existingIds.includes(e.id)) e.remove();
             });
@@ -279,29 +311,42 @@ export function SignaturePlacementScreen() {
             }
         });
 
-        document.addEventListener('message', function(event) {
-            const data = JSON.parse(event.data);
-            if (data.type === 'load_pdf') {
-                currentFields = data.fields || [];
-                const binary = atob(data.data);
-                const array = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
-                pdfjsLib.getDocument({ data: array }).promise.then(function(pdfDoc_) {
-                    pdfDoc = pdfDoc_;
-                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'init', totalPages: pdfDoc.numPages }));
+        function handleIncomingMessage(event) {
+            try {
+                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                if (!data) return;
+                if (data.type === 'load_pdf') {
+                    currentFields = data.fields || [];
+                    const binary = atob(data.data);
+                    const array = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+                    pdfjsLib.getDocument({ data: array }).promise.then(function(pdfDoc_) {
+                        pdfDoc = pdfDoc_;
+                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'init', totalPages: pdfDoc.numPages }));
+                        renderPage(pageNum);
+                    }).catch(function(err) {
+                        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', message: err.message }));
+                    });
+                } else if (data.type === 'update_fields') {
+                    currentFields = data.fields || [];
+                    if (pdfDoc) drawFields();
+                } else if (data.type === 'prev_page' && pageNum > 1 && pdfDoc) {
+                    pageNum--;
                     renderPage(pageNum);
-                });
-            } else if (data.type === 'update_fields') {
-                currentFields = data.fields || [];
-                if (pdfDoc) drawFields();
-            } else if (data.type === 'prev_page' && pageNum > 1 && pdfDoc) {
-                pageNum--;
-                renderPage(pageNum);
-            } else if (data.type === 'next_page' && pdfDoc && pageNum < pdfDoc.numPages) {
-                pageNum++;
-                renderPage(pageNum);
+                } else if (data.type === 'next_page' && pdfDoc && pageNum < pdfDoc.numPages) {
+                    pageNum++;
+                    renderPage(pageNum);
+                }
+            } catch (err) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', message: err.message }));
             }
-        });
+        }
+
+        document.addEventListener('message', handleIncomingMessage);
+        window.addEventListener('message', handleIncomingMessage);
+
+        // Notify React Native that WebView is ready
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'webview_ready' }));
     </script>
 </body>
 </html>
@@ -310,7 +355,10 @@ export function SignaturePlacementScreen() {
   const onMessage = (event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'init') {
+      if (data.type === 'webview_ready') {
+        webviewReadyRef.current = true;
+        sendPdfToWebview();
+      } else if (data.type === 'init') {
         setTotalPages(data.totalPages);
         setIsLoading(false);
       } else if (data.type === 'select_field') {
@@ -318,6 +366,10 @@ export function SignaturePlacementScreen() {
         setFields(prev => prev.map(f => ({ ...f, selected: f.id === data.id })));
       } else if (data.type === 'update_pos') {
         setFields(prev => prev.map(f => f.id === data.id ? { ...f, x: data.x, y: data.y } : f));
+      } else if (data.type === 'error') {
+        console.error('[SignaturePlacement WebView Error]:', data.message);
+        CustomAlert.alert('Lỗi', `Lỗi xử lý file PDF: ${data.message}`);
+        setIsLoading(false);
       }
     } catch (e) {}
   };
