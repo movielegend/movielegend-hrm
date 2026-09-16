@@ -14,10 +14,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { businessDateToday, formatDate, formatShiftRange, toIsoDate } from '../../utils/date-time';
-import { hasPermission } from '../../utils/permissions';
-import { normalizeApiError } from '../../utils/api-error';
-import { getHomeRouteForUser } from '../../utils/role-routing';
-import { findTodayShift } from '../attendance/attendance.logic';
+import { getRoleBaseRoute } from '../../utils/role-routing';
 import { useAssignShift, useCreateShift, useUpdateShift, useDeleteShift, useCreateShiftRegistration, useCreateShiftSwap, useMySchedule, useShifts, useRevokeShiftAssignment } from '../../hooks/useShifts';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useQueryClient } from '@tanstack/react-query';
@@ -130,7 +127,7 @@ export function EmployeeScheduleScreen() {
       .sort((a, b) => toIsoDate(b.workDate).localeCompare(toIsoDate(a.workDate)));
   }, [allAssignments, todayIso]);
 
-  const rolePrefix = useMemo(() => getHomeRouteForUser(user), [user]);
+  const rolePrefix = useMemo(() => getRoleBaseRoute(user), [user]);
   const { data: currentAttendance } = useCurrentAttendance();
 
   const attendanceRoute = currentAttendance?.state === 'CHECKED_IN'
