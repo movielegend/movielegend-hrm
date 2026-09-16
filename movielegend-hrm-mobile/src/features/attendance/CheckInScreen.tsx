@@ -98,7 +98,7 @@ export function CheckInScreen() {
 
 
 
-  const handleTriggerCheckIn = async () => {
+  const handleConfirm = async () => {
     if (!location) {
       CustomAlert.alert('Chưa có vị trí', 'Vui lòng đợi ứng dụng lấy tọa độ GPS chính xác.');
       return;
