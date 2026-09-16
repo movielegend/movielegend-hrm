@@ -1,5 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {View, Text, StyleSheet, Pressable, ActivityIndicator, Modal, TextInput, ScrollView} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  Modal,
+  TextInput,
+  ScrollView,
+  Platform,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -8,7 +19,6 @@ import { useUpdateTemplateMapping } from '../../hooks/useContracts';
 import { router, useLocalSearchParams } from 'expo-router';
 import { resolveFileUrl } from '../../utils/url';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomAlert } from '../../components/CustomAlert';
 
@@ -599,83 +609,193 @@ export function SignaturePlacementScreen() {
         </Pressable>
       </Modal>
 
-      <Modal visible={showFieldModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Thuộc tính Trường</Text>
-            
-            <Text style={styles.label}>Tên ngắn gọn (hiển thị trên hộp)</Text>
-            <TextInput style={styles.input} value={editingField?.label} onChangeText={(text) => {
-              if (editingField?.type === 'text') {
-                const curW = editingField.width || getBoxSizeDefault(editingField.type).w;
-                const curH = editingField.height || getBoxSizeDefault(editingField.type).h;
-                const maxFS = getMaxFontSize(curW, curH, text);
-                const newFontSize = Math.min(editingField.fontSize || 12, maxFS);
-                setEditingField({...editingField, label: text, fontSize: newFontSize});
-              } else {
-                setEditingField({...editingField, label: text});
-              }
-            }} />
-
-            <Text style={styles.label}>Mô tả chi tiết (hiển thị cho NV khi điền/tích)</Text>
-            <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} multiline numberOfLines={2} value={editingField?.description} onChangeText={(text) => setEditingField({...editingField, description: text})} placeholder="VD: Tích vào đây nếu bạn đồng ý trích nộp quỹ công đoàn..." />
-
-            <Text style={styles.label}>Loại trường</Text>
-            <View style={styles.pickerContainer}>
-              <Picker selectedValue={editingField?.type} onValueChange={(itemValue) => setEditingField({...editingField, type: itemValue})}>
-                <Picker.Item label="Chữ ký" value="signature" />
-                <Picker.Item label="Điền chữ (Text)" value="text" />
-                <Picker.Item label="Đánh dấu (Checkbox)" value="checkbox" />
-              </Picker>
+      <Modal visible={showFieldModal} transparent animationType="fade" onRequestClose={() => setShowFieldModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalCard, { maxHeight: '88%' }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderTitleRow}>
+                <MaterialCommunityIcons name="form-select" size={22} color={colors.primary} />
+                <Text style={styles.modalTitle}>Thuộc tính trường</Text>
+              </View>
+              <Pressable onPress={() => setShowFieldModal(false)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#64748B" />
+              </Pressable>
             </View>
 
-            <Text style={styles.label}>Quyền điền/ký</Text>
-            <View style={styles.pickerContainer}>
-              <Picker selectedValue={editingField?.role} onValueChange={(itemValue) => setEditingField({...editingField, role: itemValue})}>
-                <Picker.Item label="Người lao động (Employee)" value="EMPLOYEE" />
-                <Picker.Item label="Công ty (Company)" value="COMPANY" />
-              </Picker>
-            </View>
+            <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollBody}>
+              {/* Tên hiển thị */}
+              <Text style={styles.label}>Tên ngắn gọn (hiển thị trên hộp)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="VD: Chữ ký, Họ tên, Ngày ký..."
+                placeholderTextColor="#94A3B8"
+                value={editingField?.label}
+                onChangeText={(text) => {
+                  if (editingField?.type === 'text') {
+                    const curW = editingField.width || getBoxSizeDefault(editingField.type).w;
+                    const curH = editingField.height || getBoxSizeDefault(editingField.type).h;
+                    const maxFS = getMaxFontSize(curW, curH, text);
+                    const newFontSize = Math.min(editingField.fontSize || 12, maxFS);
+                    setEditingField({ ...editingField, label: text, fontSize: newFontSize });
+                  } else {
+                    setEditingField({ ...editingField, label: text });
+                  }
+                }}
+              />
 
-            <View style={{flexDirection: 'row', gap: 16, marginTop: 12}}>
-              <View style={{flex: 1}}>
-                <Text style={styles.label}>Chiều rộng</Text>
-                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
-                  <Pressable onPress={() => updateFieldWidth(-10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
-                  <Text style={{fontWeight: '600'}}>{editingField?.width || getBoxSizeDefault(editingField?.type || 'text').w}</Text>
-                  <Pressable onPress={() => updateFieldWidth(10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
+              {/* Mô tả chi tiết */}
+              <Text style={styles.label}>Mô tả chi tiết (hướng dẫn khi ký/điền)</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
+                multiline
+                numberOfLines={2}
+                value={editingField?.description}
+                onChangeText={(text) => setEditingField({ ...editingField, description: text })}
+                placeholder="VD: Tích vào đây nếu bạn đồng ý trích nộp quỹ công đoàn..."
+                placeholderTextColor="#94A3B8"
+              />
+
+              {/* Loại trường - Segmented Chips */}
+              <Text style={styles.label}>Loại trường</Text>
+              <View style={styles.segmentedRow}>
+                {[
+                  { type: 'signature', label: 'Chữ ký', icon: 'draw-pen' },
+                  { type: 'text', label: 'Điền chữ', icon: 'format-text' },
+                  { type: 'checkbox', label: 'Đánh dấu', icon: 'checkbox-marked-outline' },
+                ].map((item) => {
+                  const isSelected = editingField?.type === item.type;
+                  return (
+                    <Pressable
+                      key={item.type}
+                      onPress={() => {
+                        const defaultSize = getBoxSizeDefault(item.type);
+                        setEditingField({
+                          ...editingField,
+                          type: item.type,
+                          width: defaultSize.w,
+                          height: defaultSize.h,
+                        });
+                      }}
+                      style={[styles.segmentBtn, isSelected && styles.segmentBtnActive]}
+                    >
+                      <MaterialCommunityIcons
+                        name={item.icon as any}
+                        size={18}
+                        color={isSelected ? '#FFFFFF' : '#475569'}
+                      />
+                      <Text style={[styles.segmentBtnText, isSelected && styles.segmentBtnTextActive]}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Quyền điền / ký - Segmented Chips */}
+              <Text style={styles.label}>Quyền điền / ký</Text>
+              <View style={styles.segmentedRow}>
+                {[
+                  { role: 'EMPLOYEE', label: 'Người lao động', icon: 'account-outline' },
+                  { role: 'COMPANY', label: 'Công ty (Đại diện)', icon: 'domain' },
+                ].map((item) => {
+                  const isSelected = editingField?.role === item.role;
+                  return (
+                    <Pressable
+                      key={item.role}
+                      onPress={() => setEditingField({ ...editingField, role: item.role })}
+                      style={[styles.segmentBtn, isSelected && styles.segmentBtnActive]}
+                    >
+                      <MaterialCommunityIcons
+                        name={item.icon as any}
+                        size={18}
+                        color={isSelected ? '#FFFFFF' : '#475569'}
+                      />
+                      <Text style={[styles.segmentBtnText, isSelected && styles.segmentBtnTextActive]}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Kích thước */}
+              <View style={styles.dimensionRow}>
+                <View style={styles.dimensionCol}>
+                  <Text style={styles.labelSmall}>Chiều rộng</Text>
+                  <View style={styles.stepperContainer}>
+                    <Pressable onPress={() => updateFieldWidth(-10)} style={styles.stepperBtn}>
+                      <MaterialCommunityIcons name="minus" size={18} color="#1E293B" />
+                    </Pressable>
+                    <Text style={styles.stepperValue}>
+                      {editingField?.width || getBoxSizeDefault(editingField?.type || 'text').w}
+                    </Text>
+                    <Pressable onPress={() => updateFieldWidth(10)} style={styles.stepperBtn}>
+                      <MaterialCommunityIcons name="plus" size={18} color="#1E293B" />
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={styles.dimensionCol}>
+                  <Text style={styles.labelSmall}>Chiều cao</Text>
+                  <View style={styles.stepperContainer}>
+                    <Pressable onPress={() => updateFieldHeight(-10)} style={styles.stepperBtn}>
+                      <MaterialCommunityIcons name="minus" size={18} color="#1E293B" />
+                    </Pressable>
+                    <Text style={styles.stepperValue}>
+                      {editingField?.height || getBoxSizeDefault(editingField?.type || 'text').h}
+                    </Text>
+                    <Pressable onPress={() => updateFieldHeight(10)} style={styles.stepperBtn}>
+                      <MaterialCommunityIcons name="plus" size={18} color="#1E293B" />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
-              <View style={{flex: 1}}>
-                <Text style={styles.label}>Chiều cao</Text>
-                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
-                  <Pressable onPress={() => updateFieldHeight(-10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
-                  <Text style={{fontWeight: '600'}}>{editingField?.height || getBoxSizeDefault(editingField?.type || 'text').h}</Text>
-                  <Pressable onPress={() => updateFieldHeight(10)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
-                </View>
-              </View>
-            </View>
 
-            {editingField?.type === 'text' && (
-              <View style={{marginTop: 12, width: '48%'}}>
-                <Text style={styles.label}>Cỡ chữ</Text>
-                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
-                  <Pressable onPress={() => updateFieldFontSize(-1)} style={styles.nudgeBtn}><MaterialCommunityIcons name="minus" size={20} color={colors.text}/></Pressable>
-                  <Text style={{fontWeight: '600'}}>{editingField?.fontSize || 12}</Text>
-                  <Pressable onPress={() => updateFieldFontSize(1)} style={styles.nudgeBtn}><MaterialCommunityIcons name="plus" size={20} color={colors.text}/></Pressable>
+              {editingField?.type === 'text' && (
+                <View style={[styles.dimensionRow, { marginTop: 10 }]}>
+                  <View style={styles.dimensionCol}>
+                    <Text style={styles.labelSmall}>Cỡ chữ (pt)</Text>
+                    <View style={styles.stepperContainer}>
+                      <Pressable onPress={() => updateFieldFontSize(-1)} style={styles.stepperBtn}>
+                        <MaterialCommunityIcons name="minus" size={18} color="#1E293B" />
+                      </Pressable>
+                      <Text style={styles.stepperValue}>{editingField?.fontSize || 12}</Text>
+                      <Pressable onPress={() => updateFieldFontSize(1)} style={styles.stepperBtn}>
+                        <MaterialCommunityIcons name="plus" size={18} color="#1E293B" />
+                      </Pressable>
+                    </View>
+                  </View>
+                  <View style={styles.dimensionCol} />
                 </View>
-              </View>
-            )}
+              )}
+            </ScrollView>
 
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 24}}>
-              <SecondaryButton onPress={handleDeleteField} style={{borderColor: colors.error}}>Xoá</SecondaryButton>
-              <View style={{flexDirection: 'row', gap: 12}}>
-                <SecondaryButton onPress={() => setShowFieldModal(false)}>Hủy</SecondaryButton>
-                <PrimaryButton onPress={handleSaveField}>Lưu</PrimaryButton>
+            {/* Modal Actions */}
+            <View style={styles.modalFooter}>
+              {fields.some((f) => f.id === editingField?.id) ? (
+                <Pressable onPress={handleDeleteField} style={styles.deleteBtn}>
+                  <MaterialCommunityIcons name="trash-can-outline" size={18} color="#EF4444" />
+                  <Text style={styles.deleteBtnText}>Xoá</Text>
+                </Pressable>
+              ) : (
+                <View style={{ flex: 1 }} />
+              )}
+
+              <View style={styles.modalFooterRight}>
+                <Pressable onPress={() => setShowFieldModal(false)} style={styles.cancelBtn}>
+                  <Text style={styles.cancelBtnText}>Hủy</Text>
+                </Pressable>
+                <Pressable onPress={handleSaveField} style={styles.confirmBtn}>
+                  <Text style={styles.confirmBtnText}>Lưu</Text>
+                </Pressable>
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -683,24 +803,265 @@ export function SignaturePlacementScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  backBtn: { padding: 4 },
-  title: { fontSize: 18, fontWeight: '600', color: colors.text },
-  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, backgroundColor: '#f9fafb', borderBottomWidth: 1, borderBottomColor: colors.border },
-  pageBtn: { padding: 8, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-  pageBtnDisabled: { opacity: 0.5 },
-  pageText: { fontSize: 16, fontWeight: '500', color: colors.text, marginHorizontal: 16 },
-  webviewContainer: { flex: 1, backgroundColor: '#f3f4f6' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: '#fff',
+  },
+  backBtn: { padding: 6 },
+  title: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  pageBtn: {
+    padding: 6,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pageBtnDisabled: { opacity: 0.4 },
+  pageText: { fontSize: 15, fontWeight: '600', color: '#1E293B', marginHorizontal: 16 },
+  webviewContainer: { flex: 1, backgroundColor: '#F1F5F9' },
   webview: { flex: 1, backgroundColor: 'transparent' },
-  loadingOverlay: { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10 },
-  quickEdit: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: colors.border },
-  nudgeBtn: { backgroundColor: '#f3f4f6', padding: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.border },
-  footer: { padding: 16, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    zIndex: 10,
+  },
+  quickEdit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  nudgeBtn: {
+    backgroundColor: '#F1F5F9',
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  footer: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   saveBtn: { width: '100%' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', padding: 24, borderRadius: 12 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: '500', color: colors.text, marginTop: 12, marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16 },
-  pickerContainer: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden' }
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FAFAFA',
+  },
+  modalHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    padding: 4,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  modalScrollBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  labelSmall: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  input: {
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+  },
+  segmentedRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  segmentBtnActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  segmentBtnText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  segmentBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  dimensionRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 12,
+  },
+  dimensionCol: {
+    flex: 1,
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  stepperValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#FAFAFA',
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  deleteBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  modalFooterRight: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  confirmBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: '#0F172A',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  confirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
