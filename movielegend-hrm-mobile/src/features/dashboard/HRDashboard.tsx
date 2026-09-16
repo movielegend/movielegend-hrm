@@ -591,10 +591,13 @@ export function HRDashboard() {
 
       {/* Floating AI Chat Button */}
       <Pressable
-        style={styles.fab}
+        style={[
+          styles.fab,
+          { bottom: Math.max(insets.bottom, 16) + 72 },
+        ]}
         onPress={() => router.push('/hr/ai-chat' as any)}
       >
-        <MaterialCommunityIcons name="robot-outline" size={28} color="#fff" />
+        <MaterialCommunityIcons name="robot-outline" size={26} color="#FFFFFF" />
       </Pressable>
     </Screen>
   );
@@ -1367,17 +1370,16 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: spacing.xxl,
-    right: spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#111827',
+    right: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
     zIndex: 999,
