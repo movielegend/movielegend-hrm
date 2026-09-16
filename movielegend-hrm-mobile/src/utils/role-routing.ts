@@ -63,3 +63,11 @@ export function canAccessRoleRoute(user: AuthUser | null, route: string): boolea
   return route.startsWith(baseRoute);
 }
 
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).getRoleBaseRoute = getRoleBaseRoute;
+  (globalThis as any).getHomeRouteForUser = getHomeRouteForUser;
+}
+if (typeof global !== 'undefined') {
+  (global as any).getRoleBaseRoute = getRoleBaseRoute;
+  (global as any).getHomeRouteForUser = getHomeRouteForUser;
+}
