@@ -216,7 +216,7 @@ export function AdminDashboard() {
               title="Nhân sự"
               color="#2563EB"
               bgColor="#EFF6FF"
-              onPress={() => router.push('/hr/employees' as any)}
+              onPress={() => router.push('/admin/employees' as any)}
             />
             <GridItem4
               icon="domain"
