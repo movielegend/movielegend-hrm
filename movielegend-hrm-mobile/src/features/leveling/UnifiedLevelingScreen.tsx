@@ -10,7 +10,8 @@ import {
   RefreshControl,
   Image,
   TextInput,
-  Dimensions} from 'react-native';
+  Dimensions,
+  Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
