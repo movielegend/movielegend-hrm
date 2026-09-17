@@ -72,7 +72,7 @@ export class VoiceCallGateway {
         {
           categoryId: 'VOICE_CALL_INCOMING',
           priority: 'high',
-          channelId: 'incoming_calls_v3',
+          channelId: 'incoming_calls_v4',
           sound: 'ringtone.wav',
         }
       ).catch(e => console.error('Failed to send call push notification', e));

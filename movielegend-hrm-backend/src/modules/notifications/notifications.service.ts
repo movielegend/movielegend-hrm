@@ -67,7 +67,7 @@ export class NotificationsService {
         taskId: payload.notification.taskId,
         metadata: payload.notification.metadata
       },
-      { priority: 'high' }
+      { priority: 'high', channelId: 'default' }
     ).catch(e => this.logger.error('Failed to send push notification', e));
   }
 

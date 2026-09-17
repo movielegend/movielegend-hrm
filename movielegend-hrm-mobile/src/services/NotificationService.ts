@@ -34,6 +34,10 @@ export async function setupNotificationChannel() {
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#3B82F6',
+        enableLights: true,
+        enableVibrate: true,
+        sound: 'default',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
   } catch (e) {

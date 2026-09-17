@@ -94,7 +94,9 @@ export class ShiftReminderService {
       await this.expoPush.sendPushNotification(
         usersToRemindCheckin,
         'Sắp đến giờ làm việc',
-        'Ca làm việc của bạn sắp bắt đầu, đừng quên mở app để check-in nhé!'
+        'Ca làm việc của bạn sắp bắt đầu, đừng quên mở app để check-in nhé!',
+        { type: 'SHIFT_CHECKIN_REMINDER' },
+        { priority: 'high', channelId: 'default' }
       );
     }
 
@@ -103,7 +105,9 @@ export class ShiftReminderService {
       await this.expoPush.sendPushNotification(
         usersToRemindCheckout,
         'Sắp hết giờ làm việc',
-        'Ca làm việc của bạn sắp kết thúc, đừng quên mở app để check-out nhé!'
+        'Ca làm việc của bạn sắp kết thúc, đừng quên mở app để check-out nhé!',
+        { type: 'SHIFT_CHECKOUT_REMINDER' },
+        { priority: 'high', channelId: 'default' }
       );
     }
   }
@@ -154,7 +158,8 @@ export class ShiftReminderService {
           [assignment.userId],
           'Sắp đến hạn công việc',
           `Công việc "${assignment.task.title}" sắp đến hạn. Vui lòng hoàn thành trước deadline!`,
-          { type: 'TASK_UPDATED', taskId: assignment.taskId }
+          { type: 'TASK_UPDATED', taskId: assignment.taskId },
+          { priority: 'high', channelId: 'default' }
         );
       }
     }

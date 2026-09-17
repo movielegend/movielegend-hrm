@@ -83,7 +83,7 @@ export class AuthService {
 
     const idCardFileIds = [dto.idCardFrontFileId, dto.idCardBackFileId].filter((id): id is string => Boolean(id));
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const [existingPhone, existingEmail, existingCard, department] = await Promise.all([
         tx.user.findUnique({ where: { phone: dto.phone } }),
         dto.email ? tx.user.findUnique({ where: { email: dto.email } }) : null,
@@ -225,8 +225,9 @@ export class AuthService {
         leaders.forEach(l => notifyUserIds.add(l.userId));
       }
 
+      let notifPayload: any = null;
       if (notifyUserIds.size > 0) {
-        await this.notifications.createForUsers(tx, Array.from(notifyUserIds), {
+        notifPayload = await this.notifications.createForUsers(tx, Array.from(notifyUserIds), {
           type: 'ACCOUNT_APPROVAL_REQUESTED',
           title: 'Yêu cầu đăng ký tài khoản mới',
           body: `Nhân viên ${dto.fullName} (SĐT: ${dto.phone}) vừa gửi yêu cầu tạo tài khoản mới. Vui lòng kiểm tra và xét duyệt.`,
@@ -240,8 +241,21 @@ export class AuthService {
         approvalRequestId: request.id,
         accountStatus: user.accountStatus,
         approvalStatus: user.approvalStatus,
+        notifPayload,
       };
     });
+
+    if (result.notifPayload) {
+      this.notifications.emitCreated(result.notifPayload);
+    }
+
+    return {
+      id: result.id,
+      userCode: result.userCode,
+      approvalRequestId: result.approvalRequestId,
+      accountStatus: result.accountStatus,
+      approvalStatus: result.approvalStatus,
+    };
   }
 
   async checkAvailability(dto: { phone?: string; email?: string; idCardNumber?: string }) {
