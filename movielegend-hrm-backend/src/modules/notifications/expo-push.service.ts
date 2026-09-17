@@ -64,10 +64,11 @@ export class ExpoPushService {
             if (ticket.details?.error === 'DeviceNotRegistered') {
               const invalidToken = chunk[i]?.to;
               if (invalidToken) {
+                const tokenList = Array.isArray(invalidToken) ? invalidToken : [invalidToken];
                 this.prisma.deviceToken.updateMany({
-                  where: { token: invalidToken },
+                  where: { token: { in: tokenList } },
                   data: { revokedAt: new Date() },
-                }).catch(e => this.logger.error(`Failed to auto-revoke invalid token: ${invalidToken}`, e));
+                }).catch(e => this.logger.error(`Failed to auto-revoke invalid token: ${JSON.stringify(invalidToken)}`, e));
               }
             }
           }
