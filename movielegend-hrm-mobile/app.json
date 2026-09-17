@@ -43,6 +43,10 @@
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.dinhhoc.movielegendhrmmobile",
       "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -80,6 +84,8 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/app-icon.png",
+          "color": "#3B82F6",
           "sounds": [
             "./assets/sounds/ringtone.wav"
           ]
@@ -112,11 +118,11 @@
         "origin": false
       },
       "eas": {
-        "projectId": "1d0c9c5f-1663-4948-a0f5-59220f806aea"
+        "projectId": "8f0cce1a-a3e4-4754-8965-6f6fc48f4b80"
       }
     },
     "newArchEnabled": false,
     "runtimeVersion": "1.0.0",
-    "owner": "dinhhoc"
+    "owner": "hocdinh"
   }
 }
