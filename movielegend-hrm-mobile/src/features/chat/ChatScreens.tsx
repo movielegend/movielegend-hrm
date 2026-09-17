@@ -2153,7 +2153,7 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
     padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: 100,
   },
   groupList: {
     gap: spacing.sm,

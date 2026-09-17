@@ -1031,7 +1031,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
       ) : (
         <ScrollView
           style={styles.content}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 60 }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         >
@@ -2542,8 +2542,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 9,
-    gap: 4,
-    paddingHorizontal: 4,
+    gap: 2,
+    paddingHorizontal: 2,
   },
   tabBtnActive: {
     backgroundColor: '#FFFFFF',
@@ -2554,7 +2554,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -2563,6 +2563,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   pendingBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
     backgroundColor: '#EF4444',
     minWidth: 16,
     height: 16,
@@ -2570,6 +2573,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
+    zIndex: 10,
   },
   pendingBadgeText: {
     fontSize: 9,
@@ -2839,9 +2843,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 8,
-    gap: 6,
+    gap: 3,
   },
   subTabBtnActive: {
     backgroundColor: '#FFF',
@@ -2852,7 +2856,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   subTabText: {
-    fontSize: 13,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#64748B',
   },
