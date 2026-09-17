@@ -231,7 +231,7 @@ async function getExpoPushTokenIfAvailable(): Promise<string | null> {
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId ??
-      '8f0cce1a-a3e4-4754-8965-6f6fc48f4b80';
+      '1d0c9c5f-1663-4948-a0f5-59220f806aea';
     console.log('--- Project ID đang dùng: ', projectId);
     const token = await Notifications.getExpoPushTokenAsync({ projectId });
     console.log('\n\n==================================');

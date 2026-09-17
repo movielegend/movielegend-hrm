@@ -118,11 +118,11 @@
         "origin": false
       },
       "eas": {
-        "projectId": "8f0cce1a-a3e4-4754-8965-6f6fc48f4b80"
+        "projectId": "1d0c9c5f-1663-4948-a0f5-59220f806aea"
       }
     },
     "newArchEnabled": false,
     "runtimeVersion": "1.0.0",
-    "owner": "hocdinh"
+    "owner": "dinhhoc"
   }
 }
