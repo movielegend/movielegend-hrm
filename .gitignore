@@ -9,4 +9,6 @@ movielegend-hrm-backend/storage/*
 movielegend-hrm-web/
 .ua/
 *.ua
+.DS_Store
+*.p8
 

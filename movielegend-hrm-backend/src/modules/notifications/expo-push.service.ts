@@ -19,13 +19,16 @@ export class ExpoPushService {
       },
     });
 
-    if (devices.length === 0) return;
+    if (devices.length === 0) {
+      this.logger.warn(`No active device tokens found for users: [${userIds.join(', ')}]. Push notification skipped.`);
+      return;
+    }
 
     const messages: ExpoPushMessage[] = [];
 
     for (const device of devices) {
       if (!Expo.isExpoPushToken(device.token)) {
-        this.logger.warn(`Push token ${device.token} is not a valid Expo push token`);
+        this.logger.warn(`Push token ${device.token} for user ${device.userId} is not a valid Expo push token`);
         continue;
       }
       
@@ -36,9 +39,14 @@ export class ExpoPushService {
         body,
         data,
         categoryId: options?.categoryId,
-        priority: options?.priority,
-        channelId: options?.channelId,
+        priority: options?.priority || 'high',
+        channelId: options?.channelId || 'default',
       });
+    }
+
+    if (messages.length === 0) {
+      this.logger.warn(`No valid Expo push messages to send for users: [${userIds.join(', ')}]`);
+      return;
     }
 
     const chunks = this.expo.chunkPushNotifications(messages);
@@ -46,7 +54,24 @@ export class ExpoPushService {
     for (const chunk of chunks) {
       try {
         const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
-        this.logger.log(`Sent push notification chunk: ${JSON.stringify(ticketChunk)}`);
+        this.logger.log(`Sent push notification chunk (${ticketChunk.length} tickets): ${JSON.stringify(ticketChunk)}`);
+
+        // Check for errors in tickets
+        for (let i = 0; i < ticketChunk.length; i++) {
+          const ticket = ticketChunk[i];
+          if (ticket.status === 'error') {
+            this.logger.error(`Error sending push notification to token: ${chunk[i]?.to}. Error: ${ticket.message} (${ticket.details?.error})`);
+            if (ticket.details?.error === 'DeviceNotRegistered') {
+              const invalidToken = chunk[i]?.to;
+              if (invalidToken) {
+                this.prisma.deviceToken.updateMany({
+                  where: { token: invalidToken },
+                  data: { revokedAt: new Date() },
+                }).catch(e => this.logger.error(`Failed to auto-revoke invalid token: ${invalidToken}`, e));
+              }
+            }
+          }
+        }
       } catch (error: any) {
         if (error.code === 'PUSH_TOO_MANY_EXPERIENCE_IDS') {
            this.logger.warn('Multiple experience IDs found, falling back to individual sending');

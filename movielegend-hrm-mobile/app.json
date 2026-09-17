@@ -4,7 +4,7 @@
     "slug": "movielegend-hrm-mobile",
     "privacy": "public",
     "scheme": "movielegend-hrm",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/app-icon.png",
     "splash": {
@@ -17,6 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dinhhoc.movielegendhrmmobile",
       "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "audio",
@@ -102,7 +105,6 @@
       ],
       "expo-web-browser",
       "expo-document-picker",
-      "expo-sharing",
       "@livekit/react-native-expo-plugin"
     ],
     "extra": {
@@ -110,10 +112,11 @@
         "origin": false
       },
       "eas": {
-        "projectId": "8f0cce1a-a3e4-4754-8965-6f6fc48f4b80"
+        "projectId": "1d0c9c5f-1663-4948-a0f5-59220f806aea"
       }
     },
     "newArchEnabled": false,
-    "runtimeVersion": "1.0.0"
+    "runtimeVersion": "1.0.0",
+    "owner": "dinhhoc"
   }
 }
