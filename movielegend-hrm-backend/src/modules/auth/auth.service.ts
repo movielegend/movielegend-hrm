@@ -83,7 +83,7 @@ export class AuthService {
 
     const idCardFileIds = [dto.idCardFrontFileId, dto.idCardBackFileId].filter((id): id is string => Boolean(id));
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const [existingPhone, existingEmail, existingCard, department] = await Promise.all([
         tx.user.findUnique({ where: { phone: dto.phone } }),
         dto.email ? tx.user.findUnique({ where: { email: dto.email } }) : null,
