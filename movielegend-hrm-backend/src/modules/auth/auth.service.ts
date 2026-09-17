@@ -225,8 +225,9 @@ export class AuthService {
         leaders.forEach(l => notifyUserIds.add(l.userId));
       }
 
+      let notifPayload: any = null;
       if (notifyUserIds.size > 0) {
-        await this.notifications.createForUsers(tx, Array.from(notifyUserIds), {
+        notifPayload = await this.notifications.createForUsers(tx, Array.from(notifyUserIds), {
           type: 'ACCOUNT_APPROVAL_REQUESTED',
           title: 'Yêu cầu đăng ký tài khoản mới',
           body: `Nhân viên ${dto.fullName} (SĐT: ${dto.phone}) vừa gửi yêu cầu tạo tài khoản mới. Vui lòng kiểm tra và xét duyệt.`,
@@ -240,8 +241,21 @@ export class AuthService {
         approvalRequestId: request.id,
         accountStatus: user.accountStatus,
         approvalStatus: user.approvalStatus,
+        notifPayload,
       };
     });
+
+    if (result.notifPayload) {
+      this.notifications.emitCreated(result.notifPayload);
+    }
+
+    return {
+      id: result.id,
+      userCode: result.userCode,
+      approvalRequestId: result.approvalRequestId,
+      accountStatus: result.accountStatus,
+      approvalStatus: result.approvalStatus,
+    };
   }
 
   async checkAvailability(dto: { phone?: string; email?: string; idCardNumber?: string }) {

@@ -104,12 +104,15 @@ export function SocketProvider({ children }: PropsWithChildren) {
               content: {
                 title: payload.title,
                 body: payload.body || '',
+                sound: true,
+                priority: Notifications?.AndroidNotificationPriority?.MAX ?? 'max',
                 data: {
                   notificationId: payload.id,
                   type: payload.type,
                   taskId: payload.taskId,
                   metadata: payload.metadata,
                 },
+                ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
               },
               trigger: null,
             }).catch(() => {
