@@ -1247,6 +1247,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         enabled={Platform.OS === 'ios' ? true : isKeyboardVisible}
       >
         <View style={styles.chatContainer}>
+          {/* Watermark in chìm họ tên người dùng đặt ở lớp nền dưới cùng */}
+          <ChatWatermark />
+
           {/* Header */}
           <View style={styles.chatHeader}>
             <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
@@ -1733,9 +1736,6 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <MaterialCommunityIcons name={isUploading || sendMessage.isPending ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>
           </View>
-
-          {/* Watermark in chìm họ tên người dùng theo phong cách Lark */}
-          <ChatWatermark />
         </View>
 
         {/* Image Viewer Modal with Close & Download Buttons */}
@@ -2204,10 +2204,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     gap: 12,
+    zIndex: 5,
+    elevation: 3,
   },
   chatHeaderIcon: {
     width: 36,
@@ -2233,6 +2235,7 @@ const styles = StyleSheet.create({
   messageList: {
     flex: 1,
     backgroundColor: 'transparent',
+    zIndex: 1,
   },
   messageListContent: {
     padding: spacing.md,
@@ -2243,6 +2246,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 6,
+    zIndex: 2,
   },
   messageRowMine: {
     flexDirection: 'row-reverse',
@@ -2267,19 +2271,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    zIndex: 2,
   },
   messageBubbleMine: {
     backgroundColor: '#111827',
     borderBottomRightRadius: 4,
   },
   messageBubbleOther: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.06,
     shadowRadius: 4,
-    elevation: 1,
+    elevation: 2,
   },
 
   messageSender: {
@@ -2368,9 +2373,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
+    zIndex: 5,
+    elevation: 3,
   },
   chatInput: {
     backgroundColor: '#F8FAFC',
