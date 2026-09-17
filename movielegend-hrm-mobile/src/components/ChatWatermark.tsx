@@ -7,7 +7,7 @@ interface ChatWatermarkProps {
   opacity?: number;
 }
 
-export function ChatWatermark({ customName, opacity = 0.045 }: ChatWatermarkProps) {
+export function ChatWatermark({ customName, opacity = 0.08 }: ChatWatermarkProps) {
   const { user } = useAuth();
   const { width, height } = Dimensions.get('window');
 
@@ -72,9 +72,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   text: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
     letterSpacing: 0.5,
   },
 });
