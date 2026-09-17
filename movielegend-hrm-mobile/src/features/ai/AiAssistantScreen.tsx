@@ -452,7 +452,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Pressable style={styles.headerBtn} onPress={() => router.back()} hitSlop={10}>
-              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+              <MaterialCommunityIcons name="chevron-left" size={26} color="#FFFFFF" />
             </Pressable>
 
             <Pressable
@@ -460,7 +460,7 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
               onPress={() => setShowHistoryModal(true)}
               hitSlop={10}
             >
-              <MaterialCommunityIcons name="history" size={24} color="#94A3B8" />
+              <MaterialCommunityIcons name="history" size={20} color="#CBD5E1" />
             </Pressable>
           </View>
 
@@ -476,13 +476,15 @@ export function AiAssistantScreen({ role }: AiAssistantScreenProps) {
             </Text>
           </View>
 
-          <Pressable
-            style={[styles.headerBtn, styles.newChatBtn]}
-            onPress={handleNewChat}
-            hitSlop={10}
-          >
-            <MaterialCommunityIcons name="plus" size={22} color="#FFFFFF" />
-          </Pressable>
+          <View style={styles.headerRight}>
+            <Pressable
+              style={[styles.headerBtn, styles.newChatBtn]}
+              onPress={handleNewChat}
+              hitSlop={10}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.body}>
@@ -901,32 +903,45 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#0F172A',
-    height: 58,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 6,
+    width: 80,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    width: 80,
   },
   headerBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   newChatBtn: {
     backgroundColor: '#2563EB',
+    borderColor: '#3B82F6',
   },
   headerCenter: {
+    flex: 1,
     alignItems: 'center',
-    maxWidth: '55%',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -934,7 +949,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   headerTitle: {
-    fontSize: 15.5,
+    fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
@@ -944,6 +959,8 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontWeight: '500',
     marginTop: 1,
+    maxWidth: 160,
+    textAlign: 'center',
   },
   chatContent: {
     padding: 16,
