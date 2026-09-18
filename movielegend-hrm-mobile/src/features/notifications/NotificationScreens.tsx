@@ -1,16 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  AlertTriangle,
   Award,
   Bell,
   CalendarCheck,
@@ -24,29 +22,22 @@ import {
   ShieldAlert,
   Wallet,
 } from 'lucide-react-native';
-import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { Screen } from '../../components/Screen';
-import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications, useRegisterCurrentDeviceToken, useUnreadNotificationCount } from '../../hooks/useNotifications';
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
+  useUnreadNotificationCount,
+} from '../../hooks/useNotifications';
 import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import type { NotificationTargetDto } from '../../types/notification.types';
 import { timeAgo } from '../../utils/date-time';
 import { notificationRoute, stringMeta } from '../../utils/notification-routing';
-
-type FilterCategory = 'ALL' | 'WORK' | 'REQUEST' | 'ATTENDANCE' | 'FINANCE' | 'OTHER';
-
-const FILTER_TABS: { key: FilterCategory; label: string }[] = [
-  { key: 'ALL', label: 'Tất cả' },
-  { key: 'WORK', label: 'Công việc' },
-  { key: 'REQUEST', label: 'Đơn & Duyệt' },
-  { key: 'ATTENDANCE', label: 'Ca & Công' },
-  { key: 'FINANCE', label: 'Lương & Thưởng' },
-  { key: 'OTHER', label: 'Khác' },
-];
 
 const EN_TO_VI: Record<string, string> = {
   'New task assigned': 'Công việc mới được giao',
@@ -83,8 +74,6 @@ function stripEmojis(str?: string): string {
 }
 
 interface NotificationVisuals {
-  category: FilterCategory;
-  categoryLabel: string;
   IconComponent: React.ComponentType<{ size?: number; color?: string }>;
   iconColor: string;
   bgColor: string;
@@ -101,8 +90,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   // 1. VIOLATION & INCIDENTS
   if (type.startsWith('VIOLATION_') || type.startsWith('ASSET_INCIDENT_') || title.includes('vi phạm') || title.includes('kỷ luật')) {
     return {
-      category: 'OTHER',
-      categoryLabel: 'Kỷ luật & Vi phạm',
       IconComponent: ShieldAlert,
       iconColor: '#DC2626',
       bgColor: '#FEF2F2',
@@ -124,8 +111,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
     text.includes('rút tiền')
   ) {
     return {
-      category: 'FINANCE',
-      categoryLabel: 'Lương & Thưởng',
       IconComponent: Wallet,
       iconColor: '#D97706',
       bgColor: '#FFFBEB',
@@ -145,8 +130,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
     text.includes('timesheet')
   ) {
     return {
-      category: 'ATTENDANCE',
-      categoryLabel: 'Ca & Chấm công',
       IconComponent: CalendarCheck,
       iconColor: '#0891B2',
       bgColor: '#ECFEFF',
@@ -168,8 +151,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
     text.includes('từ chối đơn')
   ) {
     return {
-      category: 'REQUEST',
-      categoryLabel: 'Đơn & Phê duyệt',
       IconComponent: FileCheck2,
       iconColor: '#059669',
       bgColor: '#ECFDF5',
@@ -186,8 +167,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
     type.startsWith('KPI_')
   ) {
     return {
-      category: 'WORK',
-      categoryLabel: 'Cấp bậc & KPI',
       IconComponent: Award,
       iconColor: '#7C3AED',
       bgColor: '#F5F3FF',
@@ -197,8 +176,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
 
   if (type.startsWith('TASK_') || text.includes('công việc') || text.includes('nhiệm vụ') || stringMeta(item.metadata, 'taskId')) {
     return {
-      category: 'WORK',
-      categoryLabel: 'Công việc',
       IconComponent: ClipboardList,
       iconColor: '#2563EB',
       bgColor: '#EFF6FF',
@@ -209,8 +186,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   // 6. DOCUMENTS & CONTRACTS
   if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || text.includes('hợp đồng') || text.includes('tài liệu')) {
     return {
-      category: 'OTHER',
-      categoryLabel: 'Hợp đồng & Hồ sơ',
       IconComponent: FileText,
       iconColor: '#4F46E5',
       bgColor: '#EEF2FF',
@@ -221,8 +196,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   // 7. CHAT & NEWSFEED
   if (type.startsWith('CHAT_') || type.startsWith('NEWSFEED_') || text.includes('tin nhắn') || text.includes('bài viết')) {
     return {
-      category: 'OTHER',
-      categoryLabel: 'Tin tức & Chat',
       IconComponent: MessageSquare,
       iconColor: '#0284C7',
       bgColor: '#F0F9FF',
@@ -232,8 +205,6 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
 
   // DEFAULT
   return {
-    category: 'OTHER',
-    categoryLabel: 'Hệ thống',
     IconComponent: Bell,
     iconColor: '#64748B',
     bgColor: '#F8FAFC',
@@ -248,7 +219,6 @@ export function NotificationListScreen() {
   const unread = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
-  const [selectedCategory, setSelectedCategory] = useState<FilterCategory>('ALL');
 
   async function openNotification(target: NotificationTargetDto) {
     const route = notificationRoute(target, user);
@@ -264,17 +234,7 @@ export function NotificationListScreen() {
     }
   }
 
-  const rawList = notifications.data || [];
-
-  // Filter list by selected tab
-  const filteredList = useMemo(() => {
-    if (selectedCategory === 'ALL') return rawList;
-    return rawList.filter((target) => {
-      const visuals = getNotificationVisuals(target);
-      return visuals.category === selectedCategory;
-    });
-  }, [rawList, selectedCategory]);
-
+  const list = notifications.data || [];
   const unreadCount = unread.data || 0;
 
   return (
@@ -297,30 +257,6 @@ export function NotificationListScreen() {
             ) : undefined
           }
         />
-
-        {/* Filter Tabs Horizontal Scroll */}
-        <View style={styles.tabsWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsScrollContent}
-          >
-            {FILTER_TABS.map((tab) => {
-              const isActive = selectedCategory === tab.key;
-              return (
-                <Pressable
-                  key={tab.key}
-                  style={[styles.tabChip, isActive && styles.tabChipActive]}
-                  onPress={() => setSelectedCategory(tab.key)}
-                >
-                  <Text style={[styles.tabChipText, isActive && styles.tabChipTextActive]}>
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
       </View>
 
       {notifications.isLoading ? <LoadingState /> : null}
@@ -330,7 +266,7 @@ export function NotificationListScreen() {
 
       {!notifications.isLoading && !notifications.isError && (
         <FlatList
-          data={filteredList}
+          data={list}
           keyExtractor={(target) => target.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -348,9 +284,7 @@ export function NotificationListScreen() {
               </View>
               <Text style={styles.emptyTitle}>Không có thông báo nào</Text>
               <Text style={styles.emptySubtitle}>
-                {selectedCategory === 'ALL'
-                  ? 'Bạn sẽ nhận được thông báo khi có phân công, đơn từ hoặc cập nhật mới.'
-                  : 'Không có thông báo nào thuộc danh mục này.'}
+                Bạn sẽ nhận được thông báo khi có phân công công việc, duyệt đơn hoặc cập nhật mới.
               </Text>
             </View>
           }
@@ -399,7 +333,7 @@ export function NotificationCard({
       onPress={onPress}
       android_ripple={{ color: 'rgba(0,0,0,0.04)' }}
     >
-      {/* Visual Accent for unread */}
+      {/* Visual Accent bar on left for unread */}
       {isUnread && <View style={styles.unreadAccentBar} />}
 
       <View style={styles.cardInner}>
@@ -415,32 +349,22 @@ export function NotificationCard({
 
         {/* Center Content */}
         <View style={styles.content}>
-          <View style={styles.metaRow}>
-            <View
-              style={[
-                styles.categoryTag,
-                { backgroundColor: visuals.bgColor },
-              ]}
+          <View style={styles.titleRow}>
+            <Text
+              style={[styles.title, isUnread && styles.titleUnread]}
+              numberOfLines={2}
             >
-              <Text style={[styles.categoryTagText, { color: visuals.iconColor }]}>
-                {visuals.categoryLabel}
-              </Text>
-            </View>
-            <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
+              {displayTitle}
+            </Text>
           </View>
-
-          <Text
-            style={[styles.title, isUnread && styles.titleUnread]}
-            numberOfLines={2}
-          >
-            {displayTitle}
-          </Text>
 
           {displayBody ? (
             <Text style={styles.body} numberOfLines={2}>
               {displayBody}
             </Text>
           ) : null}
+
+          <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
         </View>
 
         {/* Right Unread Dot or Chevron */}
@@ -459,9 +383,9 @@ export function NotificationCard({
 const styles = StyleSheet.create({
   headerArea: {
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   markAllBtn: {
     flexDirection: 'row',
@@ -481,31 +405,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
-  },
-  tabsWrapper: {
-    marginTop: spacing.xs,
-  },
-  tabsScrollContent: {
-    paddingHorizontal: spacing.md,
-    gap: 8,
-  },
-  tabChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-  },
-  tabChipActive: {
-    backgroundColor: colors.primary,
-  },
-  tabChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#64748B',
-  },
-  tabChipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
   },
   listContent: {
     padding: spacing.md,
@@ -561,30 +460,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
-  metaRow: {
+  titleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  categoryTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  categoryTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  time: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
   },
   title: {
     color: '#334155',
@@ -600,10 +481,16 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 13,
     lineHeight: 18,
-    marginTop: 2,
+    marginTop: 1,
+  },
+  time: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+    marginTop: 3,
   },
   rightAction: {
-    paddingTop: 6,
+    paddingTop: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
