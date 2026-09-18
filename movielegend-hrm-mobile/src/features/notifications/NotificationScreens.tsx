@@ -13,12 +13,11 @@ import {
   Bell,
   CalendarCheck,
   CheckCheck,
-  ChevronRight,
   ClipboardList,
   FileCheck2,
   FileText,
   Inbox,
-  MessageSquare,
+  MessageCircle,
   ShieldAlert,
   Wallet,
 } from 'lucide-react-native';
@@ -77,7 +76,6 @@ interface NotificationVisuals {
   IconComponent: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
   iconColor: string;
   bgColor: string;
-  borderColor: string;
 }
 
 function getNotificationVisuals(target: NotificationTargetDto): NotificationVisuals {
@@ -87,17 +85,16 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   const body = (item.body || '').toLowerCase();
   const text = `${title} ${body}`;
 
-  // 1. VIOLATION & INCIDENTS
+  // 1. VIOLATION & INCIDENTS (Rose Red)
   if (type.startsWith('VIOLATION_') || type.startsWith('ASSET_INCIDENT_') || title.includes('vi phạm') || title.includes('kỷ luật')) {
     return {
       IconComponent: ShieldAlert,
-      iconColor: '#DC2626',
-      bgColor: '#FEF2F2',
-      borderColor: '#FECACA',
+      iconColor: '#EF4444',
+      bgColor: '#FEE2E2',
     };
   }
 
-  // 2. BONUS & SALARY
+  // 2. BONUS & SALARY (Warm Amber / Gold)
   if (
     type.startsWith('VAULT_') ||
     type.startsWith('PAYROLL_') ||
@@ -112,13 +109,12 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   ) {
     return {
       IconComponent: Wallet,
-      iconColor: '#D97706',
-      bgColor: '#FFFBEB',
-      borderColor: '#FDE68A',
+      iconColor: '#F59E0B',
+      bgColor: '#FEF3C7',
     };
   }
 
-  // 3. ATTENDANCE & SHIFT
+  // 3. ATTENDANCE & SHIFT (Teal / Cyan)
   if (
     text.includes('phân ca') ||
     text.includes('chấm công') ||
@@ -131,13 +127,12 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   ) {
     return {
       IconComponent: CalendarCheck,
-      iconColor: '#0891B2',
-      bgColor: '#ECFEFF',
-      borderColor: '#CFFAFE',
+      iconColor: '#06B6D4',
+      bgColor: '#E0F2FE',
     };
   }
 
-  // 4. REQUESTS & APPROVALS
+  // 4. REQUESTS & APPROVALS (Emerald Green)
   if (
     type.startsWith('CROSS_DEPARTMENT_') ||
     type === 'ACCOUNT_APPROVAL_REQUESTED' ||
@@ -152,13 +147,12 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   ) {
     return {
       IconComponent: FileCheck2,
-      iconColor: '#059669',
-      bgColor: '#ECFDF5',
-      borderColor: '#A7F3D0',
+      iconColor: '#10B981',
+      bgColor: '#D1FAE5',
     };
   }
 
-  // 5. LEVEL PROJECTS & TASKS
+  // 5. LEVEL PROJECTS & KPI (Purple Violet)
   if (
     type.startsWith('LEVEL_') ||
     text.includes('cấp bậc') ||
@@ -168,47 +162,43 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   ) {
     return {
       IconComponent: Award,
-      iconColor: '#7C3AED',
-      bgColor: '#F5F3FF',
-      borderColor: '#DDD6FE',
+      iconColor: '#8B5CF6',
+      bgColor: '#EDE9FE',
     };
   }
 
+  // 6. TASKS / ASSIGNMENTS (Royal Blue)
   if (type.startsWith('TASK_') || text.includes('công việc') || text.includes('nhiệm vụ') || stringMeta(item.metadata, 'taskId')) {
     return {
       IconComponent: ClipboardList,
-      iconColor: '#2563EB',
-      bgColor: '#EFF6FF',
-      borderColor: '#DBEAFE',
+      iconColor: '#3B82F6',
+      bgColor: '#DBEAFE',
     };
   }
 
-  // 6. DOCUMENTS & CONTRACTS
+  // 7. DOCUMENTS & CONTRACTS (Indigo)
   if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || text.includes('hợp đồng') || text.includes('tài liệu')) {
     return {
       IconComponent: FileText,
-      iconColor: '#4F46E5',
-      bgColor: '#EEF2FF',
-      borderColor: '#C7D2FE',
+      iconColor: '#6366F1',
+      bgColor: '#E0E7FF',
     };
   }
 
-  // 7. CHAT & NEWSFEED
+  // 8. CHAT & MESSAGES (Sky Blue Bubble)
   if (type.startsWith('CHAT_') || type.startsWith('NEWSFEED_') || text.includes('tin nhắn') || text.includes('bài viết')) {
     return {
-      IconComponent: MessageSquare,
-      iconColor: '#0284C7',
-      bgColor: '#F0F9FF',
-      borderColor: '#BAE6FD',
+      IconComponent: MessageCircle,
+      iconColor: '#0EA5E9',
+      bgColor: '#E0F2FE',
     };
   }
 
-  // DEFAULT
+  // DEFAULT (Slate Gray)
   return {
     IconComponent: Bell,
     iconColor: '#64748B',
-    bgColor: '#F8FAFC',
-    borderColor: '#E2E8F0',
+    bgColor: '#F1F5F9',
   };
 }
 
@@ -238,7 +228,7 @@ export function NotificationListScreen() {
   const unreadCount = unread.data || 0;
 
   return (
-    <Screen>
+    <Screen backgroundColor="#FFFFFF">
       <View style={styles.headerArea}>
         <PageHeader
           title="Thông báo"
@@ -269,6 +259,7 @@ export function NotificationListScreen() {
           data={list}
           keyExtractor={(target) => target.id}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={notifications.isRefetching}
@@ -284,12 +275,13 @@ export function NotificationListScreen() {
               </View>
               <Text style={styles.emptyTitle}>Không có thông báo nào</Text>
               <Text style={styles.emptySubtitle}>
-                Bạn sẽ nhận được thông báo khi có phân công công việc, duyệt đơn hoặc cập nhật mới.
+                Bạn sẽ nhận được thông báo khi có công việc mới, duyệt đơn hoặc cập nhật từ công ty.
               </Text>
             </View>
           }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item: target }) => (
-            <NotificationCard
+            <NotificationItemRow
               target={target}
               onPress={() => void openNotification(target)}
             />
@@ -300,7 +292,7 @@ export function NotificationListScreen() {
   );
 }
 
-export function NotificationCard({
+export function NotificationItemRow({
   target,
   onPress,
 }: {
@@ -326,55 +318,40 @@ export function NotificationCard({
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.card,
-        isUnread && styles.cardUnread,
-        pressed && styles.cardPressed,
+        styles.rowItem,
+        isUnread && styles.rowItemUnread,
+        pressed && styles.rowItemPressed,
       ]}
       onPress={onPress}
-      android_ripple={{ color: 'rgba(0,0,0,0.04)' }}
+      android_ripple={{ color: 'rgba(0,0,0,0.05)' }}
     >
-      {/* Visual Accent bar on left for unread */}
-      {isUnread && <View style={styles.unreadAccentBar} />}
+      {/* Left Icon Avatar */}
+      <View style={[styles.avatarCircle, { backgroundColor: visuals.bgColor }]}>
+        <Icon size={20} strokeWidth={2.2} color={visuals.iconColor} />
+      </View>
 
-      <View style={styles.cardInner}>
-        {/* Left Icon Badge with Pastel Tint */}
-        <View
-          style={[
-            styles.iconBadge,
-            { backgroundColor: visuals.bgColor, borderColor: visuals.borderColor },
-          ]}
-        >
-          <Icon size={22} strokeWidth={2.2} color={visuals.iconColor} />
+      {/* Main Text Content */}
+      <View style={styles.contentWrap}>
+        <View style={styles.topMeta}>
+          <Text
+            style={[styles.titleText, isUnread && styles.titleTextUnread]}
+            numberOfLines={2}
+          >
+            {displayTitle}
+          </Text>
+          {isUnread && <View style={styles.blueDot} />}
         </View>
 
-        {/* Center Content */}
-        <View style={styles.content}>
-          <View style={styles.titleRow}>
-            <Text
-              style={[styles.title, isUnread && styles.titleUnread]}
-              numberOfLines={2}
-            >
-              {displayTitle}
-            </Text>
-          </View>
+        {displayBody ? (
+          <Text
+            style={[styles.bodyText, isUnread && styles.bodyTextUnread]}
+            numberOfLines={2}
+          >
+            {displayBody}
+          </Text>
+        ) : null}
 
-          {displayBody ? (
-            <Text style={styles.body} numberOfLines={2}>
-              {displayBody}
-            </Text>
-          ) : null}
-
-          <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
-        </View>
-
-        {/* Right Unread Dot or Chevron */}
-        <View style={styles.rightAction}>
-          {isUnread ? (
-            <View style={styles.unreadDot} />
-          ) : (
-            <ChevronRight size={16} strokeWidth={2} color="#CBD5E1" />
-          )}
-        </View>
+        <Text style={styles.timeText}>{timeAgo(item.createdAt)}</Text>
       </View>
     </Pressable>
   );
@@ -382,10 +359,12 @@ export function NotificationCard({
 
 const styles = StyleSheet.create({
   headerArea: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   markAllBtn: {
     flexDirection: 'row',
@@ -407,103 +386,81 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   listContent: {
-    padding: spacing.md,
-    gap: 10,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 130, // Crucial bottom clearance for bottom tab bar!
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+  separator: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 68, // Aligned with the text start for a polished iOS/Lark list feel
   },
-  cardUnread: {
-    backgroundColor: '#FAFCFF',
-    borderColor: '#DBEAFE',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cardPressed: {
-    opacity: 0.88,
-  },
-  unreadAccentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3.5,
-    backgroundColor: colors.primary,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
-  },
-  cardInner: {
+  rowItem: {
     flexDirection: 'row',
-    padding: spacing.md,
     alignItems: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
     gap: 12,
   },
-  iconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
+  rowItemUnread: {
+    backgroundColor: '#F8FAFF',
+  },
+  rowItemPressed: {
+    backgroundColor: '#F1F5F9',
+  },
+  avatarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
-  content: {
+  contentWrap: {
     flex: 1,
     gap: 3,
   },
-  titleRow: {
+  topMeta: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 8,
   },
-  title: {
+  titleText: {
+    flex: 1,
     color: '#334155',
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
   },
-  titleUnread: {
+  titleTextUnread: {
     color: '#0F172A',
     fontWeight: '700',
   },
-  body: {
-    color: '#64748B',
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 1,
-  },
-  time: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-    marginTop: 3,
-  },
-  rightAction: {
-    paddingTop: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unreadDot: {
+  blueDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: '#2563EB',
+    marginTop: 6,
+  },
+  bodyText: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  bodyTextUnread: {
+    color: '#475569',
+  },
+  timeText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+    marginTop: 2,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
     paddingHorizontal: spacing.lg,
     gap: 12,
   },
