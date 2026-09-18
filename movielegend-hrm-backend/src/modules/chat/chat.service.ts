@@ -192,6 +192,17 @@ export class ChatService {
     // 2. Phát tín hiệu qua WebSocket ngay lập tức (0ms latency)
     this.realtime.emitToRoom(`group:${groupId}`, 'chat:message', message);
     this.realtime.emitToRoom('company', 'chat:group_updated', { groupId, latestMessage: message });
+    // Đảm bảo tất cả thành viên nhận được tin ngay lập tức qua user/department room
+    // (những room này auto-join khi kết nối, không phụ thuộc vào chat:join)
+    if (group.type === 'DEPARTMENT' && group.departmentId) {
+      // Department room được auto-join khi connect (từ JWT scopes)
+      this.realtime.emitToDepartment(group.departmentId, 'chat:message', message);
+    } else {
+      // Với CUSTOM/DIRECT/TASK: emit trực tiếp tới user room của từng thành viên
+      for (const m of group.members) {
+        this.realtime.emitToUser(m.userId, 'chat:message', message);
+      }
+    }
 
     // 3. Chạy ngầm các tác vụ DB phụ và thông báo (Non-blocking async background)
     setImmediate(async () => {
