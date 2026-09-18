@@ -318,11 +318,13 @@ export class ChatService {
       select: { departmentId: true, department: { select: { name: true } } }
     });
 
-    const rawGroups = [];
-    for (const m of memberships) {
-      const group = await this.getGroupForDepartment(m.departmentId);
-      rawGroups.push(group);
-    }
+    const rawGroups: any[] = [];
+    await Promise.all(
+      memberships.map(async (m) => {
+        const group = await this.getGroupForDepartment(m.departmentId);
+        rawGroups.push(group);
+      })
+    );
 
     // Get ad-hoc chat groups (e.g., tasks) where user is a member
     const customMemberships = await this.prisma.chatGroupMember.findMany({
