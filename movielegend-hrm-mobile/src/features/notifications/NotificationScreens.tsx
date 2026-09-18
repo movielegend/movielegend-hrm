@@ -9,19 +9,20 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  Award,
   Bell,
   CalendarCheck,
-  CheckCheck,
-  ChevronRight,
-  ClipboardList,
-  FileCheck2,
+  CaretRight,
+  ChatCircleDots,
+  Checks,
+  ClipboardText,
+  FileDoc,
   FileText,
-  Inbox,
-  MessageSquare,
-  ShieldAlert,
+  ShieldWarning,
+  Tray,
+  Trophy,
   Wallet,
-} from 'lucide-react-native';
+  type IconProps,
+} from 'phosphor-react-native';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
@@ -74,7 +75,7 @@ function stripEmojis(str?: string): string {
 }
 
 interface NotificationVisuals {
-  IconComponent: React.ComponentType<{ size?: number; color?: string }>;
+  IconComponent: React.ComponentType<IconProps>;
   iconColor: string;
   bgColor: string;
   borderColor: string;
@@ -90,7 +91,7 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   // 1. VIOLATION & INCIDENTS
   if (type.startsWith('VIOLATION_') || type.startsWith('ASSET_INCIDENT_') || title.includes('vi phạm') || title.includes('kỷ luật')) {
     return {
-      IconComponent: ShieldAlert,
+      IconComponent: ShieldWarning,
       iconColor: '#DC2626',
       bgColor: '#FEF2F2',
       borderColor: '#FECACA',
@@ -151,7 +152,7 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
     text.includes('từ chối đơn')
   ) {
     return {
-      IconComponent: FileCheck2,
+      IconComponent: FileDoc,
       iconColor: '#059669',
       bgColor: '#ECFDF5',
       borderColor: '#A7F3D0',
@@ -167,7 +168,7 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
     type.startsWith('KPI_')
   ) {
     return {
-      IconComponent: Award,
+      IconComponent: Trophy,
       iconColor: '#7C3AED',
       bgColor: '#F5F3FF',
       borderColor: '#DDD6FE',
@@ -176,7 +177,7 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
 
   if (type.startsWith('TASK_') || text.includes('công việc') || text.includes('nhiệm vụ') || stringMeta(item.metadata, 'taskId')) {
     return {
-      IconComponent: ClipboardList,
+      IconComponent: ClipboardText,
       iconColor: '#2563EB',
       bgColor: '#EFF6FF',
       borderColor: '#DBEAFE',
@@ -196,7 +197,7 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   // 7. CHAT & NEWSFEED
   if (type.startsWith('CHAT_') || type.startsWith('NEWSFEED_') || text.includes('tin nhắn') || text.includes('bài viết')) {
     return {
-      IconComponent: MessageSquare,
+      IconComponent: ChatCircleDots,
       iconColor: '#0284C7',
       bgColor: '#F0F9FF',
       borderColor: '#BAE6FD',
@@ -251,7 +252,7 @@ export function NotificationListScreen() {
                 onPress={() => void markAll.mutateAsync()}
                 disabled={markAll.isPending}
               >
-                <CheckCheck size={16} color={colors.primary} />
+                <Checks size={18} weight="bold" color={colors.primary} />
                 <Text style={styles.markAllText}>Đã đọc hết</Text>
               </Pressable>
             ) : undefined
@@ -280,7 +281,7 @@ export function NotificationListScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
-                <Inbox size={36} color="#94A3B8" />
+                <Tray size={38} weight="duotone" color="#94A3B8" />
               </View>
               <Text style={styles.emptyTitle}>Không có thông báo nào</Text>
               <Text style={styles.emptySubtitle}>
@@ -337,14 +338,14 @@ export function NotificationCard({
       {isUnread && <View style={styles.unreadAccentBar} />}
 
       <View style={styles.cardInner}>
-        {/* Left Icon Badge */}
+        {/* Left Icon Badge with Phosphor Duotone */}
         <View
           style={[
             styles.iconBadge,
             { backgroundColor: visuals.bgColor, borderColor: visuals.borderColor },
           ]}
         >
-          <Icon size={20} color={visuals.iconColor} />
+          <Icon size={24} weight="duotone" color={visuals.iconColor} />
         </View>
 
         {/* Center Content */}
@@ -367,12 +368,12 @@ export function NotificationCard({
           <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
         </View>
 
-        {/* Right Unread Dot or Chevron */}
+        {/* Right Unread Dot or Caret */}
         <View style={styles.rightAction}>
           {isUnread ? (
             <View style={styles.unreadDot} />
           ) : (
-            <ChevronRight size={16} color="#CBD5E1" />
+            <CaretRight size={16} weight="bold" color="#CBD5E1" />
           )}
         </View>
       </View>
@@ -450,8 +451,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   iconBadge: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
