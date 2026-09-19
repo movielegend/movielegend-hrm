@@ -64,7 +64,7 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
     try {
       const uploadResult = await FileSystem.uploadAsync(endpoint, safeUri, {
         httpMethod: 'POST',
-        uploadType: (FileSystem as any).FileSystemUploadType?.MULTIPART ?? 1,
+        uploadType: (FileSystem as any).FileSystemUploadType?.MULTIPART ?? 0,
         fieldName: 'file',
         mimeType: effectiveMime,
         parameters: {
@@ -87,7 +87,6 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
         throw new Error(errMessage);
       }
     } catch (uploadAsyncErr: any) {
-      console.warn('FileSystem.uploadAsync failed, falling back to native FormData fetch:', uploadAsyncErr?.message || uploadAsyncErr);
       // 3. Fallback: Native React Native FormData fetch
       const formData = new FormData();
       formData.append('purpose', input.purpose);

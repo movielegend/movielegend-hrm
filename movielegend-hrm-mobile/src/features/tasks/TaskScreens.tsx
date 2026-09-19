@@ -357,31 +357,20 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
             <TargetPreview task={item} />
           </View>
 
-          <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Tài liệu đính kèm:</Text>
-            {initialAttachments.length > 0 ? (
+          {initialAttachments.length > 0 ? (
+            <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Tài liệu đính kèm:</Text>
               <AttachmentList 
                 attachments={initialAttachments} 
                 isUnaccepted={isUnacceptedAssignee}
                 canDelete={(attachmentId) => {
                   const att = item.attachments?.find(a => a.id === attachmentId);
-                  return hasAnyPermission(user, ['task.assign_any']) || item.groupLeaderId === user?.id || att?.uploadedByUserId === user?.id;
+                  return Boolean(isCreator && att?.uploadedByUserId === user?.id);
                 }}
                 onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu')}
               />
-            ) : null}
-            {(isCreator || isDepartmentLeader || isGroupLeader || hasAnyPermission(user, ['task.assign_any'])) && !isReadOnlyStatus(item.status) ? (
-              <View style={{ marginTop: initialAttachments.length > 0 ? spacing.sm : 0 }}>
-                <AttachmentPicker
-                  autoAttach
-                  pending={attachment.isPending}
-                  onAttach={async (payload) => {
-                    await attachment.mutateAsync(payload);
-                  }}
-                />
-              </View>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
         </View>
 
         {assignment ? (
