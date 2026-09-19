@@ -201,7 +201,18 @@ export class TasksService {
         where,
         include: {
           user: { select: this.safeUserSelect() },
-          task: { select: { id: true, taskCode: true, title: true, priority: true, dueAt: true, departmentContextId: true } },
+          task: {
+            select: {
+              id: true,
+              taskCode: true,
+              title: true,
+              priority: true,
+              dueAt: true,
+              departmentContextId: true,
+              createdByUserId: true,
+              attachments: true,
+            },
+          },
         },
         orderBy: { submittedAt: 'desc' },
         skip: (query.page - 1) * query.limit,
@@ -221,6 +232,21 @@ export class TasksService {
         dueAt: item.assignmentDueAt ?? item.task.dueAt,
         progressPercent: item.progressPercent,
         completionNote: item.completionNote,
+        attachments: item.task.attachments
+          ?.filter(
+            (att) =>
+              att.uploadedByUserId === item.userId ||
+              att.uploadedByUserId !== item.task.createdByUserId,
+          )
+          .map((att) => ({
+            id: att.id,
+            fileName: att.fileName,
+            fileUrl: att.fileUrl,
+            type: att.type,
+            sizeBytes: att.sizeBytes,
+            mimeType: att.mimeType,
+            uploadedByUserId: att.uploadedByUserId,
+          })) ?? [],
       })),
       total,
       query.page,
@@ -459,9 +485,9 @@ export class TasksService {
             await tx.taskAttachment.create({
               data: {
                 taskId: id,
-                uploadedByUserId: att.uploadedByUserId,
+                uploadedByUserId: actor.userId,
                 type: att.type,
-                fileName: `[${child.taskCode ?? 'Việc con'}] ${att.fileName}`,
+                fileName: `[${child.title}] ${att.fileName}`,
                 fileUrl: att.fileUrl,
                 storageKey: att.storageKey,
                 mimeType: att.mimeType,
@@ -582,7 +608,7 @@ export class TasksService {
             await tx.taskAttachment.create({
               data: {
                 taskId: id,
-                uploadedByUserId: att.uploadedByUserId,
+                uploadedByUserId: actor.userId,
                 type: att.type,
                 fileName: `[${child.title}] ${att.fileName}`,
                 fileUrl: att.fileUrl,
@@ -592,6 +618,12 @@ export class TasksService {
               },
             });
             addedAttachmentsCount++;
+          } else {
+            // Update uploadedByUserId to actor so leader owns it in their submission
+            await tx.taskAttachment.updateMany({
+              where: { taskId: id, fileUrl: att.fileUrl },
+              data: { uploadedByUserId: actor.userId },
+            });
           }
         }
       }
