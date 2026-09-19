@@ -25,7 +25,7 @@ export function canSubmitAssignment(status?: TaskAssignmentStatus): boolean {
 
 export function canCancelTask(task: TaskDto, userId?: string): boolean {
   if (task.status === 'COMPLETED' || task.status === 'CANCELLED') return false;
-  return task.createdByUserId === userId || task.groupLeaderId === userId;
+  return task.createdByUserId === userId;
 }
 
 export function isReadOnlyStatus(status?: TaskStatus | TaskAssignmentStatus): boolean {

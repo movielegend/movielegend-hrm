@@ -364,7 +364,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               <Text style={styles.warning}>Review note: {assignment.reviewNote}</Text>
             </View>
           ) : null}
-          {canCancelTask(item, user?.id) || hasAnyPermission(user, ['task.assign_any']) ? (
+          {((area === 'admin' && hasAnyPermission(user, ['task.assign_any'])) || isCreator) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' ? (
             <View style={{ marginTop: spacing.md }}>
               <SecondaryButton
                 loading={cancel.isPending}
