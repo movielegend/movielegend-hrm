@@ -112,42 +112,36 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
   );
   const isRegionAdmin = Boolean(adminRegionScope && adminRegionScope.scopeId);
-  const isRegionOnly = Boolean(isRegionAdmin && !isGlobalAdmin);
+  const isLeaderArea = area === 'leader' || area === 'hr';
   const isAdminArea = area === 'admin';
+  const isDelegatedArea = area !== 'employee';
+
   const filters: TaskListFilters = useMemo(() => ({
     page: 1,
     limit: 20,
     ...(search ? { search } : {}),
     ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {}),
-    ...(isAdminArea && user?.id ? { createdById: user.id } : {}),
-    ...(isRegionOnly && user?.id ? { createdById: user.id } : {})
-  }), [search, status, isAdminArea, isRegionOnly, user?.id]);
+    ...(isDelegatedArea && user?.id ? { createdById: user.id } : {})
+  }), [search, status, isDelegatedArea, user?.id]);
 
   const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
 
-  const isLeaderArea = area === 'leader' || area === 'hr';
   const title = area === 'employee'
     ? 'Công việc của tôi'
-    : isLeaderArea
-    ? 'Công việc phòng ban'
-    : isAdminArea
-    ? 'Công việc đã giao'
-    : isRegionOnly
-    ? 'Công việc đã giao'
-    : 'Tất cả Công việc';
+    : 'Công việc đã giao';
   const insets = useSafeAreaInsets();
 
   const displayTasks = useMemo(() => {
     const rawItems = tasks.data?.items ?? [];
-    if ((isAdminArea || isRegionOnly) && user?.id) {
+    if (isDelegatedArea && user?.id) {
       return rawItems.filter(
         (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
       );
     }
     return rawItems;
-  }, [tasks.data?.items, isAdminArea, isRegionOnly, user?.id]);
+  }, [tasks.data?.items, isDelegatedArea, user?.id]);
 
   const handleTaskPress = (taskId: string) => {
     if (area === 'employee') {
