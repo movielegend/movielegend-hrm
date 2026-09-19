@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCompleteTask } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
