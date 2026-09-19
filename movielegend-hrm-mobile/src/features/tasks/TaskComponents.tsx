@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActionDatePicker } from './TaskScreens';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { Modal, Pressable, StyleSheet, Text, View, Linking, Platform, Image, ScrollView, ActivityIndicator } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, Linking, Platform, Image, ScrollView, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
@@ -363,10 +363,22 @@ export function AttachmentPicker({
 
   return (
     <View style={styles.stack}>
-      <Modal visible={!!previewImage} transparent={true} animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-          <Pressable style={{ position: 'absolute', top: 40, right: 20, zIndex: 10, padding: 8 }} onPress={() => setPreviewImage(null)}>
-            <MaterialCommunityIcons name="close" size={32} color="white" />
+      <Modal visible={!!previewImage} transparent={true} statusBarTranslucent={true} animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          <Pressable 
+            style={{ 
+              position: 'absolute', 
+              top: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 50, 
+              right: 20, 
+              zIndex: 20, 
+              padding: 8,
+              backgroundColor: 'rgba(55, 65, 81, 0.8)',
+              borderRadius: 20,
+            }} 
+            onPress={() => setPreviewImage(null)}
+          >
+            <MaterialCommunityIcons name="close" size={24} color="white" />
           </Pressable>
           {previewImage && (
             <Image source={{ uri: previewImage }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
@@ -472,31 +484,96 @@ export function AttachmentList({
     />
 
     {/* Modal xem Ảnh trực tiếp trong App */}
-    <Modal visible={!!imagePreviewUri} animationType="slide" onRequestClose={() => setImagePreviewUri(null)}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a1a' }} edges={['top', 'bottom']}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#1a1a1a', gap: 8 }}>
-          <Pressable
-            onPress={() => setImagePreviewUri(null)}
-            style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#333', borderRadius: 8 }}
+    <Modal
+      visible={!!imagePreviewUri}
+      animationType="fade"
+      transparent={true}
+      statusBarTranslucent={true}
+      onRequestClose={() => setImagePreviewUri(null)}
+    >
+      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)' }}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+        <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 8 : 50,
+              paddingBottom: 12,
+              paddingHorizontal: 12,
+              backgroundColor: 'rgba(20, 20, 20, 0.95)',
+              gap: 8,
+              borderBottomWidth: 1,
+              borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+              zIndex: 20,
+            }}
           >
-            <Text style={{ color: '#fff', fontWeight: '600' }}>✕ Đóng</Text>
-          </Pressable>
-          <Text style={{ color: '#fff', flex: 1, fontWeight: '600', fontSize: 15 }} numberOfLines={1}>{previewTitle}</Text>
-          {imagePreviewUri && (
             <Pressable
-              onPress={() => Sharing.shareAsync(imagePreviewUri).catch(console.error)}
-              style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.primary, borderRadius: 8 }}
+              onPress={() => setImagePreviewUri(null)}
+              style={({ pressed }) => [
+                {
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  backgroundColor: '#374151',
+                  borderRadius: 8,
+                },
+                pressed && { opacity: 0.7 },
+              ]}
+              hitSlop={10}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Chia sẻ</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>✕ Đóng</Text>
             </Pressable>
-          )}
-        </View>
-        {imagePreviewUri ? (
-          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }} maximumZoomScale={3} minimumZoomScale={1}>
-            <Image source={{ uri: imagePreviewUri }} style={{ width: '100%', height: '100%', resizeMode: 'contain' }} />
-          </ScrollView>
-        ) : null}
-      </SafeAreaView>
+            <Text style={{ color: '#fff', flex: 1, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+              {previewTitle}
+            </Text>
+            {imagePreviewUri ? (
+              <Pressable
+                onPress={async () => {
+                  try {
+                    let shareUri = imagePreviewUri;
+                    if (imagePreviewUri.startsWith('http')) {
+                      const cleanName = (previewTitle || 'image.jpg').replace(/[^a-zA-Z0-9.-]/g, '_');
+                      const localUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${cleanName}`;
+                      const { uri } = await FileSystem.downloadAsync(imagePreviewUri, localUri, {
+                        headers: { 'ngrok-skip-browser-warning': 'true' }
+                      });
+                      shareUri = uri;
+                    }
+                    await Sharing.shareAsync(shareUri);
+                  } catch (shareErr) {
+                    console.error('Share error:', shareErr);
+                  }
+                }}
+                style={({ pressed }) => [
+                  {
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    backgroundColor: colors.primary,
+                    borderRadius: 8,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+                hitSlop={10}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Chia sẻ</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {imagePreviewUri ? (
+            <ScrollView
+              contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+              maximumZoomScale={3}
+              minimumZoomScale={1}
+            >
+              <Image
+                source={{ uri: imagePreviewUri }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            </ScrollView>
+          ) : null}
+        </SafeAreaView>
+      </View>
     </Modal>
 
     <View style={styles.stack}>
