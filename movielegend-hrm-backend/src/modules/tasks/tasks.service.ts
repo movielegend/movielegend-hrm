@@ -838,6 +838,10 @@ export class TasksService {
     const isHR = actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
     const isLeader = actor.roles.includes('LEADER') || this.has(actor, 'task.assign_department');
 
+    if (dto.isAdhocGroup && dto.leaderId) {
+      return [dto.leaderId];
+    }
+
     const userIds = new Set<string>();
     for (const target of dto.targets ?? []) {
       if (target.targetType === TaskTargetType.USER) {

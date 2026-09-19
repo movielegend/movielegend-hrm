@@ -826,8 +826,13 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
   const [targets, setTargets] = useState<CreateTaskTargetPayload[]>([]);
   const [targetModalVisible, setTargetModalVisible] = useState(false);
+  const [targetModalFilter, setTargetModalFilter] = useState<'ALL' | 'DEPARTMENT' | 'USER'>('ALL');
   
-  const [isAdhocGroup, setIsAdhocGroup] = useState(false);
+  type AssigneeMode = 'DEPARTMENT' | 'USER' | 'GROUP';
+  const [assigneeMode, setAssigneeMode] = useState<AssigneeMode>(
+    parentTaskId || isLeaderArea ? 'USER' : 'DEPARTMENT'
+  );
+
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [leaderId, setLeaderId] = useState<string>('');
   const [memberModalVisible, setMemberModalVisible] = useState(false);
@@ -847,6 +852,15 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   }, [usersQuery.data?.items]);
 
   async function submit() {
+    const isGroup = assigneeMode === 'GROUP';
+    const isDept = assigneeMode === 'DEPARTMENT';
+
+    const effectiveTargets = isGroup
+      ? []
+      : isDept
+      ? targets.filter(t => t.targetType === 'DEPARTMENT').map(t => ({ targetType: t.targetType, targetId: t.targetId }))
+      : targets.filter(t => t.targetType === 'USER').map(t => ({ targetType: t.targetType, targetId: t.targetId }));
+
     const payload: CreateTaskPayload = {
       title,
       description,
@@ -855,8 +869,8 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       ...(startAt ? { startAt: startAt.toISOString() } : {}),
       ...(dueAt ? { dueAt: dueAt.toISOString() } : {}),
       ...(parentTaskId ? { parentTaskId } : {}),
-      isAdhocGroup,
-      ...(isAdhocGroup ? { memberIds, leaderId } : { targets: targets.map(t => ({ targetType: t.targetType, targetId: t.targetId })) }),
+      isAdhocGroup: isGroup,
+      ...(isGroup ? { memberIds, leaderId } : { targets: effectiveTargets }),
     };
     try {
       const task = await mutation.mutateAsync(payload);
@@ -890,6 +904,25 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const selectedMembers = useMemo(() => {
     return employeeOptions.filter(o => memberIds.includes(o.id));
   }, [employeeOptions, memberIds]);
+
+  const selectedDeptTargets = useMemo(() => {
+    return targets.filter(t => t.targetType === 'DEPARTMENT');
+  }, [targets]);
+
+  const selectedUserTargets = useMemo(() => {
+    return targets.filter(t => t.targetType === 'USER');
+  }, [targets]);
+
+  const isSubmitDisabled = () => {
+    if (title.trim().length < 3) return true;
+    if (assigneeMode === 'GROUP') {
+      return memberIds.length === 0 || !leaderId;
+    }
+    if (assigneeMode === 'DEPARTMENT') {
+      return selectedDeptTargets.length === 0;
+    }
+    return selectedUserTargets.length === 0;
+  };
 
   return (
     <Screen>
@@ -1007,21 +1040,170 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           />
         </SectionCard>
 
+        <SectionCard title="Đối tượng nhận việc & Phân công">
+          {!parentTaskId && area === 'admin' ? (
+            <View style={styles.modeSegmentContainer}>
+              <Pressable
+                style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
+                onPress={() => setAssigneeMode('DEPARTMENT')}
+              >
+                <MaterialCommunityIcons
+                  name="domain"
+                  size={16}
+                  color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
+                />
+                <Text style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
+                  Phòng ban
+                </Text>
+              </Pressable>
 
-        <SectionCard title="Người nhận việc (Assignees)">
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Text style={[styles.fieldLabel, { flex: 1, marginBottom: 0 }]}>Tạo nhóm tùy chỉnh (Ad-hoc Group)</Text>
-            <Switch value={isAdhocGroup} onValueChange={setIsAdhocGroup} trackColor={{ true: colors.primary }} />
-          </View>
+              <Pressable
+                style={[styles.modeSegmentBtn, assigneeMode === 'USER' && styles.modeSegmentBtnActive]}
+                onPress={() => setAssigneeMode('USER')}
+              >
+                <MaterialCommunityIcons
+                  name="account-outline"
+                  size={16}
+                  color={assigneeMode === 'USER' ? colors.primary : '#64748B'}
+                />
+                <Text style={[styles.modeSegmentText, assigneeMode === 'USER' && styles.modeSegmentTextActive]}>
+                  Cá nhân
+                </Text>
+              </Pressable>
 
-          {isAdhocGroup ? (
+              <Pressable
+                style={[styles.modeSegmentBtn, assigneeMode === 'GROUP' && styles.modeSegmentBtnActive]}
+                onPress={() => setAssigneeMode('GROUP')}
+              >
+                <MaterialCommunityIcons
+                  name="account-group-outline"
+                  size={16}
+                  color={assigneeMode === 'GROUP' ? colors.primary : '#64748B'}
+                />
+                <Text style={[styles.modeSegmentText, assigneeMode === 'GROUP' && styles.modeSegmentTextActive]}>
+                  Nhóm đặc nhiệm
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {/* Mode 1: Giao cho Phòng ban */}
+          {assigneeMode === 'DEPARTMENT' ? (
             <View>
-              <Text style={styles.fieldLabel}>Thành viên nhóm</Text>
+              <View style={[styles.modeInfoCard, styles.modeInfoCardDept]}>
+                <View style={styles.modeInfoTitleRow}>
+                  <MaterialCommunityIcons name="domain" size={18} color="#2563EB" />
+                  <Text style={[styles.modeInfoTitle, { color: '#1E40AF' }]}>Quy trình bàn giao Phòng ban</Text>
+                </View>
+                <Text style={styles.modeInfoDesc}>
+                  Dự án được phân công trực tiếp cho Trưởng phòng (Leader). Leader tiếp nhận, chia các việc con cho nhân sự thực hiện, duyệt kết quả con và báo cáo hoàn thành dự án lên Admin.
+                </Text>
+              </View>
+
+              <Text style={styles.fieldLabel}>Phòng ban nhận việc</Text>
+              <View style={styles.targetTagsWrap}>
+                {selectedDeptTargets.map((target: any) => (
+                  <View key={target.targetId} style={[styles.targetTag, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+                    <MaterialCommunityIcons name="domain" size={16} color="#2563EB" />
+                    <Text style={[styles.targetTagText, { color: '#1E40AF' }]}>
+                      {target.targetName ?? `Phòng ban: ${target.targetId.substring(0, 6)}...`}
+                    </Text>
+                    <Pressable onPress={() => removeTarget(target)}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color="#3B82F6" />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={styles.addTargetBtn}
+                  onPress={() => {
+                    setTargetModalFilter('DEPARTMENT');
+                    setTargetModalVisible(true);
+                  }}
+                >
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+                  <Text style={styles.addTargetBtnText}>Chọn phòng ban</Text>
+                </Pressable>
+              </View>
+              {!selectedDeptTargets.length && (
+                <Text style={styles.meta}>Vui lòng chọn ít nhất 1 phòng ban nhận nhiệm vụ.</Text>
+              )}
+            </View>
+          ) : null}
+
+          {/* Mode 2: Giao cho Cá nhân */}
+          {assigneeMode === 'USER' ? (
+            <View>
+              {!parentTaskId && (
+                <View style={[styles.modeInfoCard, styles.modeInfoCardUser]}>
+                  <View style={styles.modeInfoTitleRow}>
+                    <MaterialCommunityIcons name="account-outline" size={18} color="#059669" />
+                    <Text style={[styles.modeInfoTitle, { color: '#065F46' }]}>Giao việc trực tiếp cho Cá nhân</Text>
+                  </View>
+                  <Text style={styles.modeInfoDesc}>
+                    Giao việc cho từng nhân sự / trưởng phòng cụ thể. Người nhận sẽ trực tiếp cập nhật tiến độ, hoàn thành và nộp báo cáo.
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.fieldLabel}>Nhân sự nhận việc</Text>
+              <View style={styles.targetTagsWrap}>
+                {selectedUserTargets.map((target: any) => (
+                  <View key={target.targetId} style={styles.targetTag}>
+                    <MaterialCommunityIcons
+                      name={target.targetName?.includes('Admin') ? 'shield-account' : 'account'}
+                      size={16}
+                      color={colors.primaryDark}
+                    />
+                    <Text style={styles.targetTagText}>
+                      {target.targetName ?? `NV: ${target.targetId.substring(0, 6)}...`}
+                    </Text>
+                    <Pressable onPress={() => removeTarget(target)}>
+                      <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={styles.addTargetBtn}
+                  onPress={() => {
+                    setTargetModalFilter('USER');
+                    setTargetModalVisible(true);
+                  }}
+                >
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+                  <Text style={styles.addTargetBtnText}>Thêm người nhận</Text>
+                </Pressable>
+              </View>
+              {!selectedUserTargets.length && (
+                <Text style={styles.meta}>Chưa có nhân sự nào được chọn.</Text>
+              )}
+            </View>
+          ) : null}
+
+          {/* Mode 3: Nhóm đặc nhiệm */}
+          {assigneeMode === 'GROUP' ? (
+            <View>
+              <View style={[styles.modeInfoCard, styles.modeInfoCardGroup]}>
+                <View style={styles.modeInfoTitleRow}>
+                  <MaterialCommunityIcons name="account-group" size={18} color="#7C3AED" />
+                  <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>Nhóm liên phòng ban / Đặc nhiệm</Text>
+                </View>
+                <Text style={styles.modeInfoDesc}>
+                  Tập hợp nhân sự từ nhiều phòng ban cùng làm việc. Hệ thống tự động tạo Nhóm Chat trao đổi. Trưởng nhóm (Leader) được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành lên Admin.
+                </Text>
+              </View>
+
+              <Text style={styles.fieldLabel}>Thành viên nhóm ({memberIds.length})</Text>
               <View style={styles.targetTagsWrap}>
                 {selectedMembers.map(m => (
-                  <View key={m.id} style={styles.targetTag}>
-                    <MaterialCommunityIcons name="account" size={16} color={colors.primaryDark} />
-                    <Text style={styles.targetTagText}>{m.label}</Text>
+                  <View key={m.id} style={[styles.targetTag, leaderId === m.id && styles.groupLeaderTag]}>
+                    <MaterialCommunityIcons
+                      name={leaderId === m.id ? 'crown' : 'account'}
+                      size={16}
+                      color={leaderId === m.id ? '#7C3AED' : colors.primaryDark}
+                    />
+                    <Text style={[styles.targetTagText, leaderId === m.id && { color: '#6D28D9', fontWeight: '800' }]}>
+                      {m.label} {leaderId === m.id ? '(Trưởng nhóm)' : ''}
+                    </Text>
                     <Pressable onPress={() => {
                       setMemberIds(prev => prev.filter(id => id !== m.id));
                       if (leaderId === m.id) setLeaderId('');
@@ -1036,62 +1218,52 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                 </Pressable>
               </View>
 
-              {memberIds.length > 0 && (
+              {memberIds.length > 0 ? (
                 <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.fieldLabel}>Chọn nhóm trưởng (Leader)</Text>
+                  <Text style={styles.fieldLabel}>Chỉ định Trưởng nhóm (Leader nộp báo cáo)</Text>
                   <View style={styles.targetTagsWrap}>
-                    {selectedMembers.map(m => (
-                      <Pressable 
-                        key={m.id} 
-                        style={[styles.targetTag, leaderId === m.id && { backgroundColor: colors.primary }]}
-                        onPress={() => setLeaderId(m.id)}
-                      >
-                        <Text style={[styles.targetTagText, leaderId === m.id && { color: '#fff' }]}>
-                          {m.label}
-                        </Text>
-                      </Pressable>
-                    ))}
+                    {selectedMembers.map(m => {
+                      const isLeader = leaderId === m.id;
+                      return (
+                        <Pressable 
+                          key={m.id} 
+                          style={[styles.targetTag, isLeader && { backgroundColor: '#7C3AED', borderColor: '#7C3AED' }]}
+                          onPress={() => setLeaderId(m.id)}
+                        >
+                          <MaterialCommunityIcons name={isLeader ? 'crown' : 'account-outline'} size={16} color={isLeader ? '#FFF' : colors.text} />
+                          <Text style={[styles.targetTagText, isLeader && { color: '#FFF', fontWeight: '700' }]}>
+                            {m.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
+                  {!leaderId && (
+                    <Text style={[styles.meta, { color: colors.danger, marginTop: 4 }]}>
+                      Vui lòng chọn 1 thành viên làm Trưởng nhóm để chịu trách nhiệm nộp báo cáo.
+                    </Text>
+                  )}
                 </View>
+              ) : (
+                <Text style={styles.meta}>Chưa có thành viên nào trong nhóm.</Text>
               )}
-            </View>
-          ) : (
-            <View>
-              <View style={styles.targetTagsWrap}>
-                {targets.map((target: any) => (
-                  <View key={target.targetId} style={styles.targetTag}>
-                    <MaterialCommunityIcons 
-                      name={
-                        target.targetType === 'USER'
-                          ? (target.targetName?.includes('Admin') ? 'shield-account' : 'account')
-                          : target.targetType === 'DEPARTMENT'
-                          ? 'domain'
-                          : 'account-group'
-                      } 
-                      size={16} color={colors.primaryDark} 
-                    />
-                    <Text style={styles.targetTagText}>{target.targetName ?? `${target.targetType}: ${target.targetId.substring(0,6)}...`}</Text>
-                    <Pressable onPress={() => removeTarget(target)}>
-                      <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
-                    </Pressable>
-                  </View>
-                ))}
-                <Pressable style={styles.addTargetBtn} onPress={() => setTargetModalVisible(true)}>
-                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
-                  <Text style={styles.addTargetBtnText}>Thêm người nhận</Text>
-                </Pressable>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.md, backgroundColor: '#F3E8FF', padding: spacing.sm, borderRadius: 8 }}>
+                <MaterialCommunityIcons name="forum-outline" size={20} color="#7C3AED" />
+                <Text style={{ flex: 1, fontSize: 12, color: '#6B21A8' }}>
+                  Nhóm chat nội bộ sẽ tự động được khởi tạo cho tất cả thành viên khi giao việc.
+                </Text>
               </View>
-              {!targets.length && <Text style={styles.meta}>Chưa có ai được giao việc.</Text>}
             </View>
-          )}
+          ) : null}
         </SectionCard>
 
         <PrimaryButton 
           loading={mutation.isPending} 
-          disabled={title.trim().length < 3 || (isAdhocGroup ? (memberIds.length === 0 || !leaderId) : targets.length === 0)} 
+          disabled={isSubmitDisabled()} 
           onPress={() => void submit()}
         >
-          Giao việc ngay
+          {parentTaskId ? 'Tạo việc con' : 'Giao việc ngay'}
         </PrimaryButton>
       </ScrollView>
       
@@ -1101,6 +1273,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         onClose={() => setTargetModalVisible(false)}
         targets={targets}
         onChange={setTargets}
+        targetTypeFilter={targetModalFilter}
         filterDepartmentId={isLeaderArea ? departmentContextId : undefined}
       />
 
@@ -1185,6 +1358,7 @@ function AssigneeSelectorModal({
   onChange,
   filterDepartmentId,
   filterBranchId,
+  targetTypeFilter = 'ALL',
 }: {
   area: Exclude<TaskArea, 'employee'>;
   visible: boolean;
@@ -1193,8 +1367,12 @@ function AssigneeSelectorModal({
   onChange: (targets: CreateTaskTargetPayload[]) => void;
   filterDepartmentId?: string;
   filterBranchId?: string;
+  targetTypeFilter?: 'ALL' | 'DEPARTMENT' | 'USER';
 }) {
   const { user } = useAuth();
+
+  const isDeptOnly = targetTypeFilter === 'DEPARTMENT';
+  const isUserOnly = targetTypeFilter === 'USER';
 
   const adminRegionScope = user?.scopes?.find(
     (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION' && s.scopeId
@@ -1207,7 +1385,7 @@ function AssigneeSelectorModal({
   );
 
   // Only Super Admin can assign tasks to Region Admins!
-  const canSelectRegionAdmin = isSuperAdmin;
+  const canSelectRegionAdmin = isSuperAdmin && !isDeptOnly;
 
   const [selectedRegion, setSelectedRegion] = useState<{ id: string; name: string } | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<{ id: string; name: string } | null>(null);
@@ -1416,7 +1594,7 @@ function AssigneeSelectorModal({
   }, [users.data?.items]);
 
   const regionAdmins = useMemo(() => {
-    if (!adminUsersQuery.data?.items) return [];
+    if (!adminUsersQuery.data?.items || isDeptOnly) return [];
     const list: Array<{
       id: string;
       fullName: string;
@@ -1447,10 +1625,10 @@ function AssigneeSelectorModal({
     });
 
     return list;
-  }, [adminUsersQuery.data?.items, regionMap]);
+  }, [adminUsersQuery.data?.items, regionMap, isDeptOnly]);
 
   const filteredRegionAdmins = useMemo(() => {
-    if (!searchKeyword.trim()) return regionAdmins;
+    if (!searchKeyword.trim() || isDeptOnly) return regionAdmins;
     const kw = searchKeyword.trim().toLowerCase();
     return regionAdmins.filter(
       (ra) =>
@@ -1458,10 +1636,10 @@ function AssigneeSelectorModal({
         ra.userCode.toLowerCase().includes(kw) ||
         ra.regionName.toLowerCase().includes(kw)
     );
-  }, [regionAdmins, searchKeyword]);
+  }, [regionAdmins, searchKeyword, isDeptOnly]);
 
   const filteredUsers = useMemo(() => {
-    if (!users.data?.items) return [];
+    if (!users.data?.items || isDeptOnly) return [];
     let items = users.data.items;
     if (isLeaderMode) {
       items = items.filter((u) => u.id !== user?.id);
@@ -1496,7 +1674,28 @@ function AssigneeSelectorModal({
       });
     }
     return items;
-  }, [users.data?.items, isLeaderMode, user?.id, isRegionAdmin, userRegionId, branchRegionMap, searchKeyword]);
+  }, [users.data?.items, isLeaderMode, user?.id, isRegionAdmin, userRegionId, branchRegionMap, searchKeyword, isDeptOnly]);
+
+  const filteredDepartments = useMemo(() => {
+    if (!departments.data?.items || isUserOnly) return [];
+    let items = departments.data.items;
+    if (isRegionAdmin && userRegionId) {
+      items = items.filter((d: any) => {
+        const rId = d.branch?.region?.id || d.branch?.regionId || branchRegionMap.get(d.branchId);
+        return rId === userRegionId;
+      });
+    }
+    if (searchKeyword.trim()) {
+      const kw = searchKeyword.trim().toLowerCase();
+      items = items.filter((d: any) => {
+        const name = (d.name || '').toLowerCase();
+        const code = (d.code || '').toLowerCase();
+        const bName = (d.branch?.name || '').toLowerCase();
+        return name.includes(kw) || code.includes(kw) || bName.includes(kw);
+      });
+    }
+    return items;
+  }, [departments.data?.items, isRegionAdmin, userRegionId, branchRegionMap, searchKeyword, isUserOnly]);
 
   const deptUsers = useMemo(() => {
     if (!selectedDept) return [];
@@ -1526,20 +1725,10 @@ function AssigneeSelectorModal({
   };
 
   const toggleTarget = (type: TaskTargetType, id: string, name?: string) => {
-    if (type === 'USER') {
-      if (isSelected(type, id)) {
-        onChange(targets.filter((t) => t.targetType !== type || t.targetId !== id));
-      } else {
-        const currentUsers = targets.filter((t) => t.targetType === 'USER');
-        onChange([...currentUsers, { targetType: type, targetId: id, targetName: name } as any]);
-      }
+    if (isSelected(type, id)) {
+      onChange(targets.filter((t) => t.targetType !== type || t.targetId !== id));
     } else {
-      if (isSelected(type, id)) {
-        onChange(targets.filter((t) => t.targetType !== type || t.targetId !== id));
-      } else {
-        const currentDepts = targets.filter((t) => t.targetType === 'DEPARTMENT');
-        onChange([...currentDepts, { targetType: type, targetId: id, targetName: name } as any]);
-      }
+      onChange([...targets, { targetType: type, targetId: id, targetName: name } as any]);
     }
   };
 
@@ -1601,12 +1790,53 @@ function AssigneeSelectorModal({
               <SearchInput
                 value={searchKeyword}
                 onChangeText={setSearchKeyword}
-                placeholder="Tìm kiếm miền, cơ sở, phòng ban hoặc tên NV..."
+                placeholder={isDeptOnly ? 'Tìm kiếm phòng ban...' : 'Tìm kiếm phòng ban hoặc tên NV...'}
               />
 
               <ScrollView style={[styles.assigneeList, { marginTop: spacing.md }]}>
+                {/* Matching Departments */}
+                {!isUserOnly && filteredDepartments.length > 0 && (
+                  <View style={{ marginBottom: spacing.md }}>
+                    <Text style={[styles.deptUsersSectionTitle, { marginBottom: spacing.xs }]}>
+                      Phòng ban tìm thấy ({filteredDepartments.length})
+                    </Text>
+                    {filteredDepartments.map((d: any) => {
+                      const selected = isSelected('DEPARTMENT', d.id);
+                      const bName = d.branch?.name;
+                      return (
+                        <Pressable
+                          key={d.id}
+                          style={[styles.assigneeRow, selected && styles.assigneeRowSelected]}
+                          onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}
+                        >
+                          <View style={styles.assigneeInfo}>
+                            <View style={[styles.assigneeAvatar, selected && { backgroundColor: '#DCFCE7' }]}>
+                              <MaterialCommunityIcons
+                                name="domain"
+                                size={20}
+                                color={selected ? '#16A34A' : colors.muted}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.assigneeName, selected && { color: '#15803D', fontWeight: '700' }]}>
+                                {d.name}
+                              </Text>
+                              {bName ? <Text style={styles.assigneeSubtext}>Cơ sở: {bName}</Text> : null}
+                            </View>
+                          </View>
+                          <MaterialCommunityIcons
+                            name={selected ? 'check-circle' : 'circle-outline'}
+                            size={24}
+                            color={selected ? '#16A34A' : colors.border}
+                          />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
                 {/* Matching Users */}
-                {filteredUsers.length > 0 && (
+                {!isDeptOnly && filteredUsers.length > 0 && (
                   <View style={{ marginBottom: spacing.md }}>
                     <Text style={[styles.deptUsersSectionTitle, { marginBottom: spacing.xs }]}>
                       Nhân sự tìm thấy ({filteredUsers.length})
@@ -1692,11 +1922,11 @@ function AssigneeSelectorModal({
                   </View>
                 )}
 
-                {filteredUsers.length === 0 && filteredRegionAdmins.length === 0 && (
+                {filteredUsers.length === 0 && filteredRegionAdmins.length === 0 && filteredDepartments.length === 0 && (
                   <View style={{ padding: spacing.xl, alignItems: 'center' }}>
                     <MaterialCommunityIcons name="account-search-outline" size={44} color={colors.muted} />
                     <Text style={[styles.meta, { textAlign: 'center', marginTop: spacing.sm }]}>
-                      Không tìm thấy nhân sự nào với từ khóa này.
+                      Không tìm thấy kết quả nào phù hợp với từ khóa này.
                     </Text>
                   </View>
                 )}
@@ -1747,7 +1977,7 @@ function AssigneeSelectorModal({
               />
 
               {/* Option to select entire department */}
-              {selectedDept.id !== '__UNASSIGNED__' && (
+              {selectedDept.id !== '__UNASSIGNED__' && !isUserOnly && (
                 <Pressable
                   style={[
                     styles.deptSelectAllCard,
@@ -1891,12 +2121,12 @@ function AssigneeSelectorModal({
               <View style={styles.stepTitleBox}>
                 <Text style={styles.stepTitle}>{selectedBranch.name}</Text>
                 <Text style={styles.stepSubtitle}>
-                  Chọn phòng ban nhận việc • {selectedRegion?.name || ''}
+                  {isDeptOnly ? 'Chọn phòng ban nhận việc' : 'Chọn phòng ban hoặc mở xem nhân sự'} • {selectedRegion?.name || ''}
                 </Text>
               </View>
 
               {/* Header Action: Select All / Deselect All Departments */}
-              {(currentBranchObj?.departments ?? []).length > 0 && (
+              {(currentBranchObj?.departments ?? []).length > 0 && !isUserOnly && (
                 <View style={styles.deptUsersSectionHeader}>
                   <Text style={styles.deptUsersSectionTitle}>
                     Phòng ban ({currentBranchObj?.departments.length ?? 0})
@@ -1941,25 +2171,58 @@ function AssigneeSelectorModal({
                     const { isEntire, selectedUsers, total } = getSelectedCountInDept(d.id);
                     const userCount = usersByDeptId.get(d.id)?.length ?? 0;
 
-                    return (
-                      <View
-                        key={d.id}
-                        style={[styles.stepCard, (isEntire || total > 0) && styles.stepCardSelected]}
-                      >
-                        {/* Direct Checkbox to select the whole department */}
+                    if (isDeptOnly) {
+                      return (
                         <Pressable
-                          style={styles.deptCheckboxTouch}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          key={d.id}
+                          style={[styles.stepCard, isEntire && styles.stepCardSelected]}
                           onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}
                         >
+                          <View style={styles.stepCardLeft}>
+                            <View style={[styles.stepCardIcon, { backgroundColor: isEntire ? '#DCFCE7' : '#EFF6FF' }]}>
+                              <MaterialCommunityIcons
+                                name="domain"
+                                size={22}
+                                color={isEntire ? '#16A34A' : '#2563EB'}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.stepCardTitle, isEntire && { color: '#15803D', fontWeight: '800' }]}>
+                                {d.name}
+                              </Text>
+                              <Text style={styles.stepCardSubtitle}>
+                                {userCount} nhân sự trực thuộc
+                              </Text>
+                            </View>
+                          </View>
                           <MaterialCommunityIcons
                             name={isEntire ? 'checkbox-marked' : 'checkbox-blank-outline'}
                             size={24}
                             color={isEntire ? '#16A34A' : colors.muted}
                           />
                         </Pressable>
+                      );
+                    }
 
-                        {/* Department info pressable: opens Step 4 (Individual Users) */}
+                    return (
+                      <View
+                        key={d.id}
+                        style={[styles.stepCard, (isEntire || total > 0) && styles.stepCardSelected]}
+                      >
+                        {!isUserOnly && (
+                          <Pressable
+                            style={styles.deptCheckboxTouch}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            onPress={() => toggleTarget('DEPARTMENT', d.id, d.name)}
+                          >
+                            <MaterialCommunityIcons
+                              name={isEntire ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                              size={24}
+                              color={isEntire ? '#16A34A' : colors.muted}
+                            />
+                          </Pressable>
+                        )}
+
                         <Pressable
                           style={styles.stepCardContentPressable}
                           onPress={() => {
@@ -2971,4 +3234,83 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 4,
   },
+
+  /* Assignment Mode Segments & Cards */
+  modeSegmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: spacing.md,
+    gap: 4,
+  },
+  modeSegmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 9,
+    backgroundColor: 'transparent',
+  },
+  modeSegmentBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  modeSegmentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  modeSegmentTextActive: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  modeInfoCard: {
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+  },
+  modeInfoCardDept: {
+    borderLeftColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  modeInfoCardUser: {
+    borderLeftColor: '#059669',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  modeInfoCardGroup: {
+    borderLeftColor: '#7C3AED',
+    backgroundColor: '#F5F3FF',
+    borderColor: '#DDD6FE',
+  },
+  modeInfoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  modeInfoTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  modeInfoDesc: {
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
+  },
+  groupLeaderTag: {
+    backgroundColor: '#EDE9FE',
+    borderColor: '#C4B5FD',
+  },
 });
+
