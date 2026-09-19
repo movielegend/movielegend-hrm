@@ -84,12 +84,21 @@ export class TasksService {
           dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
           createdByUserId: actor.userId,
           groupLeaderId: dto.isAdhocGroup ? dto.leaderId : undefined,
-          targets: dto.targets?.length ? {
-            create: dto.targets.map((target) => ({
-              targetType: target.targetType,
-              targetId: target.targetId,
-            })),
-          } : undefined,
+          targets: (dto.isAdhocGroup && dto.memberIds?.length)
+            ? {
+                create: Array.from(new Set([...dto.memberIds, ...(dto.leaderId ? [dto.leaderId] : [])])).map((userId) => ({
+                  targetType: TaskTargetType.USER,
+                  targetId: userId,
+                })),
+              }
+            : dto.targets?.length
+            ? {
+                create: dto.targets.map((target) => ({
+                  targetType: target.targetType,
+                  targetId: target.targetId,
+                })),
+              }
+            : undefined,
           assignments: {
             create: assigneeIds.map((userId) => ({
               userId,
@@ -1377,7 +1386,18 @@ export class TasksService {
       attachments: { orderBy: { createdAt: 'asc' as const } },
       extensionRequests: { orderBy: { createdAt: 'desc' as const }, take: 5 },
       histories: { include: { actor: { select: this.safeUserSelect() } }, orderBy: { createdAt: 'asc' as const }, take: 50 },
-      chatGroup: { select: { id: true } },
+      chatGroup: {
+        select: {
+          id: true,
+          name: true,
+          members: {
+            select: {
+              userId: true,
+              user: { select: this.safeUserSelect() },
+            },
+          },
+        },
+      },
     };
   }
 
