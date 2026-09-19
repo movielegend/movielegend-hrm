@@ -584,7 +584,7 @@ export class TasksService {
                 taskId: id,
                 uploadedByUserId: att.uploadedByUserId,
                 type: att.type,
-                fileName: `[${child.taskCode ?? 'Việc con'}] ${att.fileName}`,
+                fileName: `[${child.title}] ${att.fileName}`,
                 fileUrl: att.fileUrl,
                 storageKey: att.storageKey,
                 mimeType: att.mimeType,
@@ -625,7 +625,6 @@ export class TasksService {
 
     const items = childTasks.map((child, idx) => {
       const statusText = this.translateTaskStatusVi(child.status);
-      const codePart = child.taskCode ? `[${child.taskCode}] ` : '';
 
       const assigneeDetails = child.assignments && child.assignments.length > 0
         ? child.assignments
@@ -633,15 +632,15 @@ export class TasksService {
               const name = a.user?.profile?.fullName ?? a.user?.userCode ?? 'Nhân sự';
               const progress = `${a.progressPercent ?? 0}%`;
               const noteText = a.completionNote ? `\n   • Báo cáo / Kết quả: ${a.completionNote}` : '';
-              return `   • Phụ trách: ${name} (Tiến độ: ${progress})${noteText}`;
+              return `   • Người thực hiện: ${name} (Tiến độ: ${progress})${noteText}`;
             })
             .join('\n')
-        : '   • Phụ trách: Chưa phân công';
+        : '   • Người thực hiện: Chưa phân công';
 
-      return `${idx + 1}. Việc con: ${codePart}${child.title}\n   • Trạng thái: ${statusText}\n${assigneeDetails}`;
+      return `${idx + 1}. Task: ${child.title}\n   • Trạng thái: ${statusText}\n${assigneeDetails}`;
     });
 
-    return `📋 TỔNG HỢP TIẾN ĐỘ & BÁO CÁO CÁC VIỆC CON:\n\n${items.join('\n\n')}\n\n---------------------------------\n💬 Ý kiến & Kết luận của Trưởng bộ phận:\n- Đã kiểm tra và nghiệm thu các hạng mục công việc con hoàn thành theo đúng yêu cầu.`;
+    return `📋 TỔNG HỢP TIẾN ĐỘ & BÁO CÁO CÁC VIỆC CON:\n\n${items.join('\n\n')}\n\n---------------------------------\n💬 Ý kiến & Kết luận của Leader:\n- Đã nghiệm thu toàn bộ các việc con và hoàn tất dự án.`;
   }
 
   async approveAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser) {
