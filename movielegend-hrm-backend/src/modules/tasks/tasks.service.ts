@@ -52,7 +52,17 @@ export class TasksService {
     let departmentContextId = dto.departmentContextId;
     if (dto.parentTaskId) {
       const parent = await this.prisma.task.findUnique({ where: { id: dto.parentTaskId } });
-      if (parent && !departmentContextId && parent.departmentContextId) {
+      if (!parent) {
+        throw badRequest('PARENT_TASK_NOT_FOUND', 'Không tìm thấy công việc cha');
+      }
+      if (parent.dueAt && dto.dueAt) {
+        const parentDue = new Date(parent.dueAt).getTime();
+        const subtaskDue = new Date(dto.dueAt).getTime();
+        if (subtaskDue > parentDue) {
+          throw badRequest('SUBTASK_DUE_DATE_EXCEEDS_PARENT', 'Hạn chót của công việc con không được vượt quá hạn chót của công việc cha');
+        }
+      }
+      if (!departmentContextId && parent.departmentContextId) {
         departmentContextId = parent.departmentContextId;
       }
     }
