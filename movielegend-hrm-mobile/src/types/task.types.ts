@@ -55,6 +55,7 @@ export interface TaskTargetDto {
 export interface CreateTaskTargetPayload {
   targetType: TaskTargetType;
   targetId: string;
+  targetName?: string;
 }
 
 export interface TaskAssignmentDto {

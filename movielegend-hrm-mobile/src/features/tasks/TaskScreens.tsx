@@ -938,6 +938,8 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       label: u.fullName ?? u.userCode,
       subtitle: u.department?.name,
     }));
+  }, [usersQuery.data?.items]);
+
   const parentDueAt = parentTaskQuery.data?.dueAt ? new Date(parentTaskQuery.data.dueAt) : null;
 
   const parentGroupMembers = useMemo(() => {
