@@ -938,9 +938,61 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       label: u.fullName ?? u.userCode,
       subtitle: u.department?.name,
     }));
-  }, [usersQuery.data?.items]);
-
   const parentDueAt = parentTaskQuery.data?.dueAt ? new Date(parentTaskQuery.data.dueAt) : null;
+
+  const parentGroupMembers = useMemo(() => {
+    const parent = parentTaskQuery.data;
+    if (!parent) return null;
+    const isGroupTask = parent.type === 'GROUP' || Boolean(parent.groupLeaderId) || ((parent as any).chatGroup?.members && (parent as any).chatGroup.members.length > 0);
+    if (!isGroupTask) return null;
+
+    const memberMap = new Map<string, { id: string; fullName: string; userCode?: string; subtitle?: string }>();
+
+    // 1. From chatGroup members
+    if ((parent as any).chatGroup?.members && Array.isArray((parent as any).chatGroup.members)) {
+      (parent as any).chatGroup.members.forEach((m: any) => {
+        const u = m.user || m;
+        if (u?.id && !memberMap.has(u.id)) {
+          memberMap.set(u.id, {
+            id: u.id,
+            fullName: u.profile?.fullName || u.fullName || u.userCode || 'Thành viên',
+            userCode: u.userCode,
+            subtitle: u.profile?.position?.name || u.position?.name,
+          });
+        }
+      });
+    }
+
+    // 2. From targets
+    if (parent.targets && Array.isArray(parent.targets)) {
+      parent.targets.forEach((t: any) => {
+        if ((t.targetType === 'USER' || t.type === 'USER') && t.targetId && !memberMap.has(t.targetId)) {
+          memberMap.set(t.targetId, {
+            id: t.targetId,
+            fullName: t.displayName || t.targetName || `NV: ${t.targetId.substring(0, 6)}...`,
+          });
+        }
+      });
+    }
+
+    // 3. From assignments
+    if (parent.assignments && Array.isArray(parent.assignments)) {
+      parent.assignments.forEach((a: any) => {
+        const u = a.user;
+        if (u?.id && !memberMap.has(u.id)) {
+          memberMap.set(u.id, {
+            id: u.id,
+            fullName: u.profile?.fullName || u.fullName || u.userCode || 'Thành viên',
+            userCode: u.userCode,
+            subtitle: u.profile?.position?.name,
+          });
+        }
+      });
+    }
+
+    const list = Array.from(memberMap.values());
+    return list.length > 0 ? list : null;
+  }, [parentTaskQuery.data]);
 
   async function submit() {
     if (parentDueAt && dueAt && dueAt.getTime() > parentDueAt.getTime()) {
@@ -1029,6 +1081,9 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const isSubmitDisabled = () => {
     if (title.trim().length < 3) return true;
     if (parentDueAt && dueAt && dueAt.getTime() > parentDueAt.getTime()) return true;
+    if (parentGroupMembers && parentGroupMembers.length > 0) {
+      return selectedUserTargets.length === 0;
+    }
     if (assigneeMode === 'GROUP') {
       return memberIds.length === 0 || !leaderId;
     }
@@ -1197,227 +1252,297 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         </SectionCard>
 
         <SectionCard title="Đối tượng nhận việc & Phân công">
-          {!parentTaskId && area === 'admin' ? (
-            <View style={styles.modeSegmentContainer}>
-              <Pressable
-                style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
-                onPress={() => setAssigneeMode('DEPARTMENT')}
-              >
-                <MaterialCommunityIcons
-                  name="domain"
-                  size={15}
-                  color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
-                />
-                <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
-                  Phòng ban
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.modeSegmentBtn, assigneeMode === 'USER' && styles.modeSegmentBtnActive]}
-                onPress={() => setAssigneeMode('USER')}
-              >
-                <MaterialCommunityIcons
-                  name="account-outline"
-                  size={15}
-                  color={assigneeMode === 'USER' ? colors.primary : '#64748B'}
-                />
-                <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'USER' && styles.modeSegmentTextActive]}>
-                  Cá nhân
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.modeSegmentBtn, assigneeMode === 'GROUP' && styles.modeSegmentBtnActive]}
-                onPress={() => setAssigneeMode('GROUP')}
-              >
-                <MaterialCommunityIcons
-                  name="account-group-outline"
-                  size={15}
-                  color={assigneeMode === 'GROUP' ? colors.primary : '#64748B'}
-                />
-                <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'GROUP' && styles.modeSegmentTextActive]}>
-                  Tổ / Nhóm
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {/* Mode 1: Giao cho Phòng ban */}
-          {assigneeMode === 'DEPARTMENT' ? (
+          {parentGroupMembers && parentGroupMembers.length > 0 ? (
             <View>
-              <View style={[styles.modeInfoCard, styles.modeInfoCardDept]}>
-                <View style={styles.modeInfoTitleRow}>
-                  <MaterialCommunityIcons name="domain" size={18} color="#2563EB" />
-                  <Text style={[styles.modeInfoTitle, { color: '#1E40AF' }]}>Quy trình bàn giao Phòng ban</Text>
-                </View>
-                <Text style={styles.modeInfoDesc}>
-                  Dự án được phân công trực tiếp cho Trưởng phòng (Leader). Leader tiếp nhận, chia các việc con cho nhân sự thực hiện, duyệt kết quả con và báo cáo hoàn thành dự án lên Admin.
-                </Text>
-              </View>
-
-              <Text style={styles.fieldLabel}>Phòng ban nhận việc</Text>
-              <View style={styles.targetTagsWrap}>
-                {selectedDeptTargets.map((target: any) => (
-                  <View key={target.targetId} style={[styles.targetTag, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-                    <MaterialCommunityIcons name="domain" size={16} color="#2563EB" />
-                    <Text style={[styles.targetTagText, { color: '#1E40AF' }]}>
-                      {target.targetName ?? `Phòng ban: ${target.targetId.substring(0, 6)}...`}
-                    </Text>
-                    <Pressable onPress={() => removeTarget(target)}>
-                      <MaterialCommunityIcons name="close-circle" size={16} color="#3B82F6" />
-                    </Pressable>
-                  </View>
-                ))}
-                <Pressable
-                  style={styles.addTargetBtn}
-                  onPress={() => {
-                    setTargetModalFilter('DEPARTMENT');
-                    setTargetModalVisible(true);
-                  }}
-                >
-                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
-                  <Text style={styles.addTargetBtnText}>Chọn phòng ban</Text>
-                </Pressable>
-              </View>
-              {!selectedDeptTargets.length && (
-                <Text style={styles.meta}>Vui lòng chọn ít nhất 1 phòng ban nhận nhiệm vụ.</Text>
-              )}
-            </View>
-          ) : null}
-
-          {/* Mode 2: Giao cho Cá nhân */}
-          {assigneeMode === 'USER' ? (
-            <View>
-              {!parentTaskId && (
-                <View style={[styles.modeInfoCard, styles.modeInfoCardUser]}>
-                  <View style={styles.modeInfoTitleRow}>
-                    <MaterialCommunityIcons name="account-outline" size={18} color="#059669" />
-                    <Text style={[styles.modeInfoTitle, { color: '#065F46' }]}>Giao việc trực tiếp cho Cá nhân</Text>
-                  </View>
-                  <Text style={styles.modeInfoDesc}>
-                    Giao việc cho 1 nhân sự cụ thể. Người nhận sẽ trực tiếp cập nhật tiến độ, hoàn thành và nộp báo cáo.
-                  </Text>
-                </View>
-              )}
-
-              <Text style={styles.fieldLabel}>Nhân sự nhận việc</Text>
-              <View style={styles.targetTagsWrap}>
-                {selectedUserTargets.slice(0, 1).map((target: any) => (
-                  <View key={target.targetId} style={styles.targetTag}>
-                    <MaterialCommunityIcons
-                      name={target.targetName?.includes('Admin') ? 'shield-account' : 'account'}
-                      size={16}
-                      color={colors.primaryDark}
-                    />
-                    <Text style={styles.targetTagText}>
-                      {target.targetName ?? `NV: ${target.targetId.substring(0, 6)}...`}
-                    </Text>
-                    <Pressable onPress={() => removeTarget(target)}>
-                      <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
-                    </Pressable>
-                  </View>
-                ))}
-                <Pressable
-                  style={styles.addTargetBtn}
-                  onPress={() => {
-                    setTargetModalFilter('USER');
-                    setTargetModalVisible(true);
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name={selectedUserTargets.length > 0 ? 'account-switch' : 'account-plus'}
-                    size={20}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.addTargetBtnText}>
-                    {selectedUserTargets.length > 0 ? 'Đổi người nhận' : 'Chọn người nhận việc'}
-                  </Text>
-                </Pressable>
-              </View>
-              {!selectedUserTargets.length && (
-                <Text style={styles.meta}>Vui lòng chọn 1 nhân sự nhận nhiệm vụ.</Text>
-              )}
-            </View>
-          ) : null}
-
-          {/* Mode 3: Nhóm đặc nhiệm */}
-          {assigneeMode === 'GROUP' ? (
-            <View>
-              <View style={[styles.modeInfoCard, styles.modeInfoCardGroup]}>
+              <View style={[styles.modeInfoCard, styles.modeInfoCardGroup, { marginBottom: spacing.md }]}>
                 <View style={styles.modeInfoTitleRow}>
                   <MaterialCommunityIcons name="account-group" size={18} color="#7C3AED" />
-                  <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>Nhóm liên phòng ban / Đặc nhiệm</Text>
+                  <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>
+                    Thành viên thuộc Tổ / Nhóm ({parentGroupMembers.length} người)
+                  </Text>
                 </View>
                 <Text style={styles.modeInfoDesc}>
-                  Tập hợp nhân sự từ nhiều phòng ban cùng làm việc. Hệ thống tự động tạo Nhóm Chat trao đổi. Trưởng nhóm (Leader) được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành lên Admin.
+                  Dự án này là công việc của Tổ / Nhóm. Hãy chọn 1 thành viên trong nhóm để phân công đầu việc con này.
                 </Text>
               </View>
 
-              <Text style={styles.fieldLabel}>Thành viên nhóm ({memberIds.length})</Text>
-              <View style={styles.targetTagsWrap}>
-                {selectedMembers.map(m => (
-                  <View key={m.id} style={[styles.targetTag, leaderId === m.id && styles.groupLeaderTag]}>
+              <Text style={styles.fieldLabel}>Chọn thành viên thực hiện việc con:</Text>
+              <View style={{ gap: spacing.xs, marginTop: spacing.xs }}>
+                {parentGroupMembers.map((m) => {
+                  const isSelected = selectedUserTargets.some((t: any) => t.targetId === m.id);
+                  return (
+                    <Pressable
+                      key={m.id}
+                      style={[
+                        styles.assigneeRow,
+                        isSelected && { borderColor: '#7C3AED', backgroundColor: '#F5F3FF', borderWidth: 1.5 },
+                      ]}
+                      onPress={() => {
+                        if (isSelected) {
+                          setTargets([]);
+                        } else {
+                          setTargets([{ targetType: 'USER', targetId: m.id, targetName: m.fullName }]);
+                        }
+                      }}
+                    >
+                      <View style={styles.assigneeInfo}>
+                        <View style={[styles.assigneeAvatar, isSelected && { backgroundColor: '#EDE9FE' }]}>
+                          <MaterialCommunityIcons
+                            name="account"
+                            size={20}
+                            color={isSelected ? '#7C3AED' : colors.muted}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.assigneeName, isSelected && { color: '#6D28D9', fontWeight: '700' }]}>
+                            {m.fullName}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            {m.userCode ? <Text style={styles.assigneeSubtext}>{m.userCode}</Text> : null}
+                            {m.subtitle ? <Text style={styles.assigneeSubtext}>• {m.subtitle}</Text> : null}
+                          </View>
+                        </View>
+                      </View>
+                      <MaterialCommunityIcons
+                        name={isSelected ? 'radiobox-marked' : 'radiobox-blank'}
+                        size={22}
+                        color={isSelected ? '#7C3AED' : colors.border}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {!selectedUserTargets.length && (
+                <Text style={[styles.meta, { color: colors.danger, marginTop: spacing.sm }]}>
+                  Vui lòng chọn 1 thành viên trong nhóm để nhận việc con này.
+                </Text>
+              )}
+            </View>
+          ) : (
+            <>
+              {!parentTaskId && area === 'admin' ? (
+                <View style={styles.modeSegmentContainer}>
+                  <Pressable
+                    style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
+                    onPress={() => setAssigneeMode('DEPARTMENT')}
+                  >
                     <MaterialCommunityIcons
-                      name={leaderId === m.id ? 'crown' : 'account'}
-                      size={16}
-                      color={leaderId === m.id ? '#7C3AED' : colors.primaryDark}
+                      name="domain"
+                      size={15}
+                      color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
                     />
-                    <Text style={[styles.targetTagText, leaderId === m.id && { color: '#6D28D9', fontWeight: '800' }]}>
-                      {m.label} {leaderId === m.id ? '(Trưởng nhóm)' : ''}
+                    <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
+                      Phòng ban
                     </Text>
-                    <Pressable onPress={() => {
-                      setMemberIds(prev => prev.filter(id => id !== m.id));
-                      if (leaderId === m.id) setLeaderId('');
-                    }}>
-                      <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.modeSegmentBtn, assigneeMode === 'USER' && styles.modeSegmentBtnActive]}
+                    onPress={() => setAssigneeMode('USER')}
+                  >
+                    <MaterialCommunityIcons
+                      name="account-outline"
+                      size={15}
+                      color={assigneeMode === 'USER' ? colors.primary : '#64748B'}
+                    />
+                    <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'USER' && styles.modeSegmentTextActive]}>
+                      Cá nhân
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.modeSegmentBtn, assigneeMode === 'GROUP' && styles.modeSegmentBtnActive]}
+                    onPress={() => setAssigneeMode('GROUP')}
+                  >
+                    <MaterialCommunityIcons
+                      name="account-group-outline"
+                      size={15}
+                      color={assigneeMode === 'GROUP' ? colors.primary : '#64748B'}
+                    />
+                    <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'GROUP' && styles.modeSegmentTextActive]}>
+                      Tổ / Nhóm
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {/* Mode 1: Giao cho Phòng ban */}
+              {assigneeMode === 'DEPARTMENT' ? (
+                <View>
+                  <View style={[styles.modeInfoCard, styles.modeInfoCardDept]}>
+                    <View style={styles.modeInfoTitleRow}>
+                      <MaterialCommunityIcons name="domain" size={18} color="#2563EB" />
+                      <Text style={[styles.modeInfoTitle, { color: '#1E40AF' }]}>Quy trình bàn giao Phòng ban</Text>
+                    </View>
+                    <Text style={styles.modeInfoDesc}>
+                      Dự án được phân công trực tiếp cho Trưởng phòng (Leader). Leader tiếp nhận, chia các việc con cho nhân sự thực hiện, duyệt kết quả con và báo cáo hoàn thành dự án lên Admin.
+                    </Text>
+                  </View>
+
+                  <Text style={styles.fieldLabel}>Phòng ban nhận việc</Text>
+                  <View style={styles.targetTagsWrap}>
+                    {selectedDeptTargets.map((target: any) => (
+                      <View key={target.targetId} style={[styles.targetTag, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+                        <MaterialCommunityIcons name="domain" size={16} color="#2563EB" />
+                        <Text style={[styles.targetTagText, { color: '#1E40AF' }]}>
+                          {target.targetName ?? `Phòng ban: ${target.targetId.substring(0, 6)}...`}
+                        </Text>
+                        <Pressable onPress={() => removeTarget(target)}>
+                          <MaterialCommunityIcons name="close-circle" size={16} color="#3B82F6" />
+                        </Pressable>
+                      </View>
+                    ))}
+                    <Pressable
+                      style={styles.addTargetBtn}
+                      onPress={() => {
+                        setTargetModalFilter('DEPARTMENT');
+                        setTargetModalVisible(true);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+                      <Text style={styles.addTargetBtnText}>Chọn phòng ban</Text>
                     </Pressable>
                   </View>
-                ))}
-                <Pressable style={styles.addTargetBtn} onPress={() => setMemberModalVisible(true)}>
-                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
-                  <Text style={styles.addTargetBtnText}>Thêm thành viên</Text>
-                </Pressable>
-              </View>
-
-              {memberIds.length > 0 ? (
-                <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.fieldLabel}>Chỉ định Trưởng nhóm (Leader nộp báo cáo)</Text>
-                  <View style={styles.targetTagsWrap}>
-                    {selectedMembers.map(m => {
-                      const isLeader = leaderId === m.id;
-                      return (
-                        <Pressable 
-                          key={m.id} 
-                          style={[styles.targetTag, isLeader && { backgroundColor: '#7C3AED', borderColor: '#7C3AED' }]}
-                          onPress={() => setLeaderId(m.id)}
-                        >
-                          <MaterialCommunityIcons name={isLeader ? 'crown' : 'account-outline'} size={16} color={isLeader ? '#FFF' : colors.text} />
-                          <Text style={[styles.targetTagText, isLeader && { color: '#FFF', fontWeight: '700' }]}>
-                            {m.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  {!leaderId && (
-                    <Text style={[styles.meta, { color: colors.danger, marginTop: 4 }]}>
-                      Vui lòng chọn 1 thành viên làm Trưởng nhóm để chịu trách nhiệm nộp báo cáo.
-                    </Text>
+                  {!selectedDeptTargets.length && (
+                    <Text style={styles.meta}>Vui lòng chọn ít nhất 1 phòng ban nhận nhiệm vụ.</Text>
                   )}
                 </View>
-              ) : (
-                <Text style={styles.meta}>Chưa có thành viên nào trong nhóm.</Text>
-              )}
+              ) : null}
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.md, backgroundColor: '#F3E8FF', padding: spacing.sm, borderRadius: 8 }}>
-                <MaterialCommunityIcons name="forum-outline" size={20} color="#7C3AED" />
-                <Text style={{ flex: 1, fontSize: 12, color: '#6B21A8' }}>
-                  Nhóm chat nội bộ sẽ tự động được khởi tạo cho tất cả thành viên khi giao việc.
-                </Text>
-              </View>
-            </View>
-          ) : null}
+              {/* Mode 2: Giao cho Cá nhân */}
+              {assigneeMode === 'USER' ? (
+                <View>
+                  {!parentTaskId && (
+                    <View style={[styles.modeInfoCard, styles.modeInfoCardUser]}>
+                      <View style={styles.modeInfoTitleRow}>
+                        <MaterialCommunityIcons name="account-outline" size={18} color="#059669" />
+                        <Text style={[styles.modeInfoTitle, { color: '#065F46' }]}>Giao việc trực tiếp cho Cá nhân</Text>
+                      </View>
+                      <Text style={styles.modeInfoDesc}>
+                        Giao việc cho 1 nhân sự cụ thể. Người nhận sẽ trực tiếp cập nhật tiến độ, hoàn thành và nộp báo cáo.
+                      </Text>
+                    </View>
+                  )}
+
+                  <Text style={styles.fieldLabel}>Nhân sự nhận việc</Text>
+                  <View style={styles.targetTagsWrap}>
+                    {selectedUserTargets.slice(0, 1).map((target: any) => (
+                      <View key={target.targetId} style={styles.targetTag}>
+                        <MaterialCommunityIcons
+                          name={target.targetName?.includes('Admin') ? 'shield-account' : 'account'}
+                          size={16}
+                          color={colors.primaryDark}
+                        />
+                        <Text style={styles.targetTagText}>
+                          {target.targetName ?? `NV: ${target.targetId.substring(0, 6)}...`}
+                        </Text>
+                        <Pressable onPress={() => removeTarget(target)}>
+                          <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+                        </Pressable>
+                      </View>
+                    ))}
+                    <Pressable
+                      style={styles.addTargetBtn}
+                      onPress={() => {
+                        setTargetModalFilter('USER');
+                        setTargetModalVisible(true);
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name={selectedUserTargets.length > 0 ? 'account-switch' : 'account-plus'}
+                        size={20}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.addTargetBtnText}>
+                        {selectedUserTargets.length > 0 ? 'Đổi người nhận' : 'Chọn người nhận việc'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {!selectedUserTargets.length && (
+                    <Text style={styles.meta}>Vui lòng chọn 1 nhân sự nhận nhiệm vụ.</Text>
+                  )}
+                </View>
+              ) : null}
+
+              {/* Mode 3: Nhóm đặc nhiệm */}
+              {assigneeMode === 'GROUP' ? (
+                <View>
+                  <View style={[styles.modeInfoCard, styles.modeInfoCardGroup]}>
+                    <View style={styles.modeInfoTitleRow}>
+                      <MaterialCommunityIcons name="account-group" size={18} color="#7C3AED" />
+                      <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>Nhóm liên phòng ban / Đặc nhiệm</Text>
+                    </View>
+                    <Text style={styles.modeInfoDesc}>
+                      Tập hợp nhân sự từ nhiều phòng ban cùng làm việc. Hệ thống tự động tạo Nhóm Chat trao đổi. Trưởng nhóm (Leader) được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành lên Admin.
+                    </Text>
+                  </View>
+
+                  <Text style={styles.fieldLabel}>Thành viên nhóm ({memberIds.length})</Text>
+                  <View style={styles.targetTagsWrap}>
+                    {selectedMembers.map(m => (
+                      <View key={m.id} style={[styles.targetTag, leaderId === m.id && styles.groupLeaderTag]}>
+                        <MaterialCommunityIcons
+                          name={leaderId === m.id ? 'crown' : 'account'}
+                          size={16}
+                          color={leaderId === m.id ? '#7C3AED' : colors.primaryDark}
+                        />
+                        <Text style={[styles.targetTagText, leaderId === m.id && { color: '#6D28D9', fontWeight: '800' }]}>
+                          {m.label} {leaderId === m.id ? '(Trưởng nhóm)' : ''}
+                        </Text>
+                        <Pressable onPress={() => {
+                          setMemberIds(prev => prev.filter(id => id !== m.id));
+                          if (leaderId === m.id) setLeaderId('');
+                        }}>
+                          <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
+                        </Pressable>
+                      </View>
+                    ))}
+                    <Pressable style={styles.addTargetBtn} onPress={() => setMemberModalVisible(true)}>
+                      <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+                      <Text style={styles.addTargetBtnText}>Thêm thành viên</Text>
+                    </Pressable>
+                  </View>
+
+                  {memberIds.length > 0 ? (
+                    <View style={{ marginTop: spacing.md }}>
+                      <Text style={styles.fieldLabel}>Chỉ định Trưởng nhóm (Leader nộp báo cáo)</Text>
+                      <View style={styles.targetTagsWrap}>
+                        {selectedMembers.map(m => {
+                          const isLeader = leaderId === m.id;
+                          return (
+                            <Pressable 
+                              key={m.id} 
+                              style={[styles.targetTag, isLeader && { backgroundColor: '#7C3AED', borderColor: '#7C3AED' }]}
+                              onPress={() => setLeaderId(m.id)}
+                            >
+                              <MaterialCommunityIcons name={isLeader ? 'crown' : 'account-outline'} size={16} color={isLeader ? '#FFF' : colors.text} />
+                              <Text style={[styles.targetTagText, isLeader && { color: '#FFF', fontWeight: '700' }]}>
+                                {m.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      {!leaderId && (
+                        <Text style={[styles.meta, { color: colors.danger, marginTop: 4 }]}>
+                          Vui lòng chọn 1 thành viên làm Trưởng nhóm để chịu trách nhiệm nộp báo cáo.
+                        </Text>
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={styles.meta}>Chưa có thành viên nào trong nhóm.</Text>
+                  )}
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.md, backgroundColor: '#F3E8FF', padding: spacing.sm, borderRadius: 8 }}>
+                    <MaterialCommunityIcons name="forum-outline" size={20} color="#7C3AED" />
+                    <Text style={{ flex: 1, fontSize: 12, color: '#6B21A8' }}>
+                      Nhóm chat nội bộ sẽ tự động được khởi tạo cho tất cả thành viên khi giao việc.
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </>
+          )}
         </SectionCard>
 
         <PrimaryButton 
