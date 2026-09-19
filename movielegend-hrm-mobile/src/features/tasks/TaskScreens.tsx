@@ -608,7 +608,11 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         {canReview && reviewAssignments.length > 0 ? (
           <SectionCard title="Xét duyệt công việc">
             {reviewAssignments.map((entry) => {
-              const entryAttachments = item.attachments?.filter(att => att.uploadedByUserId === entry.userId) ?? [];
+              const entryAttachments = item.attachments?.filter(att => 
+                att.uploadedByUserId === entry.userId || 
+                (totalChildCount > 0 && att.uploadedByUserId !== item.createdByUserId) ||
+                (item.assignments?.length === 1 && att.uploadedByUserId !== item.createdByUserId)
+              ) ?? [];
               return (
                 <View key={entry.id} style={styles.inlinePanel}>
                   <Text style={styles.titleText}>{entry.user?.profile?.fullName ?? entry.user?.userCode ?? entry.userId}</Text>
@@ -620,7 +624,9 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                   ) : null}
                   {entryAttachments.length > 0 ? (
                     <View style={{ marginTop: spacing.xs, marginBottom: spacing.xs }}>
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 4 }}>Báo cáo / Tệp đính kèm nộp:</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 4 }}>
+                        Báo cáo / Tệp đính kèm nộp ({entryAttachments.length}):
+                      </Text>
                       <AttachmentList attachments={entryAttachments} />
                     </View>
                   ) : null}
@@ -1470,6 +1476,14 @@ export function TaskReviewQueueScreen({ area }: { area: Exclude<TaskArea, 'emplo
             <Text style={styles.meta}>{item.taskCode} - {item.employee.fullName ?? item.employee.userCode}</Text>
             <ProgressBar value={item.progressPercent} />
             <Text style={styles.meta}>{item.completionNote ?? 'Không có ghi chú hoàn thành'}</Text>
+            {(item as any).attachments && (item as any).attachments.length > 0 ? (
+              <View style={{ marginVertical: spacing.xs }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 4 }}>
+                  Tệp đính kèm ({((item as any).attachments.length)}):
+                </Text>
+                <AttachmentList attachments={(item as any).attachments} />
+              </View>
+            ) : null}
             <ReviewActionSheet
               pending={review.isPending}
               onApprove={(note) => run(() => review.mutateAsync({ assignmentId: item.assignmentId, action: 'approve', payload: note ? { note } : {} }), 'Đã duyệt công việc')}
