@@ -37,7 +37,7 @@ import { isOverdue, priorityTone, taskDeadlineLabel, translatePriority, translat
 import { useMinuteTicker } from './deadline-clock';
 import { apiUrl } from '../../constants/env';
 
-function resolveFileUrl(uri?: string | null): string | null {
+export function resolveFileUrl(uri?: string | null): string | null {
   if (!uri) return null;
   let url = uri;
   if (!url.startsWith('http')) {
@@ -500,41 +500,29 @@ export function AttachmentList({
     </Modal>
 
     <View style={styles.stack}>
-      {attachments.map((attachment) => (
-        <Pressable 
-          key={attachment.id} 
-          style={[styles.row, styles.attachmentTile, downloadingId === attachment.id && { opacity: 0.6 }]}
-          onPress={async () => {
-            if (isUnaccepted) {
-              showAlert('Yêu cầu nhận việc', 'Vui lòng nhấn "Nhận việc" trước khi xem tài liệu đính kèm.');
-              return;
-            }
-            const url = resolveFileUrl(attachment.fileUrl);
-            if (!url) return;
-            
-            try {
-              setDownloadingId(attachment.id);
-              const fileName = attachment.fileName || 'file';
-              const ext = (fileName.split('.').pop() || '').toLowerCase();
-              const mime = (attachment.mimeType || '').toLowerCase();
+      {attachments.map((attachment) => {
+        const url = resolveFileUrl(attachment.fileUrl);
+        const fn = attachment.fileName || 'file';
+        const ext = (fn.split('.').pop() || '').toLowerCase();
+        const mime = (attachment.mimeType || '').toLowerCase();
+        const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || mime.startsWith('image/') || attachment.type === 'IMAGE';
+        const isPdf = ext === 'pdf' || mime.includes('pdf');
 
-              const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || mime.startsWith('image/');
-              const isPdf = ext === 'pdf' || mime.includes('pdf');
-
-              setPreviewTitle(fileName);
+        return (
+          <Pressable 
+            key={attachment.id} 
+            style={[styles.row, styles.attachmentTile, downloadingId === attachment.id && { opacity: 0.6 }]}
+            onPress={async () => {
+              if (isUnaccepted) {
+                showAlert('Yêu cầu nhận việc', 'Vui lòng nhấn "Nhận việc" trước khi xem tài liệu đính kèm.');
+                return;
+              }
+              if (!url) return;
+              
+              setPreviewTitle(fn);
 
               if (isImg) {
-                let cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-                const localUri = FileSystem.documentDirectory + cleanFileName;
-                const info = await FileSystem.getInfoAsync(localUri);
-                let fileUri = localUri;
-                if (!info.exists) {
-                  const { uri } = await FileSystem.downloadAsync(url, localUri, {
-                    headers: { 'ngrok-skip-browser-warning': 'true' }
-                  });
-                  fileUri = uri;
-                }
-                setImagePreviewUri(fileUri);
+                setImagePreviewUri(url);
                 return;
               }
 
@@ -543,53 +531,58 @@ export function AttachmentList({
                 return;
               }
 
-              // Các loại file khác: Tải về và mở menu chia sẻ/xem của OS
-              let cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-              const localUri = FileSystem.documentDirectory + cleanFileName;
-              const { uri } = await FileSystem.downloadAsync(url, localUri);
-              await Sharing.shareAsync(uri, { UTI: mime || undefined, mimeType: mime || undefined });
-            } catch (err) {
-              console.error(err);
-              if (url) {
-                setPreviewTitle(attachment.fileName || 'Xem tệp');
-                setPdfPreviewUrl(url);
+              try {
+                setDownloadingId(attachment.id);
+                let cleanFileName = fn.replace(/[^a-zA-Z0-9.-]/g, '_');
+                const localUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${cleanFileName}`;
+                const { uri } = await FileSystem.downloadAsync(url, localUri, {
+                  headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                await Sharing.shareAsync(uri, { UTI: mime || undefined, mimeType: mime || undefined });
+              } catch (err) {
+                console.error(err);
+                if (url) {
+                  setPdfPreviewUrl(url);
+                }
+              } finally {
+                setDownloadingId(null);
               }
-            } finally {
-              setDownloadingId(null);
-            }
-          }}
-        >
-          {(() => {
-            const fn = attachment.fileName || '';
-            const ext = fn.split('.').pop()?.toLowerCase() || '';
-            const mime = (attachment.mimeType || '').toLowerCase();
-            const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || mime.startsWith('image/');
-            return isImg ? (
-              <MaterialCommunityIcons name="file-image-outline" size={28} color="#2563EB" />
+            }}
+          >
+            {isImg && url ? (
+              <View style={styles.thumbnailBox}>
+                <Image source={{ uri: url }} style={styles.thumbnailImg} resizeMode="cover" />
+              </View>
+            ) : isPdf ? (
+              <View style={[styles.thumbnailBox, { backgroundColor: '#FEE2E2' }]}>
+                <MaterialCommunityIcons name="file-pdf-box" size={24} color="#DC2626" />
+              </View>
             ) : (
-              <MaterialCommunityIcons name="file-document-outline" size={28} color={colors.primary} />
-            );
-          })()}
-          <View style={styles.flex}>
-            <Text style={styles.titleSmall} numberOfLines={1}>
-              {downloadingId === attachment.id ? 'Đang mở...' : attachment.fileName}
-            </Text>
-            <Text style={styles.metaSmall}>{attachment.mimeType ?? attachment.type}</Text>
-          </View>
-          {onDeleteAttachment && (!canDelete || canDelete(attachment.id)) && (
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                setDeletingId(attachment.id);
-              }}
-              style={{ padding: 8 }}
-              hitSlop={10}
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.danger} />
-            </Pressable>
-          )}
-        </Pressable>
-      ))}
+              <View style={[styles.thumbnailBox, { backgroundColor: '#EFF6FF' }]}>
+                <MaterialCommunityIcons name="file-document-outline" size={24} color="#2563EB" />
+              </View>
+            )}
+            <View style={styles.flex}>
+              <Text style={styles.titleSmall} numberOfLines={1}>
+                {downloadingId === attachment.id ? 'Đang mở...' : attachment.fileName}
+              </Text>
+              <Text style={styles.metaSmall}>{attachment.mimeType ?? attachment.type}</Text>
+            </View>
+            {onDeleteAttachment && (!canDelete || canDelete(attachment.id)) && (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setDeletingId(attachment.id);
+                }}
+                style={{ padding: 8 }}
+                hitSlop={10}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.danger} />
+              </Pressable>
+            )}
+          </Pressable>
+        );
+      })}
     </View>
     </>
   );
@@ -940,16 +933,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   attachmentTile: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
     borderWidth: 1,
     padding: spacing.sm,
+    alignItems: 'center',
+  },
+  thumbnailBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  thumbnailImg: {
+    width: '100%',
+    height: '100%',
   },
   targetChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
     backgroundColor: colors.primarySoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,

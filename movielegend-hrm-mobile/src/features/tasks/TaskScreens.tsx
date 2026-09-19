@@ -55,6 +55,7 @@ import { hasAnyPermission, hasPermission } from '../../utils/permissions';
 import {
   AttachmentList,
   AttachmentPicker,
+  resolveFileUrl,
   TaskStepper,
   CommentComposer,
   CommentList,
@@ -958,15 +959,36 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
             <Text style={styles.fieldLabel}>Tệp đính kèm</Text>
             {attachments.length > 0 && (
               <View style={{ marginBottom: spacing.sm, gap: spacing.xs }}>
-                {attachments.map((att, i) => (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: spacing.sm, borderRadius: 8 }}>
-                    <MaterialCommunityIcons name="paperclip" size={20} color={colors.primary} />
-                    <Text style={{ flex: 1, marginLeft: spacing.sm, color: colors.text }} numberOfLines={1}>{att.fileName}</Text>
-                    <Pressable onPress={() => setAttachments(attachments.filter((_, idx) => idx !== i))}>
-                      <MaterialCommunityIcons name="close" size={20} color={colors.danger} />
-                    </Pressable>
-                  </View>
-                ))}
+                {attachments.map((att, i) => {
+                  const ext = (att.fileName.split('.').pop() || '').toLowerCase();
+                  const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || att.type === 'IMAGE' || att.mimeType?.startsWith('image/');
+                  const isPdf = ext === 'pdf' || att.mimeType?.includes('pdf');
+                  const resolvedUrl = resolveFileUrl(att.fileUrl) || att.fileUrl;
+                  return (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: spacing.sm, borderRadius: 10, borderWidth: 1, borderColor: colors.border, gap: spacing.sm }}>
+                      {isImg && resolvedUrl ? (
+                        <View style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }}>
+                          <Image source={{ uri: resolvedUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        </View>
+                      ) : isPdf ? (
+                        <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center' }}>
+                          <MaterialCommunityIcons name="file-pdf-box" size={24} color="#DC2626" />
+                        </View>
+                      ) : (
+                        <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                          <MaterialCommunityIcons name="file-document-outline" size={24} color="#2563EB" />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{att.fileName}</Text>
+                        <Text style={{ color: colors.muted, fontSize: 11 }}>{att.mimeType || att.type}</Text>
+                      </View>
+                      <Pressable onPress={() => setAttachments(attachments.filter((_, idx) => idx !== i))} hitSlop={10} style={{ padding: 6 }}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                      </Pressable>
+                    </View>
+                  );
+                })}
               </View>
             )}
             <AttachmentPicker
