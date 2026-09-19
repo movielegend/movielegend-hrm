@@ -35,7 +35,11 @@ export function FormField({ label, error, style, rightLabelElement, isPassword, 
               setIsFocused(false);
               inputProps.onBlur?.(e);
             }}
-            style={[styles.inputText, { flex: 1 }]} 
+            style={[
+              styles.inputText, 
+              inputProps.multiline && styles.inputMultiline,
+              { flex: 1 }
+            ]} 
             placeholderTextColor="#9CA3AF"
           />
           {isPassword ? (
@@ -60,7 +64,7 @@ const styles = StyleSheet.create({
     borderColor: '#ECEEF3',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   inputFocused: {
     borderColor: '#111827',
@@ -80,11 +84,17 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   inputText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
     color: '#111827',
-    height: 28,
+    minHeight: 26,
     padding: 0,
+  },
+  inputMultiline: {
+    minHeight: 110,
+    textAlignVertical: 'top',
+    paddingTop: 6,
+    lineHeight: 22,
   },
   passwordRow: {
     flexDirection: 'row',
