@@ -265,8 +265,14 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
     return relatedAssignment ? isSelfAssigned(relatedAssignment) : true;
   }) ?? [];
 
+  const childTasks = item.childTasks ?? [];
+  const completedChildCount = childTasks.filter((c: any) => c.status === 'COMPLETED').length;
+  const totalChildCount = childTasks.length;
+  const subtasksProgressPercent = totalChildCount > 0 ? Math.round((completedChildCount / totalChildCount) * 100) : 0;
+
   const isDepartmentTask = item.type === 'DEPARTMENT' || (item.targets?.some(t => t.targetType === 'DEPARTMENT') ?? false);
   const isGroupTask = item.type === 'GROUP';
+  const isProjectTask = isDepartmentTask || isGroupTask || item.type === 'CROSS_DEPARTMENT';
   const isDepartmentLeader = hasAnyPermission(user, ['task.assign_department']) || Boolean(user?.roles?.includes('LEADER'));
   const isGroupLeader = item.groupLeaderId === user?.id;
   const isCreator = item.createdByUserId === user?.id;
@@ -274,12 +280,8 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
 
   const isAssignee = item.assignments?.some((a: any) => a.userId === user?.id);
   const isEmployeeOnly = !isAdmin && !isDepartmentLeader && !isGroupLeader;
-  const canManageSubtasks = !isEmployeeOnly && (isAdmin || (isDepartmentTask && isDepartmentLeader) || (isGroupTask && isGroupLeader) || (isCreator && isDepartmentLeader)) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
-
-  const childTasks = item.childTasks ?? [];
-  const completedChildCount = childTasks.filter((c: any) => c.status === 'COMPLETED').length;
-  const totalChildCount = childTasks.length;
-  const subtasksProgressPercent = totalChildCount > 0 ? Math.round((completedChildCount / totalChildCount) * 100) : 0;
+  const isParentOrProjectTask = isProjectTask || totalChildCount > 0;
+  const canManageSubtasks = !isEmployeeOnly && isParentOrProjectTask && (isAdmin || (isDepartmentTask && isDepartmentLeader) || (isGroupTask && isGroupLeader) || (isCreator && isDepartmentLeader)) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED';
 
   async function run(action: () => Promise<unknown>, success: string) {
     try {
