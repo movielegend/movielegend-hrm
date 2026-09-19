@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActionDatePicker } from './TaskScreens';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { Modal, Pressable, StyleSheet, Text, View, Linking, Platform, Image, ScrollView } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, Linking, Platform, Image, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as DocumentPicker from 'expo-document-picker';
@@ -181,6 +181,50 @@ export function CommentList({ comments }: { comments?: TaskCommentDto[] | undefi
   );
 }
 
+function AttachmentActionButton({
+  icon,
+  label,
+  loading,
+  disabled,
+  onPress,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  loading?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.attachmentActionButton,
+        pressed && styles.attachmentActionButtonPressed,
+        disabled && styles.attachmentActionButtonDisabled,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color="#111827" />
+      ) : (
+        <View style={styles.attachmentActionContent}>
+          <MaterialCommunityIcons name={icon} size={15} color="#374151" style={styles.attachmentActionIcon} />
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={styles.attachmentActionText}
+          >
+            {label}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 export function AttachmentPicker({
   onAttach,
   pending,
@@ -330,21 +374,27 @@ export function AttachmentPicker({
         </View>
       </Modal>
       <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-        <View style={{ flex: 1 }}>
-          <SecondaryButton loading={uploadingType === 'CAMERA'} disabled={isBusy} onPress={() => void pickCameraAndUpload()}>
-            Chụp ảnh
-          </SecondaryButton>
-        </View>
-        <View style={{ flex: 1 }}>
-          <SecondaryButton loading={uploadingType === 'IMAGE'} disabled={isBusy} onPress={() => void pickImageAndUpload()}>
-            Chọn ảnh
-          </SecondaryButton>
-        </View>
-        <View style={{ flex: 1 }}>
-          <SecondaryButton loading={uploadingType === 'FILE'} disabled={isBusy} onPress={() => void pickAndUpload()}>
-            Chọn tệp
-          </SecondaryButton>
-        </View>
+        <AttachmentActionButton
+          icon="camera-outline"
+          label="Chụp ảnh"
+          loading={uploadingType === 'CAMERA'}
+          disabled={isBusy}
+          onPress={() => void pickCameraAndUpload()}
+        />
+        <AttachmentActionButton
+          icon="image-outline"
+          label="Chọn ảnh"
+          loading={uploadingType === 'IMAGE'}
+          disabled={isBusy}
+          onPress={() => void pickImageAndUpload()}
+        />
+        <AttachmentActionButton
+          icon="file-document-outline"
+          label="Chọn tệp"
+          loading={uploadingType === 'FILE'}
+          disabled={isBusy}
+          onPress={() => void pickAndUpload()}
+        />
       </View>
       {!autoAttach && staged.length > 0 ? (
         <View style={styles.inlinePanel}>
@@ -1006,6 +1056,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  attachmentActionButton: {
+    flex: 1,
+    minHeight: 40,
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E7EB',
+    borderWidth: 1,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    paddingVertical: 8,
+  },
+  attachmentActionButtonPressed: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#D1D5DB',
+  },
+  attachmentActionButtonDisabled: {
+    opacity: 0.5,
+  },
+  attachmentActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 0,
+    paddingHorizontal: 2,
+  },
+  attachmentActionIcon: {
+    marginRight: 3,
+  },
+  attachmentActionText: {
+    color: '#1F2937',
+    fontSize: 12.5,
+    fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
 });
 
