@@ -217,6 +217,9 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
 export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  if (id === 'create') {
+    return <CreateTaskScreen area={area === 'employee' ? 'leader' : (area as any)} />;
+  }
   const { user } = useAuth();
   const task = useTask(id);
   const timeline = useTaskTimeline(id);
