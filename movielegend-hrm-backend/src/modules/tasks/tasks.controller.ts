@@ -98,6 +98,12 @@ export class TasksController {
     return this.tasks.requestExtension(id, dto, actor);
   }
 
+  @Post(':id/sync-subtasks-results')
+  @AnyPermissions('task.assign_any', 'task.assign_department', 'task.review_department', 'task.review_all', 'task.submit_own', 'task.update_progress_own', 'task.read_department')
+  syncSubtasksResults(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.tasks.syncSubtasksResults(id, actor);
+  }
+
   @Post(':id/complete')
   @AnyPermissions('task.assign_any', 'task.assign_department', 'task.review_department', 'task.review_all', 'task.submit_own', 'task.update_progress_own', 'task.read_department')
   complete(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {

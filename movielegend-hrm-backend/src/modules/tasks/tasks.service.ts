@@ -548,6 +548,94 @@ export class TasksService {
     return payload.updated;
   }
 
+  async syncSubtasksResults(id: string, actor: AuthenticatedUser) {
+    if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
+    await this.assertCanViewTask(id, actor);
+
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: {
+        targets: true,
+        assignments: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        departmentContext: true,
+        attachments: true,
+        childTasks: {
+          include: {
+            assignments: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+            attachments: true,
+          },
+        },
+      },
+    });
+    if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
+
+    let addedAttachmentsCount = 0;
+    const existingParentUrls = new Set(task.attachments.map((att) => att.fileUrl));
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const child of task.childTasks) {
+        for (const att of child.attachments) {
+          if (!existingParentUrls.has(att.fileUrl)) {
+            existingParentUrls.add(att.fileUrl);
+            await tx.taskAttachment.create({
+              data: {
+                taskId: id,
+                uploadedByUserId: att.uploadedByUserId,
+                type: att.type,
+                fileName: `[${child.taskCode ?? 'Việc con'}] ${att.fileName}`,
+                fileUrl: att.fileUrl,
+                storageKey: att.storageKey,
+                mimeType: att.mimeType,
+                sizeBytes: att.sizeBytes,
+              },
+            });
+            addedAttachmentsCount++;
+          }
+        }
+      }
+    });
+
+    let aggregatedReport = '';
+    if (task.childTasks.length > 0) {
+      const subtaskSummaries = task.childTasks.map((child, idx) => {
+        const assigneeDetails = child.assignments
+          .map((a) => {
+            const name = a.user?.profile?.fullName ?? a.user?.userCode ?? 'Nhân sự';
+            const progress = `${a.progressPercent}%`;
+            const noteText = a.completionNote ? `\n    + Báo cáo: ${a.completionNote}` : '';
+            return `  - Phân công: ${name} (Tiến độ: ${progress})${noteText}`;
+          })
+          .join('\n');
+        return `[#${idx + 1}] ${child.taskCode ? `[${child.taskCode}] ` : ''}${child.title} (${child.status === 'COMPLETED' ? 'Hoàn thành' : child.status}):\n${assigneeDetails || '  - Không có nhân sự phân công'}`;
+      });
+      aggregatedReport = `Báo cáo tổng hợp nghiệm thu từ các công việc con:\n\n${subtaskSummaries.join('\n\n')}`;
+    }
+
+    const updatedTask = await this.findOne(id, actor);
+    return {
+      task: updatedTask,
+      aggregatedReport,
+      addedAttachmentsCount,
+      totalChildTasks: task.childTasks.length,
+    };
+  }
+
   async approveAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser) {
     return this.reviewAssignment(assignmentId, dto, actor, TaskAssignmentStatus.COMPLETED, TaskHistoryAction.APPROVED);
   }
