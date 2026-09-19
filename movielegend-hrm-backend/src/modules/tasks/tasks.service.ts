@@ -396,6 +396,7 @@ export class TasksService {
     const task = await this.prisma.task.findUnique({
       where: { id },
       include: {
+        targets: true,
         assignments: {
           include: {
             user: {
@@ -430,18 +431,20 @@ export class TasksService {
     const isCreator = task.createdByUserId === actor.userId;
     const isGroupLeader = task.groupLeaderId === actor.userId;
     const isAssignee = task.assignments.some((a) => a.userId === actor.userId);
+    const isTargetUser = task.targets?.some((t) => t.targetType === 'USER' && t.targetId === actor.userId);
     const isDeptLeader = Boolean(
-      task.departmentContextId &&
-        (task.departmentContext?.leaderUserId === actor.userId ||
+      (actor.roles.includes('LEADER') ||
+        actor.roles.includes('MANAGER') ||
+        this.has(actor, 'task.assign_department') ||
+        this.has(actor, 'task.review_department')) &&
+        (!task.departmentContextId ||
+          task.departmentContext?.leaderUserId === actor.userId ||
           actor.scopes?.some((s) => s.scopeId === task.departmentContextId) ||
-          actor.roles.includes('LEADER') ||
-          actor.roles.includes('MANAGER') ||
-          this.has(actor, 'task.assign_department') ||
-          this.has(actor, 'task.review_department')) &&
-        (visibleDepts === null || visibleDepts.includes(task.departmentContextId)),
+          visibleDepts === null ||
+          visibleDepts.includes(task.departmentContextId)),
     );
 
-    const canComplete = isGlobalAdmin || isCreator || isGroupLeader || isAssignee || isDeptLeader;
+    const canComplete = isGlobalAdmin || isCreator || isGroupLeader || isAssignee || isTargetUser || isDeptLeader;
     if (!canComplete) {
       throw forbidden('NOT_GROUP_LEADER', 'You do not have permission to complete this task');
     }
