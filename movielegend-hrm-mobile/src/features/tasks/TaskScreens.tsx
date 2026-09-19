@@ -536,6 +536,45 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
+        {item.status === 'COMPLETED' ? (
+          <SectionCard title="Báo cáo nghiệm thu & Kết quả dự án">
+            <View style={{ backgroundColor: '#F0FDF4', padding: spacing.md, borderRadius: 12, borderWidth: 1, borderColor: '#DCFCE7' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs }}>
+                <MaterialCommunityIcons name="check-decagram" size={20} color="#16A34A" />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#166534' }}>
+                  Dự án đã được nghiệm thu hoàn thành
+                </Text>
+              </View>
+              {item.assignments?.filter(a => Boolean(a.completionNote)).length ? (
+                <View style={{ marginTop: spacing.xs }}>
+                  {item.assignments?.filter(a => Boolean(a.completionNote)).map((a: any) => (
+                    <View key={a.id} style={{ marginTop: spacing.xs, backgroundColor: '#FFFFFF', padding: spacing.sm, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 4 }}>
+                        Báo cáo từ: {a.user?.profile?.fullName ?? a.user?.userCode ?? 'Người phụ trách'}
+                      </Text>
+                      <Text style={{ fontSize: 13, color: '#334155', lineHeight: 19 }}>
+                        {a.completionNote}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+
+            {submissionAttachments.length > 0 ? (
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>
+                  Tệp đính kèm kết quả / Báo cáo ({submissionAttachments.length}):
+                </Text>
+                <AttachmentList 
+                  attachments={submissionAttachments} 
+                  canDelete={() => false}
+                />
+              </View>
+            ) : null}
+          </SectionCard>
+        ) : null}
+
         {canReview && reviewAssignments.length > 0 ? (
           <SectionCard title="Xét duyệt công việc">
             {reviewAssignments.map((entry) => {

@@ -114,6 +114,7 @@ export function mapTaskError(code: string, fallback: string): string {
     FORBIDDEN_DEPARTMENT_SCOPE: 'Du lieu nam ngoai pham vi phong ban.',
     CROSS_DEPARTMENT_REQUEST_NOT_FOUND: 'Khong tim thay yeu cau lien phong ban.',
     INVALID_CROSS_DEPARTMENT_STATUS: 'Trang thai yeu cau khong hop le.',
+    NOT_GROUP_LEADER: 'Bạn không có quyền nghiệm thu hoặc hoàn tất dự án này.',
     NOTIFICATION_NOT_FOUND: 'Khong tim thay thong bao.',
   };
   return map[code] ?? fallback;
