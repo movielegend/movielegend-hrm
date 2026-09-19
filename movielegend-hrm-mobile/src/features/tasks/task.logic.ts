@@ -100,6 +100,8 @@ export function priorityTone(priority?: TaskPriority): 'neutral' | 'success' | '
 export function mapTaskError(code: string, fallback: string): string {
   const map: Record<string, string> = {
     TASK_NOT_FOUND: 'Khong tim thay cong viec.',
+    PARENT_TASK_NOT_FOUND: 'Không tìm thấy công việc cha.',
+    SUBTASK_DUE_DATE_EXCEEDS_PARENT: 'Hạn chót của công việc con không được vượt quá hạn chót của công việc cha.',
     TASK_ASSIGNMENT_NOT_FOUND: 'Khong tim thay phan viec.',
     TASK_TARGET_EMPTY: 'Cong viec can it nhat mot target.',
     TASK_ASSIGNMENT_MISMATCH: 'Phan viec khong thuoc task nay.',

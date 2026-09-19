@@ -611,13 +611,17 @@ export function ActionDatePicker({
   value, 
   onChange, 
   onClose,
-  title
+  title,
+  maximumDate,
+  minimumDate,
 }: { 
   visible: boolean; 
   value: Date | null; 
   onChange: (d: Date) => void; 
   onClose: () => void;
   title: string;
+  maximumDate?: Date;
+  minimumDate?: Date;
 }) {
   const [tempDate, setTempDate] = useState(value || new Date());
   const [androidMode, setAndroidMode] = useState<'date' | 'time'>('date');
@@ -638,6 +642,8 @@ export function ActionDatePicker({
         mode={androidMode}
         display="default"
         locale="vi-VN"
+        maximumDate={maximumDate}
+        minimumDate={minimumDate}
         onChange={(e, d) => {
           if (e.type === 'dismissed') {
             onClose();
@@ -679,6 +685,8 @@ export function ActionDatePicker({
             mode="datetime"
             display="spinner"
             locale="vi-VN"
+            maximumDate={maximumDate}
+            minimumDate={minimumDate}
             onChange={(e, d) => {
               if (d) setTempDate(d);
             }}
@@ -859,7 +867,31 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     }));
   }, [usersQuery.data?.items]);
 
+  const parentDueAt = parentTaskQuery.data?.dueAt ? new Date(parentTaskQuery.data.dueAt) : null;
+
   async function submit() {
+    if (parentDueAt && dueAt && dueAt.getTime() > parentDueAt.getTime()) {
+      showAlert(
+        'Thời gian không hợp lệ',
+        `Hạn chót của công việc con (${formatDateTime(dueAt.toISOString())}) không được vượt quá hạn chót của công việc cha (${formatDateTime(parentDueAt.toISOString())}).`
+      );
+      return;
+    }
+    if (parentDueAt && startAt && startAt.getTime() > parentDueAt.getTime()) {
+      showAlert(
+        'Thời gian không hợp lệ',
+        `Thời gian bắt đầu (${formatDateTime(startAt.toISOString())}) không được vượt quá hạn chót của công việc cha (${formatDateTime(parentDueAt.toISOString())}).`
+      );
+      return;
+    }
+    if (startAt && dueAt && startAt.getTime() > dueAt.getTime()) {
+      showAlert(
+        'Thời gian không hợp lệ',
+        'Thời gian bắt đầu không được lớn hơn thời gian hết hạn.'
+      );
+      return;
+    }
+
     const isGroup = assigneeMode === 'GROUP';
     const isDept = assigneeMode === 'DEPARTMENT';
 
@@ -923,6 +955,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
 
   const isSubmitDisabled = () => {
     if (title.trim().length < 3) return true;
+    if (parentDueAt && dueAt && dueAt.getTime() > parentDueAt.getTime()) return true;
     if (assigneeMode === 'GROUP') {
       return memberIds.length === 0 || !leaderId;
     }
@@ -1040,7 +1073,14 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Thời gian hết hạn</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={styles.fieldLabel}>Thời gian hết hạn</Text>
+              {parentDueAt ? (
+                <Text style={{ fontSize: 11, color: colors.warning, fontWeight: '600' }}>
+                  Hạn chót việc cha: {formatDateTime(parentDueAt.toISOString())}
+                </Text>
+              ) : null}
+            </View>
             <View style={styles.splitDateRow}>
               <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}>
                 <MaterialCommunityIcons name="calendar-month-outline" size={20} color={colors.text} />
@@ -1055,12 +1095,21 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                 </Text>
               </Pressable>
             </View>
+            {parentDueAt && dueAt && dueAt.getTime() > parentDueAt.getTime() ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, backgroundColor: '#FEF2F2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                <MaterialCommunityIcons name="alert-circle" size={14} color={colors.danger} />
+                <Text style={{ fontSize: 12, color: colors.danger, fontWeight: '500' }}>
+                  Đã vượt quá hạn chót của công việc cha!
+                </Text>
+              </View>
+            ) : null}
           </View>
           
           <ActionDatePicker
             visible={showStartDatePicker}
             value={startAt}
             title="Chọn thời gian bắt đầu"
+            maximumDate={parentDueAt || undefined}
             onChange={(d) => setStartAt(d)}
             onClose={() => setShowStartDatePicker(false)}
           />
@@ -1068,6 +1117,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
             visible={showDueDatePicker}
             value={dueAt}
             title="Chọn thời gian kết thúc"
+            maximumDate={parentDueAt || undefined}
             onChange={(d) => setDueAt(d)}
             onClose={() => setShowDueDatePicker(false)}
           />
