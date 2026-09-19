@@ -393,39 +393,156 @@ export class TasksService {
 
   async completeTask(id: string, actor: AuthenticatedUser) {
     if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
-    const task = await this.prisma.task.findUnique({ where: { id }, include: { assignments: true } });
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: {
+        assignments: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        departmentContext: true,
+        attachments: true,
+        childTasks: {
+          include: {
+            assignments: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+            attachments: true,
+          },
+        },
+      },
+    });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
+
     const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
-    const canComplete =
-      actor.roles.includes('ADMIN') ||
-      task.groupLeaderId === actor.userId ||
-      task.createdByUserId === actor.userId ||
-      (task.departmentContextId &&
-        this.has(actor, 'task.assign_department') &&
-        (visibleDepts?.includes(task.departmentContextId) ?? false));
+    const isGlobalAdmin = actor.roles.includes('ADMIN') || actor.roles.includes('SUPER_ADMIN');
+    const isCreator = task.createdByUserId === actor.userId;
+    const isGroupLeader = task.groupLeaderId === actor.userId;
+    const isAssignee = task.assignments.some((a) => a.userId === actor.userId);
+    const isDeptLeader = Boolean(
+      task.departmentContextId &&
+        (task.departmentContext?.leaderUserId === actor.userId ||
+          actor.scopes?.some((s) => s.scopeId === task.departmentContextId) ||
+          actor.roles.includes('LEADER') ||
+          actor.roles.includes('MANAGER') ||
+          this.has(actor, 'task.assign_department') ||
+          this.has(actor, 'task.review_department')) &&
+        (visibleDepts === null || visibleDepts.includes(task.departmentContextId)),
+    );
+
+    const canComplete = isGlobalAdmin || isCreator || isGroupLeader || isAssignee || isDeptLeader;
     if (!canComplete) {
       throw forbidden('NOT_GROUP_LEADER', 'You do not have permission to complete this task');
     }
-    return this.prisma.$transaction(async (tx) => {
+
+    const payload = await this.prisma.$transaction(async (tx) => {
+      // 1. Aggregate all attachments from child tasks into parent task attachments
+      const existingParentUrls = new Set(task.attachments.map((att) => att.fileUrl));
+      for (const child of task.childTasks) {
+        for (const att of child.attachments) {
+          if (!existingParentUrls.has(att.fileUrl)) {
+            existingParentUrls.add(att.fileUrl);
+            await tx.taskAttachment.create({
+              data: {
+                taskId: id,
+                uploadedByUserId: att.uploadedByUserId,
+                type: att.type,
+                fileName: `[${child.taskCode ?? 'Việc con'}] ${att.fileName}`,
+                fileUrl: att.fileUrl,
+                storageKey: att.storageKey,
+                mimeType: att.mimeType,
+                sizeBytes: att.sizeBytes,
+              },
+            });
+          }
+        }
+      }
+
+      // 2. Synthesize completion report from all child tasks
+      let aggregatedNote = '';
+      if (task.childTasks.length > 0) {
+        const subtaskSummaries = task.childTasks.map((child, idx) => {
+          const assigneeDetails = child.assignments
+            .map((a) => {
+              const name = a.user?.profile?.fullName ?? a.user?.userCode ?? 'Nhân sự';
+              const progress = `${a.progressPercent}%`;
+              const noteText = a.completionNote ? `\n    + Báo cáo: ${a.completionNote}` : '';
+              return `  - Phân công: ${name} (Tiến độ: ${progress})${noteText}`;
+            })
+            .join('\n');
+          return `[#${idx + 1}] ${child.taskCode ? `[${child.taskCode}] ` : ''}${child.title} (${child.status === 'COMPLETED' ? 'Hoàn thành' : child.status}):\n${assigneeDetails || '  - Không có nhân sự phân công'}`;
+        });
+        aggregatedNote = `Báo cáo nghiệm thu & tổng hợp kết quả công việc con:\n\n${subtaskSummaries.join('\n\n')}`;
+      }
+
+      // 3. Update assignments on parent task
       await tx.taskAssignment.updateMany({
         where: { taskId: id, status: { notIn: [TaskAssignmentStatus.CANCELLED, TaskAssignmentStatus.COMPLETED] } },
-        data: { status: TaskAssignmentStatus.COMPLETED, progressPercent: 100 },
+        data: {
+          status: TaskAssignmentStatus.COMPLETED,
+          progressPercent: 100,
+          completedAt: new Date(),
+          completionNote: aggregatedNote || 'Đã hoàn thành và nghiệm thu dự án',
+        },
       });
+
+      // 4. Mark parent task as COMPLETED
       const updated = await tx.task.update({
         where: { id },
         data: { status: TaskStatus.COMPLETED, completedAt: new Date() },
         include: this.taskDetailInclude(),
       });
+
+      // 5. Create audit timeline history
       await tx.taskStatusHistory.create({
         data: {
           taskId: id,
           actorUserId: actor.userId,
           action: TaskHistoryAction.APPROVED,
           toStatus: TaskStatus.COMPLETED,
+          note: aggregatedNote ? 'Nghiệm thu hoàn thành dự án & tổng hợp báo cáo từ việc con' : 'Nghiệm thu & hoàn thành dự án',
+          metadata: {
+            childTasksCount: task.childTasks.length,
+            aggregatedAttachmentsCount: task.childTasks.reduce((acc, c) => acc + c.attachments.length, 0),
+          },
         },
       });
-      return updated;
+
+      let notification: any = null;
+      if (task.createdByUserId && task.createdByUserId !== actor.userId) {
+        notification = await this.notifications.createForUsers(tx, [task.createdByUserId], {
+          type: NotificationType.TASK_UPDATED,
+          title: 'Dự án đã được nghiệm thu hoàn thành',
+          body: `Dự án "${task.title}" đã được nghiệm thu và báo cáo hoàn thành.`,
+          taskId: task.id,
+        });
+      }
+
+      return { updated, notification };
     });
+
+    if (payload.notification) {
+      this.notifications.emitCreated(payload.notification);
+    }
+    if (task.departmentContextId) {
+      this.realtime.emitToDepartment(task.departmentContextId, 'task:updated', { taskId: id });
+    }
+    if (task.createdByUserId) {
+      this.realtime.emitToUser(task.createdByUserId, 'task:updated', { taskId: id });
+    }
+
+    return payload.updated;
   }
 
   async approveAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser) {
