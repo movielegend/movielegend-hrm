@@ -93,11 +93,20 @@ const TASK_STATUS_TABS = [
   { label: 'Đã hủy', value: 'CANCELLED' },
 ];
 
+type TaskScope = 'DELEGATED' | 'MY_TASKS' | 'ALL_DEPT';
+
+const SCOPE_TABS: { key: TaskScope; label: string; icon: string }[] = [
+  { key: 'DELEGATED', label: 'Việc tôi giao', icon: 'send-outline' },
+  { key: 'MY_TASKS', label: 'Việc của tôi', icon: 'account-check-outline' },
+  { key: 'ALL_DEPT', label: 'Tất cả việc phòng', icon: 'domain' },
+];
+
 export function TaskListScreen({ area }: { area: TaskArea }) {
   const router = useRouter();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [scope, setScope] = useState<TaskScope>('DELEGATED');
 
   const isAdmin = Boolean(
     user?.roles?.includes('ADMIN') ||
@@ -114,7 +123,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const isRegionAdmin = Boolean(adminRegionScope && adminRegionScope.scopeId);
   const isRegionOnly = isRegionAdmin && !isGlobalAdmin;
 
-  const filters: TaskListFilters = useMemo(() => ({
+  const baseFilters: TaskListFilters = useMemo(() => ({
     page: 1,
     limit: 20,
     ...(search ? { search } : {}),
@@ -122,35 +131,105 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     ...(isRegionOnly && user?.id ? { createdById: user.id } : {})
   }), [search, status, isRegionOnly, user?.id]);
 
-  const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
+  // Queries for different scopes
+  const myTasksQuery = useMyTasks(baseFilters);
+  const delegatedFilters = useMemo(() => ({
+    ...baseFilters,
+    ...(user?.id ? { createdById: user.id } : {}),
+  }), [baseFilters, user?.id]);
+  const delegatedTasksQuery = useTasks(delegatedFilters);
+  const allDeptTasksQuery = useTasks(baseFilters);
+
+  const activeQuery = area === 'employee' 
+    ? myTasksQuery 
+    : scope === 'MY_TASKS'
+    ? myTasksQuery
+    : scope === 'DELEGATED'
+    ? delegatedTasksQuery
+    : allDeptTasksQuery;
+
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
 
   const isLeaderArea = area === 'leader' || area === 'hr';
   const title = area === 'employee'
     ? 'Công việc của tôi'
+    : scope === 'DELEGATED'
+    ? 'Công việc tôi giao'
+    : scope === 'MY_TASKS'
+    ? 'Công việc của tôi'
     : isLeaderArea
     ? 'Công việc phòng ban'
     : isRegionOnly
     ? 'Công việc đã giao'
     : 'Tất cả Công việc';
+
   const insets = useSafeAreaInsets();
 
   const displayTasks = useMemo(() => {
-    const rawItems = tasks.data?.items ?? [];
+    const rawItems = activeQuery.data?.items ?? [];
+    if (area !== 'employee' && scope === 'DELEGATED' && user?.id) {
+      return rawItems.filter(
+        (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
+      );
+    }
     if (isRegionOnly && user?.id) {
       return rawItems.filter(
         (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
       );
     }
     return rawItems;
-  }, [tasks.data?.items, isRegionOnly, user?.id]);
+  }, [activeQuery.data?.items, area, scope, isRegionOnly, user?.id]);
+
+  const emptyTitle = area === 'employee' || scope === 'MY_TASKS'
+    ? 'Chưa có công việc nào được giao cho bạn'
+    : scope === 'DELEGATED'
+    ? 'Chưa có công việc nào do bạn giao'
+    : 'Chưa có công việc nào trong phòng ban';
 
   return (
     <Screen>
-      <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
+      <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={activeQuery.isRefetching} onRefresh={() => void activeQuery.refetch()} />}>
         <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" showBack={false} />
         
+        {/* Scope Selector Tabs for Leader / HR / Admin */}
+        {area !== 'employee' ? (
+          <View style={styles.scopeContainer}>
+            {SCOPE_TABS.map((tab) => {
+              const isActive = scope === tab.key;
+              const count = tab.key === 'DELEGATED'
+                ? (delegatedTasksQuery.data?.pagination?.total ?? delegatedTasksQuery.data?.items?.length)
+                : tab.key === 'MY_TASKS'
+                ? (myTasksQuery.data?.pagination?.total ?? myTasksQuery.data?.items?.length)
+                : (allDeptTasksQuery.data?.pagination?.total ?? allDeptTasksQuery.data?.items?.length);
+
+              return (
+                <Pressable
+                  key={tab.key}
+                  style={[styles.scopeBtn, isActive && styles.scopeBtnActive]}
+                  onPress={() => setScope(tab.key)}
+                >
+                  <MaterialCommunityIcons
+                    name={tab.icon as any}
+                    size={15}
+                    color={isActive ? colors.primary : '#64748B'}
+                  />
+                  <Text style={[styles.scopeText, isActive && styles.scopeTextActive]} numberOfLines={1}>
+                    {tab.label}
+                  </Text>
+                  {count !== undefined && count > 0 ? (
+                    <View style={[styles.scopeCountBadge, isActive && styles.scopeCountBadgeActive]}>
+                      <Text style={[styles.scopeCountText, isActive && styles.scopeCountTextActive]}>
+                        {count > 99 ? '99+' : count}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />
         
         {(createRoute || reviewRoute) ? (
@@ -187,9 +266,9 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
           </ScrollView>
         </View>
 
-        {tasks.isLoading ? <LoadingState /> : null}
-        {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
-        {!tasks.isLoading && !displayTasks.length ? <EmptyState title="Chưa có công việc nào" /> : null}
+        {activeQuery.isLoading ? <LoadingState /> : null}
+        {activeQuery.isError ? <ErrorState error={activeQuery.error} onRetry={() => void activeQuery.refetch()} /> : null}
+        {!activeQuery.isLoading && !displayTasks.length ? <EmptyState title={emptyTitle} /> : null}
         {displayTasks.map((task) => (
           <TaskCard key={task.id} task={task} onPress={() => router.push(`/${area}/tasks/${task.id}`)} />
         ))}
@@ -2695,6 +2774,60 @@ const styles = StyleSheet.create({
   pickerModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   pickerModalTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
   pickerModalDone: { fontSize: 16, fontWeight: '600', color: colors.primary },
+  
+  // Scope Selector
+  scopeContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: spacing.sm,
+    gap: 4,
+  },
+  scopeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 9,
+    backgroundColor: 'transparent',
+  },
+  scopeBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  scopeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  scopeTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  scopeCountBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  scopeCountBadgeActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  scopeCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  scopeCountTextActive: {
+    color: colors.primary,
+  },
   
   // List UI
   actionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm, marginTop: spacing.xs },
