@@ -229,3 +229,11 @@ export function useCompleteTask(id: string) {
     onSuccess: () => invalidateTask(queryClient, id),
   });
 }
+
+export function useSyncSubtasksResults(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => require('../api/tasks.api').syncSubtasksResults(id),
+    onSuccess: () => invalidateTask(queryClient, id),
+  });
+}

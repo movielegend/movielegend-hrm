@@ -98,3 +98,8 @@ export async function completeTask(id: string): Promise<TaskDto> {
   const response = await apiClient.post<ApiResponse<TaskDto>>('/tasks/' + id + '/complete');
   return unwrapData(response);
 }
+
+export async function syncSubtasksResults(id: string): Promise<{ task: TaskDto; aggregatedReport: string; addedAttachmentsCount: number; totalChildTasks: number }> {
+  const response = await apiClient.post<ApiResponse<{ task: TaskDto; aggregatedReport: string; addedAttachmentsCount: number; totalChildTasks: number }>>('/tasks/' + id + '/sync-subtasks-results');
+  return unwrapData(response);
+}

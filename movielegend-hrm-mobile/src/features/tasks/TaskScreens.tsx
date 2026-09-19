@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCompleteTask } from '../../hooks/useTasks';
+import { useCompleteTask, useSyncSubtasksResults } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -237,10 +237,35 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const review = useReviewTaskAssignment(id);
   const extensionReview = useReviewTaskExtension(id);
   const completeTask = useCompleteTask(id ?? '');
+  const syncSubtasks = useSyncSubtasksResults(id ?? '');
   const cancel = useCancelTask(id ?? '');
   const { showAlert, showConfirm } = useAppAlert();
   const canReview = hasAnyPermission(user, ['task.review_all', 'task.review_department']);
   const canReviewExtension = hasAnyPermission(user, ['task.extension_review_all', 'task.extension_review_department']);
+
+  async function handleSyncSubtasks(showSuccessAlert = true) {
+    try {
+      const res = await syncSubtasks.mutateAsync();
+      if (res.aggregatedReport) {
+        setCompletionNote((prev) => {
+          if (!prev || prev.trim() === '') return res.aggregatedReport;
+          if (prev.includes(res.aggregatedReport)) return prev;
+          return `${res.aggregatedReport}\n\n--- Bổ sung ý kiến của Leader ---\n${prev}`;
+        });
+      }
+      if (showSuccessAlert) {
+        showAlert(
+          'Đã tổng hợp thành công',
+          `Đã chuyển ${res.addedAttachmentsCount} tệp đính kèm và trích xuất báo cáo từ ${res.totalChildTasks} việc con vào mục Báo cáo của bạn. Bạn có thể kiểm tra, đính kèm thêm tài liệu của mình rồi bấm "Nộp kết quả".`
+        );
+      }
+      return res;
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
+      throw error;
+    }
+  }
 
   const initialAttachments = useMemo(() => {
     return task.data?.attachments?.filter(att => att.uploadedByUserId === task.data?.createdByUserId) ?? [];
@@ -427,6 +452,30 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                     
                     {canSubmitAssignment(assignment.status) ? (
                       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md }}>
+                        {totalChildCount > 0 ? (
+                          <Pressable
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                              backgroundColor: '#EFF6FF',
+                              borderColor: '#BFDBFE',
+                              borderWidth: 1,
+                              paddingVertical: 10,
+                              paddingHorizontal: 12,
+                              borderRadius: 10,
+                              marginBottom: spacing.md,
+                            }}
+                            onPress={() => void handleSyncSubtasks(true)}
+                          >
+                            <MaterialCommunityIcons name="file-sync-outline" size={18} color="#2563EB" />
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>
+                              {syncSubtasks.isPending ? 'Đang tổng hợp...' : '📥 Lấy báo cáo & ảnh/tệp từ các việc con'}
+                            </Text>
+                          </Pressable>
+                        ) : null}
+
                         <FormField label="Ghi chú hoàn thành" value={completionNote} onChangeText={setCompletionNote} multiline />
                         <View style={{ marginVertical: spacing.sm }}>
                           <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: spacing.xs }}>Đính kèm kết quả / báo cáo</Text>
@@ -436,7 +485,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                                 attachments={submissionAttachments}
                                 canDelete={(attachmentId) => {
                                   const att = item.attachments?.find(a => a.id === attachmentId);
-                                  return att?.uploadedByUserId === user?.id;
+                                  return att?.uploadedByUserId === user?.id || isAdmin || isDepartmentLeader;
                                 }}
                                 onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu báo cáo')}
                               />
@@ -514,6 +563,15 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                   + Chia nhỏ việc con cho nhân sự
                 </SecondaryButton>
 
+                {totalChildCount > 0 && assignment && (canSubmitAssignment(assignment.status) || canUpdateProgress(assignment.status)) ? (
+                  <SecondaryButton
+                    loading={syncSubtasks.isPending}
+                    onPress={() => void handleSyncSubtasks(true)}
+                  >
+                    📥 Lấy báo cáo & ảnh/tệp từ việc con
+                  </SecondaryButton>
+                ) : null}
+
                 {item.status !== 'COMPLETED' ? (
                   <PrimaryButton
                     loading={completeTask.isPending}
@@ -521,7 +579,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                       showConfirm({
                         title: 'Nghiệm thu & Hoàn thành Dự án',
                         message: totalChildCount > 0 && completedChildCount < totalChildCount
-                          ? `Hiện tại có ${totalChildCount - completedChildCount} việc con chưa hoàn thành. Bạn có chắc chắn muốn báo cáo nghiệm thu và hoàn tất dự án này?`
+                          ? `Hiện tại có ${totalChildCount - completedChildCount} việc con chưa hoàn thành. Bạn có chắc chắn muốn nghiệm thu và hoàn tất dự án này?`
                           : 'Xác nhận hoàn thành toàn bộ dự án và gửi báo cáo nghiệm thu lên cấp trên?',
                         confirmLabel: 'Xác nhận hoàn thành',
                         onConfirm: () => void run(() => completeTask.mutateAsync(), 'Đã hoàn thành và nghiệm thu dự án thành công'),
