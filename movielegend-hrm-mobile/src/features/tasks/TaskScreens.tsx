@@ -1049,10 +1049,10 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
               >
                 <MaterialCommunityIcons
                   name="domain"
-                  size={16}
+                  size={15}
                   color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
                 />
-                <Text style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
+                <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
                   Phòng ban
                 </Text>
               </Pressable>
@@ -1063,10 +1063,10 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
               >
                 <MaterialCommunityIcons
                   name="account-outline"
-                  size={16}
+                  size={15}
                   color={assigneeMode === 'USER' ? colors.primary : '#64748B'}
                 />
-                <Text style={[styles.modeSegmentText, assigneeMode === 'USER' && styles.modeSegmentTextActive]}>
+                <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'USER' && styles.modeSegmentTextActive]}>
                   Cá nhân
                 </Text>
               </Pressable>
@@ -1077,11 +1077,11 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
               >
                 <MaterialCommunityIcons
                   name="account-group-outline"
-                  size={16}
+                  size={15}
                   color={assigneeMode === 'GROUP' ? colors.primary : '#64748B'}
                 />
-                <Text style={[styles.modeSegmentText, assigneeMode === 'GROUP' && styles.modeSegmentTextActive]}>
-                  Nhóm đặc nhiệm
+                <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'GROUP' && styles.modeSegmentTextActive]}>
+                  Tổ / Nhóm
                 </Text>
               </Pressable>
             </View>
@@ -3240,19 +3240,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
     borderRadius: 12,
-    padding: 4,
+    padding: 3,
     marginBottom: spacing.md,
-    gap: 4,
+    gap: 3,
   },
   modeSegmentBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 9,
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     borderRadius: 9,
     backgroundColor: 'transparent',
+    minWidth: 0,
   },
   modeSegmentBtnActive: {
     backgroundColor: '#FFFFFF',
@@ -3266,6 +3268,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#64748B',
+    flexShrink: 1,
   },
   modeSegmentTextActive: {
     color: colors.primary,
