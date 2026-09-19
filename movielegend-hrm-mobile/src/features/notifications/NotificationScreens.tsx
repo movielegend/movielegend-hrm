@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -37,6 +37,8 @@ import { spacing } from '../../theme/spacing';
 import type { NotificationTargetDto } from '../../types/notification.types';
 import { timeAgo } from '../../utils/date-time';
 import { notificationRoute, stringMeta } from '../../utils/notification-routing';
+
+type TabType = 'ALL' | 'UNREAD';
 
 const EN_TO_VI: Record<string, string> = {
   'New task assigned': 'Công việc mới được giao',
@@ -209,6 +211,7 @@ export function NotificationListScreen() {
   const unread = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
+  const [activeTab, setActiveTab] = useState<TabType>('ALL');
 
   async function openNotification(target: NotificationTargetDto) {
     const route = notificationRoute(target, user);
@@ -224,8 +227,15 @@ export function NotificationListScreen() {
     }
   }
 
-  const list = notifications.data || [];
+  const rawList = notifications.data || [];
   const unreadCount = unread.data || 0;
+
+  const displayList = useMemo(() => {
+    if (activeTab === 'UNREAD') {
+      return rawList.filter((target) => !target.readAt);
+    }
+    return rawList;
+  }, [rawList, activeTab]);
 
   return (
     <Screen backgroundColor="#FFFFFF">
@@ -247,6 +257,41 @@ export function NotificationListScreen() {
             ) : undefined
           }
         />
+
+        {/* 2 Tabs: Tất cả & Chưa đọc */}
+        <View style={styles.tabsContainer}>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'ALL' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('ALL')}
+          >
+            <Text style={[styles.tabText, activeTab === 'ALL' && styles.tabTextActive]}>
+              Tất cả
+            </Text>
+            {rawList.length > 0 && (
+              <View style={[styles.tabBadge, activeTab === 'ALL' && styles.tabBadgeActive]}>
+                <Text style={[styles.tabBadgeText, activeTab === 'ALL' && styles.tabBadgeTextActive]}>
+                  {rawList.length}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={[styles.tabButton, activeTab === 'UNREAD' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('UNREAD')}
+          >
+            <Text style={[styles.tabText, activeTab === 'UNREAD' && styles.tabTextActive]}>
+              Chưa đọc
+            </Text>
+            {unreadCount > 0 ? (
+              <View style={[styles.unreadCountBadge, activeTab === 'UNREAD' && styles.unreadCountBadgeActive]}>
+                <Text style={[styles.unreadCountBadgeText, activeTab === 'UNREAD' && styles.unreadCountBadgeTextActive]}>
+                  {unreadCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
       </View>
 
       {notifications.isLoading ? <LoadingState /> : null}
@@ -256,7 +301,7 @@ export function NotificationListScreen() {
 
       {!notifications.isLoading && !notifications.isError && (
         <FlatList
-          data={list}
+          data={displayList}
           keyExtractor={(target) => target.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -271,11 +316,19 @@ export function NotificationListScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
-                <Inbox size={36} strokeWidth={1.8} color="#94A3B8" />
+                {activeTab === 'UNREAD' ? (
+                  <CheckCheck size={36} strokeWidth={1.8} color="#10B981" />
+                ) : (
+                  <Inbox size={36} strokeWidth={1.8} color="#94A3B8" />
+                )}
               </View>
-              <Text style={styles.emptyTitle}>Không có thông báo nào</Text>
+              <Text style={styles.emptyTitle}>
+                {activeTab === 'UNREAD' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}
+              </Text>
               <Text style={styles.emptySubtitle}>
-                Bạn sẽ nhận được thông báo khi có công việc mới, duyệt đơn hoặc cập nhật từ công ty.
+                {activeTab === 'UNREAD'
+                  ? 'Tuyệt vời! Bạn đã xem hết tất cả các thông báo.'
+                  : 'Bạn sẽ nhận được thông báo khi có công việc mới, duyệt đơn hoặc tin tức từ công ty.'}
               </Text>
             </View>
           }
@@ -385,13 +438,73 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
+  tabsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  tabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+  },
+  tabButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+  },
+  tabBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    backgroundColor: '#E2E8F0',
+  },
+  tabBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  tabBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  unreadCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    backgroundColor: '#EF4444',
+  },
+  unreadCountBadgeActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  unreadCountBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  unreadCountBadgeTextActive: {
+    color: colors.primary,
+  },
   listContent: {
-    paddingBottom: 130, // Crucial bottom clearance for bottom tab bar!
+    paddingBottom: 130, // Bottom tab bar clearance
   },
   separator: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginLeft: 68, // Aligned with the text start for a polished iOS/Lark list feel
+    marginLeft: 68,
   },
   rowItem: {
     flexDirection: 'row',
