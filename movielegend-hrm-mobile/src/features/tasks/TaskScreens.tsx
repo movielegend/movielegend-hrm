@@ -457,7 +457,6 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                               flexDirection: 'row',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: 6,
                               backgroundColor: '#EFF6FF',
                               borderColor: '#BFDBFE',
                               borderWidth: 1,
@@ -468,9 +467,8 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                             }}
                             onPress={() => void handleSyncSubtasks(true)}
                           >
-                            <MaterialCommunityIcons name="file-sync-outline" size={18} color="#2563EB" />
                             <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>
-                              {syncSubtasks.isPending ? 'Đang tổng hợp...' : '📥 Lấy báo cáo & ảnh/tệp từ các việc con'}
+                              {syncSubtasks.isPending ? 'Đang tổng hợp...' : 'Lấy báo cáo & ảnh/tệp từ các việc con'}
                             </Text>
                           </Pressable>
                         ) : null}
