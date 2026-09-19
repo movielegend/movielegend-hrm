@@ -65,23 +65,32 @@ export function ConfirmModal({
           {displayMessage ? <Text style={styles.message}>{displayMessage}</Text> : null}
           {children}
 
-          <View style={styles.actions}>
+          <View style={[styles.actions, !hideCancel && displayConfirmLabel.length > 12 && styles.actionsStacked]}>
+            <PrimaryButton 
+              style={[
+                styles.btnFlex, 
+                isDanger && styles.dangerButton,
+                !hideCancel && displayConfirmLabel.length > 12 && styles.btnFull
+              ]}
+              textStyle={styles.confirmBtnText}
+              onPress={onConfirm} 
+              loading={displayLoading}
+            >
+              {displayConfirmLabel}
+            </PrimaryButton>
             {!hideCancel && (
               <SecondaryButton 
-                style={styles.btnFlex}
+                style={[
+                  styles.btnFlex,
+                  displayConfirmLabel.length > 12 && styles.btnFullSecondary
+                ]}
+                textStyle={styles.cancelBtnText}
                 onPress={onCancel} 
                 disabled={displayLoading}
               >
                 Hủy
               </SecondaryButton>
             )}
-            <PrimaryButton 
-              style={[styles.btnFlex, isDanger && styles.dangerButton]}
-              onPress={onConfirm} 
-              loading={displayLoading}
-            >
-              {displayConfirmLabel}
-            </PrimaryButton>
           </View>
         </View>
       </View>
@@ -95,7 +104,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
     flex: 1,
     justifyContent: 'center',
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   panel: {
     backgroundColor: '#FFFFFF',
@@ -114,9 +123,9 @@ const styles = StyleSheet.create({
     elevation: 15,
   },
   iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -134,15 +143,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: 'row-reverse',
+    gap: 10,
     width: '100%',
     marginTop: 8,
+  },
+  actionsStacked: {
+    flexDirection: 'column',
+    gap: 8,
   },
   btnFlex: {
     flex: 1,
     minHeight: 46,
     borderRadius: 14,
+    paddingHorizontal: 8,
+  },
+  btnFull: {
+    width: '100%',
+    minHeight: 48,
+    flex: undefined,
+  },
+  btnFullSecondary: {
+    width: '100%',
+    minHeight: 44,
+    flex: undefined,
+    borderWidth: 0,
+    backgroundColor: '#F8FAFC',
+  },
+  confirmBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
   },
   dangerButton: {
     backgroundColor: '#EF4444',

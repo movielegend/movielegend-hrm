@@ -1,5 +1,5 @@
 import { PropsWithChildren } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -8,10 +8,11 @@ interface ButtonProps extends PropsWithChildren {
   disabled?: boolean | undefined;
   loading?: boolean | undefined;
   accessibilityLabel?: string | undefined;
-  style?: ViewStyle | undefined;
+  style?: StyleProp<ViewStyle> | undefined;
+  textStyle?: StyleProp<TextStyle> | undefined;
 }
 
-export function PrimaryButton({ children, onPress, disabled, loading, accessibilityLabel, style }: ButtonProps) {
+export function PrimaryButton({ children, onPress, disabled, loading, accessibilityLabel, style, textStyle }: ButtonProps) {
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
@@ -26,12 +27,12 @@ export function PrimaryButton({ children, onPress, disabled, loading, accessibil
         style
       ]}
     >
-      {loading ? <ActivityIndicator color={colors.surface} /> : <Text style={styles.primaryText}>{children}</Text>}
+      {loading ? <ActivityIndicator color={colors.surface} /> : <Text style={[styles.primaryText, textStyle]}>{children}</Text>}
     </Pressable>
   );
 }
 
-export function SecondaryButton({ children, onPress, disabled, loading, accessibilityLabel, style }: ButtonProps) {
+export function SecondaryButton({ children, onPress, disabled, loading, accessibilityLabel, style, textStyle }: ButtonProps) {
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
@@ -46,7 +47,7 @@ export function SecondaryButton({ children, onPress, disabled, loading, accessib
         style
       ]}
     >
-      {loading ? <ActivityIndicator color="#111827" /> : <Text style={styles.secondaryText}>{children}</Text>}
+      {loading ? <ActivityIndicator color="#111827" /> : <Text style={[styles.secondaryText, textStyle]}>{children}</Text>}
     </Pressable>
   );
 }
