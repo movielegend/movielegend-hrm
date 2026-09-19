@@ -96,6 +96,7 @@ export function LeaderDashboard() {
   
   const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0, checkedInCount: 0 };
   const checkedInCount = deptStats.checkedInCount || 0;
+  const myTasksUncompletedCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -432,6 +433,15 @@ export function LeaderDashboard() {
             />
 
             {/* Nhóm 3: Cấp bậc, Dự án & Quỹ thưởng (Indigo sang trọng) */}
+            <GridItem4
+              icon="clipboard-account-outline"
+              title="Việc của tôi"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              badge={myTasksUncompletedCount > 0 ? `${myTasksUncompletedCount}` : undefined}
+              badgeColor="#EF4444"
+              onPress={() => router.push('/leader/my-tasks' as any)}
+            />
             <GridItem4
               icon="format-list-checks"
               title="Giao việc"

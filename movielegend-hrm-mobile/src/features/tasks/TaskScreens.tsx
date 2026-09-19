@@ -93,20 +93,11 @@ const TASK_STATUS_TABS = [
   { label: 'Đã hủy', value: 'CANCELLED' },
 ];
 
-type TaskScope = 'DELEGATED' | 'MY_TASKS' | 'ALL_DEPT';
-
-const SCOPE_TABS: { key: TaskScope; label: string; icon: string }[] = [
-  { key: 'DELEGATED', label: 'Việc tôi giao', icon: 'send-outline' },
-  { key: 'MY_TASKS', label: 'Việc của tôi', icon: 'account-check-outline' },
-  { key: 'ALL_DEPT', label: 'Tất cả việc phòng', icon: 'domain' },
-];
-
 export function TaskListScreen({ area }: { area: TaskArea }) {
   const router = useRouter();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
-  const [scope, setScope] = useState<TaskScope>('DELEGATED');
 
   const isAdmin = Boolean(
     user?.roles?.includes('ADMIN') ||
@@ -123,7 +114,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const isRegionAdmin = Boolean(adminRegionScope && adminRegionScope.scopeId);
   const isRegionOnly = isRegionAdmin && !isGlobalAdmin;
 
-  const baseFilters: TaskListFilters = useMemo(() => ({
+  const filters: TaskListFilters = useMemo(() => ({
     page: 1,
     limit: 20,
     ...(search ? { search } : {}),
@@ -131,105 +122,53 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     ...(isRegionOnly && user?.id ? { createdById: user.id } : {})
   }), [search, status, isRegionOnly, user?.id]);
 
-  // Queries for different scopes
-  const myTasksQuery = useMyTasks(baseFilters);
-  const delegatedFilters = useMemo(() => ({
-    ...baseFilters,
-    ...(user?.id ? { createdById: user.id } : {}),
-  }), [baseFilters, user?.id]);
-  const delegatedTasksQuery = useTasks(delegatedFilters);
-  const allDeptTasksQuery = useTasks(baseFilters);
-
-  const activeQuery = area === 'employee' 
-    ? myTasksQuery 
-    : scope === 'MY_TASKS'
-    ? myTasksQuery
-    : scope === 'DELEGATED'
-    ? delegatedTasksQuery
-    : allDeptTasksQuery;
-
+  const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
   const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
 
   const isLeaderArea = area === 'leader' || area === 'hr';
   const title = area === 'employee'
     ? 'Công việc của tôi'
-    : scope === 'DELEGATED'
-    ? 'Công việc tôi giao'
-    : scope === 'MY_TASKS'
-    ? 'Công việc của tôi'
     : isLeaderArea
     ? 'Công việc phòng ban'
     : isRegionOnly
     ? 'Công việc đã giao'
     : 'Tất cả Công việc';
-
   const insets = useSafeAreaInsets();
 
   const displayTasks = useMemo(() => {
-    const rawItems = activeQuery.data?.items ?? [];
-    if (area !== 'employee' && scope === 'DELEGATED' && user?.id) {
-      return rawItems.filter(
-        (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
-      );
-    }
+    const rawItems = tasks.data?.items ?? [];
     if (isRegionOnly && user?.id) {
       return rawItems.filter(
         (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
       );
     }
     return rawItems;
-  }, [activeQuery.data?.items, area, scope, isRegionOnly, user?.id]);
+  }, [tasks.data?.items, isRegionOnly, user?.id]);
 
-  const emptyTitle = area === 'employee' || scope === 'MY_TASKS'
-    ? 'Chưa có công việc nào được giao cho bạn'
-    : scope === 'DELEGATED'
-    ? 'Chưa có công việc nào do bạn giao'
-    : 'Chưa có công việc nào trong phòng ban';
+  const handleTaskPress = (taskId: string) => {
+    if (area === 'employee') {
+      const isLeader = user?.roles?.includes('LEADER');
+      const isHR = user?.roles?.includes('HR');
+      if (isLeader) {
+        router.push(`/leader/my-tasks/${taskId}` as any);
+        return;
+      }
+      if (isHR) {
+        router.push(`/hr/my-tasks/${taskId}` as any);
+        return;
+      }
+      router.push(`/employee/tasks/${taskId}` as any);
+      return;
+    }
+    router.push(`/${area}/tasks/${taskId}` as any);
+  };
 
   return (
     <Screen>
-      <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={activeQuery.isRefetching} onRefresh={() => void activeQuery.refetch()} />}>
+      <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
         <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" showBack={false} />
         
-        {/* Scope Selector Tabs for Leader / HR / Admin */}
-        {area !== 'employee' ? (
-          <View style={styles.scopeContainer}>
-            {SCOPE_TABS.map((tab) => {
-              const isActive = scope === tab.key;
-              const count = tab.key === 'DELEGATED'
-                ? (delegatedTasksQuery.data?.pagination?.total ?? delegatedTasksQuery.data?.items?.length)
-                : tab.key === 'MY_TASKS'
-                ? (myTasksQuery.data?.pagination?.total ?? myTasksQuery.data?.items?.length)
-                : (allDeptTasksQuery.data?.pagination?.total ?? allDeptTasksQuery.data?.items?.length);
-
-              return (
-                <Pressable
-                  key={tab.key}
-                  style={[styles.scopeBtn, isActive && styles.scopeBtnActive]}
-                  onPress={() => setScope(tab.key)}
-                >
-                  <MaterialCommunityIcons
-                    name={tab.icon as any}
-                    size={15}
-                    color={isActive ? colors.primary : '#64748B'}
-                  />
-                  <Text style={[styles.scopeText, isActive && styles.scopeTextActive]} numberOfLines={1}>
-                    {tab.label}
-                  </Text>
-                  {count !== undefined && count > 0 ? (
-                    <View style={[styles.scopeCountBadge, isActive && styles.scopeCountBadgeActive]}>
-                      <Text style={[styles.scopeCountText, isActive && styles.scopeCountTextActive]}>
-                        {count > 99 ? '99+' : count}
-                      </Text>
-                    </View>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-
         <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />
         
         {(createRoute || reviewRoute) ? (
@@ -266,11 +205,11 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
           </ScrollView>
         </View>
 
-        {activeQuery.isLoading ? <LoadingState /> : null}
-        {activeQuery.isError ? <ErrorState error={activeQuery.error} onRetry={() => void activeQuery.refetch()} /> : null}
-        {!activeQuery.isLoading && !displayTasks.length ? <EmptyState title={emptyTitle} /> : null}
+        {tasks.isLoading ? <LoadingState /> : null}
+        {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
+        {!tasks.isLoading && !displayTasks.length ? <EmptyState title="Chưa có công việc nào" /> : null}
         {displayTasks.map((task) => (
-          <TaskCard key={task.id} task={task} onPress={() => router.push(`/${area}/tasks/${task.id}`)} />
+          <TaskCard key={task.id} task={task} onPress={() => handleTaskPress(task.id)} />
         ))}
       </ScreenContainer>
     </Screen>
