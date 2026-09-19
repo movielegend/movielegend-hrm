@@ -473,21 +473,7 @@ export class TasksService {
       }
 
       // 2. Synthesize completion report from all child tasks
-      let aggregatedNote = '';
-      if (task.childTasks.length > 0) {
-        const subtaskSummaries = task.childTasks.map((child, idx) => {
-          const assigneeDetails = child.assignments
-            .map((a) => {
-              const name = a.user?.profile?.fullName ?? a.user?.userCode ?? 'Nhân sự';
-              const progress = `${a.progressPercent}%`;
-              const noteText = a.completionNote ? `\n    + Báo cáo: ${a.completionNote}` : '';
-              return `  - Phân công: ${name} (Tiến độ: ${progress})${noteText}`;
-            })
-            .join('\n');
-          return `[#${idx + 1}] ${child.taskCode ? `[${child.taskCode}] ` : ''}${child.title} (${child.status === 'COMPLETED' ? 'Hoàn thành' : child.status}):\n${assigneeDetails || '  - Không có nhân sự phân công'}`;
-        });
-        aggregatedNote = `Báo cáo nghiệm thu & tổng hợp kết quả công việc con:\n\n${subtaskSummaries.join('\n\n')}`;
-      }
+      const aggregatedNote = this.buildAggregatedSubtasksReport(task.childTasks);
 
       // 3. Update assignments on parent task
       await tx.taskAssignment.updateMany({
@@ -611,22 +597,7 @@ export class TasksService {
       }
     });
 
-    let aggregatedReport = '';
-    if (task.childTasks.length > 0) {
-      const subtaskSummaries = task.childTasks.map((child, idx) => {
-        const assigneeDetails = child.assignments
-          .map((a) => {
-            const name = a.user?.profile?.fullName ?? a.user?.userCode ?? 'Nhân sự';
-            const progress = `${a.progressPercent}%`;
-            const noteText = a.completionNote ? `\n    + Báo cáo: ${a.completionNote}` : '';
-            return `  - Phân công: ${name} (Tiến độ: ${progress})${noteText}`;
-          })
-          .join('\n');
-        return `[#${idx + 1}] ${child.taskCode ? `[${child.taskCode}] ` : ''}${child.title} (${child.status === 'COMPLETED' ? 'Hoàn thành' : child.status}):\n${assigneeDetails || '  - Không có nhân sự phân công'}`;
-      });
-      aggregatedReport = `Báo cáo tổng hợp nghiệm thu từ các công việc con:\n\n${subtaskSummaries.join('\n\n')}`;
-    }
-
+    const aggregatedReport = this.buildAggregatedSubtasksReport(task.childTasks);
     const updatedTask = await this.findOne(id, actor);
     return {
       task: updatedTask,
@@ -634,6 +605,43 @@ export class TasksService {
       addedAttachmentsCount,
       totalChildTasks: task.childTasks.length,
     };
+  }
+
+  private translateTaskStatusVi(status?: string | null): string {
+    const map: Record<string, string> = {
+      NEW: 'Mới giao',
+      ACCEPTED: 'Đã nhận việc',
+      IN_PROGRESS: 'Đang thực hiện',
+      WAITING_REVIEW: 'Chờ duyệt kết quả',
+      COMPLETED: 'Đã hoàn thành',
+      REJECTED: 'Cần làm lại',
+      CANCELLED: 'Đã hủy',
+    };
+    return status ? (map[status] ?? status) : 'Chưa cập nhật';
+  }
+
+  private buildAggregatedSubtasksReport(childTasks: any[]): string {
+    if (!childTasks || childTasks.length === 0) return '';
+
+    const items = childTasks.map((child, idx) => {
+      const statusText = this.translateTaskStatusVi(child.status);
+      const codePart = child.taskCode ? `[${child.taskCode}] ` : '';
+
+      const assigneeDetails = child.assignments && child.assignments.length > 0
+        ? child.assignments
+            .map((a: any) => {
+              const name = a.user?.profile?.fullName ?? a.user?.userCode ?? 'Nhân sự';
+              const progress = `${a.progressPercent ?? 0}%`;
+              const noteText = a.completionNote ? `\n   • Báo cáo / Kết quả: ${a.completionNote}` : '';
+              return `   • Phụ trách: ${name} (Tiến độ: ${progress})${noteText}`;
+            })
+            .join('\n')
+        : '   • Phụ trách: Chưa phân công';
+
+      return `${idx + 1}. Việc con: ${codePart}${child.title}\n   • Trạng thái: ${statusText}\n${assigneeDetails}`;
+    });
+
+    return `📋 TỔNG HỢP TIẾN ĐỘ & BÁO CÁO CÁC VIỆC CON:\n\n${items.join('\n\n')}\n\n---------------------------------\n💬 Ý kiến & Kết luận của Trưởng bộ phận:\n- Đã kiểm tra và nghiệm thu các hạng mục công việc con hoàn thành theo đúng yêu cầu.`;
   }
 
   async approveAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser) {
