@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCompleteTask, useSyncSubtasksResults } from '../../hooks/useTasks';
+import { useSyncSubtasksResults } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -236,7 +236,6 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   const extension = useCreateTaskExtension(id ?? '');
   const review = useReviewTaskAssignment(id);
   const extensionReview = useReviewTaskExtension(id);
-  const completeTask = useCompleteTask(id ?? '');
   const syncSubtasks = useSyncSubtasksResults(id ?? '');
   const cancel = useCancelTask(id ?? '');
   const { showAlert, showConfirm } = useAppAlert();
@@ -245,8 +244,8 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
 
   async function handleSyncSubtasks(showSuccessAlert = true) {
     try {
-      const res = await syncSubtasks.mutateAsync();
-      if (res.aggregatedReport) {
+      const res: any = await syncSubtasks.mutateAsync();
+      if (res?.aggregatedReport) {
         setCompletionNote((prev) => {
           if (!prev || prev.trim() === '') return res.aggregatedReport;
           if (prev.includes(res.aggregatedReport)) return prev;
@@ -562,45 +561,18 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                 <SecondaryButton onPress={() => router.push(`/${area}/tasks/create?parentTaskId=${item.id}`)}>
                   + Chia nhỏ việc con cho nhân sự
                 </SecondaryButton>
-
-                {totalChildCount > 0 && assignment && (canSubmitAssignment(assignment.status) || canUpdateProgress(assignment.status)) ? (
-                  <SecondaryButton
-                    loading={syncSubtasks.isPending}
-                    onPress={() => void handleSyncSubtasks(true)}
-                  >
-                    📥 Lấy báo cáo & ảnh/tệp từ việc con
-                  </SecondaryButton>
-                ) : null}
-
-                {item.status !== 'COMPLETED' ? (
-                  <PrimaryButton
-                    loading={completeTask.isPending}
-                    onPress={() => {
-                      showConfirm({
-                        title: 'Nghiệm thu & Hoàn thành Dự án',
-                        message: totalChildCount > 0 && completedChildCount < totalChildCount
-                          ? `Hiện tại có ${totalChildCount - completedChildCount} việc con chưa hoàn thành. Bạn có chắc chắn muốn nghiệm thu và hoàn tất dự án này?`
-                          : 'Xác nhận hoàn thành toàn bộ dự án và gửi báo cáo nghiệm thu lên cấp trên?',
-                        confirmLabel: 'Xác nhận hoàn thành',
-                        onConfirm: () => void run(() => completeTask.mutateAsync(), 'Đã hoàn thành và nghiệm thu dự án thành công'),
-                      });
-                    }}
-                  >
-                    Báo cáo nghiệm thu & Hoàn thành Dự án
-                  </PrimaryButton>
-                ) : null}
               </View>
             ) : null}
           </SectionCard>
         ) : null}
 
         {item.status === 'COMPLETED' ? (
-          <SectionCard title="Báo cáo nghiệm thu & Kết quả dự án">
+          <SectionCard title="Kết quả hoàn thành công việc">
             <View style={{ backgroundColor: '#F0FDF4', padding: spacing.md, borderRadius: 12, borderWidth: 1, borderColor: '#DCFCE7' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs }}>
                 <MaterialCommunityIcons name="check-decagram" size={20} color="#16A34A" />
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#166534' }}>
-                  Dự án đã được nghiệm thu hoàn thành
+                  Công việc đã hoàn thành
                 </Text>
               </View>
               {item.assignments?.filter(a => Boolean(a.completionNote)).length ? (
