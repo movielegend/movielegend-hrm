@@ -112,15 +112,16 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
   );
   const isRegionAdmin = Boolean(adminRegionScope && adminRegionScope.scopeId);
-  const isRegionOnly = isRegionAdmin && !isGlobalAdmin;
-
+  const isRegionOnly = Boolean(isRegionAdmin && !isGlobalAdmin);
+  const isAdminArea = area === 'admin';
   const filters: TaskListFilters = useMemo(() => ({
     page: 1,
     limit: 20,
     ...(search ? { search } : {}),
     ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {}),
+    ...(isAdminArea && user?.id ? { createdById: user.id } : {}),
     ...(isRegionOnly && user?.id ? { createdById: user.id } : {})
-  }), [search, status, isRegionOnly, user?.id]);
+  }), [search, status, isAdminArea, isRegionOnly, user?.id]);
 
   const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
@@ -131,6 +132,8 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     ? 'Công việc của tôi'
     : isLeaderArea
     ? 'Công việc phòng ban'
+    : isAdminArea
+    ? 'Công việc đã giao'
     : isRegionOnly
     ? 'Công việc đã giao'
     : 'Tất cả Công việc';
@@ -138,13 +141,13 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
 
   const displayTasks = useMemo(() => {
     const rawItems = tasks.data?.items ?? [];
-    if (isRegionOnly && user?.id) {
+    if ((isAdminArea || isRegionOnly) && user?.id) {
       return rawItems.filter(
         (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
       );
     }
     return rawItems;
-  }, [tasks.data?.items, isRegionOnly, user?.id]);
+  }, [tasks.data?.items, isAdminArea, isRegionOnly, user?.id]);
 
   const handleTaskPress = (taskId: string) => {
     if (area === 'employee') {
