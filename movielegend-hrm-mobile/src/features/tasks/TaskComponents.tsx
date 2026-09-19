@@ -209,15 +209,15 @@ export function AttachmentPicker({
       if (picked.canceled || !picked.assets?.[0]) return;
       const asset = picked.assets[0];
       setUploadingType('FILE');
+      const fileName = asset.name || asset.uri.split('/').pop() || 'document.pdf';
       const upload = await uploadFile({
         uri: asset.uri,
-        name: asset.name,
+        name: fileName,
         mimeType: asset.mimeType ?? 'application/octet-stream',
         purpose: 'TASK_ATTACHMENT',
-        file: asset.file,
       });
       await handleNewAttachment({
-        fileName: asset.name,
+        fileName: fileName,
         fileUrl: upload.fileUrl,
         mimeType: upload.mimeType,
         sizeBytes: upload.size,

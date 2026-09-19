@@ -44,27 +44,15 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
   const effectiveMime = targetMimeType || mimeByExt[ext] || 'application/octet-stream';
 
   if (Platform.OS !== 'web') {
-    // 1. Copy sang FileSystem.cacheDirectory để tránh lỗi scoped permissions "Location isn't readable" trên Android
     let safeUri = targetUri;
-    if (FileSystem.cacheDirectory && !targetUri.includes(FileSystem.cacheDirectory)) {
-      try {
-        const cleanFileName = `upload_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
-        const destUri = `${FileSystem.cacheDirectory}${cleanFileName}`;
-        await FileSystem.copyAsync({
-          from: targetUri,
-          to: destUri,
-        });
-        safeUri = destUri;
-      } catch (copyErr) {
-        console.warn('FileSystem.copyAsync failed, will attempt upload with targetUri:', copyErr);
-      }
+    if (!safeUri.startsWith('content://') && !safeUri.startsWith('file://')) {
+      safeUri = safeUri.startsWith('/') ? `file://${safeUri}` : `file:///${safeUri}`;
     }
 
-    // 2. Thử uploadAsync
     try {
       const uploadResult = await FileSystem.uploadAsync(endpoint, safeUri, {
         httpMethod: 'POST',
-        uploadType: (FileSystem as any).FileSystemUploadType?.MULTIPART ?? 0,
+        uploadType: (FileSystem as any).FileSystemUploadType?.MULTIPART ?? 1,
         fieldName: 'file',
         mimeType: effectiveMime,
         parameters: {
@@ -76,9 +64,9 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
       if (uploadResult.status >= 200 && uploadResult.status < 300) {
         const json = JSON.parse(uploadResult.body);
         if (json.success) return json.data;
-        throw new Error(json.error?.message || 'Upload failed');
+        throw new Error(json.error?.message || json.message || 'Upload failed');
       } else {
-        let errMessage = 'Upload failed';
+        let errMessage = `Upload failed (${uploadResult.status})`;
         try {
           const json = JSON.parse(uploadResult.body);
           if (json.error?.message) errMessage = json.error.message;
@@ -87,17 +75,17 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
         throw new Error(errMessage);
       }
     } catch (uploadAsyncErr: any) {
-      // 3. Fallback: Native React Native FormData fetch
+      if (uploadAsyncErr?.message && !uploadAsyncErr.message.includes('FileSystem.uploadAsync')) {
+        // If it's already an error from server response JSON, rethrow directly
+        throw uploadAsyncErr;
+      }
+      
+      // Fallback: Native React Native FormData fetch
       const formData = new FormData();
       formData.append('purpose', input.purpose);
-      
-      const formUri = safeUri.startsWith('content://') || safeUri.startsWith('file://')
-        ? safeUri
-        : (Platform.OS === 'android' ? safeUri : `file://${safeUri}`);
-
       formData.append('file', {
-        uri: formUri,
-        name: input.name,
+        uri: safeUri,
+        name: input.name || 'file',
         type: effectiveMime,
       } as any);
 
@@ -112,7 +100,7 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
       try {
         json = await response.json();
       } catch (parseErr) {
-        throw new Error(`Upload failed (Status ${response.status})`);
+        throw new Error(`Upload failed with status ${response.status}`);
       }
       if (response.ok && json.success) return json.data;
       throw new Error(json.error?.message || json.message || `Upload failed with status ${response.status}`);
