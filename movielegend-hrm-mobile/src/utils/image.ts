@@ -16,12 +16,13 @@ export function getAbsoluteImageUrl(path: string | null | undefined): string | u
 
 export async function normalizeAndCompressImage(uri: string): Promise<string> {
   try {
+    const format = ImageManipulator.SaveFormat?.JPEG ?? ('jpeg' as any);
     const result = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: 1080 } }],
       {
         compress: 0.8,
-        format: ImageManipulator.SaveFormat.JPEG,
+        format,
       }
     );
     return result.uri;

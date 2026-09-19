@@ -9,7 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import * as ImagePicker from 'expo-image-picker';
-import { requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
+import { requestMediaLibraryPermissionWithFallback, requestCameraPermissionWithFallback } from '../../utils/mediaPermissions';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { uploadFile } from '../../api/uploads.api';
@@ -184,21 +184,31 @@ export function CommentList({ comments }: { comments?: TaskCommentDto[] | undefi
 export function AttachmentPicker({
   onAttach,
   pending,
+  autoAttach = false,
 }: {
   onAttach: (payload: CreateTaskAttachmentPayload) => Promise<void>;
   pending?: boolean;
+  autoAttach?: boolean;
 }) {
   const [staged, setStaged] = useState<CreateTaskAttachmentPayload[]>([]);
-  const [uploadingType, setUploadingType] = useState<'FILE' | 'IMAGE' | null>(null);
+  const [uploadingType, setUploadingType] = useState<'FILE' | 'IMAGE' | 'CAMERA' | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const { showAlert } = useAppAlert();
 
+  async function handleNewAttachment(payload: CreateTaskAttachmentPayload) {
+    if (autoAttach) {
+      await onAttach(payload);
+    } else {
+      setStaged(prev => [...prev, payload]);
+    }
+  }
+
   async function pickAndUpload() {
-    const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
-    if (picked.canceled || !picked.assets?.[0]) return;
-    const asset = picked.assets[0];
-    setUploadingType('FILE');
     try {
+      const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      setUploadingType('FILE');
       const upload = await uploadFile({
         uri: asset.uri,
         name: asset.name,
@@ -206,13 +216,13 @@ export function AttachmentPicker({
         purpose: 'TASK_ATTACHMENT',
         file: asset.file,
       });
-      setStaged(prev => [...prev, {
+      await handleNewAttachment({
         fileName: asset.name,
         fileUrl: upload.fileUrl,
         mimeType: upload.mimeType,
         sizeBytes: upload.size,
         type: upload.mimeType.startsWith('image/') ? 'IMAGE' : 'FILE',
-      }]);
+      });
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, normalized.message);
@@ -222,18 +232,18 @@ export function AttachmentPicker({
   }
 
   async function pickImageAndUpload() {
-    const hasPermission = await requestMediaLibraryPermissionWithFallback();
-    if (!hasPermission) return;
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-    if (picked.canceled || !picked.assets?.length) return;
-    
-    setUploadingType('IMAGE');
     try {
-      const uploadedAssets = await Promise.all(picked.assets.map(async (asset) => {
+      const hasPermission = await requestMediaLibraryPermissionWithFallback();
+      if (!hasPermission) return;
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'] as any,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+      if (picked.canceled || !picked.assets?.length) return;
+      
+      setUploadingType('IMAGE');
+      for (const asset of picked.assets) {
         const fileName = asset.fileName ?? asset.uri.split('/').pop() ?? 'image.jpg';
         const upload = await uploadFile({
           uri: asset.uri,
@@ -241,15 +251,49 @@ export function AttachmentPicker({
           mimeType: asset.mimeType ?? 'image/jpeg',
           purpose: 'TASK_ATTACHMENT',
         });
-        return {
+        await handleNewAttachment({
           fileName: fileName,
           fileUrl: upload.fileUrl,
           mimeType: upload.mimeType,
           sizeBytes: upload.size,
           type: 'IMAGE' as const,
-        };
-      }));
-      setStaged(prev => [...prev, ...uploadedAssets]);
+        });
+      }
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      showAlert(normalized.code, normalized.message);
+    } finally {
+      setUploadingType(null);
+    }
+  }
+
+  async function pickCameraAndUpload() {
+    try {
+      const hasPermission = await requestCameraPermissionWithFallback();
+      if (!hasPermission) return;
+      const picked = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'] as any,
+        quality: 0.8,
+      });
+      if (picked.canceled || !picked.assets?.length) return;
+
+      setUploadingType('CAMERA');
+      for (const asset of picked.assets) {
+        const fileName = asset.fileName ?? `photo_${Date.now()}.jpg`;
+        const upload = await uploadFile({
+          uri: asset.uri,
+          name: fileName,
+          mimeType: asset.mimeType ?? 'image/jpeg',
+          purpose: 'TASK_ATTACHMENT',
+        });
+        await handleNewAttachment({
+          fileName: fileName,
+          fileUrl: upload.fileUrl,
+          mimeType: upload.mimeType,
+          sizeBytes: upload.size,
+          type: 'IMAGE' as const,
+        });
+      }
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, normalized.message);
@@ -271,6 +315,8 @@ export function AttachmentPicker({
     }
   }
 
+  const isBusy = !!uploadingType || pending;
+
   return (
     <View style={styles.stack}>
       <Modal visible={!!previewImage} transparent={true} animationType="fade" onRequestClose={() => setPreviewImage(null)}>
@@ -283,15 +329,24 @@ export function AttachmentPicker({
           )}
         </View>
       </Modal>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+      <View style={{ flexDirection: 'row', gap: spacing.xs }}>
         <View style={{ flex: 1 }}>
-          <SecondaryButton loading={uploadingType === 'FILE'} onPress={() => void pickAndUpload()}>Chọn file</SecondaryButton>
+          <SecondaryButton loading={uploadingType === 'CAMERA'} disabled={isBusy} onPress={() => void pickCameraAndUpload()}>
+            Chụp ảnh
+          </SecondaryButton>
         </View>
         <View style={{ flex: 1 }}>
-          <SecondaryButton loading={uploadingType === 'IMAGE'} onPress={() => void pickImageAndUpload()}>Chọn ảnh</SecondaryButton>
+          <SecondaryButton loading={uploadingType === 'IMAGE'} disabled={isBusy} onPress={() => void pickImageAndUpload()}>
+            Chọn ảnh
+          </SecondaryButton>
+        </View>
+        <View style={{ flex: 1 }}>
+          <SecondaryButton loading={uploadingType === 'FILE'} disabled={isBusy} onPress={() => void pickAndUpload()}>
+            Chọn tệp
+          </SecondaryButton>
         </View>
       </View>
-      {staged.length > 0 ? (
+      {!autoAttach && staged.length > 0 ? (
         <View style={styles.inlinePanel}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
             {staged.map((item, index) => (
@@ -315,7 +370,7 @@ export function AttachmentPicker({
               </View>
             ))}
           </View>
-          <Text style={styles.meta}>Tải lên thành công {staged.length} file, sẵn sàng đính kèm. Nếu đính kèm thất bại, ứng dụng sẽ giữ lại file để thử lại.</Text>
+          <Text style={styles.meta}>Đã tải lên {staged.length} file. Bấm "Đính kèm file" để lưu vào danh sách.</Text>
           <PrimaryButton loading={pending} onPress={() => void attach()}>Đính kèm file</PrimaryButton>
         </View>
       ) : null}

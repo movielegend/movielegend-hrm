@@ -91,8 +91,13 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
       // 3. Fallback: Native React Native FormData fetch
       const formData = new FormData();
       formData.append('purpose', input.purpose);
+      
+      const formUri = safeUri.startsWith('content://') || safeUri.startsWith('file://')
+        ? safeUri
+        : (Platform.OS === 'android' ? safeUri : `file://${safeUri}`);
+
       formData.append('file', {
-        uri: safeUri.startsWith('file://') ? safeUri : `file://${safeUri}`,
+        uri: formUri,
         name: input.name,
         type: effectiveMime,
       } as any);
@@ -104,9 +109,14 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
         signal: input.signal,
       });
 
-      const json = await response.json();
-      if (json.success) return json.data;
-      throw new Error(json.error?.message || json.message || 'Upload failed');
+      let json: any = {};
+      try {
+        json = await response.json();
+      } catch (parseErr) {
+        throw new Error(`Upload failed (Status ${response.status})`);
+      }
+      if (response.ok && json.success) return json.data;
+      throw new Error(json.error?.message || json.message || `Upload failed with status ${response.status}`);
     }
   } else {
     const formData = new FormData();

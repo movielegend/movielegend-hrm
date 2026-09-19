@@ -357,9 +357,9 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
             <TargetPreview task={item} />
           </View>
 
-          {initialAttachments.length > 0 ? (
-            <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Tài liệu đính kèm:</Text>
+          <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Tài liệu đính kèm:</Text>
+            {initialAttachments.length > 0 ? (
               <AttachmentList 
                 attachments={initialAttachments} 
                 isUnaccepted={isUnacceptedAssignee}
@@ -369,8 +369,19 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                 }}
                 onDeleteAttachment={(attachmentId) => run(() => deleteAttachment.mutateAsync(attachmentId), 'Đã xoá tài liệu')}
               />
-            </View>
-          ) : null}
+            ) : null}
+            {(isCreator || isDepartmentLeader || isGroupLeader || hasAnyPermission(user, ['task.assign_any'])) && !isReadOnlyStatus(item.status) ? (
+              <View style={{ marginTop: initialAttachments.length > 0 ? spacing.sm : 0 }}>
+                <AttachmentPicker
+                  autoAttach
+                  pending={attachment.isPending}
+                  onAttach={async (payload) => {
+                    await attachment.mutateAsync(payload);
+                  }}
+                />
+              </View>
+            ) : null}
+          </View>
         </View>
 
         {assignment ? (
@@ -438,7 +449,11 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                               />
                             </View>
                           ) : null}
-                          <AttachmentPicker pending={attachment.isPending} onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)} />
+                          <AttachmentPicker
+                            autoAttach
+                            pending={attachment.isPending}
+                            onAttach={(payload) => attachment.mutateAsync(payload).then(() => undefined)}
+                          />
                         </View>
                         <PrimaryButton
                           loading={submit.isPending}
@@ -965,9 +980,13 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                 ))}
               </View>
             )}
-            <AttachmentPicker onAttach={async (payload) => {
-              setAttachments(prev => [...prev, payload]);
-            }} pending={mutation.isPending} />
+            <AttachmentPicker
+              autoAttach
+              onAttach={async (payload) => {
+                setAttachments(prev => [...prev, payload]);
+              }}
+              pending={mutation.isPending}
+            />
           </View>
         </SectionCard>
 
