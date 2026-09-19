@@ -33,6 +33,8 @@ import {
 } from './dto/task.dto';
 import { TaskPolicyService } from './task-policy.service';
 
+const isUuid = (val?: string) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -167,6 +169,7 @@ export class TasksService {
   }
 
   async findOne(id: string, actor: AuthenticatedUser) {
+    if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     const task = await this.prisma.task.findUnique({ where: { id }, include: this.taskDetailInclude() });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
     await this.assertCanViewTask(id, actor);
@@ -216,6 +219,7 @@ export class TasksService {
   }
 
   async timeline(id: string, actor: AuthenticatedUser, query: TaskTimelineQueryDto) {
+    if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     await this.findOne(id, actor);
     const where: Prisma.TaskStatusHistoryWhereInput = { taskId: id };
     const [items, total] = await this.prisma.$transaction([
@@ -287,6 +291,7 @@ export class TasksService {
   }
 
   async update(id: string, dto: UpdateTaskDto, actor: AuthenticatedUser) {
+    if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
     this.assertCanManageTask(task.departmentContextId, actor);
@@ -304,6 +309,7 @@ export class TasksService {
   }
 
   async cancel(id: string, actor: AuthenticatedUser) {
+    if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
     this.assertCanManageTask(task.departmentContextId, actor);
@@ -321,6 +327,7 @@ export class TasksService {
   }
 
   async remove(id: string, actor: AuthenticatedUser) {
+    if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
     this.assertCanManageTask(task.departmentContextId, actor);
@@ -375,6 +382,7 @@ export class TasksService {
   }
 
   async completeTask(id: string, actor: AuthenticatedUser) {
+    if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     const task = await this.prisma.task.findUnique({ where: { id }, include: { assignments: true } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
     const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
