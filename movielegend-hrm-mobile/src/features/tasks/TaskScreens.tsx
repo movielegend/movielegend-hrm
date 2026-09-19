@@ -972,7 +972,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
       ? []
       : isDept
       ? targets.filter(t => t.targetType === 'DEPARTMENT').map(t => ({ targetType: t.targetType, targetId: t.targetId }))
-      : targets.filter(t => t.targetType === 'USER').map(t => ({ targetType: t.targetType, targetId: t.targetId }));
+      : targets.filter(t => t.targetType === 'USER').slice(0, 1).map(t => ({ targetType: t.targetType, targetId: t.targetId }));
 
     const payload: CreateTaskPayload = {
       title,
@@ -1296,14 +1296,14 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     <Text style={[styles.modeInfoTitle, { color: '#065F46' }]}>Giao việc trực tiếp cho Cá nhân</Text>
                   </View>
                   <Text style={styles.modeInfoDesc}>
-                    Giao việc cho từng nhân sự / trưởng phòng cụ thể. Người nhận sẽ trực tiếp cập nhật tiến độ, hoàn thành và nộp báo cáo.
+                    Giao việc cho 1 nhân sự cụ thể. Người nhận sẽ trực tiếp cập nhật tiến độ, hoàn thành và nộp báo cáo.
                   </Text>
                 </View>
               )}
 
               <Text style={styles.fieldLabel}>Nhân sự nhận việc</Text>
               <View style={styles.targetTagsWrap}>
-                {selectedUserTargets.map((target: any) => (
+                {selectedUserTargets.slice(0, 1).map((target: any) => (
                   <View key={target.targetId} style={styles.targetTag}>
                     <MaterialCommunityIcons
                       name={target.targetName?.includes('Admin') ? 'shield-account' : 'account'}
@@ -1325,12 +1325,18 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     setTargetModalVisible(true);
                   }}
                 >
-                  <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
-                  <Text style={styles.addTargetBtnText}>Thêm người nhận</Text>
+                  <MaterialCommunityIcons
+                    name={selectedUserTargets.length > 0 ? 'account-switch' : 'account-plus'}
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.addTargetBtnText}>
+                    {selectedUserTargets.length > 0 ? 'Đổi người nhận' : 'Chọn người nhận việc'}
+                  </Text>
                 </Pressable>
               </View>
               {!selectedUserTargets.length && (
-                <Text style={styles.meta}>Chưa có nhân sự nào được chọn.</Text>
+                <Text style={styles.meta}>Vui lòng chọn 1 nhân sự nhận nhiệm vụ.</Text>
               )}
             </View>
           ) : null}
@@ -1889,6 +1895,15 @@ function AssigneeSelectorModal({
   };
 
   const toggleTarget = (type: TaskTargetType, id: string, name?: string) => {
+    if (isUserOnly) {
+      if (isSelected(type, id)) {
+        onChange([]);
+      } else {
+        onChange([{ targetType: 'USER', targetId: id, targetName: name } as any]);
+        onClose();
+      }
+      return;
+    }
     if (isSelected(type, id)) {
       onChange(targets.filter((t) => t.targetType !== type || t.targetId !== id));
     } else {
@@ -2185,7 +2200,7 @@ function AssigneeSelectorModal({
                 <Text style={styles.deptUsersSectionTitle}>
                   Danh sách nhân sự ({filteredDeptUsers.length})
                 </Text>
-                {filteredDeptUsers.length > 0 && (
+                {!isUserOnly && filteredDeptUsers.length > 0 && (
                   <Pressable
                     onPress={() => {
                       const allSelected = filteredDeptUsers.every((u) => isSelected('USER', u.id));
