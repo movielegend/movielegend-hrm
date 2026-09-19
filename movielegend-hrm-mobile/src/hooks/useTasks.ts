@@ -59,11 +59,13 @@ export function useMyTasks(filters: TaskListFilters = {}) {
   return query;
 }
 
+const isValidUuid = (val?: string) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
 export function useTask(id?: string) {
   return useQuery({
     queryKey: queryKeys.task(id ?? 'missing'),
     queryFn: () => getTask(id ?? ''),
-    enabled: Boolean(id),
+    enabled: Boolean(id && isValidUuid(id) && id !== 'create' && id !== 'review'),
   });
 }
 
@@ -71,7 +73,7 @@ export function useTaskTimeline(id?: string) {
   return useQuery({
     queryKey: queryKeys.taskTimeline(id ?? 'missing'),
     queryFn: () => getTaskTimeline(id ?? '', { page: 1, limit: 50 }),
-    enabled: Boolean(id),
+    enabled: Boolean(id && isValidUuid(id) && id !== 'create' && id !== 'review'),
   });
 }
 
