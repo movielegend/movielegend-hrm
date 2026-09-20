@@ -17,7 +17,6 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
-import { colors } from '../../theme/colors';
 import {
   useAdminReports,
   useReviewDailyReport,
@@ -40,16 +39,7 @@ const ASSESSMENT_LABELS = [
   'Vượt kế hoạch',
 ];
 
-const ASSESSMENT_LEVELS = [
-  { level: 1, title: 'Chưa hoàn thành', desc: 'Chưa hoàn thành phần lớn khối lượng công việc được giao.' },
-  { level: 2, title: 'Hoàn thành một phần', desc: 'Đã thực hiện nhưng còn nhiều mục tiêu chưa đạt yêu cầu.' },
-  { level: 3, title: 'Gần đạt kế hoạch', desc: 'Cơ bản bám sát kế hoạch, còn một vài điểm cần cải thiện.' },
-  { level: 4, title: 'Đạt kế hoạch', desc: 'Hoàn thành đầy đủ các mục tiêu và chất lượng theo yêu cầu.' },
-  { level: 5, title: 'Vượt kế hoạch', desc: 'Đã đạt kế hoạch và có thêm kết quả xuất sắc ngoài mục tiêu.' },
-];
-
 export function AdminDailyReportsScreen() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
@@ -58,7 +48,7 @@ export function AdminDailyReportsScreen() {
   const [selectedDate, setSelectedDate] = useState<string>(todayStr || '');
   const [selectedDeptId, setSelectedDeptId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all'); // all | pending | reviewed | draft
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isDeptModalVisible, setIsDeptModalVisible] = useState<boolean>(false);
 
   // Active report for Detail View (if non-null, shows Detail View; if null, shows List View)
   const [activeReport, setActiveReport] = useState<DailyReport | null>(null);
@@ -68,9 +58,10 @@ export function AdminDailyReportsScreen() {
   const [expandedCompleted, setExpandedCompleted] = useState<boolean>(false);
 
   // Manager evaluation state in Detail View
-  const [managerScore, setManagerScore] = useState<number>(5);
+  // Flow: 'form' -> 'confirm' -> 'saved'
+  const [managerScore, setManagerScore] = useState<number>(0);
   const [managerNote, setManagerNote] = useState<string>('');
-  const [isConfirmingEval, setIsConfirmingEval] = useState<boolean>(false);
+  const [evalPhase, setEvalPhase] = useState<'form' | 'confirm' | 'saved'>('form');
 
   // Preview modals state
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
@@ -81,6 +72,13 @@ export function AdminDailyReportsScreen() {
   // Departments for filtering
   const departmentsQuery = useDepartments();
   const departmentsList = useMemo(() => departmentsQuery.data?.items ?? [], [departmentsQuery.data]);
+
+  // Find selected department name
+  const selectedDeptName = useMemo(() => {
+    if (selectedDeptId === 'all') return 'Tất cả phòng ban';
+    const found = departmentsList.find((d: any) => d.id === selectedDeptId);
+    return found ? found.name : 'Tất cả phòng ban';
+  }, [selectedDeptId, departmentsList]);
 
   // Query reports
   const apiStatus = useMemo(() => {
@@ -94,7 +92,6 @@ export function AdminDailyReportsScreen() {
     date: selectedDate,
     departmentId: selectedDeptId === 'all' ? undefined : selectedDeptId,
     status: apiStatus,
-    search: searchQuery || undefined,
   });
 
   const reports = reportsQuery.data?.items ?? [];
@@ -121,9 +118,10 @@ export function AdminDailyReportsScreen() {
   // Reset review form when activeReport changes
   useEffect(() => {
     if (activeReport) {
-      setManagerScore(activeReport.adminRating || 5);
+      const score = activeReport.adminRating || 0;
+      setManagerScore(score);
       setManagerNote(activeReport.adminReview || '');
-      setIsConfirmingEval(false);
+      setEvalPhase(activeReport.status === 'REVIEWED' ? 'saved' : 'form');
       setDetailTab('results');
       setExpandedCompleted(false);
     }
@@ -148,10 +146,9 @@ export function AdminDailyReportsScreen() {
     if (todayStr) setSelectedDate(todayStr);
     setSelectedDeptId('all');
     setStatusFilter('all');
-    setSearchQuery('');
   };
 
-  const handleSaveEvaluation = async () => {
+  const handleSaveAndLockEvaluation = async () => {
     if (!activeReport || !activeReport.id) return;
     if (managerScore < 1 || managerScore > 5) {
       Alert.alert('Thông báo', 'Vui lòng chọn số sao đánh giá từ 1 đến 5');
@@ -165,6 +162,7 @@ export function AdminDailyReportsScreen() {
       });
 
       // Update active report in state
+      const nowIso = new Date().toISOString();
       setActiveReport((prev) =>
         prev
           ? {
@@ -173,15 +171,15 @@ export function AdminDailyReportsScreen() {
               adminReview: managerNote.trim() || null,
               status: 'REVIEWED',
               reviewedById: user?.id || null,
-              reviewedAt: new Date().toISOString(),
+              reviewedAt: nowIso,
             }
           : null
       );
 
-      setIsConfirmingEval(false);
+      setEvalPhase('saved');
       void reportsQuery.refetch();
 
-      Alert.alert('Thành công', 'Đã lưu và khóa đánh giá báo cáo thành công!');
+      Alert.alert('Thành công', 'Đã lưu & khóa đánh giá báo cáo thành công!');
     } catch (err: any) {
       console.error('Submit review error:', err);
       Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể lưu đánh giá báo cáo');
@@ -207,34 +205,27 @@ export function AdminDailyReportsScreen() {
       : (activeReport.completedTasks || []).slice(0, 3);
     const hiddenCompletedCount = Math.max(0, completedCount - 3);
 
-    const selfAssessmentInfo = ASSESSMENT_LEVELS.find((a) => a.level === activeReport.selfRating) || {
-      level: activeReport.selfRating || 5,
-      title: activeReport.selfRating ? `${activeReport.selfRating}/5 sao` : 'Chưa đánh giá',
-      desc: '',
-    };
-
     return (
       <Screen backgroundColor="#F6F7FB">
         <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-          {/* Top Bar / Back Button */}
-          <View style={styles.detailHeader}>
-            <Pressable style={styles.backBtn} onPress={() => setActiveReport(null)}>
-              <MaterialCommunityIcons name="arrow-left" size={18} color="#345FDF" />
-              <Text style={styles.backBtnText}>Danh sách báo cáo</Text>
+          {/* DETAIL HEADER */}
+          <View style={styles.detailHeaderCard}>
+            <Pressable style={styles.backLinkBtn} onPress={() => setActiveReport(null)}>
+              <Text style={styles.backLinkText}>← Danh sách báo cáo</Text>
             </Pressable>
 
             <View style={styles.detailTitleRow}>
-              <Text style={styles.detailUserName}>{memberName}</Text>
+              <Text style={styles.detailNameText}>{memberName}</Text>
               <View
                 style={[
-                  styles.badge,
-                  isReviewed ? styles.badgeDone : isSubmitted ? styles.badgePending : styles.badgeDraft,
+                  styles.badgePill,
+                  isReviewed ? styles.badgePillDone : isSubmitted ? styles.badgePillPending : styles.badgePillDraft,
                 ]}
               >
                 <Text
                   style={[
-                    styles.badgeText,
-                    isReviewed ? styles.badgeDoneText : isSubmitted ? styles.badgePendingText : styles.badgeDraftText,
+                    styles.badgePillText,
+                    isReviewed ? styles.badgePillDoneText : isSubmitted ? styles.badgePillPendingText : styles.badgePillDraftText,
                   ]}
                 >
                   {isReviewed ? 'Đã đánh giá' : isSubmitted ? 'Chờ duyệt' : 'Bản nháp'}
@@ -242,7 +233,7 @@ export function AdminDailyReportsScreen() {
               </View>
             </View>
 
-            <Text style={styles.detailSubtitle}>
+            <Text style={styles.detailRoleDateText}>
               {deptName} · {roleName} ·{' '}
               {new Date(activeReport.reportDate).toLocaleDateString('vi-VN', {
                 day: '2-digit',
@@ -251,92 +242,90 @@ export function AdminDailyReportsScreen() {
               })}
             </Text>
 
-            <Text style={styles.detailSubNotice}>
-              {activeReport.status === 'SUBMITTED'
+            <Text style={styles.detailSubmitTimeText}>
+              {isSubmitted
                 ? 'Đã nộp · Chờ quản lý đánh giá'
                 : isReviewed
-                ? `Đã đánh giá lúc ${new Date(activeReport.reviewedAt || Date.now()).toLocaleTimeString('vi-VN', {
+                ? `Đã nộp · Đã đánh giá lúc ${new Date(activeReport.reviewedAt || Date.now()).toLocaleTimeString('vi-VN', {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}`
-                : 'Bản mẫu / Nháp'}
+                : 'Bản nháp'}
             </Text>
 
-            {/* 3 Summary Counters */}
-            <View style={styles.detailSummaryRow}>
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryColValue}>{completedCount}</Text>
-                <Text style={styles.summaryColLabel}>Hoàn thành</Text>
+            {/* 3 Summary KPI Boxes */}
+            <View style={styles.summaryKPIContainer}>
+              <View style={styles.summaryKPICell}>
+                <Text style={styles.summaryKPIValue}>{completedCount}</Text>
+                <Text style={styles.summaryKPILabel}>Hoàn thành</Text>
               </View>
-              <View style={styles.summaryColDivider} />
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryColValue}>{inProgressCount}</Text>
-                <Text style={styles.summaryColLabel}>Đang thực hiện</Text>
+              <View style={styles.summaryKPICell}>
+                <Text style={styles.summaryKPIValue}>{inProgressCount}</Text>
+                <Text style={styles.summaryKPILabel}>Đang thực hiện</Text>
               </View>
-              <View style={styles.summaryColDivider} />
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryColValue}>{planCount}</Text>
-                <Text style={styles.summaryColLabel}>Kế hoạch mai</Text>
+              <View style={styles.summaryKPICell}>
+                <Text style={styles.summaryKPIValue}>{planCount}</Text>
+                <Text style={styles.summaryKPILabel}>Kế hoạch ngày mai</Text>
               </View>
             </View>
           </View>
 
           {/* 3 TABS: Kết quả | Kế hoạch | Đánh giá */}
-          <View style={styles.tabsContainer}>
+          <View style={styles.tabsBar}>
             <Pressable
-              style={[styles.tabBtn, detailTab === 'results' && styles.tabBtnActive]}
+              style={[styles.tabButton, detailTab === 'results' && styles.tabButtonActive]}
               onPress={() => setDetailTab('results')}
             >
-              <Text style={[styles.tabBtnText, detailTab === 'results' && styles.tabBtnTextActive]}>
-                01 · Kết quả
+              <Text style={[styles.tabButtonText, detailTab === 'results' && styles.tabButtonTextActive]}>
+                Kết quả
               </Text>
             </Pressable>
 
             <Pressable
-              style={[styles.tabBtn, detailTab === 'plans' && styles.tabBtnActive]}
+              style={[styles.tabButton, detailTab === 'plans' && styles.tabButtonActive]}
               onPress={() => setDetailTab('plans')}
             >
-              <Text style={[styles.tabBtnText, detailTab === 'plans' && styles.tabBtnTextActive]}>
-                02 · Kế hoạch
+              <Text style={[styles.tabButtonText, detailTab === 'plans' && styles.tabButtonTextActive]}>
+                Kế hoạch
               </Text>
             </Pressable>
 
             <Pressable
-              style={[styles.tabBtn, detailTab === 'evaluation' && styles.tabBtnActive]}
+              style={[styles.tabButton, detailTab === 'evaluation' && styles.tabButtonActive]}
               onPress={() => setDetailTab('evaluation')}
             >
-              <Text style={[styles.tabBtnText, detailTab === 'evaluation' && styles.tabBtnTextActive]}>
-                03 · Đánh giá
+              <Text style={[styles.tabButtonText, detailTab === 'evaluation' && styles.tabButtonTextActive]}>
+                Đánh giá
               </Text>
             </Pressable>
           </View>
 
           {/* TAB 1: KẾT QUẢ */}
           {detailTab === 'results' && (
-            <View style={styles.tabContent}>
-              {/* Quantitative Metrics */}
-              <View style={styles.panel}>
-                <Text style={styles.panelTitle}>Kết quả công việc định lượng</Text>
-                <Text style={styles.panelSubtitle}>
+            <View style={styles.tabContentContainer}>
+              {/* Quantitative Results */}
+              <View style={styles.panelCard}>
+                <Text style={styles.panelCardTitle}>Kết quả công việc định lượng</Text>
+                <Text style={styles.panelCardSubtitle}>
                   {activeReport.metrics && activeReport.metrics.length > 0
-                    ? `${activeReport.metrics.length} chỉ tiêu báo cáo`
-                    : 'Chưa có chỉ tiêu'}
+                    ? `${activeReport.metrics.length} chỉ tiêu · Đã nhập số liệu`
+                    : '4 chỉ tiêu · Chưa có số liệu'}
                 </Text>
 
                 {(!activeReport.metrics || activeReport.metrics.length === 0) ? (
-                  <Text style={styles.emptyText}>Chưa có số liệu định lượng</Text>
+                  <Text style={styles.emptyPromptText}>Chưa có số liệu định lượng</Text>
                 ) : (
                   activeReport.metrics.map((m, idx) => (
                     <View key={idx} style={styles.metricItemRow}>
                       <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.metricName}>{m.name}</Text>
-                        {!!m.note && <Text style={styles.metricNote}>{m.note}</Text>}
+                        <Text style={styles.metricItemName}>{m.name}</Text>
+                        {!!m.note && <Text style={styles.metricItemNote}>{m.note}</Text>}
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.metricValue}>
+                        <Text style={styles.metricItemValue}>
                           {m.value !== undefined && m.value !== '' ? String(m.value) : 'Chưa nhập'}
+                          {!!m.unit && m.value !== undefined && m.value !== '' ? ` ${m.unit}` : ''}
                         </Text>
-                        {!!m.unit && <Text style={styles.metricUnit}>{m.unit}</Text>}
                       </View>
                     </View>
                   ))
@@ -344,36 +333,31 @@ export function AdminDailyReportsScreen() {
               </View>
 
               {/* Completed Tasks */}
-              <View style={styles.panel}>
+              <View style={styles.panelCard}>
                 <View style={styles.panelHeaderRow}>
-                  <Text style={styles.panelTitle}>Đã hoàn thành</Text>
-                  <View style={styles.countBadge}>
-                    <Text style={styles.countBadgeText}>{completedCount} việc</Text>
-                  </View>
+                  <Text style={styles.panelCardTitle}>Đã hoàn thành</Text>
+                  <Text style={styles.panelHeaderCountText}>{completedCount} việc</Text>
                 </View>
 
                 {completedCount === 0 ? (
-                  <Text style={styles.emptyText}>Chưa có công việc hoàn thành</Text>
+                  <Text style={styles.emptyPromptText}>Chưa có công việc hoàn thành</Text>
                 ) : (
                   <>
                     {visibleCompleted.map((t, idx) => (
-                      <View key={idx} style={styles.taskItemRow}>
-                        <MaterialCommunityIcons name="check-circle" size={18} color="#117D60" style={{ marginTop: 2 }} />
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                          <Text style={styles.taskTitle}>{t.title}</Text>
-                          {!!t.note && <Text style={styles.taskNote}>{t.note}</Text>}
-                        </View>
+                      <View key={idx} style={styles.simpleListItem}>
+                        <Text style={styles.simpleListItemText}>{t.title}</Text>
+                        {!!t.note && <Text style={styles.simpleListItemSub}>{t.note}</Text>}
                       </View>
                     ))}
 
                     {completedCount > 3 && (
                       <Pressable
-                        style={styles.expandBtn}
+                        style={styles.expandCollapseBtn}
                         onPress={() => setExpandedCompleted(!expandedCompleted)}
                       >
-                        <Text style={styles.expandBtnText}>
+                        <Text style={styles.expandCollapseBtnText}>
                           {expandedCompleted
-                            ? 'Thu gọn danh sách ▲'
+                            ? 'Thu gọn danh sách công việc ▲'
                             : `Xem thêm ${hiddenCompletedCount} công việc ▼`}
                         </Text>
                       </Pressable>
@@ -383,31 +367,22 @@ export function AdminDailyReportsScreen() {
               </View>
 
               {/* In Progress Tasks */}
-              <View style={styles.panel}>
+              <View style={styles.panelCard}>
                 <View style={styles.panelHeaderRow}>
-                  <Text style={styles.panelTitle}>Đang thực hiện</Text>
-                  <View style={[styles.countBadge, { backgroundColor: '#EEF3FF' }]}>
-                    <Text style={[styles.countBadgeText, { color: '#345FDF' }]}>{inProgressCount} việc</Text>
-                  </View>
+                  <Text style={styles.panelCardTitle}>Đang thực hiện</Text>
+                  <Text style={styles.panelHeaderCountText}>{inProgressCount} việc</Text>
                 </View>
 
                 {inProgressCount === 0 ? (
-                  <Text style={styles.emptyText}>Không có công việc đang thực hiện</Text>
+                  <Text style={styles.emptyPromptText}>Không có công việc đang thực hiện</Text>
                 ) : (
                   activeReport.inProgressTasks.map((t, idx) => (
-                    <View key={idx} style={styles.taskItemRow}>
-                      <MaterialCommunityIcons name="progress-clock" size={18} color="#345FDF" style={{ marginTop: 2 }} />
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={styles.taskTitle}>{t.title}</Text>
-                        <View style={styles.progressRow}>
-                          <Text style={styles.progressText}>
-                            Dự kiến: {t.expectedDate || 'Ngày mai'}
-                          </Text>
-                          {t.progress !== undefined && (
-                            <Text style={styles.progressPercent}>{t.progress}%</Text>
-                          )}
-                        </View>
-                      </View>
+                    <View key={idx} style={styles.simpleListItem}>
+                      <Text style={styles.simpleListItemText}>{t.title}</Text>
+                      <Text style={styles.simpleListItemSub}>
+                        Dự kiến hoàn thành · {t.expectedDate || '20/09/2026'}
+                        {t.progress !== undefined ? ` (${t.progress}%)` : ''}
+                      </Text>
                     </View>
                   ))
                 )}
@@ -415,52 +390,51 @@ export function AdminDailyReportsScreen() {
             </View>
           )}
 
-          {/* TAB 2: KẾ HOẠCH & ĐÍNH KÈM */}
+          {/* TAB 2: KẾ HOẠCH */}
           {detailTab === 'plans' && (
-            <View style={styles.tabContent}>
+            <View style={styles.tabContentContainer}>
               {/* Obstacles & Support */}
-              <View style={styles.panel}>
-                <Text style={styles.panelTitle}>Khó khăn & đề xuất hỗ trợ</Text>
+              <View style={styles.panelCard}>
+                <Text style={styles.panelCardTitle}>Khó khăn & đề xuất hỗ trợ</Text>
                 {activeReport.obstacles && activeReport.obstacles.trim().length > 0 ? (
-                  <View style={styles.calloutAmber}>
-                    <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#9F650B" />
-                    <Text style={styles.calloutAmberText}>{activeReport.obstacles}</Text>
+                  <View style={styles.calloutAmberBox}>
+                    <Text style={styles.calloutAmberBoxText}>{activeReport.obstacles}</Text>
                   </View>
                 ) : (
-                  <View style={styles.calloutSoft}>
-                    <Text style={styles.calloutSoftText}>
-                      Nhân viên báo cáo không có khó khăn hay trở ngại cần hỗ trợ.
+                  <View style={styles.calloutSoftBox}>
+                    <Text style={styles.calloutSoftBoxText}>
+                      Nhân viên báo cáo không có khó khăn hay trở ngại.
                     </Text>
                   </View>
                 )}
               </View>
 
               {/* Tomorrow Plans */}
-              <View style={styles.panel}>
-                <View style={styles.panelHeaderRow}>
-                  <Text style={styles.panelTitle}>Kế hoạch ngày mai</Text>
-                  <View style={[styles.countBadge, { backgroundColor: '#F6F7FB' }]}>
-                    <Text style={[styles.countBadgeText, { color: '#707C8D' }]}>{planCount} việc</Text>
-                  </View>
-                </View>
-
+              <View style={styles.panelCard}>
+                <Text style={styles.panelCardTitle}>Kế hoạch ngày mai</Text>
                 {planCount === 0 ? (
-                  <Text style={styles.emptyText}>Chưa có kế hoạch được đề xuất.</Text>
+                  <View style={{ marginTop: 6 }}>
+                    <Text style={styles.emptyPlanText}>Chưa có kế hoạch được đề xuất.</Text>
+                    <Text style={styles.emptyPlanSub}>Bạn có thể góp ý bổ sung trong phần đánh giá.</Text>
+                  </View>
                 ) : (
-                  activeReport.tomorrowPlan.map((p, idx) => (
-                    <View key={idx} style={styles.planItemRow}>
-                      <Text style={styles.planNumberBadge}>{String(idx + 1).padStart(2, '0')}</Text>
-                      <Text style={styles.planItemText}>{p}</Text>
-                    </View>
-                  ))
+                  <View style={{ marginTop: 6 }}>
+                    {activeReport.tomorrowPlan.map((p, idx) => (
+                      <View key={idx} style={styles.simpleListItem}>
+                        <Text style={styles.simpleListItemText}>
+                          {idx + 1}. {p}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 )}
               </View>
 
-              {/* Attachments & Photos */}
-              <View style={styles.panel}>
-                <Text style={styles.panelTitle}>Tệp đính kèm & Hình ảnh</Text>
+              {/* Attachments & Files */}
+              <View style={styles.panelCard}>
+                <Text style={styles.panelCardTitle}>Tệp đính kèm & Hình ảnh</Text>
                 {(!activeReport.attachments || activeReport.attachments.length === 0) ? (
-                  <Text style={styles.emptyText}>Không có tệp hay hình ảnh đính kèm</Text>
+                  <Text style={styles.emptyPromptText}>Không có tệp hay hình ảnh đính kèm</Text>
                 ) : (
                   <View style={{ marginTop: 8, gap: 10 }}>
                     {activeReport.attachments.map((file, idx) => {
@@ -471,7 +445,7 @@ export function AdminDailyReportsScreen() {
                       return (
                         <Pressable
                           key={idx}
-                          style={styles.attachmentCard}
+                          style={styles.attachmentItemCard}
                           onPress={() => {
                             if (isImg) {
                               setPreviewImageUri(file.url);
@@ -485,16 +459,16 @@ export function AdminDailyReportsScreen() {
                           {isImg ? (
                             <Image source={{ uri: file.url }} style={styles.attachmentThumb} />
                           ) : (
-                            <View style={styles.attachmentDocIcon}>
+                            <View style={styles.attachmentDocBadge}>
                               <MaterialCommunityIcons name="file-pdf-box" size={24} color="#EF4444" />
                             </View>
                           )}
 
                           <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={styles.attachmentFileName} numberOfLines={1}>
+                            <Text style={styles.attachmentItemName} numberOfLines={1}>
                               {file.fileName || (isImg ? 'Ảnh đính kèm' : 'Tài liệu đính kèm')}
                             </Text>
-                            <Text style={styles.attachmentFileSize}>
+                            <Text style={styles.attachmentItemSub}>
                               {file.size ? `${(file.size / 1024).toFixed(0)} KB` : isImg ? 'Hình ảnh' : 'Tài liệu'} · Chạm để xem
                             </Text>
                           </View>
@@ -510,88 +484,39 @@ export function AdminDailyReportsScreen() {
 
           {/* TAB 3: ĐÁNH GIÁ */}
           {detailTab === 'evaluation' && (
-            <View style={styles.tabContent}>
-              {/* Self Assessment Card */}
-              <View style={styles.panel}>
-                <Text style={styles.panelTitle}>Tự đánh giá của nhân viên</Text>
-                <View style={styles.selfRatingHeaderRow}>
-                  <Text style={styles.selfRatingLabel}>Mức độ hoàn thành:</Text>
-                  <Text style={styles.goldStarText}>
-                    ★ {activeReport.selfRating || 5}/5 · {selfAssessmentInfo.title}
+            <View style={styles.tabContentContainer}>
+              {/* Section: Employee Self Assessment */}
+              <View style={styles.panelCard}>
+                <Text style={styles.panelCardTitle}>Tự đánh giá của nhân viên</Text>
+                <View style={styles.selfRatingBetweenRow}>
+                  <Text style={styles.selfRatingTitle}>Mức độ hoàn thành</Text>
+                  <Text style={styles.goldStarRating}>
+                    ★ {activeReport.selfRating || 5}/5
                   </Text>
                 </View>
 
-                <Text style={styles.selfReviewText}>
-                  {activeReport.selfReview?.trim()
-                    ? `Nhận xét: "${activeReport.selfReview}"`
-                    : 'Nhân viên không để lại nhận xét thêm.'}
+                <Text style={styles.selfReviewDetailText}>
+                  Nhận xét: {activeReport.selfReview?.trim() || 'Chưa có'}
+                </Text>
+                <Text style={styles.selfReviewDetailText}>
+                  Tệp đính kèm: {activeReport.attachments?.length ? `${activeReport.attachments.length} tệp đính kèm` : 'Chưa có'}
                 </Text>
               </View>
 
-              {/* Manager Evaluation Form / Saved State */}
-              {isReviewed && !isConfirmingEval ? (
-                /* Already Evaluated & Locked */
-                <View style={styles.panel}>
-                  <View style={styles.panelHeaderRow}>
-                    <Text style={styles.panelTitle}>Đã đánh giá & Khóa</Text>
-                    <View style={[styles.badge, styles.badgeDone]}>
-                      <Text style={[styles.badgeText, styles.badgeDoneText]}>Đã hoàn tất</Text>
-                    </View>
-                  </View>
+              {/* Phase 1: Edit Evaluation */}
+              {evalPhase === 'form' && (
+                <View style={styles.panelCard}>
+                  <Text style={styles.panelCardTitle}>Đánh giá của quản lý</Text>
+                  <Text style={styles.panelCardSubtitle}>Chấm điểm dựa trên kết quả báo cáo.</Text>
 
-                  <View style={styles.savedScoreRow}>
-                    <Text style={styles.goldStarBigText}>
-                      ★ {activeReport.adminRating || managerScore}/5
-                    </Text>
-                    <Text style={styles.savedScoreLabel}>
-                      {ASSESSMENT_LABELS[(activeReport.adminRating || managerScore) - 1]}
-                    </Text>
-                  </View>
-
-                  <View style={styles.savedNoteBox}>
-                    <Text style={styles.savedNoteTitle}>Nhận xét của Quản lý / Admin:</Text>
-                    <Text style={styles.savedNoteContent}>
-                      {activeReport.adminReview || 'Đạt yêu cầu.'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.reviewerInfoRow}>
-                    <MaterialCommunityIcons name="shield-check" size={16} color="#117D60" />
-                    <Text style={styles.reviewerInfoText}>
-                      Đánh giá bởi {activeReport.reviewedBy?.profile?.fullName || activeReport.reviewedBy?.userCode || 'Admin'}
-                      {activeReport.reviewedAt
-                        ? ` lúc ${new Date(activeReport.reviewedAt).toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })} - ${new Date(activeReport.reviewedAt).toLocaleDateString('vi-VN')}`
-                        : ''}
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    style={styles.reEditBtn}
-                    onPress={() => setIsConfirmingEval(true)}
-                  >
-                    <MaterialCommunityIcons name="pencil-outline" size={16} color="#345FDF" />
-                    <Text style={styles.reEditBtnText}>Chỉnh sửa lại đánh giá</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                /* Edit Evaluation Form */
-                <View style={styles.panel}>
-                  <Text style={styles.panelTitle}>Đánh giá của quản lý</Text>
-                  <Text style={styles.panelSubtitle}>
-                    Chấm điểm dựa trên kết quả và chất lượng báo cáo hôm nay.
-                  </Text>
-
-                  {/* 5 Stars Picker */}
-                  <View style={styles.starsRow}>
+                  {/* 5 Stars */}
+                  <View style={styles.interactiveStarsRow}>
                     {[1, 2, 3, 4, 5].map((s) => {
                       const isFilled = s <= managerScore;
                       return (
                         <Pressable
                           key={s}
-                          style={[styles.starBtn, isFilled && styles.starBtnFilled]}
+                          style={[styles.interactiveStarBtn, isFilled && styles.interactiveStarBtnFilled]}
                           onPress={() => setManagerScore(s)}
                         >
                           <MaterialCommunityIcons
@@ -604,60 +529,129 @@ export function AdminDailyReportsScreen() {
                     })}
                   </View>
 
-                  <Text style={styles.scoreActiveLabel}>
-                    {managerScore}/5 sao · {ASSESSMENT_LABELS[managerScore - 1]}
+                  <Text style={styles.scoreLevelDescriptionText}>
+                    {managerScore > 0
+                      ? `${managerScore}/5 sao · ${ASSESSMENT_LABELS[managerScore - 1]}`
+                      : 'Chọn số sao để đánh giá'}
                   </Text>
 
-                  <Text style={styles.inputSectionLabel}>Nhận xét / Góp ý</Text>
+                  <Text style={styles.inputLabelHeader}>Nhận xét / Góp ý</Text>
                   <TextInput
-                    style={styles.textArea}
+                    style={styles.managerNoteInput}
                     multiline
                     numberOfLines={4}
-                    placeholder="Kết quả nổi bật, điểm cần cải thiện hoặc chỉ đạo tiếp theo..."
+                    placeholder="Kết quả nổi bật, điểm cần cải thiện hoặc chỉ đạo tiếp theo…"
                     placeholderTextColor="#94A3B8"
                     value={managerNote}
                     onChangeText={setManagerNote}
                   />
 
                   <Pressable
-                    style={styles.submitEvalBtn}
-                    onPress={handleSaveEvaluation}
+                    style={[styles.primaryActionBtn, managerScore === 0 && { opacity: 0.4 }]}
+                    disabled={managerScore === 0}
+                    onPress={() => setEvalPhase('confirm')}
+                  >
+                    <Text style={styles.primaryActionBtnText}>Xem lại đánh giá →</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Phase 2: Confirm Evaluation */}
+              {evalPhase === 'confirm' && (
+                <View style={styles.panelCard}>
+                  <Text style={styles.panelCardTitle}>Xác nhận đánh giá</Text>
+                  
+                  <View style={styles.confirmScoreBox}>
+                    <Text style={styles.goldStarRating}>
+                      ★ {managerScore}/5 · {ASSESSMENT_LABELS[managerScore - 1]}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.confirmNoteText}>
+                    {managerNote.trim() || 'Không có nhận xét bổ sung.'}
+                  </Text>
+
+                  <Text style={styles.confirmNoteSubWarning}>
+                    Sau khi lưu, đánh giá sẽ được ghi nhận và khóa chỉnh sửa trong hệ thống.
+                  </Text>
+
+                  <Pressable
+                    style={[styles.primaryActionBtn, { marginTop: 14 }]}
+                    onPress={handleSaveAndLockEvaluation}
                     disabled={reviewMutation.isPending}
                   >
                     {reviewMutation.isPending ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                      <>
-                        <MaterialCommunityIcons name="check-all" size={20} color="#FFFFFF" />
-                        <Text style={styles.submitEvalBtnText}>Lưu & Khóa đánh giá</Text>
-                      </>
+                      <Text style={styles.primaryActionBtnText}>Lưu & khóa đánh giá</Text>
                     )}
                   </Pressable>
 
-                  {isReviewed && (
-                    <Pressable
-                      style={styles.cancelEditBtn}
-                      onPress={() => setIsConfirmingEval(false)}
-                    >
-                      <Text style={styles.cancelEditBtnText}>Hủy chỉnh sửa</Text>
-                    </Pressable>
+                  <Pressable
+                    style={styles.secondaryLinkBtn}
+                    onPress={() => setEvalPhase('form')}
+                  >
+                    <Text style={styles.secondaryLinkBtnText}>Quay lại chỉnh sửa</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Phase 3: Saved & Locked Evaluation */}
+              {evalPhase === 'saved' && (
+                <View style={styles.panelCard}>
+                  <View style={styles.panelHeaderRow}>
+                    <Text style={styles.panelCardTitle}>Đã đánh giá & khóa</Text>
+                    <View style={[styles.badgePill, styles.badgePillDone]}>
+                      <Text style={[styles.badgePillText, styles.badgePillDoneText]}>Đã hoàn tất</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.confirmScoreBox}>
+                    <Text style={styles.goldStarRating}>
+                      ★ {activeReport.adminRating || managerScore}/5 · {ASSESSMENT_LABELS[(activeReport.adminRating || managerScore) - 1]}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.savedManagerNoteText}>
+                    {activeReport.adminReview || managerNote || 'Đạt yêu cầu.'}
+                  </Text>
+
+                  <Text style={styles.savedManagerMetaText}>
+                    Người đánh giá: {activeReport.reviewedBy?.profile?.fullName || activeReport.reviewedBy?.userCode || 'Quản lý'}
+                  </Text>
+
+                  {activeReport.reviewedAt && (
+                    <Text style={styles.savedManagerMetaText}>
+                      Lưu lúc {new Date(activeReport.reviewedAt).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })} - {new Date(activeReport.reviewedAt).toLocaleDateString('vi-VN')}
+                    </Text>
                   )}
+
+                  <Pressable
+                    style={styles.reEditLinkBtn}
+                    onPress={() => setEvalPhase('form')}
+                  >
+                    <MaterialCommunityIcons name="pencil-outline" size={16} color="#345FDF" />
+                    <Text style={styles.reEditLinkBtnText}>Chỉnh sửa lại đánh giá</Text>
+                  </Pressable>
                 </View>
               )}
             </View>
           )}
 
-          {/* Footer Step Navigation */}
-          <View style={styles.footerStepBox}>
+          {/* FOOTER STEP NAVIGATION */}
+          <View style={styles.footerStepContainer}>
             <Pressable
-              style={styles.footerNextBtn}
+              style={styles.footerPrimaryBtn}
               onPress={() => {
                 if (detailTab === 'results') setDetailTab('plans');
                 else if (detailTab === 'plans') setDetailTab('evaluation');
                 else setActiveReport(null);
               }}
             >
-              <Text style={styles.footerNextBtnText}>
+              <Text style={styles.footerPrimaryBtnText}>
                 {detailTab === 'results'
                   ? 'Tiếp tục: Kế hoạch →'
                   : detailTab === 'plans'
@@ -717,148 +711,127 @@ export function AdminDailyReportsScreen() {
     <Screen backgroundColor="#F6F7FB">
       <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
         {/* Main Header */}
-        <View style={styles.listHeaderBox}>
-          <View style={styles.listHeaderTopRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listHeaderTitle}>Báo cáo cuối ngày</Text>
-              <Text style={styles.listHeaderSubtitle}>Theo dõi kết quả. Phản hồi kịp thời.</Text>
-            </View>
-            <View style={styles.adminBadge}>
-              <Text style={styles.adminBadgeText}>Quản trị</Text>
-            </View>
+        <View style={styles.listHeaderContainer}>
+          <View style={styles.headerTopRow}>
+            <Text style={styles.headerEyebrow}>WORKSPACE / QUẢN LÝ</Text>
+            <Text style={styles.headerSubBadge}>Quản trị</Text>
           </View>
+          <Text style={styles.headerMainTitle}>Báo cáo cuối ngày</Text>
+          <Text style={styles.headerMainSubtitle}>Theo dõi kết quả. Phản hồi kịp thời.</Text>
         </View>
 
         {/* Date Selector Bar */}
-        <View style={styles.dateBar}>
-          <Pressable style={styles.dateNavBtn} onPress={handlePrevDay}>
-            <MaterialCommunityIcons name="chevron-left" size={24} color="#192232" />
+        <View style={styles.dateBarContainer}>
+          <Pressable style={styles.dateBarNavBtn} onPress={handlePrevDay}>
+            <MaterialCommunityIcons name="chevron-left" size={22} color="#192232" />
           </Pressable>
 
-          <View style={styles.dateDisplay}>
-            <MaterialCommunityIcons name="calendar-month" size={18} color="#345FDF" />
-            <Text style={styles.dateDisplayText}>
+          <View style={styles.dateBarCenter}>
+            <Text style={styles.dateBarCenterText}>
               {new Date(selectedDate).toLocaleDateString('vi-VN', {
-                weekday: 'short',
-                day: '2-digit',
-                month: '2-digit',
                 year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
               })}
             </Text>
             {selectedDate !== todayStr && (
-              <Pressable style={styles.todayPill} onPress={() => todayStr && setSelectedDate(todayStr)}>
-                <Text style={styles.todayPillText}>Hôm nay</Text>
+              <Pressable style={styles.dateBarTodayBadge} onPress={() => todayStr && setSelectedDate(todayStr)}>
+                <Text style={styles.dateBarTodayBadgeText}>Hôm nay</Text>
               </Pressable>
             )}
           </View>
 
-          <Pressable style={styles.dateNavBtn} onPress={handleNextDay}>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#192232" />
+          <Pressable style={styles.dateBarNavBtn} onPress={handleNextDay}>
+            <MaterialCommunityIcons name="chevron-right" size={22} color="#192232" />
           </Pressable>
         </View>
 
-        {/* Department Picker Scroll */}
-        <View style={styles.deptSection}>
-          <Text style={styles.sectionLabel}>Phòng ban</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.deptScroll}>
-            <Pressable
-              style={[styles.deptPill, selectedDeptId === 'all' && styles.deptPillActive]}
-              onPress={() => setSelectedDeptId('all')}
-            >
-              <Text style={[styles.deptPillText, selectedDeptId === 'all' && styles.deptPillTextActive]}>
-                Tất cả phòng ban
-              </Text>
-            </Pressable>
-
-            {departmentsList.map((dept: any) => {
-              const isActive = selectedDeptId === dept.id;
-              return (
-                <Pressable
-                  key={dept.id}
-                  style={[styles.deptPill, isActive && styles.deptPillActive]}
-                  onPress={() => setSelectedDeptId(dept.id)}
-                >
-                  <Text style={[styles.deptPillText, isActive && styles.deptPillTextActive]}>
-                    {dept.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+        {/* Department Select Dropdown Card (Matches <label>Phòng ban<select>) */}
+        <View style={styles.deptDropdownContainer}>
+          <Text style={styles.deptDropdownLabel}>Phòng ban</Text>
+          <Pressable
+            style={styles.deptSelectCard}
+            onPress={() => setIsDeptModalVisible(true)}
+          >
+            <Text style={styles.deptSelectCardText} numberOfLines={1}>
+              {selectedDeptName}
+            </Text>
+            <MaterialCommunityIcons name="chevron-down" size={20} color="#707C8D" />
+          </Pressable>
         </View>
 
-        {/* 2x2 Status Filters Grid */}
-        <View style={styles.filtersGrid}>
+        {/* 2x2 Status Filters Grid (Matches .filters) */}
+        <View style={styles.statusFiltersGrid}>
           <Pressable
-            style={[styles.filterGridBtn, statusFilter === 'all' && styles.filterGridBtnActive]}
+            style={[styles.filterBtn, statusFilter === 'all' && styles.filterBtnActive]}
             onPress={() => setStatusFilter('all')}
           >
-            <Text style={[styles.filterGridLabel, statusFilter === 'all' && styles.filterGridLabelActive]}>
+            <Text style={[styles.filterBtnLabel, statusFilter === 'all' && styles.filterBtnLabelActive]}>
               Tất cả
             </Text>
-            <Text style={[styles.filterGridCount, statusFilter === 'all' && styles.filterGridCountActive]}>
+            <Text style={[styles.filterBtnCount, statusFilter === 'all' && styles.filterBtnCountActive]}>
               {stats.total}
             </Text>
           </Pressable>
 
           <Pressable
-            style={[styles.filterGridBtn, statusFilter === 'pending' && styles.filterGridBtnActive]}
+            style={[styles.filterBtn, statusFilter === 'pending' && styles.filterBtnActive]}
             onPress={() => setStatusFilter('pending')}
           >
-            <Text style={[styles.filterGridLabel, statusFilter === 'pending' && styles.filterGridLabelActive]}>
+            <Text style={[styles.filterBtnLabel, statusFilter === 'pending' && styles.filterBtnLabelActive]}>
               Chờ duyệt
             </Text>
-            <Text style={[styles.filterGridCount, statusFilter === 'pending' && styles.filterGridCountActive]}>
+            <Text style={[styles.filterBtnCount, statusFilter === 'pending' && styles.filterBtnCountActive]}>
               {stats.pending}
             </Text>
           </Pressable>
 
           <Pressable
-            style={[styles.filterGridBtn, statusFilter === 'reviewed' && styles.filterGridBtnActive]}
+            style={[styles.filterBtn, statusFilter === 'reviewed' && styles.filterBtnActive]}
             onPress={() => setStatusFilter('reviewed')}
           >
-            <Text style={[styles.filterGridLabel, statusFilter === 'reviewed' && styles.filterGridLabelActive]}>
+            <Text style={[styles.filterBtnLabel, statusFilter === 'reviewed' && styles.filterBtnLabelActive]}>
               Đã đánh giá
             </Text>
-            <Text style={[styles.filterGridCount, statusFilter === 'reviewed' && styles.filterGridCountActive]}>
+            <Text style={[styles.filterBtnCount, statusFilter === 'reviewed' && styles.filterBtnCountActive]}>
               {stats.reviewed}
             </Text>
           </Pressable>
 
           <Pressable
-            style={[styles.filterGridBtn, statusFilter === 'draft' && styles.filterGridBtnActive]}
+            style={[styles.filterBtn, statusFilter === 'draft' && styles.filterBtnActive]}
             onPress={() => setStatusFilter('draft')}
           >
-            <Text style={[styles.filterGridLabel, statusFilter === 'draft' && styles.filterGridLabelActive]}>
+            <Text style={[styles.filterBtnLabel, statusFilter === 'draft' && styles.filterBtnLabelActive]}>
               Bản nháp
             </Text>
-            <Text style={[styles.filterGridCount, statusFilter === 'draft' && styles.filterGridCountActive]}>
+            <Text style={[styles.filterBtnCount, statusFilter === 'draft' && styles.filterBtnCountActive]}>
               {stats.draft}
             </Text>
           </Pressable>
         </View>
 
-        {/* Reports List Title */}
-        <View style={styles.listCountRow}>
-          <Text style={styles.listCountTitle}>Danh sách báo cáo</Text>
-          <Text style={styles.listCountNumber}>{reports.length} báo cáo</Text>
+        {/* Reports List Header Title */}
+        <View style={styles.listHeaderRow}>
+          <Text style={styles.listHeaderTitleText}>Danh sách báo cáo</Text>
+          <Text style={styles.listHeaderCountText}>{reports.length} báo cáo</Text>
         </View>
 
-        {/* Report Cards */}
+        {/* Report Cards List */}
         {reportsQuery.isLoading ? (
-          <View style={styles.loadingBox}>
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#345FDF" />
-            <Text style={styles.loadingText}>Đang tải danh sách báo cáo...</Text>
+            <Text style={styles.loadingPromptText}>Đang tải danh sách báo cáo...</Text>
           </View>
         ) : reports.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <MaterialCommunityIcons name="file-document-outline" size={48} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>Không có báo cáo phù hợp</Text>
-            <Text style={styles.emptySub}>
+          <View style={styles.emptyCard}>
+            <MaterialCommunityIcons name="file-document-outline" size={44} color="#CBD5E1" />
+            <Text style={styles.emptyCardTitle}>Không có báo cáo phù hợp</Text>
+            <Text style={styles.emptyCardSub}>
               Thử chọn ngày, phòng ban hoặc trạng thái khác.
             </Text>
-            <Pressable style={styles.resetBtn} onPress={handleResetFilters}>
-              <Text style={styles.resetBtnText}>Đặt lại bộ lọc</Text>
+            <Pressable style={styles.resetFilterBtn} onPress={handleResetFilters}>
+              <Text style={styles.resetFilterBtnText}>Đặt lại bộ lọc</Text>
             </Pressable>
           </View>
         ) : (
@@ -869,7 +842,7 @@ export function AdminDailyReportsScreen() {
               const memberName = report.user?.profile?.fullName || report.user?.userCode || 'Nhân sự';
               const deptName = report.department?.name || 'Phòng ban';
 
-              // Avatar Initials
+              // Avatar Initials (e.g. Đoàn Nam Dương -> ND)
               const initials = memberName
                 .split(' ')
                 .filter(Boolean)
@@ -884,32 +857,33 @@ export function AdminDailyReportsScreen() {
               return (
                 <Pressable
                   key={report.id || Math.random().toString()}
-                  style={styles.reportCard}
+                  style={styles.reportItemCard}
                   onPress={() => setActiveReport(report)}
                 >
-                  {/* Card Header: Avatar, Name & Date, Badge */}
-                  <View style={styles.cardHeaderRow}>
-                    <View style={styles.cardAvatar}>
-                      <Text style={styles.cardAvatarText}>{initials || 'NV'}</Text>
-                    </View>
-
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.cardMemberName}>{memberName}</Text>
-                      <Text style={styles.cardDeptDate}>
-                        {deptName} · {new Date(report.reportDate).toLocaleDateString('vi-VN')}
-                      </Text>
+                  {/* Card Header Row */}
+                  <View style={styles.cardHeaderFlex}>
+                    <View style={styles.cardUserFlex}>
+                      <View style={styles.cardAvatarCircle}>
+                        <Text style={styles.cardAvatarText}>{initials || 'NV'}</Text>
+                      </View>
+                      <View style={{ marginLeft: 10 }}>
+                        <Text style={styles.cardUserName}>{memberName}</Text>
+                        <Text style={styles.cardDeptDateText}>
+                          {deptName} · {new Date(report.reportDate).toLocaleDateString('vi-VN')}
+                        </Text>
+                      </View>
                     </View>
 
                     <View
                       style={[
-                        styles.badge,
-                        isReviewed ? styles.badgeDone : isSubmitted ? styles.badgePending : styles.badgeDraft,
+                        styles.badgePill,
+                        isReviewed ? styles.badgePillDone : isSubmitted ? styles.badgePillPending : styles.badgePillDraft,
                       ]}
                     >
                       <Text
                         style={[
-                          styles.badgeText,
-                          isReviewed ? styles.badgeDoneText : isSubmitted ? styles.badgePendingText : styles.badgeDraftText,
+                          styles.badgePillText,
+                          isReviewed ? styles.badgePillDoneText : isSubmitted ? styles.badgePillPendingText : styles.badgePillDraftText,
                         ]}
                       >
                         {isReviewed ? 'Đã đánh giá' : isSubmitted ? 'Chờ duyệt' : 'Bản nháp'}
@@ -917,46 +891,104 @@ export function AdminDailyReportsScreen() {
                     </View>
                   </View>
 
-                  {/* Ratings Line */}
-                  <View style={styles.cardRatingRow}>
-                    <Text style={styles.cardRatingSelf}>
-                      Tự đánh giá <Text style={styles.goldStarInline}>★ {report.selfRating || 5}/5</Text>
+                  {/* Rating Comparison Row */}
+                  <View style={styles.cardRatingsFlex}>
+                    <Text style={styles.cardSelfRatingText}>
+                      Tự đánh giá <Text style={styles.goldStarRating}>★ {report.selfRating || 5}/5</Text>
                     </Text>
-                    <Text style={styles.cardRatingManager}>
+                    <Text style={styles.cardManagerRatingText}>
                       {report.adminRating ? (
                         <Text style={{ color: '#117D60', fontWeight: '600' }}>
                           Quản lý: ★ {report.adminRating}/5
                         </Text>
                       ) : (
-                        <Text style={{ color: '#707C8D' }}>Quản lý: Chưa đánh giá</Text>
+                        'Quản lý: Chưa đánh giá'
                       )}
                     </Text>
                   </View>
 
-                  {/* Summary Counts Bar */}
-                  <View style={styles.cardCountsBar}>
-                    <Text style={styles.cardCountItem}>
-                      <Text style={styles.cardCountNum}>{completedTasksCount}</Text> hoàn thành
+                  {/* Counts Row */}
+                  <View style={styles.cardCountsFlex}>
+                    <Text style={styles.cardCountSpan}>
+                      <Text style={styles.cardCountBold}>{completedTasksCount}</Text> hoàn thành
                     </Text>
-                    <Text style={styles.cardCountDot}>•</Text>
-                    <Text style={styles.cardCountItem}>
-                      <Text style={styles.cardCountNum}>{inProgressTasksCount}</Text> đang làm
+                    <Text style={styles.cardCountSpan}>
+                      <Text style={styles.cardCountBold}>{inProgressTasksCount}</Text> đang làm
                     </Text>
-                    <Text style={styles.cardCountDot}>•</Text>
-                    <Text style={styles.cardCountItem}>
-                      <Text style={styles.cardCountNum}>{plansCount}</Text> kế hoạch
+                    <Text style={styles.cardCountSpan}>
+                      <Text style={styles.cardCountBold}>{plansCount}</Text> kế hoạch
                     </Text>
                   </View>
 
-                  {/* Detail Link */}
-                  <View style={styles.cardFooterLink}>
-                    <Text style={styles.cardFooterLinkText}>Xem chi tiết →</Text>
-                  </View>
+                  {/* Link text */}
+                  <Text style={styles.cardViewDetailLink}>Xem chi tiết →</Text>
                 </Pressable>
               );
             })}
           </View>
         )}
+
+        {/* MODAL: DEPARTMENT SELECTOR */}
+        <Modal
+          visible={isDeptModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsDeptModalVisible(false)}
+        >
+          <Pressable
+            style={styles.deptModalOverlay}
+            onPress={() => setIsDeptModalVisible(false)}
+          >
+            <View style={styles.deptModalCard}>
+              <View style={styles.deptModalHeader}>
+                <Text style={styles.deptModalTitle}>Chọn phòng ban</Text>
+                <Pressable onPress={() => setIsDeptModalVisible(false)}>
+                  <MaterialCommunityIcons name="close" size={22} color="#707C8D" />
+                </Pressable>
+              </View>
+
+              <ScrollView style={{ maxHeight: 360 }}>
+                {/* Option: All */}
+                <Pressable
+                  style={[styles.deptOptionRow, selectedDeptId === 'all' && styles.deptOptionRowActive]}
+                  onPress={() => {
+                    setSelectedDeptId('all');
+                    setIsDeptModalVisible(false);
+                  }}
+                >
+                  <Text style={[styles.deptOptionText, selectedDeptId === 'all' && styles.deptOptionTextActive]}>
+                    Tất cả phòng ban
+                  </Text>
+                  {selectedDeptId === 'all' && (
+                    <MaterialCommunityIcons name="check" size={20} color="#345FDF" />
+                  )}
+                </Pressable>
+
+                {/* Option: List of Departments */}
+                {departmentsList.map((dept: any) => {
+                  const isSelected = selectedDeptId === dept.id;
+                  return (
+                    <Pressable
+                      key={dept.id}
+                      style={[styles.deptOptionRow, isSelected && styles.deptOptionRowActive]}
+                      onPress={() => {
+                        setSelectedDeptId(dept.id);
+                        setIsDeptModalVisible(false);
+                      }}
+                    >
+                      <Text style={[styles.deptOptionText, isSelected && styles.deptOptionTextActive]}>
+                        {dept.name}
+                      </Text>
+                      {isSelected && (
+                        <MaterialCommunityIcons name="check" size={20} color="#345FDF" />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </Pressable>
+        </Modal>
       </ScreenContainer>
     </Screen>
   );
@@ -966,317 +998,299 @@ export function AdminDailyReportsScreen() {
 // STYLES
 // -------------------------------------------------------------
 const styles = StyleSheet.create({
-  // MAIN LIST HEADER
-  listHeaderBox: {
+  // LIST HEADER
+  listHeaderContainer: {
     paddingHorizontal: 4,
     paddingTop: 4,
-    paddingBottom: 10,
+    paddingBottom: 12,
   },
-  listHeaderTopRow: {
+  headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  listHeaderTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#192232',
-    letterSpacing: -0.6,
-  },
-  listHeaderSubtitle: {
-    fontSize: 13,
-    color: '#707C8D',
-    marginTop: 2,
-  },
-  adminBadge: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E9EDF3',
-    marginTop: 2,
-  },
-  adminBadgeText: {
+  headerEyebrow: {
     fontSize: 11,
+    letterSpacing: 1.4,
     color: '#707C8D',
     fontWeight: '600',
   },
+  headerSubBadge: {
+    fontSize: 12,
+    color: '#707C8D',
+  },
+  headerMainTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#192232',
+    letterSpacing: -0.8,
+    marginTop: 4,
+  },
+  headerMainSubtitle: {
+    fontSize: 13,
+    color: '#707C8D',
+    marginTop: 4,
+  },
 
-  // DATE BAR
-  dateBar: {
+  // DATEBAR
+  dateBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    padding: 6,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: '#E9EDF3',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  dateNavBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  dateBarNavBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F6F7FB',
   },
-  dateDisplay: {
+  dateBarCenter: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
-  dateDisplayText: {
-    fontSize: 14,
+  dateBarCenterText: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#192232',
+    textAlign: 'center',
   },
-  todayPill: {
+  dateBarTodayBadge: {
     backgroundColor: '#EDF2FF',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  todayPillText: {
+  dateBarTodayBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#345FDF',
   },
 
-  // DEPT FILTER
-  deptSection: {
-    marginBottom: 12,
+  // DEPARTMENT DROPDOWN CARD
+  deptDropdownContainer: {
+    marginBottom: 14,
   },
-  sectionLabel: {
+  deptDropdownLabel: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#707C8D',
     marginBottom: 6,
-    paddingHorizontal: 4,
-  },
-  deptScroll: {
-    gap: 8,
     paddingHorizontal: 2,
   },
-  deptPill: {
+  deptSelectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E9EDF3',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  deptPillActive: {
-    backgroundColor: '#192232',
-    borderColor: '#192232',
-  },
-  deptPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#707C8D',
-  },
-  deptPillTextActive: {
-    color: '#FFFFFF',
+  deptSelectCardText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#192232',
+    flex: 1,
+    marginRight: 8,
   },
 
-  // 2x2 FILTERS GRID
-  filtersGrid: {
+  // STATUS FILTERS 2X2 GRID
+  statusFiltersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+    gap: 7,
+    marginBottom: 20,
   },
-  filterGridBtn: {
-    width: '48.5%',
+  filterBtn: {
+    width: '48.8%',
     backgroundColor: '#FFFFFF',
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E9EDF3',
+    borderColor: 'transparent',
   },
-  filterGridBtnActive: {
+  filterBtnActive: {
     backgroundColor: '#192232',
-    borderColor: '#192232',
   },
-  filterGridLabel: {
+  filterBtnLabel: {
     fontSize: 12,
     color: '#707C8D',
     fontWeight: '500',
   },
-  filterGridLabelActive: {
+  filterBtnLabelActive: {
     color: '#FFFFFF',
   },
-  filterGridCount: {
-    fontSize: 20,
+  filterBtnCount: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#192232',
-    marginTop: 4,
+    marginTop: 3,
   },
-  filterGridCountActive: {
+  filterBtnCountActive: {
     color: '#FFFFFF',
   },
 
-  // LIST COUNT ROW
-  listCountRow: {
+  // LIST HEADER ROW
+  listHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
-    paddingHorizontal: 4,
+    marginBottom: 12,
+    paddingHorizontal: 2,
   },
-  listCountTitle: {
+  listHeaderTitleText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#192232',
   },
-  listCountNumber: {
+  listHeaderCountText: {
     fontSize: 12,
     color: '#707C8D',
-    fontWeight: '600',
   },
 
-  // REPORT CARD
-  reportCard: {
+  // REPORT ITEM CARD
+  reportItemCard: {
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 18,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E9EDF3',
   },
-  cardHeaderRow: {
+  cardHeaderFlex: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  cardAvatar: {
-    width: 42,
-    height: 42,
+  cardUserFlex: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  cardAvatarCircle: {
+    width: 40,
+    height: 40,
     borderRadius: 14,
     backgroundColor: '#EDF2FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardAvatarText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#345FDF',
   },
-  cardMemberName: {
+  cardUserName: {
     fontSize: 15,
     fontWeight: '700',
     color: '#192232',
   },
-  cardDeptDate: {
+  cardDeptDateText: {
     fontSize: 12,
     color: '#707C8D',
     marginTop: 2,
   },
-  cardRatingRow: {
+  cardRatingsFlex: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
+    marginTop: 16,
   },
-  cardRatingSelf: {
+  cardSelfRatingText: {
     fontSize: 12,
     color: '#707C8D',
   },
-  goldStarInline: {
-    color: '#EF8E0B',
-    fontWeight: '700',
-  },
-  cardRatingManager: {
+  cardManagerRatingText: {
     fontSize: 12,
+    color: '#707C8D',
   },
-  cardCountsBar: {
+  cardCountsFlex: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-    paddingTop: 10,
+    gap: 14,
+    flexWrap: 'wrap',
     borderTopWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E9EDF3',
+    marginTop: 14,
+    paddingTop: 12,
   },
-  cardCountItem: {
+  cardCountSpan: {
     fontSize: 12,
     color: '#707C8D',
   },
-  cardCountNum: {
+  cardCountBold: {
     fontWeight: '700',
     color: '#192232',
   },
-  cardCountDot: {
-    color: '#CBD5E1',
-    fontSize: 12,
-  },
-  cardFooterLink: {
-    marginTop: 12,
-    alignItems: 'flex-start',
-  },
-  cardFooterLinkText: {
+  cardViewDetailLink: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#345FDF',
+    marginTop: 10,
   },
 
-  // BADGES
-  badge: {
+  // BADGE PILLS
+  badgePill: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 7,
   },
-  badgePending: {
+  badgePillPending: {
     backgroundColor: '#FFF5DF',
   },
-  badgePendingText: {
+  badgePillPendingText: {
     color: '#9F650B',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  badgeDone: {
+  badgePillDone: {
     backgroundColor: '#EDF2FF',
   },
-  badgeDoneText: {
+  badgePillDoneText: {
     color: '#117D60',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  badgeDraft: {
+  badgePillDraft: {
     backgroundColor: '#F1F5F9',
   },
-  badgeDraftText: {
+  badgePillDraftText: {
     color: '#64748B',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  badgeText: {
+  badgePillText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 
-  // DETAIL VIEW HEADER
-  detailHeader: {
+  // DETAIL VIEW HEADER CARD
+  detailHeaderCard: {
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 20,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E9EDF3',
     marginBottom: 12,
   },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
+  backLinkBtn: {
+    alignSelf: 'flex-start',
+    marginBottom: 10,
   },
-  backBtnText: {
+  backLinkText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#345FDF',
   },
   detailTitleRow: {
@@ -1284,90 +1298,85 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  detailUserName: {
-    fontSize: 22,
+  detailNameText: {
+    fontSize: 24,
     fontWeight: '800',
     color: '#192232',
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
-  detailSubtitle: {
+  detailRoleDateText: {
     fontSize: 13,
     color: '#707C8D',
     marginTop: 4,
   },
-  detailSubNotice: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
+  detailSubmitTimeText: {
+    fontSize: 12,
+    color: '#707C8D',
+    marginTop: 4,
   },
-  detailSummaryRow: {
+  summaryKPIContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    marginTop: 16,
+    justifyContent: 'space-between',
+    marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 1,
     borderColor: '#E9EDF3',
   },
-  summaryCol: {
-    alignItems: 'center',
+  summaryKPICell: {
     flex: 1,
   },
-  summaryColDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#E9EDF3',
-  },
-  summaryColValue: {
-    fontSize: 22,
-    fontWeight: '800',
+  summaryKPIValue: {
+    fontSize: 23,
+    fontWeight: '700',
     color: '#192232',
   },
-  summaryColLabel: {
+  summaryKPILabel: {
     fontSize: 11,
     color: '#707C8D',
     marginTop: 2,
   },
 
-  // TABS
-  tabsContainer: {
+  // TABS BAR
+  tabsBar: {
     flexDirection: 'row',
+    gap: 5,
     backgroundColor: '#E9EDF3',
-    borderRadius: 14,
+    borderRadius: 13,
     padding: 4,
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  tabBtn: {
+  tabButton: {
     flex: 1,
-    paddingVertical: 10,
     alignItems: 'center',
+    paddingVertical: 9,
     borderRadius: 10,
   },
-  tabBtnActive: {
+  tabButtonActive: {
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 1,
   },
-  tabBtnText: {
+  tabButtonText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#707C8D',
   },
-  tabBtnTextActive: {
+  tabButtonTextActive: {
     color: '#192232',
     fontWeight: '700',
   },
 
-  // PANELS
-  tabContent: {
+  // TAB CONTENT PANELS
+  tabContentContainer: {
     gap: 12,
   },
-  panel: {
+  panelCard: {
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 18,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E9EDF3',
@@ -1376,165 +1385,116 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  panelTitle: {
+  panelCardTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#192232',
   },
-  panelSubtitle: {
+  panelCardSubtitle: {
     fontSize: 12,
     color: '#707C8D',
-    marginTop: 2,
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 8,
   },
-  countBadge: {
-    backgroundColor: '#EDF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  panelHeaderCountText: {
+    fontSize: 12,
+    color: '#707C8D',
   },
-  countBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#117D60',
-  },
-  emptyText: {
+  emptyPromptText: {
     fontSize: 13,
     color: '#94A3B8',
     fontStyle: 'italic',
     marginVertical: 6,
   },
 
-  // QUANTITATIVE METRICS
+  // METRICS ITEM ROW
   metricItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E9EDF3',
   },
-  metricName: {
+  metricItemName: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#192232',
+    fontWeight: '500',
   },
-  metricNote: {
+  metricItemNote: {
     fontSize: 11,
     color: '#94A3B8',
     marginTop: 2,
   },
-  metricValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#345FDF',
-  },
-  metricUnit: {
-    fontSize: 11,
+  metricItemValue: {
+    fontSize: 13,
     color: '#707C8D',
-    marginTop: 1,
+    textAlign: 'right',
   },
 
-  // TASKS
-  taskItemRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 10,
+  // SIMPLE LIST ITEM
+  simpleListItem: {
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E9EDF3',
   },
-  taskTitle: {
+  simpleListItemText: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#192232',
-    lineHeight: 18,
+    lineHeight: 19,
   },
-  taskNote: {
+  simpleListItemSub: {
     fontSize: 12,
     color: '#707C8D',
-    marginTop: 2,
+    marginTop: 3,
   },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  progressText: {
-    fontSize: 11,
-    color: '#707C8D',
-  },
-  progressPercent: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#345FDF',
-  },
-  expandBtn: {
+  expandCollapseBtn: {
     paddingVertical: 10,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  expandBtnText: {
+  expandCollapseBtnText: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#345FDF',
+    fontWeight: '600',
   },
 
-  // PLANS & OBSTACLES
-  calloutAmber: {
+  // PLANS & OBSTACLES CALLOUTS
+  calloutAmberBox: {
     backgroundColor: '#FFF5DF',
     padding: 12,
     borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
     marginTop: 6,
   },
-  calloutAmberText: {
-    flex: 1,
+  calloutAmberBoxText: {
     fontSize: 13,
     color: '#9F650B',
     lineHeight: 18,
   },
-  calloutSoft: {
+  calloutSoftBox: {
     backgroundColor: '#EDF2FF',
     padding: 12,
     borderRadius: 12,
     marginTop: 6,
   },
-  calloutSoftText: {
+  calloutSoftBoxText: {
     fontSize: 13,
     color: '#192232',
     lineHeight: 18,
   },
-  planItemRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-    gap: 10,
+  emptyPlanText: {
+    fontSize: 13,
+    color: '#192232',
   },
-  planNumberBadge: {
-    fontSize: 11,
-    fontWeight: '700',
+  emptyPlanSub: {
+    fontSize: 12,
     color: '#707C8D',
-    backgroundColor: '#F6F7FB',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  planItemText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#192232',
-    fontWeight: '500',
-    lineHeight: 18,
+    marginTop: 2,
   },
 
   // ATTACHMENTS
-  attachmentCard: {
+  attachmentItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F6F7FB',
@@ -1549,7 +1509,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#E2E8F0',
   },
-  attachmentDocIcon: {
+  attachmentDocBadge: {
     width: 44,
     height: 44,
     borderRadius: 8,
@@ -1557,221 +1517,255 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  attachmentFileName: {
+  attachmentItemName: {
     fontSize: 13,
     fontWeight: '600',
     color: '#192232',
   },
-  attachmentFileSize: {
+  attachmentItemSub: {
     fontSize: 11,
     color: '#707C8D',
     marginTop: 2,
   },
 
-  // EVALUATION & RATINGS
-  selfRatingHeaderRow: {
+  // EVALUATION STYLES
+  selfRatingBetweenRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E9EDF3',
+    marginBottom: 6,
   },
-  selfRatingLabel: {
-    fontSize: 13,
-    color: '#707C8D',
-  },
-  goldStarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#EF8E0B',
-  },
-  selfReviewText: {
+  selfRatingTitle: {
     fontSize: 13,
     color: '#192232',
-    marginTop: 8,
-    fontStyle: 'italic',
-    lineHeight: 18,
   },
-  starsRow: {
+  goldStarRating: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#9F650B',
+  },
+  selfReviewDetailText: {
+    fontSize: 12,
+    color: '#707C8D',
+    marginTop: 4,
+  },
+  interactiveStarsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 12,
-    paddingHorizontal: 8,
+    marginVertical: 14,
+    paddingHorizontal: 6,
   },
-  starBtn: {
+  interactiveStarBtn: {
     padding: 6,
     borderRadius: 10,
   },
-  starBtnFilled: {
+  interactiveStarBtnFilled: {
     backgroundColor: '#FFF5DF',
   },
-  scoreActiveLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#EF8E0B',
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  inputSectionLabel: {
+  scoreLevelDescriptionText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#192232',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  inputLabelHeader: {
+    fontSize: 12,
+    color: '#707C8D',
     marginBottom: 6,
   },
-  textArea: {
+  managerNoteInput: {
     backgroundColor: '#F6F7FB',
     borderWidth: 1,
     borderColor: '#E9EDF3',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 12,
     fontSize: 14,
     color: '#192232',
-    minHeight: 90,
+    minHeight: 100,
     textAlignVertical: 'top',
     marginBottom: 14,
   },
-  submitEvalBtn: {
+  primaryActionBtn: {
     backgroundColor: '#192232',
-    flexDirection: 'row',
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
   },
-  submitEvalBtnText: {
+  primaryActionBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
-  cancelEditBtn: {
+  confirmScoreBox: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#E9EDF3',
+    marginBottom: 8,
+  },
+  confirmNoteText: {
+    fontSize: 14,
+    color: '#192232',
+    lineHeight: 20,
+    marginVertical: 8,
+  },
+  confirmNoteSubWarning: {
+    fontSize: 12,
+    color: '#707C8D',
+    marginTop: 4,
+  },
+  secondaryLinkBtn: {
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 6,
   },
-  cancelEditBtnText: {
+  secondaryLinkBtnText: {
     fontSize: 13,
-    color: '#707C8D',
+    color: '#345FDF',
     fontWeight: '600',
   },
-
-  // SAVED EVALUATION
-  savedScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 10,
-  },
-  goldStarBigText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#EF8E0B',
-  },
-  savedScoreLabel: {
+  savedManagerNoteText: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#192232',
-  },
-  savedNoteBox: {
-    backgroundColor: '#F6F7FB',
-    padding: 12,
-    borderRadius: 12,
+    lineHeight: 20,
     marginVertical: 8,
   },
-  savedNoteTitle: {
+  savedManagerMetaText: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#707C8D',
-    marginBottom: 4,
+    marginTop: 2,
   },
-  savedNoteContent: {
-    fontSize: 13,
-    color: '#192232',
-    lineHeight: 18,
-  },
-  reviewerInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
-  },
-  reviewerInfoText: {
-    fontSize: 11,
-    color: '#707C8D',
-  },
-  reEditBtn: {
+  reEditLinkBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
+    paddingVertical: 10,
     marginTop: 12,
     borderWidth: 1,
     borderColor: '#E9EDF3',
     borderRadius: 12,
   },
-  reEditBtnText: {
+  reEditLinkBtnText: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#345FDF',
+    fontWeight: '600',
   },
 
   // FOOTER STEP
-  footerStepBox: {
-    marginTop: 8,
-  },
-  footerNextBtn: {
-    backgroundColor: '#192232',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  footerNextBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  // EMPTY & LOADING
-  loadingBox: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    gap: 10,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: '#707C8D',
-  },
-  emptyBox: {
-    padding: 30,
-    alignItems: 'center',
+  footerStepContainer: {
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E9EDF3',
+    paddingHorizontal: 16,
+    marginTop: 6,
+  },
+  footerPrimaryBtn: {
+    backgroundColor: '#192232',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  footerPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  // DEPARTMENT MODAL
+  deptModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  deptModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E9EDF3',
+  },
+  deptModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderColor: '#E9EDF3',
+    marginBottom: 8,
+  },
+  deptModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#192232',
+  },
+  deptOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  deptOptionRowActive: {
+    backgroundColor: '#EDF2FF',
+  },
+  deptOptionText: {
+    fontSize: 14,
+    color: '#192232',
+    fontWeight: '500',
+  },
+  deptOptionTextActive: {
+    color: '#345FDF',
+    fontWeight: '700',
+  },
+
+  // EMPTY & LOADING
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 10,
+  },
+  loadingPromptText: {
+    fontSize: 13,
+    color: '#707C8D',
+  },
+  emptyCard: {
+    padding: 30,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E9EDF3',
     marginVertical: 10,
   },
-  emptyTitle: {
+  emptyCardTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#192232',
     marginTop: 10,
   },
-  emptySub: {
+  emptyCardSub: {
     fontSize: 12,
     color: '#707C8D',
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 14,
   },
-  resetBtn: {
+  resetFilterBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 10,
     backgroundColor: '#EDF2FF',
   },
-  resetBtnText: {
+  resetFilterBtnText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#345FDF',
