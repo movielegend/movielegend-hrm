@@ -182,3 +182,8 @@ export async function reviewDailyReport(reportId: string, payload: ReviewDailyRe
   const response = await apiClient.post<ApiResponse<DailyReport>>(`/daily-reports/${reportId}/review`, payload);
   return unwrapData(response);
 }
+
+export async function fetchReportById(reportId: string): Promise<DailyReport> {
+  const response = await apiClient.get<ApiResponse<DailyReport>>(`/daily-reports/${reportId}`);
+  return unwrapData(response);
+}

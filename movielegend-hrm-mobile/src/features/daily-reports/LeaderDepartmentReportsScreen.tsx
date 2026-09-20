@@ -190,6 +190,34 @@ export function LeaderDepartmentReportsScreen() {
                 Tự đánh giá: <Text style={styles.goldStarRating}>★ {selectedReport.selfRating || 5}/5 sao</Text>
               </Text>
             </View>
+
+            {/* Admin Review Feedback Banner */}
+            {selectedReport.status === 'REVIEWED' && (
+              <View style={styles.adminReviewBannerCard}>
+                <View style={styles.adminReviewBannerHeader}>
+                  <MaterialCommunityIcons name="star-circle" size={20} color="#EAB308" />
+                  <Text style={styles.adminReviewBannerTitle}>ĐÁNH GIÁ TỪ ADMIN / BAN GIÁM ĐỐC</Text>
+                  <Text style={styles.adminReviewBannerStars}>
+                    {'★'.repeat(selectedReport.adminRating || 5)}{'☆'.repeat(5 - (selectedReport.adminRating || 5))} ({selectedReport.adminRating || 5}/5)
+                  </Text>
+                </View>
+                {selectedReport.adminReview ? (
+                  <View style={styles.adminReviewBannerComment}>
+                    <Text style={styles.adminReviewBannerCommentText}>"{selectedReport.adminReview}"</Text>
+                  </View>
+                ) : null}
+                <View style={styles.adminReviewBannerMeta}>
+                  <Text style={styles.adminReviewBannerMetaText}>
+                    Người duyệt: {selectedReport.reviewedBy?.profile?.fullName || selectedReport.reviewedBy?.userCode || 'Admin'}
+                  </Text>
+                  {selectedReport.reviewedAt && (
+                    <Text style={styles.adminReviewBannerMetaText}>
+                      {new Date(selectedReport.reviewedAt).toLocaleDateString('vi-VN')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
           </View>
 
           {/* 3 Detail Tabs */}
@@ -1043,6 +1071,59 @@ const styles = StyleSheet.create({
   goldStarRating: {
     color: '#9F650B',
     fontWeight: '700',
+  },
+  adminReviewBannerCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  adminReviewBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  adminReviewBannerTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    letterSpacing: 0.5,
+  },
+  adminReviewBannerStars: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F59E0B',
+    marginLeft: 'auto',
+  },
+  adminReviewBannerComment: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  adminReviewBannerCommentText: {
+    fontSize: 12,
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  adminReviewBannerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+  },
+  adminReviewBannerMetaText: {
+    fontSize: 10,
+    color: '#78716C',
   },
 
   // DETAIL TABS

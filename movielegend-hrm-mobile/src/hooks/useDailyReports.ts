@@ -8,6 +8,7 @@ import {
   convertPlanToTasks,
   fetchAdminReports,
   reviewDailyReport,
+  fetchReportById,
   type SaveDailyReportPayload,
   type ReviewDailyReportPayload,
   type ConvertPlanToTasksPayload,
@@ -17,6 +18,7 @@ export const dailyReportKeys = {
   all: ['daily-reports'] as const,
   myToday: (date?: string) => [...dailyReportKeys.all, 'my-today', date || 'today'] as const,
   myHistory: (page: number, month?: string) => [...dailyReportKeys.all, 'my-history', page, month || 'all'] as const,
+  detail: (id: string) => [...dailyReportKeys.all, 'detail', id] as const,
   department: (deptId?: string, date?: string) => [...dailyReportKeys.all, 'department', deptId || 'my', date || 'today'] as const,
   departmentSummary: (deptId?: string, date?: string) => [...dailyReportKeys.all, 'department-summary', deptId || 'my', date || 'today'] as const,
   admin: (params?: any) => [...dailyReportKeys.all, 'admin', params] as const,
@@ -96,5 +98,13 @@ export function useReviewDailyReport(reportId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: dailyReportKeys.all });
     },
+  });
+}
+
+export function useReportById(reportId: string | null) {
+  return useQuery({
+    queryKey: dailyReportKeys.detail(reportId || ''),
+    queryFn: () => fetchReportById(reportId!),
+    enabled: !!reportId,
   });
 }

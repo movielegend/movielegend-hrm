@@ -80,9 +80,11 @@ export class DailyReportsService {
       include: { reviewedBy: { select: { profile: { select: { fullName: true } } } } },
     });
 
-    if (existing && existing.status === 'REVIEWED') {
+    if (existing && (existing.status === 'SUBMITTED' || existing.status === 'REVIEWED')) {
       throw new ForbiddenException(
-        `Báo cáo ngày ${reportDate} đã được ${existing.reviewedBy?.profile?.fullName || 'Admin'} đánh giá, không thể chỉnh sửa.`
+        existing.status === 'REVIEWED'
+          ? `Báo cáo ngày ${reportDate} đã được ${existing.reviewedBy?.profile?.fullName || 'Admin'} đánh giá, không thể chỉnh sửa.`
+          : `Bạn đã nộp báo cáo cho ngày ${reportDate} rồi. Mỗi ngày chỉ được gửi báo cáo 1 lần.`
       );
     }
 
@@ -695,5 +697,33 @@ export class DailyReportsService {
     });
 
     return updated;
+  }
+
+  /**
+   * 9. Lấy chi tiết một báo cáo theo ID (chính chủ, leader phòng hoặc admin)
+   */
+  async getReportById(actor: AuthenticatedUser, reportId: string) {
+    const report = await this.prisma.dailyReport.findUnique({
+      where: { id: reportId },
+      include: {
+        user: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+        department: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, userCode: true, profile: { select: { fullName: true } } } },
+      },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+
+    const isOwner = report.userId === actor.userId;
+    const isAdmin = actor.roles.some((r) => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR'].includes(r));
+    const isLeader = actor.roles.includes('LEADER');
+
+    if (!isOwner && !isAdmin && !isLeader) {
+      throw new ForbiddenException('Bạn không có quyền xem báo cáo này');
+    }
+
+    return report;
   }
 }

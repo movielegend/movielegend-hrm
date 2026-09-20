@@ -114,4 +114,13 @@ export class DailyReportsController {
   ) {
     return this.service.reviewReportByAdmin(user, id, dto);
   }
+
+  @ApiOperation({ summary: 'Xem chi tiết một báo cáo theo ID' })
+  @Get(':id')
+  getReportById(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string
+  ) {
+    return this.service.getReportById(user, id);
+  }
 }
