@@ -10,15 +10,19 @@ import {
   Alert,
   Switch,
   Platform,
+  Image,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Linking from 'expo-linking';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PageHeader } from '../../components/PageHeader';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { useAuth } from '../../providers/AuthProvider';
 import {
   useMyTodayReport,
@@ -73,6 +77,12 @@ export function DailyReportFormScreen() {
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isInitializing, setIsInitializing] = useState(true);
   const [noticeText, setNoticeText] = useState<string>('Dữ liệu sẵn sàng');
+
+  // Preview modals state
+  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [previewImageTitle, setPreviewImageTitle] = useState<string>('Xem ảnh đính kèm');
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Xem tài liệu');
 
   // STEP 1: HÔM NAY
   const [metrics, setMetrics] = useState<DailyReportMetricItem[]>([
@@ -331,6 +341,23 @@ export function DailyReportFormScreen() {
 
   const handleDeleteAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // --- PREVIEW ATTACHMENT HANDLER ---
+  const handlePreviewAttachment = (att: DailyReportAttachmentItem) => {
+    if (!att.url) return;
+
+    const isImg =
+      att.fileType === 'IMAGE' ||
+      /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(att.url);
+
+    if (isImg) {
+      setPreviewImageTitle(att.fileName || 'Xem ảnh đính kèm');
+      setPreviewImageUri(att.url);
+    } else {
+      setPdfPreviewTitle(att.fileName || 'Xem tài liệu');
+      setPdfPreviewUrl(att.url);
+    }
   };
 
   // --- SAVE DRAFT & SUBMIT ---
@@ -842,30 +869,64 @@ export function DailyReportFormScreen() {
                 editable={!isAlreadyReviewed}
               />
 
-              {/* Attachments */}
+              {/* Attachments Section with Rich Preview */}
               <Text style={[styles.inputLabel, { marginTop: 14 }]}>
-                Tệp đính kèm <Text style={styles.optionalText}>· Tùy chọn</Text>
+                Tệp đính kèm <Text style={styles.optionalText}>· Chạm để xem lại ảnh/tài liệu</Text>
               </Text>
 
               {attachments.length > 0 && (
                 <View style={styles.attachmentsListBox}>
-                  {attachments.map((att, idx) => (
-                    <View key={idx} style={styles.attachmentChip}>
-                      <MaterialCommunityIcons
-                        name={att.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                        size={16}
-                        color="#315DE5"
-                      />
-                      <Text style={styles.attachmentChipText} numberOfLines={1}>
-                        {att.fileName || `Tệp ${idx + 1}`}
-                      </Text>
-                      {!isAlreadyReviewed && (
-                        <TouchableOpacity onPress={() => handleDeleteAttachment(idx)}>
-                          <Ionicons name="close" size={16} color="#EF4444" />
+                  {attachments.map((att, idx) => {
+                    const isImg =
+                      att.fileType === 'IMAGE' ||
+                      /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(att.url);
+
+                    return (
+                      <View key={idx} style={styles.attachmentCardRow}>
+                        <TouchableOpacity
+                          style={styles.attachmentMainTouch}
+                          onPress={() => handlePreviewAttachment(att)}
+                          activeOpacity={0.7}
+                        >
+                          {isImg ? (
+                            <Image
+                              source={{ uri: att.url }}
+                              style={styles.attachmentThumbImg}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={styles.attachmentDocIconBox}>
+                              <MaterialCommunityIcons
+                                name="file-document-outline"
+                                size={22}
+                                color="#315DE5"
+                              />
+                            </View>
+                          )}
+
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.attachmentCardName} numberOfLines={1}>
+                              {att.fileName || `Tệp ${idx + 1}`}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                              <Text style={styles.attachmentTapHint}>Chạm để xem</Text>
+                              <Ionicons name="eye-outline" size={13} color="#315DE5" />
+                            </View>
+                          </View>
                         </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
+
+                        {!isAlreadyReviewed && (
+                          <TouchableOpacity
+                            onPress={() => handleDeleteAttachment(idx)}
+                            style={styles.attachmentDeleteBtn}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
               )}
 
@@ -991,14 +1052,33 @@ export function DailyReportFormScreen() {
                   </View>
                 ) : null}
 
-                {/* 8. Đính kèm */}
+                {/* 8. Đính kèm (Previewable chips) */}
                 <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Đính kèm</Text>
-                  <Text style={styles.summaryLineVal}>
-                    {attachments.length === 0
-                      ? '0 tệp'
-                      : `${attachments.length} tệp (${attachments.map((a) => a.fileName || 'Tệp').join(' · ')})`}
-                  </Text>
+                  <Text style={styles.summaryLineKey}>Đính kèm ({attachments.length} tệp)</Text>
+                  {attachments.length === 0 ? (
+                    <Text style={styles.summaryLineVal}>0 tệp</Text>
+                  ) : (
+                    <View style={{ gap: 6, marginTop: 4 }}>
+                      {attachments.map((a, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={styles.reviewAttachChip}
+                          onPress={() => handlePreviewAttachment(a)}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialCommunityIcons
+                            name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
+                            size={16}
+                            color="#315DE5"
+                          />
+                          <Text style={styles.reviewAttachChipText} numberOfLines={1}>
+                            {a.fileName || `Tệp ${idx + 1}`}
+                          </Text>
+                          <Ionicons name="eye-outline" size={14} color="#315DE5" />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -1076,6 +1156,52 @@ export function DailyReportFormScreen() {
 
           <Text style={styles.footerNoticeText}>{noticeText}</Text>
         </View>
+
+        {/* ========================================================================= */}
+        {/* FULLSCREEN IMAGE PREVIEW MODAL                                            */}
+        {/* ========================================================================= */}
+        <Modal
+          visible={!!previewImageUri}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setPreviewImageUri(null)}
+        >
+          <View style={styles.imageModalOverlay}>
+            <View style={[styles.imageModalHeader, { paddingTop: Math.max(insets.top + 8, 36) }]}>
+              <TouchableOpacity
+                style={styles.imageModalCloseBtn}
+                onPress={() => setPreviewImageUri(null)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.imageModalTitle} numberOfLines={1}>
+                {previewImageTitle}
+              </Text>
+              <View style={{ width: 36 }} />
+            </View>
+
+            <View style={styles.imageModalBody}>
+              {previewImageUri ? (
+                <Image
+                  source={{ uri: previewImageUri }}
+                  style={styles.imageModalFullImage}
+                  resizeMode="contain"
+                />
+              ) : null}
+            </View>
+          </View>
+        </Modal>
+
+        {/* ========================================================================= */}
+        {/* PDF / DOCUMENT VIEWER MODAL                                               */}
+        {/* ========================================================================= */}
+        <PdfViewerModal
+          visible={!!pdfPreviewUrl}
+          url={pdfPreviewUrl}
+          title={pdfPreviewTitle}
+          onClose={() => setPdfPreviewUrl(null)}
+        />
       </ScreenContainer>
     </Screen>
   );
@@ -1435,24 +1561,53 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // ATTACHMENTS
+  // ATTACHMENTS (CARD ROW WITH THUMBNAIL)
   attachmentsListBox: {
-    gap: 6,
+    gap: 8,
     marginBottom: 10,
   },
-  attachmentChip: {
+  attachmentCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F6FA',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E9EDF2',
     gap: 8,
   },
-  attachmentChipText: {
+  attachmentMainTouch: {
     flex: 1,
-    fontSize: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  attachmentThumbImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+  },
+  attachmentDocIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#EEF3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentCardName: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#192232',
+  },
+  attachmentTapHint: {
+    fontSize: 11,
+    color: '#315DE5',
+    fontWeight: '500',
+  },
+  attachmentDeleteBtn: {
+    padding: 8,
   },
   attachBtnGroup: {
     flexDirection: 'row',
@@ -1508,6 +1663,23 @@ const styles = StyleSheet.create({
     color: '#192232',
     fontWeight: '600',
     lineHeight: 20,
+  },
+  reviewAttachChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F6FA',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E9EDF2',
+  },
+  reviewAttachChipText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#192232',
   },
   confirmCheckRow: {
     flexDirection: 'row',
@@ -1576,5 +1748,41 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     fontWeight: '500',
+  },
+
+  // FULLSCREEN IMAGE MODAL
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+  },
+  imageModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(20, 20, 20, 0.8)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  imageModalCloseBtn: {
+    padding: 6,
+  },
+  imageModalTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+  },
+  imageModalBody: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalFullImage: {
+    width: '100%',
+    height: '100%',
   },
 });
