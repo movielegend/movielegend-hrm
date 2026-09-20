@@ -44,7 +44,7 @@ import { useVoiceCall } from '../voice-call/VoiceCallProvider';
 import * as Clipboard from 'expo-clipboard';
 import { downloadAndSaveImage } from '../../utils/file-download';
 import { ChatWatermark } from '../../components/ChatWatermark';
-import { Audio } from 'expo-av';
+import { SafeAudio, isAudioAvailable } from '../../utils/safe-audio';
 import { VoiceMessageBubble } from './VoiceMessageBubble';
 
 // ── Helpers ──
@@ -1071,20 +1071,27 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   }, []);
 
   async function startRecording() {
+    if (!SafeAudio || !isAudioAvailable) {
+      showAlert(
+        'Cần cập nhật bản Native',
+        'Ứng dụng đang chạy trên bản cài đặt chưa nạp module Microphone (ExponentAV). Vui lòng cập nhật/build lại bản native mới (iOS/Android) để sử dụng tính năng ghi âm.'
+      );
+      return;
+    }
     try {
-      const permission = await Audio.requestPermissionsAsync();
+      const permission = await SafeAudio.requestPermissionsAsync();
       if (!permission.granted) {
         showAlert('Quyền Micro', 'Vui lòng cấp quyền Microphone trong Cài đặt để gửi tin nhắn thoại.');
         return;
       }
 
-      await Audio.setAudioModeAsync({
+      await SafeAudio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
 
-      const newRecording = new Audio.Recording();
-      await newRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      const newRecording = new SafeAudio.Recording();
+      await newRecording.prepareToRecordAsync(SafeAudio.RecordingOptionsPresets.HIGH_QUALITY);
       await newRecording.startAsync();
 
       setRecording(newRecording);

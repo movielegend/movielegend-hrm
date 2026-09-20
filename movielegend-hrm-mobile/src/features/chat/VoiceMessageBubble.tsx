@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
 import Slider from '@react-native-community/slider';
+import { SafeAudio, isAudioAvailable } from '../../utils/safe-audio';
 
 interface VoiceMessageBubbleProps {
   uri: string;
@@ -10,11 +10,11 @@ interface VoiceMessageBubbleProps {
 }
 
 // Global variable to keep track of the currently playing Sound instance
-let globalActiveSound: Audio.Sound | null = null;
+let globalActiveSound: any = null;
 let globalActiveStopCallback: (() => void) | null = null;
 
 export function VoiceMessageBubble({ uri, isMine = false }: VoiceMessageBubbleProps) {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [positionMillis, setPositionMillis] = useState(0);
@@ -64,6 +64,11 @@ export function VoiceMessageBubble({ uri, isMine = false }: VoiceMessageBubblePr
   };
 
   const handleTogglePlay = async () => {
+    if (!SafeAudio || !isAudioAvailable) {
+      alert('Module âm thanh chưa được tích hợp trong bản cài đặt hiện tại. Vui lòng cập nhật/build lại ứng dụng để nghe tin nhắn thoại.');
+      return;
+    }
+
     try {
       if (soundRef.current) {
         const status = await soundRef.current.getStatusAsync();
@@ -104,14 +109,14 @@ export function VoiceMessageBubble({ uri, isMine = false }: VoiceMessageBubblePr
         await globalActiveSound.pauseAsync().catch(() => {});
       }
 
-      await Audio.setAudioModeAsync({
+      await SafeAudio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
         shouldDuckAndroid: true,
       });
 
-      const { sound } = await Audio.Sound.createAsync(
+      const { sound } = await SafeAudio.Sound.createAsync(
         { uri },
         { shouldPlay: true, rate: playbackSpeed, shouldCorrectPitch: true },
         onPlaybackStatusUpdate
