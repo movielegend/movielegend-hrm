@@ -44,6 +44,8 @@ import { useVoiceCall } from '../voice-call/VoiceCallProvider';
 import * as Clipboard from 'expo-clipboard';
 import { downloadAndSaveImage } from '../../utils/file-download';
 import { ChatWatermark } from '../../components/ChatWatermark';
+import { Audio } from 'expo-av';
+import { VoiceMessageBubble } from './VoiceMessageBubble';
 
 // ── Helpers ──
 
@@ -546,6 +548,10 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
               let contentPreview = lastMsg?.content ?? '';
               if (contentPreview.startsWith('GIPHY_STICKER:') || contentPreview.startsWith('LOTTIE_STICKER:') || contentPreview.startsWith('STATIC_STICKER:')) {
                 contentPreview = '[Nhãn dán]';
+              } else if (lastMsg?.fileType === 'AUDIO' || contentPreview === '[Tin nhắn thoại]') {
+                contentPreview = '🎤 [Tin nhắn thoại]';
+              } else if (lastMsg?.fileType === 'IMAGE' || lastMsg?.fileType === 'IMAGE_ALBUM') {
+                contentPreview = '📷 [Hình ảnh]';
               }
               const isMine = lastMsg?.sender?.id === user?.id || lastMsg?.senderId === user?.id;
               const senderName = isMine ? 'Bạn' : (lastMsg?.sender?.profile?.fullName ?? (lastMsg?.sender?.userCode === 'NV000001' ? 'Admin' : lastMsg?.sender?.userCode) ?? 'Ai đó');
@@ -1048,6 +1054,104 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [selectedReactionFilter, setSelectedReactionFilter] = useState<string>('ALL');
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
+
+  // Voice recording state
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    };
+  }, []);
+
+  async function startRecording() {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        showAlert('Quyền Micro', 'Vui lòng cấp quyền Microphone trong Cài đặt để gửi tin nhắn thoại.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const newRecording = new Audio.Recording();
+      await newRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await newRecording.startAsync();
+
+      setRecording(newRecording);
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      showAlert('Lỗi', 'Không thể bắt đầu ghi âm. Vui lòng kiểm tra quyền micro.');
+    }
+  }
+
+  async function stopAndDiscardRecording() {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
+    if (recording) {
+      try {
+        await recording.stopAndUnloadAsync();
+      } catch (e) {}
+      setRecording(null);
+    }
+  }
+
+  async function stopAndSendRecording() {
+    if (!recording) return;
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setIsUploadingVoice(true);
+
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+
+      if (!uri) throw new Error('Không tìm thấy file ghi âm');
+
+      const uploadRes = await uploadFile({
+        uri,
+        name: `voice-${Date.now()}.m4a`,
+        mimeType: 'audio/m4a',
+        purpose: 'TASK_ATTACHMENT',
+      });
+
+      await sendMessage.mutateAsync({
+        content: '[Tin nhắn thoại]',
+        fileUrl: uploadRes.fileUrl,
+        fileType: 'AUDIO',
+        fileName: `voice-${Date.now()}.m4a`,
+      });
+    } catch (error) {
+      console.error('Failed to upload/send voice note:', error);
+      showAlert('Lỗi', 'Không thể gửi tin nhắn thoại');
+    } finally {
+      setIsUploadingVoice(false);
+      setRecordingDuration(0);
+    }
+  }
 
   const deleteMessageMutation = useDeleteMessage(groupId);
   const reactMessageMutation = useReactMessage(groupId);
@@ -1573,7 +1677,13 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                         )}
                       </View>
                     )}
-                    {!!msg.content && !msg.content.startsWith('LOTTIE_STICKER:') && !msg.content.startsWith('STATIC_STICKER:') && !msg.content.startsWith('GIPHY_STICKER:') && (
+                    {msg.fileUrl && msg.fileType === 'AUDIO' && (
+                      <VoiceMessageBubble
+                        uri={resolveImageUrl(msg.fileUrl) || msg.fileUrl}
+                        isMine={isMine}
+                      />
+                    )}
+                    {!!msg.content && !msg.content.startsWith('LOTTIE_STICKER:') && !msg.content.startsWith('STATIC_STICKER:') && !msg.content.startsWith('GIPHY_STICKER:') && msg.fileType !== 'AUDIO' && (
                       <Text style={[
                         styles.messageText,
                         isMine && styles.messageTextMine,
@@ -1733,35 +1843,86 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 
           {/* Input */}
           <Animated.View style={[styles.chatInputRow, { paddingBottom: inputBottomPadding }]}>
-            <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
-              <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
-            </Pressable>
-            <Pressable onPress={pickImage} style={styles.attachBtn}>
-              <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <TextInput
-                style={styles.chatInput}
-                placeholder="Nhập tin nhắn..."
-                placeholderTextColor={colors.muted}
-                value={text}
-                onChangeText={handleTextChange}
-                multiline
-                returnKeyType="send"
-                onSubmitEditing={handleSend}
-                blurOnSubmit={false}
-              />
-            </View>
-            <Pressable
-              style={[
-                styles.chatSendBtn,
-                ((!text.trim() && selectedImages.length === 0) || isUploading || sendMessage.isPending) && styles.chatSendBtnDisabled,
-              ]}
-              onPress={handleSend}
-              disabled={(!text.trim() && selectedImages.length === 0) || isUploading || sendMessage.isPending}
-            >
-              <MaterialCommunityIcons name={isUploading || sendMessage.isPending ? 'loading' : 'send'} size={20} color="#fff" />
-            </Pressable>
+            {isRecording ? (
+              <View style={styles.recordingRow}>
+                {/* Trash Button to Discard */}
+                <TouchableOpacity
+                  onPress={stopAndDiscardRecording}
+                  style={styles.recordingTrashBtn}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={22} color="#EF4444" />
+                </TouchableOpacity>
+
+                {/* Pulsing indicator + Duration timer */}
+                <View style={styles.recordingStatusWrap}>
+                  <View style={styles.recordingDot} />
+                  <Text style={styles.recordingDurationText}>
+                    {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60) < 10 ? '0' : ''}{recordingDuration % 60}
+                  </Text>
+                  <Text style={styles.recordingLabel}>Đang ghi âm...</Text>
+                </View>
+
+                {/* Send Voice Button */}
+                <TouchableOpacity
+                  onPress={stopAndSendRecording}
+                  disabled={isUploadingVoice}
+                  style={styles.recordingSendBtn}
+                >
+                  {isUploadingVoice ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <MaterialCommunityIcons name="send" size={20} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
+                  <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
+                </Pressable>
+                <Pressable onPress={pickImage} style={styles.attachBtn}>
+                  <MaterialCommunityIcons name="image-plus" size={24} color={colors.muted} />
+                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={styles.chatInput}
+                    placeholder="Nhập tin nhắn..."
+                    placeholderTextColor={colors.muted}
+                    value={text}
+                    onChangeText={handleTextChange}
+                    multiline
+                    returnKeyType="send"
+                    onSubmitEditing={handleSend}
+                    blurOnSubmit={false}
+                  />
+                </View>
+
+                {/* If user entered text or selected image -> Show Send Button; Otherwise show Mic Button */}
+                {text.trim().length > 0 || selectedImages.length > 0 ? (
+                  <Pressable
+                    style={[
+                      styles.chatSendBtn,
+                      (isUploading || sendMessage.isPending) && styles.chatSendBtnDisabled,
+                    ]}
+                    onPress={handleSend}
+                    disabled={isUploading || sendMessage.isPending}
+                  >
+                    <MaterialCommunityIcons
+                      name={isUploading || sendMessage.isPending ? 'loading' : 'send'}
+                      size={20}
+                      color="#fff"
+                    />
+                  </Pressable>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.chatMicBtn}
+                    onPress={startRecording}
+                  >
+                    <MaterialCommunityIcons name="microphone" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
           </Animated.View>
         </View>
 
@@ -2430,6 +2591,68 @@ const styles = StyleSheet.create({
   },
   chatSendBtnDisabled: {
     opacity: 0.5,
+  },
+  chatMicBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  recordingRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  recordingTrashBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordingStatusWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+  },
+  recordingDurationText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  recordingLabel: {
+    fontSize: 13,
+    color: '#991B1B',
+    fontWeight: '500',
+  },
+  recordingSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   attachBtn: {
     padding: spacing.sm,
