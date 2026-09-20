@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   ScrollView,
   StyleSheet,
@@ -162,19 +161,14 @@ export function LeaderDepartmentReportsScreen() {
           <ActivityIndicator size="large" color="#2563EB" />
           <Text style={{ marginTop: 12, color: colors.muted, fontSize: 13 }}>Đang tải danh sách báo cáo...</Text>
         </View>
+      ) : (!data?.memberReports || data.memberReports.length === 0) ? (
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons name="clipboard-text-outline" size={48} color="#94A3B8" />
+          <Text style={styles.emptyText}>Chưa có thành viên nào trong phòng ban</Text>
+        </View>
       ) : (
-        <FlatList
-          data={data?.memberReports || []}
-          keyExtractor={(item) => item.user.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="clipboard-text-outline" size={48} color="#94A3B8" />
-              <Text style={styles.emptyText}>Chưa có thành viên nào trong phòng ban</Text>
-            </View>
-          }
-          renderItem={({ item }) => {
+        <View style={styles.listContent}>
+          {data.memberReports.map((item) => {
             const fullName = item.user.profile?.fullName || item.user.userCode || 'Nhân sự';
             const rep = item.report;
             const isSubmitted = item.isSubmitted;
@@ -182,6 +176,7 @@ export function LeaderDepartmentReportsScreen() {
 
             return (
               <TouchableOpacity
+                key={item.user.id}
                 style={styles.memberCard}
                 activeOpacity={0.8}
                 onPress={() => handleOpenDetail(item)}
@@ -241,8 +236,8 @@ export function LeaderDepartmentReportsScreen() {
                 <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
               </TouchableOpacity>
             );
-          }}
-        />
+          })}
+        </View>
       )}
 
       {/* ── DETAIL MODAL ── */}
