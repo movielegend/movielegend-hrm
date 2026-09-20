@@ -417,7 +417,7 @@ function ActiveCallLiveKitWrapper(props: {
     );
   }
 
-  const { LiveKitRoom, useRoomContext, useLocalParticipant } = LiveKitModule;
+  const { LiveKitRoom, useRoomContext, useLocalParticipant, AudioSession } = LiveKitModule;
 
   function ActiveCallContent() {
     const room = useRoomContext?.() || { state: 'connected' };
@@ -438,6 +438,44 @@ function ActiveCallLiveKitWrapper(props: {
         console.warn('Failed to sync mute state:', e);
       }
     }, [localParticipant, props.isMuted]);
+
+    // ── Đồng bộ loa ngoài / loa trong xuống phần cứng thiết bị ──
+    useEffect(() => {
+      const syncSpeaker = async () => {
+        try {
+          if (AudioSession?.selectAudioOutput) {
+            if (Platform.OS === 'ios') {
+              // Trên iOS: 'force_speaker' ép phát ra loa ngoài, 'default' phát loa thoại áp tai
+              await AudioSession.selectAudioOutput(props.isSpeaker ? 'force_speaker' : 'default');
+            } else {
+              // Trên Android: 'speaker' phát loa ngoài, 'earpiece' phát loa thoại áp tai
+              await AudioSession.selectAudioOutput(props.isSpeaker ? 'speaker' : 'earpiece');
+            }
+          }
+        } catch (e) {
+          console.warn('[LiveKit] Failed to toggle audio output:', e);
+        }
+      };
+
+      void syncSpeaker();
+    }, [props.isSpeaker]);
+
+    // ── Khôi phục về chế độ mặc định khi kết thúc cuộc gọi ──
+    useEffect(() => {
+      return () => {
+        try {
+          if (AudioSession?.selectAudioOutput) {
+            if (Platform.OS === 'ios') {
+              void AudioSession.selectAudioOutput('default');
+            } else {
+              void AudioSession.selectAudioOutput('earpiece');
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+    }, []);
 
     return (
       <ActiveCallScreen
