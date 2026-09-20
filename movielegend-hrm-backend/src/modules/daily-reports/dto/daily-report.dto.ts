@@ -19,6 +19,11 @@ export class DailyReportMetricItemDto {
   @IsOptional()
   value?: string | number;
 
+  @ApiPropertyOptional({ description: 'Đơn vị tính (VD: Khách, Lỗi, VND)' })
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
   @ApiPropertyOptional({ description: 'Ghi chú thêm' })
   @IsOptional()
   @IsString()
@@ -34,6 +39,10 @@ export class DailyReportTaskItemDto {
   @ApiProperty({ description: 'Tên công việc' })
   @IsString()
   title!: string;
+
+  @ApiPropertyOptional({ description: 'Tiến độ hoàn thành (%)' })
+  @IsOptional()
+  progress?: number;
 
   @ApiPropertyOptional({ description: 'Trạng thái công việc' })
   @IsOptional()

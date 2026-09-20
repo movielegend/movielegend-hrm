@@ -467,7 +467,9 @@ function ReportDetailModal({
                       {m.note ? <Text style={styles.metricNote}>{m.note}</Text> : null}
                     </View>
                     <View style={styles.metricValBadge}>
-                      <Text style={styles.metricValText}>{String(m.value || '-')}</Text>
+                      <Text style={styles.metricValText}>
+                        {String(m.value || '-')}{m.unit ? ` ${m.unit}` : ''}
+                      </Text>
                     </View>
                   </View>
                 ))}
