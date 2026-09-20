@@ -166,7 +166,7 @@ export function LeaderDashboard() {
                 >
                   <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
                   <Text style={[styles.levelPillText, { color: levelColor }]}>
-                    Lv.{currentLevelNumber} • {levelTitle}
+                    Lv.{currentLevelNumber}
                   </Text>
                 </Pressable>
               </View>

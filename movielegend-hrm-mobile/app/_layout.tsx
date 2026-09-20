@@ -118,6 +118,8 @@ import { VoiceCallProvider } from '../src/features/voice-call/VoiceCallProvider'
 import { UserGuideManager } from '../src/components/UserGuideManager';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { AlertProvider } from '../src/contexts/AlertContext';
+import { ActiveChatProvider } from '../src/contexts/ActiveChatContext';
+import { InAppChatNotificationBanner } from '../src/components/InAppChatNotificationBanner';
 import { CustomAlert, CustomAlertProvider } from '../src/components/CustomAlert';
 
 if (typeof globalThis !== 'undefined') {
@@ -135,17 +137,20 @@ export default function RootLayout() {
         <QueryProvider>
           <AlertProvider>
             <AuthProvider>
-              <SocketProvider>
-                <VoiceCallProvider>
-                  <UserGuideManager>
-                    <PushNotificationWrapper>
-                      <StatusBar style="dark" />
-                      <Stack screenOptions={{ headerShown: false }} />
-                      <ToastWrapper />
-                    </PushNotificationWrapper>
-                  </UserGuideManager>
-                </VoiceCallProvider>
-              </SocketProvider>
+              <ActiveChatProvider>
+                <SocketProvider>
+                  <VoiceCallProvider>
+                    <UserGuideManager>
+                      <PushNotificationWrapper>
+                        <StatusBar style="dark" />
+                        <Stack screenOptions={{ headerShown: false }} />
+                        <ToastWrapper />
+                        <InAppChatNotificationBanner />
+                      </PushNotificationWrapper>
+                    </UserGuideManager>
+                  </VoiceCallProvider>
+                </SocketProvider>
+              </ActiveChatProvider>
             </AuthProvider>
           </AlertProvider>
         </QueryProvider>

@@ -1,12 +1,14 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUnreadNotificationCount, useUnreadChatCount } from '../../../src/hooks/useNotifications';
+import { useMyTasks } from '../../../src/hooks/useTasks';
+import { useUnreadChatCount } from '../../../src/hooks/useNotifications';
 import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
 
 export default function HRTabsLayout() {
   const insets = useSafeAreaInsets();
-  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: myTasks } = useMyTasks({ limit: 50 });
+  const uncompletedTasksCount = myTasks?.items?.filter((t: any) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
   const { data: unreadChat = 0 } = useUnreadChatCount();
 
   return (
@@ -46,13 +48,19 @@ export default function HRTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="my-tasks"
+        options={{
+          title: 'Việc của tôi',
+          tabBarBadge: uncompletedTasksCount > 0 ? (uncompletedTasksCount > 99 ? '99+' : uncompletedTasksCount) : undefined,
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons name={focused ? "clipboard-account" : "clipboard-account-outline"} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Thông báo',
-          tabBarBadge: unreadNotifications > 0 ? (unreadNotifications > 99 ? '99+' : unreadNotifications) : undefined,
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} size={24} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

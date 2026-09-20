@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppAlert } from '../../contexts/AlertContext';
+import { useActiveChat } from '../../contexts/ActiveChatContext';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -938,6 +939,15 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const router = useRouter();
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
+  const { setActiveGroupId } = useActiveChat();
+
+  useEffect(() => {
+    setActiveGroupId(groupId);
+    return () => {
+      setActiveGroupId(null);
+    };
+  }, [groupId, setActiveGroupId]);
+
   const queryClient = useQueryClient();
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);

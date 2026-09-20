@@ -6,6 +6,7 @@ import type { Socket } from 'socket.io-client';
 import { createHrmSocket } from '../api/socket';
 import { queryKeys, chatKeys, newsfeedKeys } from '../constants/queryKeys';
 import { useAuth } from './AuthProvider';
+import { useActiveChat } from '../contexts/ActiveChatContext';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
 import { CustomAlert } from '../components/CustomAlert';
 
@@ -53,6 +54,18 @@ export function SocketProvider({ children }: PropsWithChildren) {
   const joinedChatGroupIds = useRef<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(false);
 
+  const { activeGroupId, showInAppChatNotification } = useActiveChat();
+  const activeGroupIdRef = useRef<string | null>(null);
+  const showInAppChatNotificationRef = useRef(showInAppChatNotification);
+
+  useEffect(() => {
+    activeGroupIdRef.current = activeGroupId;
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    showInAppChatNotificationRef.current = showInAppChatNotification;
+  }, [showInAppChatNotification]);
+
   useEffect(() => {
     let disposed = false;
     let socket: Socket | null = null;
@@ -91,10 +104,36 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('notification.created', (payload?: any) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
-        if (payload?.type === 'CHAT_MESSAGE' || payload?.metadata?.groupId) {
+
+        const isChat = payload?.type === 'CHAT_MESSAGE' || payload?.metadata?.groupId;
+        const chatGroupId = payload?.metadata?.groupId;
+
+        if (isChat) {
           void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
           void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+
+          // 1. Messenger standard: If user is actively viewing this chat room, suppress notification completely
+          if (chatGroupId && activeGroupIdRef.current === chatGroupId) {
+            return;
+          }
+
+          // 2. If app is in foreground and user is on another screen, show smooth Messenger In-App Banner
+          if (AppState.currentState === 'active' && chatGroupId) {
+            showInAppChatNotificationRef.current({
+              id: payload.id || String(Date.now()),
+              groupId: chatGroupId,
+              title: payload.title || 'Tin nhắn mới',
+              body: payload.body || '',
+              senderName: payload.metadata?.senderName,
+              senderAvatarUrl: payload.metadata?.senderAvatarUrl,
+              groupName: payload.metadata?.groupName,
+              groupType: payload.metadata?.groupType,
+            });
+            return;
+          }
         }
+
+        // 3. For non-chat notifications, or when app is in background, schedule native OS notification
         if (payload && payload.title && Platform.OS !== 'web' && Notifications?.scheduleNotificationAsync) {
           try {
             Notifications.scheduleNotificationAsync({

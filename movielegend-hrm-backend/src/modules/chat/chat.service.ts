@@ -229,8 +229,17 @@ export class ChatService {
             await this.prisma.$transaction(async (tx) => {
               const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
                 ? '[Nhãn dán]'
-                : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+                : message.content ?? (
+                    message.fileType === 'IMAGE'
+                      ? '[Hình ảnh]'
+                      : message.fileType === 'AUDIO'
+                        ? '[Tin nhắn thoại]'
+                        : message.fileType === 'VIDEO'
+                          ? '[Video]'
+                          : '[Tệp tin đính kèm]'
+                  );
 
+              const senderAvatarUrl = message.sender?.profile?.avatarUrl || null;
               const payload = await this.notifications.createForUsers(
                 tx as any,
                 notifyMembers.map(m => m.userId),
@@ -238,7 +247,16 @@ export class ChatService {
                   type: 'CHAT_MESSAGE',
                   title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
                   body: notificationBody,
-                  metadata: { groupId: group.id, messageId: message.id }
+                  metadata: {
+                    groupId: group.id,
+                    messageId: message.id,
+                    groupName: group.name || 'Chung',
+                    groupType: group.type,
+                    senderId: userId,
+                    senderName,
+                    senderAvatarUrl,
+                    fileType: message.fileType || null,
+                  }
                 }
               );
               if (payload) this.notifications.emitCreated(payload);
@@ -259,8 +277,17 @@ export class ChatService {
             await this.prisma.$transaction(async (tx) => {
               const notificationBody = message.content?.startsWith('GIPHY_STICKER:') || message.content?.startsWith('LOTTIE_STICKER:') || message.content?.startsWith('STATIC_STICKER:')
                 ? '[Nhãn dán]'
-                : message.content ?? (message.fileType === 'IMAGE' ? '[Hình ảnh]' : '[Tệp tin đính kèm]');
+                : message.content ?? (
+                    message.fileType === 'IMAGE'
+                      ? '[Hình ảnh]'
+                      : message.fileType === 'AUDIO'
+                        ? '[Tin nhắn thoại]'
+                        : message.fileType === 'VIDEO'
+                          ? '[Video]'
+                          : '[Tệp tin đính kèm]'
+                  );
 
+              const senderAvatarUrl = message.sender?.profile?.avatarUrl || null;
               const payload = await this.notifications.createForUsers(
                 tx as any,
                 otherMembers.map(m => m.userId),
@@ -270,7 +297,16 @@ export class ChatService {
                     ? `Tin nhắn mới từ ${senderName}` 
                     : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
                   body: notificationBody,
-                  metadata: { groupId: group.id, messageId: message.id }
+                  metadata: {
+                    groupId: group.id,
+                    messageId: message.id,
+                    groupName: group.name || (group.type === 'DIRECT' ? senderName : 'Cá nhân'),
+                    groupType: group.type,
+                    senderId: userId,
+                    senderName,
+                    senderAvatarUrl,
+                    fileType: message.fileType || null,
+                  }
                 }
               );
               if (payload) this.notifications.emitCreated(payload);

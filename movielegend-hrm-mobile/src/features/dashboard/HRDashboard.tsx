@@ -48,6 +48,7 @@ export function HRDashboard() {
     createdById: user?.id,
     limit: 10 
   });
+  const myTasksUncompletedCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
   
   const { data: dashboardData } = useQuery({
     queryKey: ['admin-dashboard-summary'],
@@ -152,7 +153,7 @@ export function HRDashboard() {
                 >
                   <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
                   <Text style={[styles.levelPillText, { color: levelColor }]}>
-                    Lv.{currentLevelNumber} • {levelTitle}
+                    Lv.{currentLevelNumber}
                   </Text>
                 </Pressable>
               </View>
@@ -427,20 +428,29 @@ export function HRDashboard() {
               onPress={() => router.push('/hr/documents' as any)}
             />
 
-            {/* Nhóm 3: Cấp bậc, Dự án & Quỹ thưởng (Indigo sang trọng) */}
+            {/* Nhóm 3: Công việc, Cấp bậc & Quỹ thưởng (Indigo sang trọng) */}
+            <GridItem4
+              icon="clipboard-account-outline"
+              title="Việc của tôi"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              badge={myTasksUncompletedCount > 0 ? `${myTasksUncompletedCount}` : undefined}
+              badgeColor="#EF4444"
+              onPress={() => router.push('/hr/my-tasks' as any)}
+            />
+            <GridItem4
+              icon="format-list-checks"
+              title="Giao việc"
+              color="#4F46E5"
+              bgColor="#EEF2FF"
+              onPress={() => router.push('/hr/tasks' as any)}
+            />
             <GridItem4
               icon="star-circle-outline"
               title="Cấp của bạn"
               color="#4F46E5"
               bgColor="#EEF2FF"
               onPress={() => router.push('/hr/leveling' as any)}
-            />
-            <GridItem4
-              icon="briefcase-outline"
-              title="Dự án"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              onPress={() => router.push('/leader/level-projects' as any)}
             />
             <GridItem4
               icon="gift-outline"
@@ -450,13 +460,6 @@ export function HRDashboard() {
               badge={isVaultEnabled ? 'VÍ' : undefined}
               badgeColor="#4F46E5"
               onPress={() => router.push('/hr/vault' as any)}
-            />
-            <GridItem4
-              icon="format-list-checks"
-              title="Công việc"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              onPress={() => router.push('/hr/tasks' as any)}
             />
 
             {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}

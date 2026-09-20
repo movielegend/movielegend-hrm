@@ -109,12 +109,6 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && (s.scopeType === 'GLOBAL' || !s.scopeType))
   ) || Boolean(user?.roles?.includes('SUPER_ADMIN'));
 
-  const adminRegionScope = user?.scopes?.find(
-    (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
-  );
-  const isRegionAdmin = Boolean(adminRegionScope && adminRegionScope.scopeId);
-  const isLeaderArea = area === 'leader' || area === 'hr';
-  const isAdminArea = area === 'admin';
   const isDelegatedArea = area !== 'employee';
 
   const filters: TaskListFilters = useMemo(() => ({
@@ -122,8 +116,8 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     limit: 20,
     ...(search ? { search } : {}),
     ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {}),
-    ...(isDelegatedArea && user?.id ? { createdById: user.id } : {})
-  }), [search, status, isDelegatedArea, user?.id]);
+    ...(isDelegatedArea && user?.id && !isGlobalAdmin ? { createdById: user.id } : {})
+  }), [search, status, isDelegatedArea, user?.id, isGlobalAdmin]);
 
   const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
@@ -132,17 +126,22 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const title = area === 'employee'
     ? 'Công việc của tôi'
     : 'Công việc đã giao';
+
+  const subtitle = area === 'employee'
+    ? 'Các công việc được phân công cho bạn thực hiện'
+    : 'Quản lý và theo dõi tiến độ công việc bạn đã giao';
+
   const insets = useSafeAreaInsets();
 
   const displayTasks = useMemo(() => {
     const rawItems = tasks.data?.items ?? [];
-    if (isDelegatedArea && user?.id) {
+    if (isDelegatedArea && user?.id && !isGlobalAdmin && (area === 'leader' || area === 'hr')) {
       return rawItems.filter(
         (task) => (task.createdByUserId === user.id || task.createdBy?.id === user.id)
       );
     }
     return rawItems;
-  }, [tasks.data?.items, isDelegatedArea, user?.id]);
+  }, [tasks.data?.items, isDelegatedArea, user?.id, isGlobalAdmin, area]);
 
   const handleTaskPress = (taskId: string) => {
     if (area === 'employee') {
@@ -156,6 +155,10 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
         router.push(`/hr/my-tasks/${taskId}` as any);
         return;
       }
+      if (isAdmin) {
+        router.push(`/admin/tasks/${taskId}` as any);
+        return;
+      }
       router.push(`/employee/tasks/${taskId}` as any);
       return;
     }
@@ -165,9 +168,9 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   return (
     <Screen>
       <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
-        <PageHeader title={title} subtitle="Quản lý và theo dõi tiến độ công việc" showBack={false} />
+        <PageHeader title={title} subtitle={subtitle} showBack={false} />
         
-        <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm công việc..." />
+        <SearchInput value={search} onChangeText={setSearch} placeholder={area === 'employee' ? 'Tìm việc của tôi...' : 'Tìm việc đã giao...'} />
         
         {(createRoute || reviewRoute) ? (
           <View style={styles.actionRow}>
@@ -205,7 +208,12 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
 
         {tasks.isLoading ? <LoadingState /> : null}
         {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
-        {!tasks.isLoading && !displayTasks.length ? <EmptyState title="Chưa có công việc nào" /> : null}
+        {!tasks.isLoading && !displayTasks.length ? (
+          <EmptyState
+            title={area === 'employee' ? 'Bạn chưa có công việc nào' : 'Chưa có công việc nào được giao'}
+            message={area === 'employee' ? 'Khi bạn được giao việc mới, danh sách sẽ hiển thị tại đây' : 'Bấm "Thêm công việc" để tạo và phân công nhiệm vụ mới'}
+          />
+        ) : null}
         {displayTasks.map((task) => (
           <TaskCard key={task.id} task={task} onPress={() => handleTaskPress(task.id)} />
         ))}

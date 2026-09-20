@@ -63,9 +63,10 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type.startsWith('ASSET_') && assetId) return `${base}/assets/${assetId}`;
   if (notification.type.startsWith('MATERIAL_ISSUE_') && issueId) return `${base}/material-issues/${issueId}`;
   if (notification.type.startsWith('STOCK_TRANSFER_') && transferId) return `${base}/stock-transfers/${transferId}`;
-  if (notification.type.startsWith('CONTRACT_') && contractId) return `${base}/contracts/${contractId}`;
-  if (notification.type.startsWith('CHAT_') && groupId) return `${base}/chat/${groupId}`;
-  if (notification.type.startsWith('VIOLATION_') && violationId) return `${base}/violations/${violationId}`;
+  if (notification.type.startsWith('CHAT_') && groupId) {
+    const chatBase = base === '/warehouse-manager' ? '/employee' : base;
+    return `${chatBase}/chat/${groupId}`;
+  }
   if (notification.type.startsWith('NEWSFEED_POST_') && postId) {
     if ((notification.type as string) === 'NEWSFEED_POST_PENDING') {
       const pendingBase = (base === '/admin' || base === '/hr') ? base : '/leader';
