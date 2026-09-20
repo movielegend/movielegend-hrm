@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Modal,
   Keyboard,
+  Animated,
   RefreshControl} from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -1000,6 +1001,33 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     return availableMembers.filter((m: any) => m.id !== user?.id);
   }, [availableMembers, user?.id]);
   const insets = useSafeAreaInsets();
+  const inputBottomPadding = useRef(new Animated.Value(Math.max(insets.bottom, 8))).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      Animated.timing(inputBottomPadding, {
+        toValue: 8,
+        duration: e?.duration || 250,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(inputBottomPadding, {
+        toValue: Math.max(insets.bottom, 8),
+        duration: e?.duration || 250,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [insets.bottom]);
 
   const [text, setText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -1241,7 +1269,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
+        keyboardVerticalOffset={0}
       >
         <View style={styles.chatContainer}>
           {/* Watermark in chìm họ tên người dùng đặt ở lớp nền dưới cùng */}
@@ -1704,7 +1732,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )}
 
           {/* Input */}
-          <View style={[styles.chatInputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <Animated.View style={[styles.chatInputRow, { paddingBottom: inputBottomPadding }]}>
             <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
               <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
             </Pressable>
@@ -1734,7 +1762,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             >
               <MaterialCommunityIcons name={isUploading || sendMessage.isPending ? 'loading' : 'send'} size={20} color="#fff" />
             </Pressable>
-          </View>
+          </Animated.View>
         </View>
 
         {/* Image Viewer Modal with Close & Download Buttons */}
@@ -2371,7 +2399,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 8,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingTop: 8,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
