@@ -111,6 +111,12 @@
       ],
       "expo-web-browser",
       "expo-document-picker",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Ứng dụng cần quyền sử dụng microphone để ghi âm và gửi tin nhắn thoại."
+        }
+      ],
       "@livekit/react-native-expo-plugin"
     ],
     "extra": {

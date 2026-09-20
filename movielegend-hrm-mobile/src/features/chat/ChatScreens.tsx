@@ -186,7 +186,7 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
 
 // ── Chat Groups Screen ──
 
-export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all' }) {
+export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all' | 'department' }) {
   const router = useRouter();
   const { user } = useAuth();
   const { showAlert } = useAppAlert();

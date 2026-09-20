@@ -245,7 +245,7 @@ export class ChatService {
                 notifyMembers.map(m => m.userId),
                 {
                   type: 'CHAT_MESSAGE',
-                  title: `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Chung'})`,
+                  title: group.name || 'Phòng ban',
                   body: notificationBody,
                   metadata: {
                     groupId: group.id,
@@ -294,8 +294,8 @@ export class ChatService {
                 {
                   type: 'CHAT_MESSAGE',
                   title: group.type === 'DIRECT' 
-                    ? `Tin nhắn mới từ ${senderName}` 
-                    : `Tin nhắn mới từ ${senderName} (Nhóm: ${group.name || 'Cá nhân'})`,
+                    ? senderName 
+                    : (group.name || 'Nhóm chat'),
                   body: notificationBody,
                   metadata: {
                     groupId: group.id,
@@ -359,17 +359,49 @@ export class ChatService {
   }
 
   async getMyGroups(userId: string) {
-    // Get departments where user is a member
-    const memberships = await this.prisma.departmentMember.findMany({
-      where: { userId, leftAt: null },
-      select: { departmentId: true, department: { select: { name: true } } }
+    // 1. Get departments where user is a member OR leader
+    const [memberships, ledDepartments, userRoles] = await Promise.all([
+      this.prisma.departmentMember.findMany({
+        where: { userId, leftAt: null },
+        select: { departmentId: true, department: { select: { id: true, name: true, isActive: true } } }
+      }),
+      this.prisma.department.findMany({
+        where: { leaderUserId: userId, isActive: true, deletedAt: null },
+        select: { id: true, name: true }
+      }),
+      this.prisma.userRole.findMany({
+        where: { userId },
+        include: { role: true }
+      })
+    ]);
+
+    const targetDeptIds = new Set<string>();
+    memberships.forEach(m => {
+      if (m.departmentId && m.department?.isActive) {
+        targetDeptIds.add(m.departmentId);
+      }
     });
+    ledDepartments.forEach(d => targetDeptIds.add(d.id));
+
+    // If user is ADMIN / SUPER_ADMIN and has 0 assigned departments, show all company departments
+    const isAdminUser = userRoles.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r.role?.code?.toUpperCase() || ''));
+    if (isAdminUser && targetDeptIds.size === 0) {
+      const allDepts = await this.prisma.department.findMany({
+        where: { isActive: true, deletedAt: null },
+        select: { id: true }
+      });
+      allDepts.forEach(d => targetDeptIds.add(d.id));
+    }
 
     const rawGroups: any[] = [];
     await Promise.all(
-      memberships.map(async (m) => {
-        const group = await this.getGroupForDepartment(m.departmentId);
-        rawGroups.push(group);
+      Array.from(targetDeptIds).map(async (deptId) => {
+        try {
+          const group = await this.getGroupForDepartment(deptId);
+          rawGroups.push(group);
+        } catch (e) {
+          // ignore if department not found
+        }
       })
     );
 
@@ -387,7 +419,9 @@ export class ChatService {
       }
     });
     for (const m of customMemberships) {
-      rawGroups.push(m.group);
+      if (m.group) {
+        rawGroups.push(m.group);
+      }
     }
 
     // Lọc bỏ mọi nhóm trùng ID (Deduplicate)
@@ -604,6 +638,21 @@ export class ChatService {
   async getAllGroups(actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, search?: string) {
     const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
     
+    // Auto-ensure department chat groups exist for all visible active departments
+    try {
+      const activeDepts = await this.prisma.department.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          ...(visibleDepts !== null ? { id: { in: visibleDepts } } : {})
+        },
+        select: { id: true }
+      });
+      await Promise.all(activeDepts.map(d => this.getGroupForDepartment(d.id)));
+    } catch (e) {
+      console.error('[ChatService] Error auto-ensuring department groups:', e);
+    }
+
     // Nếu là Global Admin (visibleDepts = null), xem mọi nhóm.
     // Nếu là Regional Admin (visibleDepts != null), xem nhóm CUSTOM/TASK, và chỉ DEPARTMENT thuộc miền.
     const groupTypesFilter: any[] = [];

@@ -114,10 +114,19 @@ export function InAppChatNotificationBanner() {
     }
   };
 
+  let rawTitle = activeNotification.title || '';
+  if (rawTitle.startsWith('Tin nhắn mới từ ')) {
+    rawTitle = rawTitle.replace(/^Tin nhắn mới từ\s+/, '');
+    const matchGroup = rawTitle.match(/^(.*?)\s*\(Nhóm:\s*(.*?)\)$/);
+    if (matchGroup) {
+      rawTitle = matchGroup[2] || matchGroup[1];
+    }
+  }
+
   const isGroup = activeNotification.groupType && activeNotification.groupType !== 'DIRECT';
   const headerTitle = isGroup
-    ? (activeNotification.groupName || activeNotification.title)
-    : (activeNotification.senderName || activeNotification.title);
+    ? (activeNotification.groupName || rawTitle || activeNotification.senderName)
+    : (activeNotification.senderName || rawTitle);
 
   const subText = isGroup && activeNotification.senderName
     ? `${activeNotification.senderName}: ${activeNotification.body}`
@@ -136,19 +145,25 @@ export function InAppChatNotificationBanner() {
       ]}
     >
       <TouchableOpacity
-        activeOpacity={0.88}
+        activeOpacity={0.9}
         onPress={handlePress}
         style={styles.card}
       >
-        <View style={styles.avatarContainer}>
-          <Avatar
-            name={activeNotification.senderName || headerTitle}
-            uri={activeNotification.senderAvatarUrl}
-            size={42}
-          />
+        <View style={styles.appIconWrapper}>
+          {activeNotification.senderAvatarUrl ? (
+            <Avatar
+              name={activeNotification.senderName || headerTitle}
+              uri={activeNotification.senderAvatarUrl}
+              size={38}
+            />
+          ) : (
+            <View style={styles.messengerIconContainer}>
+              <Ionicons name="chatbubble" size={24} color="#0084FF" />
+            </View>
+          )}
           {isGroup && (
             <View style={styles.groupBadge}>
-              <Ionicons name="people" size={10} color="#fff" />
+              <Ionicons name="people" size={9} color="#fff" />
             </View>
           )}
         </View>
@@ -164,14 +179,6 @@ export function InAppChatNotificationBanner() {
             {subText}
           </Text>
         </View>
-
-        <TouchableOpacity
-          onPress={hideInAppChatNotification}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.closeBtn}
-        >
-          <Ionicons name="close" size={18} color="#94A3B8" />
-        </TouchableOpacity>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -180,42 +187,54 @@ export function InAppChatNotificationBanner() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 14,
-    right: 14,
+    left: 10,
+    right: 10,
     zIndex: 99999,
     elevation: 99999,
   },
   card: {
-    backgroundColor: '#0F172A', // Dark modern slate
-    borderRadius: 18,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(38, 38, 42, 0.94)', // Exact iOS dark mode notification surface
+    borderRadius: 24,
+    paddingVertical: 11,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.38,
+    shadowRadius: 20,
     elevation: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
-  avatarContainer: {
+  appIconWrapper: {
     position: 'relative',
     marginRight: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  messengerIconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   groupBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
+    bottom: -1,
+    right: -1,
     backgroundColor: '#2563EB',
-    borderRadius: 8,
-    width: 16,
-    height: 16,
+    borderRadius: 7,
+    width: 14,
+    height: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#1E1E22',
   },
   contentContainer: {
     flex: 1,
@@ -229,23 +248,21 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     flex: 1,
     marginRight: 8,
+    letterSpacing: -0.2,
   },
   timeAgo: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '500',
+    color: 'rgba(235, 235, 245, 0.6)',
+    fontSize: 12.5,
+    fontWeight: '400',
   },
   body: {
-    color: '#CBD5E1',
-    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.88)',
+    fontSize: 13.5,
     lineHeight: 18,
-  },
-  closeBtn: {
-    marginLeft: 10,
-    padding: 4,
+    letterSpacing: -0.1,
   },
 });
