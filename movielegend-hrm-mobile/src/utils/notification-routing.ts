@@ -33,6 +33,32 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const feedbackId = stringMeta(notification.metadata, 'feedbackId');
   
   const base = roleBase(user);
+
+  // 0. DAILY REPORTS (Báo cáo cuối ngày)
+  const reportId = stringMeta(notification.metadata, 'reportId');
+  const notifCategory = stringMeta(notification.metadata, 'category');
+  const notifMetaType = stringMeta(notification.metadata, 'type');
+  const notifTitle = (notification.title || '').toLowerCase();
+  const notifBody = (notification.body || '').toLowerCase();
+  const notifFullText = `${notifTitle} ${notifBody}`;
+
+  if (
+    reportId ||
+    notifCategory === 'DAILY_REPORT' ||
+    notifMetaType?.startsWith('DAILY_REPORT') ||
+    notifTitle.includes('báo cáo cuối ngày') ||
+    notifTitle.includes('báo cáo ngày') ||
+    notifFullText.includes('nộp báo cáo') ||
+    (notifFullText.includes('đánh giá') && notifFullText.includes('báo cáo'))
+  ) {
+    if (base === '/admin' || base === '/hr') {
+      return '/admin/daily-reports';
+    }
+    if (base === '/leader') {
+      return '/leader/daily-report';
+    }
+    return '/employee/daily-report';
+  }
   
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
   if (notification.type === 'CROSS_DEPARTMENT_REQUESTED' || notification.type.startsWith('CROSS_DEPARTMENT_')) {
@@ -191,6 +217,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
 
 export function getNotificationIcon(type: string, title?: string): any {
   const t = (title || '').toLowerCase();
+  if (t.includes('báo cáo') || type.startsWith('DAILY_REPORT_')) return 'clipboard-text-clock-outline';
   if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || t.includes('tài liệu')) return 'file-document-outline';
   if (t.includes('dự án cấp bậc') || t.includes('cấp bậc') || t.includes('việc con') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return 'trophy-award';
   if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('rút tiền') || t.includes('rút ví') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return 'wallet-giftcard';
@@ -212,6 +239,7 @@ export function getNotificationIcon(type: string, title?: string): any {
 
 export function getNotificationColor(type: string, title?: string): string {
   const t = (title || '').toLowerCase();
+  if (t.includes('báo cáo') || type.startsWith('DAILY_REPORT_')) return '#315DE5';
   if (type.startsWith('DOCUMENT_') || t.includes('tài liệu')) return colors.primary;
   if (t.includes('dự án cấp bậc') || t.includes('cấp bậc') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return '#0F766E';
   if (t.includes('ví thưởng') || t.includes('điểm thưởng') || t.includes('thưởng cuối năm') || type.startsWith('VAULT_')) return '#D97706';

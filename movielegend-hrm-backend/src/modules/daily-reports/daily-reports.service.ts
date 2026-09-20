@@ -182,6 +182,8 @@ export class DailyReportsService {
                   senderName,
                   departmentId,
                   roleType,
+                  category: 'DAILY_REPORT',
+                  type: 'DAILY_REPORT_SUBMITTED',
                 },
               });
               if (payload) this.notifications.emitCreated(payload);
@@ -684,9 +686,13 @@ export class DailyReportsService {
             body: `${adminName} đã đánh giá ${dto.adminRating}/5 sao: "${dto.adminReview || 'Đã duyệt'}"`,
             metadata: {
               reportId: report.id,
+              reportDate: report.reportDate,
+              userId: report.userId,
               adminRating: dto.adminRating,
               adminReview: dto.adminReview,
               reviewedById: actor.userId,
+              category: 'DAILY_REPORT',
+              type: 'DAILY_REPORT_REVIEWED',
             },
           });
           if (payload) this.notifications.emitCreated(payload);

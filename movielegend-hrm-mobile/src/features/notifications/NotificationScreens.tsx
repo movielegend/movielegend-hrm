@@ -87,6 +87,22 @@ function getNotificationVisuals(target: NotificationTargetDto): NotificationVisu
   const body = (item.body || '').toLowerCase();
   const text = `${title} ${body}`;
 
+  // 0. DAILY REPORT (Blue / Indigo)
+  if (
+    type.startsWith('DAILY_REPORT_') ||
+    stringMeta(item.metadata, 'reportId') ||
+    stringMeta(item.metadata, 'category') === 'DAILY_REPORT' ||
+    title.includes('báo cáo cuối ngày') ||
+    title.includes('báo cáo ngày') ||
+    text.includes('nộp báo cáo')
+  ) {
+    return {
+      IconComponent: ClipboardList,
+      iconColor: '#315DE5',
+      bgColor: '#EEF3FF',
+    };
+  }
+
   // 1. VIOLATION & INCIDENTS (Rose Red)
   if (type.startsWith('VIOLATION_') || type.startsWith('ASSET_INCIDENT_') || title.includes('vi phạm') || title.includes('kỷ luật')) {
     return {
