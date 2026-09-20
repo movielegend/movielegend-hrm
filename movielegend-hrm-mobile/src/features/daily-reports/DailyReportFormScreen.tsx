@@ -65,7 +65,12 @@ const ASSESSMENT_LEVELS = [
   },
 ];
 
-export function DailyReportFormScreen() {
+export interface DailyReportFormScreenProps {
+  headerSlot?: React.ReactNode;
+  hideHeaderTitle?: boolean;
+}
+
+export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyReportFormScreenProps = {}) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
@@ -156,10 +161,10 @@ export function DailyReportFormScreen() {
     const d = new Date();
     const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
     const dayName = dayNames[d.getDay()];
-    const dd = d.getDate();
-    const mm = d.getMonth() + 1;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yyyy = d.getFullYear();
-    return `${dayName}, ${dd} tháng ${mm}, ${yyyy}`;
+    return `${dayName}, ${dd}/${mm}/${yyyy}`;
   }, []);
 
   const employeeName = reportData?.user?.profile?.fullName || user?.fullName || user?.userCode || 'Nhân sự';
@@ -441,32 +446,64 @@ export function DailyReportFormScreen() {
   return (
     <Screen backgroundColor="#F5F6FA">
       <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 20) }}>
-        {/* TOP HEADER */}
-        <View style={styles.headerBox}>
-          <View style={styles.headerTopRow}>
-            <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={styles.headerTitle}>Báo cáo cuối ngày</Text>
-              <Text style={styles.headerDate}>{displayDate}</Text>
-            </View>
-            <View style={styles.badgePill}>
-              <Text style={styles.badgePillText}>
-                {reportData?.status === 'REVIEWED'
-                  ? 'Đã duyệt'
-                  : reportData?.status === 'SUBMITTED'
-                  ? 'Đã gửi'
-                  : 'Bản mẫu'}
-              </Text>
+        {/* Leader / Custom Header Slot */}
+        {headerSlot}
+
+        {/* Standalone Title Header (only if not hideHeaderTitle) */}
+        {!hideHeaderTitle && (
+          <View style={styles.headerBox}>
+            <View style={styles.headerTopRow}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.headerTitle}>Báo cáo cuối ngày</Text>
+                <Text style={styles.headerDate}>{displayDate}</Text>
+              </View>
+              <View style={styles.badgePill}>
+                <Text style={styles.badgePillText}>
+                  {reportData?.status === 'REVIEWED'
+                    ? 'Đã duyệt'
+                    : reportData?.status === 'SUBMITTED'
+                    ? 'Đã gửi'
+                    : 'Bản mẫu'}
+                </Text>
+              </View>
             </View>
           </View>
+        )}
 
-          {/* Person Card */}
-          <View style={styles.personCard}>
+        {/* Person Card with Avatar, Info, Date & Status */}
+        <View style={styles.personCard}>
+          <View style={styles.personCardTop}>
             <View style={styles.personAvatar}>
               <Text style={styles.avatarInitialsText}>{avatarInitials}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.personName}>{employeeName}</Text>
               <Text style={styles.personRole}>{departmentName} · {roleName}</Text>
+            </View>
+          </View>
+          <View style={styles.personCardDivider} />
+          <View style={styles.personCardBottom}>
+            <Text style={styles.personCardDate}>{displayDate}</Text>
+            <View
+              style={[
+                styles.statusBadge,
+                reportData?.status === 'REVIEWED' && styles.statusBadgeReviewed,
+                reportData?.status === 'SUBMITTED' && styles.statusBadgeSubmitted,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  reportData?.status === 'REVIEWED' && styles.statusBadgeTextReviewed,
+                  reportData?.status === 'SUBMITTED' && styles.statusBadgeTextSubmitted,
+                ]}
+              >
+                {reportData?.status === 'REVIEWED'
+                  ? 'Đã duyệt'
+                  : reportData?.status === 'SUBMITTED'
+                  ? 'Đã nộp'
+                  : 'Chưa nộp'}
+              </Text>
             </View>
           </View>
         </View>
@@ -1256,31 +1293,39 @@ const styles = StyleSheet.create({
 
   // Person Card
   personCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 12,
-    marginTop: 10,
-    gap: 12,
+    padding: 14,
+    marginTop: 4,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E9EDF2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  personCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   personAvatar: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 12,
     backgroundColor: '#EEF3FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitialsText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#315DE5',
   },
   personName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#192232',
   },
@@ -1288,6 +1333,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#697586',
     marginTop: 2,
+    fontWeight: '500',
+  },
+  personCardDivider: {
+    height: 1,
+    backgroundColor: '#F1F4F9',
+    marginVertical: 10,
+  },
+  personCardBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  personCardDate: {
+    fontSize: 12,
+    color: '#697586',
+    fontWeight: '500',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: '#FFF7EB',
+    borderWidth: 1,
+    borderColor: '#FDE3B7',
+  },
+  statusBadgeSubmitted: {
+    backgroundColor: '#EFF4FE',
+    borderColor: '#C8D9FC',
+  },
+  statusBadgeReviewed: {
+    backgroundColor: '#E7F9EE',
+    borderColor: '#B8EBC9',
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  statusBadgeTextSubmitted: {
+    color: '#315DE5',
+  },
+  statusBadgeTextReviewed: {
+    color: '#15803D',
   },
 
   // STEP TABS

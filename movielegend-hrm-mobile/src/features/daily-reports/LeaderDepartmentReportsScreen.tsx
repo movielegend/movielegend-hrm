@@ -511,9 +511,9 @@ export function LeaderDepartmentReportsScreen() {
   // -------------------------------------------------------------
   if (scope === 'mine') {
     return (
-      <Screen backgroundColor="#F6F7FB">
-        <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-          {/* Main Leader Header with Switcher */}
+      <DailyReportFormScreen
+        hideHeaderTitle
+        headerSlot={
           <View style={styles.leaderHeader}>
             <View style={styles.headerTopRow}>
               <Text style={styles.headerKicker}>WORKSPACE / TRƯỞNG PHÒNG</Text>
@@ -542,11 +542,8 @@ export function LeaderDepartmentReportsScreen() {
               </Pressable>
             </View>
           </View>
-
-          {/* Form component for Leader's own report */}
-          <DailyReportFormScreen />
-        </ScreenContainer>
-      </Screen>
+        }
+      />
     );
   }
 
