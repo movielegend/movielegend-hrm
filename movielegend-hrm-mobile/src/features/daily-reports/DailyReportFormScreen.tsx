@@ -12,6 +12,7 @@ import {
   Platform,
   Image,
   Modal,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -79,8 +80,12 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
 
   const todayReportQuery = useMyTodayReport();
   const saveReportMutation = useSaveDailyReport();
+  const historyQuery = useMyReportHistory(1, 50);
 
-  // Active step: 0 = Hôm nay, 1 = Ngày mai, 2 = Xem lại
+  // Top mode: 'write' (Viết báo cáo hôm nay) | 'approved' (Báo cáo đã duyệt)
+  const [activeTab, setActiveTab] = useState<'write' | 'approved'>('write');
+
+  // Active step in write mode: 0 = Hôm nay, 1 = Ngày mai, 2 = Xem lại
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isInitializing, setIsInitializing] = useState(true);
   const [noticeText, setNoticeText] = useState<string>('Dữ liệu sẵn sàng');
@@ -91,10 +96,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Xem tài liệu');
 
-  // History modal state
-  const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
-  const [selectedHistoryReport, setSelectedHistoryReport] = useState<DailyReport | null>(null);
-  const historyQuery = useMyReportHistory(1, 30);
+  // Detailed view of an approved report
+  const [selectedApprovedReport, setSelectedApprovedReport] = useState<DailyReport | null>(null);
 
   // STEP 1: HÔM NAY
   const [metrics, setMetrics] = useState<DailyReportMetricItem[]>([
@@ -119,9 +122,14 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
   const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
 
   const reportData = todayReportQuery.data;
-  const isSubmitted = reportData?.status === 'SUBMITTED' || reportData?.status === 'REVIEWED';
-  const isAlreadyReviewed = reportData?.status === 'REVIEWED';
-  const isPendingReview = reportData?.status === 'SUBMITTED';
+  const isSubmittedToday = reportData?.status === 'SUBMITTED' || reportData?.status === 'REVIEWED';
+  const isReviewedToday = reportData?.status === 'REVIEWED';
+
+  // Lấy danh sách các báo cáo đã duyệt
+  const approvedReports = useMemo(() => {
+    const all = historyQuery.data?.items || [];
+    return all.filter((r) => r.status === 'REVIEWED');
+  }, [historyQuery.data]);
 
   // Khởi tạo từ Server / Auto-pull
   useEffect(() => {
@@ -196,11 +204,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
 
   // --- ACTIONS CHO CHỈ TIÊU ĐỊNH LƯỢNG ---
   const handleAddMetric = () => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setMetrics((prev) => [...prev, { name: '', value: '', unit: '', note: '' }]);
   };
   const handleUpdateMetric = (index: number, field: keyof DailyReportMetricItem, val: string) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setMetrics((prev) => {
       const next = [...prev];
       const item = next[index] || { name: '' };
@@ -209,13 +217,13 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
     });
   };
   const handleDeleteMetric = (index: number) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setMetrics((prev) => prev.filter((_, i) => i !== index));
   };
 
   // --- ACTIONS CHO VIỆC HOÀN THÀNH ---
   const handleToggleTask = (index: number) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setCompletedTasks((prev) => {
       const next = [...prev];
       if (next[index]) {
@@ -225,14 +233,14 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
     });
   };
   const handleAddManualCompletedTask = () => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setCompletedTasks((prev) => [
       ...prev,
       { title: '', status: 'COMPLETED', isManual: true, isSelected: true },
     ]);
   };
   const handleUpdateCompletedTask = (index: number, val: string) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setCompletedTasks((prev) => {
       const next = [...prev];
       if (next[index]) {
@@ -242,20 +250,20 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
     });
   };
   const handleDeleteCompletedTask = (index: number) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setCompletedTasks((prev) => prev.filter((_, i) => i !== index));
   };
 
   // --- ACTIONS CHO VIỆC ĐANG LÀM ---
   const handleAddInProgressTask = () => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setInProgressTasks((prev) => [
       ...prev,
       { title: '', status: 'IN_PROGRESS', isManual: true, progress: 50, expectedDate: 'Ngày mai' },
     ]);
   };
   const handleUpdateInProgressTask = (index: number, field: keyof DailyReportTaskItem, val: any) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setInProgressTasks((prev) => {
       const next = [...prev];
       if (next[index]) {
@@ -265,17 +273,17 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
     });
   };
   const handleDeleteInProgressTask = (index: number) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setInProgressTasks((prev) => prev.filter((_, i) => i !== index));
   };
 
   // --- ACTIONS CHO KẾ HOẠCH NGÀY MAI ---
   const handleAddPlanItem = () => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setTomorrowPlan((prev) => [...prev, '']);
   };
   const handleUpdatePlanItem = (index: number, val: string) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setTomorrowPlan((prev) => {
       const next = [...prev];
       next[index] = val;
@@ -283,13 +291,13 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
     });
   };
   const handleDeletePlanItem = (index: number) => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     setTomorrowPlan((prev) => prev.filter((_, i) => i !== index));
   };
 
   // --- UPLOAD ĐÍNH KÈM ---
   const handlePickImage = async () => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
@@ -328,7 +336,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
   };
 
   const handlePickDocument = async () => {
-    if (isSubmitted) return;
+    if (isSubmittedToday) return;
     try {
       const res = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
@@ -377,7 +385,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
 
   // --- LƯU BÁO CÁO (DRAFT / SUBMIT) ---
   const handleSave = async (isDraft = false) => {
-    if (isSubmitted) {
+    if (isSubmittedToday) {
       Alert.alert('Thông báo', 'Bạn đã nộp báo cáo cho ngày hôm nay rồi. Mỗi ngày chỉ được gửi báo cáo 1 lần.');
       return;
     }
@@ -487,1123 +495,538 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                 <Text style={styles.headerTitle}>Báo cáo cuối ngày</Text>
                 <Text style={styles.headerDate}>{displayDate}</Text>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity
-                  style={styles.historyTopBtn}
-                  onPress={() => setIsHistoryModalVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons name="history" size={16} color="#315DE5" />
-                  <Text style={styles.historyTopBtnText}>Lịch sử</Text>
-                </TouchableOpacity>
+              <View style={styles.badgePill}>
+                <Text style={styles.badgePillText}>
+                  {reportData?.status === 'REVIEWED'
+                    ? 'Đã duyệt'
+                    : reportData?.status === 'SUBMITTED'
+                    ? 'Đã gửi'
+                    : 'Bản mẫu'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
-                <View style={styles.badgePill}>
-                  <Text style={styles.badgePillText}>
+        {/* ========================================================================= */}
+        {/* MAIN SEGMENT SWITCHER: [ VIẾT BÁO CÁO | BÁO CÁO ĐÃ DUYỆT ]                */}
+        {/* ========================================================================= */}
+        <View style={styles.mainSegmentBar}>
+          <Pressable
+            style={[styles.mainSegmentBtn, activeTab === 'write' && styles.mainSegmentBtnActive]}
+            onPress={() => {
+              setActiveTab('write');
+              setSelectedApprovedReport(null);
+            }}
+          >
+            <MaterialCommunityIcons
+              name="pencil-outline"
+              size={16}
+              color={activeTab === 'write' ? '#315DE5' : '#64748B'}
+            />
+            <Text style={[styles.mainSegmentBtnText, activeTab === 'write' && styles.mainSegmentBtnTextActive]}>
+              Viết báo cáo
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.mainSegmentBtn, activeTab === 'approved' && styles.mainSegmentBtnActive]}
+            onPress={() => setActiveTab('approved')}
+          >
+            <MaterialCommunityIcons
+              name="check-decagram-outline"
+              size={16}
+              color={activeTab === 'approved' ? '#315DE5' : '#64748B'}
+            />
+            <Text style={[styles.mainSegmentBtnText, activeTab === 'approved' && styles.mainSegmentBtnTextActive]}>
+              Đã duyệt
+            </Text>
+            {approvedReports.length > 0 && (
+              <View style={[styles.mainSegmentCountBadge, activeTab === 'approved' && styles.mainSegmentCountBadgeActive]}>
+                <Text style={[styles.mainSegmentCountText, activeTab === 'approved' && styles.mainSegmentCountTextActive]}>
+                  {approvedReports.length}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
+
+        {/* ========================================================================= */}
+        {/* TAB 1: VIẾT BÁO CÁO (FORM SOẠN THẢO BÁO CÁO HÔM NAY)                      */}
+        {/* ========================================================================= */}
+        {activeTab === 'write' && (
+          <View>
+            {/* Person Card with Avatar, Info, Date & Status */}
+            <View style={styles.personCard}>
+              <View style={styles.personCardTop}>
+                <View style={styles.personAvatar}>
+                  <Text style={styles.avatarInitialsText}>{avatarInitials}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.personName}>{employeeName}</Text>
+                  <Text style={styles.personRole}>{departmentName} · {roleName}</Text>
+                </View>
+              </View>
+              <View style={styles.personCardDivider} />
+              <View style={styles.personCardBottom}>
+                <Text style={styles.personCardDate}>{displayDate}</Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    reportData?.status === 'REVIEWED' && styles.statusBadgeReviewed,
+                    reportData?.status === 'SUBMITTED' && styles.statusBadgeSubmitted,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      reportData?.status === 'REVIEWED' && styles.statusBadgeTextReviewed,
+                      reportData?.status === 'SUBMITTED' && styles.statusBadgeTextSubmitted,
+                    ]}
+                  >
                     {reportData?.status === 'REVIEWED'
                       ? 'Đã duyệt'
                       : reportData?.status === 'SUBMITTED'
-                      ? 'Đã gửi'
-                      : 'Bản mẫu'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Person Card with Avatar, Info, Date & Status */}
-        <View style={styles.personCard}>
-          <View style={styles.personCardTop}>
-            <View style={styles.personAvatar}>
-              <Text style={styles.avatarInitialsText}>{avatarInitials}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.personName}>{employeeName}</Text>
-              <Text style={styles.personRole}>{departmentName} · {roleName}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.personHistoryBadge}
-              onPress={() => setIsHistoryModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="history" size={15} color="#315DE5" />
-              <Text style={styles.personHistoryBadgeText}>Lịch sử</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.personCardDivider} />
-          <View style={styles.personCardBottom}>
-            <Text style={styles.personCardDate}>{displayDate}</Text>
-            <View
-              style={[
-                styles.statusBadge,
-                reportData?.status === 'REVIEWED' && styles.statusBadgeReviewed,
-                reportData?.status === 'SUBMITTED' && styles.statusBadgeSubmitted,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  reportData?.status === 'REVIEWED' && styles.statusBadgeTextReviewed,
-                  reportData?.status === 'SUBMITTED' && styles.statusBadgeTextSubmitted,
-                ]}
-              >
-                {reportData?.status === 'REVIEWED'
-                  ? 'Đã duyệt'
-                  : reportData?.status === 'SUBMITTED'
-                  ? 'Đã nộp'
-                  : 'Chưa nộp'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ========================================================================= */}
-        {/* ADMIN REVIEW FEEDBACK CARD (KHI ADMIN ĐÃ ĐÁNH GIÁ)                       */}
-        {/* ========================================================================= */}
-        {isAlreadyReviewed && (
-          <View style={styles.adminFeedbackCard}>
-            <View style={styles.adminFeedbackHeader}>
-              <View style={styles.adminFeedbackIconBox}>
-                <MaterialCommunityIcons name="star-circle" size={22} color="#EAB308" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.adminFeedbackKicker}>KẾT QUẢ ĐÁNH GIÁ TỪ QUẢN LÝ / ADMIN</Text>
-                <View style={styles.adminRatingStarsRow}>
-                  <Text style={styles.adminRatingStarsText}>
-                    {'★'.repeat(reportData.adminRating || 5)}{'☆'.repeat(5 - (reportData.adminRating || 5))}
-                  </Text>
-                  <Text style={styles.adminRatingScoreText}>
-                    {reportData.adminRating || 5}/5 sao
+                      ? 'Đã nộp'
+                      : 'Chưa nộp'}
                   </Text>
                 </View>
               </View>
             </View>
 
-            {reportData.adminReview ? (
-              <View style={styles.adminFeedbackCommentBox}>
-                <Text style={styles.adminFeedbackCommentText}>
-                  "{reportData.adminReview}"
-                </Text>
+            {/* Thông báo nếu hôm nay đã nộp */}
+            {isSubmittedToday && (
+              <View style={[styles.submittedTodayCallout, isReviewedToday && styles.submittedTodayCalloutReviewed]}>
+                <MaterialCommunityIcons
+                  name={isReviewedToday ? 'star-check' : 'clock-check-outline'}
+                  size={20}
+                  color={isReviewedToday ? '#15803D' : '#2563EB'}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.submittedTodayTitle, isReviewedToday && styles.submittedTodayTitleReviewed]}>
+                    {isReviewedToday
+                      ? 'Báo cáo hôm nay đã được Admin đánh giá'
+                      : 'Bạn đã nộp báo cáo cho ngày hôm nay'}
+                  </Text>
+                  <Text style={styles.submittedTodaySub}>
+                    {isReviewedToday
+                      ? 'Bạn có thể xem điểm và nhận xét bên tab "Đã duyệt" hoặc xem lại chi tiết bên dưới.'
+                      : 'Báo cáo đang chờ Quản lý/Admin đánh giá. Mỗi ngày chỉ được gửi báo cáo 1 lần.'}
+                  </Text>
+                </View>
               </View>
-            ) : null}
+            )}
 
-            <View style={styles.adminFeedbackMetaRow}>
-              <Text style={styles.adminFeedbackMetaText}>
-                Người duyệt: {reportData.reviewedBy?.profile?.fullName || reportData.reviewedBy?.userCode || 'Admin'}
-              </Text>
-              {reportData.reviewedAt && (
-                <Text style={styles.adminFeedbackMetaText}>
-                  {new Date(reportData.reviewedAt).toLocaleDateString('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                  })}
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* ========================================================================= */}
-        {/* PENDING REVIEW BANNER (KHI ĐÃ GỬI BÁO CÁO, ĐANG CHỜ DUYỆT)               */}
-        {/* ========================================================================= */}
-        {isPendingReview && (
-          <View style={styles.pendingReviewBanner}>
-            <MaterialCommunityIcons name="clock-check-outline" size={20} color="#315DE5" />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.pendingReviewBannerTitle}>Báo cáo đã gửi thành công</Text>
-              <Text style={styles.pendingReviewBannerSub}>
-                Đang chờ Quản lý / Admin đánh giá. Mỗi ngày chỉ được gửi báo cáo 1 lần.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* STEP TABS (01 Hôm nay | 02 Ngày mai | 03 Xem lại) */}
-        <View style={styles.stepTabsRow}>
-          {[
-            { id: 0, label: '01 · Hôm nay' },
-            { id: 1, label: '02 · Ngày mai' },
-            { id: 2, label: '03 · Xem lại' },
-          ].map((tab) => {
-            const isActive = currentStep === tab.id;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                style={[styles.stepTabBtn, isActive && styles.stepTabBtnActive]}
-                onPress={() => setCurrentStep(tab.id)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.stepIndicatorLine, isActive && styles.stepIndicatorLineActive]} />
-                <Text style={[styles.stepTabLabel, isActive && styles.stepTabLabelActive]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ========================================================================= */}
-        {/* PANEL 0: HÔM NAY                                                          */}
-        {/* ========================================================================= */}
-        {currentStep === 0 && (
-          <View style={styles.panelContainer}>
-            {/* 1. KẾT QUẢ CÔNG VIỆC ĐỊNH LƯỢNG */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionCardTitle}>Kết quả công việc định lượng</Text>
-              <Text style={styles.sectionCardSubtitle}>
-                {isSubmitted
-                  ? 'Số liệu định lượng đã ghi nhận hôm nay.'
-                  : 'Ghi nhận số liệu đạt được hôm nay. Có thể đổi tên chỉ tiêu theo công việc của bạn.'}
-              </Text>
-
-              {metrics.length === 0 ? (
-                <Text style={styles.emptyPromptText}>Chưa có chỉ tiêu. Thêm chỉ tiêu khi có kết quả cần ghi nhận.</Text>
-              ) : (
-                metrics.map((m, idx) => (
-                  <View key={idx} style={styles.quantItemBox}>
-                    <View style={styles.quantItemHeader}>
-                      <Text style={styles.quantNumberText}>CHỈ TIÊU {String(idx + 1).padStart(2, '0')}</Text>
-                      {!isSubmitted && (
-                        <TouchableOpacity onPress={() => handleDeleteMetric(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Text style={styles.removeText}>Xóa</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <Text style={styles.inputLabel}>Tên chỉ tiêu</Text>
-                    <TextInput
-                      style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                      placeholder="Ví dụ: Khách hàng mới, doanh số…"
-                      placeholderTextColor="#94A3B8"
-                      value={m.name}
-                      onChangeText={(v) => handleUpdateMetric(idx, 'name', v)}
-                      editable={!isSubmitted}
-                    />
-
-                    <View style={styles.quantPairRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputLabel}>Kết quả</Text>
-                        <TextInput
-                          style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                          placeholder="Nhập số"
-                          placeholderTextColor="#94A3B8"
-                          keyboardType="numeric"
-                          value={String(m.value ?? '')}
-                          onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
-                          editable={!isSubmitted}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputLabel}>Đơn vị</Text>
-                        <TextInput
-                          style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                          placeholder="Lỗi, khách, VND…"
-                          placeholderTextColor="#94A3B8"
-                          value={m.unit || ''}
-                          onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
-                          editable={!isSubmitted}
-                        />
-                      </View>
-                    </View>
-
-                    <Text style={styles.inputLabel}>
-                      Ghi chú <Text style={styles.optionalText}>· Tùy chọn</Text>
+            {/* STEP TABS (01 Hôm nay | 02 Ngày mai | 03 Xem lại) */}
+            <View style={styles.stepTabsRow}>
+              {[
+                { id: 0, label: '01 · Hôm nay' },
+                { id: 1, label: '02 · Ngày mai' },
+                { id: 2, label: '03 · Xem lại' },
+              ].map((tab) => {
+                const isActive = currentStep === tab.id;
+                return (
+                  <TouchableOpacity
+                    key={tab.id}
+                    style={[styles.stepTabBtn, isActive && styles.stepTabBtnActive]}
+                    onPress={() => setCurrentStep(tab.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.stepIndicatorLine, isActive && styles.stepIndicatorLineActive]} />
+                    <Text style={[styles.stepTabLabel, isActive && styles.stepTabLabelActive]}>
+                      {tab.label}
                     </Text>
-                    <TextInput
-                      style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                      placeholder="Ghi chú thêm nếu cần…"
-                      placeholderTextColor="#94A3B8"
-                      value={m.note || ''}
-                      onChangeText={(v) => handleUpdateMetric(idx, 'note', v)}
-                      editable={!isSubmitted}
-                    />
-                  </View>
-                ))
-              )}
-
-              {!isSubmitted && (
-                <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
-                  <Ionicons name="add" size={18} color="#315DE5" />
-                  <Text style={styles.outlineAddBtnText}>Thêm chỉ tiêu</Text>
-                </TouchableOpacity>
-              )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* 2. CÔNG VIỆC HOÀN THÀNH */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionCardHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sectionCardTitle}>Công việc hoàn thành</Text>
+            {/* PANEL 0: HÔM NAY */}
+            {currentStep === 0 && (
+              <View style={styles.panelContainer}>
+                {/* 1. KẾT QUẢ CÔNG VIỆC ĐỊNH LƯỢNG */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Kết quả công việc định lượng</Text>
                   <Text style={styles.sectionCardSubtitle}>
-                    {isSubmitted ? 'Các việc đã hoàn thành hôm nay' : 'Chọn việc đã hoàn thành hoặc thêm trực tiếp.'}
+                    {isSubmittedToday
+                      ? 'Số liệu định lượng đã ghi nhận hôm nay.'
+                      : 'Ghi nhận số liệu đạt được hôm nay. Có thể đổi tên chỉ tiêu theo công việc của bạn.'}
                   </Text>
-                </View>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{activeCompletedCount} việc</Text>
-                </View>
-              </View>
 
-              {completedTasks.length === 0 ? (
-                <Text style={styles.emptyPromptText}>Chưa có công việc nào trong danh sách hoàn thành.</Text>
-              ) : (
-                completedTasks.map((t, idx) => {
-                  const isSelected = t.isSelected ?? true;
-                  return (
-                    <View key={idx} style={[styles.taskItemCard, isSelected && styles.taskItemCardActive]}>
-                      <TouchableOpacity
-                        style={styles.checkboxRow}
-                        onPress={() => handleToggleTask(idx)}
-                        disabled={isSubmitted}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialCommunityIcons
-                          name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                          size={22}
-                          color={isSelected ? '#315DE5' : '#94A3B8'}
-                        />
-                        <View style={{ flex: 1, marginLeft: 8 }}>
-                          {t.isManual && !isSubmitted ? (
-                            <TextInput
-                              style={styles.taskInlineInput}
-                              placeholder="Nhập tên việc đã hoàn thành…"
-                              placeholderTextColor="#94A3B8"
-                              value={t.title}
-                              onChangeText={(v) => handleUpdateCompletedTask(idx, v)}
-                              editable={!isSubmitted}
-                            />
-                          ) : (
-                            <Text style={[styles.taskTitleText, isSelected && styles.taskTitleTextActive]}>
-                              {t.title}
-                            </Text>
+                  {metrics.length === 0 ? (
+                    <Text style={styles.emptyPromptText}>Chưa có chỉ tiêu. Thêm chỉ tiêu khi có kết quả cần ghi nhận.</Text>
+                  ) : (
+                    metrics.map((m, idx) => (
+                      <View key={idx} style={styles.quantItemBox}>
+                        <View style={styles.quantItemHeader}>
+                          <Text style={styles.quantNumberText}>CHỈ TIÊU {String(idx + 1).padStart(2, '0')}</Text>
+                          {!isSubmittedToday && (
+                            <TouchableOpacity onPress={() => handleDeleteMetric(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Text style={styles.removeText}>Xóa</Text>
+                            </TouchableOpacity>
                           )}
-                          <Text style={styles.taskSubText}>
-                            {t.isManual ? 'Thêm thủ công' : 'Từ danh sách nhiệm vụ được giao'}
-                          </Text>
                         </View>
 
-                        {t.isManual && !isSubmitted && (
-                          <TouchableOpacity onPress={() => handleDeleteCompletedTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                          </TouchableOpacity>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })
-              )}
-
-              {!isSubmitted && (
-                <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddManualCompletedTask} activeOpacity={0.7}>
-                  <Ionicons name="add" size={18} color="#315DE5" />
-                  <Text style={styles.outlineAddBtnText}>Thêm việc hoàn thành</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* 3. CÔNG VIỆC ĐANG THỰC HIỆN / DỞ DANG */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionCardHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sectionCardTitle}>Công việc đang thực hiện</Text>
-                  <Text style={styles.sectionCardSubtitle}>
-                    {isSubmitted ? 'Tiến độ các việc đang làm' : 'Ghi nhận tiến độ và ngày dự kiến hoàn thành.'}
-                  </Text>
-                </View>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{inProgressTasks.length} việc</Text>
-                </View>
-              </View>
-
-              {inProgressTasks.length === 0 ? (
-                <Text style={styles.emptyPromptText}>Không có việc dở dang. Thêm nếu có việc cần làm tiếp ngày mai.</Text>
-              ) : (
-                inProgressTasks.map((t, idx) => (
-                  <View key={idx} style={styles.inProgressCard}>
-                    <View style={styles.quantItemHeader}>
-                      <Text style={styles.inProgressNumberText}>CÔNG VIỆC {String(idx + 1).padStart(2, '0')}</Text>
-                      {!isSubmitted && (
-                        <TouchableOpacity onPress={() => handleDeleteInProgressTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Text style={styles.removeText}>Xóa</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <Text style={styles.inputLabel}>Tên công việc</Text>
-                    <TextInput
-                      style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                      placeholder="Tên công việc đang làm…"
-                      placeholderTextColor="#94A3B8"
-                      value={t.title}
-                      onChangeText={(v) => handleUpdateInProgressTask(idx, 'title', v)}
-                      editable={!isSubmitted}
-                    />
-
-                    <View style={styles.quantPairRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputLabel}>Tiến độ (%)</Text>
+                        <Text style={styles.inputLabel}>Tên chỉ tiêu</Text>
                         <TextInput
-                          style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                          placeholder="Ví dụ: 60"
+                          style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                          placeholder="Ví dụ: Khách hàng mới, doanh số…"
                           placeholderTextColor="#94A3B8"
-                          keyboardType="numeric"
-                          value={String(t.progress ?? '')}
-                          onChangeText={(v) => handleUpdateInProgressTask(idx, 'progress', Number(v) || 0)}
-                          editable={!isSubmitted}
+                          value={m.name}
+                          onChangeText={(v) => handleUpdateMetric(idx, 'name', v)}
+                          editable={!isSubmittedToday}
+                        />
+
+                        <View style={styles.quantPairRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Kết quả</Text>
+                            <TextInput
+                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                              placeholder="Nhập số"
+                              placeholderTextColor="#94A3B8"
+                              keyboardType="numeric"
+                              value={String(m.value ?? '')}
+                              onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
+                              editable={!isSubmittedToday}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Đơn vị</Text>
+                            <TextInput
+                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                              placeholder="Lỗi, khách, VND…"
+                              placeholderTextColor="#94A3B8"
+                              value={m.unit || ''}
+                              onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
+                              editable={!isSubmittedToday}
+                            />
+                          </View>
+                        </View>
+
+                        <Text style={styles.inputLabel}>
+                          Ghi chú <Text style={styles.optionalText}>· Tùy chọn</Text>
+                        </Text>
+                        <TextInput
+                          style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                          placeholder="Ghi chú thêm nếu cần…"
+                          placeholderTextColor="#94A3B8"
+                          value={m.note || ''}
+                          onChangeText={(v) => handleUpdateMetric(idx, 'note', v)}
+                          editable={!isSubmittedToday}
                         />
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputLabel}>Dự kiến xong</Text>
-                        <TextInput
-                          style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                          placeholder="Ví dụ: Ngày mai, 22/09…"
-                          placeholderTextColor="#94A3B8"
-                          value={t.expectedDate || ''}
-                          onChangeText={(v) => handleUpdateInProgressTask(idx, 'expectedDate', v)}
-                          editable={!isSubmitted}
-                        />
-                      </View>
-                    </View>
-                  </View>
-                ))
-              )}
+                    ))
+                  )}
 
-              {!isSubmitted && (
-                <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddInProgressTask} activeOpacity={0.7}>
-                  <Ionicons name="add" size={18} color="#315DE5" />
-                  <Text style={styles.outlineAddBtnText}>Thêm việc đang làm</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* ========================================================================= */}
-        {/* PANEL 1: NGÀY MAI & ĐÁNH GIÁ                                               */}
-        {/* ========================================================================= */}
-        {currentStep === 1 && (
-          <View style={styles.panelContainer}>
-            {/* 1. KẾ HOẠCH NGÀY MAI */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionCardTitle}>Kế hoạch ngày mai</Text>
-              <Text style={styles.sectionCardSubtitle}>
-                {isSubmitted
-                  ? 'Kế hoạch các đầu việc cho ngày làm việc tiếp theo.'
-                  : 'Ghi các đầu việc dự kiến thực hiện trong ngày làm việc tiếp theo. Leader có thể duyệt thành Task.'}
-              </Text>
-
-              {tomorrowPlan.map((plan, idx) => (
-                <View key={idx} style={styles.planItemRow}>
-                  <Text style={styles.planIndexBadge}>{idx + 1}</Text>
-                  <TextInput
-                    style={[styles.planInput, isSubmitted && styles.readOnlyInput]}
-                    placeholder={`Đầu việc ${idx + 1}…`}
-                    placeholderTextColor="#94A3B8"
-                    value={plan}
-                    onChangeText={(v) => handleUpdatePlanItem(idx, v)}
-                    editable={!isSubmitted}
-                  />
-                  {!isSubmitted && tomorrowPlan.length > 1 && (
-                    <TouchableOpacity onPress={() => handleDeletePlanItem(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  {!isSubmittedToday && (
+                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#315DE5" />
+                      <Text style={styles.outlineAddBtnText}>Thêm chỉ tiêu</Text>
                     </TouchableOpacity>
                   )}
                 </View>
-              ))}
 
-              {!isSubmitted && (
-                <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddPlanItem} activeOpacity={0.7}>
-                  <Ionicons name="add" size={18} color="#315DE5" />
-                  <Text style={styles.outlineAddBtnText}>Thêm đầu việc ngày mai</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                {/* 2. CÔNG VIỆC HOÀN THÀNH */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionCardHeaderRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionCardTitle}>Công việc hoàn thành</Text>
+                      <Text style={styles.sectionCardSubtitle}>
+                        {isSubmittedToday ? 'Các việc đã hoàn thành hôm nay' : 'Chọn việc đã hoàn thành hoặc thêm trực tiếp.'}
+                      </Text>
+                    </View>
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>{activeCompletedCount} việc</Text>
+                    </View>
+                  </View>
 
-            {/* 2. KHÓ KHĂN & ĐỀ XUẤT HỖ TRỢ */}
-            <View style={styles.sectionCard}>
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={styles.sectionCardTitle}>Khó khăn & vướng mắc</Text>
-                  <Text style={styles.sectionCardSubtitle}>
-                    Bật nếu hôm nay gặp trở ngại cần Leader hoặc phòng ban khác hỗ trợ.
-                  </Text>
-                </View>
-                <Switch
-                  value={hasObstacles}
-                  onValueChange={(val) => !isSubmitted && setHasObstacles(val)}
-                  trackColor={{ false: '#E2E8F0', true: '#BFDBFE' }}
-                  thumbColor={hasObstacles ? '#315DE5' : '#94A3B8'}
-                  disabled={isSubmitted}
-                />
-              </View>
+                  {completedTasks.length === 0 ? (
+                    <Text style={styles.emptyPromptText}>Chưa có công việc nào trong danh sách hoàn thành.</Text>
+                  ) : (
+                    completedTasks.map((t, idx) => {
+                      const isSelected = t.isSelected ?? true;
+                      return (
+                        <View key={idx} style={[styles.taskItemCard, isSelected && styles.taskItemCardActive]}>
+                          <TouchableOpacity
+                            style={styles.checkboxRow}
+                            onPress={() => handleToggleTask(idx)}
+                            disabled={isSubmittedToday}
+                            activeOpacity={0.7}
+                          >
+                            <MaterialCommunityIcons
+                              name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                              size={22}
+                              color={isSelected ? '#315DE5' : '#94A3B8'}
+                            />
+                            <View style={{ flex: 1, marginLeft: 8 }}>
+                              {t.isManual && !isSubmittedToday ? (
+                                <TextInput
+                                  style={styles.taskInlineInput}
+                                  placeholder="Nhập tên việc đã hoàn thành…"
+                                  placeholderTextColor="#94A3B8"
+                                  value={t.title}
+                                  onChangeText={(v) => handleUpdateCompletedTask(idx, v)}
+                                  editable={!isSubmittedToday}
+                                />
+                              ) : (
+                                <Text style={[styles.taskTitleText, isSelected && styles.taskTitleTextActive]}>
+                                  {t.title}
+                                </Text>
+                              )}
+                              <Text style={styles.taskSubText}>
+                                {t.isManual ? 'Thêm thủ công' : 'Từ danh sách nhiệm vụ được giao'}
+                              </Text>
+                            </View>
 
-              {hasObstacles && (
-                <View style={{ marginTop: 12 }}>
-                  <Text style={styles.inputLabel}>Mô tả vướng mắc</Text>
-                  <TextInput
-                    style={[styles.textAreaInput, isSubmitted && styles.readOnlyInput]}
-                    placeholder="Mô tả cụ thể khó khăn phát sinh trong công việc hôm nay…"
-                    placeholderTextColor="#94A3B8"
-                    multiline
-                    numberOfLines={3}
-                    value={obstacleText}
-                    onChangeText={setObstacleText}
-                    editable={!isSubmitted}
-                  />
-
-                  <Text style={[styles.inputLabel, { marginTop: 10 }]}>
-                    Mong muốn hỗ trợ <Text style={styles.optionalText}>· Tùy chọn</Text>
-                  </Text>
-                  <TextInput
-                    style={[styles.textInput, isSubmitted && styles.readOnlyInput]}
-                    placeholder="Ví dụ: Cần họp nhanh 15p với bên Media…"
-                    placeholderTextColor="#94A3B8"
-                    value={supportWish}
-                    onChangeText={setSupportWish}
-                    editable={!isSubmitted}
-                  />
-                </View>
-              )}
-            </View>
-
-            {/* 3. TỰ ĐÁNH GIÁ NGÀY LÀM VIỆC */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionCardTitle}>Tự đánh giá ngày làm việc</Text>
-              <Text style={styles.sectionCardSubtitle}>
-                Chọn mức độ tự đánh giá kết quả hoàn thành hôm nay.
-              </Text>
-
-              {/* Star buttons */}
-              <View style={styles.starRatingRow}>
-                {[1, 2, 3, 4, 5].map((lvl) => {
-                  const isSelected = lvl <= selfRating;
-                  return (
-                    <TouchableOpacity
-                      key={lvl}
-                      style={styles.starBtn}
-                      onPress={() => !isSubmitted && setSelfRating(lvl)}
-                      activeOpacity={0.7}
-                      disabled={isSubmitted}
-                    >
-                      <Ionicons
-                        name={isSelected ? 'star' : 'star-outline'}
-                        size={32}
-                        color={isSelected ? '#F59E0B' : '#CBD5E1'}
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Active level card */}
-              <View style={styles.assessmentLevelBox}>
-                <View style={styles.assessmentLevelHeader}>
-                  <Text style={styles.assessmentLevelBadge}>MỨC {selfRating}/5</Text>
-                  <Text style={styles.assessmentLevelTitle}>{currentAssessment.title}</Text>
-                </View>
-                <Text style={styles.assessmentLevelDesc}>{currentAssessment.desc}</Text>
-              </View>
-
-              <Text style={[styles.inputLabel, { marginTop: 14 }]}>
-                Tự nhận xét bổ sung <Text style={styles.optionalText}>· Tùy chọn</Text>
-              </Text>
-              <TextInput
-                style={[styles.textAreaInput, isSubmitted && styles.readOnlyInput]}
-                placeholder="Nhận xét ngắn về hiệu quả công việc cá nhân hôm nay…"
-                placeholderTextColor="#94A3B8"
-                multiline
-                numberOfLines={3}
-                value={selfReview}
-                onChangeText={setSelfReview}
-                editable={!isSubmitted}
-              />
-            </View>
-
-            {/* 4. TỆP ĐÍNH KÈM */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionCardTitle}>Tệp đính kèm & hình ảnh</Text>
-              <Text style={styles.sectionCardSubtitle}>
-                Đính kèm hình ảnh kết quả, tài liệu, biên bản báo cáo (ảnh hoặc PDF).
-              </Text>
-
-              {/* Attachments List */}
-              {attachments.length > 0 && (
-                <View style={styles.attachmentList}>
-                  {attachments.map((a, idx) => (
-                    <View key={idx} style={styles.attachmentItemRow}>
-                      <TouchableOpacity
-                        style={styles.attachmentClickArea}
-                        onPress={() => handlePreviewAttachment(a)}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialCommunityIcons
-                          name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                          size={22}
-                          color="#315DE5"
-                        />
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                          <Text style={styles.attachmentFileName} numberOfLines={1}>
-                            {a.fileName || `Tệp ${idx + 1}`}
-                          </Text>
-                          <Text style={styles.attachmentFileType}>
-                            {a.fileType === 'IMAGE' ? 'Hình ảnh · Nhấn để xem' : 'Tài liệu · Nhấn để xem'}
-                          </Text>
+                            {t.isManual && !isSubmittedToday && (
+                              <TouchableOpacity onPress={() => handleDeleteCompletedTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                              </TouchableOpacity>
+                            )}
+                          </TouchableOpacity>
                         </View>
-                        <Ionicons name="eye-outline" size={18} color="#315DE5" />
-                      </TouchableOpacity>
+                      );
+                    })
+                  )}
 
-                      {!isSubmitted && (
-                        <TouchableOpacity
-                          style={styles.attachmentRemoveBtn}
-                          onPress={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="close-circle" size={20} color="#EF4444" />
+                  {!isSubmittedToday && (
+                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddManualCompletedTask} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#315DE5" />
+                      <Text style={styles.outlineAddBtnText}>Thêm việc hoàn thành</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* 3. CÔNG VIỆC ĐANG THỰC HIỆN / DỞ DANG */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionCardHeaderRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionCardTitle}>Công việc đang thực hiện</Text>
+                      <Text style={styles.sectionCardSubtitle}>
+                        {isSubmittedToday ? 'Tiến độ các việc đang làm' : 'Ghi nhận tiến độ và ngày dự kiến hoàn thành.'}
+                      </Text>
+                    </View>
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>{inProgressTasks.length} việc</Text>
+                    </View>
+                  </View>
+
+                  {inProgressTasks.length === 0 ? (
+                    <Text style={styles.emptyPromptText}>Không có việc dở dang. Thêm nếu có việc cần làm tiếp ngày mai.</Text>
+                  ) : (
+                    inProgressTasks.map((t, idx) => (
+                      <View key={idx} style={styles.inProgressCard}>
+                        <View style={styles.quantItemHeader}>
+                          <Text style={styles.inProgressNumberText}>CÔNG VIỆC {String(idx + 1).padStart(2, '0')}</Text>
+                          {!isSubmittedToday && (
+                            <TouchableOpacity onPress={() => handleDeleteInProgressTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Text style={styles.removeText}>Xóa</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        <Text style={styles.inputLabel}>Tên công việc</Text>
+                        <TextInput
+                          style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                          placeholder="Tên công việc đang làm…"
+                          placeholderTextColor="#94A3B8"
+                          value={t.title}
+                          onChangeText={(v) => handleUpdateInProgressTask(idx, 'title', v)}
+                          editable={!isSubmittedToday}
+                        />
+
+                        <View style={styles.quantPairRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Tiến độ (%)</Text>
+                            <TextInput
+                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                              placeholder="Ví dụ: 60"
+                              placeholderTextColor="#94A3B8"
+                              keyboardType="numeric"
+                              value={String(t.progress ?? '')}
+                              onChangeText={(v) => handleUpdateInProgressTask(idx, 'progress', Number(v) || 0)}
+                              editable={!isSubmittedToday}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Dự kiến xong</Text>
+                            <TextInput
+                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                              placeholder="Ví dụ: Ngày mai, 22/09…"
+                              placeholderTextColor="#94A3B8"
+                              value={t.expectedDate || ''}
+                              onChangeText={(v) => handleUpdateInProgressTask(idx, 'expectedDate', v)}
+                              editable={!isSubmittedToday}
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  )}
+
+                  {!isSubmittedToday && (
+                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddInProgressTask} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#315DE5" />
+                      <Text style={styles.outlineAddBtnText}>Thêm việc đang làm</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* PANEL 1: NGÀY MAI & ĐÁNH GIÁ */}
+            {currentStep === 1 && (
+              <View style={styles.panelContainer}>
+                {/* 1. KẾ HOẠCH NGÀY MAI */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Kế hoạch ngày mai</Text>
+                  <Text style={styles.sectionCardSubtitle}>
+                    {isSubmittedToday
+                      ? 'Kế hoạch các đầu việc cho ngày làm việc tiếp theo.'
+                      : 'Ghi các đầu việc dự kiến thực hiện trong ngày làm việc tiếp theo. Leader có thể duyệt thành Task.'}
+                  </Text>
+
+                  {tomorrowPlan.map((plan, idx) => (
+                    <View key={idx} style={styles.planItemRow}>
+                      <Text style={styles.planIndexBadge}>{idx + 1}</Text>
+                      <TextInput
+                        style={[styles.planInput, isSubmittedToday && styles.readOnlyInput]}
+                        placeholder={`Đầu việc ${idx + 1}…`}
+                        placeholderTextColor="#94A3B8"
+                        value={plan}
+                        onChangeText={(v) => handleUpdatePlanItem(idx, v)}
+                        editable={!isSubmittedToday}
+                      />
+                      {!isSubmittedToday && tomorrowPlan.length > 1 && (
+                        <TouchableOpacity onPress={() => handleDeletePlanItem(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
                         </TouchableOpacity>
                       )}
                     </View>
                   ))}
-                </View>
-              )}
 
-              {!isSubmitted && (
-                <View style={styles.attachBtnRow}>
-                  <TouchableOpacity
-                    style={styles.attachBtn}
-                    onPress={handlePickImage}
-                    disabled={isUploadingFile}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="image-outline" size={18} color="#315DE5" />
-                    <Text style={styles.attachBtnText}>Thêm ảnh</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.attachBtn}
-                    onPress={handlePickDocument}
-                    disabled={isUploadingFile}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="document-text-outline" size={18} color="#315DE5" />
-                    <Text style={styles.attachBtnText}>Thêm tài liệu</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {isUploadingFile && (
-                <View style={styles.uploadingBox}>
-                  <ActivityIndicator size="small" color="#315DE5" />
-                  <Text style={styles.uploadingText}>Đang tải tệp lên…</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* ========================================================================= */}
-        {/* PANEL 2: XEM LẠI                                                          */}
-        {/* ========================================================================= */}
-        {currentStep === 2 && (
-          <View style={styles.panelContainer}>
-            {/* TÓM TẮT BÁO CÁO */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionCardTitle}>Tóm tắt báo cáo cuối ngày</Text>
-              <Text style={styles.sectionCardSubtitle}>
-                Kiểm tra lại toàn bộ nội dung trước khi nộp chính thức.
-              </Text>
-
-              <View style={styles.summaryTable}>
-                {/* 1. Định lượng */}
-                <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Định lượng</Text>
-                  <Text style={styles.summaryLineVal}>
-                    {metrics.filter((m) => m.name.trim() && m.value !== '').length === 0
-                      ? 'Chưa nhập số liệu'
-                      : metrics
-                          .filter((m) => m.name.trim() && m.value !== '')
-                          .map((m) => `${m.name}: ${m.value}${m.unit ? ` ${m.unit}` : ''}`)
-                          .join('\n')}
-                  </Text>
-                </View>
-
-                {/* 2. Đã hoàn thành */}
-                <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Đã hoàn thành</Text>
-                  <Text style={styles.summaryLineVal}>
-                    {activeCompletedCount === 0
-                      ? '0 việc'
-                      : completedTasks
-                          .filter((t) => (t.isSelected ?? true) && t.title.trim())
-                          .map((t) => `• ${t.title}`)
-                          .join('\n')}
-                  </Text>
-                </View>
-
-                {/* 3. Đang thực hiện */}
-                <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Đang thực hiện</Text>
-                  <Text style={styles.summaryLineVal}>
-                    {inProgressTasks.filter((t) => t.title.trim()).length === 0
-                      ? '0 việc'
-                      : inProgressTasks
-                          .filter((t) => t.title.trim())
-                          .map((t) => `${t.title} · ${t.progress ?? 60}% · ${t.expectedDate || '21/09'}`)
-                          .join('\n')}
-                  </Text>
-                </View>
-
-                {/* 4. Ngày mai */}
-                <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Ngày mai</Text>
-                  <Text style={styles.summaryLineVal}>
-                    {tomorrowPlan.filter((p) => p.trim()).length === 0
-                      ? 'Chưa thêm kế hoạch'
-                      : tomorrowPlan.filter((p) => p.trim()).join(' · ')}
-                  </Text>
-                </View>
-
-                {/* 5. Hỗ trợ */}
-                <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Hỗ trợ</Text>
-                  <Text style={styles.summaryLineVal}>
-                    {hasObstacles
-                      ? `${obstacleText.trim() || 'Có vướng mắc'}${supportWish.trim() ? ` (Mong muốn: ${supportWish.trim()})` : ''}`
-                      : 'Không có vướng mắc'}
-                  </Text>
-                </View>
-
-                {/* 6. Tự đánh giá */}
-                <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Tự đánh giá</Text>
-                  <Text style={styles.summaryLineVal}>
-                    {selfRating}/5 sao · {currentAssessment.title}
-                  </Text>
-                </View>
-
-                {/* 7. Nhận xét */}
-                {selfReview.trim() ? (
-                  <View style={styles.summaryLine}>
-                    <Text style={styles.summaryLineKey}>Nhận xét</Text>
-                    <Text style={styles.summaryLineVal}>{selfReview.trim()}</Text>
-                  </View>
-                ) : null}
-
-                {/* 8. Đính kèm (Previewable chips) */}
-                <View style={styles.summaryLine}>
-                  <Text style={styles.summaryLineKey}>Đính kèm ({attachments.length} tệp)</Text>
-                  {attachments.length === 0 ? (
-                    <Text style={styles.summaryLineVal}>0 tệp</Text>
-                  ) : (
-                    <View style={{ gap: 6, marginTop: 4 }}>
-                      {attachments.map((a, idx) => (
-                        <TouchableOpacity
-                          key={idx}
-                          style={styles.reviewAttachChip}
-                          onPress={() => handlePreviewAttachment(a)}
-                          activeOpacity={0.7}
-                        >
-                          <MaterialCommunityIcons
-                            name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                            size={16}
-                            color="#315DE5"
-                          />
-                          <Text style={styles.reviewAttachChipText} numberOfLines={1}>
-                            {a.fileName || `Tệp ${idx + 1}`}
-                          </Text>
-                          <Ionicons name="eye-outline" size={14} color="#315DE5" />
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                  {!isSubmittedToday && (
+                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddPlanItem} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#315DE5" />
+                      <Text style={styles.outlineAddBtnText}>Thêm đầu việc ngày mai</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
-              </View>
-            </View>
 
-            {/* Checkbox Xác nhận (chỉ khi chưa nộp) */}
-            {!isSubmitted && (
-              <TouchableOpacity
-                style={styles.confirmCheckRow}
-                onPress={() => setIsConfirmed(!isConfirmed)}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons
-                  name={isConfirmed ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                  size={22}
-                  color={isConfirmed ? '#315DE5' : '#94A3B8'}
-                />
-                <Text style={styles.confirmCheckLabel}>
-                  Tôi xác nhận thông tin trong báo cáo là chính xác.
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* ========================================================================= */}
-        {/* FOOTER ACTIONS                                                            */}
-        {/* ========================================================================= */}
-        <View style={styles.footerContainer}>
-          {isSubmitted ? (
-            <View style={{ gap: 10 }}>
-              <View style={styles.footerBtnRow}>
-                {currentStep > 0 && (
-                  <TouchableOpacity
-                    style={styles.footerSecondaryBtn}
-                    onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-                  >
-                    <Text style={styles.footerSecondaryBtnText}>Quay lại</Text>
-                  </TouchableOpacity>
-                )}
-
-                {currentStep < 2 && (
-                  <TouchableOpacity
-                    style={styles.footerPrimaryBtn}
-                    onPress={() => setCurrentStep((prev) => Math.min(2, prev + 1))}
-                  >
-                    <Text style={styles.footerPrimaryBtnText}>
-                      {currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Locked 1 report per day notice button */}
-              <View style={[styles.lockedDayBtn, isAlreadyReviewed && styles.lockedDayBtnReviewed]}>
-                <MaterialCommunityIcons
-                  name={isAlreadyReviewed ? 'check-decagram' : 'check-circle-outline'}
-                  size={20}
-                  color={isAlreadyReviewed ? '#15803D' : '#315DE5'}
-                />
-                <Text style={[styles.lockedDayBtnText, isAlreadyReviewed && styles.lockedDayBtnTextReviewed]}>
-                  {isAlreadyReviewed ? 'Báo cáo đã được Admin phê duyệt' : 'Đã gửi báo cáo hôm nay (1 lần / ngày)'}
-                </Text>
-              </View>
-              <Text style={styles.footerNoticeText}>
-                {isAlreadyReviewed
-                  ? 'Báo cáo ngày hôm nay đã được đánh giá xong.'
-                  : 'Bạn đã hoàn tất nộp báo cáo cho ngày hôm nay. Mỗi ngày chỉ gửi 1 lần.'}
-              </Text>
-            </View>
-          ) : (
-            <View>
-              <View style={styles.footerBtnRow}>
-                {currentStep > 0 && (
-                  <TouchableOpacity
-                    style={styles.footerSecondaryBtn}
-                    onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-                  >
-                    <Text style={styles.footerSecondaryBtnText}>Quay lại</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={styles.footerSecondaryBtn}
-                  onPress={() => handleSave(true)}
-                  disabled={saveReportMutation.isPending}
-                >
-                  {saveReportMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#697586" />
-                  ) : (
-                    <Text style={styles.footerSecondaryBtnText}>Lưu nháp</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.footerPrimaryBtn,
-                    currentStep === 2 && !isConfirmed && styles.footerPrimaryBtnDisabled,
-                    saveReportMutation.isPending && styles.footerPrimaryBtnDisabled,
-                  ]}
-                  onPress={() => {
-                    if (currentStep < 2) {
-                      setCurrentStep((prev) => prev + 1);
-                    } else {
-                      handleSave(false);
-                    }
-                  }}
-                  disabled={(currentStep === 2 && !isConfirmed) || saveReportMutation.isPending}
-                >
-                  {saveReportMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.footerPrimaryBtnText}>
-                      {currentStep === 2 ? 'Gửi báo cáo' : currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.footerNoticeText}>{noticeText}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* ========================================================================= */}
-        {/* LỊCH SỬ BÁO CÁO CỦA TÔI MODAL                                             */}
-        {/* ========================================================================= */}
-        <Modal
-          visible={isHistoryModalVisible}
-          transparent={false}
-          animationType="slide"
-          onRequestClose={() => setIsHistoryModalVisible(false)}
-        >
-          <Screen backgroundColor="#F5F6FA">
-            <ScreenContainer style={{ paddingTop: insets.top, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-              <View style={styles.historyModalHeader}>
-                <TouchableOpacity
-                  style={styles.historyModalBackBtn}
-                  onPress={() => setIsHistoryModalVisible(false)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="arrow-back" size={24} color="#192232" />
-                </TouchableOpacity>
-                <Text style={styles.historyModalTitle}>Lịch sử báo cáo cá nhân</Text>
-                <View style={{ width: 32 }} />
-              </View>
-
-              {historyQuery.isLoading ? (
-                <View style={{ padding: 40, alignItems: 'center' }}>
-                  <ActivityIndicator size="large" color="#315DE5" />
-                  <Text style={{ marginTop: 12, color: '#697586', fontSize: 13 }}>Đang tải lịch sử báo cáo...</Text>
-                </View>
-              ) : (historyQuery.data?.items?.length ?? 0) === 0 ? (
-                <View style={styles.emptyHistoryBox}>
-                  <MaterialCommunityIcons name="clipboard-text-clock-outline" size={48} color="#94A3B8" />
-                  <Text style={styles.emptyHistoryTitle}>Chưa có lịch sử báo cáo</Text>
-                  <Text style={styles.emptyHistorySub}>Báo cáo sau khi gửi sẽ được lưu lại tại đây để bạn xem lại bất cứ lúc nào.</Text>
-                </View>
-              ) : (
-                <ScrollView style={{ marginTop: 12 }}>
-                  {historyQuery.data?.items?.map((item: DailyReport) => {
-                    const isRev = item.status === 'REVIEWED';
-                    const isSub = item.status === 'SUBMITTED';
-
-                    return (
-                      <TouchableOpacity
-                        key={item.id || item.reportDate}
-                        style={styles.historyCard}
-                        onPress={() => setSelectedHistoryReport(item)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.historyCardTopRow}>
-                          <Text style={styles.historyCardDateText}>
-                            Ngày: {item.reportDate}
-                          </Text>
-                          <View
-                            style={[
-                              styles.statusBadge,
-                              isRev && styles.statusBadgeReviewed,
-                              isSub && styles.statusBadgeSubmitted,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statusBadgeText,
-                                isRev && styles.statusBadgeTextReviewed,
-                                isSub && styles.statusBadgeTextSubmitted,
-                              ]}
-                            >
-                              {isRev ? 'Đã duyệt ⭐' : isSub ? 'Đã gửi' : 'Bản nháp'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {isRev && (
-                          <View style={styles.historyReviewBox}>
-                            <Text style={styles.historyReviewStars}>
-                              {'★'.repeat(item.adminRating || 5)}{'☆'.repeat(5 - (item.adminRating || 5))} ({item.adminRating || 5}/5)
-                            </Text>
-                            {item.adminReview ? (
-                              <Text style={styles.historyReviewNote} numberOfLines={2}>
-                                "{item.adminReview}"
-                              </Text>
-                            ) : null}
-                            <Text style={styles.historyReviewAuthor}>
-                              Người duyệt: {item.reviewedBy?.profile?.fullName || 'Admin'}
-                            </Text>
-                          </View>
-                        )}
-
-                        <View style={styles.historyCardFooter}>
-                          <Text style={styles.historyCardMetricsText}>
-                            {item.metrics?.length || 0} chỉ tiêu · {item.completedTasks?.length || 0} việc hoàn thành
-                          </Text>
-                          <Text style={styles.historyCardViewLink}>Xem chi tiết →</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
-            </ScreenContainer>
-          </Screen>
-        </Modal>
-
-        {/* ========================================================================= */}
-        {/* CHI TIẾT BÁO CÁO LỊCH SỬ MODAL                                            */}
-        {/* ========================================================================= */}
-        <Modal
-          visible={!!selectedHistoryReport}
-          transparent={false}
-          animationType="slide"
-          onRequestClose={() => setSelectedHistoryReport(null)}
-        >
-          <Screen backgroundColor="#F5F6FA">
-            <ScreenContainer style={{ paddingTop: insets.top, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-              <View style={styles.historyModalHeader}>
-                <TouchableOpacity
-                  style={styles.historyModalBackBtn}
-                  onPress={() => setSelectedHistoryReport(null)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="arrow-back" size={24} color="#192232" />
-                </TouchableOpacity>
-                <Text style={styles.historyModalTitle}>
-                  Báo cáo ngày {selectedHistoryReport?.reportDate}
-                </Text>
-                <View style={{ width: 32 }} />
-              </View>
-
-              {selectedHistoryReport && (
-                <ScrollView style={{ marginTop: 12 }}>
-                  {/* Admin Review Feedback Card if reviewed */}
-                  {selectedHistoryReport.status === 'REVIEWED' && (
-                    <View style={styles.adminFeedbackCard}>
-                      <View style={styles.adminFeedbackHeader}>
-                        <View style={styles.adminFeedbackIconBox}>
-                          <MaterialCommunityIcons name="star-circle" size={22} color="#EAB308" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.adminFeedbackKicker}>KẾT QUẢ ĐÁNH GIÁ TỪ QUẢN LÝ / ADMIN</Text>
-                          <View style={styles.adminRatingStarsRow}>
-                            <Text style={styles.adminRatingStarsText}>
-                              {'★'.repeat(selectedHistoryReport.adminRating || 5)}{'☆'.repeat(5 - (selectedHistoryReport.adminRating || 5))}
-                            </Text>
-                            <Text style={styles.adminRatingScoreText}>
-                              {selectedHistoryReport.adminRating || 5}/5 sao
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      {selectedHistoryReport.adminReview ? (
-                        <View style={styles.adminFeedbackCommentBox}>
-                          <Text style={styles.adminFeedbackCommentText}>
-                            "{selectedHistoryReport.adminReview}"
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      <View style={styles.adminFeedbackMetaRow}>
-                        <Text style={styles.adminFeedbackMetaText}>
-                          Người duyệt: {selectedHistoryReport.reviewedBy?.profile?.fullName || 'Admin'}
-                        </Text>
-                        {selectedHistoryReport.reviewedAt && (
-                          <Text style={styles.adminFeedbackMetaText}>
-                            {new Date(selectedHistoryReport.reviewedAt).toLocaleDateString('vi-VN')}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Chỉ tiêu định lượng */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionCardTitle}>Kết quả công việc định lượng</Text>
-                    {(!selectedHistoryReport.metrics || selectedHistoryReport.metrics.length === 0) ? (
-                      <Text style={styles.emptyPromptText}>Không có chỉ tiêu định lượng.</Text>
-                    ) : (
-                      selectedHistoryReport.metrics.map((m: any, idx: number) => (
-                        <View key={idx} style={styles.historyDetailMetricRow}>
-                          <Text style={styles.historyDetailMetricName}>{m.name}</Text>
-                          <Text style={styles.historyDetailMetricValue}>
-                            {m.value || '0'} {m.unit || ''}
-                          </Text>
-                        </View>
-                      ))
-                    )}
-                  </View>
-
-                  {/* Đã hoàn thành */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionCardTitle}>Công việc hoàn thành</Text>
-                    {(!selectedHistoryReport.completedTasks || selectedHistoryReport.completedTasks.length === 0) ? (
-                      <Text style={styles.emptyPromptText}>Không có công việc hoàn thành.</Text>
-                    ) : (
-                      selectedHistoryReport.completedTasks.map((t: any, idx: number) => (
-                        <View key={idx} style={styles.historyDetailTaskRow}>
-                          <Ionicons name="checkmark-circle" size={18} color="#15803D" />
-                          <Text style={styles.historyDetailTaskText}>{t.title}</Text>
-                        </View>
-                      ))
-                    )}
-                  </View>
-
-                  {/* Đang thực hiện */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionCardTitle}>Công việc đang thực hiện</Text>
-                    {(!selectedHistoryReport.inProgressTasks || selectedHistoryReport.inProgressTasks.length === 0) ? (
-                      <Text style={styles.emptyPromptText}>Không có công việc đang làm.</Text>
-                    ) : (
-                      selectedHistoryReport.inProgressTasks.map((t: any, idx: number) => (
-                        <View key={idx} style={styles.historyDetailTaskRow}>
-                          <Ionicons name="time-outline" size={18} color="#315DE5" />
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.historyDetailTaskText}>{t.title}</Text>
-                            <Text style={styles.taskSubText}>Tiến độ: {t.progress ?? 50}% · Xong: {t.expectedDate || 'Ngày mai'}</Text>
-                          </View>
-                        </View>
-                      ))
-                    )}
-                  </View>
-
-                  {/* Kế hoạch ngày mai */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionCardTitle}>Kế hoạch ngày mai</Text>
-                    {(!selectedHistoryReport.tomorrowPlan || selectedHistoryReport.tomorrowPlan.length === 0) ? (
-                      <Text style={styles.emptyPromptText}>Chưa có kế hoạch.</Text>
-                    ) : (
-                      selectedHistoryReport.tomorrowPlan.map((p: string, idx: number) => (
-                        <View key={idx} style={styles.historyDetailTaskRow}>
-                          <Text style={styles.planIndexBadge}>{idx + 1}</Text>
-                          <Text style={styles.historyDetailTaskText}>{p}</Text>
-                        </View>
-                      ))
-                    )}
-                  </View>
-
-                  {/* Khó khăn & vướng mắc */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionCardTitle}>Khó khăn & vướng mắc</Text>
-                    <Text style={styles.historyDetailText}>
-                      {selectedHistoryReport.obstacles || 'Không có khó khăn hay vướng mắc.'}
-                    </Text>
-                  </View>
-
-                  {/* Tự đánh giá */}
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionCardTitle}>Tự đánh giá</Text>
-                    <Text style={styles.historyDetailText}>
-                      ★ {selectedHistoryReport.selfRating || 5}/5 sao
-                    </Text>
-                    {selectedHistoryReport.selfReview ? (
-                      <Text style={[styles.historyDetailText, { marginTop: 6, fontStyle: 'italic' }]}>
-                        "{selectedHistoryReport.selfReview}"
+                {/* 2. KHÓ KHĂN & ĐỀ XUẤT HỖ TRỢ */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.switchRow}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={styles.sectionCardTitle}>Khó khăn & vướng mắc</Text>
+                      <Text style={styles.sectionCardSubtitle}>
+                        Bật nếu hôm nay gặp trở ngại cần Leader hoặc phòng ban khác hỗ trợ.
                       </Text>
-                    ) : null}
+                    </View>
+                    <Switch
+                      value={hasObstacles}
+                      onValueChange={(val) => !isSubmittedToday && setHasObstacles(val)}
+                      trackColor={{ false: '#E2E8F0', true: '#BFDBFE' }}
+                      thumbColor={hasObstacles ? '#315DE5' : '#94A3B8'}
+                      disabled={isSubmittedToday}
+                    />
                   </View>
 
-                  {/* Tệp đính kèm */}
-                  {selectedHistoryReport.attachments && selectedHistoryReport.attachments.length > 0 && (
-                    <View style={styles.sectionCard}>
-                      <Text style={styles.sectionCardTitle}>Tệp đính kèm ({selectedHistoryReport.attachments.length})</Text>
-                      <View style={{ gap: 8, marginTop: 8 }}>
-                        {selectedHistoryReport.attachments.map((a: any, idx: number) => (
+                  {hasObstacles && (
+                    <View style={{ marginTop: 12 }}>
+                      <Text style={styles.inputLabel}>Mô tả vướng mắc</Text>
+                      <TextInput
+                        style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput]}
+                        placeholder="Mô tả cụ thể khó khăn phát sinh trong công việc hôm nay…"
+                        placeholderTextColor="#94A3B8"
+                        multiline
+                        numberOfLines={3}
+                        value={obstacleText}
+                        onChangeText={setObstacleText}
+                        editable={!isSubmittedToday}
+                      />
+
+                      <Text style={[styles.inputLabel, { marginTop: 10 }]}>
+                        Mong muốn hỗ trợ <Text style={styles.optionalText}>· Tùy chọn</Text>
+                      </Text>
+                      <TextInput
+                        style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                        placeholder="Ví dụ: Cần họp nhanh 15p với bên Media…"
+                        placeholderTextColor="#94A3B8"
+                        value={supportWish}
+                        onChangeText={setSupportWish}
+                        editable={!isSubmittedToday}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                {/* 3. TỰ ĐÁNH GIÁ NGÀY LÀM VIỆC */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Tự đánh giá ngày làm việc</Text>
+                  <Text style={styles.sectionCardSubtitle}>
+                    Chọn mức độ tự đánh giá kết quả hoàn thành hôm nay.
+                  </Text>
+
+                  {/* Star buttons */}
+                  <View style={styles.starRatingRow}>
+                    {[1, 2, 3, 4, 5].map((lvl) => {
+                      const isSelected = lvl <= selfRating;
+                      return (
+                        <TouchableOpacity
+                          key={lvl}
+                          style={styles.starBtn}
+                          onPress={() => !isSubmittedToday && setSelfRating(lvl)}
+                          activeOpacity={0.7}
+                          disabled={isSubmittedToday}
+                        >
+                          <Ionicons
+                            name={isSelected ? 'star' : 'star-outline'}
+                            size={32}
+                            color={isSelected ? '#F59E0B' : '#CBD5E1'}
+                          />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Active level card */}
+                  <View style={styles.assessmentLevelBox}>
+                    <View style={styles.assessmentLevelHeader}>
+                      <Text style={styles.assessmentLevelBadge}>MỨC {selfRating}/5</Text>
+                      <Text style={styles.assessmentLevelTitle}>{currentAssessment.title}</Text>
+                    </View>
+                    <Text style={styles.assessmentLevelDesc}>{currentAssessment.desc}</Text>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { marginTop: 14 }]}>
+                    Tự nhận xét bổ sung <Text style={styles.optionalText}>· Tùy chọn</Text>
+                  </Text>
+                  <TextInput
+                    style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput]}
+                    placeholder="Nhận xét ngắn về hiệu quả công việc cá nhân hôm nay…"
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    numberOfLines={3}
+                    value={selfReview}
+                    onChangeText={setSelfReview}
+                    editable={!isSubmittedToday}
+                  />
+                </View>
+
+                {/* 4. TỆP ĐÍNH KÈM */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Tệp đính kèm & hình ảnh</Text>
+                  <Text style={styles.sectionCardSubtitle}>
+                    Đính kèm hình ảnh kết quả, tài liệu, biên bản báo cáo (ảnh hoặc PDF).
+                  </Text>
+
+                  {/* Attachments List */}
+                  {attachments.length > 0 && (
+                    <View style={styles.attachmentList}>
+                      {attachments.map((a, idx) => (
+                        <View key={idx} style={styles.attachmentItemRow}>
                           <TouchableOpacity
-                            key={idx}
-                            style={styles.attachmentItemRow}
+                            style={styles.attachmentClickArea}
                             onPress={() => handlePreviewAttachment(a)}
                             activeOpacity={0.7}
                           >
@@ -1616,19 +1039,543 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                               <Text style={styles.attachmentFileName} numberOfLines={1}>
                                 {a.fileName || `Tệp ${idx + 1}`}
                               </Text>
-                              <Text style={styles.attachmentFileType}>Nhấn để xem tệp</Text>
+                              <Text style={styles.attachmentFileType}>
+                                {a.fileType === 'IMAGE' ? 'Hình ảnh · Nhấn để xem' : 'Tài liệu · Nhấn để xem'}
+                              </Text>
                             </View>
                             <Ionicons name="eye-outline" size={18} color="#315DE5" />
                           </TouchableOpacity>
-                        ))}
-                      </View>
+
+                          {!isSubmittedToday && (
+                            <TouchableOpacity
+                              style={styles.attachmentRemoveBtn}
+                              onPress={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="close-circle" size={20} color="#EF4444" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
                     </View>
                   )}
-                </ScrollView>
+
+                  {!isSubmittedToday && (
+                    <View style={styles.attachBtnRow}>
+                      <TouchableOpacity
+                        style={styles.attachBtn}
+                        onPress={handlePickImage}
+                        disabled={isUploadingFile}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="image-outline" size={18} color="#315DE5" />
+                        <Text style={styles.attachBtnText}>Thêm ảnh</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.attachBtn}
+                        onPress={handlePickDocument}
+                        disabled={isUploadingFile}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="document-text-outline" size={18} color="#315DE5" />
+                        <Text style={styles.attachBtnText}>Thêm tài liệu</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {isUploadingFile && (
+                    <View style={styles.uploadingBox}>
+                      <ActivityIndicator size="small" color="#315DE5" />
+                      <Text style={styles.uploadingText}>Đang tải tệp lên…</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* PANEL 2: XEM LẠI */}
+            {currentStep === 2 && (
+              <View style={styles.panelContainer}>
+                {/* TÓM TẮT BÁO CÁO */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Tóm tắt báo cáo cuối ngày</Text>
+                  <Text style={styles.sectionCardSubtitle}>
+                    Kiểm tra lại toàn bộ nội dung trước khi nộp chính thức.
+                  </Text>
+
+                  <View style={styles.summaryTable}>
+                    {/* 1. Định lượng */}
+                    <View style={styles.summaryLine}>
+                      <Text style={styles.summaryLineKey}>Định lượng</Text>
+                      <Text style={styles.summaryLineVal}>
+                        {metrics.filter((m) => m.name.trim() && m.value !== '').length === 0
+                          ? 'Chưa nhập số liệu'
+                          : metrics
+                              .filter((m) => m.name.trim() && m.value !== '')
+                              .map((m) => `${m.name}: ${m.value}${m.unit ? ` ${m.unit}` : ''}`)
+                              .join('\n')}
+                      </Text>
+                    </View>
+
+                    {/* 2. Đã hoàn thành */}
+                    <View style={styles.summaryLine}>
+                      <Text style={styles.summaryLineKey}>Đã hoàn thành</Text>
+                      <Text style={styles.summaryLineVal}>
+                        {activeCompletedCount === 0
+                          ? '0 việc'
+                          : completedTasks
+                              .filter((t) => (t.isSelected ?? true) && t.title.trim())
+                              .map((t) => `• ${t.title}`)
+                              .join('\n')}
+                      </Text>
+                    </View>
+
+                    {/* 3. Đang thực hiện */}
+                    <View style={styles.summaryLine}>
+                      <Text style={styles.summaryLineKey}>Đang thực hiện</Text>
+                      <Text style={styles.summaryLineVal}>
+                        {inProgressTasks.filter((t) => t.title.trim()).length === 0
+                          ? '0 việc'
+                          : inProgressTasks
+                              .filter((t) => t.title.trim())
+                              .map((t) => `${t.title} · ${t.progress ?? 60}% · ${t.expectedDate || '21/09'}`)
+                              .join('\n')}
+                      </Text>
+                    </View>
+
+                    {/* 4. Ngày mai */}
+                    <View style={styles.summaryLine}>
+                      <Text style={styles.summaryLineKey}>Ngày mai</Text>
+                      <Text style={styles.summaryLineVal}>
+                        {tomorrowPlan.filter((p) => p.trim()).length === 0
+                          ? 'Chưa thêm kế hoạch'
+                          : tomorrowPlan.filter((p) => p.trim()).join(' · ')}
+                      </Text>
+                    </View>
+
+                    {/* 5. Hỗ trợ */}
+                    <View style={styles.summaryLine}>
+                      <Text style={styles.summaryLineKey}>Hỗ trợ</Text>
+                      <Text style={styles.summaryLineVal}>
+                        {hasObstacles
+                          ? `${obstacleText.trim() || 'Có vướng mắc'}${supportWish.trim() ? ` (Mong muốn: ${supportWish.trim()})` : ''}`
+                          : 'Không có vướng mắc'}
+                      </Text>
+                    </View>
+
+                    {/* 6. Tự đánh giá */}
+                    <View style={styles.summaryLine}>
+                      <Text style={styles.summaryLineKey}>Tự đánh giá</Text>
+                      <Text style={styles.summaryLineVal}>
+                        {selfRating}/5 sao · {currentAssessment.title}
+                      </Text>
+                    </View>
+
+                    {/* 7. Nhận xét */}
+                    {selfReview.trim() ? (
+                      <View style={styles.summaryLine}>
+                        <Text style={styles.summaryLineKey}>Nhận xét</Text>
+                        <Text style={styles.summaryLineVal}>{selfReview.trim()}</Text>
+                      </View>
+                    ) : null}
+
+                    {/* 8. Đính kèm */}
+                    <View style={styles.summaryLine}>
+                      <Text style={styles.summaryLineKey}>Đính kèm ({attachments.length} tệp)</Text>
+                      {attachments.length === 0 ? (
+                        <Text style={styles.summaryLineVal}>0 tệp</Text>
+                      ) : (
+                        <View style={{ gap: 6, marginTop: 4 }}>
+                          {attachments.map((a, idx) => (
+                            <TouchableOpacity
+                              key={idx}
+                              style={styles.reviewAttachChip}
+                              onPress={() => handlePreviewAttachment(a)}
+                              activeOpacity={0.7}
+                            >
+                              <MaterialCommunityIcons
+                                name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
+                                size={16}
+                                color="#315DE5"
+                              />
+                              <Text style={styles.reviewAttachChipText} numberOfLines={1}>
+                                {a.fileName || `Tệp ${idx + 1}`}
+                              </Text>
+                              <Ionicons name="eye-outline" size={14} color="#315DE5" />
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+
+                {/* Checkbox Xác nhận (chỉ khi chưa nộp) */}
+                {!isSubmittedToday && (
+                  <TouchableOpacity
+                    style={styles.confirmCheckRow}
+                    onPress={() => setIsConfirmed(!isConfirmed)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialCommunityIcons
+                      name={isConfirmed ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={22}
+                      color={isConfirmed ? '#315DE5' : '#94A3B8'}
+                    />
+                    <Text style={styles.confirmCheckLabel}>
+                      Tôi xác nhận thông tin trong báo cáo là chính xác.
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* FOOTER ACTIONS */}
+            <View style={styles.footerContainer}>
+              {isSubmittedToday ? (
+                <View style={{ gap: 10 }}>
+                  <View style={styles.footerBtnRow}>
+                    {currentStep > 0 && (
+                      <TouchableOpacity
+                        style={styles.footerSecondaryBtn}
+                        onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                      >
+                        <Text style={styles.footerSecondaryBtnText}>Quay lại</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {currentStep < 2 && (
+                      <TouchableOpacity
+                        style={styles.footerPrimaryBtn}
+                        onPress={() => setCurrentStep((prev) => Math.min(2, prev + 1))}
+                      >
+                        <Text style={styles.footerPrimaryBtnText}>
+                          {currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={[styles.lockedDayBtn, isReviewedToday && styles.lockedDayBtnReviewed]}>
+                    <MaterialCommunityIcons
+                      name={isReviewedToday ? 'check-decagram' : 'check-circle-outline'}
+                      size={20}
+                      color={isReviewedToday ? '#15803D' : '#315DE5'}
+                    />
+                    <Text style={[styles.lockedDayBtnText, isReviewedToday && styles.lockedDayBtnTextReviewed]}>
+                      {isReviewedToday ? 'Báo cáo hôm nay đã được Admin duyệt' : 'Đã nộp báo cáo hôm nay (1 lần / ngày)'}
+                    </Text>
+                  </View>
+                  <Text style={styles.footerNoticeText}>
+                    {isReviewedToday
+                      ? 'Bạn có thể xem điểm số và đánh giá tại tab "Đã duyệt" ở trên.'
+                      : 'Bạn đã hoàn tất nộp báo cáo cho ngày hôm nay.'}
+                  </Text>
+                </View>
+              ) : (
+                <View>
+                  <View style={styles.footerBtnRow}>
+                    {currentStep > 0 && (
+                      <TouchableOpacity
+                        style={styles.footerSecondaryBtn}
+                        onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                      >
+                        <Text style={styles.footerSecondaryBtnText}>Quay lại</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={styles.footerSecondaryBtn}
+                      onPress={() => handleSave(true)}
+                      disabled={saveReportMutation.isPending}
+                    >
+                      {saveReportMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#697586" />
+                      ) : (
+                        <Text style={styles.footerSecondaryBtnText}>Lưu nháp</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.footerPrimaryBtn,
+                        currentStep === 2 && !isConfirmed && styles.footerPrimaryBtnDisabled,
+                        saveReportMutation.isPending && styles.footerPrimaryBtnDisabled,
+                      ]}
+                      onPress={() => {
+                        if (currentStep < 2) {
+                          setCurrentStep((prev) => prev + 1);
+                        } else {
+                          handleSave(false);
+                        }
+                      }}
+                      disabled={(currentStep === 2 && !isConfirmed) || saveReportMutation.isPending}
+                    >
+                      {saveReportMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.footerPrimaryBtnText}>
+                          {currentStep === 2 ? 'Gửi báo cáo' : currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.footerNoticeText}>{noticeText}</Text>
+                </View>
               )}
-            </ScreenContainer>
-          </Screen>
-        </Modal>
+            </View>
+          </View>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: BÁO CÁO ĐÃ DUYỆT (DANH SÁCH BÁO CÁO ĐÃ ĐƯỢC ADMIN ĐÁNH GIÁ)        */}
+        {/* ========================================================================= */}
+        {activeTab === 'approved' && (
+          <View style={{ marginTop: 4 }}>
+            {selectedApprovedReport ? (
+              /* VIEW CHI TIẾT 1 BÁO CÁO ĐÃ DUYỆT */
+              <View>
+                <TouchableOpacity
+                  style={styles.backToApprovedListBtn}
+                  onPress={() => setSelectedApprovedReport(null)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={18} color="#315DE5" />
+                  <Text style={styles.backToApprovedListBtnText}>Quay lại danh sách đã duyệt</Text>
+                </TouchableOpacity>
+
+                {/* Thẻ Đánh giá Admin nổi bật */}
+                <View style={styles.adminFeedbackCard}>
+                  <View style={styles.adminFeedbackHeader}>
+                    <View style={styles.adminFeedbackIconBox}>
+                      <MaterialCommunityIcons name="star-circle" size={24} color="#EAB308" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.adminFeedbackKicker}>KẾT QUẢ ĐÁNH GIÁ TỪ QUẢN LÝ / ADMIN</Text>
+                      <View style={styles.adminRatingStarsRow}>
+                        <Text style={styles.adminRatingStarsText}>
+                          {'★'.repeat(selectedApprovedReport.adminRating || 5)}{'☆'.repeat(5 - (selectedApprovedReport.adminRating || 5))}
+                        </Text>
+                        <Text style={styles.adminRatingScoreText}>
+                          {selectedApprovedReport.adminRating || 5}/5 sao
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {selectedApprovedReport.adminReview ? (
+                    <View style={styles.adminFeedbackCommentBox}>
+                      <Text style={styles.adminFeedbackCommentText}>
+                        "{selectedApprovedReport.adminReview}"
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.adminFeedbackMetaRow}>
+                    <Text style={styles.adminFeedbackMetaText}>
+                      Người duyệt: {selectedApprovedReport.reviewedBy?.profile?.fullName || selectedApprovedReport.reviewedBy?.userCode || 'Admin'}
+                    </Text>
+                    {selectedApprovedReport.reviewedAt && (
+                      <Text style={styles.adminFeedbackMetaText}>
+                        {new Date(selectedApprovedReport.reviewedAt).toLocaleDateString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Chi tiết nội dung báo cáo ngày đó */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Kết quả định lượng</Text>
+                  {(!selectedApprovedReport.metrics || selectedApprovedReport.metrics.length === 0) ? (
+                    <Text style={styles.emptyPromptText}>Không có chỉ tiêu định lượng.</Text>
+                  ) : (
+                    selectedApprovedReport.metrics.map((m: any, idx: number) => (
+                      <View key={idx} style={styles.historyDetailMetricRow}>
+                        <Text style={styles.historyDetailMetricName}>{m.name}</Text>
+                        <Text style={styles.historyDetailMetricValue}>
+                          {m.value || '0'} {m.unit || ''}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Công việc hoàn thành</Text>
+                  {(!selectedApprovedReport.completedTasks || selectedApprovedReport.completedTasks.length === 0) ? (
+                    <Text style={styles.emptyPromptText}>Không có việc hoàn thành.</Text>
+                  ) : (
+                    selectedApprovedReport.completedTasks.map((t: any, idx: number) => (
+                      <View key={idx} style={styles.historyDetailTaskRow}>
+                        <Ionicons name="checkmark-circle" size={18} color="#15803D" />
+                        <Text style={styles.historyDetailTaskText}>{t.title}</Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Công việc đang thực hiện</Text>
+                  {(!selectedApprovedReport.inProgressTasks || selectedApprovedReport.inProgressTasks.length === 0) ? (
+                    <Text style={styles.emptyPromptText}>Không có việc đang làm.</Text>
+                  ) : (
+                    selectedApprovedReport.inProgressTasks.map((t: any, idx: number) => (
+                      <View key={idx} style={styles.historyDetailTaskRow}>
+                        <Ionicons name="time-outline" size={18} color="#315DE5" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.historyDetailTaskText}>{t.title}</Text>
+                          <Text style={styles.taskSubText}>Tiến độ: {t.progress ?? 50}% · Xong: {t.expectedDate || 'Ngày mai'}</Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Kế hoạch ngày mai</Text>
+                  {(!selectedApprovedReport.tomorrowPlan || selectedApprovedReport.tomorrowPlan.length === 0) ? (
+                    <Text style={styles.emptyPromptText}>Chưa có kế hoạch.</Text>
+                  ) : (
+                    selectedApprovedReport.tomorrowPlan.map((p: string, idx: number) => (
+                      <View key={idx} style={styles.historyDetailTaskRow}>
+                        <Text style={styles.planIndexBadge}>{idx + 1}</Text>
+                        <Text style={styles.historyDetailTaskText}>{p}</Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Khó khăn & vướng mắc</Text>
+                  <Text style={styles.historyDetailText}>
+                    {selectedApprovedReport.obstacles || 'Không có khó khăn hay vướng mắc.'}
+                  </Text>
+                </View>
+
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionCardTitle}>Tự đánh giá của bạn</Text>
+                  <Text style={styles.historyDetailText}>
+                    ★ {selectedApprovedReport.selfRating || 5}/5 sao
+                  </Text>
+                  {selectedApprovedReport.selfReview ? (
+                    <Text style={[styles.historyDetailText, { marginTop: 6, fontStyle: 'italic' }]}>
+                      "{selectedApprovedReport.selfReview}"
+                    </Text>
+                  ) : null}
+                </View>
+
+                {selectedApprovedReport.attachments && selectedApprovedReport.attachments.length > 0 && (
+                  <View style={styles.sectionCard}>
+                    <Text style={styles.sectionCardTitle}>Tệp đính kèm ({selectedApprovedReport.attachments.length})</Text>
+                    <View style={{ gap: 8, marginTop: 8 }}>
+                      {selectedApprovedReport.attachments.map((a: any, idx: number) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={styles.attachmentItemRow}
+                          onPress={() => handlePreviewAttachment(a)}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialCommunityIcons
+                            name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
+                            size={22}
+                            color="#315DE5"
+                          />
+                          <View style={{ flex: 1, marginLeft: 10 }}>
+                            <Text style={styles.attachmentFileName} numberOfLines={1}>
+                              {a.fileName || `Tệp ${idx + 1}`}
+                            </Text>
+                            <Text style={styles.attachmentFileType}>Nhấn để xem tệp</Text>
+                          </View>
+                          <Ionicons name="eye-outline" size={18} color="#315DE5" />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : (
+              /* DANH SÁCH CÁC BÁO CÁO ĐÃ DUYỆT */
+              <View>
+                {historyQuery.isLoading ? (
+                  <View style={{ padding: 40, alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color="#315DE5" />
+                    <Text style={{ marginTop: 12, color: '#697586', fontSize: 13 }}>Đang tải danh sách báo cáo đã duyệt...</Text>
+                  </View>
+                ) : approvedReports.length === 0 ? (
+                  <View style={styles.emptyApprovedBox}>
+                    <MaterialCommunityIcons name="check-decagram-outline" size={56} color="#CBD5E1" />
+                    <Text style={styles.emptyApprovedTitle}>Chưa có báo cáo nào được duyệt</Text>
+                    <Text style={styles.emptyApprovedSub}>
+                      Khi bạn nộp báo cáo và được Admin / Ban giám đốc đánh giá và cho điểm, báo cáo sẽ xuất hiện tại mục này để bạn dễ dàng xem lại.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ gap: 12 }}>
+                    <View style={styles.approvedHeaderSummaryRow}>
+                      <Text style={styles.approvedHeaderSummaryText}>
+                        Tổng số {approvedReports.length} báo cáo đã được phê duyệt
+                      </Text>
+                    </View>
+
+                    {approvedReports.map((item: DailyReport) => (
+                      <TouchableOpacity
+                        key={item.id || item.reportDate}
+                        style={styles.approvedReportCard}
+                        onPress={() => setSelectedApprovedReport(item)}
+                        activeOpacity={0.7}
+                      >
+                        {/* Header của thẻ */}
+                        <View style={styles.approvedReportCardHeader}>
+                          <View>
+                            <Text style={styles.approvedReportCardDate}>Ngày {item.reportDate}</Text>
+                            <Text style={styles.approvedReportCardDept}>
+                              {item.department?.name || 'Phòng ban'} · {item.roleType === 'LEADER' ? 'Trưởng phòng' : 'Nhân viên'}
+                            </Text>
+                          </View>
+                          <View style={styles.approvedRatingBadge}>
+                            <Ionicons name="star" size={14} color="#F59E0B" />
+                            <Text style={styles.approvedRatingBadgeText}>{item.adminRating || 5}/5</Text>
+                          </View>
+                        </View>
+
+                        {/* Khung nhận xét của Admin */}
+                        {item.adminReview ? (
+                          <View style={styles.approvedReviewQuoteBox}>
+                            <Text style={styles.approvedReviewQuoteText} numberOfLines={2}>
+                              "{item.adminReview}"
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.approvedReviewQuoteBox}>
+                            <Text style={[styles.approvedReviewQuoteText, { color: '#64748B', fontStyle: 'normal' }]}>
+                              ✓ Đã duyệt và chấm điểm đạt yêu cầu
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Footer của thẻ */}
+                        <View style={styles.approvedReportCardFooter}>
+                          <Text style={styles.approvedReviewerText}>
+                            Người duyệt: <Text style={{ fontWeight: '700', color: '#192232' }}>{item.reviewedBy?.profile?.fullName || 'Admin'}</Text>
+                          </Text>
+                          <Text style={styles.approvedViewDetailLink}>Xem báo cáo →</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* ========================================================================= */}
         {/* FULLSCREEN IMAGE PREVIEW MODAL                                            */}
@@ -1703,23 +1650,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  historyTopBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EEF3FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C5D7FB',
-    gap: 4,
-    marginTop: 2,
-  },
-  historyTopBtnText: {
-    fontSize: 11,
-    color: '#315DE5',
-    fontWeight: '700',
-  },
   badgePill: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
@@ -1746,12 +1676,65 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  // MAIN SEGMENT SWITCHER
+  mainSegmentBar: {
+    flexDirection: 'row',
+    backgroundColor: '#EAEFF8',
+    padding: 4,
+    borderRadius: 14,
+    marginBottom: 14,
+    gap: 4,
+  },
+  mainSegmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 11,
+    gap: 6,
+  },
+  mainSegmentBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  mainSegmentBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  mainSegmentBtnTextActive: {
+    color: '#315DE5',
+    fontWeight: '700',
+  },
+  mainSegmentCountBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  mainSegmentCountBadgeActive: {
+    backgroundColor: '#EEF3FF',
+  },
+  mainSegmentCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  mainSegmentCountTextActive: {
+    color: '#315DE5',
+  },
+
   // Person Card
   personCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 14,
-    marginTop: 4,
+    marginTop: 2,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E9EDF2',
@@ -1789,20 +1772,6 @@ const styles = StyleSheet.create({
     color: '#697586',
     marginTop: 2,
     fontWeight: '500',
-  },
-  personHistoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EEF3FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
-  },
-  personHistoryBadgeText: {
-    fontSize: 11,
-    color: '#315DE5',
-    fontWeight: '600',
   },
   personCardDivider: {
     height: 1,
@@ -1847,99 +1816,34 @@ const styles = StyleSheet.create({
     color: '#15803D',
   },
 
-  // ADMIN FEEDBACK CARD
-  adminFeedbackCard: {
-    backgroundColor: '#FCFDFE',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1.5,
-    borderColor: '#FDE68A',
-    backgroundColor: '#FFFDF5',
-  },
-  adminFeedbackHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  adminFeedbackIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  adminFeedbackKicker: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#B45309',
-    letterSpacing: 0.5,
-  },
-  adminRatingStarsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  adminRatingStarsText: {
-    fontSize: 15,
-    color: '#F59E0B',
-    fontWeight: '700',
-  },
-  adminRatingScoreText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#92400E',
-  },
-  adminFeedbackCommentBox: {
-    backgroundColor: '#FFFFFF',
-    padding: 10,
-    borderRadius: 10,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-  },
-  adminFeedbackCommentText: {
-    fontSize: 13,
-    color: '#1E293B',
-    lineHeight: 18,
-    fontStyle: 'italic',
-  },
-  adminFeedbackMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#FEF3C7',
-  },
-  adminFeedbackMetaText: {
-    fontSize: 11,
-    color: '#78716C',
-  },
-
-  // PENDING REVIEW BANNER
-  pendingReviewBanner: {
+  // SUBMITTED TODAY CALLOUT
+  submittedTodayCallout: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#BFDBFE',
   },
-  pendingReviewBannerTitle: {
+  submittedTodayCalloutReviewed: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  submittedTodayTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: '#1E40AF',
   },
-  pendingReviewBannerSub: {
+  submittedTodayTitleReviewed: {
+    color: '#15803D',
+  },
+  submittedTodaySub: {
     fontSize: 11,
-    color: '#3B82F6',
-    marginTop: 2,
+    color: '#4B5563',
+    marginTop: 3,
+    lineHeight: 16,
   },
 
   // STEP TABS
@@ -1982,6 +1886,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E9EDF2',
+    marginBottom: 12,
   },
   sectionCardHeaderRow: {
     flexDirection: 'row',
@@ -2353,6 +2258,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 10,
+    marginTop: 10,
   },
   confirmCheckLabel: {
     fontSize: 13,
@@ -2430,109 +2336,202 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // HISTORY MODAL
-  historyModalHeader: {
-    flexDirection: 'row',
+  // APPROVED TAB STYLES
+  approvedHeaderSummaryRow: {
+    marginBottom: 4,
+    paddingHorizontal: 2,
+  },
+  approvedHeaderSummaryText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  emptyApprovedBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 32,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E9EDF2',
+    marginTop: 10,
   },
-  historyModalBackBtn: {
-    padding: 4,
-  },
-  historyModalTitle: {
+  emptyApprovedTitle: {
     fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 12,
+  },
+  emptyApprovedSub: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  approvedReportCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E9EDF2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  approvedReportCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  approvedReportCardDate: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#192232',
   },
-  emptyHistoryBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    marginTop: 40,
-  },
-  emptyHistoryTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#475569',
-    marginTop: 12,
-  },
-  emptyHistorySub: {
+  approvedReportCardDept: {
     fontSize: 12,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 18,
+    color: '#64748B',
+    marginTop: 2,
   },
-  historyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  historyCardTopRow: {
+  approvedRatingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
   },
-  historyCardDateText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#192232',
+  approvedRatingBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
   },
-  historyReviewBox: {
-    backgroundColor: '#FFFBEB',
-    padding: 10,
+  approvedReviewQuoteBox: {
+    backgroundColor: '#FFFDF5',
     borderRadius: 10,
-    marginTop: 8,
+    padding: 10,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: '#FEF3C7',
   },
-  historyReviewStars: {
+  approvedReviewQuoteText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  approvedReportCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  approvedReviewerText: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  approvedViewDetailLink: {
     fontSize: 12,
+    fontWeight: '700',
+    color: '#315DE5',
+  },
+  backToApprovedListBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 6,
+    marginBottom: 8,
+  },
+  backToApprovedListBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#315DE5',
+  },
+
+  // ADMIN FEEDBACK CARD
+  adminFeedbackCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    backgroundColor: '#FFFDF5',
+  },
+  adminFeedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  adminFeedbackIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminFeedbackKicker: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
+  adminRatingStarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  adminRatingStarsText: {
+    fontSize: 16,
     color: '#F59E0B',
     fontWeight: '700',
   },
-  historyReviewNote: {
-    fontSize: 12,
-    color: '#1E293B',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-  historyReviewAuthor: {
-    fontSize: 10,
+  adminRatingScoreText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#92400E',
-    marginTop: 4,
   },
-  historyCardFooter: {
+  adminFeedbackCommentBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  adminFeedbackCommentText: {
+    fontSize: 13,
+    color: '#1E293B',
+    lineHeight: 19,
+    fontStyle: 'italic',
+  },
+  adminFeedbackMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#FEF3C7',
   },
-  historyCardMetricsText: {
+  adminFeedbackMetaText: {
     fontSize: 11,
-    color: '#64748B',
-  },
-  historyCardViewLink: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#315DE5',
+    color: '#78716C',
   },
 
   // DETAIL MODAL STYLES
   historyDetailMetricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
@@ -2549,7 +2548,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
