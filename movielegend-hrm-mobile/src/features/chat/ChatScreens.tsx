@@ -928,17 +928,6 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 // ── Chat Room Screen ──
 
 export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupName?: string }) {
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   const router = useRouter();
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
@@ -1251,9 +1240,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={0}
-        enabled={Platform.OS === 'ios' ? true : isKeyboardVisible}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
       >
         <View style={styles.chatContainer}>
           {/* Watermark in chìm họ tên người dùng đặt ở lớp nền dưới cùng */}
@@ -1323,6 +1311,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             data={sortedMessages}
             keyExtractor={(msg: any, index: number) => String(msg?.id || msg?._tempId || `msg-${index}`)}
             inverted
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
             refreshing={messages.isRefetching}
             onRefresh={() => void messages.refetch()}
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
@@ -1714,7 +1704,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           )}
 
           {/* Input */}
-          <View style={[styles.chatInputRow, { paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, 10) }]}>
+          <View style={[styles.chatInputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <Pressable onPress={() => setIsStickerOpen(true)} style={styles.attachBtn}>
               <MaterialCommunityIcons name="sticker-emoji" size={24} color={colors.muted} />
             </Pressable>
