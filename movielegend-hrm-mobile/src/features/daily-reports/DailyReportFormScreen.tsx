@@ -440,11 +440,14 @@ export function DailyReportFormScreen() {
 
   return (
     <Screen backgroundColor="#F5F6FA">
-      <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 20) }}>
+      <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 20) }}>
         {/* TOP HEADER */}
         <View style={styles.headerBox}>
           <View style={styles.headerTopRow}>
-            <Text style={styles.eyebrowText}>WORKSPACE / BÁO CÁO</Text>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={styles.headerTitle}>Báo cáo cuối ngày</Text>
+              <Text style={styles.headerDate}>{displayDate}</Text>
+            </View>
             <View style={styles.badgePill}>
               <Text style={styles.badgePillText}>
                 {reportData?.status === 'REVIEWED'
@@ -455,8 +458,6 @@ export function DailyReportFormScreen() {
               </Text>
             </View>
           </View>
-          <Text style={styles.headerTitle}>Báo cáo cuối ngày</Text>
-          <Text style={styles.headerDate}>{displayDate}</Text>
 
           {/* Person Card */}
           <View style={styles.personCard}>
@@ -1217,29 +1218,24 @@ const styles = StyleSheet.create({
 
   // HEADER
   headerBox: {
-    paddingHorizontal: 6,
-    paddingTop: 8,
-    paddingBottom: 14,
+    paddingHorizontal: 4,
+    paddingTop: 2,
+    paddingBottom: 10,
   },
   headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  eyebrowText: {
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: '#697586',
-    fontWeight: '700',
+    marginBottom: 4,
   },
   badgePill: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E9EDF2',
+    marginTop: 2,
   },
   badgePillText: {
     fontSize: 11,
@@ -1255,7 +1251,7 @@ const styles = StyleSheet.create({
   headerDate: {
     fontSize: 13,
     color: '#697586',
-    marginTop: 4,
+    marginTop: 2,
   },
 
   // Person Card
@@ -1265,7 +1261,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 12,
-    marginTop: 14,
+    marginTop: 10,
     gap: 12,
     borderWidth: 1,
     borderColor: '#E9EDF2',
