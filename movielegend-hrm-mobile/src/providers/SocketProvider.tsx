@@ -94,9 +94,6 @@ export function SocketProvider({ children }: PropsWithChildren) {
         if (payload?.type === 'CHAT_MESSAGE' || payload?.metadata?.groupId) {
           void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
           void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
-          if (payload?.metadata?.groupId) {
-            void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.metadata.groupId) });
-          }
         }
         if (payload && payload.title && Platform.OS !== 'web' && Notifications?.scheduleNotificationAsync) {
           try {
@@ -160,7 +157,6 @@ export function SocketProvider({ children }: PropsWithChildren) {
       socket.on('chat:group_updated', (data: any) => {
         if (data?.groupId) {
           updateGroupDataOptimistic(data.groupId, data.latestMessage);
-          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(data.groupId) });
         }
         void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
         void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });

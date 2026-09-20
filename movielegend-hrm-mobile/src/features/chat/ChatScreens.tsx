@@ -1107,7 +1107,16 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       joinChatRoom(groupId);
       markAsRead.mutateAsync(groupId).catch(console.error);
     }
-  }, [groupId, sortedMessages.length, joinChatRoom]);
+  }, [groupId, joinChatRoom]);
+
+  // Mark as read when receiving a new message from other users while in room
+  const latestMessageId = sortedMessages[0]?.id;
+  const isLatestFromOther = sortedMessages[0] && sortedMessages[0].senderId !== user?.id && sortedMessages[0].sender?.id !== user?.id;
+  useEffect(() => {
+    if (groupId && latestMessageId && isLatestFromOther) {
+      markAsRead.mutateAsync(groupId).catch(console.error);
+    }
+  }, [groupId, latestMessageId, isLatestFromOther]);
 
   async function handleSendSticker(stickerUrl: string, type: string) {
     setIsStickerOpen(false);
