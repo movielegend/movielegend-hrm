@@ -165,10 +165,33 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     router.push(`/${area}/tasks/${taskId}` as any);
   };
 
+  const handleDailyReportPress = () => {
+    if (isAdmin) {
+      router.push('/admin/daily-reports' as any);
+      return;
+    }
+    const isLeader = user?.roles?.includes('LEADER') || user?.roles?.some((r: any) => r.name?.toUpperCase().includes('LEADER') || r.role?.code === 'leader');
+    if (area === 'leader' || isLeader) {
+      router.push('/leader/daily-report' as any);
+      return;
+    }
+    router.push('/employee/daily-report' as any);
+  };
+
   return (
     <Screen>
       <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
-        <PageHeader title={title} subtitle={subtitle} showBack={false} />
+        <PageHeader
+          title={title}
+          subtitle={subtitle}
+          showBack={false}
+          right={
+            <Pressable style={styles.dailyReportHeaderBtn} onPress={handleDailyReportPress}>
+              <MaterialCommunityIcons name="file-document-edit-outline" size={16} color="#2563EB" />
+              <Text style={styles.dailyReportHeaderBtnText}>Báo cáo</Text>
+            </Pressable>
+          }
+        />
         
         <SearchInput value={search} onChangeText={setSearch} placeholder={area === 'employee' ? 'Tìm việc của tôi...' : 'Tìm việc đã giao...'} />
         
@@ -3628,6 +3651,22 @@ const styles = StyleSheet.create({
   groupLeaderTag: {
     backgroundColor: '#EDE9FE',
     borderColor: '#C4B5FD',
+  },
+  dailyReportHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  dailyReportHeaderBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
   },
 });
 

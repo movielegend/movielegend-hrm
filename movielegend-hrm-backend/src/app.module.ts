@@ -67,6 +67,7 @@ import { VoiceCallModule } from './modules/voice-call/voice-call.module';
 import { CompetitionModule } from './modules/competition/competition.module';
 import { LevelingModule } from './modules/leveling/leveling.module';
 import { DepartmentDocumentsModule } from './modules/department-documents/department-documents.module';
+import { DailyReportsModule } from './modules/daily-reports/daily-reports.module';
 
 @Module({
   imports: [
@@ -155,6 +156,7 @@ import { DepartmentDocumentsModule } from './modules/department-documents/depart
     CompetitionModule,
     LevelingModule,
     DepartmentDocumentsModule,
+    DailyReportsModule,
   ],
   providers: [
     {
