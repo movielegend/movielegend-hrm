@@ -19,11 +19,11 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
   const percent = progress.overallProgressPercent || 0;
   const isPending = !!progress.pendingRequest;
 
-  const tenurePercent = Math.min(100, progress.metrics.tenure.percent || 0);
-  const shiftsPercent = Math.min(100, progress.metrics.shifts.percent || 0);
-  const gmvPercent = Math.min(100, progress.metrics.gmv.percent || 0);
-  const disciplineScore = progress.metrics.discipline.score ?? 100;
-  const isDisciplinePassed = (progress.metrics.discipline.lateCount || 0) === 0;
+  const tenurePercent = Math.min(100, progress.metrics?.tenure?.percent || 0);
+  const shiftsPercent = Math.min(100, progress.metrics?.shifts?.percent || 0);
+  const gmvPercent = Math.min(100, progress.metrics?.gmv?.percent || 0);
+  const disciplineScore = progress.metrics?.discipline?.score ?? 100;
+  const isDisciplinePassed = (progress.metrics?.discipline?.lateCount || 0) === 0;
 
   return (
     <View style={styles.card}>
@@ -126,7 +126,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
               </Text>
             </View>
             <Text style={styles.metricValue}>
-              {progress.metrics.tenure.currentMonths} <Text style={styles.metricUnit}>/ {progress.metrics.tenure.targetMonths} th</Text>
+              {progress.metrics?.tenure?.currentMonths ?? 0} <Text style={styles.metricUnit}>/ {progress.metrics?.tenure?.targetMonths ?? 0} th</Text>
             </Text>
             <View style={styles.miniBarBg}>
               <View
@@ -153,7 +153,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
               </Text>
             </View>
             <Text style={styles.metricValue}>
-              {progress.metrics.shifts.currentCount} <Text style={styles.metricUnit}>/ {progress.metrics.shifts.targetCount} ca</Text>
+              {progress.metrics?.shifts?.currentCount ?? 0} <Text style={styles.metricUnit}>/ {progress.metrics?.shifts?.targetCount ?? 0} ca</Text>
             </Text>
             <View style={styles.miniBarBg}>
               <View
@@ -183,7 +183,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
               </Text>
             </View>
             <Text style={styles.metricValue}>
-              {progress.metrics.discipline.lateCount === 0 ? '0 lỗi' : `${progress.metrics.discipline.lateCount} lần`} <Text style={styles.metricUnit}>đi trễ</Text>
+              {(progress.metrics?.discipline?.lateCount ?? 0) === 0 ? '0 lỗi' : `${progress.metrics?.discipline?.lateCount} lần`} <Text style={styles.metricUnit}>đi trễ</Text>
             </Text>
             <View style={styles.miniBarBg}>
               <View
@@ -210,7 +210,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
               </Text>
             </View>
             <Text style={styles.metricValue}>
-              {progress.metrics.gmv.currentGmv} <Text style={styles.metricUnit}>/ {progress.metrics.gmv.targetGmv} {progress.metrics.gmv.unit}</Text>
+              {progress.metrics?.gmv?.currentGmv || '0'} <Text style={styles.metricUnit}>/ {progress.metrics?.gmv?.targetGmv || '0'} {progress.metrics?.gmv?.unit || 'đ'}</Text>
             </Text>
             <View style={styles.miniBarBg}>
               <View
