@@ -264,6 +264,108 @@ async function main() {
     });
   }
 
+  // Gán quyền cho Leader
+  const leaderPermCodes = [
+    'user.read', 'employee.read', 'employee.approve', 'department.read', 'position.read',
+    'upload.create', 'approval.read', 'approval.approve', 'approval.reject', 'face.read',
+    'shift.read', 'shift.assign', 'attendance.read', 'leave.balance.read', 'leave.approve',
+    'overtime.approve', 'employee.request.approve', 'task.assign_department', 'task.read_department',
+    'task.review_department', 'task.extension_review_department', 'task.group.manage_department',
+    'cross_department.source_approve', 'cross_department.target_receive', 'notification.read',
+    'device_token.manage_own', 'material.read', 'stock.read', 'material_issue.create',
+    'material_issue.read', 'asset.read', 'asset.incident.create', 'inventory_check.read',
+    'bonus.create', 'bonus.read', 'violation.create', 'violation.read', 'employee_document.read_department',
+    'kpi.read_department', 'kpi.leader_review', 'performance_review.read_department',
+    'performance_review.leader_submit', 'dashboard.department.read', 'report.employee.read',
+    'report.attendance.read', 'report.task.read', 'report.asset.read', 'report.kpi.read',
+    'report.export.csv', 'feedback.create', 'feedback.read_own'
+  ];
+  for (const code of leaderPermCodes) {
+    const perm = permissions.find(p => p.code === code);
+    if (perm) {
+      await prisma.rolePermission.create({ data: { roleId: leaderRole.id, permissionId: perm.id } });
+    }
+  }
+
+  // Gán quyền cho Employee
+  const employeePermCodes = [
+    'employee.read', 'department.read', 'position.read', 'upload.create', 'face.read',
+    'shift.read', 'shift.register', 'shift.swap', 'attendance.read', 'attendance.checkin',
+    'attendance.adjust', 'leave.balance.read', 'leave.request', 'overtime.request',
+    'employee.request', 'task.read_own', 'task.accept_own', 'task.update_progress_own',
+    'task.submit_own', 'task.comment_own', 'task.extension_request_own', 'cross_department.create',
+    'notification.read', 'device_token.manage_own', 'material.read', 'material_issue.create',
+    'material_issue.read', 'asset.read', 'asset.return', 'asset.incident.create',
+    'payroll.read_own', 'employee_document.read_own', 'employee_document.create', 'contract.read_own',
+    'kpi.read_own', 'kpi.self_review', 'performance_review.read_own', 'performance_review.self_submit',
+    'dashboard.own.read', 'notification_preference.read_own', 'notification_preference.update_own',
+    'feedback.create', 'feedback.read_own'
+  ];
+  for (const code of employeePermCodes) {
+    const perm = permissions.find(p => p.code === code);
+    if (perm) {
+      await prisma.rolePermission.create({ data: { roleId: employeeRole.id, permissionId: perm.id } });
+    }
+  }
+
+  // Gán quyền cho HR
+  const hrPermCodes = [
+    'employee_document.read_own', 'employee_document.read_department', 'employee_document.read_all',
+    'employee_document.read_sensitive', 'employee_document.create', 'position.read', 'position.create',
+    'position.update', 'upload.create', 'shift.read', 'shift.create', 'shift.update', 'shift.assign',
+    'employee_document.verify', 'contract_template.create', 'contract_template.read',
+    'contract_template.update', 'contract.create', 'contract.read_own', 'contract.read_department',
+    'contract.read_all', 'contract.approve', 'contract.sign_company', 'contract.terminate',
+    'kpi_template.create', 'kpi_template.read', 'kpi_template.update', 'kpi.assign', 'kpi.read_own',
+    'kpi.read_department', 'kpi.read_all', 'kpi.self_review', 'kpi.leader_review', 'kpi.finalize',
+    'review_cycle.create', 'review_cycle.read', 'review_cycle.manage', 'performance_review.read_own',
+    'performance_review.read_department', 'performance_review.read_all', 'performance_review.self_submit',
+    'performance_review.leader_submit', 'performance_review.finalize', 'dashboard.admin.read',
+    'dashboard.department.read', 'dashboard.own.read', 'report.employee.read', 'report.attendance.read',
+    'report.task.read', 'report.kpi.read', 'report.export.csv', 'report.export.excel', 'system_setting.read',
+    'system_setting.update', 'audit.read', 'job.read', 'job.run_manual', 'notification.read',
+    'device_token.manage_own', 'feedback.create', 'feedback.read_own', 'feedback.read_all', 'feedback.update_status'
+  ];
+  for (const code of hrPermCodes) {
+    const perm = permissions.find(p => p.code === code);
+    if (perm) {
+      await prisma.rolePermission.create({ data: { roleId: hrRole.id, permissionId: perm.id } });
+    }
+  }
+
+  // Gán quyền cho Accountant
+  const accountantPermCodes = [
+    'salary_profile.create', 'salary_profile.read', 'salary_profile.update', 'salary_component.create',
+    'salary_component.read', 'salary_component.update', 'payroll_period.create', 'payroll_period.read',
+    'payroll.calculate', 'payroll.review', 'payroll.approve', 'payroll.lock', 'payroll.read_all',
+    'report.payroll.summary', 'report.payroll.detail', 'report.export.csv', 'report.export.excel',
+    'bonus.create', 'bonus.read', 'bonus.approve', 'deduction.create', 'deduction.read', 'deduction.approve',
+    'violation.read', 'disciplinary_action.approve', 'notification.read'
+  ];
+  for (const code of accountantPermCodes) {
+    const perm = permissions.find(p => p.code === code);
+    if (perm) {
+      await prisma.rolePermission.create({ data: { roleId: accountantRole.id, permissionId: perm.id } });
+    }
+  }
+
+  // Gán quyền cho Warehouse Manager
+  const whPermCodes = [
+    'warehouse.read', 'warehouse.update', 'warehouse.manage', 'material.read', 'stock.read',
+    'stock.import', 'stock.export', 'stock.adjust', 'stock.transfer', 'material_issue.read',
+    'material_issue.approve', 'material_issue.issue', 'asset.read', 'asset.assign', 'asset.return',
+    'asset.incident.read', 'asset.incident.resolve', 'asset.maintenance.manage', 'inventory_check.create',
+    'inventory_check.read', 'inventory_check.submit', 'inventory_check.approve', 'dashboard.department.read',
+    'report.warehouse.read', 'report.asset.read', 'report.export.csv', 'report.export.excel',
+    'notification.read', 'device_token.manage_own'
+  ];
+  for (const code of whPermCodes) {
+    const perm = permissions.find(p => p.code === code);
+    if (perm) {
+      await prisma.rolePermission.create({ data: { roleId: warehouseRole.id, permissionId: perm.id } });
+    }
+  }
+
   // Cài đặt Loại nghỉ phép mặc định
   const defaultLeaveTypes = [
     { code: 'PHEP_NAM', name: 'Nghỉ phép năm', annualQuotaDays: 12, isPaid: true },
