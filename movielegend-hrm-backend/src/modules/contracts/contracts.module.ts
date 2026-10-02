@@ -8,11 +8,13 @@ import { ContractStatePolicy } from './contract-state-policy.service';
 import { ContractTemplatesController, EmployeeContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 import { DocumentIntegrityService } from './document-integrity.service';
+import { ContractFieldPresetController } from './contract-field-preset.controller';
+import { ContractFieldPresetService } from './contract-field-preset.service';
 
 @Module({
   imports: [DatabaseModule, Phase2PolicyModule, NotificationsModule, RealtimeModule, StorageModule],
-  controllers: [ContractTemplatesController, EmployeeContractsController],
-  providers: [ContractsService, ContractStatePolicy, DocumentIntegrityService],
-  exports: [ContractsService, ContractStatePolicy, DocumentIntegrityService],
+  controllers: [ContractTemplatesController, EmployeeContractsController, ContractFieldPresetController],
+  providers: [ContractsService, ContractStatePolicy, DocumentIntegrityService, ContractFieldPresetService],
+  exports: [ContractsService, ContractStatePolicy, DocumentIntegrityService, ContractFieldPresetService],
 })
 export class ContractsModule {}

@@ -927,6 +927,7 @@ model Company {
   reviewCycles      PerformanceReviewCycle[]
   systemSettings    SystemSetting[]
   departmentDocuments DepartmentDocument[]
+  contractFieldPresets  ContractFieldPreset[]
 
   @@map("companies")
 }
@@ -1025,6 +1026,7 @@ model Department {
   levelConfigs          DepartmentLevelConfig[]
   levelPromotionRequests LevelPromotionRequest[]
   documents             DepartmentDocument[]
+  contractFieldPresets  ContractFieldPreset[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -1047,6 +1049,7 @@ model Position {
   profiles     EmployeeProfile[]
   members      DepartmentMember[]
   kpiTemplates KpiTemplate[]
+  contractFieldPresets  ContractFieldPreset[]
 
   @@map("positions")
 }
@@ -2655,6 +2658,7 @@ model ContractTemplate {
   createdBy       User                      @relation("ContractTemplateCreator", fields: [createdById], references: [id])
   versions        ContractTemplateVersion[]
   contracts       EmployeeContract[]
+  fieldPresets    ContractFieldPreset[]
 
   @@unique([companyId, code])
   @@index([companyId, contractType, isActive])
@@ -2746,6 +2750,29 @@ model ContractSignature {
   @@index([contractId, signerRole])
   @@index([signerUserId])
   @@map("contract_signatures")
+}
+
+model ContractFieldPreset {
+  id                 String            @id @default(uuid()) @db.Uuid
+  companyId          String            @db.Uuid
+  contractTemplateId String            @db.Uuid
+  departmentId       String?           @db.Uuid
+  positionId         String?           @db.Uuid
+  name               String
+  fieldDefaults      Json
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  company            Company           @relation(fields: [companyId], references: [id])
+  contractTemplate   ContractTemplate  @relation(fields: [contractTemplateId], references: [id])
+  department         Department?       @relation(fields: [departmentId], references: [id])
+  position           Position?         @relation(fields: [positionId], references: [id])
+
+  @@unique([contractTemplateId, departmentId, positionId])
+  @@index([companyId, contractTemplateId])
+  @@index([departmentId])
+  @@map("contract_field_presets")
 }
 
 model KpiTemplate {

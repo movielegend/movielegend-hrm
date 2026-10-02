@@ -173,6 +173,23 @@ export class ContractsService {
     if (!target) throw notFound('USER_NOT_FOUND', 'Employee not found');
     if (!version || version.contractTemplateId !== dto.contractTemplateId) throw notFound('CONTRACT_TEMPLATE_VERSION_NOT_FOUND', 'Contract template version not found');
     if (dto.endDate && new Date(dto.endDate) < new Date(dto.startDate)) throw badRequest('INVALID_CONTRACT_DATES', 'Contract end date must be after start date');
+    
+    // Validate required fields trước khi tạo
+    const mappingConfig = (version.mappingConfig as any[]) || [];
+    const requiredFields = mappingConfig.filter((f: any) => f.requiredBeforeSend === true);
+    if (requiredFields.length > 0) {
+      const filledFields = dto.filledFields || {};
+      const missingFields = requiredFields.filter((f: any) =>
+        !filledFields[f.id] || String(filledFields[f.id]).trim() === ''
+      );
+      if (missingFields.length > 0) {
+        throw badRequest(
+          'REQUIRED_FIELDS_MISSING',
+          `Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.map((f: any) => f.label || f.id).join(', ')}`
+        );
+      }
+    }
+
     const payload = await this.prisma.$transaction(async (tx) => {
       const contractCode = await this.prisma.nextSequenceCode(tx, 'contract_code_seq', 'CTR');
       const contract = await tx.employeeContract.create({
@@ -187,6 +204,7 @@ export class ContractsService {
           startDate: new Date(dto.startDate),
           endDate: dto.endDate ? new Date(dto.endDate) : undefined,
           draftFileUrl: dto.draftFileUrl,
+          filledFields: dto.filledFields || undefined,
           createdById: actor.userId,
           approvedById: actor.userId,
           approvedAt: new Date(),

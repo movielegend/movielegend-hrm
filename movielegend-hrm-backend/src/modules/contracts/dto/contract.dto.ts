@@ -97,6 +97,10 @@ export class CreateEmployeeContractDto {
   @IsOptional()
   @IsString()
   draftFileUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  filledFields?: Record<string, any>;
 }
 
 export class UpdateEmployeeContractDto {
