@@ -64,11 +64,18 @@ export class ContractsService {
   }
 
   findTemplates() {
-    return this.prisma.contractTemplate.findMany({ where: { deletedAt: null }, include: { versions: true }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.contractTemplate.findMany({
+      where: { deletedAt: null },
+      include: { versions: { orderBy: { versionNumber: 'desc' } } },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findTemplate(id: string) {
-    const template = await this.prisma.contractTemplate.findUnique({ where: { id }, include: { versions: true } });
+    const template = await this.prisma.contractTemplate.findUnique({
+      where: { id },
+      include: { versions: { orderBy: { versionNumber: 'desc' } } },
+    });
     if (!template || template.deletedAt) throw notFound('CONTRACT_TEMPLATE_NOT_FOUND', 'Contract template not found');
     return template;
   }
@@ -179,9 +186,13 @@ export class ContractsService {
     const requiredFields = mappingConfig.filter((f: any) => f.requiredBeforeSend === true);
     if (requiredFields.length > 0) {
       const filledFields = dto.filledFields || {};
-      const missingFields = requiredFields.filter((f: any) =>
-        !filledFields[f.id] || String(filledFields[f.id]).trim() === ''
-      );
+      const missingFields = requiredFields.filter((f: any) => {
+        const val = filledFields[f.id];
+        if (val !== undefined && val !== null && String(val).trim() !== '') return false;
+        const autoVal = this.resolveAutoFilledValue(f, { user: target }, target.profile?.fullName || '');
+        if (autoVal !== null && autoVal !== undefined && String(autoVal).trim() !== '') return false;
+        return true;
+      });
       if (missingFields.length > 0) {
         throw badRequest(
           'REQUIRED_FIELDS_MISSING',
