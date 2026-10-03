@@ -589,19 +589,79 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
             }
 
             if (textValue !== undefined && textValue !== null && String(textValue).trim() !== '') {
-              const cleanText = String(textValue).replace(/[\r\n]+/g, ' ').trim();
+              const strVal = String(textValue);
               const fontSize = field.fontSize || 11;
-              
-              // Nếu bạn muốn chữ nằm ở lề dưới (bottom) của khung thay vì căn giữa
-              // Cộng thêm 2px để các chữ có đuôi (như g, y, p) không bị cắt lẹm ra ngoài khung
-              const textY = field.y + 2;
+              const lineHeight = Math.round(fontSize * 1.35);
+              const isMultiLine = strVal.includes('\n') || (field.height && field.height > fontSize * 1.8);
+              const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
 
-              if (customFont) {
-                page.drawText(cleanText, { x: field.x + 5, y: textY, size: fontSize, font: customFont });
+              if (!isMultiLine) {
+                const cleanText = strVal.replace(/[\r\n]+/g, ' ').trim();
+                const textY = field.y + 2;
+                if (customFont) {
+                  page.drawText(cleanText, { x: field.x + 5, y: textY, size: fontSize, font: customFont });
+                } else {
+                  page.drawText(removeAccents(cleanText), { x: field.x + 5, y: textY, size: fontSize });
+                }
               } else {
-                const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
-                const safeText = removeAccents(cleanText);
-                page.drawText(safeText, { x: field.x + 5, y: textY, size: fontSize });
+                // Hỗ trợ vẽ văn bản nhiều dòng, điều khoản, gạch đầu dòng và tự xuống hàng trong khung
+                const maxWidth = (field.width && field.width > 20) ? (field.width - 10) : 500;
+                const paragraphs = strVal.split(/\r?\n/);
+                const linesToDraw: string[] = [];
+
+                for (const para of paragraphs) {
+                  if (!para.trim()) {
+                    linesToDraw.push('');
+                    continue;
+                  }
+                  const words = para.split(' ');
+                  let currentLine = '';
+
+                  for (const word of words) {
+                    const testLine = currentLine ? `${currentLine} ${word}` : word;
+                    let textWidth = 0;
+                    if (customFont && typeof customFont.widthOfTextAtSize === 'function') {
+                      try {
+                        textWidth = customFont.widthOfTextAtSize(testLine, fontSize);
+                      } catch {
+                        textWidth = testLine.length * (fontSize * 0.55);
+                      }
+                    } else {
+                      textWidth = testLine.length * (fontSize * 0.55);
+                    }
+
+                    if (textWidth <= maxWidth || !currentLine) {
+                      currentLine = testLine;
+                    } else {
+                      linesToDraw.push(currentLine);
+                      currentLine = word;
+                    }
+                  }
+                  if (currentLine) {
+                    linesToDraw.push(currentLine);
+                  }
+                }
+
+                // Trong hệ tọa độ PDF, gốc (0,0) nằm ở góc dưới bên trái
+                // Đỉnh của bounding box là field.y + field.height
+                let lineY = (field.height && field.height > fontSize * 1.8)
+                  ? (field.y + field.height - fontSize - 2)
+                  : (field.y + 2);
+                const minY = field.y >= 0 ? field.y : 0;
+
+                for (const line of linesToDraw) {
+                  if (field.height && field.height > 25 && lineY < minY) {
+                    break; // Dừng vẽ nếu vượt quá cạnh dưới của khung
+                  }
+                  if (line.trim() !== '') {
+                    if (customFont) {
+                      page.drawText(line, { x: field.x + 5, y: lineY, size: fontSize, font: customFont });
+                    } else {
+                      page.drawText(removeAccents(line), { x: field.x + 5, y: lineY, size: fontSize });
+                    }
+                  }
+                  lineY -= lineHeight;
+                }
               }
             }
           } else if (field.type === 'checkbox') {
