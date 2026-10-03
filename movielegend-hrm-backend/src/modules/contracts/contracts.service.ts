@@ -581,6 +581,22 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           const page = pdfDoc.getPages()[field.page - 1];
           if (!page) continue;
 
+          const { width: pageWidth, height: pageHeight } = page.getSize();
+          // TemplateMappingModal renders Page with width={595}
+          const renderedWidth = 595;
+          const scale = pageWidth / renderedWidth;
+
+          const actualX = (field.x || 0) * scale;
+          const actualW = (field.width || 150) * scale;
+          const actualH = (field.height || 30) * scale;
+
+          // Trong PDF, gốc (0,0) nằm ở góc dưới bên trái (Bottom-Left),
+          // còn trên giao diện web gốc (0,0) nằm ở góc trên bên trái (Top-Left).
+          // Tọa độ đỉnh (Top) của khung trong PDF:
+          const boxTopY = pageHeight - ((field.y || 0) * scale);
+          // Tọa độ đáy (Bottom) của khung trong PDF:
+          const boxBottomY = pageHeight - (((field.y || 0) + (field.height || 30)) * scale);
+
           if (field.type === 'text') {
             let textValue = filledFields[field.id];
 
@@ -590,22 +606,24 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
             if (textValue !== undefined && textValue !== null && String(textValue).trim() !== '') {
               const strVal = String(textValue);
-              const fontSize = field.fontSize || 11;
+              const fontSize = (field.fontSize || 11) * scale;
               const lineHeight = Math.round(fontSize * 1.35);
-              const isMultiLine = strVal.includes('\n') || (field.height && field.height > fontSize * 1.8);
-              const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D');
+              const isMultiLine = strVal.includes('\n') || (actualH > fontSize * 2.2);
+              const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
 
               if (!isMultiLine) {
                 const cleanText = strVal.replace(/[\r\n]+/g, ' ').trim();
-                const textY = field.y + 2;
+                // Căn giữa văn bản theo chiều dọc của ô (baseline font nằm dưới tâm khoảng fontSize * 0.35)
+                const textY = (boxTopY + boxBottomY) / 2 - (fontSize * 0.35);
+                const textX = actualX + (4 * scale);
                 if (customFont) {
-                  page.drawText(cleanText, { x: field.x + 5, y: textY, size: fontSize, font: customFont });
+                  page.drawText(cleanText, { x: textX, y: textY, size: fontSize, font: customFont });
                 } else {
-                  page.drawText(removeAccents(cleanText), { x: field.x + 5, y: textY, size: fontSize });
+                  page.drawText(removeAccents(cleanText), { x: textX, y: textY, size: fontSize });
                 }
               } else {
                 // Hỗ trợ vẽ văn bản nhiều dòng, điều khoản, gạch đầu dòng và tự xuống hàng trong khung
-                const maxWidth = (field.width && field.width > 20) ? (field.width - 10) : 500;
+                const maxWidth = actualW > (20 * scale) ? (actualW - (8 * scale)) : (pageWidth - actualX - 20);
                 const paragraphs = strVal.split(/\r?\n/);
                 const linesToDraw: string[] = [];
 
@@ -642,22 +660,18 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
                   }
                 }
 
-                // Trong hệ tọa độ PDF, gốc (0,0) nằm ở góc dưới bên trái
-                // Đỉnh của bounding box là field.y + field.height
-                let lineY = (field.height && field.height > fontSize * 1.8)
-                  ? (field.y + field.height - fontSize - 2)
-                  : (field.y + 2);
-                const minY = field.y >= 0 ? field.y : 0;
+                // Với nhiều dòng, dòng đầu tiên bắt đầu từ đỉnh khung chảy dần xuống dưới
+                let lineY = boxTopY - fontSize - (4 * scale);
 
                 for (const line of linesToDraw) {
-                  if (field.height && field.height > 25 && lineY < minY) {
+                  if (actualH > (25 * scale) && lineY < boxBottomY) {
                     break; // Dừng vẽ nếu vượt quá cạnh dưới của khung
                   }
                   if (line.trim() !== '') {
                     if (customFont) {
-                      page.drawText(line, { x: field.x + 5, y: lineY, size: fontSize, font: customFont });
+                      page.drawText(line, { x: actualX + (4 * scale), y: lineY, size: fontSize, font: customFont });
                     } else {
-                      page.drawText(removeAccents(line), { x: field.x + 5, y: lineY, size: fontSize });
+                      page.drawText(removeAccents(line), { x: actualX + (4 * scale), y: lineY, size: fontSize });
                     }
                   }
                   lineY -= lineHeight;
@@ -667,18 +681,25 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           } else if (field.type === 'checkbox') {
             const isChecked = filledFields[field.id] === true || filledFields[field.id] === 'true';
             if (isChecked) {
-              const checkY = field.y + 2;
-              page.drawText('V', { x: field.x + 5, y: checkY, size: 14 });
+              const checkSize = Math.round(12 * scale);
+              const checkY = (boxTopY + boxBottomY) / 2 - (checkSize * 0.35);
+              const checkX = actualX + (4 * scale);
+              if (customFont) {
+                page.drawText('✓', { x: checkX, y: checkY, size: checkSize, font: customFont });
+              } else {
+                page.drawText('V', { x: checkX, y: checkY, size: checkSize });
+              }
             }
           } else if (field.type === 'signature' && (!field.role || field.role === role)) {
             try {
               const base64Data = base64Signature.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
               const signatureImage = await pdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
+              // Trong pdf-lib, drawImage nhận tọa độ góc dưới bên trái (bottom-left)
               page.drawImage(signatureImage, {
-                x: field.x,
-                y: field.y,
-                width: field.width || 150,
-                height: field.height || 75,
+                x: actualX,
+                y: boxBottomY,
+                width: actualW,
+                height: actualH,
               });
             } catch (e) {
               console.error('Error embedding signature:', e);
