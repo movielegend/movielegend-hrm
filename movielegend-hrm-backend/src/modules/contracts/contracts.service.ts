@@ -597,11 +597,15 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           // Tọa độ đáy (Bottom) của khung trong PDF:
           const boxBottomY = pageHeight - (((field.y || 0) + (field.height || 30)) * scale);
 
-          if (field.type === 'text') {
+          if (field.type === 'text' || field.type === 'date' || !field.type) {
             let textValue = filledFields[field.id];
 
             if (!textValue) {
               textValue = this.resolveAutoFilledValue(field, contract, userFullName);
+            }
+
+            if (field.type === 'date' || this.isDateField(field)) {
+              textValue = formatDateToDDMMYYYY(textValue);
             }
 
             if (textValue !== undefined && textValue !== null && String(textValue).trim() !== '') {
@@ -903,7 +907,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
     // 5. CCCD Issue Date / Ngày cấp
     if (isMatch(['idcardissuedate', 'ngaycap', 'ngaycapcccd', 'issuedate']) || normLabel.includes('ngaycap')) {
-      return profile?.idCardIssueDate ? new Date(profile.idCardIssueDate).toLocaleDateString('vi-VN') : '';
+      return profile?.idCardIssueDate ? formatDateToDDMMYYYY(profile.idCardIssueDate) : '';
     }
 
     // 6. CCCD Issue Place / Nơi cấp
@@ -923,7 +927,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
     // 9. Date of Birth / Ngày sinh
     if (isMatch(['dob', 'sinh', 'ngaysinh', 'dateofbirth']) || normLabel.includes('ngaysinh')) {
-      return profile?.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '';
+      return profile?.dateOfBirth ? formatDateToDDMMYYYY(profile.dateOfBirth) : '';
     }
 
     // 10. Position / Chức vụ / Chức danh
@@ -938,11 +942,76 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
     // 12. Signing Date / Ngày ký / Hôm nay
     if (isMatch(['ngayky', 'homnay', 'today']) || normLabel === 'ngay' || normId === 'date' || normLabel === 'date') {
-      return new Date().toLocaleDateString('vi-VN');
+      return formatDateToDDMMYYYY(new Date());
     }
 
     if (field.id === 'fullName') return userFullName;
 
     return undefined;
   }
+
+  private isDateField(field: any): boolean {
+    if (field?.type === 'date') return true;
+    const fId = String(field?.id || '').toLowerCase();
+    const fLabel = String(field?.label || '').toLowerCase();
+    const norm = (fId + ' ' + fLabel).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
+    return (
+      norm.includes('ngaysinh') || norm.includes('dob') || norm.includes('dateofbirth') ||
+      norm.includes('ngaycap') || norm.includes('issuedate') ||
+      norm.includes('ngayky') || norm.includes('signingdate') ||
+      norm.includes('ngaybatdau') || norm.includes('startdate') ||
+      norm.includes('ngayketthuc') || norm.includes('enddate') ||
+      norm.includes('ngaythang') || norm.includes('ngaytao') ||
+      norm === 'ngay' || norm === 'date'
+    );
+  }
 }
+
+function formatDateToDDMMYYYY(val: any): string {
+  if (!val) return '';
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return '';
+    const d = String(val.getDate()).padStart(2, '0');
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const y = val.getFullYear();
+    return `${d}-${m}-${y}`;
+  }
+
+  const str = String(val).trim();
+  if (!str) return '';
+
+  const dmyHyphenMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmyHyphenMatch) {
+    const [, d, m, y] = dmyHyphenMatch;
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+  }
+
+  const dmySlashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmySlashMatch) {
+    const [, d, m, y] = dmySlashMatch;
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+  }
+
+  const ymdHyphenMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymdHyphenMatch) {
+    const [, y, m, d] = ymdHyphenMatch;
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+  }
+
+  const ymdSlashMatch = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (ymdSlashMatch) {
+    const [, y, m, d] = ymdSlashMatch;
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+  }
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime()) && str.length >= 8 && /[\d\-\/]/.test(str)) {
+    const d = String(parsed.getDate()).padStart(2, '0');
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const y = parsed.getFullYear();
+    return `${d}-${m}-${y}`;
+  }
+
+  return str;
+}
+
