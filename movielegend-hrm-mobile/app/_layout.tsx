@@ -14,6 +14,7 @@ LogBox.ignoreLogs([
   'expo-notifications: Android Push notifications',
   'viewIsDescendantOf() noop',
   'Cannot find view with reactTag',
+  "The action 'GO_BACK' was not handled by any navigator",
 ]);
 
 // ── Custom Toast Config ──

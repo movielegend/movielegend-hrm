@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ApplicationStatus, JobStatus, NotificationType, Prisma } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
@@ -8,6 +8,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { MediaStorageService } from '../storage/media-storage.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../notifications/email.service';
 import { badRequest, notFound } from '../../common/utils/error.util';
 import { JobQueryDto } from './dto/job-query.dto';
 import { CreateJobDto } from './dto/create-job.dto';
@@ -52,6 +53,7 @@ export class RecruitmentService {
     private readonly mediaStorage: MediaStorageService,
     private readonly realtime: RealtimeEventsService,
     private readonly notificationsService: NotificationsService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ==========================================
@@ -238,6 +240,73 @@ export class RecruitmentService {
   // ==========================================
   // SHOWROOMS / CƠ SỞ (Movie Legend Showroom System)
   // ==========================================
+
+  private getCategoriesFilePath(): string {
+    return path.resolve(process.cwd(), 'storage', 'recruitment_categories.json');
+  }
+
+  async getCategories() {
+    try {
+      const filePath = this.getCategoriesFilePath();
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && (Array.isArray(parsed.skills) || Array.isArray(parsed.workGroups))) {
+          return {
+            skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+            workGroups: Array.isArray(parsed.workGroups) ? parsed.workGroups : [],
+          };
+        }
+      }
+    } catch (err) {
+      this.logger.error('Failed to read categories from storage:', err);
+    }
+    return {
+      skills: [
+        'Laser 4K',
+        'Âm thanh vòm',
+        'Dolby Atmos',
+        'Setup máy chiếu',
+        'Home Cinema',
+        'Tư vấn',
+        'Bán hàng',
+        'Marketing',
+        'Kỹ thuật điện',
+        'Chăm sóc khách hàng',
+        'Giao nhận & Lắp đặt',
+        'Quản lý kho',
+      ],
+      workGroups: [
+        'Kỹ thuật & Setup Máy chiếu',
+        'Kinh doanh & Tư vấn giải pháp',
+        'Marketing & Truyền thông',
+        'Vận hành & Hậu cần',
+        'Tài chính & Kế toán',
+        'Nhân sự & Hành chính',
+      ],
+    };
+  }
+
+  async updateCategories(dto: { skills?: string[]; workGroups?: string[] }) {
+    const current = await this.getCategories();
+    const updated = {
+      skills: Array.isArray(dto.skills)
+        ? Array.from(new Set(dto.skills.map((s: string) => String(s).trim()).filter(Boolean)))
+        : current.skills,
+      workGroups: Array.isArray(dto.workGroups)
+        ? Array.from(new Set(dto.workGroups.map((w: string) => String(w).trim()).filter(Boolean)))
+        : current.workGroups,
+    };
+    try {
+      const filePath = this.getCategoriesFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+    } catch (err) {
+      this.logger.error('Failed to save categories to storage:', err);
+    }
+    return updated;
+  }
 
   private getShowroomsFilePath(): string {
     return path.resolve(process.cwd(), 'storage', 'recruitment_showrooms.json');
@@ -444,6 +513,21 @@ export class RecruitmentService {
     this.sendNewApplicationNotification(application, job).catch((err) =>
       this.logger.warn(`Lỗi gửi thông báo nộp CV qua Socket: ${err.message}`),
     );
+
+    // Gửi email xác nhận nộp CV và hồ sơ ứng tuyển thành công cho ứng viên
+    if (application.email) {
+      this.emailService
+        .sendApplicationConfirmationEmail(application.email, {
+          fullName: application.fullName,
+          jobTitle: job.name,
+          applicationCode: application.applicationCode,
+          phone: application.phone,
+          cvFileName: application.cvFileName || undefined,
+        })
+        .catch((err) =>
+          this.logger.warn(`Lỗi gửi email xác nhận cho ứng viên ${application.email}: ${err.message}`),
+        );
+    }
 
     return {
       success: true,
@@ -837,6 +921,21 @@ export class RecruitmentService {
       this.sendInterviewScheduledNotification(updated).catch((err) =>
         this.logger.warn(`Lỗi gửi thông báo lịch phỏng vấn: ${err.message}`),
       );
+
+      // Gửi email mời phỏng vấn cho ứng viên
+      if (updated.email) {
+        this.emailService
+          .sendInterviewInvitationEmail(updated.email, {
+            fullName: updated.fullName,
+            jobTitle: updated.job?.name || 'Vị trí tuyển dụng',
+            applicationCode: updated.applicationCode,
+            interviewDateStr: formatDateTimeVn(new Date(updated.interviewDate)),
+            note: updated.hrNotes || undefined,
+          })
+          .catch((err) =>
+            this.logger.warn(`Lỗi gửi email mời phỏng vấn cho ứng viên ${updated.email}: ${err.message}`),
+          );
+      }
     }
 
     return updated;
