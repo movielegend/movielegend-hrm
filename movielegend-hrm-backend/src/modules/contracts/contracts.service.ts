@@ -233,6 +233,29 @@ export class ContractsService {
       });
       return { contract, notification };
     });
+
+    // Tự động tạo draft PDF nếu frontend chưa gửi kèm để hiển thị đầy đủ thông tin khi giao cho nhân viên
+    if (!payload.contract.draftFileUrl) {
+      try {
+        const generatedDraftUrl = await this.generateSignedPdf(
+          payload.contract.id,
+          '',
+          target.profile?.fullName || 'Employee',
+          dto.filledFields || {},
+          ContractSignerRole.COMPANY
+        );
+        if (generatedDraftUrl) {
+          await this.prisma.employeeContract.update({
+            where: { id: payload.contract.id },
+            data: { draftFileUrl: generatedDraftUrl }
+          });
+          payload.contract.draftFileUrl = generatedDraftUrl;
+        }
+      } catch (err) {
+        console.error('Error generating initial draft PDF:', err);
+      }
+    }
+
     this.notifications.emitCreated(payload.notification);
     this.realtime.emitToUser(dto.userId, 'contract:signature-required', { id: payload.contract.id, status: payload.contract.status });
     return payload.contract;
@@ -501,8 +524,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
     if (!contract || !contract.contractTemplateVersion) return null;
 
-    const rawUrl = contract.signedFileUrl || contract.contractTemplateVersion.templateFileUrl || '';
-    const storageKey = contract.signedFileUrl ? '' : (contract.contractTemplateVersion.storageKey || '');
+    const rawUrl = contract.signedFileUrl || contract.draftFileUrl || contract.contractTemplateVersion.templateFileUrl || '';
+    const storageKey = (contract.signedFileUrl || contract.draftFileUrl) ? '' : (contract.contractTemplateVersion.storageKey || '');
 
     let existingPdfBytes: Buffer | null = null;
     
@@ -731,7 +754,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       }
 
       const pdfBytes = await pdfDoc.save();
-      const fileName = `signed_${contractId}.pdf`;
+      const isDraft = !base64Signature && (!contract.signatures || contract.signatures.length === 0);
+      const fileName = isDraft ? `draft_${contractId}.pdf` : `signed_${contractId}.pdf`;
       
       const uploadResult = await this.storageService.upload({
         buffer: Buffer.from(pdfBytes),
