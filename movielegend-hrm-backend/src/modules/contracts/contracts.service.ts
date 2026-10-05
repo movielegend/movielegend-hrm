@@ -797,17 +797,25 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     if (!contract) throw notFound('EMPLOYEE_CONTRACT_NOT_FOUND', 'Contract not found');
     await this.assertCanManageContract(contract.userId, actor);
 
-    if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE && contract.status !== ContractStatus.DRAFT) {
-      if (contract.status === ContractStatus.WAITING_COMPANY_SIGNATURE && actor.roles?.includes('ADMIN')) {
-        // Allow ADMIN to delete waiting company signature contracts
-      } else {
-        throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Can only delete draft contracts or contracts waiting for signature');
+    const isAdmin = actor.roles?.includes('ADMIN') || this.has(actor, 'contract.terminate') || this.has(actor, 'contract.approve');
+    if (!isAdmin) {
+      if (contract.status !== ContractStatus.WAITING_EMPLOYEE_SIGNATURE && contract.status !== ContractStatus.DRAFT) {
+        throw badRequest('CONTRACT_DELETE_FORBIDDEN', 'Chỉ được xóa hợp đồng nháp hoặc hợp đồng đang chờ ký');
       }
     }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.contractSignature.deleteMany({ where: { contractId: id } });
       await tx.employeeContract.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'CONTRACT_DELETED',
+          entityType: 'EmployeeContract',
+          entityId: id,
+          metadata: { contractCode: contract.contractCode, title: contract.title },
+        },
+      });
     });
 
     // Delete files from cloud storage
