@@ -360,7 +360,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
     }
 
     let finalSignedFileUrl = dto.signedFileUrl;
-    if (dto.signatureImageUrl) {
+    if (!finalSignedFileUrl && dto.signatureImageUrl) {
       const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Employee', dto.filledFields || {});
       if (generatedUrl) finalSignedFileUrl = generatedUrl;
     }
@@ -386,7 +386,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
   async signCompany(id: string, dto: SignContractDto, actor: AuthenticatedUser) {
     let finalSignedFileUrl = dto.signedFileUrl;
-    if (dto.signatureImageUrl) {
+    if (!finalSignedFileUrl && dto.signatureImageUrl) {
       const generatedUrl = await this.generateSignedPdf(id, dto.signatureImageUrl, (actor as any).profile?.fullName || 'Company', dto.filledFields || {}, ContractSignerRole.COMPANY);
       if (generatedUrl) finalSignedFileUrl = generatedUrl;
     }
@@ -494,7 +494,8 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
       where: { id: contractId },
       include: {
         contractTemplateVersion: true,
-        user: { include: { profile: true, departmentLinks: { include: { department: true } } } }
+        user: { include: { profile: true, departmentLinks: { include: { department: true } } } },
+        signatures: true,
       }
     });
 
@@ -694,17 +695,34 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
                 page.drawText('V', { x: checkX, y: checkY, size: checkSize });
               }
             }
-          } else if (field.type === 'signature' && (!field.role || field.role === role)) {
+          } else if (field.type === 'signature') {
             try {
-              const base64Data = base64Signature.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-              const signatureImage = await pdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
-              // Trong pdf-lib, drawImage nhận tọa độ góc dưới bên trái (bottom-left)
-              page.drawImage(signatureImage, {
-                x: actualX,
-                y: boxBottomY,
-                width: actualW,
-                height: actualH,
-              });
+              let sigBase64: string | null = null;
+              if (!field.role || field.role === role) {
+                sigBase64 = base64Signature;
+              } else {
+                const existingVal = filledFields[field.id] || filledFields[field.label];
+                if (typeof existingVal === 'string' && existingVal.startsWith('data:image/')) {
+                  sigBase64 = existingVal;
+                } else {
+                  const matchingSig = (contract as any).signatures?.find((s: any) => s.signerRole === field.role);
+                  if (matchingSig?.signatureImageUrl && matchingSig.signatureImageUrl.startsWith('data:image/')) {
+                    sigBase64 = matchingSig.signatureImageUrl;
+                  }
+                }
+              }
+
+              if (sigBase64) {
+                const base64Data = sigBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+                const signatureImage = await pdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
+                // Trong pdf-lib, drawImage nhận tọa độ góc dưới bên trái (bottom-left)
+                page.drawImage(signatureImage, {
+                  x: actualX,
+                  y: boxBottomY,
+                  width: actualW,
+                  height: actualH,
+                });
+              }
             } catch (e) {
               console.error('Error embedding signature:', e);
             }
@@ -746,7 +764,7 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
           signerUserId: actor.userId,
           signerRole,
           signatureType: dto.signatureType,
-          signatureImageUrl: dto.signatureImageUrl,
+          signatureImageUrl: dto.signatureImageUrl || dto.signatureData,
           signatureDataHash,
           signedDocumentHash,
           ipAddress: dto.ipAddress,
