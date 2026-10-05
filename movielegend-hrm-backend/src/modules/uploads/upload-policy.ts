@@ -106,6 +106,18 @@ export const uploadPolicies: Record<UploadPurpose, UploadPolicy> = {
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'video/quicktime'],
     extensions: ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.mp4', '.mov'],
   },
+  CANDIDATE_CV: {
+    purpose: UploadPurpose.CANDIDATE_CV,
+    maxSize: 15 * 1024 * 1024,
+    mimeTypes: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+    ],
+    extensions: ['.pdf', '.doc', '.docx', '.jpg', '.png'],
+  },
 };
 
 export const maxUploadSize = Math.max(...Object.values(uploadPolicies).map((policy) => policy.maxSize));

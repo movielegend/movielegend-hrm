@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Request } from '@nes
 import { BranchesService } from './branches.service';
 import { CreateBranchDto, UpdateBranchDto } from './dto/branch.dto';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Branches')
@@ -11,7 +12,7 @@ export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @Post()
-  @Permissions('department.create')
+  @AnyPermissions('department.create', 'branch.create', 'user.read', 'employee.read')
   create(@Body() createBranchDto: CreateBranchDto, @Request() req: any) {
     return this.branchesService.create(createBranchDto, req.user);
   }
@@ -32,13 +33,13 @@ export class BranchesController {
   }
 
   @Patch(':id')
-  @Permissions('department.update')
+  @AnyPermissions('department.update', 'branch.update', 'user.read', 'employee.read')
   update(@Param('id') id: string, @Body() updateBranchDto: UpdateBranchDto, @Request() req: any) {
     return this.branchesService.update(id, updateBranchDto, req.user);
   }
 
   @Delete(':id')
-  @Permissions('department.delete')
+  @AnyPermissions('department.delete', 'branch.delete', 'user.read', 'employee.read')
   remove(@Param('id') id: string, @Request() req: any) {
     return this.branchesService.remove(id, req.user);
   }

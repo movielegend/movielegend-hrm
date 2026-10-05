@@ -1,12 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RoleScopeType } from '@prisma/client';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateBranchDto, UpdateBranchDto } from './dto/branch.dto';
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class BranchesService {
+  private readonly logger = new Logger(BranchesService.name);
   constructor(private prisma: PrismaService) {}
 
   private async getCompanyId(): Promise<string> {
@@ -213,18 +216,49 @@ export class BranchesService {
   async remove(id: string, actor?: AuthenticatedUser) {
     const branch = await this.findOne(id);
 
-    // Không cho phép xóa Trụ sở chính nếu không phải Super Admin
-    if (branch.isHeadquarters && !this.isGlobalAdmin(actor)) {
-      throw new BadRequestException('Chỉ Super Admin mới được phép xóa Trụ sở chính');
+    // Khoá cứng CS1 (Đống Đa / Văn Chương / Trụ sở chính) vĩnh viễn, không ai được phép xoá
+    const cleanCode = (branch.code || '').toUpperCase();
+    const cleanName = (branch.name || '').toLowerCase();
+    const isLockedCS1 = cleanCode === 'CS1' || 
+                        cleanCode === 'CN_VAN_CHUONG' || 
+                        cleanCode === 'CN_DONG_DA' || 
+                        cleanName.includes('đống đa') || 
+                        cleanName.includes('văn chương') || 
+                        branch.isHeadquarters;
+
+    if (isLockedCS1) {
+      throw new BadRequestException('Cơ sở CS1 (Đống Đa - Trụ sở chính) là cơ sở trung tâm được khoá cứng vĩnh viễn, không được phép xoá!');
     }
 
     if (branch.departments && branch.departments.length > 0) {
-      throw new BadRequestException('Không thể xóa chi nhánh đang có phòng ban trực thuộc');
+      throw new BadRequestException('Không thể xóa chi nhánh đang có phòng ban trực thuộc. Vui lòng chuyển hoặc dọn dẹp các phòng ban trước.');
     }
-    return this.prisma.branch.update({
+
+    const updated = await this.prisma.branch.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
+
+    // Đồng bộ xoá khỏi recruitment_showrooms.json nếu có cơ sở showroom tương ứng
+    try {
+      const filePath = path.resolve(process.cwd(), 'storage', 'recruitment_showrooms.json');
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const filtered = list.filter((s: any) => 
+            s.id.toLowerCase() !== cleanCode.toLowerCase() && 
+            s.code.toUpperCase() !== cleanCode &&
+            s.id !== id
+          );
+          fs.writeFileSync(filePath, JSON.stringify(filtered, null, 2), 'utf-8');
+        }
+      }
+    } catch (err) {
+      this.logger.warn('Could not sync branch deletion to recruitment_showrooms.json:', err);
+    }
+
+    return updated;
   }
 
   async restoreDeleted() {

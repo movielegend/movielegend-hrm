@@ -127,6 +127,8 @@ async function bootstrap() {
     .addTag('Notification Preferences')
     .addTag('Jobs')
     .addTag('Audit Logs')
+    .addTag('Recruitment - Public Careers Portal')
+    .addTag('Recruitment - HR Admin')
     .addBearerAuth()
     .build();
 

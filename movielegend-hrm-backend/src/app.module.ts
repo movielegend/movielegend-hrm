@@ -68,6 +68,7 @@ import { CompetitionModule } from './modules/competition/competition.module';
 import { LevelingModule } from './modules/leveling/leveling.module';
 import { DepartmentDocumentsModule } from './modules/department-documents/department-documents.module';
 import { DailyReportsModule } from './modules/daily-reports/daily-reports.module';
+import { RecruitmentModule } from './modules/recruitment/recruitment.module';
 
 @Module({
   imports: [
@@ -157,6 +158,7 @@ import { DailyReportsModule } from './modules/daily-reports/daily-reports.module
     LevelingModule,
     DepartmentDocumentsModule,
     DailyReportsModule,
+    RecruitmentModule,
   ],
   providers: [
     {
