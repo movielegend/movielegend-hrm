@@ -29,8 +29,18 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  login(@Body() dto: LoginDto, @Ip() ipAddress: string, @Headers('user-agent') userAgent?: string) {
-    return this.authService.login(dto, { ipAddress, userAgent });
+  login(
+    @Body() dto: LoginDto,
+    @Ip() ipAddress: string,
+    @Headers('user-agent') userAgent?: string,
+    @Headers('x-client-platform') xClientPlatform?: string,
+    @Headers('x-platform') xPlatform?: string,
+    @Headers('x-device-id') xDeviceId?: string,
+  ) {
+    const rawPlatform = dto.platform || xClientPlatform || xPlatform;
+    const platform = rawPlatform ? (rawPlatform.toUpperCase() === 'MOBILE' ? 'MOBILE' : 'WEB') : undefined;
+    const deviceId = dto.deviceId || xDeviceId;
+    return this.authService.login(dto, { ipAddress, userAgent, platform, deviceId });
   }
 
   @Public()

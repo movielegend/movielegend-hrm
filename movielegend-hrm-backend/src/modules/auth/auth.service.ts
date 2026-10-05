@@ -10,6 +10,7 @@ import {
   EmployeeRequestStatus,
   EmployeeRequestType,
   FacePoseType,
+  DevicePlatform,
   Prisma,
   UploadPurpose,
 } from '@prisma/client';
@@ -32,6 +33,33 @@ import { randomUUID, randomInt, createHash } from 'crypto';
 interface RequestMeta {
   ipAddress?: string;
   userAgent?: string;
+  platform?: 'WEB' | 'MOBILE';
+  deviceId?: string;
+}
+
+export function detectClientPlatform(meta: RequestMeta): 'WEB' | 'MOBILE' {
+  if (meta.platform) {
+    return meta.platform.toUpperCase() === 'MOBILE' ? 'MOBILE' : 'WEB';
+  }
+  const ua = (meta.userAgent || '').toLowerCase();
+  const mobilePatterns = [
+    'dart',
+    'flutter',
+    'okhttp',
+    'reactnative',
+    'expo',
+    'cfnetwork',
+    'dalvik',
+    'mobile-app',
+    'movielegend-app',
+  ];
+  if (mobilePatterns.some((pattern) => ua.includes(pattern))) {
+    return 'MOBILE';
+  }
+  if ((ua.includes('iphone') || ua.includes('android')) && (ua.includes('mobile_app') || ua.includes('wv'))) {
+    return 'MOBILE';
+  }
+  return 'WEB';
 }
 
 interface TokenPayload extends AuthenticatedUser {}
@@ -453,37 +481,60 @@ export class AuthService {
 
   private async createTokens(userId: string, meta: RequestMeta, isLogin: boolean = false) {
     const payload = await this.buildPayload(userId);
+    const platform = detectClientPlatform(meta);
     
-    if (isLogin && !payload.roles.includes('ADMIN')) {
-      // Non-admin users: single session policy — revoke all existing sessions on new login
-      await this.prisma.refreshSession.updateMany({
-        where: { userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-      await this.prisma.deviceToken.updateMany({
-        where: { userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-    } else if (isLogin && payload.roles.includes('ADMIN')) {
-      // BUG-09: Admin Miền được phép multi-device nhưng giới hạn tối đa 5 session đồng thời
-      // để hạn chế rủi ro nếu thiết bị bị mất/đánh cắp. Global Admin (GLOBAL scope) không bị ảnh hưởng.
-      const isRegionAdmin = payload.scopes?.some(
-        (s) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId,
-      );
-      if (isRegionAdmin) {
-        const MAX_ADMIN_SESSIONS = 5;
-        const activeSessions = await this.prisma.refreshSession.findMany({
-          where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
-          orderBy: { createdAt: 'asc' },
+    if (isLogin) {
+      if (platform === 'MOBILE') {
+        // MOBILE POLICY: Chỉ cho phép 1 thiết bị điện thoại đăng nhập tại 1 thời điểm.
+        // Khi đăng nhập trên máy điện thoại khác:
+        // 1. Tìm các refreshSession của Mobile cũ thuộc user này để thu hồi
+        const activeMobileSessions = await this.prisma.refreshSession.findMany({
+          where: {
+            userId,
+            revokedAt: null,
+            OR: [
+              { deviceId: { startsWith: 'mobile_' } },
+              { userAgent: { startsWith: '[MOBILE]' } },
+              { userAgent: { contains: 'dart', mode: 'insensitive' } },
+              { userAgent: { contains: 'flutter', mode: 'insensitive' } },
+              { userAgent: { contains: 'okhttp', mode: 'insensitive' } },
+              { userAgent: { contains: 'reactnative', mode: 'insensitive' } },
+              { userAgent: { contains: 'expo', mode: 'insensitive' } },
+              { userAgent: { contains: 'mobile-app', mode: 'insensitive' } },
+              { userAgent: { contains: 'cfnetwork', mode: 'insensitive' } },
+            ],
+          },
         });
-        if (activeSessions.length >= MAX_ADMIN_SESSIONS) {
-          // Revoke oldest sessions vượt quá giới hạn
-          const toRevoke = activeSessions.slice(0, activeSessions.length - MAX_ADMIN_SESSIONS + 1);
+
+        if (activeMobileSessions.length > 0) {
           await this.prisma.refreshSession.updateMany({
-            where: { id: { in: toRevoke.map((s) => s.id) } },
+            where: { id: { in: activeMobileSessions.map((s) => s.id) } },
             data: { revokedAt: new Date() },
           });
         }
+
+        // Thu hồi push notification token của mobile cũ nếu khác deviceId
+        await this.prisma.deviceToken.updateMany({
+          where: {
+            userId,
+            revokedAt: null,
+            platform: { in: [DevicePlatform.IOS, DevicePlatform.ANDROID] },
+            ...(meta.deviceId ? { deviceId: { not: meta.deviceId } } : {}),
+          },
+          data: { revokedAt: new Date() },
+        });
+
+        // Bắn force logout cho thiết bị mobile cũ (phiên Web không bị ảnh hưởng)
+        this.realtime.emitToUser(userId, 'auth:force_logout', {
+          platform: 'mobile',
+          reason: 'LOGGED_IN_FROM_ANOTHER_DEVICE',
+          revokedSessionIds: activeMobileSessions.map((s) => s.id),
+        });
+      } else {
+        // WEB POLICY: Đăng nhập bao nhiêu máy/trình duyệt cũng được (Multi-session allowed).
+        // Không thu hồi các phiên Web khác.
+        // Không thu hồi phiên Mobile.
+        // Không kích hoạt sự kiện auth:force_logout làm văng web khác.
       }
     }
 
@@ -492,13 +543,19 @@ export class AuthService {
     const accessExpiresIn = this.config.get<string>('jwt.accessExpiresIn') ?? '15m';
     const refreshExpiresIn = this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const refreshDays = this.parseRefreshDays(this.config.get<string>('jwt.refreshExpiresIn') ?? '30d');
+    
+    const userAgentToStore = platform === 'MOBILE'
+      ? (meta.userAgent ? (meta.userAgent.startsWith('[MOBILE]') ? meta.userAgent : `[MOBILE] ${meta.userAgent}`) : '[MOBILE]')
+      : (meta.userAgent || '[WEB]');
+
     const session = await this.prisma.refreshSession.create({
       data: {
         userId,
         tokenHash: 'pending_' + Date.now() + '_' + Math.random().toString(36).substring(2),
         expiresAt: new Date(Date.now() + refreshDays * 24 * 60 * 60 * 1000),
         ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
+        userAgent: userAgentToStore,
+        deviceId: meta.deviceId || (platform === 'MOBILE' ? `mobile_${randomUUID()}` : null),
       },
     });
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -513,10 +570,6 @@ export class AuthService {
       where: { id: session.id },
       data: { tokenHash: await bcrypt.hash(refreshToken, 12) },
     });
-
-    if (isLogin && !payload.roles.includes('ADMIN')) {
-      this.realtime.emitToUser(userId, 'auth:force_logout', { newSessionId: session.id });
-    }
 
     return { accessToken, refreshToken };
   }

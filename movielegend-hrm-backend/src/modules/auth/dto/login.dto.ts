@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty()
@@ -10,4 +10,14 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password!: string;
+
+  @ApiPropertyOptional({ enum: ['WEB', 'MOBILE'] })
+  @IsOptional()
+  @IsString()
+  platform?: 'WEB' | 'MOBILE';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  deviceId?: string;
 }

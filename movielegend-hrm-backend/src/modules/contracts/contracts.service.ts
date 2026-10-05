@@ -181,6 +181,15 @@ export class ContractsService {
     if (!version || version.contractTemplateId !== dto.contractTemplateId) throw notFound('CONTRACT_TEMPLATE_VERSION_NOT_FOUND', 'Contract template version not found');
     if (dto.endDate && new Date(dto.endDate) < new Date(dto.startDate)) throw badRequest('INVALID_CONTRACT_DATES', 'Contract end date must be after start date');
     
+    // Scope check: nếu actor bị giới hạn theo miền/phòng ban, nhân viên nhận hợp đồng phải thuộc phạm vi đó
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+    if (visibleDepts !== null) {
+      const targetInScope = target.departmentLinks.some((dl) => visibleDepts.includes(dl.departmentId));
+      if (!targetInScope) {
+        throw forbidden('FORBIDDEN_REGION_SCOPE', 'Bạn không có quyền giao hợp đồng cho nhân sự ngoài miền/phòng ban phụ trách');
+      }
+    }
+
     // Validate required fields trước khi tạo
     const mappingConfig = (version.mappingConfig as any[]) || [];
     const requiredFields = mappingConfig.filter((f: any) => f.requiredBeforeSend === true);
@@ -880,7 +889,18 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
 
   private async assertCanReadContract(userId: string, actor: AuthenticatedUser) {
     if (userId === actor.userId && this.has(actor, 'contract.read_own')) return;
-    if (this.has(actor, 'contract.read_all')) return;
+    if (this.scope.isGlobalAdmin(actor)) return;
+
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+    if (visibleDepts === null) {
+      if (this.has(actor, 'contract.read_all')) return;
+    } else {
+      const member = await this.prisma.departmentMember.findFirst({
+        where: { userId, departmentId: { in: visibleDepts }, leftAt: null },
+      });
+      if (member && (this.has(actor, 'contract.read_all') || this.has(actor, 'contract.read_department'))) return;
+    }
+
     if (this.has(actor, 'contract.read_department')) {
       const departmentId = await this.scope.getPrimaryDepartmentId(userId);
       await this.scope.assertDepartmentAccessAsync(actor, departmentId);
@@ -890,7 +910,21 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   private async assertCanManageContract(userId: string, actor: AuthenticatedUser) {
-    if (this.has(actor, 'contract.read_all') || this.has(actor, 'contract.approve') || this.has(actor, 'contract.terminate')) return;
+    if (this.scope.isGlobalAdmin(actor)) return;
+
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+    if (visibleDepts === null) {
+      if (this.has(actor, 'contract.read_all') || this.has(actor, 'contract.approve') || this.has(actor, 'contract.terminate')) return;
+    } else {
+      const member = await this.prisma.departmentMember.findFirst({
+        where: { userId, departmentId: { in: visibleDepts }, leftAt: null },
+      });
+      if (member && (this.has(actor, 'contract.read_all') || this.has(actor, 'contract.approve') || this.has(actor, 'contract.terminate'))) return;
+      if (!member) {
+        throw forbidden('CONTRACT_MANAGE_FORBIDDEN', 'Cannot manage contract of employee outside your region/department');
+      }
+    }
+
     if (this.has(actor, 'contract.read_department')) {
       const departmentId = await this.scope.getPrimaryDepartmentId(userId);
       await this.scope.assertDepartmentAccessAsync(actor, departmentId);

@@ -1,18 +1,41 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import moment from 'moment-timezone';
 
 @Injectable()
 export class AttendanceReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: DepartmentScopeService,
+  ) {}
 
-  async getDetailedReport(query: { startDate: string; endDate: string; departmentId?: string; userId?: string }) {
+  async getDetailedReport(
+    query: { startDate: string; endDate: string; departmentId?: string; userId?: string },
+    actor?: AuthenticatedUser,
+  ) {
     const start = moment(query.startDate).startOf('day').toDate();
     const end = moment(query.endDate).endOf('day').toDate();
 
     const parseArray = (val: any) => typeof val === 'string' ? val.split(',').filter(Boolean) : undefined;
-    const deptIds = parseArray(query.departmentId);
+    let deptIds = parseArray(query.departmentId);
     const uIds = parseArray(query.userId);
+
+    // Apply regional department scoping if actor is provided
+    if (actor) {
+      const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+      if (visibleDepts !== null) {
+        if (deptIds && deptIds.length > 0) {
+          deptIds = deptIds.filter((id) => visibleDepts.includes(id));
+          if (deptIds.length === 0) {
+            deptIds = ['00000000-0000-0000-0000-000000000000'];
+          }
+        } else {
+          deptIds = visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'];
+        }
+      }
+    }
 
     const deptFilter = deptIds && deptIds.length > 0 ? { in: deptIds } : undefined;
     const userFilter = uIds && uIds.length > 0 ? { in: uIds } : undefined;

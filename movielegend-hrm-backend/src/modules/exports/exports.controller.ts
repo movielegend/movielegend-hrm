@@ -32,8 +32,8 @@ export class ExportsController {
 
   @Get('attendance-detail/excel')
   @Permissions('report.export.excel')
-  async attendanceDetailExcel(@Query() query: any, @Res() res: any) {
-    const reportData = await this.attendanceReport.getDetailedReport(query);
+  async attendanceDetailExcel(@Query() query: any, @CurrentUser() actor: AuthenticatedUser, @Res() res: any) {
+    const reportData = await this.attendanceReport.getDetailedReport(query, actor);
     const result = await this.exports.exportAttendanceDetailExcel(`Bang-cham-cong-${new Date().toISOString().slice(0, 10)}`, reportData);
     res.setHeader('Content-Type', result.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
