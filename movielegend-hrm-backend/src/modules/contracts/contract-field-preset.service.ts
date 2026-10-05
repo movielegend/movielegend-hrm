@@ -86,10 +86,10 @@ export class ContractFieldPresetService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        profile: true,
+        profile: { include: { position: true } },
         departmentLinks: {
           where: { leftAt: null },
-          include: { department: true },
+          include: { department: true, position: true },
         },
       },
     });
@@ -97,7 +97,7 @@ export class ContractFieldPresetService {
 
     const primaryDeptLink = user.departmentLinks.find((link) => link.isPrimary) || user.departmentLinks[0];
     const departmentId = primaryDeptLink?.departmentId;
-    const positionId = primaryDeptLink?.positionId;
+    const positionId = primaryDeptLink?.positionId || user.profile?.positionId;
 
     const orConditions: any[] = [{ departmentId: null, positionId: null }];
     if (departmentId) {
@@ -148,14 +148,11 @@ export class ContractFieldPresetService {
       requiredFields = mappingConfig.filter((f) => f.requiredBeforeSend);
     }
 
-    let departmentName = null;
-    let positionName = null;
-    if (primaryDeptLink) {
-      departmentName = primaryDeptLink.department.name;
-      if (positionId) {
-        const pos = await this.prisma.position.findUnique({ where: { id: positionId } });
-        if (pos) positionName = pos.name;
-      }
+    let departmentName = primaryDeptLink?.department?.name || null;
+    let positionName = primaryDeptLink?.position?.name || user.profile?.position?.name || null;
+    if (!positionName && positionId) {
+      const pos = await this.prisma.position.findUnique({ where: { id: positionId } });
+      if (pos) positionName = pos.name;
     }
 
     return {
