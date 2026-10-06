@@ -1096,15 +1096,8 @@ export class TasksService {
   }
 
   private async resolveAssignees(dto: CreateTaskDto, actor: AuthenticatedUser): Promise<string[]> {
-    if (dto.isAdhocGroup) {
-      const groupUserIds = new Set<string>();
-      if (dto.leaderId) groupUserIds.add(dto.leaderId);
-      if (dto.memberIds?.length) {
-        dto.memberIds.forEach((id) => groupUserIds.add(id));
-      }
-      if (groupUserIds.size > 0) {
-        return Array.from(groupUserIds);
-      }
+    if (dto.isAdhocGroup && dto.leaderId) {
+      return [dto.leaderId];
     }
     const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
     const isRegionAdmin = this.scope.isRegionAdmin(actor);
@@ -1246,30 +1239,12 @@ export class TasksService {
     }
 
     if (ownOnly) {
-      // Find actor's active departments
-      const memberLinks = await this.prisma.departmentMember.findMany({
-        where: { userId: actor.userId, leftAt: null },
-        select: { departmentId: true },
-      });
-      const deptIds = memberLinks.map((m) => m.departmentId);
-
-      // Find actor's task groups
-      const groupMembers = await this.prisma.taskGroupMember.findMany({
-        where: { userId: actor.userId },
-        select: { groupId: true },
-      });
-      const groupIds = groupMembers.map((g) => g.groupId);
-
       where.AND = [
         ...this.toAndArray(where.AND),
         {
           OR: [
             { assignments: { some: { userId: actor.userId } } },
-            { targets: { some: { targetType: TaskTargetType.USER, targetId: actor.userId } } },
             { groupLeaderId: actor.userId },
-            { chatGroup: { members: { some: { userId: actor.userId } } } },
-            ...(deptIds.length > 0 ? [{ targets: { some: { targetType: TaskTargetType.DEPARTMENT, targetId: { in: deptIds } } } }] : []),
-            ...(groupIds.length > 0 ? [{ targets: { some: { targetType: TaskTargetType.GROUP, targetId: { in: groupIds } } } }] : []),
           ],
         },
       ];
