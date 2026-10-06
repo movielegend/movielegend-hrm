@@ -357,17 +357,41 @@ export class TasksService {
     if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
-    this.assertCanManageTask(task.departmentContextId, actor);
+
+    // Điều kiện: Chỉ người tạo mới hủy được, và admin tổng mới hủy được tất cả mọi task
+    const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
+    const isCreator = task.createdByUserId === actor.userId;
+    if (!isGlobalAdmin && !isCreator) {
+      throw forbidden('TASK_FORBIDDEN', 'Chỉ người tạo công việc hoặc Admin tổng mới có quyền hủy công việc này');
+    }
+
+    if (task.status === TaskStatus.CANCELLED) {
+      throw badRequest('TASK_ALREADY_CANCELLED', 'Công việc này đã bị hủy trước đó');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       await tx.taskAssignment.updateMany({
         where: { taskId: id, status: { notIn: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.CANCELLED] } },
         data: { status: TaskAssignmentStatus.CANCELLED },
       });
-      return tx.task.update({
+      await tx.taskStatusHistory.create({
+        data: {
+          taskId: id,
+          actorUserId: actor.userId,
+          action: TaskHistoryAction.CANCELLED,
+          fromStatus: task.status,
+          toStatus: TaskStatus.CANCELLED,
+        },
+      });
+      const updated = await tx.task.update({
         where: { id },
         data: { status: TaskStatus.CANCELLED, cancelledAt: new Date() },
         include: this.taskDetailInclude(),
       });
+      if (task.departmentContextId) {
+        this.realtime.emitToDepartment(task.departmentContextId, 'task:cancelled', { taskId: id });
+      }
+      return updated;
     });
   }
 
@@ -392,6 +416,13 @@ export class TasksService {
 
   async updateProgress(assignmentId: string, dto: UpdateProgressDto, actor: AuthenticatedUser) {
     const assignment = await this.assertOwnAssignment(assignmentId, actor);
+    const isOverdue = Boolean(
+      (assignment.assignmentDueAt && new Date(assignment.assignmentDueAt) < new Date()) ||
+      ((assignment as any).task?.dueAt && new Date((assignment as any).task.dueAt) < new Date())
+    );
+    if (isOverdue) {
+      throw badRequest('TASK_OVERDUE_LOCKED', 'Công việc đã quá hạn nên đã bị khóa. Vui lòng xin gia hạn và chờ được duyệt.');
+    }
     const editableStatuses: TaskAssignmentStatus[] = [
       TaskAssignmentStatus.ACCEPTED,
       TaskAssignmentStatus.IN_PROGRESS,
@@ -482,6 +513,11 @@ export class TasksService {
     const canComplete = isGlobalAdmin || isCreator || isGroupLeader || isAssignee || isTargetUser || isDeptLeader;
     if (!canComplete) {
       throw forbidden('NOT_GROUP_LEADER', 'You do not have permission to complete this task');
+    }
+
+    const isOverdue = Boolean(task.dueAt && new Date(task.dueAt) < new Date());
+    if (isOverdue) {
+      throw badRequest('TASK_OVERDUE_LOCKED', 'Công việc đã quá hạn nên đã bị khóa. Cần gia hạn công việc trước khi hoàn thành.');
     }
 
     const payload = await this.prisma.$transaction(async (tx) => {
@@ -888,6 +924,13 @@ export class TasksService {
     data: Prisma.TaskAssignmentUpdateInput,
   ) {
     const assignment = await this.assertOwnAssignment(assignmentId, actor);
+    const isOverdue = Boolean(
+      (assignment.assignmentDueAt && new Date(assignment.assignmentDueAt) < new Date()) ||
+      ((assignment as any).task?.dueAt && new Date((assignment as any).task.dueAt) < new Date())
+    );
+    if (isOverdue && status !== TaskAssignmentStatus.CANCELLED) {
+      throw badRequest('TASK_OVERDUE_LOCKED', 'Công việc đã quá hạn nên đã bị khóa. Vui lòng xin gia hạn và chờ được duyệt trước khi thực hiện.');
+    }
     this.policy.assertAssignmentTransition(assignment.status, status);
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.taskAssignment.update({
@@ -943,6 +986,15 @@ export class TasksService {
     if (deptId && !this.scope.isGlobalAdmin(actor) && assignment.task.createdByUserId !== actor.userId) {
       await this.scope.assertDepartmentAccessAsync(actor, deptId);
     }
+
+    const isOverdue = Boolean(
+      (assignment.assignmentDueAt && new Date(assignment.assignmentDueAt) < new Date()) ||
+      (assignment.task?.dueAt && new Date(assignment.task.dueAt) < new Date())
+    );
+    if (isOverdue) {
+      throw badRequest('TASK_OVERDUE_LOCKED', 'Công việc đã quá hạn nên đã bị khóa. Cần gia hạn công việc trước khi phê duyệt.');
+    }
+
     this.policy.assertAssignmentTransition(assignment.status, status);
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.taskAssignment.update({
@@ -994,11 +1046,17 @@ export class TasksService {
       if (approve) {
         await tx.taskAssignment.update({
           where: { id: request.assignmentId },
-          data: { assignmentDueAt: request.requestedDueAt },
+          data: { 
+            assignmentDueAt: request.requestedDueAt,
+            status: TaskAssignmentStatus.IN_PROGRESS,
+          },
         });
         await tx.task.update({
           where: { id: request.taskId },
-          data: { dueAt: request.requestedDueAt },
+          data: { 
+            dueAt: request.requestedDueAt,
+            status: TaskStatus.IN_PROGRESS,
+          },
         });
       }
       const updated = await tx.taskExtensionRequest.update({
@@ -1045,7 +1103,10 @@ export class TasksService {
   }
 
   private async assertOwnAssignment(assignmentId: string, actor: AuthenticatedUser) {
-    const assignment = await this.prisma.taskAssignment.findUnique({ where: { id: assignmentId } });
+    const assignment = await this.prisma.taskAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { task: true },
+    });
     if (!assignment) throw notFound('TASK_ASSIGNMENT_NOT_FOUND', 'Assignment not found');
     if (assignment.userId !== actor.userId) throw forbidden('TASK_ASSIGNMENT_OWNER_ONLY', 'Only assignee can perform this action');
     return assignment;

@@ -250,7 +250,7 @@ function signatureMatches(buffer: Buffer, mimeType: string): boolean {
     }
     return true; // Soft fallback for valid image mimeType uploads
   }
-  if (mimeType === 'application/pdf') return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+  if (mimeType === 'application/pdf') return buffer.subarray(0, 1024).toString('ascii').includes('%PDF-');
   if (
     mimeType.includes('officedocument') ||
     mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
