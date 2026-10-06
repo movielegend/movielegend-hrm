@@ -99,4 +99,280 @@ export class EmailService {
       this.logger.error(`Failed to send password reset OTP email to ${toEmail}`, error instanceof Error ? error.stack : String(error));
     }
   }
+
+  /**
+   * Gửi email xác nhận nộp CV và hồ sơ ứng tuyển thành công cho ứng viên
+   */
+  async sendApplicationConfirmationEmail(
+    toEmail: string,
+    params: {
+      fullName: string;
+      jobTitle: string;
+      applicationCode: string;
+      phone: string;
+      cvFileName?: string;
+    },
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Cannot send application confirmation email to ${toEmail} because SMTP is not configured.`);
+      return;
+    }
+
+    try {
+      const subject = `[Movie Legend] Tiếp nhận hồ sơ ứng tuyển thành công - ${params.jobTitle}`;
+      const now = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())} ngày ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+
+      const html = `
+        <div style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
+            <tr>
+              <td align="center">
+                <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                  
+                  <!-- Header -->
+                  <tr>
+                    <td style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #2563eb 100%); padding: 35px 30px; text-align: center;">
+                      <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+                        MOVIE LEGEND CAREERS
+                      </h1>
+                      <p style="margin: 6px 0 0; color: #93c5fd; font-size: 13px; font-weight: 500;">
+                        Cổng Tuyển Dụng & Phát Triển Nhân Tài
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Body -->
+                  <tr>
+                    <td style="padding: 32px 30px;">
+                      
+                      <!-- Badge -->
+                      <div style="display: inline-block; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 20px; padding: 5px 14px; margin-bottom: 20px;">
+                        <span style="color: #059669; font-size: 13px; font-weight: 700;">
+                          ✓ Tải lên CV & Ứng tuyển thành công
+                        </span>
+                      </div>
+
+                      <h2 style="margin: 0 0 14px; color: #0f172a; font-size: 20px; font-weight: 700;">
+                        Xin chào ${params.fullName},
+                      </h2>
+
+                      <p style="margin: 0 0 20px; line-height: 1.6; color: #475569; font-size: 14px;">
+                        Cảm ơn bạn đã quan tâm và nộp hồ sơ ứng tuyển tại <strong>Movie Legend</strong>. Hệ thống tuyển dụng xác nhận đã nhận được hồ sơ và file CV của bạn một cách an toàn và đầy đủ.
+                      </p>
+
+                      <!-- Card thông tin -->
+                      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                        <h3 style="margin: 0 0 14px; color: #0f172a; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                          Chi tiết hồ sơ tiếp nhận:
+                        </h3>
+                        <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 1.8;">
+                          <tr>
+                            <td style="color: #64748b; width: 140px; padding: 5px 0;">Vị trí ứng tuyển:</td>
+                            <td style="color: #0f172a; font-weight: 700; padding: 5px 0;">${params.jobTitle}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748b; padding: 5px 0;">Mã hồ sơ:</td>
+                            <td style="color: #2563eb; font-weight: 700; font-family: monospace; font-size: 15px; padding: 5px 0;">${params.applicationCode}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748b; padding: 5px 0;">Số điện thoại:</td>
+                            <td style="color: #0f172a; font-weight: 500; padding: 5px 0;">${params.phone}</td>
+                          </tr>
+                          ${params.cvFileName ? `
+                          <tr>
+                            <td style="color: #64748b; padding: 5px 0;">File CV đính kèm:</td>
+                            <td style="color: #0f172a; font-weight: 600; padding: 5px 0;">📄 ${params.cvFileName}</td>
+                          </tr>` : ''}
+                          <tr>
+                            <td style="color: #64748b; padding: 5px 0;">Thời gian nộp:</td>
+                            <td style="color: #0f172a; font-weight: 500; padding: 5px 0;">${timeStr}</td>
+                          </tr>
+                        </table>
+                      </div>
+
+                      <!-- Next Steps -->
+                      <div style="margin-bottom: 24px;">
+                        <h3 style="margin: 0 0 12px; color: #0f172a; font-size: 14px; font-weight: 700;">
+                          Các bước tiếp theo:
+                        </h3>
+                        <ul style="margin: 0; padding-left: 20px; color: #475569; font-size: 14px; line-height: 1.7;">
+                          <li style="margin-bottom: 6px;">
+                            Bộ phận Tuyển dụng (HR) sẽ xem xét chi tiết hồ sơ và CV của bạn trong vòng <strong>1 - 3 ngày làm việc</strong>.
+                          </li>
+                          <li style="margin-bottom: 6px;">
+                            Nếu phù hợp với yêu cầu vị trí, HR sẽ liên hệ trực tiếp qua điện thoại <strong>${params.phone}</strong> hoặc email này để trao đổi và sắp xếp lịch phỏng vấn.
+                          </li>
+                          <li>
+                            Bạn vui lòng lưu lại mã hồ sơ <strong>${params.applicationCode}</strong> để tiện theo dõi kết quả.
+                          </li>
+                        </ul>
+                      </div>
+
+                      <!-- Contact Note -->
+                      <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 14px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+                        <p style="margin: 0; color: #1e40af; font-size: 13px; line-height: 1.5;">
+                          <strong>Cần hỗ trợ?</strong> Bạn có thể phản hồi trực tiếp email này hoặc liên hệ hotline phòng Nhân sự Movie Legend nếu cần bổ sung thông tin hồ sơ.
+                        </p>
+                      </div>
+
+                      <p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.6;">
+                        Trân trọng,<br/>
+                        <strong>Bộ phận Tuyển dụng & Nhân sự Movie Legend</strong>
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center;">
+                      <p style="margin: 0 0 4px; color: #64748b; font-size: 12px; font-weight: 600;">
+                        © ${now.getFullYear()} MOVIE LEGEND. All rights reserved.
+                      </p>
+                      <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                        Email này được gửi tự động từ Hệ thống Tuyển dụng Movie Legend.
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `;
+
+      await this.transporter.sendMail({
+        from: this.from,
+        to: toEmail,
+        subject,
+        html,
+      });
+
+      this.logger.log(`Application confirmation email sent successfully to ${toEmail} for application ${params.applicationCode}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send application confirmation email to ${toEmail}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  /**
+   * Gửi email mời phỏng vấn cho ứng viên
+   */
+  async sendInterviewInvitationEmail(
+    toEmail: string,
+    params: {
+      fullName: string;
+      jobTitle: string;
+      applicationCode: string;
+      interviewDateStr: string;
+      note?: string;
+    },
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Cannot send interview invitation email to ${toEmail} because SMTP is not configured.`);
+      return;
+    }
+
+    try {
+      const subject = `[Movie Legend] Thư mời phỏng vấn - Vị trí ${params.jobTitle}`;
+      const now = new Date();
+
+      const html = `
+        <div style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
+            <tr>
+              <td align="center">
+                <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                  
+                  <!-- Header -->
+                  <tr>
+                    <td style="background: linear-gradient(135deg, #0f172a 0%, #065f46 60%, #059669 100%); padding: 35px 30px; text-align: center;">
+                      <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+                        THƯ MỜI PHỎNG VẤN
+                      </h1>
+                      <p style="margin: 6px 0 0; color: #a7f3d0; font-size: 13px; font-weight: 500;">
+                        Movie Legend Careers
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Body -->
+                  <tr>
+                    <td style="padding: 32px 30px;">
+                      <h2 style="margin: 0 0 14px; color: #0f172a; font-size: 20px; font-weight: 700;">
+                        Xin chào ${params.fullName},
+                      </h2>
+
+                      <p style="margin: 0 0 20px; line-height: 1.6; color: #475569; font-size: 14px;">
+                        Sau khi xem xét hồ sơ ứng tuyển vị trí <strong>${params.jobTitle}</strong> (Mã hồ sơ: <code>${params.applicationCode}</code>), Hội đồng Tuyển dụng <strong>Movie Legend</strong> trân trọng kính mời bạn tham gia buổi phỏng vấn tuyển dụng.
+                      </p>
+
+                      <!-- Schedule Card -->
+                      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                        <h3 style="margin: 0 0 14px; color: #166534; font-size: 14px; font-weight: 700; text-transform: uppercase;">
+                          📅 Lịch phỏng vấn dự kiến:
+                        </h3>
+                        <table width="100%" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 1.8;">
+                          <tr>
+                            <td style="color: #64748b; width: 140px; padding: 5px 0;">Thời gian:</td>
+                            <td style="color: #166534; font-weight: 700; font-size: 15px; padding: 5px 0;">⏰ ${params.interviewDateStr}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748b; padding: 5px 0;">Vị trí phỏng vấn:</td>
+                            <td style="color: #0f172a; font-weight: 600; padding: 5px 0;">${params.jobTitle}</td>
+                          </tr>
+                          ${params.note ? `
+                          <tr>
+                            <td style="color: #64748b; padding: 5px 0;">Ghi chú / Địa điểm:</td>
+                            <td style="color: #0f172a; font-weight: 500; padding: 5px 0;">${params.note}</td>
+                          </tr>` : ''}
+                        </table>
+                      </div>
+
+                      <p style="margin: 0 0 20px; color: #475569; font-size: 14px; line-height: 1.6;">
+                        Vui lòng phản hồi email này để xác nhận sự tham gia của bạn hoặc thông báo lại nếu bạn cần điều chỉnh thời gian.
+                      </p>
+
+                      <p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.6;">
+                        Trân trọng,<br/>
+                        <strong>Hội đồng Tuyển dụng Movie Legend</strong>
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center;">
+                      <p style="margin: 0 0 4px; color: #64748b; font-size: 12px; font-weight: 600;">
+                        © ${now.getFullYear()} MOVIE LEGEND. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `;
+
+      await this.transporter.sendMail({
+        from: this.from,
+        to: toEmail,
+        subject,
+        html,
+      });
+
+      this.logger.log(`Interview invitation email sent successfully to ${toEmail} for application ${params.applicationCode}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send interview invitation email to ${toEmail}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
 }

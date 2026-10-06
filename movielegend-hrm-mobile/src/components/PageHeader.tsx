@@ -17,11 +17,15 @@ export function PageHeader({ title, subtitle, right, showBack = false, onBack }:
   const shouldShowBack = showBack || !!onBack;
 
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else if (router.canGoBack()) {
-      router.back();
-    } else {
+    try {
+      if (onBack) {
+        onBack();
+      } else if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
+    } catch {
       router.replace('/');
     }
   };

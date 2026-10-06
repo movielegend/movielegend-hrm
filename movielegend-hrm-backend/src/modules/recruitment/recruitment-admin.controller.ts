@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   UseGuards,
@@ -107,6 +108,22 @@ export class RecruitmentAdminController {
   @ApiOperation({ summary: 'HR xoá cơ sở Showroom' })
   deleteShowroom(@Param('id') id: string) {
     return this.recruitmentService.deleteShowroom(id);
+  }
+
+  // ==========================================
+  // QUẢN LÝ DANH MỤC TUYỂN DỤNG (KỸ NĂNG, NHÓM NGÀNH)
+  // ==========================================
+
+  @Get('categories')
+  @ApiOperation({ summary: 'HR xem danh mục kỹ năng và nhóm ngành' })
+  getCategories() {
+    return this.recruitmentService.getCategories();
+  }
+
+  @Put('categories')
+  @ApiOperation({ summary: 'HR cập nhật danh mục kỹ năng và nhóm ngành' })
+  updateCategories(@Body() dto: { skills?: string[]; workGroups?: string[] }) {
+    return this.recruitmentService.updateCategories(dto);
   }
 
   // ==========================================

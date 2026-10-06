@@ -64,6 +64,12 @@ export class RecruitmentPublicController {
     return this.recruitmentService.getShowrooms();
   }
 
+  @Get('categories')
+  @ApiOperation({ summary: 'Lấy danh mục kỹ năng và nhóm ngành tuyển dụng' })
+  getCategories() {
+    return this.recruitmentService.getCategories();
+  }
+
   @Get('jobs/:id')
   @ApiOperation({ summary: 'Xem chi tiết tin tuyển dụng theo ID hoặc mã tin' })
   getJobDetail(@Param('id') id: string) {
