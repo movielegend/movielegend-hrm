@@ -371,7 +371,7 @@ export class TasksService {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.taskAssignment.updateMany({
-        where: { taskId: id, status: { notIn: [TaskAssignmentStatus.COMPLETED, TaskAssignmentStatus.CANCELLED] } },
+        where: { taskId: id },
         data: { status: TaskAssignmentStatus.CANCELLED },
       });
       await tx.taskStatusHistory.create({
@@ -385,11 +385,15 @@ export class TasksService {
       });
       const updated = await tx.task.update({
         where: { id },
-        data: { status: TaskStatus.CANCELLED, cancelledAt: new Date() },
+        data: { status: TaskStatus.CANCELLED, cancelledAt: new Date(), deletedAt: new Date() },
         include: this.taskDetailInclude(),
       });
       if (task.departmentContextId) {
         this.realtime.emitToDepartment(task.departmentContextId, 'task:cancelled', { taskId: id });
+        this.realtime.emitToDepartment(task.departmentContextId, 'task:deleted', { taskId: id });
+      }
+      if (task.createdByUserId) {
+        this.realtime.emitToUser(task.createdByUserId, 'task:deleted', { taskId: id });
       }
       return updated;
     });
