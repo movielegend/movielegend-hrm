@@ -372,9 +372,18 @@ export class AdminService {
         : {}),
       ...(query.role ? { roles: { some: { role: { code: query.role } } } } : {}),
       ...(query.departmentId
-        ? { departmentLinks: { some: { departmentId: query.departmentId, leftAt: null } } }
+        ? {
+            departmentLinks: {
+              some: {
+                departmentId: visibleDepts !== null
+                  ? (visibleDepts.includes(query.departmentId) ? query.departmentId : '00000000-0000-0000-0000-000000000000')
+                  : query.departmentId,
+                leftAt: null,
+              },
+            },
+          }
         : visibleDepts !== null
-        ? { departmentLinks: { some: { departmentId: { in: visibleDepts }, leftAt: null } } }
+        ? { departmentLinks: { some: { departmentId: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] }, leftAt: null } } }
         : {}),
     };
     const [items, total] = await Promise.all([

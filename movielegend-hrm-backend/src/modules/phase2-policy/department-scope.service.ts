@@ -30,12 +30,16 @@ export class DepartmentScopeService {
   /**
    * Resolves the actor's region ID.
    * Checks explicit REGION scope first; if absent and not Global Admin,
-   * falls back to the actor's active department -> branch -> regionId.
+   * falls back to the actor's active department -> branch -> regionId ONLY for ADMIN, HR, or ACCOUNTANT.
+   * Regular LEADER and EMPLOYEE actors must never inherit broad regional scope.
    */
   async getActorRegionIdAsync(actor: AuthenticatedUser): Promise<string | null> {
     const explicit = this.getRegionScope(actor);
     if (explicit) return explicit;
     if (this.isGlobalAdmin(actor)) return null;
+
+    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
+    if (!isRegionalStaff) return null;
 
     // Check if actor belongs to a department bound to a region
     const member = await this.prisma.departmentMember.findFirst({
@@ -44,6 +48,26 @@ export class DepartmentScopeService {
       include: { department: { select: { branch: { select: { regionId: true } } } } },
     });
     return member?.department?.branch?.regionId ?? null;
+  }
+
+  /**
+   * Returns all department IDs led by the actor (from explicit scopes and department.leaderUserId).
+   */
+  async getLedDepartmentIds(actor: AuthenticatedUser): Promise<string[]> {
+    const ledFromScopes = actor.scopes
+      ?.filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
+      ?.map((scope) => scope.scopeId as string) || [];
+
+    const ledFromDb = await this.prisma.department.findMany({
+      where: {
+        leaderUserId: actor.userId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    const ledFromDbIds = ledFromDb.map((d) => d.id);
+
+    return Array.from(new Set([...ledFromScopes, ...ledFromDbIds]));
   }
 
   /**
@@ -79,31 +103,44 @@ export class DepartmentScopeService {
    * Async version — correctly returns scoped department IDs:
    * - Global Admin or Global HR (no region): null (unrestricted nationwide access)
    * - Region Admin or Regional HR (Miền Bắc / Miền Nam): array of department IDs in that region
-   * - Leader: array of led department IDs
+   * - Leader: ONLY array of led department IDs (never broad region or company)
+   * - Employee: ONLY their primary department ID
    */
   async getVisibleDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
     if (this.isGlobalAdmin(actor)) return null;
 
-    const regionId = await this.getActorRegionIdAsync(actor);
-    if (regionId) {
-      const departments = await this.prisma.department.findMany({
-        where: {
-          deletedAt: null,
-          branch: { regionId, deletedAt: null },
-        },
-        select: { id: true },
-      });
-      return departments.map((d) => d.id);
-    }
+    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
 
-    // Unrestricted HR / Accountant at national level (Head Office)
-    if (actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) {
+    if (isRegionalStaff) {
+      const regionId = await this.getActorRegionIdAsync(actor);
+      if (regionId) {
+        const departments = await this.prisma.department.findMany({
+          where: {
+            deletedAt: null,
+            branch: { regionId, deletedAt: null },
+          },
+          select: { id: true },
+        });
+        return departments.map((d) => d.id);
+      }
+
+      // Unrestricted HR / Accountant at national level (Head Office)
       return null;
     }
 
-    return actor.scopes
-      .filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
-      .map((scope) => scope.scopeId as string);
+    // Leader: ONLY led departments
+    const ledDeptIds = await this.getLedDepartmentIds(actor);
+    if (ledDeptIds.length > 0) {
+      return ledDeptIds;
+    }
+
+    // Fallback for Leader/Employee: their primary department only
+    try {
+      const primaryId = await this.getPrimaryDepartmentId(actor.userId);
+      return [primaryId];
+    } catch {
+      return [];
+    }
   }
 
   /** Async check — correctly validates department access against visible departments. */
@@ -124,11 +161,11 @@ export class DepartmentScopeService {
     }
   }
 
-  /** Async assertion — correctly handles Region Admin and Regional HR scope checking. */
+  /** Async assertion — correctly handles Region Admin, Regional HR, and LEADER scope checking. */
   async assertDepartmentAccessAsync(actor: AuthenticatedUser, departmentId: string): Promise<void> {
     const allowed = await this.canAccessDepartmentAsync(actor, departmentId);
     if (!allowed) {
-      throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền thao tác với phòng ban ngoài miền phụ trách');
+      throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền thao tác với phòng ban này');
     }
   }
 

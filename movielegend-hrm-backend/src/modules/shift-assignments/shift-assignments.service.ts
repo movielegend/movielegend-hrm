@@ -41,6 +41,16 @@ export class ShiftAssignmentsService {
         }
       }
 
+      const isLeaderActor = !actor.roles.includes('ADMIN') && !actor.roles.includes('HR');
+      if (isLeaderActor) {
+        const isTargetAdmin = user.roles.some(
+          (r: any) => r.role?.code === 'ADMIN' || r.role?.code === 'admin'
+        );
+        if (isTargetAdmin) {
+          throw badRequest('FORBIDDEN', 'Leader không thể phân ca cho Quản trị viên (Admin)');
+        }
+      }
+
       if (!shift) throw notFound('SHIFT_NOT_FOUND', 'Không tìm thấy ca làm');
       if (!shift.isActive || shift.deletedAt) throw badRequest('SHIFT_INACTIVE', 'Ca làm đã bị vô hiệu hóa');
       if (existing) throw conflict('SHIFT_ALREADY_ASSIGNED', 'Nhân viên đã được phân ca trong ngày này');
@@ -117,6 +127,19 @@ export class ShiftAssignmentsService {
       const createdAssignments = [];
       for (const userId of dto.userIds) {
         await this.scope.assertUserInDepartment(userId, dto.departmentId);
+        
+        if (!actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
+          const targetUser = await tx.user.findUnique({
+            where: { id: userId },
+            include: { roles: { include: { role: true } } },
+          });
+          const isTargetAdmin = targetUser?.roles.some(
+            (r: any) => r.role?.code === 'ADMIN' || r.role?.code === 'admin'
+          );
+          if (isTargetAdmin) {
+            throw badRequest('FORBIDDEN', `Leader không thể phân ca cho Quản trị viên (${targetUser?.userCode || userId})`);
+          }
+        }
         
         for (const dateStr of dto.dates) {
           const workDate = new Date(dateStr);

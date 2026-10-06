@@ -54,11 +54,9 @@ export class DepartmentsService {
   async findAll(search?: string, user?: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, ignoreScope?: boolean) {
     let scopeFilter: any = {};
     if (user && !ignoreScope) {
-      if (this.scopes.isRegionAdmin(user)) {
-        const visibleDepts = await this.scopes.getVisibleDepartmentIds(user);
-        if (visibleDepts !== null) {
-          scopeFilter = { id: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] } };
-        }
+      const visibleDepts = await this.scopes.getVisibleDepartmentIds(user);
+      if (visibleDepts !== null) {
+        scopeFilter = { id: { in: visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'] } };
       }
     }
 
