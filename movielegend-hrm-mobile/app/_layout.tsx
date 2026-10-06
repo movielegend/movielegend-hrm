@@ -126,9 +126,6 @@ import { CustomAlert, CustomAlertProvider } from '../src/components/CustomAlert'
 if (typeof globalThis !== 'undefined') {
   (globalThis as any).CustomAlert = CustomAlert;
 }
-if (typeof global !== 'undefined') {
-  (global as any).CustomAlert = CustomAlert;
-}
 
 export default function RootLayout() {
   return (

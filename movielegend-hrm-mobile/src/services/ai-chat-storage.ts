@@ -21,10 +21,11 @@ const STORAGE_FILE_NAME = 'ai_chat_sessions_v1.json';
 let inMemorySessionsCache: AiChatSession[] | null = null;
 
 function getFilePath(): string | null {
-  if (Platform.OS === 'web' || !FileSystem.documentDirectory) {
+  const docDir = (FileSystem as any).documentDirectory;
+  if (Platform.OS === 'web' || !docDir) {
     return null;
   }
-  return `${FileSystem.documentDirectory}${STORAGE_FILE_NAME}`;
+  return `${docDir}${STORAGE_FILE_NAME}`;
 }
 
 export async function loadAiSessions(): Promise<AiChatSession[]> {
@@ -174,6 +175,9 @@ export async function updateAiSession(
   }
 
   const existing = sessions[idx];
+  if (!existing) {
+    throw new Error(`Session with id ${sessionId} not found`);
+  }
   const now = Date.now();
 
   let title = existing.title;
@@ -182,7 +186,7 @@ export async function updateAiSession(
   } else if (
     (existing.title === 'Cuộc trò chuyện mới' || !existing.title) &&
     messages.length > 0 &&
-    messages[0].sender === 'user'
+    messages[0]?.sender === 'user'
   ) {
     title = generateSessionTitle(messages[0].text);
   }

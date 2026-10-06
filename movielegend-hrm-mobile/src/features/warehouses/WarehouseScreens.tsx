@@ -123,7 +123,7 @@ function SummaryTile({ label, value, danger }: { label: string; value: string; d
 }
 
 function WarehouseEditSection({ warehouseId }: { warehouseId: string }) {
-  const updateMutation = useUpdateWarehouse(warehouseId);
+  const updateMutation = useUpdateWarehouse();
   const { showAlert } = useAppAlert();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -207,7 +207,7 @@ export function WarehouseCreateScreen() {
           <FormField label="Company ID" value={companyId} onChangeText={setCompanyId} autoCapitalize="none" />
           <FormField label="Tên kho" value={name} onChangeText={setName} />
           <FormField label="Địa chỉ (tùy chọn)" value={address} onChangeText={setAddress} />
-          <PrimaryButton loading={create.isPending} disabled={!companyId.trim() || !name.trim()} onPress={() => void submit()}>
+          <PrimaryButton loading={createMutation.isPending} disabled={!companyId.trim() || !name.trim()} onPress={() => void submit()}>
             Tạo kho
           </PrimaryButton>
         </SectionCard>

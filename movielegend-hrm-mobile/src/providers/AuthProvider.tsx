@@ -140,6 +140,3 @@ export function useAuth(): AuthContextValue {
 if (typeof globalThis !== 'undefined') {
   (globalThis as any).useAuth = useAuth;
 }
-if (typeof global !== 'undefined') {
-  (global as any).useAuth = useAuth;
-}
