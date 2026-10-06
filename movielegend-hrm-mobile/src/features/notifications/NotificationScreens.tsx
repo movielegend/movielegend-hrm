@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -19,6 +20,7 @@ import {
   Inbox,
   MessageCircle,
   ShieldAlert,
+  Trash2,
   Wallet,
 } from 'lucide-react-native';
 import { ErrorState } from '../../components/ErrorState';
@@ -26,6 +28,8 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { Screen } from '../../components/Screen';
 import {
+  useDeleteAllNotifications,
+  useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
@@ -227,6 +231,8 @@ export function NotificationListScreen() {
   const unread = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
+  const deleteNotif = useDeleteNotification();
+  const deleteAll = useDeleteAllNotifications();
   const [activeTab, setActiveTab] = useState<TabType>('ALL');
 
   async function openNotification(target: NotificationTargetDto) {
@@ -261,16 +267,36 @@ export function NotificationListScreen() {
           subtitle={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Tất cả đã cập nhật'}
           showBack={false}
           right={
-            unreadCount > 0 ? (
-              <Pressable
-                style={({ pressed }) => [styles.markAllBtn, pressed && styles.markAllBtnPressed]}
-                onPress={() => void markAll.mutateAsync()}
-                disabled={markAll.isPending}
-              >
-                <CheckCheck size={16} strokeWidth={2.2} color={colors.primary} />
-                <Text style={styles.markAllText}>Đã đọc hết</Text>
-              </Pressable>
-            ) : undefined
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {unreadCount > 0 && (
+                <Pressable
+                  style={({ pressed }) => [styles.markAllBtn, pressed && styles.markAllBtnPressed]}
+                  onPress={() => void markAll.mutateAsync()}
+                  disabled={markAll.isPending}
+                >
+                  <CheckCheck size={16} strokeWidth={2.2} color={colors.primary} />
+                  <Text style={styles.markAllText}>Đã đọc hết</Text>
+                </Pressable>
+              )}
+              {rawList.length > 0 && (
+                <Pressable
+                  style={({ pressed }) => [styles.clearAllBtn, pressed && styles.markAllBtnPressed]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Xóa tất cả thông báo',
+                      'Bạn có chắc chắn muốn xóa tất cả thông báo không?',
+                      [
+                        { text: 'Hủy', style: 'cancel' },
+                        { text: 'Xóa tất cả', style: 'destructive', onPress: () => void deleteAll.mutateAsync() },
+                      ]
+                    );
+                  }}
+                  disabled={deleteAll.isPending}
+                >
+                  <Trash2 size={15} color="#94A3B8" />
+                </Pressable>
+              )}
+            </View>
           }
         />
 
@@ -353,6 +379,7 @@ export function NotificationListScreen() {
             <NotificationItemRow
               target={target}
               onPress={() => void openNotification(target)}
+              onDelete={() => void deleteNotif.mutate(target.id)}
             />
           )}
         />
@@ -364,9 +391,11 @@ export function NotificationListScreen() {
 export function NotificationItemRow({
   target,
   onPress,
+  onDelete,
 }: {
   target: NotificationTargetDto;
   onPress: () => void;
+  onDelete?: () => void;
 }) {
   const item = target.notification;
   const isUnread = !target.readAt;
@@ -422,6 +451,27 @@ export function NotificationItemRow({
 
         <Text style={styles.timeText}>{timeAgo(item.createdAt)}</Text>
       </View>
+
+      {/* Delete button */}
+      {onDelete && (
+        <Pressable
+          hitSlop={12}
+          style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
+          onPress={(e) => {
+            e.stopPropagation();
+            Alert.alert(
+              'Xóa thông báo',
+              'Bạn có muốn xóa thông báo này không?',
+              [
+                { text: 'Hủy', style: 'cancel' },
+                { text: 'Xóa', style: 'destructive', onPress: onDelete },
+              ]
+            );
+          }}
+        >
+          <Trash2 size={15} color="#94A3B8" />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -453,6 +503,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
+  },
+  clearAllBtn: {
+    padding: 7,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteBtn: {
+    padding: 8,
+    alignSelf: 'center',
+    marginLeft: 4,
   },
   tabsContainer: {
     flexDirection: 'row',

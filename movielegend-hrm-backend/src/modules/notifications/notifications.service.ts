@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, Prisma, TaskStatus } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
@@ -73,7 +73,20 @@ export class NotificationsService {
 
   async findMine(actor: AuthenticatedUser, skip = 0, take = 20) {
     const targets = await this.prisma.notificationTarget.findMany({
-      where: { userId: actor.userId },
+      where: {
+        userId: actor.userId,
+        notification: {
+          OR: [
+            { taskId: null },
+            {
+              task: {
+                deletedAt: null,
+                status: { not: TaskStatus.CANCELLED },
+              },
+            },
+          ],
+        },
+      },
       include: { notification: true },
       orderBy: { createdAt: 'desc' },
       skip,
@@ -93,7 +106,21 @@ export class NotificationsService {
 
   unreadCount(actor: AuthenticatedUser) {
     return this.prisma.notificationTarget.count({
-      where: { userId: actor.userId, readAt: null },
+      where: {
+        userId: actor.userId,
+        readAt: null,
+        notification: {
+          OR: [
+            { taskId: null },
+            {
+              task: {
+                deletedAt: null,
+                status: { not: TaskStatus.CANCELLED },
+              },
+            },
+          ],
+        },
+      },
     });
   }
 
@@ -113,6 +140,28 @@ export class NotificationsService {
     return this.prisma.notificationTarget.updateMany({
       where: { userId: actor.userId, readAt: null },
       data: { readAt: new Date() },
+    });
+  }
+
+  async remove(id: string, actor: AuthenticatedUser) {
+    const target = await this.prisma.notificationTarget.findFirst({
+      where: {
+        userId: actor.userId,
+        OR: [
+          { id },
+          { notificationId: id },
+        ],
+      },
+    });
+    if (!target) throw notFound('NOTIFICATION_NOT_FOUND', 'Notification not found');
+    return this.prisma.notificationTarget.delete({
+      where: { id: target.id },
+    });
+  }
+
+  async removeAll(actor: AuthenticatedUser) {
+    return this.prisma.notificationTarget.deleteMany({
+      where: { userId: actor.userId },
     });
   }
 

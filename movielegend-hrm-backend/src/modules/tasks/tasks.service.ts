@@ -370,6 +370,10 @@ export class TasksService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Tự động dọn dẹp toàn bộ thông báo liên quan đến công việc bị hủy
+      await tx.notification.deleteMany({
+        where: { taskId: id },
+      });
       await tx.taskAssignment.updateMany({
         where: { taskId: id },
         data: { status: TaskAssignmentStatus.CANCELLED },
@@ -404,9 +408,15 @@ export class TasksService {
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task || task.deletedAt) throw notFound('TASK_NOT_FOUND', 'Task not found');
     this.assertCanManageTask(task.departmentContextId, actor);
-    return this.prisma.task.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+    return this.prisma.$transaction(async (tx) => {
+      // Tự động dọn dẹp toàn bộ thông báo liên quan đến công việc bị xóa
+      await tx.notification.deleteMany({
+        where: { taskId: id },
+      });
+      return tx.task.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
     });
   }
 

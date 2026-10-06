@@ -7,7 +7,14 @@ if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
 }
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { registerDeviceToken, revokeDeviceToken } from '../api/device-tokens.api';
-import { getMyNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from '../api/notifications.api';
+import { 
+  getMyNotifications, 
+  getUnreadNotificationCount, 
+  markAllNotificationsRead, 
+  markNotificationRead,
+  deleteNotification,
+  deleteAllNotifications
+} from '../api/notifications.api';
 import { markGroupAsRead, fetchMyChatGroups } from '../api/chat.api';
 import { queryKeys, chatKeys } from '../constants/queryKeys';
 import type { DevicePlatform } from '../types/notification.types';
@@ -57,6 +64,22 @@ export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: markAllNotificationsRead,
+    onSuccess: () => invalidateNotifications(queryClient),
+  });
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => invalidateNotifications(queryClient),
+  });
+}
+
+export function useDeleteAllNotifications() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteAllNotifications(),
     onSuccess: () => invalidateNotifications(queryClient),
   });
 }

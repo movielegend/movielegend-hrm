@@ -21,3 +21,11 @@ export async function markAllNotificationsRead(): Promise<{ count: number }> {
   const response = await apiClient.patch<ApiResponse<{ count: number }>>('/notifications/read-all');
   return unwrapData(response);
 }
+
+export async function deleteNotification(id: string): Promise<void> {
+  await apiClient.delete(`/notifications/${id}`);
+}
+
+export async function deleteAllNotifications(): Promise<void> {
+  await apiClient.delete('/notifications');
+}

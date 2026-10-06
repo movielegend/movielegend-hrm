@@ -40,6 +40,18 @@ export class NotificationsController {
     return this.notifications.markAllRead(actor);
   }
 
+  @Delete(':id')
+  @Permissions('notification.read')
+  remove(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.notifications.remove(id, actor);
+  }
+
+  @Delete()
+  @Permissions('notification.read')
+  removeAll(@CurrentUser() actor: AuthenticatedUser) {
+    return this.notifications.removeAll(actor);
+  }
+
   @Post('device-tokens')
   @Permissions('device_token.manage_own')
   registerDevice(@Body() dto: RegisterDeviceTokenDto, @CurrentUser() actor: AuthenticatedUser) {
