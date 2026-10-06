@@ -39,7 +39,7 @@ export class TasksController {
   }
 
   @Get('me')
-  @AnyPermissions('task.read_own', 'task.read_all', 'task.read_department')
+  @Permissions('task.read_own')
   findMine(@CurrentUser() actor: AuthenticatedUser, @Query() query: TaskQueryDto) {
     return this.tasks.findMine(actor, query);
   }
