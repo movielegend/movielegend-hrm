@@ -153,6 +153,8 @@ export function usePushNotificationSetup() {
             .catch(() => {});
         }
 
+        if (!user) return;
+
         if (data && data.type) {
           const mockTarget = {
             id: data.notificationId || 'mock',

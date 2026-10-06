@@ -1,14 +1,21 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Toast from 'react-native-toast-message';
+import { LogBox, View, Text } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Provider as PaperProvider } from 'react-native-paper';
+
 import { AuthProvider } from '../src/providers/AuthProvider';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { SocketProvider } from '../src/providers/SocketProvider';
-import { LogBox, View, Text } from 'react-native';
 import { usePushNotificationSetup } from '../src/hooks/useNotifications';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-// LiveKit globals are registered dynamically inside VoiceCallProvider on demand
+import { VoiceCallProvider } from '../src/features/voice-call/VoiceCallProvider';
+import { UserGuideManager } from '../src/components/UserGuideManager';
+import { AlertProvider } from '../src/contexts/AlertContext';
+import { ActiveChatProvider } from '../src/contexts/ActiveChatContext';
+import { InAppChatNotificationBanner } from '../src/components/InAppChatNotificationBanner';
+import { CustomAlert, CustomAlertProvider } from '../src/components/CustomAlert';
 
 LogBox.ignoreLogs([
   'expo-notifications: Android Push notifications',
@@ -16,6 +23,10 @@ LogBox.ignoreLogs([
   'Cannot find view with reactTag',
   "The action 'GO_BACK' was not handled by any navigator",
 ]);
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).CustomAlert = CustomAlert;
+}
 
 // ── Custom Toast Config ──
 const toastConfig = {
@@ -115,16 +126,28 @@ function PushNotificationWrapper({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-import { VoiceCallProvider } from '../src/features/voice-call/VoiceCallProvider';
-import { UserGuideManager } from '../src/components/UserGuideManager';
-import { Provider as PaperProvider } from 'react-native-paper';
-import { AlertProvider } from '../src/contexts/AlertContext';
-import { ActiveChatProvider } from '../src/contexts/ActiveChatContext';
-import { InAppChatNotificationBanner } from '../src/components/InAppChatNotificationBanner';
-import { CustomAlert, CustomAlertProvider } from '../src/components/CustomAlert';
-
-if (typeof globalThis !== 'undefined') {
-  (globalThis as any).CustomAlert = CustomAlert;
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={56} color="#EF4444" />
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginTop: 16, marginBottom: 8 }}>
+          Đã xảy ra lỗi
+        </Text>
+        <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24 }}>
+          {error?.message || 'Không thể khởi động ứng dụng.'}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Text
+            onPress={retry}
+            style={{ backgroundColor: '#111827', color: '#FFFFFF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, fontWeight: '600', fontSize: 15 }}
+          >
+            Thử lại
+          </Text>
+        </View>
+      </View>
+    </SafeAreaProvider>
+  );
 }
 
 export default function RootLayout() {
