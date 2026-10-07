@@ -401,6 +401,13 @@ export function LeaderDashboard() {
               bgColor="#EFF6FF"
               onPress={() => router.push('/leader/attendance-history' as any)}
             />
+            <GridItem4
+              icon="video-vintage"
+              title="Duyệt OT Live"
+              color="#EA580C"
+              bgColor="#FFF7ED"
+              onPress={() => router.push('/leader/ot-report-approvals' as any)}
+            />
 
             {/* Nhóm 2: Hành chính & Đơn từ (Teal thanh lịch) */}
             <GridItem4

@@ -374,6 +374,13 @@ export function EmployeeDashboardScreen() {
               bgColor="#EFF6FF"
               onPress={() => router.push('/employee/shift-swaps')}
             />
+            <GridItem4
+              icon="video-vintage"
+              title="OT Live"
+              color="#EA580C"
+              bgColor="#FFF7ED"
+              onPress={() => router.push('/employee/ot-report' as any)}
+            />
 
             {/* Nhóm 2: Hành chính & Đơn từ (Teal thanh lịch) */}
             <GridItem4
