@@ -20,7 +20,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { SectionCard } from '../../components/SectionCard';
-import { StatusBadge } from '../../components/StatusBadge';
+import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 import { CustomTimePickerModal } from '../../components/CustomTimePickerModal';
 import {
@@ -77,8 +77,12 @@ export function OtReportHomeScreen() {
 }
 
 interface UploadedPhoto {
-  fileId: string;
-  url: string;
+  id: string;
+  localUri: string;
+  fileId?: string;
+  url?: string;
+  isUploading?: boolean;
+  error?: string;
 }
 
 export function CreateOtReportScreen() {
@@ -102,7 +106,6 @@ export function CreateOtReportScreen() {
   const [proposedPercent, setProposedPercent] = useState('100');
   const [reason, setReason] = useState('');
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
-  const [uploading, setUploading] = useState(false);
 
   const { showAlert } = useAppAlert();
   const router = useRouter();
@@ -114,6 +117,49 @@ export function CreateOtReportScreen() {
     const d = String(date.getDate()).padStart(2, '0');
     setOtDateStr(`${y}-${m}-${d}`);
     setDateModalVisible(false);
+  };
+
+  const uploadSinglePhoto = async (photoId: string, uri: string, rawFileName?: string | null, rawMimeType?: string | null) => {
+    try {
+      const fileName = rawFileName || `ot_proof_${Date.now()}.jpg`;
+      const mimeType = rawMimeType || 'image/jpeg';
+      const uploaded = await uploadFile({
+        uri,
+        mimeType,
+        name: fileName,
+        purpose: 'OT_REPORT_ATTACHMENT' as any,
+      });
+
+      const fileId = uploaded?.fileId || (uploaded as any)?.id;
+      if (!fileId) {
+        throw new Error('Máy chủ không trả về mã file hợp lệ');
+      }
+
+      setPhotos((prev) =>
+        prev.map((item) =>
+          item.id === photoId
+            ? {
+                ...item,
+                fileId,
+                url: resolveFileUrl(uploaded.fileUrl) || uri,
+                isUploading: false,
+                error: undefined,
+              }
+            : item
+        )
+      );
+    } catch (e: any) {
+      console.error('[Upload Photo Error]:', e?.stack || e);
+      const errMsg = e?.message || 'Không thể tải ảnh lên máy chủ.';
+      setPhotos((prev) =>
+        prev.map((item) =>
+          item.id === photoId
+            ? { ...item, isUploading: false, error: errMsg }
+            : item
+        )
+      );
+      showAlert('Lỗi tải ảnh', errMsg);
+    }
   };
 
   const handlePickImage = async () => {
@@ -128,37 +174,26 @@ export function CreateOtReportScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setUploading(true);
-        const uploadedList: UploadedPhoto[] = [];
+        const newItems: { photo: UploadedPhoto; asset: (typeof result.assets)[0] }[] = result.assets.map(
+          (asset, idx) => ({
+            photo: {
+              id: `local_${Date.now()}_${idx}_${Math.random().toString(36).substring(7)}`,
+              localUri: asset.uri,
+              isUploading: true,
+            },
+            asset,
+          })
+        );
 
-        for (const asset of result.assets) {
-          try {
-            const uploaded = await uploadFile({
-              uri: asset.uri,
-              mimeType: asset.mimeType || 'image/jpeg',
-              name: asset.fileName || `ot_proof_${Date.now()}.jpg`,
-              purpose: 'OT_REPORT_ATTACHMENT' as any,
-            });
-            const fileId = uploaded?.fileId || (uploaded as any)?.id;
-            if (fileId) {
-              uploadedList.push({
-                fileId,
-                url: resolveFileUrl(uploaded.fileUrl) || asset.uri,
-              });
-            } else {
-              console.warn('Upload returned without fileId:', uploaded);
-            }
-          } catch (e: any) {
-            console.error('Lỗi upload ảnh:', e);
-            showAlert('Lỗi tải ảnh', e?.message || 'Không thể upload ảnh lên máy chủ.');
-          }
+        // Hiển thị ngay lập tức lên giao diện để người dùng thấy ảnh
+        setPhotos((prev) => [...prev, ...newItems.map((n) => n.photo)]);
+
+        // Chạy upload song song từng ảnh
+        for (const item of newItems) {
+          void uploadSinglePhoto(item.photo.id, item.asset.uri, item.asset.fileName, item.asset.mimeType);
         }
-
-        setPhotos((prev) => [...prev, ...uploadedList]);
-        setUploading(false);
       }
     } catch (err: any) {
-      setUploading(false);
       showAlert('Lỗi', err?.message || 'Không thể chọn ảnh, vui lòng thử lại.');
     }
   };
@@ -174,44 +209,50 @@ export function CreateOtReportScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setUploading(true);
         const asset = result.assets[0];
-        try {
-          const uploaded = await uploadFile({
-            uri: asset.uri,
-            mimeType: asset.mimeType || 'image/jpeg',
-            name: asset.fileName || `ot_cam_${Date.now()}.jpg`,
-            purpose: 'OT_REPORT_ATTACHMENT' as any,
-          });
+        if (!asset) return;
+        const newPhoto: UploadedPhoto = {
+          id: `cam_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          localUri: asset.uri,
+          isUploading: true,
+        };
 
-          const fileId = uploaded?.fileId || (uploaded as any)?.id;
-          if (fileId) {
-            setPhotos((prev) => [
-              ...prev,
-              {
-                fileId,
-                url: resolveFileUrl(uploaded.fileUrl) || asset.uri,
-              },
-            ]);
-          }
-        } catch (e: any) {
-          console.error('Lỗi chụp/upload ảnh:', e);
-          showAlert('Lỗi tải ảnh', e?.message || 'Không thể upload ảnh chụp.');
-        }
-        setUploading(false);
+        // Hiển thị ngay lập tức ảnh chụp lên giao diện
+        setPhotos((prev) => [...prev, newPhoto]);
+
+        void uploadSinglePhoto(newPhoto.id, asset.uri, asset.fileName, asset.mimeType);
       }
     } catch (err: any) {
-      setUploading(false);
       showAlert('Lỗi', err?.message || 'Không thể chụp ảnh, vui lòng thử lại.');
     }
   };
 
-  const handleRemovePhoto = (fileId: string) => {
-    setPhotos((prev) => prev.filter((p) => p.fileId !== fileId));
+  const handleRemovePhoto = (id: string) => {
+    setPhotos((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleRetryPhoto = (photo: UploadedPhoto) => {
+    setPhotos((prev) =>
+      prev.map((item) => (item.id === photo.id ? { ...item, isUploading: true, error: undefined } : item))
+    );
+    void uploadSinglePhoto(photo.id, photo.localUri);
   };
 
   async function submit() {
-    if (!photos.length) {
+    const isAnyUploading = photos.some((p) => p.isUploading);
+    if (isAnyUploading) {
+      showAlert('Đang tải ảnh', 'Có ảnh vẫn đang được tải lên máy chủ, vui lòng chờ trong giây lát.');
+      return;
+    }
+
+    const failedCount = photos.filter((p) => p.error).length;
+    if (failedCount > 0) {
+      showAlert('Ảnh bị lỗi', 'Có ảnh bị lỗi tải lên. Vui lòng bấm vào ảnh để thử lại hoặc xóa ảnh lỗi.');
+      return;
+    }
+
+    const validFileIds = photos.map((p) => p.fileId).filter(Boolean) as string[];
+    if (!validFileIds.length) {
       showAlert('Thiếu ảnh bằng chứng', 'Bắt buộc đính kèm ít nhất 1 ảnh làm việc ca live.');
       return;
     }
@@ -235,7 +276,7 @@ export function CreateOtReportScreen() {
         endTime: endIso,
         proposedPercent: Number(proposedPercent) || 100,
         reason,
-        photoFileIds: photos.map((p) => p.fileId),
+        photoFileIds: validFileIds,
       });
       showAlert('Thành công', 'Đã gửi báo cáo OT, chờ Leader duyệt.');
       router.back();
@@ -330,39 +371,44 @@ export function CreateOtReportScreen() {
             {/* Danh sách ảnh đã chọn */}
             <View style={styles.photoGrid}>
               {photos.map((p) => (
-                <View key={p.fileId} style={styles.photoThumbnail}>
-                  <Image source={{ uri: p.url }} style={styles.thumbnailImage} />
+                <View key={p.id} style={[styles.photoThumbnail, p.error && styles.photoThumbnailError]}>
+                  <Image source={{ uri: p.url || p.localUri }} style={styles.thumbnailImage} />
+                  {p.isUploading && (
+                    <View style={styles.uploadingOverlay}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text style={styles.uploadingOverlayText}>Đang tải...</Text>
+                    </View>
+                  )}
+                  {p.error && (
+                    <Pressable style={styles.errorOverlay} onPress={() => handleRetryPhoto(p)}>
+                      <MaterialCommunityIcons name="reload" size={12} color="#DC2626" />
+                      <Text style={styles.errorOverlayText}>Thử lại</Text>
+                    </Pressable>
+                  )}
                   <Pressable
                     style={styles.removePhotoButton}
-                    onPress={() => handleRemovePhoto(p.fileId)}
+                    onPress={() => handleRemovePhoto(p.id)}
                   >
                     <MaterialCommunityIcons name="close" size={14} color="#FFFFFF" />
                   </Pressable>
                 </View>
               ))}
-
-              {uploading && (
-                <View style={[styles.photoThumbnail, styles.photoUploading]}>
-                  <ActivityIndicator size="small" color="#2563EB" />
-                  <Text style={styles.uploadingText}>Đang tải...</Text>
-                </View>
-              )}
             </View>
 
             {/* Các nút bấm chọn ảnh / chụp ảnh */}
             <View style={styles.photoActionRow}>
-              <Pressable style={styles.photoActionButton} onPress={handlePickImage} disabled={uploading}>
+              <Pressable style={styles.photoActionButton} onPress={handlePickImage}>
                 <MaterialCommunityIcons name="image-multiple" size={20} color="#2563EB" />
                 <Text style={styles.photoActionText}>Chọn từ thư viện</Text>
               </Pressable>
-              <Pressable style={styles.photoActionButton} onPress={handleTakePhoto} disabled={uploading}>
+              <Pressable style={styles.photoActionButton} onPress={handleTakePhoto}>
                 <MaterialCommunityIcons name="camera" size={20} color="#059669" />
                 <Text style={styles.photoActionText}>Chụp ảnh mới</Text>
               </Pressable>
             </View>
           </View>
 
-          <PrimaryButton onPress={submit} disabled={mutation.isPending || uploading}>
+          <PrimaryButton onPress={submit} disabled={mutation.isPending}>
             {mutation.isPending ? 'Đang gửi...' : 'Gửi báo cáo OT'}
           </PrimaryButton>
         </SectionCard>
@@ -462,7 +508,10 @@ export function LeaderOtReviewScreen() {
                 <Text style={styles.employeeName}>
                   {report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên'}
                 </Text>
-                <StatusBadge status={report.status} />
+                <StatusBadge
+                  label={report.status === 'APPROVED' ? 'Đã duyệt' : report.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                  tone={toneForStatus(report.status)}
+                />
               </View>
               <Text style={styles.cardText}>Ngày OT: {formatDate(report.otDate)}</Text>
               <Text style={styles.cardText}>
@@ -509,7 +558,10 @@ function OtReportCard({ report }: { report: OtReport }) {
     <View style={styles.card}>
       <View style={styles.row}>
         <Text style={styles.cardTitle}>{formatDate(report.otDate)}</Text>
-        <StatusBadge status={report.status} />
+        <StatusBadge
+          label={report.status === 'APPROVED' ? 'Đã duyệt' : report.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+          tone={toneForStatus(report.status)}
+        />
       </View>
       <Text style={styles.cardText}>
         Thời gian: {formatDateTime(report.startTime)} - {formatDateTime(report.endTime)}
@@ -576,7 +628,7 @@ const styles = StyleSheet.create({
   },
   cardText: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.muted,
   },
   cardTextBold: {
     fontSize: 13,
@@ -684,6 +736,45 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
+  },
+  photoThumbnailError: {
+    borderColor: '#DC2626',
+    borderWidth: 2,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 2,
+  },
+  uploadingOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  errorOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FEE2E2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 3,
+  },
+  errorOverlayText: {
+    color: '#DC2626',
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 3,
   },
   photoUploading: {
     alignItems: 'center',

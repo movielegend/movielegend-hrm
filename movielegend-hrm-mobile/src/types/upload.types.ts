@@ -6,7 +6,9 @@ export type UploadPurpose =
   | 'CONTRACT_TEMPLATE'
   | 'SIGNATURE'
   | 'KPI_EVIDENCE'
-  | 'ASSET_INCIDENT';
+  | 'ASSET_INCIDENT'
+  | 'CANDIDATE_CV'
+  | 'OT_REPORT_ATTACHMENT';
 
 export type UploadStatus = 'IDLE' | 'UPLOADING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 
