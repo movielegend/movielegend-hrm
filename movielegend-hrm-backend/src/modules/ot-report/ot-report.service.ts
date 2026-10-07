@@ -35,7 +35,7 @@ export class OtReportService {
   }
 
   /**
-   * Tính số phút OT hợp lệ dựa trên các lượt làm việc thực tế và mốc tích lũy 5 giờ (300 phút)
+   * Tính số phút OT hợp lệ dựa trên các lượt làm việc thực tế kết hợp khoảng thời gian báo cáo và mốc tích lũy 5 giờ (300 phút)
    */
   async calculateValidOtMinutes(
     userId: string,
@@ -45,28 +45,59 @@ export class OtReportService {
   ): Promise<number> {
     if (otEnd <= otStart) return 0;
 
-    // Lấy tất cả các lượt làm việc đã hoàn thành (có checkOutAt) trong ngày công này
+    // Lấy tất cả các lượt làm việc trong ngày công này
     const records = await this.prisma.attendanceRecord.findMany({
       where: {
         userId,
         workDate: otDate,
-        checkOutAt: { not: null },
       },
       orderBy: { checkInAt: 'asc' },
     });
 
+    // Bắt buộc phải có ít nhất 1 lần check-in trong ngày
     if (records.length === 0) return 0;
 
+    // Tập hợp tất cả các khoảng thời gian làm việc (từ check-in/out và từ đơn báo cáo OT)
+    const rawIntervals: Array<{ start: Date; end: Date }> = [];
+
+    for (const r of records) {
+      const inTime = new Date(r.checkInAt);
+      const outTime = r.checkOutAt ? new Date(r.checkOutAt) : null;
+      if (outTime && outTime > inTime) {
+        rawIntervals.push({ start: inTime, end: outTime });
+      }
+    }
+
+    // Đưa khoảng thời gian khai báo OT vào tổng thời gian làm việc trong ngày
+    rawIntervals.push({ start: otStart, end: otEnd });
+
+    // Sắp xếp theo thời gian bắt đầu
+    rawIntervals.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // Hợp nhất (Merge) các khoảng thời gian trùng nhau hoặc liền kề
+    const mergedIntervals: Array<{ start: Date; end: Date }> = [];
+    for (const interval of rawIntervals) {
+      if (mergedIntervals.length === 0) {
+        mergedIntervals.push({ start: new Date(interval.start), end: new Date(interval.end) });
+      } else {
+        const last = mergedIntervals[mergedIntervals.length - 1];
+        if (interval.start.getTime() <= last.end.getTime()) {
+          if (interval.end.getTime() > last.end.getTime()) {
+            last.end = new Date(interval.end);
+          }
+        } else {
+          mergedIntervals.push({ start: new Date(interval.start), end: new Date(interval.end) });
+        }
+      }
+    }
+
+    // Tính mốc tích lũy 5 giờ (300 phút) trên toàn bộ dòng thời gian làm việc đã hợp nhất
     let cumulativeWorkedMinutes = 0;
     const eligibleOtIntervals: Array<{ start: Date; end: Date }> = [];
     const FIVE_HOURS_MINUTES = 300;
 
-    for (const r of records) {
-      if (!r.checkOutAt) continue;
-      const inTime = new Date(r.checkInAt);
-      const outTime = new Date(r.checkOutAt);
-      const sessionDuration = Math.max(0, Math.floor((outTime.getTime() - inTime.getTime()) / 60_000));
-
+    for (const interval of mergedIntervals) {
+      const sessionDuration = Math.max(0, Math.floor((interval.end.getTime() - interval.start.getTime()) / 60_000));
       if (sessionDuration <= 0) continue;
 
       const previousCumulative = cumulativeWorkedMinutes;
@@ -74,20 +105,20 @@ export class OtReportService {
 
       if (cumulativeWorkedMinutes > FIVE_HOURS_MINUTES) {
         if (previousCumulative >= FIVE_HOURS_MINUTES) {
-          // Toàn bộ lượt này nằm sau mốc 5 giờ
-          eligibleOtIntervals.push({ start: inTime, end: outTime });
+          // Toàn bộ khoảng này nằm sau mốc 5 giờ
+          eligibleOtIntervals.push({ start: interval.start, end: interval.end });
         } else {
-          // Mốc 5 giờ đạt được ngay trong lượt này
+          // Mốc 5 giờ đạt được ngay trong khoảng này
           const minutesNeededToReachFiveHours = FIVE_HOURS_MINUTES - previousCumulative;
-          const milestoneTime = new Date(inTime.getTime() + minutesNeededToReachFiveHours * 60_000);
-          eligibleOtIntervals.push({ start: milestoneTime, end: outTime });
+          const milestoneTime = new Date(interval.start.getTime() + minutesNeededToReachFiveHours * 60_000);
+          eligibleOtIntervals.push({ start: milestoneTime, end: interval.end });
         }
       }
     }
 
     if (eligibleOtIntervals.length === 0) return 0;
 
-    // Đối chiếu giao điểm giữa các khoảng đủ điều kiện OT và khoảng giờ đề xuất [otStart, otEnd]
+    // Đối chiếu giao điểm giữa các khoảng sau mốc 5 giờ và khoảng giờ đề xuất [otStart, otEnd]
     let totalValidMinutes = 0;
     for (const interval of eligibleOtIntervals) {
       const overlapStart = interval.start > otStart ? interval.start : otStart;
@@ -100,28 +131,21 @@ export class OtReportService {
     return totalValidMinutes;
   }
 
-  /**
-   * Tạo mới báo cáo OT (Nhân viên phòng Live)
-   */
   async create(actor: AuthenticatedUser, dto: CreateOtReportDto) {
-    // 1. Kiểm tra nhân viên thuộc phòng Live
-    const primaryDep = await this.prisma.departmentMember.findFirst({
-      where: { userId: actor.userId, isPrimary: true },
+    // 1. Kiểm tra nhân viên thuộc phòng Live (hỗ trợ nhân sự thuộc nhiều phòng ban)
+    const memberships = await this.prisma.departmentMember.findMany({
+      where: { userId: actor.userId, leftAt: null },
       include: { department: true },
     });
-    let department = primaryDep?.department;
-    if (!department) {
-      const anyDep = await this.prisma.departmentMember.findFirst({
-        where: { userId: actor.userId, leftAt: null },
-        include: { department: true },
-      });
-      department = anyDep?.department;
+    if (!memberships.length) {
+      throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban của bạn');
     }
-    if (!department) throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban của bạn');
 
-    if (!this.isLiveDepartment(department)) {
+    const liveMembership = memberships.find((m) => this.isLiveDepartment(m.department));
+    if (!liveMembership || !liveMembership.department) {
       throw forbidden('NOT_LIVE_DEPARTMENT', 'Tính năng Báo cáo OT này chỉ áp dụng cho nhân viên phòng Live');
     }
+    const department = liveMembership.department;
 
     // 2. Kiểm tra khoảng ngày OT: Trong hôm nay và 2 ngày trước (Window T-2 đến T)
     const todayStr = this.businessTime.businessDateString(new Date());
@@ -147,7 +171,7 @@ export class OtReportService {
       throw badRequest('NO_CHECKIN_FOUND', 'Ngày được chọn không có dữ liệu check-in');
     }
 
-    // 4. Kiểm tra mỗi nhân viên chỉ có 1 báo cáo cho mỗi ngày OT
+    // 4. Kiểm tra mỗi nhân viên chỉ có 1 báo cáo cho mỗi ngày OT (nếu đã REJECTED thì cho phép nộp lại)
     const existing = await this.prisma.otReport.findUnique({
       where: {
         userId_otDate: {
@@ -157,7 +181,13 @@ export class OtReportService {
       },
     });
     if (existing) {
-      throw conflict('OT_REPORT_EXISTS', 'Bạn đã tạo báo cáo OT cho ngày này. Vui lòng mở báo cáo hiện có để chỉnh sửa!');
+      if (existing.status === OtReportStatus.PENDING) {
+        throw conflict('OT_REPORT_EXISTS', 'Bạn đã tạo báo cáo OT cho ngày này đang chờ duyệt. Vui lòng mở báo cáo hiện có để chỉnh sửa!');
+      }
+      if (existing.status === OtReportStatus.APPROVED) {
+        throw conflict('OT_REPORT_EXISTS', 'Báo cáo OT cho ngày này đã được duyệt thành công.');
+      }
+      // Nếu trạng thái là REJECTED: Cho phép ghi đè/nộp lại đơn mới!
     }
 
     const otStart = new Date(dto.startTime);
@@ -171,44 +201,82 @@ export class OtReportService {
 
     // 6. Lưu báo cáo và đính kèm ảnh
     return this.prisma.$transaction(async (tx) => {
-      const report = await tx.otReport.create({
-        data: {
-          userId: actor.userId,
-          departmentId: department.id,
-          otDate: otWorkDate,
-          startTime: otStart,
-          endTime: otEnd,
-          proposedPercent: dto.proposedPercent || 100,
-          reason: dto.reason,
-          status: OtReportStatus.PENDING,
-          validOtMinutes,
-          photos: {
-            create: dto.photoFileIds.map((fileId) => ({ fileId })),
+      let report;
+      if (existing && existing.status === OtReportStatus.REJECTED) {
+        // Xóa ảnh cũ của báo cáo bị từ chối
+        await tx.otReportPhoto.deleteMany({ where: { otReportId: existing.id } });
+
+        // Cập nhật lại đơn bị từ chối thành PENDING với dữ liệu mới
+        report = await tx.otReport.update({
+          where: { id: existing.id },
+          data: {
+            startTime: otStart,
+            endTime: otEnd,
+            proposedPercent: dto.proposedPercent || 100,
+            approvedPercent: null,
+            reason: dto.reason,
+            status: OtReportStatus.PENDING,
+            validOtMinutes,
+            rejectionReason: null,
+            decidedByUserId: null,
+            decidedAt: null,
+            photos: {
+              create: dto.photoFileIds.map((fileId) => ({ fileId })),
+            },
           },
-        },
-        include: {
-          photos: {
-            include: { file: true },
+          include: {
+            photos: {
+              include: { file: true },
+            },
+            user: {
+              select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } },
+            },
+            department: {
+              select: { id: true, name: true, code: true },
+            },
           },
-          user: {
-            select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } },
+        });
+      } else {
+        report = await tx.otReport.create({
+          data: {
+            userId: actor.userId,
+            departmentId: department.id,
+            otDate: otWorkDate,
+            startTime: otStart,
+            endTime: otEnd,
+            proposedPercent: dto.proposedPercent || 100,
+            reason: dto.reason,
+            status: OtReportStatus.PENDING,
+            validOtMinutes,
+            photos: {
+              create: dto.photoFileIds.map((fileId) => ({ fileId })),
+            },
           },
-          department: {
-            select: { id: true, name: true, code: true },
+          include: {
+            photos: {
+              include: { file: true },
+            },
+            user: {
+              select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } },
+            },
+            department: {
+              select: { id: true, name: true, code: true },
+            },
           },
-        },
-      });
+        });
+      }
 
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
-          action: 'ot_report.create',
+          action: existing ? 'ot_report.resubmit' : 'ot_report.create',
           entityType: 'OtReport',
           entityId: report.id,
           metadata: {
             otDate: dto.otDate,
             proposedPercent: report.proposedPercent,
             validOtMinutes,
+            resubmitted: !!existing,
           },
         },
       });
@@ -218,7 +286,7 @@ export class OtReportService {
   }
 
   /**
-   * Chỉnh sửa báo cáo OT (Chỉ khi ở trạng thái Chờ duyệt PENDING)
+   * Chỉnh sửa báo cáo OT (Khi ở trạng thái PENDING hoặc REJECTED muốn nộp lại)
    */
   async update(id: string, actor: AuthenticatedUser, dto: UpdateOtReportDto) {
     const report = await this.prisma.otReport.findUnique({
@@ -231,10 +299,10 @@ export class OtReportService {
       throw forbidden('FORBIDDEN', 'Bạn không có quyền chỉnh sửa báo cáo OT này');
     }
 
-    if (report.status !== OtReportStatus.PENDING) {
+    if (report.status !== OtReportStatus.PENDING && report.status !== OtReportStatus.REJECTED) {
       throw badRequest(
         'OT_REPORT_LOCKED',
-        'Báo cáo OT đã được xử lý (Đã duyệt hoặc Không công nhận), không thể chỉnh sửa',
+        'Báo cáo OT đã được duyệt thành công, không thể chỉnh sửa',
       );
     }
 
@@ -261,8 +329,13 @@ export class OtReportService {
           startTime: otStart,
           endTime: otEnd,
           proposedPercent: dto.proposedPercent !== undefined ? dto.proposedPercent : report.proposedPercent,
+          approvedPercent: null,
           reason: dto.reason !== undefined ? dto.reason : report.reason,
+          status: OtReportStatus.PENDING,
           validOtMinutes,
+          rejectionReason: null,
+          decidedByUserId: null,
+          decidedAt: null,
         },
         include: {
           photos: {
@@ -439,8 +512,31 @@ export class OtReportService {
       this.prisma.otReport.count({ where }),
     ]);
 
+    const populatedItems = await Promise.all(
+      items.map(async (item) => {
+        if (item.status === OtReportStatus.PENDING) {
+          const freshMinutes = await this.calculateValidOtMinutes(
+            item.userId,
+            item.otDate,
+            item.startTime,
+            item.endTime,
+          );
+          if (freshMinutes !== item.validOtMinutes) {
+            item.validOtMinutes = freshMinutes;
+            void this.prisma.otReport
+              .update({
+                where: { id: item.id },
+                data: { validOtMinutes: freshMinutes },
+              })
+              .catch(() => null);
+          }
+        }
+        return item;
+      }),
+    );
+
     return {
-      items,
+      items: populatedItems,
       pagination: {
         page,
         limit,
@@ -484,8 +580,31 @@ export class OtReportService {
       this.prisma.otReport.count({ where }),
     ]);
 
+    const populatedItems = await Promise.all(
+      items.map(async (item) => {
+        if (item.status === OtReportStatus.PENDING) {
+          const freshMinutes = await this.calculateValidOtMinutes(
+            item.userId,
+            item.otDate,
+            item.startTime,
+            item.endTime,
+          );
+          if (freshMinutes !== item.validOtMinutes) {
+            item.validOtMinutes = freshMinutes;
+            void this.prisma.otReport
+              .update({
+                where: { id: item.id },
+                data: { validOtMinutes: freshMinutes },
+              })
+              .catch(() => null);
+          }
+        }
+        return item;
+      }),
+    );
+
     return {
-      items,
+      items: populatedItems,
       pagination: {
         page,
         limit,
@@ -509,12 +628,29 @@ export class OtReportService {
         department: { select: { id: true, name: true, code: true } },
       },
     });
-
     if (!report) throw notFound('OT_REPORT_NOT_FOUND', 'Không tìm thấy báo cáo OT');
 
     // Chỉ chính chủ hoặc Leader có quyền truy cập
     if (report.userId !== actor.userId) {
       await this.scope.assertDepartmentAccessAsync(actor, report.departmentId);
+    }
+
+    if (report.status === OtReportStatus.PENDING) {
+      const freshMinutes = await this.calculateValidOtMinutes(
+        report.userId,
+        report.otDate,
+        report.startTime,
+        report.endTime,
+      );
+      if (freshMinutes !== report.validOtMinutes) {
+        report.validOtMinutes = freshMinutes;
+        void this.prisma.otReport
+          .update({
+            where: { id: report.id },
+            data: { validOtMinutes: freshMinutes },
+          })
+          .catch(() => null);
+      }
     }
 
     return report;

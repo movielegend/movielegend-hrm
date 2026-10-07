@@ -6,6 +6,7 @@ import {
   LeaveRequestStatus,
   NotificationType,
   OvertimeRequestStatus,
+  OtReportStatus,
   PayrollItemType,
   PayrollPeriodStatus,
   PayrollStatus,
@@ -1052,15 +1053,43 @@ export class PayrollService {
   }
 
   private async attendanceSummary(userId: string, startDate: Date, endDate: Date) {
-    const records = await this.prisma.attendanceRecord.findMany({
-      where: { userId, workDate: { gte: startDate, lte: endDate } },
-      include: { shiftAssignment: { include: { shift: true } } },
-    });
+    const [records, memberships] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where: { userId, workDate: { gte: startDate, lte: endDate } },
+        include: { shiftAssignment: { include: { shift: true } } },
+      }),
+      this.prisma.departmentMember.findMany({
+        where: { userId, leftAt: null },
+        include: { department: true },
+      }),
+    ]);
+
+    const isLive = memberships.some((m) =>
+      Boolean(
+        (m.department?.name && m.department.name.toLowerCase().includes('live')) ||
+        (m.department?.code && m.department.code.toLowerCase().includes('live')),
+      ),
+    );
+
+    let actualWorkingDays = 0;
     let regularWorkedMinutes = 0;
     let lateMinutes = 0;
     let earlyLeaveMinutes = 0;
+
     for (const record of records) {
-      if (record.checkOutAt) regularWorkedMinutes += Math.max(0, Math.floor((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 60_000));
+      if (isLive) {
+        // Phòng Live: có check-in là 1 công (hỗ trợ live qua đêm)
+        actualWorkingDays += 1;
+      } else {
+        // Phòng tiêu chuẩn: chỉ tính công nếu đã checkout hoặc được duyệt điều chỉnh (ADJUSTED)
+        if (record.checkOutAt || record.status === 'ADJUSTED') {
+          actualWorkingDays += 1;
+        }
+      }
+
+      if (record.checkOutAt) {
+        regularWorkedMinutes += Math.max(0, Math.floor((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 60_000));
+      }
       const shift = record.shiftAssignment?.shift;
       if (shift) {
         const [startHour, startMinute] = shift.startTime.split(':').map(Number);
@@ -1077,7 +1106,7 @@ export class PayrollService {
         lateMinutes += record.lateMinutes;
       }
     }
-    return { actualWorkingDays: records.length, regularWorkedMinutes, lateMinutes, earlyLeaveMinutes };
+    return { actualWorkingDays, regularWorkedMinutes, lateMinutes, earlyLeaveMinutes };
   }
 
   private async leaveSummary(userId: string, startDate: Date, endDate: Date) {
@@ -1107,15 +1136,31 @@ export class PayrollService {
       },
     });
 
-    const approvedOts = await this.prisma.overtimeRequest.findMany({
-      where: {
-        userId,
-        status: OvertimeRequestStatus.APPROVED,
-        workDate: { gte: startDate, lte: endDate },
-      },
-    });
+    const [approvedOts, approvedLiveOts] = await Promise.all([
+      this.prisma.overtimeRequest.findMany({
+        where: {
+          userId,
+          status: OvertimeRequestStatus.APPROVED,
+          workDate: { gte: startDate, lte: endDate },
+        },
+      }),
+      this.prisma.otReport.findMany({
+        where: {
+          userId,
+          status: OtReportStatus.APPROVED,
+          otDate: { gte: startDate, lte: endDate },
+        },
+      }),
+    ]);
 
     let totalApprovedOtMinutes = 0;
+
+    // Cộng OT phòng Live từ các OtReport đã duyệt
+    for (const liveOt of approvedLiveOts) {
+      if (liveOt.validOtMinutes > 0) {
+        totalApprovedOtMinutes += liveOt.validOtMinutes;
+      }
+    }
 
     for (const record of records) {
       if (!record.checkOutAt) continue;

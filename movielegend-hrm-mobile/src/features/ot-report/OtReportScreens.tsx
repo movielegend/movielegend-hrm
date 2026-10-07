@@ -11,9 +11,12 @@ import {
   TouchableOpacity,
   Pressable,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
 import { PageHeader } from '../../components/PageHeader';
@@ -257,17 +260,17 @@ export function CreateOtReportScreen() {
       return;
     }
 
-    const startIso = `${otDateStr}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
-    // Xử lý nếu kết thúc sang ngày hôm sau (giờ kết thúc nhỏ hơn giờ bắt đầu)
-    let endIso = `${otDateStr}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00.000Z`;
-    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
-      const nextDate = new Date(selectedDate);
-      nextDate.setDate(nextDate.getDate() + 1);
-      const ny = nextDate.getFullYear();
-      const nm = String(nextDate.getMonth() + 1).padStart(2, '0');
-      const nd = String(nextDate.getDate()).padStart(2, '0');
-      endIso = `${ny}-${nm}-${nd}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00.000Z`;
+    const [y, m, d] = otDateStr.split('-').map(Number);
+    const year = y || new Date().getFullYear();
+    const month = (m || 1) - 1;
+    const day = d || 1;
+    const startDateObj = new Date(year, month, day, startHour, startMinute, 0, 0);
+    let endDateObj = new Date(year, month, day, endHour, endMinute, 0, 0);
+    if (endDateObj <= startDateObj) {
+      endDateObj = new Date(year, month, day + 1, endHour, endMinute, 0, 0);
     }
+    const startIso = startDateObj.toISOString();
+    const endIso = endDateObj.toISOString();
 
     try {
       await mutation.mutateAsync({
@@ -459,37 +462,85 @@ export function LeaderOtReviewScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Image viewer state
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+
+  // Detail modal state
+  const [detailReport, setDetailReport] = useState<OtReport | null>(null);
+
+  // Approve / Reject modal state
+  const [approvingReport, setApprovingReport] = useState<OtReport | null>(null);
+  const [selectedPercent, setSelectedPercent] = useState<string>('100');
+
+  const [rejectingReport, setRejectingReport] = useState<OtReport | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries({ queryKey: ['ot-reports'] });
     setRefreshing(false);
   }, [queryClient]);
 
-  async function handleApprove(report: OtReport) {
+  const handleOpenImageViewer = (photos: { file?: { fileUrl?: string } }[], initialIdx: number = 0) => {
+    const urls = photos
+      .map((p) => resolveFileUrl(p.file?.fileUrl))
+      .filter(Boolean)
+      .map((uri) => ({ uri: uri as string }));
+    if (urls.length > 0) {
+      setViewerImages(urls);
+      setViewerIndex(initialIdx);
+      setIsViewerVisible(true);
+    }
+  };
+
+  const handleOpenApprove = (report: OtReport) => {
+    setApprovingReport(report);
+    setSelectedPercent(String(report.proposedPercent || 100));
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!approvingReport) return;
     try {
+      const pct = Number(selectedPercent) || 100;
       await approveMutation.mutateAsync({
-        id: report.id,
-        payload: { approvedPercent: report.proposedPercent || 100 },
+        id: approvingReport.id,
+        payload: { approvedPercent: pct },
       });
-      showAlert('Thành công', `Đã duyệt báo cáo OT mức ${report.proposedPercent || 100}%`);
+      showAlert('Thành công', `Đã duyệt báo cáo OT mức ${pct}%`);
+      setApprovingReport(null);
+      setDetailReport(null);
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, normalized.message);
     }
-  }
+  };
 
-  async function handleReject(report: OtReport) {
+  const handleOpenReject = (report: OtReport) => {
+    setRejectingReport(report);
+    setRejectionReason('Không khớp nội dung ca live');
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectingReport) return;
+    if (!rejectionReason.trim()) {
+      showAlert('Lỗi', 'Vui lòng nhập lý do từ chối báo cáo OT');
+      return;
+    }
     try {
       await rejectMutation.mutateAsync({
-        id: report.id,
-        payload: { rejectionReason: 'Không khớp nội dung ca live' },
+        id: rejectingReport.id,
+        payload: { rejectionReason: rejectionReason.trim() },
       });
-      showAlert('Từ chối', 'Đã ghi nhận không công nhận báo cáo OT');
+      showAlert('Đã từ chối', 'Đã ghi nhận không công nhận báo cáo OT');
+      setRejectingReport(null);
+      setDetailReport(null);
     } catch (error) {
       const normalized = normalizeApiError(error);
       showAlert(normalized.code, normalized.message);
     }
-  }
+  };
 
   return (
     <Screen>
@@ -505,57 +556,354 @@ export function LeaderOtReviewScreen() {
           {(pending.data?.items ?? []).map((report) => (
             <View key={report.id} style={styles.card}>
               <View style={styles.row}>
-                <Text style={styles.employeeName}>
-                  {report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên'}
-                </Text>
+                <View style={styles.flex}>
+                  <Text style={styles.employeeName}>
+                    {report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên'}
+                  </Text>
+                  {report.department?.name ? (
+                    <Text style={styles.cardSubText}>{report.department.name}</Text>
+                  ) : null}
+                </View>
                 <StatusBadge
                   label={report.status === 'APPROVED' ? 'Đã duyệt' : report.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
                   tone={toneForStatus(report.status)}
                 />
               </View>
-              <Text style={styles.cardText}>Ngày OT: {formatDate(report.otDate)}</Text>
+
+              <Text style={styles.cardText}>Ngày OT: <Text style={styles.cardTextHighlight}>{formatDate(report.otDate)}</Text></Text>
               <Text style={styles.cardText}>
                 Thời gian: {formatDateTime(report.startTime)} - {formatDateTime(report.endTime)}
               </Text>
-              <Text style={styles.cardText}>% Đề xuất: {report.proposedPercent}%</Text>
-              <Text style={styles.cardTextBold}>
-                Giờ OT hợp lệ (sau mốc 5h): {Math.floor(report.validOtMinutes / 60)}h{' '}
-                {report.validOtMinutes % 60}p
-              </Text>
-              {report.reason ? <Text style={styles.cardText}>Nội dung: {report.reason}</Text> : null}
+              <Text style={styles.cardText}>% Đề xuất: <Text style={styles.cardTextHighlight}>{report.proposedPercent}%</Text></Text>
+              
+              <View style={styles.validOtBox}>
+                <MaterialCommunityIcons name="clock-check-outline" size={18} color="#2563EB" />
+                <Text style={styles.cardTextBold}>
+                  Giờ OT hợp lệ (sau mốc 5h): {Math.floor(report.validOtMinutes / 60)}h {report.validOtMinutes % 60}p
+                </Text>
+              </View>
 
-              {/* Ảnh đính kèm */}
+              {report.reason ? (
+                <Text style={styles.cardText} numberOfLines={2}>
+                  Nội dung: {report.reason}
+                </Text>
+              ) : null}
+
+              {/* Ảnh đính kèm (Có thể bấm để phóng to/zoom) */}
               {report.photos && report.photos.length > 0 ? (
-                <View style={styles.reviewPhotoRow}>
-                  {report.photos.map((p) => {
-                    const imgUrl = resolveFileUrl(p.file?.fileUrl);
-                    if (!imgUrl) return null;
-                    return (
-                      <Image key={p.id} source={{ uri: imgUrl }} style={styles.reviewThumbnail} />
-                    );
-                  })}
+                <View style={styles.photoThumbWrapper}>
+                  <Text style={styles.photoHintText}>
+                    <MaterialCommunityIcons name="magnify-plus-outline" size={13} color="#6B7280" /> Bấm vào ảnh để phóng to/zoom ({report.photos.length} ảnh)
+                  </Text>
+                  <View style={styles.reviewPhotoRow}>
+                    {report.photos.map((p, pIdx) => {
+                      const imgUrl = resolveFileUrl(p.file?.fileUrl);
+                      if (!imgUrl) return null;
+                      return (
+                        <TouchableOpacity
+                          key={p.id}
+                          activeOpacity={0.8}
+                          onPress={() => handleOpenImageViewer(report.photos || [], pIdx)}
+                          style={styles.reviewThumbnailContainer}
+                        >
+                          <Image source={{ uri: imgUrl }} style={styles.reviewThumbnail} />
+                          <View style={styles.zoomBadge}>
+                            <MaterialCommunityIcons name="arrow-expand" size={12} color="#FFFFFF" />
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               ) : null}
 
               <View style={styles.buttonRow}>
-                <PrimaryButton onPress={() => void handleApprove(report)}>Duyệt</PrimaryButton>
-                <SecondaryButton onPress={() => void handleReject(report)}>Từ chối</SecondaryButton>
+                <TouchableOpacity
+                  style={styles.detailButton}
+                  onPress={() => setDetailReport(report)}
+                >
+                  <MaterialCommunityIcons name="eye-outline" size={16} color="#4B5563" />
+                  <Text style={styles.detailButtonText}>Chi tiết</Text>
+                </TouchableOpacity>
+                <View style={styles.flexRowGap}>
+                  <PrimaryButton onPress={() => handleOpenApprove(report)}>Duyệt</PrimaryButton>
+                  <SecondaryButton onPress={() => handleOpenReject(report)}>Từ chối</SecondaryButton>
+                </View>
               </View>
             </View>
           ))}
           {!pending.data?.items?.length ? <EmptyState title="Không có báo cáo chờ duyệt" /> : null}
         </SectionCard>
       </ScrollView>
+
+      {/* Full-screen Image Viewer with Pinch-to-Zoom */}
+      <ImageView
+        images={viewerImages}
+        imageIndex={viewerIndex}
+        visible={isViewerVisible}
+        onRequestClose={() => setIsViewerVisible(false)}
+      />
+
+      {/* Chi tiết báo cáo OT Modal */}
+      {detailReport ? (
+        <OtReportDetailModal
+          report={detailReport}
+          onClose={() => setDetailReport(null)}
+          onApprove={() => handleOpenApprove(detailReport)}
+          onReject={() => handleOpenReject(detailReport)}
+          onOpenPhoto={(photos, idx) => handleOpenImageViewer(photos, idx)}
+        />
+      ) : null}
+
+      {/* Modal Duyệt chọn mức % */}
+      <Modal visible={!!approvingReport} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="check-decagram" size={24} color="#059669" />
+              <Text style={styles.modalCardTitle}>Duyệt báo cáo OT</Text>
+            </View>
+
+            <Text style={styles.modalCardSubtitle}>
+              Nhân viên: <Text style={{ fontWeight: '700', color: '#111827' }}>{approvingReport?.user?.profile?.fullName || approvingReport?.user?.userCode}</Text>
+            </Text>
+            <Text style={styles.modalCardSubtitle}>
+              Giờ OT hợp lệ: <Text style={{ fontWeight: '700', color: '#2563EB' }}>{Math.floor((approvingReport?.validOtMinutes || 0) / 60)}h {(approvingReport?.validOtMinutes || 0) % 60}p</Text>
+            </Text>
+
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>Chọn mức % công OT được duyệt:</Text>
+            <View style={styles.percentRow}>
+              {['100', '150', '200'].map((pct) => (
+                <TouchableOpacity
+                  key={pct}
+                  style={[styles.percentChip, selectedPercent === pct && styles.percentChipActive]}
+                  onPress={() => setSelectedPercent(pct)}
+                >
+                  <Text style={[styles.percentChipText, selectedPercent === pct && styles.percentChipTextActive]}>
+                    {pct}%
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <SecondaryButton onPress={() => setApprovingReport(null)}>Hủy</SecondaryButton>
+              <PrimaryButton onPress={() => void handleConfirmApprove()}>Xác nhận duyệt ({selectedPercent}%)</PrimaryButton>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Từ chối nhập lý do */}
+      <Modal visible={!!rejectingReport} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#DC2626" />
+              <Text style={[styles.modalCardTitle, { color: '#DC2626' }]}>Không công nhận OT</Text>
+            </View>
+
+            <Text style={styles.modalCardSubtitle}>
+              Nhân viên: <Text style={{ fontWeight: '700', color: '#111827' }}>{rejectingReport?.user?.profile?.fullName || rejectingReport?.user?.userCode}</Text>
+            </Text>
+
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>Lý do không công nhận (gửi cho nhân viên):</Text>
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Nhập lý do không công nhận..."
+              multiline
+              numberOfLines={3}
+              value={rejectionReason}
+              onChangeText={setRejectionReason}
+            />
+
+            <View style={styles.modalActions}>
+              <SecondaryButton onPress={() => setRejectingReport(null)}>Hủy</SecondaryButton>
+              <TouchableOpacity
+                style={styles.dangerButton}
+                onPress={() => void handleConfirmReject()}
+              >
+                <Text style={styles.dangerButtonText}>Xác nhận từ chối</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
 
-function OtReportCard({ report }: { report: OtReport }) {
+function OtReportDetailModal({
+  report,
+  onClose,
+  onApprove,
+  onReject,
+  onOpenPhoto,
+}: {
+  report: OtReport;
+  onClose: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  onOpenPhoto: (photos: any[], idx: number) => void;
+}) {
+  const router = useRouter();
   const otHours = Math.floor(report.validOtMinutes / 60);
   const otMinutes = report.validOtMinutes % 60;
 
   return (
-    <View style={styles.card}>
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.detailModalOverlay}>
+        <View style={styles.detailModalContainer}>
+          <View style={styles.detailModalHeader}>
+            <View>
+              <Text style={styles.detailModalTitle}>Chi tiết báo cáo OT</Text>
+              <Text style={styles.detailModalSub}>{report.user?.profile?.fullName || report.user?.userCode} - {report.department?.name || 'Phòng Live'}</Text>
+            </View>
+            <TouchableOpacity style={styles.closeIconBtn} onPress={onClose}>
+              <MaterialCommunityIcons name="close" size={22} color="#4B5563" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.detailModalBody} showsVerticalScrollIndicator={false}>
+            <View style={styles.statusRow}>
+              <Text style={styles.detailSectionLabel}>Trạng thái xử lý:</Text>
+              <StatusBadge
+                label={report.status === 'APPROVED' ? 'Đã duyệt' : report.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                tone={toneForStatus(report.status)}
+              />
+            </View>
+
+            <View style={styles.detailInfoGrid}>
+              <View style={styles.detailInfoItem}>
+                <Text style={styles.detailItemLabel}>Ngày OT</Text>
+                <Text style={styles.detailItemVal}>{formatDate(report.otDate)}</Text>
+              </View>
+              <View style={styles.detailInfoItem}>
+                <Text style={styles.detailItemLabel}>Mức % đề xuất</Text>
+                <Text style={styles.detailItemVal}>{report.proposedPercent}%</Text>
+              </View>
+            </View>
+
+            <View style={styles.detailTimeBox}>
+              <MaterialCommunityIcons name="calendar-clock" size={20} color="#2563EB" />
+              <View style={styles.flex}>
+                <Text style={styles.detailTimeTitle}>Khoảng thời gian đề xuất OT:</Text>
+                <Text style={styles.detailTimeDesc}>
+                  {formatDateTime(report.startTime)} - {formatDateTime(report.endTime)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.detailValidBox}>
+              <MaterialCommunityIcons name="shield-check" size={20} color="#059669" />
+              <View style={styles.flex}>
+                <Text style={styles.detailValidTitle}>Giờ OT hợp lệ (hệ thống tính sau mốc 5h):</Text>
+                <Text style={styles.detailValidDesc}>
+                  {otHours} giờ {otMinutes} phút
+                </Text>
+              </View>
+            </View>
+
+            {report.reason ? (
+              <View style={styles.detailReasonBox}>
+                <Text style={styles.detailReasonLabel}>Nội dung công việc:</Text>
+                <Text style={styles.detailReasonText}>{report.reason}</Text>
+              </View>
+            ) : null}
+
+            {report.rejectionReason ? (
+              <View style={styles.detailRejectBox}>
+                <Text style={styles.detailRejectLabel}>Lý do từ chối:</Text>
+                <Text style={styles.detailRejectText}>{report.rejectionReason}</Text>
+              </View>
+            ) : null}
+
+            {/* Ảnh bằng chứng với zoom */}
+            <View style={styles.detailPhotosSection}>
+              <View style={styles.photoHeader}>
+                <Text style={styles.detailSectionLabel}>Ảnh bằng chứng ca làm ({report.photos?.length || 0} ảnh):</Text>
+                <Text style={styles.photoHintText}>Chạm vào ảnh để zoom</Text>
+              </View>
+
+              <View style={styles.detailPhotoGrid}>
+                {(report.photos || []).map((p, idx) => {
+                  const imgUrl = resolveFileUrl(p.file?.fileUrl);
+                  if (!imgUrl) return null;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      activeOpacity={0.8}
+                      onPress={() => onOpenPhoto(report.photos || [], idx)}
+                      style={styles.detailPhotoThumb}
+                    >
+                      <Image source={{ uri: imgUrl }} style={styles.detailPhotoImg} />
+                      <View style={styles.detailZoomOverlay}>
+                        <MaterialCommunityIcons name="magnify-plus" size={16} color="#FFFFFF" />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </ScrollView>
+
+          {report.status === 'PENDING' && onApprove && onReject ? (
+            <View style={styles.detailModalFooter}>
+              <SecondaryButton onPress={onReject}>Từ chối</SecondaryButton>
+              <PrimaryButton onPress={onApprove}>Duyệt OT</PrimaryButton>
+            </View>
+          ) : report.status === 'REJECTED' ? (
+            <View style={styles.detailModalFooter}>
+              <SecondaryButton onPress={onClose}>Đóng</SecondaryButton>
+              <PrimaryButton
+                onPress={() => {
+                  onClose();
+                  router.push('/employee/ot-report/create' as any);
+                }}
+              >
+                Nộp lại báo cáo
+              </PrimaryButton>
+            </View>
+          ) : (
+            <View style={styles.detailModalFooter}>
+              <PrimaryButton onPress={onClose}>Đóng</PrimaryButton>
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function OtReportCard({ report }: { report: OtReport }) {
+  const router = useRouter();
+  const otHours = Math.floor(report.validOtMinutes / 60);
+  const otMinutes = report.validOtMinutes % 60;
+
+  // Image viewer state for individual card
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+  const [isDetailVisible, setIsDetailVisible] = useState(false);
+
+  const handleOpenPhoto = (photos: any[], idx: number = 0) => {
+    const urls = photos
+      .map((p) => resolveFileUrl(p.file?.fileUrl))
+      .filter(Boolean)
+      .map((uri) => ({ uri: uri as string }));
+    if (urls.length > 0) {
+      setViewerImages(urls);
+      setViewerIndex(idx);
+      setIsViewerVisible(true);
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={() => setIsDetailVisible(true)}
+      style={styles.card}
+    >
       <View style={styles.row}>
         <Text style={styles.cardTitle}>{formatDate(report.otDate)}</Text>
         <StatusBadge
@@ -573,27 +921,72 @@ function OtReportCard({ report }: { report: OtReport }) {
       <Text style={styles.cardTextBold}>
         OT hợp lệ sau mốc 5h: {otHours}h {otMinutes > 0 ? `${otMinutes}p` : ''}
       </Text>
-      {report.reason ? <Text style={styles.cardText}>Lý do: {report.reason}</Text> : null}
+      {report.reason ? <Text style={styles.cardText} numberOfLines={2}>Lý do: {report.reason}</Text> : null}
 
       {/* Ảnh đính kèm */}
       {report.photos && report.photos.length > 0 ? (
-        <View style={styles.reviewPhotoRow}>
-          {report.photos.map((p) => {
-            const imgUrl = resolveFileUrl(p.file?.fileUrl);
-            if (!imgUrl) return null;
-            return (
-              <Image key={p.id} source={{ uri: imgUrl }} style={styles.reviewThumbnail} />
-            );
-          })}
+        <View style={styles.photoThumbWrapper}>
+          <Text style={styles.photoHintText}>
+            <MaterialCommunityIcons name="magnify-plus-outline" size={13} color="#6B7280" /> Bấm để phóng to/zoom ảnh
+          </Text>
+          <View style={styles.reviewPhotoRow}>
+            {report.photos.map((p, idx) => {
+              const imgUrl = resolveFileUrl(p.file?.fileUrl);
+              if (!imgUrl) return null;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  activeOpacity={0.8}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleOpenPhoto(report.photos || [], idx);
+                  }}
+                  style={styles.reviewThumbnailContainer}
+                >
+                  <Image source={{ uri: imgUrl }} style={styles.reviewThumbnail} />
+                  <View style={styles.zoomBadge}>
+                    <MaterialCommunityIcons name="arrow-expand" size={12} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       ) : null}
 
       {report.rejectionReason ? (
-        <Text style={[styles.cardText, { color: colors.danger }]}>
+        <Text style={[styles.cardText, { color: colors.danger, marginTop: spacing.xs }]}>
           Lý do từ chối: {report.rejectionReason}
         </Text>
       ) : null}
-    </View>
+
+      {report.status === 'REJECTED' ? (
+        <View style={{ marginTop: spacing.sm }}>
+          <PrimaryButton
+            onPress={() => {
+              router.push('/employee/ot-report/create' as any);
+            }}
+          >
+            + Nộp lại báo cáo cho ngày này
+          </PrimaryButton>
+        </View>
+      ) : null}
+
+      <ImageView
+        images={viewerImages}
+        imageIndex={viewerIndex}
+        visible={isViewerVisible}
+        onRequestClose={() => setIsViewerVisible(false)}
+      />
+
+      {isDetailVisible ? (
+        <OtReportDetailModal
+          report={report}
+          onClose={() => setIsDetailVisible(false)}
+          onOpenPhoto={(photos, idx) => handleOpenPhoto(photos, idx)}
+        />
+      ) : null}
+    </TouchableOpacity>
   );
 }
 
@@ -816,10 +1209,342 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 4,
   },
-  reviewThumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 6,
+  reviewThumbnailContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
     backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  reviewThumbnail: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  zoomBadge: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 4,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flex: {
+    flex: 1,
+  },
+  cardSubText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  cardTextHighlight: {
+    fontWeight: '700',
+    color: '#111827',
+  },
+  validOtBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  photoThumbWrapper: {
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  photoHintText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    marginBottom: 4,
+  },
+  detailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  detailButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  flexRowGap: {
+    flexDirection: 'row',
+    gap: 8,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  modalCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalCardSubtitle: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 4,
+  },
+  reasonInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+    minHeight: 80,
+    marginBottom: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 12,
+  },
+  dangerButton: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dangerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  detailModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  detailModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    minHeight: '60%',
+    paddingBottom: 24,
+  },
+  detailModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  detailModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  detailModalSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  closeIconBtn: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  detailModalBody: {
+    padding: 18,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  detailSectionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  detailInfoGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  detailInfoItem: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  detailItemLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  detailItemVal: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  detailTimeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  detailTimeTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E40AF',
+  },
+  detailTimeDesc: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E3A8A',
+    marginTop: 2,
+  },
+  detailValidBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#ECFDF5',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  detailValidTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  detailValidDesc: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#047857',
+    marginTop: 2,
+  },
+  detailReasonBox: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  detailReasonLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  detailReasonText: {
+    fontSize: 14,
+    color: '#1F2937',
+    lineHeight: 20,
+  },
+  detailRejectBox: {
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    marginBottom: 12,
+  },
+  detailRejectLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginBottom: 4,
+  },
+  detailRejectText: {
+    fontSize: 14,
+    color: '#991B1B',
+  },
+  detailPhotosSection: {
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  detailPhotoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 8,
+  },
+  detailPhotoThumb: {
+    width: 90,
+    height: 90,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  detailPhotoImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  detailZoomOverlay: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 6,
+    padding: 3,
+  },
+  detailModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
 });

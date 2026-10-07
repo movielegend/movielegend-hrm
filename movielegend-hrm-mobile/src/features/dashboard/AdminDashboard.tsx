@@ -244,6 +244,13 @@ export function AdminDashboard() {
               onPress={() => router.push('/leader/approvals' as any)}
             />
             <GridItem4
+              icon="video-vintage"
+              title="Duyệt OT Live"
+              color="#EA580C"
+              bgColor="#FFF7ED"
+              onPress={() => router.push('/leader/ot-report-approvals' as any)}
+            />
+            <GridItem4
               icon="file-document-outline"
               title="Hợp đồng"
               color="#0D9488"

@@ -81,8 +81,8 @@ export class AttendanceReportService {
       },
     });
 
-    // Fetch Overtimes from OvertimeRequest table, EmployeeRequest, and OtReport (Live)
-    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw, otReportsDb] = await Promise.all([
+    // Fetch Overtimes from OvertimeRequest table, EmployeeRequest, and OtReport (Live), and AttendanceAdjustments
+    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw, otReportsDb, adjustmentsDb] = await Promise.all([
       this.prisma.overtimeRequest.findMany({
         where: {
           status: 'APPROVED',
@@ -118,6 +118,13 @@ export class AttendanceReportService {
           userId: { in: userIds },
           otDate: { gte: start, lte: end },
         },
+      }),
+      this.prisma.attendanceAdjustment.findMany({
+        where: {
+          status: 'APPROVED',
+          userId: { in: userIds },
+        },
+        include: { attendanceRecord: true },
       }),
     ]);
 
@@ -179,7 +186,14 @@ export class AttendanceReportService {
     const userGroups = new Map<string, any[]>();
 
     for (const user of users) {
-      const deptLink = user.departmentLinks[0];
+      const liveDeptLink = user.departmentLinks?.find((d: any) =>
+        Boolean(
+          (d.department?.name && d.department.name.toLowerCase().includes('live')) ||
+          (d.department?.code && d.department.code.toLowerCase().includes('live'))
+        )
+      );
+      const primaryDeptLink = user.departmentLinks?.find((d: any) => d.isPrimary) || user.departmentLinks?.[0];
+      const deptLink = liveDeptLink || primaryDeptLink;
       const deptId = deptLink?.departmentId;
       const deptName = deptLink?.department?.name || 'Không có';
       
@@ -213,7 +227,10 @@ export class AttendanceReportService {
         dayRecords.sort((a, b) => new Date(a.checkInAt).getTime() - new Date(b.checkInAt).getTime());
 
         const record = dayRecords[0];
-        const isLiveDepartment = deptName.toLowerCase().includes('live');
+        const isLiveDepartment = Boolean(
+          (deptName && deptName.toLowerCase().includes('live')) ||
+          (liveDeptLink !== undefined)
+        );
 
         const otRequest = overtimes.find(o => o.userId === user.id && (
           moment(o.workDate).format('YYYY-MM-DD') === dateStr ||
@@ -293,6 +310,30 @@ export class AttendanceReportService {
           // CÁC PHÒNG BAN TIÊU CHUẨN:
           checkIn = record?.checkInAt ? moment(record.checkInAt).tz('Asia/Ho_Chi_Minh') : null;
           checkOut = record?.checkOutAt ? moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh') : null;
+
+          // Kiểm tra xem có đơn sửa công / giải trình bổ sung checkout được duyệt không
+          const approvedAdj = adjustmentsDb.find(
+            (a) => a.userId === user.id && (
+              a.attendanceRecordId === record?.id ||
+              (a.requestedCheckOutAt && moment(a.requestedCheckOutAt).format('YYYY-MM-DD') === dateStr)
+            ),
+          );
+          const approvedAdjReq = lateRequestsRaw.find((r) => {
+            const meta: any = r.attachmentMetadata;
+            return (
+              r.userId === user.id &&
+              r.type === 'ATTENDANCE_ADJUSTMENT' &&
+              (r.referenceId === record?.id || (meta && typeof meta === 'object' && meta.workDate === dateStr))
+            );
+          });
+
+          const isApprovedAdjustment = Boolean(approvedAdj || approvedAdjReq);
+          if (!checkOut && isApprovedAdjustment) {
+            const reqOut = approvedAdj?.requestedCheckOutAt || (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckOutAt;
+            if (reqOut) {
+              checkOut = moment(reqOut).tz('Asia/Ho_Chi_Minh');
+            }
+          }
           
           const shift = record?.shiftAssignment?.shift;
           if (checkIn && checkOut) {
@@ -301,9 +342,21 @@ export class AttendanceReportService {
           }
           if (totalMinutes < 0) totalMinutes = 0;
 
+          const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
+          const isMissCheckout = Boolean(checkIn && !checkOut && isPastDate && !isApprovedAdjustment);
+
           let otMins = 0;
           if (record) {
-            attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : (record.isUnplannedOt ? 0 : 1);
+            if (isMissCheckout) {
+              // Miss Checkout (qua 0:00 mà không check-out và chưa có đơn được duyệt): 0 CÔNG
+              attendance = 0;
+              totalMinutes = 0;
+            } else if (isApprovedAdjustment) {
+              // Đã duyệt đơn bổ sung check-out: 1 công
+              attendance = 1;
+            } else {
+              attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : (record.isUnplannedOt ? 0 : 1);
+            }
             lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
             lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
 
@@ -358,6 +411,9 @@ export class AttendanceReportService {
           }
         }
 
+        const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
+        const isStandardMissCheckout = !isLiveDepartment && Boolean(checkIn && !checkOut && isPastDate);
+
         const row = {
           employeeCode: user.userCode || '',
           employeeName: user.profile?.fullName || user.email || user.phone || user.userCode,
@@ -366,7 +422,7 @@ export class AttendanceReportService {
           date: currDate.format('DD/MM/YYYY'),
           dayOfWeek,
           checkIn: checkIn ? checkIn.format('HH:mm') : '',
-          checkOut: checkOut ? checkOut.format('HH:mm') : '',
+          checkOut: checkOut ? checkOut.format('HH:mm') : isStandardMissCheckout ? 'Miss checkout' : '',
           attendance: dayRecords.length > 0 ? attendance : 0,
           totalHours: formatHrs(totalMinutes),
           overtime100: formatHrs(ot100),

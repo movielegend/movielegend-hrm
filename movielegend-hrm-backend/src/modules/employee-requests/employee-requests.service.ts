@@ -364,6 +364,24 @@ export class EmployeeRequestsService {
           data: { status: EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
         });
 
+        if (request.type === EmployeeRequestType.ATTENDANCE_ADJUSTMENT) {
+          const meta: any = request.attachmentMetadata;
+          const targetRecordId = meta?.attendanceRecordId || request.referenceId;
+          const reqCheckIn = meta?.requestedCheckInAt ? new Date(meta.requestedCheckInAt) : null;
+          const reqCheckOut = meta?.requestedCheckOutAt ? new Date(meta.requestedCheckOutAt) : null;
+
+          if (targetRecordId) {
+            await tx.attendanceRecord.update({
+              where: { id: targetRecordId },
+              data: {
+                ...(reqCheckIn ? { checkInAt: reqCheckIn } : {}),
+                ...(reqCheckOut ? { checkOutAt: reqCheckOut } : {}),
+                status: 'ADJUSTED',
+              },
+            }).catch(() => null);
+          }
+        }
+
         if (isAccountDeletion) {
           const scheduledDate = new Date();
           scheduledDate.setDate(scheduledDate.getDate() + 30);

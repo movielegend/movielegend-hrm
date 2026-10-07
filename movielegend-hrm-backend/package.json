@@ -25,6 +25,7 @@
     "prisma:seed:demo": "npx tsx prisma/seed-demo.ts",
     "delete:demo": "node scripts/delete-clean-demo.js",
     "reset:db": "node scripts/reset-db-clean-all.js",
+    "migrate:r2": "node scripts/migrate-r2-domain.js",
     "seed:mock": "npx tsx prisma/seed-mock-data.ts",
     "prisma:seed:recruitment": "npx tsx prisma/seed-recruitment.ts",
     "test:db:prepare": "npx tsx scripts/prepare-test-db.ts"

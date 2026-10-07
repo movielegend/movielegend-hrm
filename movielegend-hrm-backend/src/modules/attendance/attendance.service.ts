@@ -60,23 +60,22 @@ export class AttendanceService {
     const now = new Date();
 
     // 0. Xác định phòng ban của nhân sự
-    const primaryDep = await this.prisma.departmentMember.findFirst({
-      where: { userId: actor.userId, isPrimary: true },
+    const memberships = await this.prisma.departmentMember.findMany({
+      where: { userId: actor.userId, leftAt: null },
       include: { department: true }
     });
-    let targetDepartmentId: string = primaryDep?.departmentId || '';
-    if (!targetDepartmentId) {
-      const anyDep = await this.prisma.departmentMember.findFirst({
-        where: { userId: actor.userId, leftAt: null },
-        include: { department: true }
-      });
-      targetDepartmentId = anyDep?.departmentId || '';
-    }
-    if (!targetDepartmentId) throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban');
+    if (!memberships.length) throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban');
 
-    const targetDept = primaryDep?.departmentId === targetDepartmentId
-      ? primaryDep.department
-      : await this.prisma.department.findUnique({ where: { id: targetDepartmentId } });
+    // Ưu tiên nếu nhân viên thuộc phòng Live thì áp dụng phòng Live, ngược lại dùng phòng chính (isPrimary)
+    const liveMembership = memberships.find((m) =>
+      Boolean(
+        (m.department?.name && m.department.name.toLowerCase().includes('live')) ||
+        (m.department?.code && m.department.code.toLowerCase().includes('live'))
+      )
+    );
+    const primaryMembership = memberships.find((m) => m.isPrimary) || memberships[0];
+    const targetDept = liveMembership ? liveMembership.department : primaryMembership.department;
+    let targetDepartmentId = targetDept?.id || '';
 
     const isLiveDepartment = Boolean(
       (targetDept?.name && targetDept.name.toLowerCase().includes('live')) ||
@@ -104,7 +103,7 @@ export class AttendanceService {
         orderBy: { checkInAt: 'desc' }
       });
       if (openRecord) {
-        throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một lượt làm việc chưa check-out. Vui lòng check-out trước khi mở lượt mới!');
+        throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một lượt làm việc chưa check-out. Vui lòng check-out lượt trước rồi mới được check-in lượt mới!');
       }
 
       // 2. Phòng Live check-in tự do nhiều lượt, không áp dụng phạt đi muộn
@@ -476,7 +475,36 @@ export class AttendanceService {
   async current(actor: AuthenticatedUser) {
     const today = this.businessTime.startOfBusinessDate(this.businessTime.businessDateString());
     const yesterday = this.businessTime.addDays(today, -1);
-    const record = await this.prisma.attendanceRecord.findFirst({
+
+    // Kiểm tra xem nhân sự có thuộc phòng Live không
+    const memberships = await this.prisma.departmentMember.findMany({
+      where: { userId: actor.userId, leftAt: null },
+      include: { department: true },
+    });
+    const isLive = memberships.some((m) =>
+      Boolean(
+        (m.department?.name && m.department.name.toLowerCase().includes('live')) ||
+        (m.department?.code && m.department.code.toLowerCase().includes('live')),
+      ),
+    );
+
+    let record: any = null;
+    if (isLive) {
+      // Đối với phòng Live: Ưu tiên tìm lượt chưa checkout (kể cả từ hôm trước hoặc ca đêm)
+      const openRecord = await this.prisma.attendanceRecord.findFirst({
+        where: { userId: actor.userId, checkOutAt: null },
+        include: this.attendanceInclude(),
+        orderBy: { checkInAt: 'desc' },
+      });
+      if (openRecord) {
+        return {
+          state: this.stateFor(openRecord),
+          attendance: this.toAttendanceSummary(openRecord),
+        };
+      }
+    }
+
+    record = await this.prisma.attendanceRecord.findFirst({
       where: {
         userId: actor.userId,
         workDate: { gte: yesterday, lte: today },
@@ -1275,14 +1303,43 @@ export class AttendanceService {
       include: { leaveType: true },
     });
 
-    // Lấy đơn tăng ca đã duyệt trong tháng
-    const ots = await this.prisma.overtimeRequest.findMany({
-      where: {
-        userId,
-        status: 'APPROVED',
-        workDate: { gte: startDate, lte: endDate },
-      },
-    });
+    // Lấy đơn tăng ca đã duyệt trong tháng (cả OvertimeRequest và OtReport phòng Live)
+    const [ots, liveOtReports, approvedAdjustments, approvedAdjustmentRequests] = await Promise.all([
+      this.prisma.overtimeRequest.findMany({
+        where: {
+          userId,
+          status: 'APPROVED',
+          workDate: { gte: startDate, lte: endDate },
+        },
+      }),
+      this.prisma.otReport.findMany({
+        where: {
+          userId,
+          status: 'APPROVED',
+          otDate: { gte: startDate, lte: endDate },
+        },
+      }),
+      this.prisma.attendanceAdjustment.findMany({
+        where: {
+          userId,
+          status: 'APPROVED',
+        },
+      }),
+      this.prisma.employeeRequest.findMany({
+        where: {
+          userId,
+          type: 'ATTENDANCE_ADJUSTMENT',
+          status: 'APPROVED',
+        },
+      }),
+    ]);
+
+    const isLiveDepartment = (user?.departmentLinks || []).some((m: any) =>
+      Boolean(
+        (m.department?.name && m.department.name.toLowerCase().includes('live')) ||
+        (m.department?.code && m.department.code.toLowerCase().includes('live')),
+      ),
+    );
 
     let standardWorkingDays = 26; // Mặc định 26 ngày công chuẩn
     let actualWorkingDays = 0;
@@ -1302,20 +1359,26 @@ export class AttendanceService {
       }
     }
 
-    // Tính tăng ca từ đơn duyệt
+    // Tính tăng ca từ đơn duyệt chuẩn
     for (const ot of ots) {
       const mins = Math.max(0, Math.floor((ot.endAt.getTime() - ot.startAt.getTime()) / 60000));
       totalOtMinutes += mins;
     }
+
+    // Tính tăng ca từ Báo cáo OT phòng Live đã duyệt
+    for (const lot of liveOtReports) {
+      if (lot.validOtMinutes > 0) {
+        totalOtMinutes += lot.validOtMinutes;
+      }
+    }
+
+    const todayVnStr = this.businessTime.businessDateString(new Date());
 
     // Map records by day string YYYY-MM-DD
     const recordMap = new Map<string, typeof records[0]>();
     for (const r of records) {
       const dStr = r.workDate.toISOString().slice(0, 10);
       recordMap.set(dStr, r);
-      if (r.status === AttendanceStatus.CHECKED_OUT || r.status === AttendanceStatus.CHECKED_IN || r.status === AttendanceStatus.ADJUSTED) {
-        actualWorkingDays += 1;
-      }
       if (r.lateMinutes) totalLateMinutes += r.lateMinutes;
       if (r.checkOutAt && r.checkInAt) {
         totalWorkedMinutes += Math.max(0, Math.floor((r.checkOutAt.getTime() - r.checkInAt.getTime()) / 60000));
@@ -1329,6 +1392,7 @@ export class AttendanceService {
       const dStr = currentD.toISOString().slice(0, 10);
       const dayOfWeek = currentD.getUTCDay(); // 0: CN, 1: T2, ...
       const isSunday = dayOfWeek === 0;
+      const isPastDay = dStr < todayVnStr;
 
       const record = recordMap.get(dStr);
       const dayOts = ots.filter((o) => o.workDate.toISOString().slice(0, 10) === dStr);
@@ -1336,24 +1400,73 @@ export class AttendanceService {
       for (const ot of dayOts) {
         dayOtHours += Math.max(0, (ot.endAt.getTime() - ot.startAt.getTime()) / 3600000);
       }
+      const dayLiveOts = liveOtReports.filter((lot) => lot.otDate.toISOString().slice(0, 10) === dStr);
+      for (const lot of dayLiveOts) {
+        if (lot.validOtMinutes > 0) {
+          dayOtHours += lot.validOtMinutes / 60;
+        }
+      }
 
       const dayLeave = leaves.find(
         (l) => l.startDate.toISOString().slice(0, 10) <= dStr && l.endDate.toISOString().slice(0, 10) >= dStr,
       );
 
+      // Kiểm tra xem ngày này có đơn điều chỉnh/giải trình check-out được APPROVED không
+      const approvedAdj = approvedAdjustments.find(
+        (a) => a.attendanceRecordId === record?.id || (a.requestedCheckOutAt && a.requestedCheckOutAt.toISOString().slice(0, 10) === dStr),
+      );
+      const approvedAdjReq = approvedAdjustmentRequests.find((r) => {
+        const meta: any = r.attachmentMetadata;
+        return r.referenceId === record?.id || (meta && typeof meta === 'object' && meta.workDate === dStr);
+      });
+
+      let checkInIso = record?.checkInAt ? record.checkInAt.toISOString() : null;
+      let checkOutIso = record?.checkOutAt ? record.checkOutAt.toISOString() : null;
+      let dayNotes = record?.notes || null;
+      let dayStatus: string = record ? record.status : dayLeave ? 'LEAVE' : isSunday ? 'WEEKEND' : 'NO_RECORD';
+
+      if (record) {
+        if (isLiveDepartment) {
+          // Phòng Live: Có check-in là 1 công (hỗ trợ live qua đêm)
+          actualWorkingDays += 1;
+        } else {
+          // Các phòng ban khác:
+          if (record.checkOutAt) {
+            actualWorkingDays += 1;
+            dayStatus = record.status;
+          } else if (approvedAdj || approvedAdjReq) {
+            // Đã có đơn sửa công/bổ sung checkout được duyệt
+            actualWorkingDays += 1;
+            dayStatus = 'ADJUSTED';
+            if (!checkOutIso) {
+              const reqOut = approvedAdj?.requestedCheckOutAt || (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckOutAt;
+              if (reqOut) checkOutIso = new Date(reqOut).toISOString();
+            }
+            dayNotes = dayNotes ? `${dayNotes} | Đã duyệt đơn bổ sung check-out (1 công)` : 'Đã duyệt đơn bổ sung check-out (1 công)';
+          } else if (isPastDay) {
+            // Đã qua 0:00 của ngày hôm đó mà chưa check-out và chưa có đơn được duyệt -> Miss Checkout (0 công)
+            dayStatus = 'MISSING_CHECKOUT';
+            dayNotes = 'Quên check-out (0 công)';
+          } else {
+            // Hôm nay, ca đang diễn ra
+            dayStatus = 'CHECKED_IN';
+          }
+        }
+      }
+
       dailyRecords.push({
         date: dStr,
         dayOfWeek: isSunday ? 'CN' : `T${dayOfWeek + 1}`,
         isSunday,
-        checkInAt: record?.checkInAt ? record.checkInAt.toISOString() : null,
-        checkOutAt: record?.checkOutAt ? record.checkOutAt.toISOString() : null,
-        status: record ? record.status : dayLeave ? 'LEAVE' : isSunday ? 'WEEKEND' : 'NO_RECORD',
+        checkInAt: checkInIso,
+        checkOutAt: checkOutIso,
+        status: dayStatus,
         shiftName: record?.shiftAssignment?.shift?.name || (isSunday ? 'Ngày nghỉ' : 'Ca hành chính'),
         lateMinutes: record?.lateMinutes || 0,
         otHours: Number(dayOtHours.toFixed(1)),
-        workedHours: record?.checkOutAt && record?.checkInAt ? Number(((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 3600000).toFixed(1)) : 0,
+        workedHours: checkOutIso && checkInIso ? Number(((new Date(checkOutIso).getTime() - new Date(checkInIso).getTime()) / 3600000).toFixed(1)) : 0,
         leaveTitle: dayLeave ? dayLeave.leaveType.name : null,
-        notes: record?.notes || null,
+        notes: dayNotes,
       });
     }
 
