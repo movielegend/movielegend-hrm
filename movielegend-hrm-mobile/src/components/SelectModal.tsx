@@ -98,7 +98,7 @@ export function SelectModal({
                       <MaterialCommunityIcons 
                         name={isMulti ? "checkbox-marked" : "radiobox-marked"} 
                         size={24} 
-                        color="#111827" 
+                        color="#1B382B" 
                       />
                     ) : (
                       <MaterialCommunityIcons 
@@ -130,89 +130,98 @@ export function SelectModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     maxHeight: '80%',
     minHeight: '40%',
+    paddingBottom: 24,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.lg,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#F1F5F9',
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.text,
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
   closeBtn: {
-    padding: spacing.xs,
+    padding: 4,
   },
   listContainer: {
-    padding: spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginBottom: spacing.sm,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#E2E8F0',
   },
   optionRowSelected: {
-    borderColor: '#111827',
-    backgroundColor: '#F3F4F6',
+    borderColor: '#1B382B',
+    backgroundColor: '#F8FAF8',
   },
   optionContent: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: 12,
   },
   optionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   optionLabelSelected: {
-    color: '#111827',
+    color: '#1B382B',
   },
   optionSubtitle: {
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 4,
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 3,
   },
   emptyState: {
-    padding: spacing.xxl,
+    padding: 32,
     alignItems: 'center',
   },
   emptyText: {
-    color: colors.muted,
-    fontSize: 15,
+    color: '#94A3B8',
+    fontSize: 14,
   },
   footer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   confirmBtn: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1B382B', // Deep forest green matching template
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
+    shadowColor: '#1B382B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });
