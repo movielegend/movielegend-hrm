@@ -10,8 +10,11 @@ import {
   Linking,
   Image,
   Modal,
-  RefreshControl} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ContractScannerModal } from "./ContractScannerModal";
 import { ContractSignatureModal } from "./ContractSignatureModal";
 import { CreateTemplateModal } from "./CreateTemplateModal";
@@ -95,6 +98,61 @@ function getInitials(name: string): string {
     .map((w) => w[0])
     .join("")
     .toUpperCase();
+}
+
+export const STATUS_FILTER_OPTIONS: SelectOption[] = [
+  { id: "ALL", label: "Tất cả trạng thái" },
+  { id: "WAITING_COMPANY_SIGNATURE", label: "Chờ công ty ký" },
+  { id: "WAITING_EMPLOYEE_SIGNATURE", label: "Chờ nhân viên ký" },
+  { id: "ACTIVE", label: "Có hiệu lực" },
+  { id: "COMPLETED", label: "Hoàn thành" },
+  { id: "EMPLOYEE_SIGNED", label: "Nhân viên đã ký" },
+  { id: "PENDING_INTERNAL_APPROVAL", label: "Chờ duyệt nội bộ" },
+  { id: "DRAFT", label: "Bản nháp" },
+  { id: "EXPIRED", label: "Hết hiệu lực" },
+  { id: "TERMINATED", label: "Đã chấm dứt" },
+  { id: "CANCELLED", label: "Đã hủy" },
+];
+
+function ContractStatusBadge({ status }: { status: ContractStatus | string }) {
+  let bg = "#F1F5F9";
+  let text = "#64748B";
+  const label = CONTRACT_STATUS_LABELS[status as ContractStatus] || status;
+
+  switch (status) {
+    case "WAITING_COMPANY_SIGNATURE":
+    case "WAITING_EMPLOYEE_SIGNATURE":
+      bg = "#FEF3C7";
+      text = "#D97706";
+      break;
+    case "ACTIVE":
+    case "COMPLETED":
+      bg = "#DCFCE7";
+      text = "#166534";
+      break;
+    case "EMPLOYEE_SIGNED":
+    case "PENDING_INTERNAL_APPROVAL":
+      bg = "#E0F2FE";
+      text = "#0284C7";
+      break;
+    case "EXPIRED":
+    case "TERMINATED":
+    case "CANCELLED":
+      bg = "#FEE2E2";
+      text = "#DC2626";
+      break;
+    case "DRAFT":
+    default:
+      bg = "#F1F5F9";
+      text = "#64748B";
+      break;
+  }
+
+  return (
+    <View style={{ backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+      <Text style={{ color: text, fontSize: 12, fontWeight: "700" }}>{label}</Text>
+    </View>
+  );
 }
 
 // ── Contract Templates Screen ──
@@ -378,17 +436,129 @@ export function ContractTemplatesScreen() {
 export function ContractListScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const contracts = useContracts({ page: 1, limit: 50 });
+  const contracts = useContracts();
   const deleteContract = useDeleteContract();
   const { showAlert, showConfirm } = useAppAlert();
-  const contractItems = Array.isArray(contracts.data)
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedContractMenu, setSelectedContractMenu] = useState<any | null>(null);
+
+  const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
+
+  const rawContractItems = Array.isArray(contracts.data)
     ? contracts.data
     : contracts.data?.items || [];
 
+  const filteredContracts = useMemo(() => {
+    return rawContractItems.filter((contract: any) => {
+      if (statusFilter !== "ALL" && contract.status !== statusFilter) {
+        return false;
+      }
+      if (search.trim()) {
+        const query = search.trim().toLowerCase();
+        const empName = (
+          contract.user?.profile?.fullName ||
+          contract.user?.userCode ||
+          contract.employeeName ||
+          ""
+        ).toLowerCase();
+        const code = (contract.contractCode || "").toLowerCase();
+        const title = (contract.title || "").toLowerCase();
+        if (!empName.includes(query) && !code.includes(query) && !title.includes(query)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rawContractItems, statusFilter, search]);
+
+  const selectedStatusLabel = useMemo(() => {
+    return (
+      STATUS_FILTER_OPTIONS.find((opt) => opt.id === statusFilter)?.label ||
+      "Tất cả trạng thái"
+    );
+  }, [statusFilter]);
+
+  const handleDeleteContract = (contract: any) => {
+    showConfirm({
+      title: "Xác nhận xóa",
+      message: `Bạn có chắc chắn muốn xóa hợp đồng "${contract.contractCode || contract.title}" không? Hành động này không thể hoàn tác.`,
+      confirmLabel: "Xóa",
+      confirmTone: "danger",
+      onConfirm: () => {
+        deleteContract.mutate(contract.id, {
+          onSuccess: () => {
+            showAlert("Thành công", "Đã xóa hợp đồng");
+            contracts.refetch();
+          },
+          onError: (err: any) => {
+            showAlert("Lỗi", err?.message || "Không thể xóa hợp đồng");
+          },
+        });
+      },
+    });
+  };
+
   return (
-    <Screen>
+    <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
+      {/* Top Bar: Back button, movielegend PEOPLE, placeholder */}
+      <View style={cStyles.topBar}>
+        <Pressable onPress={() => router.back()} style={cStyles.backBtn} hitSlop={10}>
+          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+        </Pressable>
+        <Text style={cStyles.brandTitle}>movielegend PEOPLE</Text>
+        <View style={cStyles.topRightPlaceholder} />
+      </View>
+
+      {/* Screen Title & "Mẫu HĐ" button */}
+      <View style={cStyles.headerTitleRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={cStyles.screenTitle}>Hợp đồng</Text>
+          <Text style={cStyles.screenSubtitle}>Quản lý hợp đồng lao động</Text>
+        </View>
+        <Pressable
+          style={cStyles.templateBtn}
+          onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
+        >
+          <MaterialCommunityIcons name="file-document-outline" size={16} color="#1E3E2F" />
+          <Text style={cStyles.templateBtnText}>Mẫu HĐ</Text>
+        </Pressable>
+      </View>
+
+      {/* Search Input & Filter Dropdown */}
+      <View style={cStyles.searchFilterContainer}>
+        <View style={cStyles.searchBar}>
+          <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+          <TextInput
+            placeholder="Tìm tên nhân viên hoặc mã hợp đồng"
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+            style={cStyles.searchInput}
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color="#94A3B8" />
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable
+          style={cStyles.statusDropdown}
+          onPress={() => setStatusModalVisible(true)}
+        >
+          <Text style={cStyles.statusDropdownText}>{selectedStatusLabel}</Text>
+          <Ionicons name="chevron-down" size={18} color="#64748B" />
+        </Pressable>
+      </View>
+
+      {/* Contract List */}
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={cStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={contracts.isRefetching}
@@ -396,150 +566,244 @@ export function ContractListScreen() {
           />
         }
       >
-        <PageHeader
-          title="Hợp đồng"
-          subtitle="Quản lý hợp đồng lao động"
-          showBack={false}
-          right={
-            <View style={styles.headerActions}>
-              <Pressable
-                style={styles.headerBtn}
-                onPress={() =>
-                  router.push(`${roleBase(user)}/contracts/templates` as any)
-                }
-              >
-                <MaterialCommunityIcons
-                  name="file-cog-outline"
-                  size={18}
-                  color="#111827"
-                />
-                <Text style={styles.headerBtnText}>Mẫu HĐ</Text>
-              </Pressable>
-            </View>
-          }
-        />
-
-        <View style={styles.list}>
-          {contractItems.length > 0 ? (
-            contractItems.map((contract: any) => {
+        {contracts.isLoading ? (
+          <View style={{ paddingVertical: 40, alignItems: "center" }}>
+            <ActivityIndicator color="#1E3E2F" size="small" />
+            <Text style={{ marginTop: 8, fontSize: 13, color: "#64748B" }}>
+              Đang tải danh sách hợp đồng...
+            </Text>
+          </View>
+        ) : filteredContracts.length > 0 ? (
+          <>
+            {filteredContracts.map((contract: any) => {
               const empName =
                 contract.user?.profile?.fullName ??
                 contract.user?.userCode ??
+                contract.employeeName ??
                 "-";
               const initials = getInitials(empName);
 
               return (
-                <Pressable
-                  key={contract.id}
-                  style={styles.contractCard}
-                  onPress={() =>
-                    router.push(
-                      `${roleBase(user)}/contracts/${contract.id}` as any,
-                    )
-                  }
-                >
-                  <View style={styles.contractHeader}>
-                    <View style={styles.contractAvatar}>
-                      <Text style={styles.contractAvatarText}>{initials}</Text>
+                <View key={contract.id} style={cStyles.contractCard}>
+                  {/* Top Row: Avatar + Info + Status */}
+                  <View style={cStyles.cardTopRow}>
+                    <View style={cStyles.avatarCircle}>
+                      <Text style={cStyles.avatarText}>{initials}</Text>
                     </View>
-                    <View style={styles.contractMainInfo}>
-                      <Text style={styles.contractTitle}>{contract.title}</Text>
-                      <Text style={styles.contractEmpName}>{empName}</Text>
+                    <View style={cStyles.cardTopInfo}>
+                      <Text style={cStyles.cardEmpName} numberOfLines={1}>
+                        {empName}
+                      </Text>
+                      <Text style={cStyles.cardContractTitle} numberOfLines={1}>
+                        {contract.title || "Hợp đồng lao động"}
+                      </Text>
+                      <Text style={cStyles.cardContractCode}>
+                        {contract.contractCode || "-"}
+                      </Text>
                     </View>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <StatusBadge
-                        label={
-                          CONTRACT_STATUS_LABELS[
-                            contract.status as ContractStatus
-                          ] ?? contract.status
-                        }
-                        tone={getStatusTone(contract.status)}
+                    <ContractStatusBadge status={contract.status} />
+                  </View>
+
+                  <View style={cStyles.cardDivider} />
+
+                  {/* Middle Meta: Tag & Dates */}
+                  <View style={cStyles.cardMeta}>
+                    <View style={cStyles.metaRow}>
+                      <Ionicons name="pricetag-outline" size={15} color="#0F172A" />
+                      <Text style={cStyles.metaText}>
+                        {CONTRACT_TYPE_LABELS[contract.contractType as ContractType] ||
+                          contract.contractType ||
+                          "Có thời hạn"}
+                      </Text>
+                    </View>
+
+                    <View style={[cStyles.metaRow, { marginTop: 8 }]}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={15}
+                        color="#0F172A"
+                        style={{ marginTop: 2 }}
                       />
-                      {(contract.status === "WAITING_EMPLOYEE_SIGNATURE" ||
-                        contract.status === "DRAFT" ||
-                        (contract.status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
-                        <Pressable
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            showConfirm({
-                              title: "Xác nhận xóa",
-                              message: "Bạn có chắc chắn muốn xóa hợp đồng này không?",
-                              confirmLabel: "Xóa",
-                              onConfirm: () => {
-                                deleteContract.mutate(contract.id, {
-                                  onSuccess: () => {
-                                    showAlert(
-                                      "Thành công",
-                                      "Đã xóa hợp đồng",
-                                    );
-                                    contracts.refetch();
-                                  },
-                                });
-                              },
-                            });
-                          }}
-                          style={{ padding: 4 }}
-                        >
-                          <MaterialCommunityIcons
-                            name="delete-outline"
-                            size={20}
-                            color="#ef4444"
-                          />
-                        </Pressable>
-                      )}
+                      <View style={cStyles.dateRangeContainer}>
+                        <View>
+                          <Text style={cStyles.dateSubLabel}>Bắt đầu</Text>
+                          <Text style={cStyles.dateMainText}>
+                            {formatDate(contract.startDate)}
+                          </Text>
+                        </View>
+                        <View style={cStyles.dateVerticalDivider} />
+                        <View>
+                          <Text style={cStyles.dateSubLabel}>Kết thúc</Text>
+                          <Text style={cStyles.dateMainText}>
+                            {formatDate(contract.endDate)}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
 
-                  <View style={styles.contractDetails}>
-                    <View style={styles.detailItem}>
-                      <MaterialCommunityIcons
-                        name="identifier"
-                        size={14}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.detailText}>
-                        {contract.contractCode}
-                      </Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <MaterialCommunityIcons
-                        name="tag-outline"
-                        size={14}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.detailText}>
-                        {CONTRACT_TYPE_LABELS[
-                          contract.contractType as ContractType
-                        ] ?? contract.contractType}
-                      </Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <MaterialCommunityIcons
-                        name="calendar-range"
-                        size={14}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.detailText}>
-                        {formatDate(contract.startDate)} →{" "}
-                        {formatDate(contract.endDate)}
-                      </Text>
-                    </View>
+                  <View style={cStyles.cardDivider} />
+
+                  {/* Bottom Row: Xem chi tiết -> & ... */}
+                  <View style={cStyles.cardBottomRow}>
+                    <Pressable
+                      onPress={() =>
+                        router.push(`${roleBase(user)}/contracts/${contract.id}` as any)
+                      }
+                      style={cStyles.cardDetailLink}
+                    >
+                      <Text style={cStyles.cardDetailLinkText}>Xem chi tiết →</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSelectedContractMenu(contract)}
+                      style={cStyles.cardMoreBtn}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A" />
+                    </Pressable>
                   </View>
+                </View>
+              );
+            })}
+
+            <Text style={cStyles.counterFooter}>
+              Hiển thị {filteredContracts.length} hợp đồng
+            </Text>
+          </>
+        ) : (
+          <EmptyState
+            title="Không có hợp đồng"
+            message={
+              search
+                ? "Không tìm thấy hợp đồng phù hợp với từ khóa"
+                : "Chưa có hợp đồng nào trong hệ thống"
+            }
+          />
+        )}
+      </ScrollView>
+
+      {/* Select Status Modal */}
+      <SelectModal
+        visible={statusModalVisible}
+        title="Chọn trạng thái hợp đồng"
+        options={STATUS_FILTER_OPTIONS}
+        selectedValue={statusFilter}
+        onSelect={(opt) => {
+          setStatusFilter(opt.id || "ALL");
+          setStatusModalVisible(false);
+        }}
+        onClose={() => setStatusModalVisible(false)}
+      />
+
+      {/* Action Sheet Modal */}
+      <Modal
+        visible={!!selectedContractMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedContractMenu(null)}
+      >
+        <Pressable
+          style={cStyles.actionSheetOverlay}
+          onPress={() => setSelectedContractMenu(null)}
+        >
+          <View style={cStyles.actionSheetContent}>
+            <View style={cStyles.actionSheetHeader}>
+              <Text style={cStyles.actionSheetTitle}>
+                {selectedContractMenu?.user?.profile?.fullName ||
+                  selectedContractMenu?.user?.userCode ||
+                  "Hợp đồng"}
+              </Text>
+              <Text style={cStyles.actionSheetSubtitle}>
+                {selectedContractMenu?.contractCode} ·{" "}
+                {selectedContractMenu?.title || "Hợp đồng lao động"}
+              </Text>
+            </View>
+
+            {/* Xem chi tiết */}
+            <Pressable
+              style={cStyles.actionSheetItem}
+              onPress={() => {
+                const cId = selectedContractMenu.id;
+                setSelectedContractMenu(null);
+                router.push(`${roleBase(user)}/contracts/${cId}` as any);
+              }}
+            >
+              <Ionicons name="eye-outline" size={20} color="#0F172A" />
+              <Text style={cStyles.actionSheetItemText}>Xem chi tiết</Text>
+            </Pressable>
+
+            {/* Xem file PDF nếu có */}
+            {(() => {
+              const fileUrl =
+                selectedContractMenu?.signedFileUrl ||
+                selectedContractMenu?.draftFileUrl ||
+                selectedContractMenu?.contractTemplateVersion?.templateFileUrl ||
+                selectedContractMenu?.contractTemplate?.templateFileUrl;
+              if (!fileUrl) return null;
+              return (
+                <Pressable
+                  style={cStyles.actionSheetItem}
+                  onPress={() => {
+                    const url = resolveFileUrl(fileUrl);
+                    setSelectedContractMenu(null);
+                    if (url) {
+                      setPdfViewerUrl(url);
+                      setPdfViewerVisible(true);
+                    } else {
+                      showAlert("Lỗi", "Không tìm thấy file hợp đồng");
+                    }
+                  }}
+                >
+                  <Ionicons name="document-text-outline" size={20} color="#0F172A" />
+                  <Text style={cStyles.actionSheetItemText}>
+                    Xem file hợp đồng (PDF)
+                  </Text>
                 </Pressable>
               );
-            })
-          ) : !contracts.isLoading ? (
-            <EmptyState title="Chưa có hợp đồng" />
-          ) : null}
-        </View>
-      </ScrollView>
-    </Screen>
+            })()}
+
+            {/* Xóa hợp đồng */}
+            {(selectedContractMenu?.status === "WAITING_EMPLOYEE_SIGNATURE" ||
+              selectedContractMenu?.status === "DRAFT" ||
+              selectedContractMenu?.status === "WAITING_COMPANY_SIGNATURE" ||
+              user?.roles?.includes("ADMIN")) && (
+              <Pressable
+                style={cStyles.actionSheetItem}
+                onPress={() => {
+                  const c = selectedContractMenu;
+                  setSelectedContractMenu(null);
+                  handleDeleteContract(c);
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                <Text style={[cStyles.actionSheetItemText, { color: "#DC2626" }]}>
+                  Xóa hợp đồng
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Hủy bỏ */}
+            <Pressable
+              style={cStyles.actionSheetCancelBtn}
+              onPress={() => setSelectedContractMenu(null)}
+            >
+              <Text style={cStyles.actionSheetCancelText}>Hủy bỏ</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Pdf Viewer Modal */}
+      <PdfViewerModal
+        visible={pdfViewerVisible}
+        url={pdfViewerUrl}
+        onClose={() => {
+          setPdfViewerVisible(false);
+          setPdfViewerUrl(null);
+        }}
+        title="Xem hợp đồng"
+      />
+    </SafeAreaView>
   );
 }
 
@@ -657,21 +921,28 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
   const [isSignatureVisible, setSignatureVisible] = useState(false);
-  const [viewingSignatureUrl, setViewingSignatureUrl] = useState<string | null>(
-    null,
-  );
+  const [viewingSignatureUrl, setViewingSignatureUrl] = useState<string | null>(null);
+  const [detailMenuVisible, setDetailMenuVisible] = useState(false);
 
   const data = contract.data;
   if (!data && !contract.isLoading) {
     return (
-      <Screen>
+      <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
+        <View style={cStyles.topBar}>
+          <Pressable onPress={() => router.back()} style={cStyles.backBtn} hitSlop={10}>
+            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+          </Pressable>
+          <Text style={cStyles.brandTitle}>movielegend PEOPLE</Text>
+          <View style={cStyles.topRightPlaceholder} />
+        </View>
         <EmptyState title="Không tìm thấy hợp đồng" />
-      </Screen>
+      </SafeAreaView>
     );
   }
   if (!data) return null;
 
-  const empName = data.user?.profile?.fullName ?? data.user?.userCode ?? "-";
+  const empName = data.user?.profile?.fullName ?? data.user?.userCode ?? (data as any).employeeName ?? "-";
+  const initials = getInitials(empName);
   const status = data.status as ContractStatus;
   const contractFileUrl =
     data.signedFileUrl ||
@@ -683,6 +954,25 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
     ? data.contractTemplateVersion.mappingConfig.some((f: any) => f.role === "COMPANY")
     : false;
 
+  const canSignCompany =
+    status === "WAITING_COMPANY_SIGNATURE" &&
+    (user?.roles?.includes("ADMIN") || (user as any)?.role === "ADMIN");
+
+  const canSignEmployee =
+    status === "WAITING_EMPLOYEE_SIGNATURE" &&
+    (data?.userId === user?.id || (user as any)?.roles?.includes("ADMIN"));
+
+  const canActivate =
+    (status === "COMPLETED" || status === "APPROVED") &&
+    (user?.roles?.includes("ADMIN") || (user as any)?.role === "ADMIN");
+
+  const canDelete =
+    (status === "WAITING_EMPLOYEE_SIGNATURE" &&
+      (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
+    (status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN")) ||
+    status === "DRAFT" ||
+    user?.roles?.includes("ADMIN");
+
   async function handleAction(action: () => Promise<unknown>, label: string) {
     try {
       await action();
@@ -693,148 +983,194 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
     }
   }
 
+  const handleDelete = () => {
+    showConfirm({
+      title: "Xác nhận xóa",
+      message:
+        "Bạn có chắc chắn muốn xóa hợp đồng này không? Hành động này không thể hoàn tác.",
+      confirmLabel: "Xóa",
+      confirmTone: "danger",
+      onConfirm: () => {
+        handleAction(async () => {
+          await deleteContract.mutateAsync(contractId);
+          router.back();
+        }, "Đã xóa hợp đồng thành công");
+      },
+    });
+  };
+
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Chi tiết hợp đồng" />
+    <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
+      {/* Top Bar: Back, brand title, 3-dots */}
+      <View style={cStyles.topBar}>
+        <Pressable onPress={() => router.back()} style={cStyles.backBtn} hitSlop={10}>
+          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+        </Pressable>
+        <Text style={cStyles.brandTitle}>movielegend PEOPLE</Text>
+        <Pressable
+          onPress={() => setDetailMenuVisible(true)}
+          style={cStyles.topRightBtn}
+          hitSlop={10}
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A" />
+        </Pressable>
+      </View>
 
-        {/* Main info card */}
-        <View style={styles.detailCard}>
-          <View style={styles.detailCardHeader}>
-            <View style={styles.contractAvatar}>
-              <Text style={styles.contractAvatarText}>
-                {getInitials(empName)}
+      <ScrollView
+        contentContainerStyle={cStyles.detailScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={cStyles.detailScreenTitle}>Chi tiết hợp đồng</Text>
+
+        {/* Card 1: Employee & Contract Header */}
+        <View style={cStyles.detailSectionCard}>
+          <View style={cStyles.cardTopRow}>
+            <View style={cStyles.avatarCircle}>
+              <Text style={cStyles.avatarText}>{initials}</Text>
+            </View>
+            <View style={cStyles.cardTopInfo}>
+              <Text style={cStyles.cardEmpName} numberOfLines={1}>
+                {empName}
               </Text>
+              <Text style={cStyles.cardContractTitle} numberOfLines={1}>
+                {data.title || "Hợp đồng lao động"}
+              </Text>
+              <Text style={cStyles.cardContractCode}>{data.contractCode || "-"}</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.detailCardTitle}>{data.title}</Text>
-              <Text style={styles.detailCardSub}>{empName}</Text>
-            </View>
-            <StatusBadge
-              label={CONTRACT_STATUS_LABELS[status] ?? status}
-              tone={getStatusTone(status)}
-            />
-          </View>
-
-          <View style={styles.detailGrid}>
-            <DetailRow
-              icon="identifier"
-              label="Mã HĐ"
-              value={data.contractCode}
-            />
-            <DetailRow
-              icon="tag-outline"
-              label="Loại"
-              value={
-                CONTRACT_TYPE_LABELS[data.contractType as ContractType] ??
-                data.contractType
-              }
-            />
-            <DetailRow
-              icon="calendar-start"
-              label="Bắt đầu"
-              value={formatDate(data.startDate)}
-            />
-            <DetailRow
-              icon="calendar-end"
-              label="Kết thúc"
-              value={formatDate(data.endDate)}
-            />
-            {data.effectiveAt && (
-              <DetailRow
-                icon="check-circle-outline"
-                label="Có hiệu lực"
-                value={formatDate(data.effectiveAt)}
-              />
-            )}
-            {data.terminatedAt && (
-              <DetailRow
-                icon="close-circle-outline"
-                label="Chấm dứt"
-                value={formatDate(data.terminatedAt)}
-              />
-            )}
-            {data.terminationReason && (
-              <DetailRow
-                icon="text-box-outline"
-                label="Lý do"
-                value={data.terminationReason}
-              />
-            )}
-            <DetailRow
-              icon="account-check-outline"
-              label="NV xác nhận"
-              value={
-                data.employeeAcknowledgementStatus === "AGREED"
-                  ? "✅ Đã đồng ý"
-                  : data.employeeAcknowledgementStatus === "DISAGREED"
-                    ? "❌ Không đồng ý"
-                    : "⏳ Chờ xác nhận"
-              }
-            />
+            <ContractStatusBadge status={status} />
           </View>
         </View>
 
-        {/* Signatures */}
-        {data.signatures && data.signatures.length > 0 && (
-          <View style={styles.signaturesCard}>
-            <Text style={styles.sectionTitle}>Chữ ký</Text>
-            {data.signatures.map((sig: any) => (
-              <Pressable
-                key={sig.id}
-                style={[
-                  styles.signatureRow,
-                  sig.signatureImageUrl && { opacity: 0.8 },
-                ]}
-                onPress={() => {
-                  if (sig.signatureImageUrl) {
-                    setViewingSignatureUrl(sig.signatureImageUrl);
-                  }
+        {/* Card 2: Thông tin hợp đồng */}
+        <View style={cStyles.detailSectionCard}>
+          <Text style={cStyles.sectionTitle}>Thông tin hợp đồng</Text>
+
+          <View style={cStyles.infoRow}>
+            <Text style={cStyles.infoRowLabel}>Mã hợp đồng</Text>
+            <Text style={cStyles.infoRowValue}>{data.contractCode || "-"}</Text>
+          </View>
+          <View style={cStyles.rowDivider} />
+
+          <View style={cStyles.infoRow}>
+            <Text style={cStyles.infoRowLabel}>Loại hợp đồng</Text>
+            <Text style={cStyles.infoRowValue}>
+              {CONTRACT_TYPE_LABELS[data.contractType as ContractType] ||
+                data.contractType ||
+                "Có thời hạn"}
+            </Text>
+          </View>
+          <View style={cStyles.rowDivider} />
+
+          <View style={cStyles.infoRow}>
+            <Text style={cStyles.infoRowLabel}>Ngày bắt đầu</Text>
+            <Text style={cStyles.infoRowValue}>{formatDate(data.startDate)}</Text>
+          </View>
+          <View style={cStyles.rowDivider} />
+
+          <View style={cStyles.infoRow}>
+            <Text style={cStyles.infoRowLabel}>Ngày kết thúc</Text>
+            <Text style={cStyles.infoRowValue}>{formatDate(data.endDate)}</Text>
+          </View>
+          <View style={cStyles.rowDivider} />
+
+          <View style={cStyles.infoRow}>
+            <Text style={cStyles.infoRowLabel}>Nhân viên xác nhận</Text>
+            <View
+              style={{
+                backgroundColor:
+                  data.employeeAcknowledgementStatus === "AGREED"
+                    ? "#DCFCE7"
+                    : data.employeeAcknowledgementStatus === "DISAGREED"
+                      ? "#FEE2E2"
+                      : "#FEF3C7",
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 12,
+              }}
+            >
+              <Text
+                style={{
+                  color:
+                    data.employeeAcknowledgementStatus === "AGREED"
+                      ? "#166534"
+                      : data.employeeAcknowledgementStatus === "DISAGREED"
+                        ? "#DC2626"
+                        : "#D97706",
+                  fontSize: 12,
+                  fontWeight: "700",
                 }}
               >
-                <MaterialCommunityIcons
-                  name="draw-pen"
-                  size={16}
-                  color={colors.primary}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.signatureName}>
-                    {sig.signer?.profile?.fullName ??
-                      (sig.signerRole === "EMPLOYEE"
-                        ? empName
-                        : sig.signerRole)}
-                  </Text>
-                  <Text style={styles.signatureDate}>
-                    {sig.signerRole === "EMPLOYEE" ? "Nhân viên" : "Công ty"} —{" "}
-                    {formatDate(sig.signedAt)}
-                  </Text>
+                {data.employeeAcknowledgementStatus === "AGREED"
+                  ? "Đã xác nhận"
+                  : data.employeeAcknowledgementStatus === "DISAGREED"
+                    ? "Không đồng ý"
+                    : "Chờ xác nhận"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Card 3: Chữ ký đã ghi nhận */}
+        {data.signatures && data.signatures.length > 0 && (
+          <View style={cStyles.detailSectionCard}>
+            <Text style={cStyles.sectionTitle}>Chữ ký đã ghi nhận</Text>
+            {data.signatures.map((sig: any, index: number) => {
+              const isEmployee = sig.signerRole === "EMPLOYEE";
+              const signerName =
+                sig.signer?.profile?.fullName ||
+                (isEmployee ? empName : "Đại diện công ty");
+              const roleText = isEmployee ? "Nhân viên" : "Công ty";
+              const dateText = formatDate(sig.signedAt);
+
+              return (
+                <View
+                  key={sig.id || index}
+                  style={[
+                    cStyles.signatureRowItem,
+                    index > 0 && {
+                      marginTop: 12,
+                      paddingTop: 12,
+                      borderTopWidth: 1,
+                      borderTopColor: "#F1F5F9",
+                    },
+                  ]}
+                >
+                  <Ionicons name="checkmark-circle" size={24} color="#16A34A" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={cStyles.signatureSignerName}>{signerName}</Text>
+                    <Text style={cStyles.signatureMetaText}>
+                      {roleText} · {dateText}
+                    </Text>
+                  </View>
+                  {sig.signatureImageUrl && (
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <View style={cStyles.signatureDivider} />
+                      <Pressable
+                        onPress={() => setViewingSignatureUrl(sig.signatureImageUrl)}
+                        style={cStyles.viewSigBtn}
+                        hitSlop={8}
+                      >
+                        <Text style={cStyles.viewSigBtnText}>Xem</Text>
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
-                {sig.signatureImageUrl && (
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: colors.primary,
-                      marginRight: 8,
-                      fontStyle: "italic",
-                    }}
-                  >
-                    Xem
-                  </Text>
-                )}
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={18}
-                  color={colors.success}
-                />
-              </Pressable>
-            ))}
+              );
+            })}
           </View>
         )}
 
-        {/* Actions */}
-        <View style={styles.actionButtons}>
-          {contractFileUrl ? (
-            <SecondaryButton
+        {/* Card 4: File hợp đồng */}
+        <View style={cStyles.detailSectionCard}>
+          <View style={cStyles.fileCardRow}>
+            <View style={cStyles.pdfBadgeContainer}>
+              <Text style={cStyles.pdfBadgeText}>PDF</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={cStyles.fileNameTitle}>File hợp đồng</Text>
+              <Text style={cStyles.fileFormatSub}>Định dạng PDF</Text>
+            </View>
+            <Pressable
               onPress={() => {
                 const url = resolveFileUrl(contractFileUrl);
                 if (url) {
@@ -844,93 +1180,157 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                   showAlert("Lỗi", "Không tìm thấy file hợp đồng");
                 }
               }}
-              style={{ marginBottom: 8 }}
+              style={cStyles.openPdfLink}
+              hitSlop={8}
             >
-              📄 Xem file hợp đồng (PDF)
-            </SecondaryButton>
-          ) : null}
-          {(status === "COMPLETED" || status === "APPROVED") && (
-            <PrimaryButton
-              onPress={() =>
+              <Text style={cStyles.openPdfLinkText}>Mở PDF ↗</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Delete Link */}
+        {canDelete && (
+          <Pressable style={cStyles.deleteContractRow} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={18} color="#DC2626" />
+            <Text style={cStyles.deleteContractText}>Xóa hợp đồng</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+
+      {/* Bottom Sticky Action Bar */}
+      {canSignCompany ? (
+        <View style={cStyles.bottomStickyBar}>
+          <Text style={cStyles.bottomBarHint}>Dành cho đại diện công ty</Text>
+          <Pressable
+            style={cStyles.companySignBtn}
+            onPress={() => {
+              if (hasCompanyAction) {
+                setSignatureVisible(true);
+              } else {
                 handleAction(
-                  () => activate.mutateAsync(contractId),
-                  "Đã kích hoạt hợp đồng",
-                )
+                  () =>
+                    signCompanyContract.mutateAsync({
+                      signatureType: "DRAWN",
+                    } as any),
+                  "Đã xác nhận hoàn thành hợp đồng",
+                );
               }
-              loading={activate.isPending}
-            >
-              Kích hoạt
-            </PrimaryButton>
-          )}
-          {status === "WAITING_EMPLOYEE_SIGNATURE" &&
-            data?.userId === user?.id && (
-              <SecondaryButton
-                onPress={() => setSignatureVisible(true)}
-                style={{ marginTop: 8 }}
-              >
-                ✍️ Ký điện tử
-              </SecondaryButton>
-            )}
-          {status === "WAITING_COMPANY_SIGNATURE" &&
-            user?.roles?.includes("ADMIN") &&
-            (hasCompanyAction ? (
-              <SecondaryButton
-                onPress={() => setSignatureVisible(true)}
-                style={{ marginTop: 8 }}
-              >
-                ✍️ Ký điện tử (Đại diện Công ty)
-              </SecondaryButton>
-            ) : (
-              <PrimaryButton
-                onPress={() =>
-                  handleAction(
-                    () =>
-                      signCompanyContract.mutateAsync({
-                        signatureType: "DRAWN",
-                      } as any),
-                    "Đã xác nhận hoàn thành hợp đồng"
-                  )
-                }
-                loading={signCompanyContract.isPending}
-                style={{ marginTop: 8 }}
-              >
-                Xác nhận hoàn thành
-              </PrimaryButton>
-            ))}
-          {((status === "WAITING_EMPLOYEE_SIGNATURE" &&
-            (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
-            (status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
+            }}
+          >
+            <MaterialCommunityIcons
+              name="pencil-outline"
+              size={18}
+              color="#FFFFFF"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={cStyles.companySignBtnText}>Ký điện tử</Text>
+          </Pressable>
+        </View>
+      ) : canSignEmployee ? (
+        <View style={cStyles.bottomStickyBar}>
+          <Text style={cStyles.bottomBarHint}>Dành cho nhân viên</Text>
+          <Pressable
+            style={cStyles.companySignBtn}
+            onPress={() => setSignatureVisible(true)}
+          >
+            <MaterialCommunityIcons
+              name="pencil-outline"
+              size={18}
+              color="#FFFFFF"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={cStyles.companySignBtnText}>Ký điện tử</Text>
+          </Pressable>
+        </View>
+      ) : canActivate ? (
+        <View style={cStyles.bottomStickyBar}>
+          <Pressable
+            style={cStyles.companySignBtn}
+            onPress={() =>
+              handleAction(
+                () => activate.mutateAsync(contractId),
+                "Đã kích hoạt hợp đồng",
+              )
+            }
+          >
+            <Text style={cStyles.companySignBtnText}>Kích hoạt hợp đồng</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Top-Right Menu Modal */}
+      <Modal
+        visible={detailMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDetailMenuVisible(false)}
+      >
+        <Pressable
+          style={cStyles.actionSheetOverlay}
+          onPress={() => setDetailMenuVisible(false)}
+        >
+          <View style={cStyles.actionSheetContent}>
+            <View style={cStyles.actionSheetHeader}>
+              <Text style={cStyles.actionSheetTitle}>Tùy chọn</Text>
+              <Text style={cStyles.actionSheetSubtitle}>{data.contractCode}</Text>
+            </View>
+
+            {contractFileUrl && (
               <Pressable
-                style={{
-                  backgroundColor: "#fee2e2",
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  alignItems: "center",
-                  marginTop: 8,
-                }}
+                style={cStyles.actionSheetItem}
                 onPress={() => {
-                  showConfirm({
-                    title: "Xác nhận xóa",
-                    message: "Bạn có chắc chắn muốn xóa hợp đồng này không? Hành động này không thể hoàn tác.",
-                    confirmLabel: "Xóa",
-                    confirmTone: "danger",
-                    onConfirm: () => {
-                      handleAction(async () => {
-                        await deleteContract.mutateAsync(contractId);
-                        router.back();
-                      }, "Đã xóa hợp đồng thành công");
-                    },
-                  });
+                  setDetailMenuVisible(false);
+                  const url = resolveFileUrl(contractFileUrl);
+                  if (url) {
+                    setPdfViewerUrl(url);
+                    setPdfViewerVisible(true);
+                  }
                 }}
               >
-                <Text style={{ color: "#ef4444", fontWeight: "600" }}>
-                  🗑️ Xóa hợp đồng
+                <Ionicons name="document-text-outline" size={20} color="#0F172A" />
+                <Text style={cStyles.actionSheetItemText}>Xem file hợp đồng (PDF)</Text>
+              </Pressable>
+            )}
+
+            {(canSignCompany || canSignEmployee) && (
+              <Pressable
+                style={cStyles.actionSheetItem}
+                onPress={() => {
+                  setDetailMenuVisible(false);
+                  setSignatureVisible(true);
+                }}
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={20} color="#0F172A" />
+                <Text style={cStyles.actionSheetItemText}>Ký điện tử</Text>
+              </Pressable>
+            )}
+
+            {canDelete && (
+              <Pressable
+                style={cStyles.actionSheetItem}
+                onPress={() => {
+                  setDetailMenuVisible(false);
+                  handleDelete();
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                <Text style={[cStyles.actionSheetItemText, { color: "#DC2626" }]}>
+                  Xóa hợp đồng
                 </Text>
               </Pressable>
             )}
-        </View>
-      </ScrollView>
 
+            <Pressable
+              style={cStyles.actionSheetCancelBtn}
+              onPress={() => setDetailMenuVisible(false)}
+            >
+              <Text style={cStyles.actionSheetCancelText}>Hủy bỏ</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Pdf Viewer Modal */}
       <PdfViewerModal
         visible={pdfViewerVisible}
         url={pdfViewerUrl}
@@ -941,6 +1341,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
         title="Xem hợp đồng"
       />
 
+      {/* Contract Signature Modal */}
       <ContractSignatureModal
         visible={isSignatureVisible}
         onClose={() => setSignatureVisible(false)}
@@ -977,6 +1378,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
         }}
       />
 
+      {/* Viewing Signature Image Modal */}
       <Modal
         visible={!!viewingSignatureUrl}
         transparent
@@ -1042,7 +1444,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
           </View>
         </Pressable>
       </Modal>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
@@ -1997,6 +2399,450 @@ const styles = StyleSheet.create({
   },
   templateOptionTextSelected: {
     color: colors.primary,
+  },
+});
+
+const cStyles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#F8FAFC',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  brandTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E3E2F',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  topRightBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  topRightPlaceholder: {
+    width: 40,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  screenSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  templateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.2,
+    borderColor: '#1E3E2F',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: '#FFFFFF',
+  },
+  templateBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E3E2F',
+  },
+  searchFilterContainer: {
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 16,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 46,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  statusDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 46,
+  },
+  statusDropdownText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  contractCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#D9E4DD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E3E2F',
+  },
+  cardTopInfo: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  cardEmpName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  cardContractTitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  cardContractCode: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  cardMeta: {
+    gap: 4,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#0F172A',
+    marginLeft: 8,
+  },
+  dateRangeContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  dateSubLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  dateMainText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 1,
+  },
+  dateVerticalDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 24,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardDetailLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardDetailLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E3E2F',
+  },
+  cardMoreBtn: {
+    padding: 4,
+  },
+  counterFooter: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#94A3B8',
+    marginVertical: 16,
+  },
+
+  // Detail Screen Styles
+  detailScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  detailScreenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  detailSectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 14,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  infoRowLabel: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  infoRowValue: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: '#F8FAFC',
+    marginVertical: 10,
+  },
+  signatureRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  signatureSignerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  signatureMetaText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  signatureDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E2E8F0',
+    marginRight: 16,
+  },
+  viewSigBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  viewSigBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E3E2F',
+  },
+  fileCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pdfBadgeContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  pdfBadgeText: {
+    color: '#DC2626',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  fileNameTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  fileFormatSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  openPdfLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  openPdfLinkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E3E2F',
+  },
+  deleteContractRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  deleteContractText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  bottomStickyBar: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  bottomBarHint: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  companySignBtn: {
+    backgroundColor: '#1E3E2F',
+    borderRadius: 12,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  companySignBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Action Sheet Styles
+  actionSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  actionSheetContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 34,
+  },
+  actionSheetHeader: {
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  actionSheetTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  actionSheetSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  actionSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  actionSheetItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  actionSheetCancelBtn: {
+    marginTop: 14,
+    paddingVertical: 14,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionSheetCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#64748B',
   },
 });
 
