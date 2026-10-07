@@ -348,6 +348,8 @@ export function LeaderApprovalScreen() {
     }
   };
 
+  const screenTitle = getScreenTitle();
+
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1, backgroundColor: '#F8FAFC' }} 
