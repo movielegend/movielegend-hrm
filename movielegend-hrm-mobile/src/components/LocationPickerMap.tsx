@@ -129,58 +129,86 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
     <View style={[styles.modalContainer, !visible && { display: 'none' }]}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color="#333" />
+          <Pressable onPress={onClose} style={styles.headerBtn} hitSlop={8}>
+            <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
           <Text style={styles.title}>Chọn vị trí</Text>
-          <View style={{ width: 24 }} />
+          <Pressable onPress={onClose} style={styles.headerBtn} hitSlop={8}>
+            <Ionicons name="close" size={22} color="#0F172A" />
+          </Pressable>
         </View>
 
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#999" />
+          <Ionicons name="search" size={18} color="#94A3B8" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm kiếm địa điểm, đường phố..."
+            placeholder="Tìm địa điểm, đường phố..."
+            placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
             returnKeyType="search"
           />
-          {searching && <ActivityIndicator size="small" color="#4B5563" style={{ marginRight: 8 }} />}
+          {searching && <ActivityIndicator size="small" color="#166534" style={{ marginRight: 8 }} />}
           {searchQuery.length > 0 && !searching && (
             <Pressable onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
-              <Ionicons name="close-circle" size={18} color="#ccc" />
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
             </Pressable>
           )}
         </View>
 
-        <MapView
-          style={styles.map}
-          region={region}
-          onRegionChangeComplete={setRegion}
-          onPress={(e: any) => handleSelectCoordinate(e.nativeEvent.coordinate)}
-          showsUserLocation
-        >
-          {selectedCoordinate && (
-            <Marker coordinate={selectedCoordinate} />
-          )}
-        </MapView>
+        <View style={styles.mapContainer}>
+          <MapView
+            style={styles.map}
+            region={region}
+            onRegionChangeComplete={setRegion}
+            onPress={(e: any) => handleSelectCoordinate(e.nativeEvent.coordinate)}
+            showsUserLocation
+          >
+            {selectedCoordinate && (
+              <Marker coordinate={selectedCoordinate} pinColor="#166534" />
+            )}
+          </MapView>
+
+          <View style={styles.mapInstructionPill}>
+            <Text style={styles.mapInstructionText}>Di chuyển bản đồ để chọn vị trí</Text>
+          </View>
+          <Text style={styles.mapAttributionText}>Bản đồ minh họa</Text>
+        </View>
 
         <View style={styles.bottomSheet}>
-          <Text style={styles.addressTitle}>Địa chỉ đã chọn:</Text>
-          <Text style={styles.addressText}>{address || 'Vui lòng chạm trên bản đồ để chọn điểm'}</Text>
-          
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-            <View style={{ flex: 1 }}>
-              <SecondaryButton onPress={getCurrentLocation} loading={loading}>
-                <Ionicons name="location" size={16} color="#4B5563" /> Vị trí của tôi
-              </SecondaryButton>
-            </View>
-            <View style={{ flex: 1 }}>
-              <PrimaryButton onPress={handleConfirm} disabled={!selectedCoordinate}>
-                Xác nhận
-              </PrimaryButton>
-            </View>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.addressTitle}>Địa chỉ đã chọn</Text>
+          <Text style={styles.addressText} numberOfLines={2}>
+            {address || 'Vui lòng chạm trên bản đồ để chọn điểm'}
+          </Text>
+
+          <View style={styles.bottomButtonsRow}>
+            <Pressable
+              style={styles.myLocationBtn}
+              onPress={getCurrentLocation}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#0F172A" />
+              ) : (
+                <>
+                  <Ionicons name="location-outline" size={18} color="#0F172A" />
+                  <Text style={styles.myLocationBtnText}>Vị trí của tôi</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.confirmBtn,
+                !selectedCoordinate && styles.confirmBtnDisabled,
+              ]}
+              onPress={handleConfirm}
+              disabled={!selectedCoordinate}
+            >
+              <Text style={styles.confirmBtnText}>Xác nhận</Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -191,78 +219,161 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
 const styles = StyleSheet.create({
   modalContainer: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     zIndex: 9999,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     elevation: 99,
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingTop: 52,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff',
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
     zIndex: 1,
   },
-  closeBtn: {
-    padding: 8,
-    marginLeft: -8,
+  headerBtn: {
+    padding: 6,
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#0B3B61',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F7FA',
-    margin: 16,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E6EEF3',
+    borderColor: '#E2E8F0',
+    height: 46,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
-    height: 48,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#333',
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  mapContainer: {
+    flex: 1,
+    position: 'relative',
   },
   map: {
     flex: 1,
     width: Dimensions.get('window').width,
   },
-  bottomSheet: {
-    backgroundColor: '#fff',
-    padding: 20,
-    paddingBottom: 40,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  mapInstructionPill: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapInstructionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  mapAttributionText: {
+    position: 'absolute',
+    bottom: 6,
+    right: 12,
+    fontSize: 10,
+    color: '#94A3B8',
+  },
+  bottomSheet: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 36,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 10,
   },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
   addressTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: '#64748B',
     marginBottom: 4,
   },
   addressText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 20,
+    minHeight: 40,
+  },
+  bottomButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+  },
+  myLocationBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    gap: 6,
+  },
+  myLocationBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  confirmBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#1B382B', // Deep forest green
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmBtnDisabled: {
+    backgroundColor: '#8FA89B',
+  },
+  confirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
